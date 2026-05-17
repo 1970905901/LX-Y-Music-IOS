@@ -30,12 +30,16 @@ const state: InitState = {
   showModal: false,
   versionInfo: {
     version,
-    newVersion: null,
+    newVersion: {
+      version,
+      desc: '',
+      history: [],
+    },
     showModal: false,
     reCheck: false,
     isUnknown: false,
-    isLatest: false,
-    status: 'checking',
+    isLatest: true,
+    status: 'idle',
   },
   ignoreVersion: null,
   progress: {

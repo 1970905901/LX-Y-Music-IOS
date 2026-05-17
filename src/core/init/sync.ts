@@ -15,7 +15,6 @@ export default async(setting: LX.AppSetting) => {
     if (hasClientConnection()) return
 
     const status = getStatus()
-    if (status.status) return
     switch (status.message) {
       case SYNC_CODE.connecting:
       case SYNC_CODE.missingAuthCode:

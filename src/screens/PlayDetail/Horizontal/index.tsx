@@ -1,5 +1,5 @@
 import { memo, useEffect, useState } from 'react'
-import { View, AppState, Dimensions } from 'react-native'
+import { View, AppState, Dimensions, Platform } from 'react-native'
 import { screenkeepAwake, screenUnkeepAwake, getCutoutLeftPx } from '@/utils/nativeModules/utils'
 import StatusBar from '@/components/common/StatusBar'
 import MoreBtn from './MoreBtn'

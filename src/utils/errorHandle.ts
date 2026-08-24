@@ -19,6 +19,9 @@ const errorHandler = (e: Error, isFatal: boolean) => {
 
   Error:
   ${isFatal ? 'Fatal:' : ''} ${e.name} ${e.message}
+
+  Stack:
+  ${e.stack ?? '(no stack)'}
   `,
         [{
           text: '关闭 (Close)',

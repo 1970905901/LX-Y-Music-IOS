@@ -80,6 +80,8 @@ export const TEMP_FILE_PATH = temporaryDirectoryPath + '/tempFile'
 // }
 
 export const checkStoragePermissions = async () => {
+  // iOS 无需申请存储权限（沙盒内可读写），直接视为已授权
+  if (Platform.OS === 'ios') return true
   const writeGranted = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE)
   const readGranted = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE)
   console.log('checkStoragePermissions', { writeGranted, readGranted })
@@ -87,6 +89,8 @@ export const checkStoragePermissions = async () => {
 }
 
 export const requestStoragePermission = async () => {
+  // iOS 无需申请存储权限（沙盒内可读写），直接视为已授权
+  if (Platform.OS === 'ios') return true
   const isGranted = await checkStoragePermissions()
   if (isGranted) return isGranted
 
@@ -149,7 +153,7 @@ export const toast = (
         break
     }
     const ToastAndroid = require('react-native').ToastAndroid
-    if (ToastAndroid and hasattr(ToastAndroid, 'show')) {
+    if (ToastAndroid && typeof ToastAndroid.show === 'function') {
       ToastAndroid.show(message, _duration)
       return
     }

@@ -1,36 +1,58 @@
-import { AppState, Dimensions, NativeEventEmitter, NativeModules, Platform } from 'react-native'
+import { AppState, BackHandler, Dimensions, NativeEventEmitter, NativeModules, Platform } from 'react-native'
 
 const { UtilsModule } = NativeModules
+const isIOS = Platform.OS === 'ios'
 
-export const exitApp = UtilsModule.exitApp
+// iOS 无 UtilsModule 原生实现，所有导出在 iOS 上安全降级，避免调用 undefined 崩溃。
 
-export const getSupportedAbis = UtilsModule.getSupportedAbis
+export const exitApp = (): void => {
+  // iOS 退出应用须走 RN 标准出口（BackHandler.exitApp 在 iOS 为 no-op，符合 App Store 规范）
+  BackHandler.exitApp()
+}
 
-export const installApk = (filePath: string, fileProviderAuthority: string) =>
-  UtilsModule.installApk(filePath, fileProviderAuthority)
+export const getSupportedAbis = isIOS
+  ? (async (): Promise<string[]> => [])
+  : (UtilsModule.getSupportedAbis as () => Promise<string[]>)
+
+export const installApk = isIOS
+  ? (_filePath: string, _fileProviderAuthority: string): void => {}
+  : (filePath: string, fileProviderAuthority: string) =>
+      UtilsModule.installApk(filePath, fileProviderAuthority)
 
 export const screenkeepAwake = () => {
   if (global.lx.isScreenKeepAwake) return
   global.lx.isScreenKeepAwake = true
+  if (isIOS) return // iOS 无原生常亮模块，使用 react-native 的 KeepAwake 或系统行为
   UtilsModule.screenkeepAwake()
 }
 export const screenUnkeepAwake = () => {
   // console.log('screenUnkeepAwake')
   if (!global.lx.isScreenKeepAwake) return
   global.lx.isScreenKeepAwake = false
+  if (isIOS) return
   UtilsModule.screenUnkeepAwake()
 }
 
-export const getWIFIIPV4Address = UtilsModule.getWIFIIPV4Address as () => Promise<string>
+export const getWIFIIPV4Address = isIOS
+  ? (async (): Promise<string> => '')
+  : (UtilsModule.getWIFIIPV4Address as () => Promise<string>)
 
 export const getDeviceName = async (): Promise<string> => {
+  if (isIOS) return 'iPhone'
   return UtilsModule.getDeviceName().then((deviceName: string) => deviceName || 'Unknown')
 }
 
-export const isNotificationsEnabled = UtilsModule.isNotificationsEnabled as () => Promise<boolean>
+export const isNotificationsEnabled = isIOS
+  ? (async (): Promise<boolean> => true)
+  : (UtilsModule.isNotificationsEnabled as () => Promise<boolean>)
 
 export const requestNotificationPermission = async () =>
   new Promise<boolean>((resolve) => {
+    if (isIOS) {
+      // iOS 走系统标准通知授权，此处视为已授权（具体授权由系统弹窗处理）
+      resolve(true)
+      return
+    }
     let subscription = AppState.addEventListener('change', (state) => {
       if (state != 'active') return
       subscription.remove()
@@ -46,14 +68,28 @@ export const requestNotificationPermission = async () =>
   })
 
 export const shareText = async (shareTitle: string, title: string, text: string): Promise<void> => {
+  if (isIOS) {
+    // iOS 使用系统分享面板由调用方兜底（Alert），此处不调用不存在的原生模块
+    return
+  }
   UtilsModule.shareText(shareTitle, title, text)
 }
 
 export const getSystemLocales = async (): Promise<string> => {
+  if (isIOS) {
+    try {
+      // RN 0.7x 提供 SettingsManager；旧版本回退到本地化
+      const SettingsManager = (NativeModules as any).SettingsManager
+      if (SettingsManager?.settings?.AppleLocale) return SettingsManager.settings.AppleLocale as string
+      if (SettingsManager?.settings?.AppleLanguages?.[0]) return SettingsManager.settings.AppleLanguages[0] as string
+    } catch {}
+    return 'zh-CN'
+  }
   return UtilsModule.getSystemLocales()
 }
 
 export const onScreenStateChange = (handler: (state: 'ON' | 'OFF') => void): (() => void) => {
+  if (isIOS) return () => {}
   const eventEmitter = new NativeEventEmitter(UtilsModule)
   const eventListener = eventEmitter.addListener('screen-state', (event) => {
     handler(event.state as 'ON' | 'OFF')
@@ -82,6 +118,7 @@ export const getCutoutLeftPx = async (): Promise<number> => {
 export const onWindowSizeChange = (
   handler: (size: { width: number; height: number }) => void
 ): (() => void) => {
+  if (isIOS) return () => {}
   UtilsModule.listenWindowSizeChanged()
 
   const eventEmitter = new NativeEventEmitter(UtilsModule)
@@ -95,11 +132,16 @@ export const onWindowSizeChange = (
 }
 
 export const isIgnoringBatteryOptimization = async (): Promise<boolean> => {
+  if (isIOS) return true
   return UtilsModule.isIgnoringBatteryOptimization()
 }
 
 export const requestIgnoreBatteryOptimization = async () =>
   new Promise<boolean>((resolve) => {
+    if (isIOS) {
+      resolve(true)
+      return
+    }
     let subscription = AppState.addEventListener('change', (state) => {
       if (state != 'active') return
       subscription.remove()
@@ -114,10 +156,18 @@ export const requestIgnoreBatteryOptimization = async () =>
     })
   })
 
-export const getUiMode = UtilsModule.getUiMode as () => Promise<number>
+// UI_MODE_TYPE_NORMAL = 1；iOS 无车机模式概念，直接返回普通模式
+export const getUiMode = isIOS
+  ? (async (): Promise<number> => 1)
+  : (UtilsModule.getUiMode as () => Promise<number>)
 
-export const adjustSystemMediaVolume = (direction: 'up' | 'down'): Promise<void> =>
-  UtilsModule.adjustSystemMediaVolume(direction)
+export const adjustSystemMediaVolume = (direction: 'up' | 'down'): Promise<void> => {
+  if (isIOS) return Promise.resolve() // iOS 音量由系统侧键控制，无原生接口
+  return UtilsModule.adjustSystemMediaVolume(direction)
+}
 
-export const setScreenOrientation = (orientation: 'landscape' | 'portrait' | 'auto'): void =>
+export const setScreenOrientation = (orientation: 'landscape' | 'portrait' | 'auto'): void => {
+  // iOS 无 UtilsModule.setScreenOrientation，横屏锁定由 RNN 的 layout.orientation 配置处理
+  if (isIOS) return
   UtilsModule.setScreenOrientation(orientation)
+}

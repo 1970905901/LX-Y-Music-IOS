@@ -5,6 +5,7 @@ import { View } from 'react-native'
 import { useSettingValue } from '@/store/setting/hook'
 import { setScreenOrientation } from '@/utils/nativeModules/utils'
 import { useI18n } from '@/lang'
+import { Platform } from 'react-native'
 
 import CheckBoxItem from '../../components/CheckBoxItem'
 
@@ -14,6 +15,8 @@ export default memo(() => {
 
   const setLockLandscape = (value: boolean) => {
     updateSetting({ 'common.lockLandscape': value })
+    // iOS 无 UtilsModule.setScreenOrientation，横屏锁定由 RNN 的 layout.orientation 配置处理
+    if (Platform.OS === 'ios') return
     setScreenOrientation(value ? 'landscape' : 'portrait')
   }
 

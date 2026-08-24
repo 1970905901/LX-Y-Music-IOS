@@ -1,8 +1,25 @@
-import { collectMusic, dislikeMusic, pause, play, playNext, playPrev, togglePlay, uncollectMusic } from '@/core/player/player'
+import {
+  collectMusic,
+  dislikeMusic,
+  pause,
+  play,
+  playNext,
+  playPrev,
+  togglePlay,
+  uncollectMusic,
+} from '@/core/player/player'
 
-export type PlayerAction = 'play' | 'pause' | 'skipNext' | 'skipPrev' | 'togglePlay' | 'collect' | 'uncollect' | 'dislike'
+export type PlayerAction =
+  | 'play'
+  | 'pause'
+  | 'skipNext'
+  | 'skipPrev'
+  | 'togglePlay'
+  | 'collect'
+  | 'uncollect'
+  | 'dislike'
 
-export const handlePlayerAction = async(action: PlayerAction) => {
+export const handlePlayerAction = async (action: PlayerAction) => {
   switch (action) {
     case 'play':
       play()

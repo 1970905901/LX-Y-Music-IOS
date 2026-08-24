@@ -9,32 +9,52 @@ import { type Source } from '@/store/songlist/state'
 
 const getListId = (id: string, source: LX.OnlineSource) => `${source}__${id}`
 
-export const handlePlay = async(id: string, source: Source, list?: LX.Music.MusicInfoOnline[], index = 0) => {
+export const handlePlay = async (
+  id: string,
+  source: Source,
+  list?: LX.Music.MusicInfoOnline[],
+  index = 0
+) => {
   const listId = getListId(id, source)
   let isPlayingList = false
   // console.log(list)
-  if (!list?.length) list = (await getListDetail(id, source, 1)).list
+  if (!list?.length) {
+    try {
+      list = (await getListDetail(id, source, 1)).list
+    } catch (err) {
+      console.error('[handlePlay] 获取歌单详情失败:', err)
+      toast('获取歌单失败，请稍后重试')
+      return
+    }
+  }
   if (list?.length) {
     await setTempList(listId, [...list])
     void playList(LIST_IDS.TEMP, index)
     isPlayingList = true
   }
-  const fullList = await getListDetailAll(source, id)
-  if (!fullList.length) return
-  if (isPlayingList) {
-    if (listState.tempListMeta.id == listId) {
+  try {
+    const fullList = await getListDetailAll(source, id)
+    if (!fullList.length) return
+    if (isPlayingList) {
+      if (listState.tempListMeta.id == listId) {
+        await setTempList(listId, [...fullList])
+      }
+    } else {
       await setTempList(listId, [...fullList])
+      void playList(LIST_IDS.TEMP, index)
     }
-  } else {
-    await setTempList(listId, [...fullList])
-    void playList(LIST_IDS.TEMP, index)
+  } catch (err) {
+    console.error('[handlePlay] 获取完整歌单失败:', err)
+    if (!isPlayingList) {
+      toast('获取歌单失败，请稍后重试')
+    }
   }
 }
 
-export const handleCollect = async(id: string, source: Source, name: string) => {
+export const handleCollect = async (id: string, source: Source, name: string) => {
   const listId = getListId(id, source)
 
-  const targetList = listState.userList.find(l => l.sourceListId == listId)
+  const targetList = listState.userList.find((l) => l.sourceListId == listId)
   if (targetList) {
     const confirm = await confirmDialog({
       message: global.i18n.t('duplicate_list_tip', { name: targetList.name }),

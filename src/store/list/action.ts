@@ -1,6 +1,5 @@
 import state, { type InitState } from './state'
 
-
 export default {
   setUserLists(userList: LX.List.UserListInfo[]) {
     state.userList = userList
@@ -22,7 +21,6 @@ export default {
     global.state_event.fetchingListStatusUpdated({ ...state.fetchingListStatus })
   },
 }
-
 
 // Other code such as selectors can use the imported `RootState` type
 // export const defaultList = (state: LX.State) => state.userList.defaultList

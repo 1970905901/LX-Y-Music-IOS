@@ -1,14 +1,15 @@
 const { inflate } = require('pako')
 const iconv = require('iconv-lite')
 
-const handleInflate = data => new Promise((resolve, reject) => {
-  resolve(Buffer.from(inflate(data)))
-})
+const handleInflate = (data) =>
+  new Promise((resolve, reject) => {
+    resolve(Buffer.from(inflate(data)))
+  })
 
 const buf_key = Buffer.from('yeelion')
 const buf_key_len = buf_key.length
 
-const decodeLyric = async(buf, isGetLyricx) => {
+const decodeLyric = async (buf, isGetLyricx) => {
   // const info = buf.slice(0, index).toString()
   // if (!info.startsWith('tp=content')) return null
   // const isLyric = info.includes('\r\nlrcx=0\r\n')
@@ -34,7 +35,7 @@ const decodeLyric = async(buf, isGetLyricx) => {
 
   return iconv.decode(Buffer.from(output), 'gb18030')
 }
-export default async({ lrcBuffer, isGetLyricx }) => {
+export default async ({ lrcBuffer, isGetLyricx }) => {
   const lrc = await decodeLyric(lrcBuffer, isGetLyricx)
   // console.log(lrc)
   return Buffer.from(lrc).toString('base64')

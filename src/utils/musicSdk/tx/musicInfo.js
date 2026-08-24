@@ -3,7 +3,7 @@ import { formatPlayTime, sizeFormate } from '../../index'
 
 const getSinger = (singers) => {
   let arr = []
-  singers.forEach(singer => {
+  singers.forEach((singer) => {
     arr.push(singer.name)
   })
   return arr.join('、')
@@ -63,8 +63,29 @@ export default (songmid) => {
     }
     if (file.size_hires !== 0) {
       let size = sizeFormate(file.size_hires)
-      types.push({ type: 'flac24bit', size })
-      _types.flac24bit = {
+      types.push({ type: 'hires', size })
+      _types.hires = {
+        size,
+      }
+    }
+    if (file.size_new?.[1] !== 0) {
+      let size = sizeFormate(file.size_new[1])
+      types.push({ type: 'atmos', size })
+      _types.atmos = {
+        size,
+      }
+    }
+    if (file.size_new?.[2] !== 0) {
+      let size = sizeFormate(file.size_new[2])
+      types.push({ type: 'atmos_plus', size })
+      _types.atmos_plus = {
+        size,
+      }
+    }
+    if (file.size_new?.[0] !== 0) {
+      let size = sizeFormate(file.size_new[0])
+      types.push({ type: 'master', size })
+      _types.master = {
         size,
       }
     }
@@ -76,6 +97,7 @@ export default (songmid) => {
       albumId = item.album.mid
     }
     return {
+      id: String(item.id),
       singer: getSinger(item.singer),
       name: item.title,
       albumName,
@@ -86,13 +108,16 @@ export default (songmid) => {
       albumMid: item.album?.mid ?? '',
       strMediaMid: item.file.media_mid,
       songmid: item.mid,
-      img: (albumId === '' || albumId === '空')
-        ? item.singer?.length ? `https://y.gtimg.cn/music/photo_new/T001R500x500M000${item.singer[0].mid}.jpg` : ''
-        : `https://y.gtimg.cn/music/photo_new/T002R500x500M000${albumId}.jpg`,
+      img:
+        albumId === '' || albumId === '空'
+          ? item.singer?.length
+            ? `https://y.gtimg.cn/music/photo_new/T001R500x500M000${item.singer[0].mid}.jpg`
+            : ''
+          : `https://y.gtimg.cn/music/photo_new/T002R500x500M000${albumId}.jpg`,
       types,
       _types,
       typeUrl: {},
+      vid: item.mv?.vid || '',
     }
   })
 }
-

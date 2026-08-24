@@ -1,6 +1,6 @@
 import { useGetter } from '@/store'
 
-export default source => {
+export default (source) => {
   const supportQualitys = useGetter('common', 'supportQualitys')
 
   return Boolean(supportQualitys[source])

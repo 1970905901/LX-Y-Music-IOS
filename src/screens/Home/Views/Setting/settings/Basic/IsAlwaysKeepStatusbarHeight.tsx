@@ -5,7 +5,6 @@ import { memo } from 'react'
 import { View } from 'react-native'
 import { useSettingValue } from '@/store/setting/hook'
 
-
 import CheckBoxItem from '../../components/CheckBoxItem'
 
 export default memo(() => {
@@ -21,11 +20,11 @@ export default memo(() => {
         check={val}
         label={t('setting_basic_always_keep_statusbar_height')}
         helpDesc={t('setting_basic_always_keep_statusbar_height_tip')}
-        onChange={update} />
+        onChange={update}
+      />
     </View>
   )
 })
-
 
 const styles = createStyle({
   content: {

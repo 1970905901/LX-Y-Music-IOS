@@ -17,30 +17,36 @@ export default ({ name, list, onTagChange, activeId }: TagGroupProps) => {
   const theme = useTheme()
   return (
     <View>
-      {
-        name
-          ? <Text style={styles.tagTypeTitle} color={theme['c-font-label']}>{name}</Text>
-          : null
-      }
+      {name ? (
+        <Text style={styles.tagTypeTitle} color={theme['c-font-label']}>
+          {name}
+        </Text>
+      ) : null}
       <View style={styles.tagTypeList}>
-        {list.map(item => (
-          activeId == item.id
-            ? (
-                <View style={{ ...styles.tagButton, backgroundColor: theme['c-button-background'] }} key={item.id}>
-                  <Text style={styles.tagButtonText} color={theme['c-primary-font-active']}>{item.name}</Text>
-                </View>
-              )
-            : (
-                <Button
-                  style={{ ...styles.tagButton, backgroundColor: theme['c-button-background'] }}
-                  key={item.id}
-                  onPress={() => { onTagChange(item.name, item.id) }}
-                >
-                  <Text style={styles.tagButtonText} color={theme['c-font']} >{item.name}</Text>
-                </Button>
-              )
-
-        ))}
+        {list.map((item) =>
+          activeId == item.id ? (
+            <View
+              style={{ ...styles.tagButton, backgroundColor: theme['c-button-background'] }}
+              key={item.id}
+            >
+              <Text style={styles.tagButtonText} color={theme['c-primary-font-active']}>
+                {item.name}
+              </Text>
+            </View>
+          ) : (
+            <Button
+              style={{ ...styles.tagButton, backgroundColor: theme['c-button-background'] }}
+              key={item.id}
+              onPress={() => {
+                onTagChange(item.name, item.id)
+              }}
+            >
+              <Text style={styles.tagButtonText} color={theme['c-font']}>
+                {item.name}
+              </Text>
+            </Button>
+          )
+        )}
       </View>
     </View>
   )

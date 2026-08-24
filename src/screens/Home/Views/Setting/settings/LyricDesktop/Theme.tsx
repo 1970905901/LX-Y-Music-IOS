@@ -17,14 +17,17 @@ const themes = [
   ['#000000', '#ffffff'],
   ['#ffffff', 'rgba(0,0,0,0.6)'],
 ] as const
-type Theme = typeof themes[number]
+type Theme = (typeof themes)[number]
 
-const ThemeItem = ({ color, change }: {
-  color: Theme
-  change: (color: Theme) => void
-}) => {
+const ThemeItem = ({ color, change }: { color: Theme; change: (color: Theme) => void }) => {
   return (
-    <TouchableOpacity style={styles.item} activeOpacity={0.5} onPress={() => { change(color) }}>
+    <TouchableOpacity
+      style={styles.item}
+      activeOpacity={0.5}
+      onPress={() => {
+        change(color)
+      }}
+    >
       <View style={styles.colorContent}>
         <View style={{ ...styles.image, backgroundColor: color[0] }}></View>
       </View>
@@ -38,16 +41,19 @@ export default memo(() => {
   const setThemeDesktopLyric = (color: Theme) => {
     // const shadowColor = 'rgba(0,0,0,0.6)'
     void setDesktopLyricColor(null, color[0], color[1]).then(() => {
-      updateSetting({ 'desktopLyric.style.lyricPlayedColor': color[0], 'desktopLyric.style.lyricShadowColor': color[1] })
+      updateSetting({
+        'desktopLyric.style.lyricPlayedColor': color[0],
+        'desktopLyric.style.lyricShadowColor': color[1],
+      })
     })
   }
 
   return (
     <SubTitle title={t('setting_lyric_desktop_theme')}>
       <View style={styles.list}>
-        {
-          themes.map((c, i) => <ThemeItem key={i.toString()} color={c} change={setThemeDesktopLyric} />)
-        }
+        {themes.map((c, i) => (
+          <ThemeItem key={i.toString()} color={c} change={setThemeDesktopLyric} />
+        ))}
       </View>
     </SubTitle>
   )

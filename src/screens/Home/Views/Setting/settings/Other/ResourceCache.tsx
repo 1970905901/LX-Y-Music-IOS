@@ -5,7 +5,12 @@ import { StyleSheet, View } from 'react-native'
 
 import SubTitle from '../../components/SubTitle'
 import Button from '../../components/Button'
-import { toast, resetNotificationPermissionCheck, confirmDialog, resetIgnoringBatteryOptimizationCheck } from '@/utils/tools'
+import {
+  toast,
+  resetNotificationPermissionCheck,
+  confirmDialog,
+  resetIgnoringBatteryOptimizationCheck,
+} from '@/utils/tools'
 import { getAppCacheSize, clearAppCache } from '@/utils/nativeModules/cache'
 import { getCacheSize, clearCache } from '@/plugins/player/utils'
 import { sizeFormate } from '@/utils'
@@ -22,14 +27,9 @@ export default memo(() => {
   // const clearCache = useDispatch('list', 'clearCache')
 
   const handleGetAppCacheSize = () => {
-    void Promise.all([
-      getAppCacheSize().catch(() => 0),
-      getCacheSize().catch(() => 0),
-    ]).then(([size, size2]) => {
+    void Promise.all([getAppCacheSize(), getCacheSize()]).then(([size, size2]) => {
       const count = size + size2
       setCacheSize(sizeFormate(count))
-    }).catch(() => {
-      setCacheSize(sizeFormate(0))
     })
   }
 
@@ -38,7 +38,7 @@ export default memo(() => {
     void confirmDialog({
       message: t('confirm_tip'),
       confirmButtonText: t('list_remove_tip_button'),
-    }).then(confirm => {
+    }).then((confirm) => {
       if (!confirm) return
       setCleaning(true)
       void Promise.all([
@@ -47,15 +47,16 @@ export default memo(() => {
         clearMusicUrl(),
         resetNotificationPermissionCheck(),
         resetIgnoringBatteryOptimizationCheck(),
-      ]).then(() => {
-        toast(t('setting_other_cache_clear_success_tip'))
-      }).finally(() => {
-        handleGetAppCacheSize()
-        setCleaning(false)
-      })
+      ])
+        .then(() => {
+          toast(t('setting_other_cache_clear_success_tip'))
+        })
+        .finally(() => {
+          handleGetAppCacheSize()
+          setCleaning(false)
+        })
     })
   }
-
 
   useEffect(() => {
     handleGetAppCacheSize()
@@ -65,10 +66,16 @@ export default memo(() => {
     <>
       <SubTitle title={t('setting__other_resource_cache')}>
         <View style={styles.cacheSize}>
-          <Text>{cacheSize == null ? t('setting_other_cache_getting') : t('setting_other_cache_size') + cacheSize}</Text>
+          <Text>
+            {cacheSize == null
+              ? t('setting_other_cache_getting')
+              : t('setting_other_cache_size') + cacheSize}
+          </Text>
         </View>
         <View style={styles.clearBtn}>
-          <Button disabled={cleaning} onPress={handleCleanCache}>{t('setting_other_cache_clear_btn')}</Button>
+          <Button disabled={cleaning} onPress={handleCleanCache}>
+            {t('setting_other_cache_clear_btn')}
+          </Button>
         </View>
       </SubTitle>
     </>

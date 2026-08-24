@@ -10,7 +10,7 @@ export declare interface ListInfo {
 }
 
 interface ListInfos extends Partial<Record<LX.OnlineSource, ListInfo>> {
-  'all': ListInfo
+  all: ListInfo
 }
 
 export type Source = LX.OnlineSource | 'all'
@@ -25,7 +25,7 @@ export interface InitState {
 
 const state: InitState = {
   searchText: '',
-  source: 'kw',
+  source: 'wy',
   sources: [],
   listInfos: {
     all: {

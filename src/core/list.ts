@@ -4,100 +4,147 @@ import listState from '@/store/list/state'
 import settingState from '@/store/setting/state'
 import { fixNewMusicInfoQuality } from '@/utils'
 import { saveListPrevSelectId } from '@/utils/data'
+import { playList } from '@/core/player/player'
+import { clearPlayedList } from '@/core/player/playedList'
 
 /**
- * 覆盖全部列表数据
- * @param data
+ * Play a temporary online song list
+ * @param listId Unique identifier for the list, used to distinguish different temporary lists
+ * @param list Array of songs to play
+ * @param index Index of the song to start playing
  */
-export const overwriteListFull = async(data: LX.List.ListActionDataOverwrite) => {
-  await global.list_event.list_data_overwrite(data)
+export const playOnlineList = async (listId: string, list: LX.Music.MusicInfoOnline[], index: number, isSkipPlay: boolean = false) => {
+  const targetMusic = list[index];
+  if (targetMusic) {
+    console.log('[playOnlineList] === 播放歌曲信息诊断 ===', {
+      listId,
+      index,
+      musicId: targetMusic.id,
+      musicName: targetMusic.name,
+      musicSource: targetMusic.source,
+      musicSongmid: targetMusic.songmid,
+      metaSongmid: targetMusic.meta?.songmid,
+      metaSongId: targetMusic.meta?.songId,
+      metaId: targetMusic.meta?.id,
+      metaKeys: targetMusic.meta ? Object.keys(targetMusic.meta) : [],
+    });
+  }
+  
+  await overwriteListMusics(LIST_IDS.TEMP, [...list])
+  await setTempList(listId, list)
+  clearPlayedList()
+  setActiveList(LIST_IDS.TEMP)
+  if (!isSkipPlay) void playList(LIST_IDS.TEMP, index)
 }
 
 
 /**
- * 添加用户列表
+ * Overwrite all list data
+ * @param data
  */
-export const createUserList = async(position: number, listInfos: LX.List.UserListInfo[]) => {
+export const overwriteListFull = async (data: LX.List.ListActionDataOverwrite) => {
+  await global.list_event.list_data_overwrite(data)
+}
+
+/**
+ * Add user list
+ */
+export const createUserList = async (position: number, listInfos: LX.List.UserListInfo[]) => {
   await global.list_event.list_create(position, listInfos)
 }
 
 /**
- * 移除用户列表及列表内歌曲
+ * Remove user list and songs in the list
  */
-export const removeUserList = async(ids: string[]) => {
+export const removeUserList = async (ids: string[]) => {
   await global.list_event.list_remove(ids)
 }
 
 /**
- * 更新用户列表
+ * Update user list
  */
-export const updateUserList = async(listInfos: LX.List.UserListInfo[]) => {
+export const updateUserList = async (listInfos: LX.List.UserListInfo[]) => {
   await global.list_event.list_update(listInfos)
 }
 
 /**
- * 批量移动用户列表位置
+ * Batch move user list positions
  */
-export const updateUserListPosition = async(position: number, ids: string[]) => {
+export const updateUserListPosition = async (position: number, ids: string[]) => {
   await global.list_event.list_update_position(position, ids)
 }
 
-
 /**
- * 批量添加歌曲到列表
+ * Batch add songs to list
  */
-export const addListMusics = async(id: string, musicInfos: LX.Music.MusicInfo[], addMusicLocationType: LX.AddMusicLocationType) => {
+export const addListMusics = async (
+  id: string,
+  musicInfos: LX.Music.MusicInfo[],
+  addMusicLocationType: LX.AddMusicLocationType
+) => {
   await global.list_event.list_music_add(id, musicInfos, addMusicLocationType)
 }
 
 /**
- * 跨列表批量移动歌曲
+ * Batch move songs across lists
  */
-export const moveListMusics = async(fromId: string, toId: string, musicInfos: LX.Music.MusicInfo[], addMusicLocationType: LX.AddMusicLocationType) => {
+export const moveListMusics = async (
+  fromId: string,
+  toId: string,
+  musicInfos: LX.Music.MusicInfo[],
+  addMusicLocationType: LX.AddMusicLocationType
+) => {
   await global.list_event.list_music_move(fromId, toId, musicInfos, addMusicLocationType)
 }
 
 /**
- * 批量删除列表内歌曲
+ * Batch delete songs in list
  */
-export const removeListMusics = async(listId: string, ids: string[]) => {
+export const removeListMusics = async (listId: string, ids: string[]) => {
   await global.list_event.list_music_remove(listId, ids)
 }
 
 /**
- * 批量更新列表内歌曲
+ * Batch update songs in list
  */
-export const updateListMusics = async(infos: Array<{ id: string, musicInfo: LX.Music.MusicInfo }>) => {
+export const updateListMusics = async (
+  infos: Array<{ id: string; musicInfo: LX.Music.MusicInfo }>
+) => {
   await global.list_event.list_music_update(infos)
 }
 
 /**
- * 批量移动列表内歌曲的位置
+ * Batch move positions of songs in list
  */
-export const updateListMusicPosition = async(listId: string, position: number, ids: string[]) => {
+export const updateListMusicPosition = async (listId: string, position: number, ids: string[]) => {
   await global.list_event.list_music_update_position(listId, position, ids)
 }
 
 /**
- * 覆盖列表内的歌曲
+ * Overwrite songs in list
  */
-export const overwriteListMusics = async(listId: string, musicInfos: LX.Music.MusicInfo[]) => {
+export const overwriteListMusics = async (listId: string, musicInfos: LX.Music.MusicInfo[]) => {
   await global.list_event.list_music_overwrite(listId, musicInfos)
 }
 
 /**
- * 覆盖列表内的歌曲
+ * Clear songs in list
  */
-export const clearListMusics = async(ids: string[]) => {
+export const clearListMusics = async (ids: string[]) => {
   await global.list_event.list_music_clear(ids)
 }
 
 /**
- * 覆盖单个列表
+ * Overwrite a single list
  * @param listInfo
  * @param musics
  */
-export const overwriteList = async(listInfoFull: LX.List.MyDefaultListInfoFull | LX.List.MyLoveListInfoFull | LX.List.UserListInfoFull) => {
+export const overwriteList = async (
+  listInfoFull:
+    | LX.List.MyDefaultListInfoFull
+    | LX.List.MyLoveListInfoFull
+    | LX.List.UserListInfoFull
+) => {
   let userListInfo
   switch (listInfoFull.id) {
     case LIST_IDS.DEFAULT:
@@ -117,14 +164,24 @@ export const overwriteList = async(listInfoFull: LX.List.MyDefaultListInfoFull |
       ])
       break
   }
-  await overwriteListMusics(listInfoFull.id, listInfoFull.list.map(m => fixNewMusicInfoQuality(m)))
+  await overwriteListMusics(
+    listInfoFull.id,
+    listInfoFull.list.map((m) => fixNewMusicInfoQuality(m))
+  )
 }
 /**
- * 覆盖单个列表
+ * Overwrite a single list
  * @param listInfo
  * @param musics
  */
-export const createList = async({ name, id = `userlist_${Date.now()}`, list = [], source, sourceListId, position = -1 }: {
+export const createList = async ({
+  name,
+  id = `userlist_${Date.now()}`,
+  list = [],
+  source,
+  sourceListId,
+  position = -1,
+}: {
   name?: string
   id?: string
   list?: LX.Music.MusicInfo[]
@@ -145,7 +202,7 @@ export const createList = async({ name, id = `userlist_${Date.now()}`, list = []
 }
 
 /**
- * 设置当前激活的歌曲列表
+ * Set the currently active song list
  * @param id
  */
 export const setActiveList = (id: string) => {
@@ -155,27 +212,24 @@ export const setActiveList = (id: string) => {
 }
 
 /**
- * 设置歌曲列表
+ * Set song list
  */
 export const setUserList = (lists: LX.List.UserListInfo[]) => {
   listAction.setUserLists(lists)
 }
 
 /**
- * 设置临时列表内歌曲
+ * Set songs in temporary list
  * @param id
  * @param list
  */
-export const setTempList = async(id: string, list: LX.Music.MusicInfoOnline[]) => {
+export const setTempList = async (id: string, list: LX.Music.MusicInfoOnline[]) => {
   await overwriteListMusics(LIST_IDS.TEMP, list)
   listAction.setTempListMeta({ id })
 }
-
 
 export const setFetchingListStatus = (id: string, status: boolean) => {
   listAction.setFetchingListStatus(id, status)
 }
 
-
 export { getUserLists, getListMusics } from '@/utils/listManage'
-

@@ -9,22 +9,25 @@ import { useI18n } from '@/lang'
 import { createStyle } from '@/utils/tools'
 
 interface TitleType {
-  updateTitle: (musicInfo: SelectInfo['musicInfo'], selectedList: SelectInfo['selectedList']) => void
+  updateTitle: (
+    musicInfo: SelectInfo['musicInfo'],
+    selectedList: SelectInfo['selectedList']
+  ) => void
 }
 const Title = forwardRef<TitleType, {}>((props, ref) => {
   const [title, setTitle] = useState('')
 
   useImperativeHandle(ref, () => ({
     updateTitle(musicInfo, selectedList) {
-      setTitle(selectedList.length
-        ? global.i18n.t('change_position_music_multi_title', { num: selectedList.length })
-        : global.i18n.t('change_position_music_title', { name: musicInfo.name }))
+      setTitle(
+        selectedList.length
+          ? global.i18n.t('change_position_music_multi_title', { num: selectedList.length })
+          : global.i18n.t('change_position_music_title', { name: musicInfo.name })
+      )
     },
   }))
 
-  return (
-    <Text style={{ marginBottom: 5 }}>{title}</Text>
-  )
+  return <Text style={{ marginBottom: 5 }}>{title}</Text>
 })
 
 interface PositionInputType {
@@ -61,7 +64,6 @@ const PositionInput = forwardRef<PositionInputType, {}>((props, ref) => {
   )
 })
 
-
 export interface SelectInfo {
   musicInfo: LX.Music.MusicInfo
   selectedList: LX.Music.MusicInfo[]
@@ -79,66 +81,67 @@ export interface MusicPositionModalType {
   show: (listInfo: SelectInfo) => void
 }
 
+export default forwardRef<MusicPositionModalType, MusicPositionModalProps>(
+  ({ onUpdatePosition }, ref) => {
+    const alertRef = useRef<ConfirmAlertType>(null)
+    const titleRef = useRef<TitleType>(null)
+    const inputRef = useRef<PositionInputType>(null)
+    const selectedInfo = useRef<SelectInfo>(initSelectInfo as SelectInfo)
+    const [visible, setVisible] = useState(false)
 
-export default forwardRef<MusicPositionModalType, MusicPositionModalProps>(({ onUpdatePosition }, ref) => {
-  const alertRef = useRef<ConfirmAlertType>(null)
-  const titleRef = useRef<TitleType>(null)
-  const inputRef = useRef<PositionInputType>(null)
-  const selectedInfo = useRef<SelectInfo>(initSelectInfo as SelectInfo)
-  const [visible, setVisible] = useState(false)
+    const handleShow = () => {
+      alertRef.current?.setVisible(true)
+      requestAnimationFrame(() => {
+        titleRef.current?.updateTitle(
+          selectedInfo.current.musicInfo,
+          selectedInfo.current.selectedList
+        )
+        setTimeout(() => {
+          inputRef.current?.focus()
+        }, 300)
+      })
+    }
+    useImperativeHandle(ref, () => ({
+      show(listInfo) {
+        selectedInfo.current = listInfo
 
-  const handleShow = () => {
-    alertRef.current?.setVisible(true)
-    requestAnimationFrame(() => {
-      titleRef.current?.updateTitle(selectedInfo.current.musicInfo, selectedInfo.current.selectedList)
-      setTimeout(() => {
-        inputRef.current?.focus()
-      }, 300)
-    })
-  }
-  useImperativeHandle(ref, () => ({
-    show(listInfo) {
-      selectedInfo.current = listInfo
+        if (visible) handleShow()
+        else {
+          setVisible(true)
+          requestAnimationFrame(() => {
+            handleShow()
+          })
+        }
+      },
+    }))
 
-      if (visible) handleShow()
-      else {
-        setVisible(true)
-        requestAnimationFrame(() => {
-          handleShow()
-        })
-      }
-    },
-  }))
+    const verify = () => {
+      let result = /^[1-9]\d*/.exec(inputRef.current?.getText() ?? '')
+      let num = result ? parseInt(result[0]) : ''
+      inputRef.current?.setText(num.toString())
+      return num
+    }
+    const handleSetMusicPosition = () => {
+      let num = verify()
+      if (num == '') return
+      alertRef.current?.setVisible(false)
+      onUpdatePosition(selectedInfo.current, (num as number) - 1)
+    }
 
-
-  const verify = () => {
-    let result = /^[1-9]\d*/.exec(inputRef.current?.getText() ?? '')
-    let num = result ? parseInt(result[0]) : ''
-    inputRef.current?.setText(num.toString())
-    return num
-  }
-  const handleSetMusicPosition = () => {
-    let num = verify()
-    if (num == '') return
-    alertRef.current?.setVisible(false)
-    onUpdatePosition(selectedInfo.current, num as number - 1)
-  }
-
-  return (
-    visible
-      ? <ConfirmAlert
-          ref={alertRef}
-          onConfirm={handleSetMusicPosition}
-          onHide={() => inputRef.current?.setText('')}
-        >
+    return visible ? (
+      <ConfirmAlert
+        ref={alertRef}
+        onConfirm={handleSetMusicPosition}
+        onHide={() => inputRef.current?.setText('')}
+      >
         <View style={styles.content}>
           <Title ref={titleRef} />
           <PositionInput ref={inputRef} />
         </View>
       </ConfirmAlert>
-      : null
-  )
-})
+    ) : null
+  }
+)
 
 const styles = createStyle({
   content: {

@@ -20,46 +20,52 @@ import { SYNC_CODE } from '@/plugins/sync/constants'
 
 const addressRxp = /^https?:\/\/\S+/i
 
-const HostInput = memo(({ setHost, host, disabled }: {
-  setHost: (host: string) => void
-  host: string
-  disabled?: boolean
-}) => {
-  const t = useI18n()
+const HostInput = memo(
+  ({
+    setHost,
+    host,
+    disabled,
+  }: {
+    setHost: (host: string) => void
+    host: string
+    disabled?: boolean
+  }) => {
+    const t = useI18n()
 
-  const hostAddress = useMemo(() => {
-    return addressRxp.test(host) ? host : ''
-  }, [host])
+    const hostAddress = useMemo(() => {
+      return addressRxp.test(host) ? host : ''
+    }, [host])
 
-  const setHostAddress = useCallback((value: string, callback: (host: string) => void) => {
-    let hostAddress: string
-    if (addressRxp.test(value)) hostAddress = value.trim()
-    else {
-      hostAddress = ''
-      if (value) toast(t('setting_sync_host_value_error_tip'), 'long')
-    }
-    callback(hostAddress)
-    if (host == hostAddress) return
-    setHost(hostAddress)
-  }, [host, setHost, t])
+    const setHostAddress = useCallback(
+      (value: string, callback: (host: string) => void) => {
+        let hostAddress: string
+        if (addressRxp.test(value)) hostAddress = value.trim()
+        else {
+          hostAddress = ''
+          if (value) toast(t('setting_sync_host_value_error_tip'), 'long')
+        }
+        callback(hostAddress)
+        if (host == hostAddress) return
+        setHost(hostAddress)
+      },
+      [host, setHost, t]
+    )
 
-  return (
-    <InputItem
-      editable={!disabled}
-      value={hostAddress}
-      label={t('setting_sync_host_label')}
-      onChanged={setHostAddress}
-      inputMode="url"
-      // keyboardType="url"
-      placeholder={t('setting_sync_host_value_tip')} />
-  )
-})
+    return (
+      <InputItem
+        editable={!disabled}
+        value={hostAddress}
+        label={t('setting_sync_host_label')}
+        onChanged={setHostAddress}
+        inputMode="url"
+        // keyboardType="url"
+        placeholder={t('setting_sync_host_value_tip')}
+      />
+    )
+  }
+)
 
-
-export default memo(({ host, setHost }: {
-  host: string
-  setHost: (host: string) => void
-}) => {
+export default memo(({ host, setHost }: { host: string; setHost: (host: string) => void }) => {
   const t = useI18n()
   const setIsEnableSync = useCallback((enable: boolean) => {
     updateSetting({ 'sync.enable': enable })
@@ -74,11 +80,11 @@ export default memo(({ host, setHost }: {
 
   useEffect(() => {
     isUnmountedRef.current = false
-    void getSyncHost().then(host => {
+    void getSyncHost().then((host) => {
       if (isUnmountedRef.current) return
       setHost(host)
     })
-    void getWIFIIPV4Address().then(address => {
+    void getWIFIIPV4Address().then((address) => {
       if (isUnmountedRef.current) return
       setAddress(address)
     })
@@ -86,7 +92,6 @@ export default memo(({ host, setHost }: {
     return () => {
       isUnmountedRef.current = true
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
@@ -104,21 +109,25 @@ export default memo(({ host, setHost }: {
     }
   }, [syncStatus.message, t])
 
-  const handleSetEnableSync = useCallback((enable: boolean) => {
-    setIsEnableSync(enable)
+  const handleSetEnableSync = useCallback(
+    (enable: boolean) => {
+      setIsEnableSync(enable)
 
-    if (enable) void addSyncHostHistory(host)
+      if (enable) void addSyncHostHistory(host)
 
-    void (enable ? connectServer(host) : disconnectServer())
-  }, [host, setIsEnableSync])
+      void (enable ? connectServer(host) : disconnectServer())
+    },
+    [host, setIsEnableSync]
+  )
 
-
-  const handleUpdateHost = useCallback((h: string) => {
-    if (h == host) return
-    void setSyncHost(h)
-    setHost(h)
-  }, [host, setHost])
-
+  const handleUpdateHost = useCallback(
+    (h: string) => {
+      if (h == host) return
+      void setSyncHost(h)
+      setHost(h)
+    },
+    [host, setHost]
+  )
 
   const status = useMemo(() => {
     let status
@@ -155,18 +164,23 @@ export default memo(({ host, setHost }: {
   return (
     <>
       <View style={styles.infoContent}>
-        <CheckBoxItem disabled={!host} check={isEnableSync} label={t('setting_sync_enable')} onChange={handleSetEnableSync} />
-        <Text style={styles.textAddr} size={13}>{t('setting_sync_address', { address })}</Text>
-        <Text style={styles.text} size={13}>{t('setting_sync_status', { status })}</Text>
+        <CheckBoxItem
+          disabled={!host}
+          check={isEnableSync}
+          label={t('setting_sync_enable')}
+          onChange={handleSetEnableSync}
+        />
+        <Text style={styles.textAddr} size={13}>
+          {t('setting_sync_address', { address })}
+        </Text>
+        <Text style={styles.text} size={13}>
+          {t('setting_sync_status', { status })}
+        </Text>
       </View>
-      <View style={styles.inputContent} >
+      <View style={styles.inputContent}>
         <HostInput setHost={handleUpdateHost} host={host} disabled={isEnableSync} />
       </View>
-      <ConfirmAlert
-        onCancel={handleCancelSetCode}
-        onConfirm={handleSetCode}
-        ref={confirmAlertRef}
-        >
+      <ConfirmAlert onCancel={handleCancelSetCode} onConfirm={handleSetCode} ref={confirmAlertRef}>
         <View style={styles.authCodeContent}>
           <Text style={styles.authCodeLabel}>{t('setting_sync_code_label')}</Text>
           <Input
@@ -180,7 +194,6 @@ export default memo(({ host, setHost }: {
     </>
   )
 })
-
 
 const styles = createStyle({
   infoContent: {

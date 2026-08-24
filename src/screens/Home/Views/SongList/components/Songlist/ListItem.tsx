@@ -9,37 +9,53 @@ import { useTheme } from '@/store/theme/hook'
 import Image from '@/components/common/Image'
 
 const gap = scaleSizeW(15)
-export default memo(({ item, index, width, showSource, onPress }: {
-  item: ListInfoItem
-  index: number
-  showSource: boolean
-  width: number
-  onPress: (item: ListInfoItem, index: number) => void
-}) => {
-  const theme = useTheme()
-  const itemWidth = width - gap
-  const handlePress = () => {
-    onPress(item, index)
+export default memo(
+  ({
+    item,
+    index,
+    width,
+    showSource,
+    onPress,
+  }: {
+    item: ListInfoItem
+    index: number
+    showSource: boolean
+    width: number
+    onPress: (item: ListInfoItem, index: number) => void
+  }) => {
+    const theme = useTheme()
+    const itemWidth = width - gap
+    const handlePress = () => {
+      onPress(item, index)
+    }
+    return item.source ? (
+      <View style={{ ...styles.listItem, width: itemWidth }}>
+        <View style={{ ...styles.listItemImg, backgroundColor: theme['c-content-background'] }}>
+          <TouchableOpacity activeOpacity={0.5} onPress={handlePress}>
+            <Image
+              url={item.img}
+              nativeID={`${NAV_SHEAR_NATIVE_IDS.songlistDetail_pic}_from_${item.id}`}
+              style={{ width: itemWidth, height: itemWidth, borderRadius: 4 }}
+            />
+            {showSource ? (
+              <Text style={styles.sourceLabel} size={9} color="#fff">
+                {item.source}
+              </Text>
+            ) : null}
+          </TouchableOpacity>
+        </View>
+        <TouchableOpacity activeOpacity={0.5} onPress={handlePress}>
+          <Text style={styles.listItemTitle} numberOfLines={2}>
+            {item.name}
+          </Text>
+        </TouchableOpacity>
+        {/* <Text>{JSON.stringify(item)}</Text> */}
+      </View>
+    ) : (
+      <View style={{ ...styles.listItem, width: itemWidth }} />
+    )
   }
-  return (
-    item.source
-      ? (
-          <View style={{ ...styles.listItem, width: itemWidth }}>
-            <View style={{ ...styles.listItemImg, backgroundColor: theme['c-content-background'] }}>
-              <TouchableOpacity activeOpacity={0.5} onPress={handlePress}>
-                <Image url={item.img} nativeID={`${NAV_SHEAR_NATIVE_IDS.songlistDetail_pic}_from_${item.id}`} style={{ width: itemWidth, height: itemWidth, borderRadius: 4 }} />
-                { showSource ? <Text style={styles.sourceLabel} size={9} color="#fff" >{item.source}</Text> : null }
-              </TouchableOpacity>
-            </View>
-            <TouchableOpacity activeOpacity={0.5} onPress={handlePress}>
-              <Text style={styles.listItemTitle} numberOfLines={ 2 }>{item.name}</Text>
-            </TouchableOpacity>
-            {/* <Text>{JSON.stringify(item)}</Text> */}
-          </View>
-        )
-      : <View style={{ ...styles.listItem, width: itemWidth }} />
-  )
-})
+)
 
 const styles = createStyle({
   listItem: {
@@ -58,7 +74,7 @@ const styles = createStyle({
           width: 0,
           height: 1,
         },
-        shadowOpacity: 0.20,
+        shadowOpacity: 0.2,
         shadowRadius: 1.41,
       },
       android: {

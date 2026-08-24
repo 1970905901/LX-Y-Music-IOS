@@ -6,7 +6,13 @@ import musicSearch from './musicSearch'
 import songList from './songList'
 import hotSearch from './hotSearch'
 import comment from './comment'
+import dailyRec from './dailyRec'
+import * as apiCookie from './api-cookie'
 // import tipSearch from './tipSearch'
+import artist from './artist'
+import album from './album'
+import user from './user'
+import {resolveQualityAlias} from "@/utils/musicSdk/utils";
 
 const wy = {
   // tipSearch,
@@ -15,15 +21,22 @@ const wy = {
   songList,
   hotSearch,
   comment,
+  artist,
+  album,
+  dailyRec,
+  user,
+  cookie: apiCookie,
   getMusicUrl(songInfo, type) {
-    return apis('wy').getMusicUrl(songInfo, type)
+    console.log('[LX Music SDK] Requested quality:', type);
+    const qualityToRequest = resolveQualityAlias('wy', type);
+    return apis('wy').getMusicUrl(songInfo, qualityToRequest);
   },
   getLyric(songInfo) {
     return getLyric(songInfo.songmid)
   },
   getPic(songInfo) {
     const requestObj = getMusicInfo(songInfo.songmid)
-    return requestObj.promise.then(info => info.al.picUrl)
+    return requestObj.promise.then((info) => info.al.picUrl)
   },
   getMusicDetailPageUrl(songInfo) {
     return `https://music.163.com/#/song?id=${songInfo.songmid}`

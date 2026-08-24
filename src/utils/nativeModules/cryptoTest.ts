@@ -8,7 +8,6 @@ import {
   aesDecrypt,
 } from '@/utils/nativeModules/crypto'
 
-
 const publicKey = `
 -----BEGIN PUBLIC KEY-----
 MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA4U2m4fBhTkQOOeAlEusFCDa28UI3xZqv

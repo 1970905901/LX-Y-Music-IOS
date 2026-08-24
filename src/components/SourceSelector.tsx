@@ -1,7 +1,9 @@
 import { forwardRef, type Ref, useImperativeHandle, useMemo, useState } from 'react'
 import { View } from 'react-native'
 
-import DorpDownMenu, { type DorpDownMenuProps as _DorpDownMenuProps } from '@/components/common/DorpDownMenu'
+import DorpDownMenu, {
+  type DorpDownMenuProps as _DorpDownMenuProps,
+} from '@/components/common/DorpDownMenu'
 import Text from '@/components/common/Text'
 import { useI18n } from '@/lang'
 
@@ -24,23 +26,29 @@ export const useSourceListI18n = (list: Sources) => {
   const sourceNameType = useSettingValue('common.sourceNameType')
   const t = useI18n()
   return useMemo(() => {
-    return list.map(s => ({ label: t(`source_${sourceNameType}_${s}`), action: s }))
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    return list.map((s) => ({ label: t(`source_${sourceNameType}_${s}`), action: s }))
   }, [list, sourceNameType, t])
 }
 
-const Component = <S extends Sources>({ fontSize = 15, center, onSourceChange }: SourceSelectorProps<S>, ref: Ref<SourceSelectorType<S>>) => {
+const Component = <S extends Sources>(
+  { fontSize = 15, center, onSourceChange }: SourceSelectorProps<S>,
+  ref: Ref<SourceSelectorType<S>>
+) => {
   const sourceNameType = useSettingValue('common.sourceNameType')
   const [list, setList] = useState([] as unknown as S)
   const [source, setSource] = useState<S[number]>('kw')
   const t = useI18n()
 
-  useImperativeHandle(ref, () => ({
-    setSourceList(list, activeSource) {
-      setList(list)
-      setSource(activeSource)
-    },
-  }), [])
+  useImperativeHandle(
+    ref,
+    () => ({
+      setSourceList(list, activeSource) {
+        setList(list)
+        setSource(activeSource)
+      },
+    }),
+    []
+  )
 
   const sourceList_t = useSourceListI18n(list)
 
@@ -60,14 +68,17 @@ const Component = <S extends Sources>({ fontSize = 15, center, onSourceChange }:
       activeId={source}
     >
       <View style={styles.sourceMenu}>
-        <Text style={{ textAlign: center ? 'center' : 'left' }} numberOfLines={1} size={fontSize}>{t(`source_${sourceNameType}_${source}`)}</Text>
+        <Text style={{ textAlign: center ? 'center' : 'left' }} numberOfLines={1} size={fontSize}>
+          {t(`source_${sourceNameType}_${source}`)}
+        </Text>
       </View>
     </DorpDownMenu>
   )
 }
 
-export default forwardRef(Component) as <S extends Sources>(p: SourceSelectorProps<S> & { ref?: Ref<SourceSelectorType<S>> }) => JSX.Element | null
-
+export default forwardRef(Component) as <S extends Sources>(
+  p: SourceSelectorProps<S> & { ref?: Ref<SourceSelectorType<S>> }
+) => JSX.Element | null
 
 const styles = createStyle({
   sourceMenu: {
@@ -78,6 +89,5 @@ const styles = createStyle({
     paddingLeft: 15,
     paddingRight: 15,
     // backgroundColor: '#ccc',
-
   },
 })

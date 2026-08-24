@@ -1,6 +1,11 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from 'react'
+import {forwardRef, useCallback, useEffect, useImperativeHandle, useRef} from 'react'
 import OnlineList, { type OnlineListType, type OnlineListProps } from '@/components/OnlineList'
-import { clearListDetail, getListDetail, setListDetail, setListDetailInfo } from '@/core/leaderboard'
+import {
+  clearListDetail,
+  getListDetail,
+  setListDetail,
+  setListDetailInfo,
+} from '@/core/leaderboard'
 import boardState from '@/store/leaderboard/state'
 import { handlePlay } from './listAction'
 
@@ -17,53 +22,49 @@ export interface MusicListType {
 export default forwardRef<MusicListType, {}>((props, ref) => {
   const listRef = useRef<OnlineListType>(null)
   const isUnmountedRef = useRef(false)
-  const loadRequestIdRef = useRef(0)
-  const currentListIdRef = useRef('')
+  const handleListUpdate = useCallback((newList: LX.Music.MusicInfoOnline[]) => {
+    if (isUnmountedRef.current) return;
+    boardState.listDetailInfo.list = newList;
+  }, []);
 
-  const applyListResult = useCallback((requestId: number, listId: string, page: number, result: typeof boardState.listDetailInfo, append = false) => {
-    if (isUnmountedRef.current) return
-    if (requestId != loadRequestIdRef.current) return
-    if (listId != currentListIdRef.current) return
-    requestAnimationFrame(() => {
-      listRef.current?.setList(result.list, append)
-      listRef.current?.setStatus(boardState.listDetailInfo.maxPage <= page ? 'end' : 'idle')
-    })
-  }, [])
-
-  const handleLoadFirstPage = useCallback(async(id: string, requestId: number) => {
-    const page = 1
-    setListDetailInfo(id)
-
-    let listDetail = await getListDetail(id, page)
-    let result = setListDetail(listDetail, id, page)
-    if (!result.list.length) {
-      clearListDetail()
-      setListDetailInfo(id)
-      listDetail = await getListDetail(id, page, true)
-      result = setListDetail(listDetail, id, page)
-    }
-
-    applyListResult(requestId, id, page, result)
-  }, [applyListResult])
-
-  useImperativeHandle(ref, () => ({
-    async loadList(source, id) {
-      const requestId = ++loadRequestIdRef.current
-      currentListIdRef.current = id
-      const listDetailInfo = boardState.listDetailInfo
-      listRef.current?.setList([])
-      if (listDetailInfo.id == id && listDetailInfo.source == source && listDetailInfo.list.length) {
-        applyListResult(requestId, id, listDetailInfo.page, listDetailInfo)
-      } else {
-        listRef.current?.setStatus('loading')
-        return handleLoadFirstPage(id, requestId).catch(() => {
-          if (boardState.listDetailInfo.list.length) clearListDetail()
-          if (requestId != loadRequestIdRef.current) return
-          listRef.current?.setStatus('error')
-        })
-      }
-    },
-  }), [applyListResult, handleLoadFirstPage])
+  useImperativeHandle(
+    ref,
+    () => ({
+      async loadList(source, id) {
+        const listDetailInfo = boardState.listDetailInfo
+        listRef.current?.setList([])
+        if (
+          listDetailInfo.id == id &&
+          listDetailInfo.source == source &&
+          listDetailInfo.list.length
+        ) {
+          requestAnimationFrame(() => {
+            listRef.current?.setList(listDetailInfo.list)
+          })
+        } else {
+          listRef.current?.setStatus('loading')
+          const page = 1
+          setListDetailInfo(id)
+          return getListDetail(id, page)
+            .then((listDetail) => {
+              const result = setListDetail(listDetail, id, page)
+              if (isUnmountedRef.current) return
+              requestAnimationFrame(() => {
+                listRef.current?.setList(result.list)
+                listRef.current?.setStatus(
+                  boardState.listDetailInfo.maxPage <= page ? 'end' : 'idle'
+                )
+              })
+            })
+            .catch(() => {
+              if (boardState.listDetailInfo.list.length && page == 1) clearListDetail()
+              listRef.current?.setStatus('error')
+            })
+        }
+      },
+    }),
+    []
+  )
 
   useEffect(() => {
     isUnmountedRef.current = false
@@ -72,48 +73,51 @@ export default forwardRef<MusicListType, {}>((props, ref) => {
     }
   }, [])
 
-
   const handlePlayList: OnlineListProps['onPlayList'] = (index) => {
     const listDetailInfo = boardState.listDetailInfo
     // console.log(boardState.listDetailInfo)
     void handlePlay(listDetailInfo.id, listDetailInfo.list, index)
   }
   const handleRefresh: OnlineListProps['onRefresh'] = () => {
-    const requestId = ++loadRequestIdRef.current
-    currentListIdRef.current = boardState.listDetailInfo.id
     const page = 1
     listRef.current?.setStatus('refreshing')
-    getListDetail(boardState.listDetailInfo.id, page, true).then((listDetail) => {
-      const result = setListDetail(listDetail, boardState.listDetailInfo.id, page)
-      applyListResult(requestId, boardState.listDetailInfo.id, page, result)
-    }).catch(() => {
-      if (boardState.listDetailInfo.list.length && page == 1) clearListDetail()
-      if (requestId != loadRequestIdRef.current) return
-      listRef.current?.setStatus('error')
-    })
+    getListDetail(boardState.listDetailInfo.id, page, true)
+      .then((listDetail) => {
+        const result = setListDetail(listDetail, boardState.listDetailInfo.id, page)
+        if (isUnmountedRef.current) return
+        listRef.current?.setList(result.list)
+        listRef.current?.setStatus(boardState.listDetailInfo.maxPage <= page ? 'end' : 'idle')
+      })
+      .catch(() => {
+        if (boardState.listDetailInfo.list.length && page == 1) clearListDetail()
+        listRef.current?.setStatus('error')
+      })
   }
   const handleLoadMore: OnlineListProps['onLoadMore'] = () => {
-    const requestId = loadRequestIdRef.current
-    const listId = boardState.listDetailInfo.id
     listRef.current?.setStatus('loading')
     const page = boardState.listDetailInfo.list.length ? boardState.listDetailInfo.page + 1 : 1
-    getListDetail(listId, page).then((listDetail) => {
-      const result = setListDetail(listDetail, listId, page)
-      applyListResult(requestId, listId, page, result, true)
-    }).catch(() => {
-      if (boardState.listDetailInfo.list.length && page == 1) clearListDetail()
-      if (requestId != loadRequestIdRef.current || listId != currentListIdRef.current) return
-      listRef.current?.setStatus('error')
-    })
+    getListDetail(boardState.listDetailInfo.id, page)
+      .then((listDetail) => {
+        const result = setListDetail(listDetail, boardState.listDetailInfo.id, page)
+        if (isUnmountedRef.current) return
+        listRef.current?.setList(result.list, true)
+        listRef.current?.setStatus(boardState.listDetailInfo.maxPage <= page ? 'end' : 'idle')
+      })
+      .catch(() => {
+        if (boardState.listDetailInfo.list.length && page == 1) clearListDetail()
+        listRef.current?.setStatus('error')
+      })
   }
 
-  return <OnlineList
-    ref={listRef}
-    onPlayList={handlePlayList}
-    onRefresh={handleRefresh}
-    onLoadMore={handleLoadMore}
-    checkHomePagerIdle
-    rowType='medium'
-   />
+  return (
+    <OnlineList
+      ref={listRef}
+      onPlayList={handlePlayList}
+      onRefresh={handleRefresh}
+      onLoadMore={handleLoadMore}
+      onListUpdate={handleListUpdate}
+      checkHomePagerIdle
+      rowType="medium"
+    />
+  )
 })
-

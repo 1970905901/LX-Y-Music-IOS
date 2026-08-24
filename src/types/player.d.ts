@@ -13,8 +13,10 @@ declare global {
         rawlrc: string | null
         // url: string | null
         name: string
+        alias?: string
         singer: string
         album: string
+        artists?: Array<{ id: string | number; mid?: string; name: string }>
       }
 
       interface LyricInfo extends LX.Music.LyricInfo {
@@ -29,12 +31,12 @@ declare global {
          */
         musicInfo: PlayMusic
         /**
-          * 当前播放歌曲的列表 id
-          */
-        listId: string | null
+         * 当前播放歌曲的列表 id
+         */
+        listId: string
         /**
-          * 是否属于 “稍后播放”
-          */
+         * 是否属于 “稍后播放”
+         */
         isTempPlay: boolean
       }>
 
@@ -44,12 +46,12 @@ declare global {
          */
         playIndex: number
         /**
-        * 播放器的播放列表 id
-        */
+         * 播放器的播放列表 id
+         */
         playerListId: string | null
         /**
-        * 播放器播放歌曲 index
-        */
+         * 播放器播放歌曲 index
+         */
         playerPlayIndex: number
       }
 
@@ -73,6 +75,19 @@ declare global {
         maxTime: number
         listId: string
         index: number
+        tempMeta?: LX.List.MyTempListInfo['meta'] | null
+      }
+
+      type PlayHistorySource = 'Search' | 'Rec' | 'Detail' | 'List'
+
+      interface PlayHistoryItem {
+        id: string
+        musicInfo: LX.Music.MusicInfo
+        playedAt: number
+        playTime: number
+        maxTime: number
+        listId: string | null
+        source: PlayHistorySource
       }
 
       interface Track extends RNTrack {
@@ -80,7 +95,6 @@ declare global {
         // original: PlayMusic
         // quality: LX.Quality
       }
-
     }
   }
 }

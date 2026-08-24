@@ -4,35 +4,13 @@ import { exitApp } from '@/core/common'
 import playerState from '@/store/player/state'
 import settingState from '@/store/setting/state'
 
-type TimeoutMode = 'off' | 'timer'
-
-export interface TimeoutExitInfo {
-  time: number
-  isPlayedStop: boolean
-  mode: TimeoutMode
-  active: boolean
-}
-
-type Hook = (info: TimeoutExitInfo) => void
-
-interface TimeoutToolsSnapshot {
-  getTime: () => number
-  mode: TimeoutMode
-}
-
-const createInfo = (tools: TimeoutToolsSnapshot): TimeoutExitInfo => ({
-  time: tools.getTime(),
-  isPlayedStop: global.lx.isPlayedStop,
-  mode: tools.mode,
-  active: tools.getTime() >= 0,
-})
+type Hook = (time: number, isPlayedStop: boolean) => void
 
 const timeoutTools = {
   bgTimeout: null as number | null,
-  timeout: null as ReturnType<typeof setInterval> | null,
+  timeout: null as NodeJS.Timer | null,
   startTime: 0,
   time: -1,
-  mode: 'off' as TimeoutMode,
   timeHooks: [] as Hook[],
   exit() {
     if (settingState.setting['player.timeoutExitPlayed'] && playerState.isPlay) {
@@ -46,45 +24,38 @@ const timeoutTools = {
     return Math.max(this.time - Math.round((performance.now() - this.startTime) / 1000), -1)
   },
   callHooks() {
-    const info = createInfo(this)
+    const time = this.getTime()
     for (const hook of this.timeHooks) {
-      hook(info)
+      hook(time, global.lx.isPlayedStop)
     }
   },
-  clearTimer(resetMode = true) {
-    if (this.bgTimeout) {
-      BackgroundTimer.clearTimeout(this.bgTimeout)
-      this.bgTimeout = null
-    }
-    if (this.timeout) {
-      clearInterval(this.timeout)
-      this.timeout = null
-    }
+  clearTimeout() {
+    if (!this.bgTimeout) return
+    BackgroundTimer.clearTimeout(this.bgTimeout)
+    clearInterval(this.timeout!)
+    this.bgTimeout = null
+    this.timeout = null
     this.time = -1
-    if (resetMode && this.mode == 'timer') this.mode = 'off'
     this.callHooks()
   },
   start(time: number) {
-    this.clearTimer(false)
-    this.mode = 'timer'
+    this.clearTimeout()
     this.time = time
     this.startTime = performance.now()
     this.bgTimeout = BackgroundTimer.setTimeout(() => {
-      this.clearTimer()
+      this.clearTimeout()
       this.exit()
     }, time * 1000)
     this.timeout = setInterval(() => {
       this.callHooks()
     }, 1000)
-    this.callHooks()
   },
   addTimeHook(hook: Hook) {
     this.timeHooks.push(hook)
-    hook(createInfo(this))
+    hook(this.getTime(), global.lx.isPlayedStop)
   },
   removeTimeHook(hook: Hook) {
-    const index = this.timeHooks.indexOf(hook)
-    if (index > -1) this.timeHooks.splice(index, 1)
+    this.timeHooks.splice(this.timeHooks.indexOf(hook), 1)
   },
 }
 
@@ -92,20 +63,23 @@ export const startTimeoutExit = (time: number) => {
   timeoutTools.start(time)
 }
 export const stopTimeoutExit = () => {
-  timeoutTools.clearTimer()
+  timeoutTools.clearTimeout()
 }
+
 export const getTimeoutExitTime = () => {
   return timeoutTools.time
 }
 
 export const useTimeoutExitTimeInfo = () => {
-  const [info, setInfo] = useState<TimeoutExitInfo>(createInfo(timeoutTools))
+  const [info, setInfo] = useState({ time: 0, isPlayedStop: false })
   useEffect(() => {
-    const hook: Hook = (info) => {
-      setInfo(info)
+    const hook: Hook = (time, isPlayedStop) => {
+      setInfo({ time, isPlayedStop })
     }
     timeoutTools.addTimeHook(hook)
-    return () => { timeoutTools.removeTimeHook(hook) }
+    return () => {
+      timeoutTools.removeTimeHook(hook)
+    }
   }, [setInfo])
 
   return info
@@ -123,5 +97,3 @@ export const cancelTimeoutExit = () => {
   global.lx.isPlayedStop = false
   timeoutTools.callHooks()
 }
-
-export const markTimeoutExitInteraction = () => {}

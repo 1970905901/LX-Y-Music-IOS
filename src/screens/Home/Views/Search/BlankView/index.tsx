@@ -32,39 +32,41 @@ export default forwardRef<BlankViewType, BlankViewProps>(({ onSearch }, ref) => 
     historySearchRef.current?.show()
   }
 
-  useImperativeHandle(ref, () => ({
-    show(source) {
-      if (visible) handleShow(source)
-      else {
-        setVisible(true)
-        requestAnimationFrame(() => {
-          handleShow(source)
-        })
-      }
-    },
-  }), [visible])
-
-  return (
-    visible
-      ? isShowHotSearch || isShowHistorySearch
-        ? (
-            <ScrollView>
-              <View style={styles.content}>
-                { isShowHotSearch ? <HotSearch ref={hotSearchRef} onSearch={onSearch} /> : null }
-                { isShowHistorySearch ? <HistorySearch ref={historySearchRef} onSearch={onSearch} /> : null }
-              </View>
-            </ScrollView>
-          )
-        : (
-            <View style={styles.welcome}>
-              <Text size={22} color={theme['c-font-label']}>{t('search__welcome')}</Text>
-            </View>
-          )
-      : null
-
+  useImperativeHandle(
+    ref,
+    () => ({
+      show(source) {
+        if (visible) handleShow(source)
+        else {
+          setVisible(true)
+          requestAnimationFrame(() => {
+            handleShow(source)
+          })
+        }
+      },
+    }),
+    [visible]
   )
-})
 
+  return visible ? (
+    isShowHotSearch || isShowHistorySearch ? (
+      <ScrollView>
+        <View style={styles.content}>
+          {/*{isShowHotSearch ? <HotSearch ref={hotSearchRef} onSearch={onSearch} /> : null}*/}
+          {/*{isShowHistorySearch ? (*/}
+            <HistorySearch ref={historySearchRef} onSearch={onSearch} />
+          {/*) : null}*/}
+        </View>
+      </ScrollView>
+    ) : (
+      <View style={styles.welcome}>
+        <Text size={22} color={theme['c-font-label']}>
+          {t('search__welcome')}
+        </Text>
+      </View>
+    )
+  ) : null
+})
 
 const styles = createStyle({
   content: {

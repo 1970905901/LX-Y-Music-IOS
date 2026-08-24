@@ -2,9 +2,7 @@ import { httpFetch } from '@/utils/request'
 import { zzcSign } from './crypto'
 
 export const signRequest = async(data) => {
-  // console.log(data)
   const sign = await zzcSign(JSON.stringify(data))
-  // console.log('sign', sign)
   return httpFetch(`https://u.y.qq.com/cgi-bin/musics.fcg?sign=${sign}`, {
     method: 'post',
     headers: {

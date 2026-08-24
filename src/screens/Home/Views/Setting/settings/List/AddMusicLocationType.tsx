@@ -18,15 +18,21 @@ const useActive = (id: LX.AddMusicLocationType) => {
   return isActive
 }
 
-const Item = ({ id, name }: {
-  id: LX.AddMusicLocationType
-  name: string
-}) => {
+const Item = ({ id, name }: { id: LX.AddMusicLocationType; name: string }) => {
   const isActive = useActive(id)
   // const [toggleCheckBox, setToggleCheckBox] = useState(false)
-  return <CheckBox marginRight={8} check={isActive} label={name} onChange={() => { setAddMusicLocationType(id) }} need />
+  return (
+    <CheckBox
+      marginRight={8}
+      check={isActive}
+      label={name}
+      onChange={() => {
+        setAddMusicLocationType(id)
+      }}
+      need
+    />
+  )
 }
-
 
 export default memo(() => {
   const t = useI18n()

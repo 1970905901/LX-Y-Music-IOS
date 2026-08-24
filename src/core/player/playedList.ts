@@ -1,6 +1,5 @@
 import playerActions from '@/store/player/action'
 
-
 /**
  * 将歌曲添加到已播放列表
  * @param playMusicInfo playMusicInfo对象

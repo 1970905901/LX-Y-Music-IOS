@@ -1,5 +1,5 @@
 import { memo, useState, useMemo, useCallback } from 'react'
-import { StyleSheet, View } from 'react-native'
+import { StyleSheet, View, TouchableOpacity } from 'react-native'
 import { BorderWidths } from '@/theme'
 import { Icon } from '@/components/common/Icon'
 import { createStyle } from '@/utils/tools'
@@ -12,16 +12,29 @@ import { useI18n } from '@/lang'
 import Image from '@/components/common/Image'
 import CommentImage from './CommentImage'
 import CommentText from './CommentText'
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const defaultUser = require('@/resources/images/defaultUser.jpg')
 
 const GAP = 12
 const avatarWidth = scaleSizeW(36)
 
-const CommentFloor = memo(({ comment, isLast }: {
+export interface CommentFloorActions {
+  onReply?: (comment: Comment) => void
+  onDelete?: (comment: Comment) => void
+  canDelete?: (comment: Comment) => boolean
+  showActions?: boolean
+}
+
+const CommentFloor = memo(({
+  comment,
+  isLast,
+  onReply,
+  onDelete,
+  canDelete,
+  showActions,
+}: {
   comment: Comment
   isLast?: boolean
-}) => {
+} & CommentFloorActions) => {
   const theme = useTheme()
   const [isAvatarError, setIsAvatarError] = useState(false)
   const { onLayout, width } = useLayout()
@@ -31,41 +44,64 @@ const CommentFloor = memo(({ comment, isLast }: {
     setIsAvatarError(true)
   }, [])
 
+  const handleReply = useCallback(() => {
+    onReply?.(comment)
+  }, [onReply, comment])
+
+  const handleDelete = useCallback(() => {
+    onDelete?.(comment)
+  }, [onDelete, comment])
+
   const replyComments = useMemo(() => {
     if (!comment.reply?.length) return null
     const endIndex = comment.reply.length - 1
     return (
       <View style={{ ...styles.replyFloor, borderTopColor: theme['c-list-header-border-bottom'] }}>
-        {
-          comment.reply.map((c, index) => (
-            <CommentFloor comment={c} isLast={index === endIndex} key={`${comment.id}_${c.id}`} />
-          ))
-        }
+        {comment.reply.map((c, index) => (
+          <CommentFloor
+            comment={c}
+            isLast={index === endIndex}
+            key={`${comment.id}_${c.id}`}
+            onReply={onReply}
+            onDelete={onDelete}
+            canDelete={canDelete}
+            showActions={showActions}
+          />
+        ))}
       </View>
     )
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [onReply, onDelete, canDelete, showActions])
 
   const likedCount = useMemo(() => {
     if (comment.likedCount == null) return null
     return (
       <View style={styles.like}>
         <Icon name="thumbs-up" style={{ color: theme['c-450'] }} size={12} />
-        <Text style={styles.likedCount} size={12} color={ theme['c-450'] }>{comment.likedCount}</Text>
+        <Text style={styles.likedCount} size={12} color={theme['c-450']}>
+          {comment.likedCount}
+        </Text>
       </View>
     )
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const showDeleteBtn = showActions && canDelete?.(comment)
+
   return (
-    <View style={{ ...styles.container, borderBottomColor: theme['c-list-header-border-bottom'], borderBottomWidth: isLast ? 0 : BorderWidths.normal, paddingBottom: isLast ? 0 : GAP }}>
+    <View
+      style={{
+        ...styles.container,
+        borderBottomColor: theme['c-list-header-border-bottom'],
+        borderBottomWidth: isLast ? 0 : BorderWidths.normal,
+        paddingBottom: isLast ? 0 : GAP,
+      }}
+    >
       <View style={styles.comment}>
         <View>
           <Image
             url={comment.avatar && !isAvatarError ? comment.avatar : defaultUser}
             onError={handleAvatarError}
-            style={stylesRaw.avatar} />
+            style={stylesRaw.avatar}
+          />
         </View>
         <View style={styles.right}>
           <View style={styles.info}>
@@ -74,24 +110,44 @@ const CommentFloor = memo(({ comment, isLast }: {
                 {comment.userName}
               </Text>
               <View style={styles.metaInfo}>
-                <Text numberOfLines={1} size={12} color={theme['c-450']}>{comment.timeStr}</Text>
-                { comment.location ? <Text numberOfLines={1} style={styles.location} size={12} color={theme['c-450']}>{t('location', { location: comment.location })}</Text> : null }
+                <Text numberOfLines={1} size={12} color={theme['c-450']}>
+                  {comment.timeStr}
+                </Text>
+                {comment.location ? (
+                  <Text numberOfLines={1} style={styles.location} size={12} color={theme['c-450']}>
+                    {t('location', { location: comment.location })}
+                  </Text>
+                ) : null}
               </View>
             </View>
             {likedCount}
           </View>
           <CommentText text={comment.text} />
-          {
-            comment.images?.length
-              ? (
-                  <View style={styles.images} onLayout={onLayout}>
-                    {
-                      comment.images.map((url, index) => <CommentImage key={String(index)} url={url} maxWidth={width} />)
-                    }
-                  </View>
-                )
-              : null
-          }
+          {comment.images?.length ? (
+            <View style={styles.images} onLayout={onLayout}>
+              {comment.images.map((url, index) => (
+                <CommentImage key={String(index)} url={url} maxWidth={width} />
+              ))}
+            </View>
+          ) : null}
+          {showActions ? (
+            <View style={styles.actionBar}>
+              <TouchableOpacity onPress={handleReply} style={styles.actionBtn}>
+                <Icon name="comment" size={14} color={theme['c-450']} />
+                <Text size={12} color={theme['c-450']} style={styles.actionText}>
+                  {t('comment_reply' as any)}
+                </Text>
+              </TouchableOpacity>
+              {showDeleteBtn ? (
+                <TouchableOpacity onPress={handleDelete} style={styles.actionBtn}>
+                  <Icon name="close" size={14} color={theme['c-450']} />
+                  <Text size={12} color={theme['c-450']} style={styles.actionText}>
+                    {t('comment_delete' as any)}
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          ) : null}
         </View>
       </View>
       {replyComments}
@@ -150,6 +206,19 @@ const styles = createStyle({
     // backgroundColor: 'rgba(0,0,0,0.1)',
     borderStyle: 'dashed',
   },
+  actionBar: {
+    flexDirection: 'row',
+    marginTop: 8,
+    gap: 16,
+  },
+  actionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 2,
+  },
+  actionText: {
+    marginLeft: 4,
+  },
 })
 
 const stylesRaw = StyleSheet.create({
@@ -161,3 +230,4 @@ const stylesRaw = StyleSheet.create({
 })
 
 export default CommentFloor
+

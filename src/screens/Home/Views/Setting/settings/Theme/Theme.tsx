@@ -19,7 +19,14 @@ const useActive = (id: string) => {
   return isActive
 }
 
-const ThemeItem = ({ id, name, color, image, setTheme, showAll }: {
+const ThemeItem = ({
+  id,
+  name,
+  color,
+  image,
+  setTheme,
+  showAll,
+}: {
   id: string
   name: string
   color: string
@@ -30,40 +37,76 @@ const ThemeItem = ({ id, name, color, image, setTheme, showAll }: {
   const theme = useTheme()
   const isActive = useActive(id)
 
-  return (
-    showAll || isActive ? (
-      <TouchableOpacity style={{ ...styles.item, width: scaleSizeH(ITEM_HEIGHT) }} activeOpacity={0.5} onPress={() => { setTheme(id) }}>
-        <View style={{ ...styles.colorContent, width: scaleSizeH(COLOR_ITEM_HEIGHT), borderColor: isActive ? color : 'transparent' }}>
-          {
-            image
-              ? <ImageBackground style={{ ...styles.imageContent, width: scaleSizeH(IMAGE_HEIGHT), backgroundColor: color }}
-                  imageStyle={{ borderRadius: 4 }}
-                  source={image} />
-              : <View style={{ ...styles.imageContent, width: scaleSizeH(IMAGE_HEIGHT), backgroundColor: color }}></View>
-            }
-        </View>
-        <Text style={styles.name} size={12} color={isActive ? color : theme['c-font']} numberOfLines={1}>{name}</Text>
-      </TouchableOpacity>
-    ) : null
-  )
+  return showAll || isActive ? (
+    <TouchableOpacity
+      style={{ ...styles.item, width: scaleSizeH(ITEM_HEIGHT) }}
+      activeOpacity={0.5}
+      onPress={() => {
+        setTheme(id)
+      }}
+    >
+      <View
+        style={{
+          ...styles.colorContent,
+          width: scaleSizeH(COLOR_ITEM_HEIGHT),
+          borderColor: isActive ? color : 'transparent',
+        }}
+      >
+        {image ? (
+          <ImageBackground
+            style={{
+              ...styles.imageContent,
+              width: scaleSizeH(IMAGE_HEIGHT),
+              backgroundColor: color,
+            }}
+            imageStyle={{ borderRadius: 4 }}
+            source={image}
+          />
+        ) : (
+          <View
+            style={{
+              ...styles.imageContent,
+              width: scaleSizeH(IMAGE_HEIGHT),
+              backgroundColor: color,
+            }}
+          ></View>
+        )}
+      </View>
+      <Text
+        style={styles.name}
+        size={12}
+        color={isActive ? color : theme['c-font']}
+        numberOfLines={1}
+      >
+        {name}
+      </Text>
+    </TouchableOpacity>
+  ) : null
 }
 
-const MoreBtn = ({ showAll, setShowAll }: {
+const MoreBtn = ({
+  showAll,
+  setShowAll,
+}: {
   showAll: boolean
   setShowAll: (showAll: boolean) => void
 }) => {
   const theme = useTheme()
   const t = useI18n()
 
-  return (
-    showAll ? null
-      : (
-          <TouchableOpacity style={styles.moreBtn} activeOpacity={0.5} onPress={() => { setShowAll(!showAll) }}>
-            <Text size={14} color={theme['c-primary-font']} numberOfLines={1}>{t('setting_basic_theme_more_btn_show')}</Text>
-            <Icon name="chevron-right" size={12} color={theme['c-primary-font']} />
-          </TouchableOpacity>
-        )
-
+  return showAll ? null : (
+    <TouchableOpacity
+      style={styles.moreBtn}
+      activeOpacity={0.5}
+      onPress={() => {
+        setShowAll(!showAll)
+      }}
+    >
+      <Text size={14} color={theme['c-primary-font']} numberOfLines={1}>
+        {t('setting_basic_theme_more_btn_show')}
+      </Text>
+      <Icon name="chevron-right" size={12} color={theme['c-primary-font']} />
+    </TouchableOpacity>
   )
 }
 
@@ -90,30 +133,32 @@ export default memo(() => {
   return (
     <SubTitle title={t('setting_basic_theme')}>
       <View style={styles.list}>
-        {
-          themeInfo.themes.map(({ id, config }) => {
-            return <ThemeItem
+        {themeInfo.themes.map(({ id, config }) => {
+          return (
+            <ThemeItem
               key={id}
               color={config.themeColors['c-theme']}
               image={config.extInfo['bg-image'] ? BG_IMAGES[config.extInfo['bg-image']] : undefined}
               showAll={showAll}
               id={id}
               name={t(`theme_${id}`)}
-              setTheme={setThemeId} />
-          })
-        }
-        {
-          themeInfo.userThemes.map(({ id, name, config }) => {
-            return <ThemeItem
+              setTheme={setThemeId}
+            />
+          )
+        })}
+        {themeInfo.userThemes.map(({ id, name, config }) => {
+          return (
+            <ThemeItem
               key={id}
               color={config.themeColors['c-theme']}
               // image={undefined}
               showAll={showAll}
               id={id}
               name={name}
-              setTheme={setThemeId} />
-          })
-        }
+              setTheme={setThemeId}
+            />
+          )
+        })}
         <MoreBtn showAll={showAll} setShowAll={setShowAll} />
       </View>
     </SubTitle>

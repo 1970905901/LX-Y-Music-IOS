@@ -23,36 +23,40 @@ const closeSyncModeModal = () => {
     syncActions.setSyncModeComponentId('')
   }
 }
-export const selectSyncMode = async<T extends keyof LX.Sync.ModeTypes>(serverName: string, type: T) => new Promise<LX.Sync.ModeTypes[T]>((resolve, reject) => {
-  removeSyncModeEvent()
-  syncActions.setServerInfo(serverName, type)
-  showSyncModeModal()
+export const selectSyncMode = async <T extends keyof LX.Sync.ModeTypes>(
+  serverName: string,
+  type: T
+) =>
+  new Promise<LX.Sync.ModeTypes[T]>((resolve, reject) => {
+    removeSyncModeEvent()
+    syncActions.setServerInfo(serverName, type)
+    showSyncModeModal()
 
-  const removeListeners = () => {
-    removeListener!()
-    removeListener = null
-    removeEvent = null
-    global.app_event.off('selectSyncMode', handleSelectMode)
-  }
+    const removeListeners = () => {
+      removeListener!()
+      removeListener = null
+      removeEvent = null
+      global.app_event.off('selectSyncMode', handleSelectMode)
+    }
 
-  const handleSelectMode = ({ mode }: LX.Sync.ModeType) => {
-    removeListeners()
-    closeSyncModeModal()
-    resolve(mode as LX.Sync.ModeTypes[T])
-  }
+    const handleSelectMode = ({ mode }: LX.Sync.ModeType) => {
+      removeListeners()
+      closeSyncModeModal()
+      resolve(mode as LX.Sync.ModeTypes[T])
+    }
 
-  removeEvent = () => {
-    removeListeners()
-    reject(new Error('cancel'))
-  }
+    removeEvent = () => {
+      removeListeners()
+      reject(new Error('cancel'))
+    }
 
-  global.app_event.on('selectSyncMode', handleSelectMode)
+    global.app_event.on('selectSyncMode', handleSelectMode)
 
-  let removeListener: RemoveListener = onModalDismissed(syncState.syncModeComponentId, () => {
-    syncActions.setSyncModeComponentId('')
-    removeEvent?.()
+    let removeListener: RemoveListener = onModalDismissed(syncState.syncModeComponentId, () => {
+      syncActions.setSyncModeComponentId('')
+      removeEvent?.()
+    })
   })
-})
 
 export const removeSyncModeEvent = () => {
   if (!removeEvent) return

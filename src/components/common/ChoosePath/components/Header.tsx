@@ -11,81 +11,96 @@ import NewFolderModal, { type NewFolderType } from './NewFolderModal'
 import OpenStorageModal, { type OpenDirModalType } from './OpenStorageModal'
 import type { PathItem } from './ListItem'
 
+export default memo(
+  ({
+    title,
+    path,
+    onRefreshDir,
+    onOpenDir,
+  }: {
+    title: string
+    path: string
+    onRefreshDir: (dir: string) => Promise<PathItem[]>
+    onOpenDir: (dir: string) => Promise<PathItem[]>
+  }) => {
+    const theme = useTheme()
+    const newFolderTypeRef = useRef<NewFolderType>(null)
+    const openDirModalTypeRef = useRef<OpenDirModalType>(null)
+    const storagePathsRef = useRef<string[]>([])
+    const statusBarHeight = useStatusbarHeight()
 
-export default memo(({
-  title,
-  path,
-  onRefreshDir,
-  onOpenDir,
-}: {
-  title: string
-  path: string
-  onRefreshDir: (dir: string) => Promise<PathItem[]>
-  onOpenDir: (dir: string) => Promise<PathItem[]>
-}) => {
-  const theme = useTheme()
-  const newFolderTypeRef = useRef<NewFolderType>(null)
-  const openDirModalTypeRef = useRef<OpenDirModalType>(null)
-  const storagePathsRef = useRef<string[]>([])
-  const statusBarHeight = useStatusbarHeight()
+    const checkExternalStoragePath = useCallback(() => {
+      storagePathsRef.current = []
+      void getExternalStoragePaths().then(async (storagePaths) => {
+        for (const path of storagePaths) {
+          try {
+            if (!(await stat(path)).canRead) continue
+          } catch {
+            continue
+          }
+          storagePathsRef.current.push(path)
+        }
+      })
+    }, [])
+    useEffect(() => {
+      checkExternalStoragePath()
+    }, [checkExternalStoragePath])
 
-  const checkExternalStoragePath = useCallback(() => {
-    storagePathsRef.current = []
-    void getExternalStoragePaths().then(async(storagePaths) => {
-      for (const path of storagePaths) {
-        try {
-          if (!(await stat(path)).canRead) continue
-        } catch { continue }
-        storagePathsRef.current.push(path)
-      }
-    })
-  }, [])
-  useEffect(() => {
-    checkExternalStoragePath()
-  }, [checkExternalStoragePath])
+    const refresh = () => {
+      void onRefreshDir(path)
+      checkExternalStoragePath()
+    }
 
-  const refresh = () => {
-    void onRefreshDir(path)
-    checkExternalStoragePath()
-  }
+    const openStorage = () => {
+      openDirModalTypeRef.current?.show(storagePathsRef.current)
+    }
 
-  const openStorage = () => {
-    openDirModalTypeRef.current?.show(storagePathsRef.current)
-  }
+    const handleShowNewFolderModal = () => {
+      newFolderTypeRef.current?.show(path)
+    }
 
-  const handleShowNewFolderModal = () => {
-    newFolderTypeRef.current?.show(path)
-  }
-
-  return (
-    <>
-      <View style={{
-        ...styles.header,
-        height: scaleSizeH(50) + statusBarHeight,
-        paddingTop: statusBarHeight,
-        backgroundColor: theme['c-content-background'],
-      }} onStartShouldSetResponder={() => true}>
-        <View style={styles.titleContent}>
-          <Text color={theme['c-primary-font']} numberOfLines={1}>{title}</Text>
-          <Text style={styles.subTitle} color={theme['c-primary-font']} size={13} numberOfLines={1}>{path}</Text>
+    return (
+      <>
+        <View
+          style={{
+            ...styles.header,
+            height: scaleSizeH(50) + statusBarHeight,
+            paddingTop: statusBarHeight,
+            backgroundColor: theme['c-content-background'],
+          }}
+          onStartShouldSetResponder={() => true}
+        >
+          <View style={styles.titleContent}>
+            <Text color={theme['c-primary-font']} numberOfLines={1}>
+              {title}
+            </Text>
+            <Text
+              style={styles.subTitle}
+              color={theme['c-primary-font']}
+              size={13}
+              numberOfLines={1}
+            >
+              {path}
+            </Text>
+          </View>
+          <View style={styles.actions}>
+            <TouchableOpacity style={styles.actionBtn} onPress={openStorage}>
+              <Icon name="sd-card" color={theme['c-primary-font']} size={22} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionBtn} onPress={handleShowNewFolderModal}>
+              <Icon name="add_folder" color={theme['c-primary-font']} size={22} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionBtn} onPress={refresh}>
+              <Icon name="available_updates" color={theme['c-primary-font']} size={22} />
+            </TouchableOpacity>
+          </View>
         </View>
-        <View style={styles.actions}>
-          <TouchableOpacity style={styles.actionBtn} onPress={openStorage}>
-            <Icon name="sd-card" color={theme['c-primary-font']} size={22} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionBtn} onPress={handleShowNewFolderModal}>
-            <Icon name="add_folder" color={theme['c-primary-font']} size={22} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionBtn} onPress={refresh}>
-            <Icon name="available_updates" color={theme['c-primary-font']} size={22} />
-          </TouchableOpacity>
-        </View>
-      </View>
-      <OpenStorageModal ref={openDirModalTypeRef} onOpenDir={onOpenDir} />
-      <NewFolderModal ref={newFolderTypeRef} onRefreshDir={onRefreshDir} />
-    </>
-  )
-})
+        <OpenStorageModal ref={openDirModalTypeRef} onOpenDir={onOpenDir} />
+        <NewFolderModal ref={newFolderTypeRef} onRefreshDir={onRefreshDir} />
+      </>
+    )
+  }
+)
 
 const styles = createStyle({
   header: {
@@ -139,4 +154,3 @@ const styles = createStyle({
     paddingBottom: 2,
   },
 })
-

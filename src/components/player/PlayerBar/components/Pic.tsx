@@ -6,7 +6,7 @@ import commonState from '@/store/common/state'
 import playerState from '@/store/player/state'
 import { LIST_IDS, NAV_SHEAR_NATIVE_IDS } from '@/config/constant'
 import Image from '@/components/common/Image'
-import { useCallback } from 'react'
+import { useCallback, useRef } from 'react'
 import { setLoadErrorPicUrl, setMusicInfo } from '@/core/player/playInfo'
 
 const PIC_HEIGHT = scaleSizeH(46)
@@ -21,16 +21,19 @@ const styles = StyleSheet.create({
 
 export default ({ isHome }: { isHome: boolean }) => {
   const musicInfo = usePlayerMusicInfo()
-  const handlePress = () => {
-    // console.log('')
-    // console.log(playMusicInfo)
-    if (!musicInfo.id) return
-    navigations.pushPlayDetailScreen(commonState.componentIds.home!)
+  const longPressedRef = useRef(false)
 
-    // toast(global.i18n.t('play_detail_todo_tip'), 'long')
+  const handlePress = () => {
+    if (longPressedRef.current) {
+      longPressedRef.current = false
+      return
+    }
+    if (!musicInfo.id) return
+    navigations.pushPlayDetailScreen(commonState.componentIds[commonState.componentIds.length - 1]?.id!)
   }
 
   const handleLongPress = () => {
+    longPressedRef.current = true
     if (!isHome) return
     const listId = playerState.playMusicInfo.listId
     if (!listId || listId == LIST_IDS.DOWNLOAD) return
@@ -45,12 +48,16 @@ export default ({ isHome }: { isHome: boolean }) => {
   }, [])
 
   return (
-    <TouchableOpacity onLongPress={handleLongPress} onPress={handlePress} activeOpacity={0.7} >
-      <Image url={musicInfo.pic} nativeID={NAV_SHEAR_NATIVE_IDS.playDetail_pic} style={styles.image} onError={handleError} />
+    <TouchableOpacity onLongPress={handleLongPress} onPress={handlePress} activeOpacity={0.7}>
+      <Image
+        url={musicInfo.pic}
+        nativeID={NAV_SHEAR_NATIVE_IDS.playDetail_pic}
+        style={styles.image}
+        onError={handleError}
+      />
     </TouchableOpacity>
   )
 }
-
 
 // const styles = StyleSheet.create({
 //   playInfoImg: {

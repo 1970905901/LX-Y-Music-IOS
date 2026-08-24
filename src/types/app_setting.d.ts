@@ -1,28 +1,14 @@
 import type { I18n } from '@/lang/i18n'
+import {NAV_ID_Type} from "@/config/constant.ts";
 
 declare global {
   namespace LX {
     type AddMusicLocationType = 'top' | 'bottom'
-    type SoundEffectPresetId =
-      | 'none'
-      | 'pop'
-      | 'dance'
-      | 'rock'
-      | 'classical'
-      | 'vocal'
-      | 'slow'
-      | 'electronic'
-      | 'subwoofer'
-      | 'soft'
-      | 'custom'
-      | 'slowSong'
-      | 'bass'
-      | 'speech'
-      | 'deep'
-      | 'loudness'
+    type DownloadFileNameFormat = '歌名 - 歌手' | '歌手 - 歌名' | '歌名'
 
     interface AppSetting {
       version: string
+      'version.autoCheckUpdate': boolean;
       /**
        * 是否跟随系统切换亮暗主题
        */
@@ -69,11 +55,6 @@ declare global {
       'common.homePageScroll': boolean
 
       /**
-       * 允许通过底栏进度条调整进度
-       */
-      'common.allowProgressBarSeek': boolean
-
-      /**
        * 是否显示返回按钮
        */
       'common.showBackBtn': boolean
@@ -89,9 +70,44 @@ declare global {
       'common.useSystemFileSelector': boolean
 
       /**
+       * 网易云音乐 Cookie
+       */
+      'common.wy_cookie': string
+      'common.wy_serpapi_key': string
+      /**
+       * QQ音乐 Cookie
+       */
+      'common.tx_cookie': string
+      'common.kg_cookie': string
+      'common.yt_cookie': string
+
+      /**
        * 总是保留状态栏高度
        */
       'common.alwaysKeepStatusbarHeight': boolean
+
+      /**
+       * 锁定横屏模式
+       */
+      'common.lockLandscape': boolean
+
+      'common.isShowStartupGreeting': boolean
+      'common.hideNavigationBar': boolean
+      'common.isEnableLog': boolean
+      'common.isEnableSyncLog': boolean
+      'common.isEnableUserApiLog': boolean
+      'common.isEnableWebDAVLog': boolean
+      'common.isEnableSearchLog': boolean
+      'common.isEnablePlayerLog': boolean
+
+      'common.navStatus': Partial<Record<NAV_ID_Type, boolean>>;
+
+      'common.navOrder': NAV_ID_Type[];
+      'common.navGroupExpanded': Record<string, boolean>;
+      'common.navGroupEnabled': boolean;
+      'common.navGroupOrder': Record<string, string[]>;
+      'common.navFlatOrder': NAV_ID_Type[];
+      'common.navGroupVisible': Record<string, boolean>;
 
       /**
        * 主题id
@@ -119,9 +135,40 @@ declare global {
       'theme.dynamicBg': boolean
 
       /**
+       * 动态背景模糊度
+       */
+      'theme.blur': number
+
+      'theme.picOpacity': number
+
+      'theme.customBgPicPath': string
+
+      'theme.sectionOpacity': number
+
+      /**
+       * 我的列表新UI
+       */
+      'list.isNewListUI': boolean
+
+      /**
        * 字体阴影
        */
       'theme.fontShadow': boolean
+
+      /**
+       * 侧边栏动态背景
+       */
+      'theme.sidebarDynamicBg': boolean
+
+      /**
+       * 我的列表UI动态背景
+       */
+      'theme.mylistDynamicBg': boolean
+
+      /**
+       * 横屏界面拉伸（侧边栏延伸到刘海区域）
+       */
+      'theme.isLandscapeStretch': boolean
 
       /**
        * 启动时自动播放歌曲
@@ -136,7 +183,7 @@ declare global {
       /**
        * 切歌模式
        */
-      'player.togglePlayMethod': 'listLoop' | 'random' | 'list' | 'singleLoop' | 'none'
+      'player.togglePlayMethod': 'listLoop' | 'random' | 'list' | 'singleLoop' | 'heartbeat' | 'none'
 
       /**
        * 优先播放的音质
@@ -147,6 +194,11 @@ declare global {
        * 启动软件时是否恢复上次播放进度
        */
       'player.isSavePlayTime': boolean
+
+      /**
+       * 是否启用上滑播放栏显示播放列表
+       */
+      'player.isSwipeToShowPlaylist': boolean
 
       /**
        * 音量大小
@@ -167,8 +219,6 @@ declare global {
        * 定时暂停播放-倒计时时间
        */
       'player.timeoutExit': string
-      'player.timeoutExitCustomMinutes': string
-      'player.timeoutExitTimerType': 'preset' | 'custom'
 
       /**
        * 定时暂停播放-是否等待歌曲播放完毕再暂停
@@ -189,6 +239,11 @@ declare global {
        * 是否启用音频卸载功能（这可以节省耗电量，没有播放异常问题不建议关闭）
        */
       'player.isEnableAudioOffload': boolean
+
+      /**
+       * 是否启用音频预加载（播放当前歌曲时提前加载下一首歌曲的播放链接）
+       */
+      'player.isEnableAudioPreload': boolean
 
       /**
        * 是否显示歌词翻译
@@ -216,115 +271,51 @@ declare global {
       'player.isShowBluetoothLyric': boolean
 
       /**
-       * 是否启用音效
+       * 是否启用滑动切歌
        */
-      'player.soundEffect.enabled': boolean
+      'player.isEnableSlideSwitchSong': boolean
 
       /**
-       * 当前音效预设
+       * 是否启用自动切换音源（播放失败时自动尝试其他音源）
        */
-      'player.soundEffect.preset': SoundEffectPresetId
+      'player.enableAutoToggleSource': boolean
 
       /**
-       * 31Hz EQ 增益
+       * 自动切换音源最大重试次数
        */
-      'player.soundEffect.eq.31': number
+      'player.toggleSourceMaxRetry': number
 
       /**
-       * 62Hz EQ 增益
+       * 播放失败策略优先级（按顺序执行）
        */
-      'player.soundEffect.eq.62': number
+      'player.failureStrategy': string[]
 
       /**
-       * 125Hz EQ 增益
+       * 是否启用播放失败策略
        */
-      'player.soundEffect.eq.125': number
-
-      /**
-       * 250Hz EQ 增益
-       */
-      'player.soundEffect.eq.250': number
-
-      /**
-       * 500Hz EQ 增益
-       */
-      'player.soundEffect.eq.500': number
-
-      /**
-       * 1kHz EQ 增益
-       */
-      'player.soundEffect.eq.1000': number
-
-      /**
-       * 2kHz EQ 增益
-       */
-      'player.soundEffect.eq.2000': number
-
-      /**
-       * 4kHz EQ 增益
-       */
-      'player.soundEffect.eq.4000': number
-
-      /**
-       * 8kHz EQ 增益
-       */
-      'player.soundEffect.eq.8000': number
-
-      /**
-       * 16kHz EQ 增益
-       */
-      'player.soundEffect.eq.16000': number
-
-      /**
-       * 环境音效文件名
-       */
-      'player.soundEffect.convolution.fileName': string
-
-      /**
-       * 环境音效原始输出增益
-       */
-      'player.soundEffect.convolution.mainGain': number
-
-      /**
-       * 环境音效输出增益
-       */
-      'player.soundEffect.convolution.sendGain': number
-
-      /**
-       * 3D 立体环绕是否启用
-       */
-      'player.soundEffect.panner.enable': boolean
-
-      /**
-       * 3D 立体环绕声音距离
-       */
-      'player.soundEffect.panner.soundR': number
-
-      /**
-       * 3D 立体环绕速度
-       */
-      'player.soundEffect.panner.speed': number
-
-      /**
-       * 升降声调
-       */
-      'player.soundEffect.pitchShifter.playbackRate': number
-
-      /**
-       * 播放详情页-是否缩放当前播放的歌词行
-       */
-      // 'playDetail.isZoomActiveLrc': boolean
-
-      /**
-       * 播放详情页-是否允许通过歌词调整播放进度
-       */
-      // 'playDetail.isShowLyricProgressSetting': boolean
+      'player.enableFailureStrategy': boolean
 
       /**
        * 播放详情页-歌词对齐方式
        */
       'playDetail.style.align': 'center' | 'left' | 'right'
 
+      /**
+       * 播放详情页-迷你歌词对齐方式
+       */
+      'playDetail.style.miniLyricAlign': 'center' | 'left' | 'right'
+
+      'playDetail.isCoverSpin': boolean
+
+      /**
+       * 播放详情页-新UI样式
+       */
+      'playDetail.style.newUI': boolean
+
+      /**
+       * 播放详情页-封面大小
+       */
+      'playDetail.style.coverSize': number
       /**
        * 竖屏歌词字体大小
        */
@@ -339,6 +330,16 @@ declare global {
        * 播放详情页-是否允许通过歌词调整播放进度
        */
       'playDetail.isShowLyricProgressSetting': boolean
+
+      /**
+       * 播放详情页-横屏沉浸模式-歌词字体大小
+       */
+      'playDetail.landscapeImmersion.style.lrcFontSize': number
+
+      /**
+       * 播放详情页-横屏沉浸模式-是否显示控制栏
+       */
+      'playDetail.landscapeImmersion.showControl': boolean
 
       /**
        * 是否启用桌面歌词
@@ -406,13 +407,13 @@ declare global {
       'desktopLyric.style.lyricUnplayColor': string
 
       /**
-        * 桌面歌词已播放字体颜色
-        */
+       * 桌面歌词已播放字体颜色
+       */
       'desktopLyric.style.lyricPlayedColor': string
 
       /**
-        * 桌面歌词字体阴影颜色
-        */
+       * 桌面歌词字体阴影颜色
+       */
       'desktopLyric.style.lyricShadowColor': string
 
       /**
@@ -424,6 +425,11 @@ declare global {
        * 是否显示搜索历史
        */
       'search.isShowHistorySearch': boolean
+
+      /**
+       * 启用的搜索平台
+       */
+      'search.enabledSources': Record<string, boolean>
 
       /**
        * 是否启用双击列表里的歌曲时自动切换到当前列表播放（仅对歌单、排行榜有效）
@@ -444,6 +450,7 @@ declare global {
        * 是否显示歌曲时长
        */
       'list.isShowInterval': boolean
+      'list.isShowCover': boolean
 
       /**
        * 是否自动恢复列表滚动位置（仅对我的列表有效）
@@ -455,16 +462,69 @@ declare global {
        */
       'list.addMusicLocationType': AddMusicLocationType
 
+      'list.isShowMyListSubMenu': boolean
+      'list.isAutoSaveDailyRec': boolean
+
+      'menu.playLater': boolean
+      'menu.addTo': boolean
+      'menu.share': boolean
+      'menu.playMV': boolean
+      'menu.songDetail': boolean
+      'menu.dislike': boolean
+
+      'menu.moveTo': boolean
+      'menu.changePosition': boolean
+      'menu.changeSource': boolean
+
+      'artistDetail.albumViewMode': 'grid' | 'list'
+      /**
+       * 是否启用下载
+       */
+      'download.enable': boolean
+
+      'download.path': string
       /**
        * 文件命名方式
        */
       'download.fileName': '歌名 - 歌手' | '歌手 - 歌名' | '歌名'
 
       /**
+       * 是否写入歌词
+       */
+      'download.writeLyric': boolean
+       /**
+         * 是否写入罗马音歌词
+       */
+      'download.writeRomaLyric': boolean
+      /**
+       * 是否内嵌歌词到音频文件
+       */
+      'download.writeEmbedLyric': boolean
+      /**
+       * 是否写入封面
+       */
+      'download.writePicture': boolean
+
+      /**
+       * 是否写入元数据
+       */
+      'download.writeMetadata': boolean
+      'download.writeAlias': boolean
+
+      /**
        * 是否启用同步
        */
       'sync.enable': boolean
+      'sync.webdav.enable': boolean;
+      'sync.webdav.syncLists': boolean;
+      'sync.webdav.syncPlayHistory': boolean;
+      'sync.webdav.syncDownloadTasks': boolean;
+      'sync.webdav.url': string;
+      'sync.webdav.username': string;
+      'sync.webdav.password': string;
+      'webdav.downloadPath': string;
+      'sync.webdav.path': string;
+      'sync.webdav.lastSyncTimeLists': number;
     }
   }
 }
-

@@ -7,20 +7,15 @@ const changedListIds = new Set<string | null>()
 
 export default () => {
   const throttleListChange = throttleBackgroundTimer(() => {
-    const isSkip = !changedListIds.has(playerState.playInfo.playerListId) && !changedListIds.has(playerState.playMusicInfo.listId)
+    const isSkip =
+      !changedListIds.has(playerState.playInfo.playerListId) &&
+      !changedListIds.has(playerState.playMusicInfo.listId)
     changedListIds.clear()
     if (isSkip) return
 
     const { playIndex } = updatePlayIndex()
-    if (playIndex < 0) { // 歌曲被移除
-      // if (global.lx.isPlayedStop) {
-      //   stop()
-      //   setTimeout(() => {
-      //     setPlayMusicInfo(null, null)
-      //   })
-      // } else
+    if (playIndex < 0) {
       if (!playerState.playMusicInfo.isTempPlay) {
-        // console.log('current music removed')
         void playNext(true)
       }
     }

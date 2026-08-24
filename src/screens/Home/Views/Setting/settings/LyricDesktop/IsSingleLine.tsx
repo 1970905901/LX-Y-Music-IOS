@@ -4,7 +4,6 @@ import { useSettingValue } from '@/store/setting/hook'
 import { useI18n } from '@/lang'
 import { createStyle } from '@/utils/tools'
 
-
 import CheckBoxItem from '../../components/CheckBoxItem'
 import { setDesktopLyricSingleLine } from '@/core/desktopLyric'
 import { updateSetting } from '@/core/common'
@@ -20,11 +19,14 @@ export default memo(() => {
 
   return (
     <View style={styles.content}>
-      <CheckBoxItem check={isSingleLine} onChange={update} label={t('setting_lyric_desktop_single_line')} />
+      <CheckBoxItem
+        check={isSingleLine}
+        onChange={update}
+        label={t('setting_lyric_desktop_single_line')}
+      />
     </View>
   )
 })
-
 
 const styles = createStyle({
   content: {

@@ -50,5 +50,4 @@ for (const source of music.sources) {
   state.sources.push(source.id as LX.OnlineSource)
 }
 
-
 export default state

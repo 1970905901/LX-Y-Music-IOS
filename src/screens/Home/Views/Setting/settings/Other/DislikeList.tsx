@@ -21,7 +21,7 @@ export default memo(() => {
     modalRef.current?.show(state.dislikeInfo.rules)
   }
 
-  const handleSave = async(rules: string) => {
+  const handleSave = async (rules: string) => {
     if (state.dislikeInfo.rules.trim() == rules.trim()) return
     await overwirteDislikeInfo(rules)
     toast(t('setting__other_dislike_list_saved_tip'))

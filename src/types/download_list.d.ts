@@ -1,16 +1,10 @@
-
 // interface DownloadList {
 
 // }
 
-
 declare namespace LX {
   namespace Download {
-    type DownloadTaskStatus = 'run'
-    | 'waiting'
-    | 'pause'
-    | 'error'
-    | 'completed'
+    type DownloadTaskStatus = 'run' | 'waiting' | 'pause' | 'error' | 'completed'
 
     type FileExt = 'mp3' | 'flac' | 'wav' | 'ape'
 
@@ -21,23 +15,29 @@ declare namespace LX {
       total: number
     }
 
-    interface DownloadTaskActionBase <A> {
+    interface DownloadTaskActionBase<A> {
       action: A
     }
     interface DownloadTaskActionData<A, D> extends DownloadTaskActionBase<A> {
       data: D
     }
-    type DownloadTaskAction<A, D = undefined> = D extends undefined ? DownloadTaskActionBase<A> : DownloadTaskActionData<A, D>
+    type DownloadTaskAction<A, D = undefined> = D extends undefined
+      ? DownloadTaskActionBase<A>
+      : DownloadTaskActionData<A, D>
 
-    type DownloadTaskActions = DownloadTaskAction<'start'>
-    | DownloadTaskAction<'complete'>
-    | DownloadTaskAction<'refreshUrl'>
-    | DownloadTaskAction<'statusText', string>
-    | DownloadTaskAction<'progress', ProgressInfo>
-    | DownloadTaskAction<'error', {
-      error?: string
-      message?: string
-    }>
+    type DownloadTaskActions =
+      | DownloadTaskAction<'start'>
+      | DownloadTaskAction<'complete'>
+      | DownloadTaskAction<'refreshUrl'>
+      | DownloadTaskAction<'statusText', string>
+      | DownloadTaskAction<'progress', ProgressInfo>
+      | DownloadTaskAction<
+          'error',
+          {
+            error?: string
+            message?: string
+          }
+        >
 
     interface ListItem {
       id: string

@@ -6,7 +6,6 @@ import Input from '@/components/common/Input'
 import { useTheme } from '@/store/theme/hook'
 import Text from '@/components/common/Text'
 
-
 export interface InputItemProps extends InputProps {
   value: string
   label: string
@@ -17,13 +16,15 @@ export default memo(({ value, label, onChanged, ...props }: InputItemProps) => {
   const theme = useTheme()
   return (
     <View style={styles.container}>
-      <Text style={styles.label} size={14}>{label}</Text>
+      <Text style={styles.label} size={14}>
+        {label}
+      </Text>
       <Input
         value={value}
         onChangeText={onChanged}
         style={{ ...styles.input, backgroundColor: theme['c-primary-input-background'] }}
         {...props}
-       />
+      />
     </View>
   )
 })

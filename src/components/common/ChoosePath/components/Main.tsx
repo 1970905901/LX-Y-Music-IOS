@@ -7,8 +7,12 @@ import { View, FlatList } from 'react-native'
 import ListItem, { type PathItem } from './ListItem'
 import LoadingMask, { type LoadingMaskType } from '@/components/common/LoadingMask'
 
-
-export default ({ list, loading, onSetPath, toParentDir }: {
+export default ({
+  list,
+  loading,
+  onSetPath,
+  toParentDir,
+}: {
   list: PathItem[]
   loading: boolean
   onSetPath: (item: PathItem) => void
@@ -20,32 +24,44 @@ export default ({ list, loading, onSetPath, toParentDir }: {
   const rowInfo = useRef(getRowInfo('full'))
   const fullRow = useRef({ rowNum: undefined, rowWidth: '100%' } as const)
 
-  const ParentItemComponent = useMemo(() => (
-    <View style={{ backgroundColor: theme['c-primary-light-700-alpha-900'] }}>
-      <ListItem item={{
-        name: '..',
-        desc: t('parent_dir_name'),
-        isDir: true,
-        path: '',
-      }} rowInfo={fullRow.current} onPress={toParentDir} />
-    </View>
-  ), [t, theme, toParentDir])
+  const ParentItemComponent = useMemo(
+    () => (
+      <View style={{ backgroundColor: theme['c-primary-light-700-alpha-900'] }}>
+        <ListItem
+          item={{
+            name: '..',
+            desc: t('parent_dir_name'),
+            isDir: true,
+            path: '',
+          }}
+          rowInfo={fullRow.current}
+          onPress={toParentDir}
+        />
+      </View>
+    ),
+    [t, theme, toParentDir]
+  )
 
   useEffect(() => {
     loadingMaskRef.current?.setVisible(loading)
   }, [loading])
 
-  const ListComponent = useMemo(() => (
-    <FlatList
-      keyboardShouldPersistTaps={'always'}
-      style={styles.list}
-      data={list}
-      numColumns={rowInfo.current.rowNum}
-      renderItem={({ item }) => <ListItem item={item} rowInfo={rowInfo.current} onPress={onSetPath} />}
-      keyExtractor={item => item.path + '/' + item.name}
-      removeClippedSubviews={true}
-    />
-  ), [list, onSetPath])
+  const ListComponent = useMemo(
+    () => (
+      <FlatList
+        keyboardShouldPersistTaps={'always'}
+        style={styles.list}
+        data={list}
+        numColumns={rowInfo.current.rowNum}
+        renderItem={({ item }) => (
+          <ListItem item={item} rowInfo={rowInfo.current} onPress={onSetPath} />
+        )}
+        keyExtractor={(item) => item.path + '/' + item.name}
+        removeClippedSubviews={true}
+      />
+    ),
+    [list, onSetPath]
+  )
 
   // const dirList = useMemo(() => [parentDir, ...list], [list, parentDir])
 
@@ -58,7 +74,6 @@ export default ({ list, loading, onSetPath, toParentDir }: {
   )
 }
 
-
 const styles = createStyle({
   main: {
     flexGrow: 1,
@@ -70,4 +85,3 @@ const styles = createStyle({
     flexShrink: 1,
   },
 })
-

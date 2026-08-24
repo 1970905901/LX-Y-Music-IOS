@@ -1,20 +1,28 @@
 import { TouchableOpacity } from 'react-native'
 import { Icon } from '@/components/common/Icon'
+import { SvgIcon } from '@/components/common/SvgIcon'
 import { createStyle } from '@/utils/tools'
 import { scaleSizeH } from '@/utils/pixelRatio'
 import { HEADER_HEIGHT as _HEADER_HEIGHT } from '@/config/constant'
 
 export const HEADER_HEIGHT = scaleSizeH(_HEADER_HEIGHT)
 
-export default ({ icon, size = 18, color, onPress }: {
+export default ({
+  icon,
+  color,
+  onPress,
+}: {
   icon: string
-  size?: number
   color?: string
   onPress: () => void
 }) => {
   return (
     <TouchableOpacity onPress={onPress} style={{ ...styles.button, width: HEADER_HEIGHT }}>
-      <Icon name={icon} color={color} size={size} />
+      {icon.startsWith('svg:') ? (
+        <SvgIcon name={icon.replace('svg:', '')} color={color} size={18} />
+      ) : (
+        <Icon name={icon} color={color} size={18} />
+      )}
     </TouchableOpacity>
   )
 }

@@ -38,7 +38,7 @@ const LIST = [
   },
 ] as const
 
-type SIZE_TYPE = typeof LIST[number]['size']
+type SIZE_TYPE = (typeof LIST)[number]['size']
 
 const useActive = (size: SIZE_TYPE) => {
   const _size = useFontSize()
@@ -51,16 +51,27 @@ const SizeText = () => {
   const t = useI18n()
   const theme = useTheme()
 
-  return <Text style={{ fontSize: size }} color={theme['c-primary']}>{t('setting_basic_font_size_preview')}</Text>
+  return (
+    <Text style={{ fontSize: size }} color={theme['c-primary']}>
+      {t('setting_basic_font_size_preview')}
+    </Text>
+  )
 }
 
-const Item = ({ size, label }: {
-  size: SIZE_TYPE
-  label: string
-}) => {
+const Item = ({ size, label }: { size: SIZE_TYPE; label: string }) => {
   const isActive = useActive(size)
   // const [toggleCheckBox, setToggleCheckBox] = useState(false)
-  return <CheckBox marginRight={8} check={isActive} label={label} onChange={() => { setFontSize(size) }} need />
+  return (
+    <CheckBox
+      marginRight={8}
+      check={isActive}
+      label={label}
+      onChange={() => {
+        setFontSize(size)
+      }}
+      need
+    />
+  )
 }
 
 export default memo(() => {
@@ -76,9 +87,9 @@ export default memo(() => {
         <SizeText />
       </View>
       <View style={styles.list}>
-        {
-          list.map(({ size, name }) => <Item key={size} size={size} label={name} />)
-        }
+        {list.map(({ size, name }) => (
+          <Item key={size} size={size} label={name} />
+        ))}
       </View>
     </SubTitle>
   )

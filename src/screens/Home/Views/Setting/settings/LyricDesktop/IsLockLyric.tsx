@@ -4,7 +4,6 @@ import { useSettingValue } from '@/store/setting/hook'
 import { useI18n } from '@/lang'
 import { createStyle } from '@/utils/tools'
 
-
 import CheckBoxItem from '../../components/CheckBoxItem'
 import { toggleDesktopLyricLock } from '@/core/desktopLyric'
 import { updateSetting } from '@/core/common'
@@ -24,7 +23,6 @@ export default memo(() => {
     </View>
   )
 })
-
 
 const styles = createStyle({
   content: {

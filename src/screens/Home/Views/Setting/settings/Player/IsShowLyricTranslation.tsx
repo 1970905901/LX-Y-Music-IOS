@@ -5,7 +5,6 @@ import { memo } from 'react'
 import { View } from 'react-native'
 import { useSettingValue } from '@/store/setting/hook'
 
-
 import CheckBoxItem from '../../components/CheckBoxItem'
 import { toggleTranslation } from '@/core/lyric'
 
@@ -19,11 +18,14 @@ export default memo(() => {
 
   return (
     <View style={styles.content}>
-      <CheckBoxItem check={isShowLyricTranslation} onChange={setShowLyricTranslation} label={t('setting_play_show_translation')} />
+      <CheckBoxItem
+        check={isShowLyricTranslation}
+        onChange={setShowLyricTranslation}
+        label={t('setting_play_show_translation')}
+      />
     </View>
   )
 })
-
 
 const styles = createStyle({
   content: {

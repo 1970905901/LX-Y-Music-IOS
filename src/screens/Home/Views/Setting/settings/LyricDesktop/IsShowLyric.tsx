@@ -15,13 +15,19 @@ export default memo(() => {
   // const setIsShowDesktopLyric = useDispatch('common', 'setIsShowDesktopLyric')
   const desktopLyricEnableRef = useRef<DesktopLyricEnableType>(null)
 
-  const handleChangeEnableDesktopLyric = async(isEnable: boolean) => {
+  const handleChangeEnableDesktopLyric = async (isEnable: boolean) => {
     desktopLyricEnableRef.current?.setEnabled(isEnable)
   }
 
   return (
     <View style={styles.content}>
-      <CheckBoxItem check={isEnable} onChange={(enable) => { void handleChangeEnableDesktopLyric(enable) }} label={t('setting_lyric_desktop_enable')} />
+      <CheckBoxItem
+        check={isEnable}
+        onChange={(enable) => {
+          void handleChangeEnableDesktopLyric(enable)
+        }}
+        label={t('setting_lyric_desktop_enable')}
+      />
       <DesktopLyricEnable ref={desktopLyricEnableRef} />
     </View>
   )

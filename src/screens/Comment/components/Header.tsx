@@ -1,4 +1,4 @@
-import { memo } from 'react'
+import { memo, useCallback } from 'react'
 import { View, TouchableOpacity } from 'react-native'
 
 import { Icon } from '@/components/common/Icon'
@@ -8,22 +8,23 @@ import StatusBar from '@/components/common/StatusBar'
 import { useI18n } from '@/lang'
 import { createStyle } from '@/utils/tools'
 import Text from '@/components/common/Text'
-import { HEADER_HEIGHT as _HEADER_HEIGHT } from '@/config/constant'
+import { HEADER_HEIGHT as _HEADER_HEIGHT, COMPONENT_IDS } from '@/config/constant'
 import { scaleSizeH } from '@/utils/pixelRatio'
 import commonState from '@/store/common/state'
 import { useStatusbarHeight } from '@/store/common/hook'
 
 const HEADER_HEIGHT = scaleSizeH(_HEADER_HEIGHT)
 
-export default memo(({ musicInfo }: {
-  musicInfo: LX.Music.MusicInfo
-}) => {
+export default memo(({ musicInfo }: { musicInfo: LX.Music.MusicInfo }) => {
   const t = useI18n()
   const statusBarHeight = useStatusbarHeight()
 
-  const back = () => {
-    void pop(commonState.componentIds.comment!)
-  }
+  const back = useCallback(() => {
+    const commentComponent = commonState.componentIds.find(item => item.name === COMPONENT_IDS.comment)
+    if (commentComponent) {
+      void pop(commentComponent.id)
+    }
+  }, [])
 
   return (
     <View style={{ height: HEADER_HEIGHT + statusBarHeight, paddingTop: statusBarHeight }}>
@@ -32,7 +33,9 @@ export default memo(({ musicInfo }: {
         <TouchableOpacity onPress={back} style={{ ...styles.button, width: HEADER_HEIGHT }}>
           <Icon name="chevron-left" size={18} />
         </TouchableOpacity>
-        <Text numberOfLines={1} size={16} style={styles.title}>{t('comment_title', { name: musicInfo.name, singer: musicInfo.singer })}</Text>
+        <Text numberOfLines={1} size={16} style={styles.title}>
+          {t('comment_title', { name: musicInfo.name, singer: musicInfo.singer })}
+        </Text>
         {/* <TouchableOpacity onPress={back} style={{ ...styles.button }}>
           <Icon name="available_updates" style={{ color: theme.normal }} size={24} />
         </TouchableOpacity> */}
@@ -40,7 +43,6 @@ export default memo(({ musicInfo }: {
     </View>
   )
 })
-
 
 const styles = createStyle({
   container: {

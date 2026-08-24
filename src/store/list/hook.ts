@@ -40,7 +40,6 @@ export const useActiveListId = () => {
   return id
 }
 
-
 export const useMusicList = () => {
   const [list, setList] = useState<LX.List.ListMusics>([])
 
@@ -75,7 +74,7 @@ export const useMusicExistsList = (list: LX.List.MyListInfo, musicInfo: LX.Music
 
   useEffect(() => {
     void getListMusics(list.id).then((musics) => {
-      setExists(musics.some(s => s.id == musicInfo.id))
+      setExists(musics.some((s) => s.id == musicInfo.id))
     })
   }, [list.id, musicInfo.id])
 
@@ -90,7 +89,7 @@ export const useListFetching = (listId: string) => {
     const handleUpdate = (status: InitState['fetchingListStatus']) => {
       let currentStatus = status[listId]
       if (currentStatus == null || prevStatus == status[listId]) return
-      setFetching(prevStatus = currentStatus)
+      setFetching((prevStatus = currentStatus))
     }
     global.state_event.on('fetchingListStatusUpdated', handleUpdate)
     return () => {
@@ -100,4 +99,3 @@ export const useListFetching = (listId: string) => {
 
   return fetching
 }
-

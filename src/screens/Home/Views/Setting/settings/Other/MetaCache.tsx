@@ -29,25 +29,28 @@ export default memo(() => {
   const handleCleanOtherSourceCache = () => {
     if (!cacheInfo.otherSourceKeys?.length) return
     setOtherSourceCleaning(true)
-    void clearOtherSource(cacheInfo.otherSourceKeys).then(() => {
-      toast(t('setting_other_cache_clear_success_tip'))
-    }).finally(() => {
-      handleGetMetaCache()
-      setOtherSourceCleaning(false)
-    })
+    void clearOtherSource(cacheInfo.otherSourceKeys)
+      .then(() => {
+        toast(t('setting_other_cache_clear_success_tip'))
+      })
+      .finally(() => {
+        handleGetMetaCache()
+        setOtherSourceCleaning(false)
+      })
   }
 
   const handleCleanLyricKeysCache = () => {
     if (!cacheInfo.lyricKeys?.length) return
     setLyricCleaning(true)
-    void clearLyric(cacheInfo.lyricKeys).then(() => {
-      toast(t('setting_other_cache_clear_success_tip'))
-    }).finally(() => {
-      handleGetMetaCache()
-      setLyricCleaning(false)
-    })
+    void clearLyric(cacheInfo.lyricKeys)
+      .then(() => {
+        toast(t('setting_other_cache_clear_success_tip'))
+      })
+      .finally(() => {
+        handleGetMetaCache()
+        setLyricCleaning(false)
+      })
   }
-
 
   useEffect(() => {
     handleGetMetaCache()
@@ -57,14 +60,26 @@ export default memo(() => {
     <>
       <SubTitle title={t('setting__other_meta_cache')}>
         <View style={styles.cacheSize}>
-          <Text>{cacheInfo.otherSourceKeys == null ? t('setting_other_cache_getting') : `${t('setting__other_other_source_label')}${cacheInfo.otherSourceKeys.length}`}</Text>
+          <Text>
+            {cacheInfo.otherSourceKeys == null
+              ? t('setting_other_cache_getting')
+              : `${t('setting__other_other_source_label')}${cacheInfo.otherSourceKeys.length}`}
+          </Text>
           {/* <Text>{cacheInfo.musicUrlKeys == null ? t('setting_other_cache_getting') : `${t('setting__other_music_url_label')}${cacheInfo.musicUrlKeys.length}`}</Text> */}
-          <Text>{cacheInfo.lyricKeys == null ? t('setting_other_cache_getting') : `${t('setting__other_lyric_raw_label')}${cacheInfo.lyricKeys.length}`}</Text>
+          <Text>
+            {cacheInfo.lyricKeys == null
+              ? t('setting_other_cache_getting')
+              : `${t('setting__other_lyric_raw_label')}${cacheInfo.lyricKeys.length}`}
+          </Text>
         </View>
         <View style={styles.clearBtn}>
-          <Button disabled={otherSourceCleaning} onPress={handleCleanOtherSourceCache}>{t('setting__other_other_source_clear_btn')}</Button>
+          <Button disabled={otherSourceCleaning} onPress={handleCleanOtherSourceCache}>
+            {t('setting__other_other_source_clear_btn')}
+          </Button>
           {/* <Button disabled={cleaning} onPress={handleCleanMusicUrlCache}>{t('setting__other_music_url_clear_btn')}</Button> */}
-          <Button disabled={lyricCleaning} onPress={handleCleanLyricKeysCache}>{t('setting__other_lyric_raw_clear_btn')}</Button>
+          <Button disabled={lyricCleaning} onPress={handleCleanLyricKeysCache}>
+            {t('setting__other_lyric_raw_clear_btn')}
+          </Button>
         </View>
       </SubTitle>
     </>

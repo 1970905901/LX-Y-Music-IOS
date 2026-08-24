@@ -1,4 +1,3 @@
-
 interface InitState {
   list: LX.UserApi.UserApiInfo[]
   status: {
@@ -16,7 +15,4 @@ const state: InitState = {
   apis: {},
 }
 
-
-export {
-  state,
-}
+export { state }

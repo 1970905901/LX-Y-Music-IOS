@@ -1,6 +1,11 @@
 import { httpFetch } from '../../request'
-import { decodeName, formatPlayTime, sizeFormate, dateFormat, formatPlayCount } from '../../index'
+import { decodeName, formatPlayTime, dateFormat, formatPlayCount } from '../../index'
 import { formatSingerName } from '../utils'
+import { getBatchMusicQualityInfo } from './quality_detail'
+import { zzcSign } from './utils/crypto'
+import dailyRec from './dailyRec'
+import { log } from '@/utils/log'
+import settingState from '@/store/setting/state'
 
 export default {
   _requestObj_tags: null,
@@ -12,60 +17,65 @@ export default {
   sortList: [
     {
       name: '最热',
-      tid: 'hot',
       id: 5,
     },
     {
       name: '最新',
-      tid: 'new',
       id: 2,
     },
   ],
   regExps: {
     hotTagHtml: /class="c_bg_link js_tag_item" data-id="\w+">.+?<\/a>/g,
     hotTag: /data-id="(\w+)">(.+?)<\/a>/,
-
-    // https://y.qq.com/n/yqq/playlist/7217720898.html
-    // https://i.y.qq.com/n2/m/share/details/taoge.html?platform=11&appshare=android_qq&appversion=9050006&id=7217720898&ADTAG=qfshare
     listDetailLink: /\/playlist\/(\d+)/,
     listDetailLink2: /id=(\d+)/,
   },
-  tagsUrl: 'https://u.y.qq.com/cgi-bin/musicu.fcg?loginUin=0&hostUin=0&format=json&inCharset=utf-8&outCharset=utf-8&notice=0&platform=wk_v15.json&needNewCode=0&data=%7B%22tags%22%3A%7B%22method%22%3A%22get_all_categories%22%2C%22param%22%3A%7B%22qq%22%3A%22%22%7D%2C%22module%22%3A%22playlist.PlaylistAllCategoriesServer%22%7D%7D',
+  tagsUrl:
+    'https://u.y.qq.com/cgi-bin/musicu.fcg?loginUin=0&hostUin=0&format=json&inCharset=utf-8&outCharset=utf-8&notice=0&platform=wk_v15.json&needNewCode=0&data=%7B%22tags%22%3A%7B%22method%22%3A%22get_all_categories%22%2C%22param%22%3A%7B%22qq%22%3A%22%22%7D%2C%22module%22%3A%22playlist.PlaylistAllCategoriesServer%22%7D%7D',
   hotTagUrl: 'https://c.y.qq.com/node/pc/wk_v15/category_playlist.html',
   getListUrl(sortId, id, page) {
     if (id) {
       id = parseInt(id)
-      return `https://u.y.qq.com/cgi-bin/musicu.fcg?loginUin=0&hostUin=0&format=json&inCharset=utf-8&outCharset=utf-8&notice=0&platform=wk_v15.json&needNewCode=0&data=${encodeURIComponent(JSON.stringify({
-        comm: { cv: 1602, ct: 20 },
-        playlist: {
-          method: 'get_category_content',
-          param: {
-            titleid: id,
-            caller: '0',
-            category_id: id,
-            size: this.limit_list,
-            page: page - 1,
-            use_page: 1,
-          },
-          module: 'playlist.PlayListCategoryServer',
-        },
-        }))}`
-    }
-    return `https://u.y.qq.com/cgi-bin/musicu.fcg?loginUin=0&hostUin=0&format=json&inCharset=utf-8&outCharset=utf-8&notice=0&platform=wk_v15.json&needNewCode=0&data=${encodeURIComponent(JSON.stringify({
+      return `https://u.y.qq.com/cgi-bin/musicu.fcg?loginUin=0&hostUin=0&format=json&inCharset=utf-8&outCharset=utf-8&notice=0&platform=wk_v15.json&needNewCode=0&data=${encodeURIComponent(
+        JSON.stringify({
           comm: { cv: 1602, ct: 20 },
           playlist: {
-            method: 'get_playlist_by_tag',
-            param: { id: 10000000, sin: this.limit_list * (page - 1), size: this.limit_list, order: sortId, cur_page: page },
-            module: 'playlist.PlayListPlazaServer',
+            method: 'get_category_content',
+            param: {
+              titleid: id,
+              caller: '0',
+              category_id: id,
+              size: this.limit_list,
+              page: page - 1,
+              use_page: 1,
+            },
+            module: 'playlist.PlayListCategoryServer',
           },
-      }))}`
+        })
+      )}`
+    }
+    return `https://u.y.qq.com/cgi-bin/musicu.fcg?loginUin=0&hostUin=0&format=json&inCharset=utf-8&outCharset=utf-8&notice=0&platform=wk_v15.json&needNewCode=0&data=${encodeURIComponent(
+      JSON.stringify({
+        comm: { cv: 1602, ct: 20 },
+        playlist: {
+          method: 'get_playlist_by_tag',
+          param: {
+            id: 10000000,
+            sin: this.limit_list * (page - 1),
+            size: this.limit_list,
+            order: sortId,
+            cur_page: page,
+          },
+          module: 'playlist.PlayListPlazaServer',
+        },
+      })
+    )}`
   },
   getListDetailUrl(id) {
     return `https://c.y.qq.com/qzone/fcg-bin/fcg_ucc_getcdinfo_byids_cp.fcg?type=1&json=1&utf8=1&onlysong=0&new_format=1&disstid=${id}&loginUin=0&hostUin=0&format=json&inCharset=utf8&outCharset=utf-8&notice=0&platform=yqq.json&needNewCode=0`
   },
 
   // http://nplserver.kuwo.cn/pl.svc?op=getlistinfo&pid=2849349915&pn=0&rn=100&encode=utf8&keyset=pl2012&identity=kuwo&pcmp4=1&vipver=MUSIC_9.0.5.0_W1&newver=1
-  // 获取标签
   getTag(tryNum = 0) {
     if (this._requestObj_tags) this._requestObj_tags.cancelHttp()
     if (tryNum > 2) return Promise.reject(new Error('try max num'))
@@ -75,7 +85,6 @@ export default {
       return this.filterTagInfo(body.tags.data.v_group)
     })
   },
-  // 获取标签
   getHotTag(tryNum = 0) {
     if (this._requestObj_hotTags) this._requestObj_hotTags.cancelHttp()
     if (tryNum > 2) return Promise.reject(new Error('try max num'))
@@ -90,7 +99,7 @@ export default {
     const hotTags = []
     if (!hotTag) return hotTags
 
-    hotTag.forEach(tagHtml => {
+    hotTag.forEach((tagHtml) => {
       let result = tagHtml.match(this.regExps.hotTag)
       if (!result) return
       hotTags.push({
@@ -102,9 +111,9 @@ export default {
     return hotTags
   },
   filterTagInfo(rawList) {
-    return rawList.map(type => ({
+    return rawList.map((type) => ({
       name: type.group_name,
-      list: type.v_item.map(item => ({
+      list: type.v_item.map((item) => ({
         parent_id: type.group_id,
         parent_name: type.group_name,
         id: item.id,
@@ -114,23 +123,24 @@ export default {
     }))
   },
 
-  // 获取列表数据
   getList(sortId, tagId, page, tryNum = 0) {
     if (this._requestObj_list) this._requestObj_list.cancelHttp()
     if (tryNum > 2) return Promise.reject(new Error('try max num'))
-    this._requestObj_list = httpFetch(
-      this.getListUrl(sortId, tagId, page),
-    )
+    this._requestObj_list = httpFetch(this.getListUrl(sortId, tagId, page))
     // console.log(this.getListUrl(sortId, tagId, page))
     return this._requestObj_list.promise.then(({ body }) => {
-      if (body.code !== this.successCode) return this.getList(sortId, tagId, page, ++tryNum)
-      return tagId ? this.filterList2(body.playlist.data, page) : this.filterList(body.playlist.data, page)
+      if (body.code !== this.successCode) {
+        return this.getList(sortId, tagId, page, ++tryNum)
+      }
+      return tagId
+        ? this.filterList2(body.playlist.data, page)
+        : this.filterList(body.playlist.data, page)
     })
   },
 
   filterList(data, page) {
     return {
-      list: data.v_playlist.map(item => ({
+      list: data.v_playlist.map((item) => ({
         play_count: formatPlayCount(item.access_num),
         id: String(item.tid),
         author: item.creator_info.nick,
@@ -173,14 +183,17 @@ export default {
     if (retryNum > 2) return Promise.reject(new Error('link try max num'))
 
     const requestObj_listDetailLink = httpFetch(link)
-    const { url, statusCode } = await requestObj_listDetailLink.promise
+    const {
+      headers: { location },
+      statusCode,
+    } = await requestObj_listDetailLink.promise
     // console.log(headers)
     if (statusCode > 400) return this.handleParseId(link, ++retryNum)
-    return url
+    return location == null ? link : location
   },
 
   async getListId(id) {
-    if ((/[?&:/]/.test(id))) {
+    if (/[?&:/]/.test(id)) {
       if (!this.regExps.listDetailLink.test(id)) {
         id = await this.handleParseId(id)
       }
@@ -194,71 +207,291 @@ export default {
     }
     return id
   },
-  // 获取歌曲列表内的音乐
-  async getListDetail(id, tryNum = 0) {
-    if (tryNum > 2) return Promise.reject(new Error('try max num'))
+  async getListDetailNew(id, tryNum = 0) {
+    log.info(`[TX SongList] getListDetailNew 开始`, { id, tryNum })
+    
+    if (tryNum > 2) {
+      log.error(`[TX SongList] getListDetailNew 重试次数超限`, { id, tryNum })
+      return Promise.reject(new Error('try max num'))
+    }
 
     id = await this.getListId(id)
 
-    const requestObj_listDetail = httpFetch(this.getListDetailUrl(id), {
+    const payload = {
+      comm: { ct: 24, cv: 1800 },
+      req_0: {
+        module: 'music.srfDissInfo.DissInfo',
+        method: 'CgiGetDiss',
+        param: {
+          disstid: parseInt(id),
+          dirid: 0,
+          tag: true,
+          song_begin: 0,
+          song_num: 999999,
+          userinfo: true,
+          orderlist: true,
+          onlysonglist: false,
+        },
+      },
+    }
+
+    log.info(`[TX SongList] getListDetailNew 构建payload完成`, { disstid: payload.req_0.param.disstid })
+
+    const url = `https://u.y.qq.com/cgi-bin/musicu.fcg?loginUin=0&hostUin=0&format=json&inCharset=utf-8&outCharset=utf-8&notice=0&platform=wk_v15.json&needNewCode=0&data=${encodeURIComponent(JSON.stringify(payload))}`
+
+    log.info(`[TX SongList] getListDetailNew URL:`, url.substring(0, 200))
+
+    const cookie = settingState.setting['common.tx_cookie']
+    log.info(`[TX SongList] getListDetailNew Cookie状态:`, cookie ? `已设置 (长度:${cookie.length})` : '未设置')
+
+    const requestObj_listDetail = httpFetch(url, {
       headers: {
-        Origin: 'https://y.qq.com',
-        Referer: `https://y.qq.com/n/yqq/playsquare/${id}.html`,
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Referer': 'https://y.qq.com/',
+        'Cookie': cookie || '',
       },
     })
-    const { body } = await requestObj_listDetail.promise
 
-    if (body.code !== this.successCode) return this.getListDetail(id, ++tryNum)
-    const cdlist = body.cdlist[0]
+    const { body, statusCode } = await requestObj_listDetail.promise
+    log.info(`[TX SongList] getListDetailNew 响应`, { statusCode, bodyCode: body?.code, req0Code: body?.req_0?.code })
+
+    if (!body || !body.req_0) {
+      log.error(`[TX SongList] getListDetailNew 响应体无效`, { body: JSON.stringify(body)?.substring(0, 200) })
+      return this.getListDetailNew(id, ++tryNum)
+    }
+
+    const retCode = body.req_0.data?.retCode
+    log.info(`[TX SongList] getListDetailNew retCode`, { retCode })
+    
+    if (retCode !== undefined && retCode !== 0 && tryNum < 2) {
+      log.warn(`[TX SongList] getListDetailNew retCode非0，重试`, { retCode, tryNum })
+      return this.getListDetailNew(id, ++tryNum)
+    }
+
+    const data = body.req_0.data
+    if (!data || !data.songlist) {
+      log.error(`[TX SongList] getListDetailNew 没有歌曲列表`, { dataKeys: data ? Object.keys(data) : [] })
+      return Promise.reject(new Error('获取歌单详情失败'))
+    }
+
+    log.info(`[TX SongList] getListDetailNew 成功`, { songCount: data.songlist.length, dissname: data.dissinfo?.dissname })
+
+    if (data.songlist.length > 0) {
+      const firstSong = data.songlist[0]
+      log.info(`[TX SongList] 第一条歌曲结构`, {
+        keys: Object.keys(firstSong),
+        title: firstSong.title,
+        name: firstSong.name,
+        id: firstSong.id,
+        mid: firstSong.mid,
+        hasSinger: !!firstSong.singer,
+        hasAlbum: !!firstSong.album,
+        hasFile: !!firstSong.file,
+      })
+    }
+
+    log.info(`[TX SongList] 新接口 dissinfo 完整数据`, {
+      dissinfoKeys: data.dissinfo ? Object.keys(data.dissinfo) : [],
+      dissinfo: data.dissinfo,
+    })
+
+    let dissname = ''
+    let logo = ''
+    let desc = ''
+    let nickname = ''
+    let visitnum = 0
+
+    try {
+      log.info(`[TX SongList] getListDetailNew 开始请求旧接口`, { oldUrl: this.getListDetailUrl(id) })
+      const oldUrl = this.getListDetailUrl(id)
+      const { body: oldBody, statusCode } = await httpFetch(oldUrl, {
+        headers: { Origin: 'https://y.qq.com', Referer: `https://y.qq.com/n/yqq/playsquare/${id}.html` },
+      }).promise
+      log.info(`[TX SongList] 旧接口响应`, { statusCode, bodyCode: oldBody?.code, cdlistLength: oldBody?.cdlist?.length })
+      log.info(`[TX SongList] 旧接口完整返回`, { oldBodyKeys: oldBody ? Object.keys(oldBody) : [], oldBody })
+
+      if (oldBody?.cdlist?.[0]) {
+        const cdlist = oldBody.cdlist[0]
+        log.info(`[TX SongList] 旧接口 cdlist[0] 完整数据`, {
+          cdlistKeys: Object.keys(cdlist),
+          cdlist,
+        })
+        dissname = cdlist.dissname || ''
+        logo = cdlist.logo || ''
+        desc = cdlist.desc ? decodeName(cdlist.desc).replace(/<br>/g, '\n') : ''
+        nickname = cdlist.nickname || ''
+        visitnum = cdlist.visitnum || 0
+        log.info(`[TX SongList] 旧接口获取到歌单信息`, { dissname, logo, visitnum, desc: desc?.substring(0, 50), nickname })
+      } else {
+        log.warn(`[TX SongList] 旧接口未返回 cdlist[0]，降级使用新接口`)
+        dissname = data.dissinfo?.dissname || ''
+        logo = data.dissinfo?.logo || ''
+        desc = data.dissinfo?.desc ? decodeName(data.dissinfo.desc).replace(/<br>/g, '\n') : ''
+        nickname = data.dissinfo?.nickname || ''
+        visitnum = data.dissinfo?.visitnum || 0
+        log.info(`[TX SongList] 新接口 dissinfo 降级数据`, { dissname, logo, visitnum })
+      }
+    } catch (e) {
+      log.error(`[TX SongList] 旧接口请求异常`, { error: e.message, stack: e.stack })
+      log.warn(`[TX SongList] 旧接口请求失败，降级使用新接口`)
+      dissname = data.dissinfo?.dissname || ''
+      logo = data.dissinfo?.logo || ''
+      desc = data.dissinfo?.desc ? decodeName(data.dissinfo.desc).replace(/<br>/g, '\n') : ''
+      nickname = data.dissinfo?.nickname || ''
+      visitnum = data.dissinfo?.visitnum || 0
+      log.info(`[TX SongList] 新接口 dissinfo 降级数据`, { dissname, logo, visitnum })
+    }
+
+    log.info(`[TX SongList] getListDetailNew 最终返回歌单信息`, { dissname, logo, visitnum, descLen: desc?.length, nickname })
+
     return {
-      list: this.filterListDetail(cdlist.songlist),
+      list: await this.filterListDetailNew(data.songlist),
       page: 1,
-      limit: cdlist.songlist.length + 1,
-      total: cdlist.songlist.length,
+      limit: data.songlist.length + 1,
+      total: data.songlist.length,
       source: 'tx',
       info: {
-        name: cdlist.dissname,
-        img: cdlist.logo,
-        desc: decodeName(cdlist.desc).replace(/<br>/g, '\n'),
-        author: cdlist.nickname,
-        play_count: formatPlayCount(cdlist.visitnum),
+        name: dissname,
+        img: logo,
+        desc,
+        author: nickname,
+        play_count: visitnum ? formatPlayCount(visitnum) : '',
       },
     }
   },
-  filterListDetail(rawList) {
-    // console.log(rawList)
-    return rawList.map(item => {
-      let types = []
-      let _types = {}
-      if (item.file.size_128mp3 !== 0) {
-        let size = sizeFormate(item.file.size_128mp3)
-        types.push({ type: '128k', size })
-        _types['128k'] = {
-          size,
-        }
+
+  async filterListDetailNew(rawList) {
+    log.info(`[TX SongList] filterListDetailNew 输入`, { count: rawList.length })
+    const qualityInfoRequest = getBatchMusicQualityInfo(rawList)
+    let qualityInfoMap = {}
+
+    try {
+      qualityInfoMap = await qualityInfoRequest.promise
+      log.info(`[TX SongList] filterListDetailNew 质量信息获取成功`, { count: Object.keys(qualityInfoMap).length })
+    } catch (error) {
+      log.error(`[TX SongList] filterListDetailNew 质量信息获取失败`, { error: error.message })
+    }
+
+    const result = rawList
+      .filter((item) => item.mid)
+      .map((item) => {
+      const { types = [], _types = {} } = qualityInfoMap[item.id] || {}
+
+      return {
+        singer: formatSingerName(item.singer, 'name'),
+        name: item.title || item.name,
+        albumName: item.album.name,
+        albumId: item.album.mid,
+        source: 'tx',
+        interval: formatPlayTime(item.interval),
+        songId: item.id,
+        albumMid: item.album.mid,
+        strMediaMid: item.file?.media_mid || '',
+        songmid: item.mid,
+        img:
+          item.album.name === '' || item.album.name === '空'
+            ? item.singer?.length
+              ? `https://y.gtimg.cn/music/photo_new/T001R500x500M000${item.singer[0].mid}.jpg`
+              : ''
+            : `https://y.gtimg.cn/music/photo_new/T002R500x500M000${item.album.mid}.jpg`,
+        lrc: null,
+        otherSource: null,
+        types,
+        _types,
+        typeUrl: {},
+        vid: item.mv?.vid || '',
       }
-      if (item.file.size_320mp3 !== 0) {
-        let size = sizeFormate(item.file.size_320mp3)
-        types.push({ type: '320k', size })
-        _types['320k'] = {
-          size,
+    })
+    log.info(`[TX SongList] filterListDetailNew 输出`, { count: result.length, firstSong: result.length > 0 ? result[0].name : 'none' })
+    return result
+  },
+
+  async getListDetail(id, tryNum = 0) {
+    log.info(`[TX SongList] getListDetail 开始`, { id, tryNum })
+    
+    if (tryNum > 2) {
+      log.error(`[TX SongList] getListDetail 重试次数超限`, { id, tryNum })
+      return Promise.reject(new Error('try max num'))
+    }
+
+    id = await this.getListId(id)
+    log.info(`[TX SongList] getListDetail 获取到真实ID`, { id })
+
+    if (id === '99') {
+      log.info(`[TX SongList] getListDetail 检测到猜你喜欢，使用特殊接口`)
+      try {
+        const cookie = settingState.setting['common.tx_cookie']
+        const payload = {
+          comm: { cv: 1602, ct: 20 },
+          req_0: {
+            module: 'music.radioProxy.MbTrackRadioSvr',
+            method: 'get_radio_track',
+            param: { id: 99, num: 5, from: 0, scene: 0, song_ids: [] },
+          },
         }
-      }
-      if (item.file.size_flac !== 0) {
-        let size = sizeFormate(item.file.size_flac)
-        types.push({ type: 'flac', size })
-        _types.flac = {
-          size,
+        const url = `https://u.y.qq.com/cgi-bin/musicu.fcg?loginUin=0&hostUin=0&format=json&inCharset=utf-8&outCharset=utf-8&notice=0&platform=wk_v15.json&needNewCode=0&data=${encodeURIComponent(JSON.stringify(payload))}`
+        
+        const { body } = await httpFetch(url, {
+          headers: {
+            'Cookie': cookie || '',
+          },
+        }).promise
+        
+        const tracks = body?.req_0?.data?.tracks || []
+        log.info(`[TX SongList] getListDetail 猜你喜欢获取到tracks`, { count: tracks.length })
+        
+        if (tracks.length === 0) {
+          throw new Error('猜你喜欢返回歌曲列表为空')
         }
-      }
-      if (item.file.size_hires !== 0) {
-        let size = sizeFormate(item.file.size_hires)
-        types.push({ type: 'flac24bit', size })
-        _types.flac24bit = {
-          size,
+        
+        const list = await this.filterListDetailNew(tracks)
+        log.info(`[TX SongList] getListDetail 猜你喜欢格式化完成`, { songCount: list.length })
+        
+        return {
+          list,
+          page: 1,
+          limit: list.length + 1,
+          total: list.length,
+          source: 'tx',
+          info: {
+            name: '猜你喜欢',
+            img: 'https://y.gtimg.cn/mediastyle/y/img/cover_qzone_130.jpg',
+            desc: '根据你的喜好推荐的歌曲',
+            author: '',
+            play_count: '',
+          },
         }
+      } catch (error) {
+        log.error(`[TX SongList] getListDetail 猜你喜欢获取失败`, { error: error.message })
+        throw error
       }
-      // types.reverse()
+    }
+
+    log.info(`[TX SongList] getListDetail 使用 musicu.fcg 接口`)
+    try {
+      const result = await this.getListDetailNew(id)
+      log.info(`[TX SongList] getListDetail 获取成功`, { songCount: result.list.length })
+      return result
+    } catch (error) {
+      log.error(`[TX SongList] getListDetail 获取失败`, { error: error.message })
+      return this.getListDetail(id, ++tryNum)
+    }
+  },
+  async filterListDetail(rawList) {
+    const qualityInfoRequest = getBatchMusicQualityInfo(rawList)
+    let qualityInfoMap = {}
+
+    try {
+      qualityInfoMap = await qualityInfoRequest.promise
+    } catch (error) {
+      console.error('Failed to fetch quality info:', error)
+    }
+
+    return rawList
+      .filter((item) => item.mid)
+      .map((item) => {
+      const { types = [], _types = {} } = qualityInfoMap[item.id] || {}
+
       return {
         singer: formatSingerName(item.singer, 'name'),
         name: item.title,
@@ -270,19 +503,27 @@ export default {
         albumMid: item.album.mid,
         strMediaMid: item.file.media_mid,
         songmid: item.mid,
-        img: (item.album.name === '' || item.album.name === '空')
-          ? item.singer?.length ? `https://y.gtimg.cn/music/photo_new/T001R500x500M000${item.singer[0].mid}.jpg` : ''
-          : `https://y.gtimg.cn/music/photo_new/T002R500x500M000${item.album.mid}.jpg`,
+        img:
+          item.album.name === '' || item.album.name === '空'
+            ? item.singer?.length
+              ? `https://y.gtimg.cn/music/photo_new/T001R500x500M000${item.singer[0].mid}.jpg`
+              : ''
+            : `https://y.gtimg.cn/music/photo_new/T002R500x500M000${item.album.mid}.jpg`,
         lrc: null,
         otherSource: null,
         types,
         _types,
         typeUrl: {},
+        vid: item.mv?.vid || '',
       }
     })
   },
   getTags() {
-    return Promise.all([this.getTag(), this.getHotTag()]).then(([tags, hotTag]) => ({ tags, hotTag, source: 'tx' }))
+    return Promise.all([this.getTag(), this.getHotTag()]).then(([tags, hotTag]) => ({
+      tags,
+      hotTag,
+      source: 'tx',
+    }))
   },
 
   async getDetailPageUrl(id) {
@@ -293,38 +534,40 @@ export default {
 
   search(text, page, limit = 20, retryNum = 0) {
     if (retryNum > 5) throw new Error('max retry')
-    return httpFetch(`http://c.y.qq.com/soso/fcgi-bin/client_music_search_songlist?page_no=${page - 1}&num_per_page=${limit}&format=json&query=${encodeURIComponent(text)}&remoteplace=txt.yqq.playlist&inCharset=utf8&outCharset=utf-8`, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; WOW64; Trident/5.0)',
-        Referer: 'http://y.qq.com/portal/search.html',
-      },
+    return httpFetch(
+      `http://c.y.qq.com/soso/fcgi-bin/client_music_search_songlist?page_no=${
+        page - 1
+      }&num_per_page=${limit}&format=json&query=${encodeURIComponent(
+        text
+      )}&remoteplace=txt.yqq.playlist&inCharset=utf8&outCharset=utf-8`,
+      {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; WOW64; Trident/5.0)',
+          Referer: 'http://y.qq.com/portal/search.html',
+        },
+      }
+    ).promise.then(({ body }) => {
+      if (body.code != 0) return this.search(text, page, limit, ++retryNum)
+      // console.log(body.data.list)
+      return {
+        list: body.data.list.map((item) => {
+          return {
+            play_count: formatPlayCount(item.listennum),
+            id: String(item.dissid),
+            author: decodeName(item.creator.name),
+            name: decodeName(item.dissname),
+            time: dateFormat(item.createtime, 'Y-M-D'),
+            img: item.imgurl,
+            // grade: item.favorcnt / 10,
+            total: item.song_count,
+            desc: decodeName(decodeName(item.introduction)).replace(/<br>/g, '\n'),
+            source: 'tx',
+          }
+        }),
+        limit,
+        total: body.data.sum,
+        source: 'tx',
+      }
     })
-      .promise.then(({ body }) => {
-        if (body.code != 0) return this.search(text, page, limit, ++retryNum)
-        // console.log(body.data.list)
-        return {
-          list: body.data.list.map(item => {
-            return {
-              play_count: formatPlayCount(item.listennum),
-              id: String(item.dissid),
-              author: decodeName(item.creator.name),
-              name: decodeName(item.dissname),
-              time: dateFormat(item.createtime, 'Y-M-D'),
-              img: item.imgurl,
-              // grade: item.favorcnt / 10,
-              total: item.song_count,
-              desc: decodeName(decodeName(item.introduction)).replace(/<br>/g, '\n'),
-              source: 'tx',
-            }
-          }),
-          limit,
-          total: body.data.sum,
-          source: 'tx',
-        }
-      })
   },
 }
-
-// getList
-// getTags
-// getListDetail

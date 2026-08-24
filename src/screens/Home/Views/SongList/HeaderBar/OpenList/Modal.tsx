@@ -43,7 +43,6 @@ const IdInput = forwardRef<IdInputType, {}>((props, ref) => {
   )
 })
 
-
 export interface ModalProps {
   onOpenId: (id: string) => void
   // onSourceChange: SourceSelectorProps['onSourceChange']
@@ -54,31 +53,28 @@ export interface ModalType {
 
 export default forwardRef<ModalType, ModalProps>(({ onOpenId }, ref) => {
   const alertRef = useRef<ConfirmAlertType>(null)
-  // const sourceSelectorRef = useRef<SourceSelectorType>(null)
   const inputRef = useRef<IdInputType>(null)
   const [visible, setVisible] = useState(false)
+  const [alertKey, setAlertKey] = useState(0)
   const theme = useTheme()
   const t = useI18n()
 
   const handleShow = (source: Source) => {
-    alertRef.current?.setVisible(true)
+    setAlertKey(k => k + 1)
     requestAnimationFrame(() => {
-      inputRef.current?.setText('')
-      // sourceSelectorRef.current?.setSource(source)
+      alertRef.current?.setVisible(true)
       setTimeout(() => {
         inputRef.current?.focus()
       }, 300)
     })
   }
+
   useImperativeHandle(ref, () => ({
     show(source) {
-      if (visible) handleShow(source)
-      else {
-        setVisible(true)
-        requestAnimationFrame(() => {
-          handleShow(source)
-        })
-      }
+      if (!visible) setVisible(true)
+      requestAnimationFrame(() => {
+        handleShow(source)
+      })
     },
   }))
 
@@ -90,24 +86,20 @@ export default forwardRef<ModalType, ModalProps>(({ onOpenId }, ref) => {
     onOpenId(id)
   }
 
-  return (
-    visible
-      ? <ConfirmAlert
-          ref={alertRef}
-          onConfirm={handleConfirm}
-        >
-          <View style={styles.content}>
-            <View style={styles.col}>
-              {/* <SourceSelector style={{ ...styles.selector, backgroundColor: theme['c-primary-input-background'] }} ref={sourceSelectorRef} onSourceChange={onSourceChange} /> */}
-              <IdInput ref={inputRef} />
-            </View>
-            <Text style={styles.inputTipText} size={13} color={theme['c-600']}>{t('songlist_open_input_tip')}</Text>
-          </View>
-        </ConfirmAlert>
-      : null
-  )
+  return visible ? (
+    <ConfirmAlert key={alertKey} ref={alertRef} onConfirm={handleConfirm}>
+      <View style={styles.content}>
+        <View style={styles.col}>
+          {/* <SourceSelector style={{ ...styles.selector, backgroundColor: theme['c-primary-input-background'] }} ref={sourceSelectorRef} onSourceChange={onSourceChange} /> */}
+          <IdInput ref={inputRef} />
+        </View>
+        <Text style={styles.inputTipText} size={13} color={theme['c-600']}>
+          {t('songlist_open_input_tip')}
+        </Text>
+      </View>
+    </ConfirmAlert>
+  ) : null
 })
-
 
 const styles = createStyle({
   content: {
@@ -139,5 +131,3 @@ const styles = createStyle({
     // lineHeight: 18,
   },
 })
-
-

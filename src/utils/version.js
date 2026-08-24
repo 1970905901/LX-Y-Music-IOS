@@ -1,58 +1,51 @@
-import { Linking, Platform } from 'react-native'
 import { httpGet } from '@/utils/request'
 import { author, name } from '../../package.json'
-import { downloadFile, stopDownload, temporaryDirectoryPath } from '@/utils/fs'
+import { downloadFile, stopDownload, temporaryDirectoryPath, privateStorageDirectoryPath, existsFile, stat } from '@/utils/fs'
 import { getSupportedAbis, installApk } from '@/utils/nativeModules/utils'
 import { APP_PROVIDER_NAME } from '@/config/constant'
+import { log } from '@/utils/log'
 
-export const isInternalUpdateSupported = Platform.OS == 'android'
-export const openReleasePage = async(version) => Linking.openURL(version
-  ? `https://github.com/${author.name}/${name}/releases/tag/v${version}`
-  : `https://github.com/${author.name}/${name}/releases`)
-
-const abis = [
-  'arm64-v8a',
-  'armeabi-v7a',
-  'x86_64',
-  'x86',
-  'universal',
-]
+const abis = ['arm64-v8a', 'armeabi-v7a', 'x86_64', 'x86', 'universal']
 
 const address = [
-  [`https://raw.githubusercontent.com/${author.name}/${name}/master/publish/version.json`, 'direct'],
-  ['https://registry.npmjs.org/lx-music-mobile-version-info/latest', 'npm'],
-  [`https://cdn.jsdelivr.net/gh/${author.name}/${name}/publish/version.json`, 'direct'],
-  [`https://fastly.jsdelivr.net/gh/${author.name}/${name}/publish/version.json`, 'direct'],
-  [`https://gcore.jsdelivr.net/gh/${author.name}/${name}/publish/version.json`, 'direct'],
-  ['https://registry.npmmirror.com/lx-music-mobile-version-info/latest', 'npm'],
-  ['https://gitee.com/lyswhut/lx-music-mobile-versions/raw/master/version.json', 'direct'],
-  ['http://cdn.stsky.cn/lx-music/mobile/version.json', 'direct'],
+  ['https://gh.llkk.cc/https://raw.githubusercontent.com/WalnutBai/lx-lxwalnut-music-mobile/master/publish/version.json', 'direct'],
+  ['https://raw.githubusercontent.com/WalnutBai/lx-lxwalnut-music-mobile/master/publish/version.json', 'direct'],
+  ['https://cdn.jsdelivr.net/gh/WalnutBai/lx-lxwalnut-music-mobile/publish/version.json', 'direct'],
+  ['https://fastly.jsdelivr.net/gh/WalnutBai/lx-lxwalnut-music-mobile/publish/version.json', 'direct'],
+  ['https://gcore.jsdelivr.net/gh/WalnutBai/lx-lxwalnut-music-mobile/publish/version.json', 'direct'],
 ]
 
+const releaseRepo = 'lx-lxwalnut-music-mobile'
+const releaseOwner = 'WalnutBai'
+const apkFileNamePrefix = 'lx-lxwalnut-music-mobile'
 
-const request = async(url, retryNum = 0) => {
+const request = async (url, retryNum = 0) => {
   return new Promise((resolve, reject) => {
-    httpGet(url, {
-      timeout: 10000,
-    }, (err, resp, body) => {
-      if (err || resp.statusCode != 200) {
-        ++retryNum >= 3
-          ? reject(err || new Error(resp.statusMessage || resp.statusCode))
-          : request(url, retryNum).then(resolve).catch(reject)
-      } else resolve(body)
-    })
+    httpGet(
+      url,
+      {
+        timeout: 10000,
+      },
+      (err, resp, body) => {
+        if (err || resp.statusCode != 200) {
+          ++retryNum >= 3
+            ? reject(err || new Error(resp.statusMessage || resp.statusCode))
+            : request(url, retryNum).then(resolve).catch(reject)
+        } else resolve(body)
+      }
+    )
   })
 }
 
-const getDirectInfo = async(url) => {
-  return request(url).then(info => {
+const getDirectInfo = async (url) => {
+  return request(url).then((info) => {
     if (info.version == null) throw new Error('failed')
     return info
   })
 }
 
-const getNpmPkgInfo = async(url) => {
-  return request(url).then(json => {
+const getNpmPkgInfo = async (url) => {
+  return request(url).then((json) => {
     if (!json.versionInfo) throw new Error('failed')
     const info = JSON.parse(json.versionInfo)
     if (info.version == null) throw new Error('failed')
@@ -60,7 +53,7 @@ const getNpmPkgInfo = async(url) => {
   })
 }
 
-export const getVersionInfo = async(index = 0) => {
+export const getVersionInfo = async (index = 0) => {
   const [url, source] = address[index]
   let promise
   switch (source) {
@@ -72,14 +65,14 @@ export const getVersionInfo = async(index = 0) => {
       break
   }
 
-  return promise.catch(async(err) => {
+  return promise.catch(async (err) => {
     index++
     if (index >= address.length) throw err
     return getVersionInfo(index)
   })
 }
 
-const getTargetAbi = async() => {
+const getTargetAbi = async () => {
   const supportedAbis = await getSupportedAbis()
   for (const abi of abis) {
     if (supportedAbis.includes(abi)) return abi
@@ -90,48 +83,108 @@ let downloadJobId = null
 const noop = (total, download) => {}
 let apkSavePath
 
-export const downloadNewVersion = async(version, onDownload = noop) => {
-  if (!isInternalUpdateSupported) {
-    await openReleasePage(version)
-    return
-  }
+export const downloadNewVersion = async (version, onDownload = noop) => {
   const abi = await getTargetAbi()
-  const url = `https://github.com/${author.name}/${name}/releases/download/v${version}/${name}-v${version}-${abi}.apk`
-  let savePath = temporaryDirectoryPath + '/lx-music-mobile.apk'
+  const githubUrl = `https://github.com/${releaseOwner}/${releaseRepo}/releases/download/v${version}/${apkFileNamePrefix}-v${version}-${abi}.apk`
+  const urls = [
+    `https://gh.llkk.cc/https://github.com/${releaseOwner}/${releaseRepo}/releases/download/v${version}/${apkFileNamePrefix}-v${version}-${abi}.apk`,
+    githubUrl,
+  ]
+  let savePath = privateStorageDirectoryPath + '/lx-lxwalnut-music-mobile.apk'
+
+  log.info(`[Update] Download URLs: ${urls.join(', ')}`)
+  log.info(`[Update] Target ABI: ${abi}`)
+  log.info(`[Update] Save path: ${savePath}`)
+  log.info(`[Update] Private storage directory path: ${privateStorageDirectoryPath}`)
 
   if (downloadJobId) stopDownload(downloadJobId)
 
-  const { jobId, promise } = downloadFile(url, savePath, {
-    progressInterval: 500,
-    connectionTimeout: 20000,
-    readTimeout: 30000,
-    begin({ statusCode, contentLength }) {
-      onDownload(contentLength, 0)
-      // switch (statusCode) {
-      //   case 200:
-      //   case 206:
-      //     break
-      //   default:
-      //     onDownload(null, contentLength, 0)
-      //     break
-      // }
-    },
-    progress({ contentLength, bytesWritten }) {
-      onDownload(contentLength, bytesWritten)
-    },
-  })
-  downloadJobId = jobId
-  return promise.then(() => {
-    apkSavePath = savePath
-    return updateApp()
-  })
+  let lastError = null
+  for (const url of urls) {
+    let downloadError = null
+    let contentLength = 0
+    let downloadedBytes = 0
+    let httpStatus = null
+
+    log.info(`[Update] Trying download from: ${url}`)
+
+    try {
+      const result = await new Promise((resolve, reject) => {
+        const { jobId, promise } = downloadFile(url, savePath, {
+          progressInterval: 500,
+          connectionTimeout: 20000,
+          readTimeout: 30000,
+          begin({ statusCode, contentLength: len }) {
+            httpStatus = statusCode
+            log.info(`[Update] Download begin, statusCode: ${statusCode}, contentLength: ${len}`)
+            contentLength = len
+            if (statusCode !== 200 && statusCode !== 206) {
+              downloadError = new Error(`HTTP error ${statusCode}`)
+              log.error(`[Update] HTTP error: ${statusCode}`)
+            }
+            onDownload(len, 0)
+          },
+          progress({ contentLength: len, bytesWritten }) {
+            downloadedBytes = bytesWritten
+            log.info(`[Update] Download progress: ${bytesWritten}/${len} (${((bytesWritten/len)*100).toFixed(1)}%)`)
+            onDownload(len, bytesWritten)
+          },
+          resumable() {
+            log.info(`[Update] Download is resumable`)
+          },
+        })
+        downloadJobId = jobId
+
+        promise.then(async (result) => {
+          if (downloadError) {
+            reject(downloadError)
+            return
+          }
+
+          log.info(`[Update] Download completed, checking file exists...`)
+          const fileExists = await existsFile(savePath)
+          log.info(`[Update] File exists: ${fileExists}`)
+
+          if (!fileExists) {
+            reject(new Error(`Download completed but file not found at ${savePath}`))
+            return
+          }
+
+          const statInfo = await stat(savePath)
+          log.info(`[Update] File stats: ${JSON.stringify(statInfo)}`)
+
+          if (statInfo.size !== contentLength && contentLength > 0) {
+            log.warn(`[Update] File size mismatch: expected ${contentLength}, got ${statInfo.size}`)
+          }
+
+          apkSavePath = savePath
+          resolve(updateApp())
+        }).catch(reject)
+      })
+
+      return result
+    } catch (err) {
+      log.error(`[Update] Download failed from ${url}:`, err?.message || err)
+      lastError = err
+      continue
+    }
+  }
+
+  log.error(`[Update] All download URLs failed`)
+  throw lastError
 }
 
-export const updateApp = async() => {
-  if (!isInternalUpdateSupported) {
-    await openReleasePage()
-    return
-  }
+export const updateApp = async () => {
+  log.info(`[Update] updateApp called, apkSavePath: ${apkSavePath}`)
   if (!apkSavePath) throw new Error('apk Save Path is null')
+  
+  const fileExists = await existsFile(apkSavePath)
+  log.info(`[Update] APK file exists before install: ${fileExists}`)
+  
+  if (!fileExists) {
+    throw new Error(`APK file not found at: ${apkSavePath}`)
+  }
+  
+  log.info(`[Update] Installing APK from: ${apkSavePath}`)
   await installApk(apkSavePath, APP_PROVIDER_NAME)
 }

@@ -9,24 +9,24 @@ import { updateSetting } from '@/core/common'
 import { useI18n } from '@/lang'
 import styles from './style'
 
-
-const LrcFontSize = ({ direction }: {
-  direction: 'horizontal' | 'vertical'
-}) => {
+const LrcFontSize = ({ direction }: { direction: 'horizontal' | 'vertical' }) => {
   const theme = useTheme()
-  const settingKey = direction == 'horizontal' ? 'playDetail.horizontal.style.lrcFontSize' : 'playDetail.vertical.style.lrcFontSize'
+  const settingKey =
+    direction == 'horizontal'
+      ? 'playDetail.horizontal.style.lrcFontSize'
+      : 'playDetail.vertical.style.lrcFontSize'
   const lrcFontSize = useSettingValue(settingKey)
   const [sliderSize, setSliderSize] = useState(lrcFontSize)
   const [isSliding, setSliding] = useState(false)
   const t = useI18n()
 
-  const handleSlidingStart: SliderProps['onSlidingStart'] = value => {
+  const handleSlidingStart: SliderProps['onSlidingStart'] = (value) => {
     setSliding(true)
   }
-  const handleValueChange: SliderProps['onValueChange'] = value => {
+  const handleValueChange: SliderProps['onValueChange'] = (value) => {
     setSliderSize(value)
   }
-  const handleSlidingComplete: SliderProps['onSlidingComplete'] = value => {
+  const handleSlidingComplete: SliderProps['onSlidingComplete'] = (value) => {
     setSliding(false)
     if (lrcFontSize == value) return
     updateSetting({ [settingKey]: value })
@@ -36,7 +36,9 @@ const LrcFontSize = ({ direction }: {
     <View style={styles.container}>
       <Text>{t('play_detail_setting_lrc_font_size')}</Text>
       <View style={styles.content}>
-        <Text style={styles.label} color={theme['c-font-label']}>{isSliding ? sliderSize : lrcFontSize}</Text>
+        <Text style={styles.label} color={theme['c-font-label']}>
+          {isSliding ? sliderSize : lrcFontSize}
+        </Text>
         <Slider
           minimumValue={100}
           maximumValue={300}

@@ -17,22 +17,21 @@ export default memo(() => {
   const isAutoTheme = useSettingValue('common.isAutoTheme')
   const setIsAutoTheme = (isAutoTheme: boolean) => {
     updateSetting({ 'common.isAutoTheme': isAutoTheme })
-    void getTheme().then(theme => {
+    void getTheme().then((theme) => {
       if (theme.id == themeState.theme.id) return
       applyTheme(theme)
     })
   }
 
-
-  return (
-    isSupportedAutoTheme
-      ? (
-          <View style={styles.content}>
-            <CheckBoxItem check={isAutoTheme} label={t('setting_basic_theme_auto_theme')} onChange={setIsAutoTheme} />
-          </View>
-        )
-      : null
-  )
+  return isSupportedAutoTheme ? (
+    <View style={styles.content}>
+      <CheckBoxItem
+        check={isAutoTheme}
+        label={t('setting_basic_theme_auto_theme')}
+        onChange={setIsAutoTheme}
+      />
+    </View>
+  ) : null
 })
 
 const styles = createStyle({

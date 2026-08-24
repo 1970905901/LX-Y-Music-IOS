@@ -9,7 +9,7 @@ export default class Event {
 
   on(eventName: string, listener: (...args: any[]) => any) {
     let targetListeners = this.listeners.get(eventName)
-    if (!targetListeners) this.listeners.set(eventName, targetListeners = [])
+    if (!targetListeners) this.listeners.set(eventName, (targetListeners = []))
     targetListeners.push(listener)
   }
 
@@ -26,7 +26,6 @@ export default class Event {
       let targetListeners = this.listeners.get(eventName)
       if (!targetListeners) return
       for (const listener of targetListeners) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
         listener(...args)
       }
     })
@@ -55,4 +54,3 @@ export default class Event {
 
 //   }
 // }
-

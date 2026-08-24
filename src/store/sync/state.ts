@@ -1,4 +1,3 @@
-
 interface InitState {
   status: LX.Sync.Status
   serverName: string
@@ -14,6 +13,5 @@ const state: InitState = {
   type: 'list',
   syncModeComponentId: '',
 }
-
 
 export default state

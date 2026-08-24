@@ -1,11 +1,10 @@
-import { memo, useState, useEffect, useRef } from 'react'
+import { memo, useState, useEffect, useRef, useCallback } from 'react'
 
 import { StyleSheet, View, Keyboard } from 'react-native'
 import type { InputType, InputProps } from '@/components/common/Input'
 import Input from '@/components/common/Input'
 import { useTheme } from '@/store/theme/hook'
 import Text from '@/components/common/Text'
-
 
 export interface InputItemProps extends InputProps {
   value: string
@@ -19,24 +18,31 @@ export default memo(({ value, label, onChanged, ...props }: InputItemProps) => {
   const isMountRef = useRef(false)
   const inputRef = useRef<InputType>(null)
   const theme = useTheme()
-  const saveValue = () => {
-    onChanged?.(text, (value: string) => {
+
+  const stableOnChanged = useCallback((text: string, callback: (vlaue: string) => void) => {
+    onChanged?.(text, callback)
+  }, [onChanged])
+
+  const saveValue = useCallback(() => {
+    stableOnChanged(text, (value: string) => {
       if (!isMountRef.current) return
       const newValue = String(value)
       setText(newValue)
       textRef.current = newValue
     })
-  }
+  }, [text, stableOnChanged])
+
   useEffect(() => {
     isMountRef.current = true
     return () => {
       isMountRef.current = false
     }
   }, [])
+
   useEffect(() => {
     const handleKeyboardDidHide = () => {
       if (!inputRef.current?.isFocused()) return
-      onChanged?.(textRef.current, value => {
+      stableOnChanged(textRef.current, (value) => {
         if (!isMountRef.current) return
         const newValue = String(value)
         setText(newValue)
@@ -48,30 +54,34 @@ export default memo(({ value, label, onChanged, ...props }: InputItemProps) => {
     return () => {
       keyboardDidHide.remove()
     }
-  }, [onChanged])
+  }, [stableOnChanged])
+
   useEffect(() => {
     if (value != text) {
       const newValue = String(value)
       setText(newValue)
       textRef.current = newValue
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value])
-  const handleSetSelectMode = (text: string) => {
+
+  const handleSetSelectMode = useCallback((text: string) => {
     setText(text)
     textRef.current = text
-  }
+  }, [])
+
   return (
     <View style={styles.container}>
-      <Text style={styles.label} size={14}>{label}</Text>
+      <Text style={styles.label} size={14}>
+        {label}
+      </Text>
       <Input
         value={text}
         ref={inputRef}
         onChangeText={handleSetSelectMode}
-        style={{ ...styles.input, backgroundColor: theme['c-primary-input-background'] }}
         {...props}
+        style={StyleSheet.compose({ ...styles.input, backgroundColor: theme['c-primary-input-background'] }, props.style)}
         onBlur={saveValue}
-       />
+      />
     </View>
   )
 })

@@ -5,7 +5,9 @@ import Header from './Header'
 import Main from './Main'
 import { useSettingValue } from '@/store/setting/hook'
 import { COMPONENT_IDS } from '@/config/constant'
-import DrawerLayoutFixed, { type DrawerLayoutFixedType } from '@/components/common/DrawerLayoutFixed'
+import DrawerLayoutFixed, {
+  type DrawerLayoutFixedType,
+} from '@/components/common/DrawerLayoutFixed'
 import { scaleSizeW } from '@/utils/pixelRatio'
 
 const MAX_WIDTH = scaleSizeW(300)

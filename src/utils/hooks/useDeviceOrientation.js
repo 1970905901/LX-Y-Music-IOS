@@ -1,16 +1,9 @@
 import { useEffect, useState, useCallback } from 'react'
 import { windowSizeTools } from '../windowSizeTools'
 
-
 export default () => {
-  const isOrientationPortrait = ({
-    width,
-    height,
-  }) => height >= width
-  const isOrientationLandscape = ({
-    width,
-    height,
-  }) => width >= height
+  const isOrientationPortrait = ({ width, height }) => height >= width
+  const isOrientationLandscape = ({ width, height }) => width >= height
 
   const size = windowSizeTools.getSize()
   const [orientation, setOrientation] = useState({

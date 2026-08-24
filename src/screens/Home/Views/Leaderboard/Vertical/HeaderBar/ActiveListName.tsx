@@ -16,19 +16,24 @@ export default forwardRef<ActiveListNameType, ActiveListNameProps>(({ onShowBoun
   const theme = useTheme()
   let [currentListName, setCurrentListName] = useState('')
 
-  useImperativeHandle(ref, () => ({
-    setBound(id, name) {
-      setCurrentListName(name)
-    },
-  }), [])
+  useImperativeHandle(
+    ref,
+    () => ({
+      setBound(id, name) {
+        setCurrentListName(name)
+      },
+    }),
+    []
+  )
 
   return (
     <TouchableOpacity onPress={onShowBound} style={styles.currentList}>
-      <Text numberOfLines={1} style={styles.currentListText} color={theme['c-button-font']}>{currentListName}</Text>
+      <Text numberOfLines={1} style={styles.currentListText} color={theme['c-button-font']}>
+        {currentListName}
+      </Text>
     </TouchableOpacity>
   )
 })
-
 
 const styles = createStyle({
   currentList: {

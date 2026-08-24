@@ -11,7 +11,6 @@ import Text from '@/components/common/Text'
 import { setDesktopLyricWidth } from '@/core/desktopLyric'
 import { updateSetting } from '@/core/common'
 
-
 export default memo(() => {
   const t = useI18n()
   const width = useSettingValue('desktopLyric.width')
@@ -21,17 +20,22 @@ export default memo(() => {
   const handleSlidingStart = useCallback<NonNullable<SliderProps['onSlidingStart']>>(() => {
     setSliding(true)
   }, [])
-  const handleValueChange = useCallback<NonNullable<SliderProps['onValueChange']>>(value => {
+  const handleValueChange = useCallback<NonNullable<SliderProps['onValueChange']>>((value) => {
     setSliderSize(value)
   }, [])
-  const handleSlidingComplete = useCallback<NonNullable<SliderProps['onSlidingComplete']>>(value => {
-    if (width == value) return
-    void setDesktopLyricWidth(value).then(() => {
-      updateSetting({ 'desktopLyric.width': value })
-    }).finally(() => {
-      setSliding(false)
-    })
-  }, [width])
+  const handleSlidingComplete = useCallback<NonNullable<SliderProps['onSlidingComplete']>>(
+    (value) => {
+      if (width == value) return
+      void setDesktopLyricWidth(value)
+        .then(() => {
+          updateSetting({ 'desktopLyric.width': value })
+        })
+        .finally(() => {
+          setSliding(false)
+        })
+    },
+    [width]
+  )
 
   return (
     <SubTitle title={t('setting_lyric_desktop_view_width')}>
@@ -60,4 +64,3 @@ const styles = createStyle({
     alignItems: 'center',
   },
 })
-

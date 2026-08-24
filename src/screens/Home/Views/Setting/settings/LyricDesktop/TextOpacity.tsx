@@ -11,7 +11,6 @@ import Text from '@/components/common/Text'
 import { setDesktopLyricAlpha } from '@/core/desktopLyric'
 import { updateSetting } from '@/core/common'
 
-
 export default memo(() => {
   const t = useI18n()
   const opacity = useSettingValue('desktopLyric.style.opacity')
@@ -21,17 +20,22 @@ export default memo(() => {
   const handleSlidingStart = useCallback<NonNullable<SliderProps['onSlidingStart']>>(() => {
     setSliding(true)
   }, [])
-  const handleValueChange = useCallback<NonNullable<SliderProps['onValueChange']>>(value => {
+  const handleValueChange = useCallback<NonNullable<SliderProps['onValueChange']>>((value) => {
     setSliderSize(value)
   }, [])
-  const handleSlidingComplete = useCallback<NonNullable<SliderProps['onSlidingComplete']>>(value => {
-    if (opacity == value) return
-    void setDesktopLyricAlpha(value).then(() => {
-      updateSetting({ 'desktopLyric.style.opacity': value })
-    }).finally(() => {
-      setSliding(false)
-    })
-  }, [opacity])
+  const handleSlidingComplete = useCallback<NonNullable<SliderProps['onSlidingComplete']>>(
+    (value) => {
+      if (opacity == value) return
+      void setDesktopLyricAlpha(value)
+        .then(() => {
+          updateSetting({ 'desktopLyric.style.opacity': value })
+        })
+        .finally(() => {
+          setSliding(false)
+        })
+    },
+    [opacity]
+  )
 
   return (
     <SubTitle title={t('setting_lyric_desktop_text_opacity')}>
@@ -60,4 +64,3 @@ const styles = createStyle({
     alignItems: 'center',
   },
 })
-

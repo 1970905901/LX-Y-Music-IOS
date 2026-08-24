@@ -50,7 +50,6 @@ export interface InputProps extends TextInputProps {
   size?: number
 }
 
-
 export interface InputType {
   blur: () => void
   focus: () => void
@@ -58,80 +57,88 @@ export interface InputType {
   isFocused: () => boolean
 }
 
-export default forwardRef<InputType, InputProps>(({ onChangeText, onClearText, clearBtn, style, size = 14, ...props }, ref) => {
-  const inputRef = useRef<TextInput>(null)
-  const theme = useTheme()
-  // const scaleClearBtn = useRef(new Animated.Value(0)).current
+export default forwardRef<InputType, InputProps>(
+  ({ onChangeText, onClearText, clearBtn, style, size = 14, ...props }, ref) => {
+    const inputRef = useRef<TextInput>(null)
+    const theme = useTheme()
+    // const scaleClearBtn = useRef(new Animated.Value(0)).current
 
-  useImperativeHandle(ref, () => ({
-    blur() {
-      inputRef.current?.blur()
-    },
-    focus() {
-      inputRef.current?.focus()
-    },
-    clear() {
+    useImperativeHandle(ref, () => ({
+      blur() {
+        inputRef.current?.blur()
+      },
+      focus() {
+        inputRef.current?.focus()
+      },
+      clear() {
+        inputRef.current?.clear()
+      },
+      isFocused() {
+        return inputRef.current?.isFocused() ?? false
+      },
+    }))
+
+    // const showClearBtn = useCallback(() => {
+    //   Animated.timing(scaleClearBtn, {
+    //     toValue: 1,
+    //     duration: 200,
+    //     useNativeDriver: true,
+    //   }).start()
+    // }, [scaleClearBtn])
+    // const hideClearBtn = useCallback(() => {
+    //   Animated.timing(scaleClearBtn, {
+    //     toValue: 0,
+    //     duration: 200,
+    //     useNativeDriver: true,
+    //   }).start()
+    // }, [scaleClearBtn])
+
+    const clearText = useCallback(() => {
       inputRef.current?.clear()
-    },
-    isFocused() {
-      return inputRef.current?.isFocused() ?? false
-    },
-  }))
+      // hideClearBtn()
+      onChangeText?.('')
+      onClearText?.()
+    }, [onChangeText, onClearText])
 
-  // const showClearBtn = useCallback(() => {
-  //   Animated.timing(scaleClearBtn, {
-  //     toValue: 1,
-  //     duration: 200,
-  //     useNativeDriver: true,
-  //   }).start()
-  // }, [scaleClearBtn])
-  // const hideClearBtn = useCallback(() => {
-  //   Animated.timing(scaleClearBtn, {
-  //     toValue: 0,
-  //     duration: 200,
-  //     useNativeDriver: true,
-  //   }).start()
-  // }, [scaleClearBtn])
+    const changeText = useCallback(
+      (text: string) => {
+        // if (text.length) {
+        //   showClearBtn()
+        // } else {
+        //   hideClearBtn()
+        // }
+        onChangeText?.(text)
+      },
+      [onChangeText]
+    )
 
-  const clearText = useCallback(() => {
-    inputRef.current?.clear()
-    // hideClearBtn()
-    onChangeText?.('')
-    onClearText?.()
-  }, [onChangeText, onClearText])
-
-  const changeText = useCallback((text: string) => {
-    // if (text.length) {
-    //   showClearBtn()
-    // } else {
-    //   hideClearBtn()
-    // }
-    onChangeText?.(text)
-  }, [onChangeText])
-
-  return (
-    <View style={styles.content}>
-      <TextInput
-        autoCapitalize="none"
-        onChangeText={changeText}
-        autoComplete="off"
-        style={StyleSheet.compose({ ...styles.input, color: theme['c-font'], fontSize: setSpText(size) }, style)}
-        placeholderTextColor={theme['c-primary-dark-100-alpha-600']}
-        selectionColor={theme['c-primary-light-100-alpha-300']}
-        ref={inputRef} {...props} />
-      {/* <View style={styles.clearBtnContent}>
+    return (
+      <View style={styles.content}>
+        <TextInput
+          autoCapitalize="none"
+          onChangeText={changeText}
+          autoComplete="off"
+          style={StyleSheet.compose(
+            { ...styles.input, color: theme['c-font'], fontSize: setSpText(size) },
+            style
+          )}
+          placeholderTextColor={theme['c-primary-dark-100-alpha-600']}
+          selectionColor={theme['c-primary-light-100-alpha-300']}
+          ref={inputRef}
+          {...props}
+        />
+        {/* <View style={styles.clearBtnContent}>
       <Animated.View style={{ ...styles.clearBtnContent, transform: [{ scale: scaleClearBtn }] }}> */}
-        {clearBtn
-          ? <View style={styles.clearBtnContent}>
-              <TouchableOpacity style={styles.clearBtn} onPress={clearText}>
-                <Icon name="remove" color={theme['c-primary-dark-100-alpha-500']} size={11} />
-              </TouchableOpacity>
-            </View>
-          : null
-        }
-      {/* </Animated.View>
+        {clearBtn ? (
+          <View style={styles.clearBtnContent}>
+            <TouchableOpacity style={styles.clearBtn} onPress={clearText}>
+              <Icon name="remove" color={theme['c-primary-dark-100-alpha-500']} size={11} />
+            </TouchableOpacity>
+          </View>
+        ) : null}
+        {/* </Animated.View>
       </View> */}
-    </View>
-  )
-})
-
+      </View>
+    )
+  }
+)

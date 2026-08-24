@@ -6,7 +6,6 @@ export declare type Source = LX.OnlineSource | 'all'
 
 type SourceLists = Partial<Record<Source, string[]>>
 
-
 export interface InitState {
   sources: Source[]
   sourceList: SourceLists

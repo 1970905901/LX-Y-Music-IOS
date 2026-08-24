@@ -1,4 +1,4 @@
-import { useRef, useImperativeHandle, forwardRef, useState } from 'react'
+import { useRef, useImperativeHandle, forwardRef, useState, useCallback } from 'react'
 import Text from '@/components/common/Text'
 import { View, TouchableOpacity } from 'react-native'
 import { createStyle, openUrl } from '@/utils/tools'
@@ -9,7 +9,6 @@ import Button from '@/components/common/Button'
 import List from './List'
 import ImportBtn from './ImportBtn'
 import ScriptImportExport, { type ScriptImportExportType } from './ScriptImportExport'
-import ScriptImportOnline, { type ScriptImportOnlineType } from './ScriptImportOnline'
 
 // interface UrlInputType {
 //   setText: (text: string) => void
@@ -54,7 +53,6 @@ import ScriptImportOnline, { type ScriptImportOnlineType } from './ScriptImportO
 //   )
 // })
 
-
 // export interface UserApiEditModalProps {
 //   onSave: (rules: string) => void
 //   // onSourceChange: SourceSelectorProps['onSourceChange']
@@ -66,22 +64,12 @@ export interface UserApiEditModalType {
 export default forwardRef<UserApiEditModalType, {}>((props, ref) => {
   const dialogRef = useRef<DialogType>(null)
   const scriptImportExportRef = useRef<ScriptImportExportType>(null)
-  const scriptImportOnlineRef = useRef<ScriptImportOnlineType>(null)
-  // const sourceSelectorRef = useRef<SourceSelectorType>(null)
-  // const inputRef = useRef<UrlInputType>(null)
   const [visible, setVisible] = useState(false)
   const theme = useTheme()
   const t = useI18n()
 
   const handleShow = () => {
     dialogRef.current?.setVisible(true)
-    // requestAnimationFrame(() => {
-    // inputRef.current?.setText('')
-    // sourceSelectorRef.current?.setSource(source)
-    // setTimeout(() => {
-    //   inputRef.current?.focus()
-    // }, 300)
-    // })
   }
   useImperativeHandle(ref, () => ({
     show() {
@@ -99,60 +87,56 @@ export default forwardRef<UserApiEditModalType, {}>((props, ref) => {
     dialogRef.current?.setVisible(false)
   }
 
-  const handleImportAction = (action: 'local' | 'online') => {
-    switch (action) {
-      case 'local':
-        requestAnimationFrame(() => {
-          scriptImportExportRef.current?.import()
-        })
-        break
-      case 'online':
-        requestAnimationFrame(() => {
-          scriptImportOnlineRef.current?.show()
-        })
-        break
-    }
-  }
-
   const openFAQPage = () => {
     void openUrl('https://lyswhut.github.io/lx-music-doc/mobile/custom-source')
   }
 
-  return (
-    visible
-      ? (
-          <>
-            <Dialog ref={dialogRef} bgHide={false}>
-              <View style={styles.content}>
-                {/* <UrlInput ref={inputRef} /> */}
-                <Text size={16} style={styles.title}>{t('user_api_title')}</Text>
-                <List />
-                <View style={styles.tips}>
-                  <Text style={styles.tipsText} size={12}>
-                    {t('user_api_readme')}
-                  </Text>
-                  <TouchableOpacity onPress={openFAQPage}>
-                    <Text style={{ ...styles.tipsText, textDecorationLine: 'underline' }} size={12} color={theme['c-primary-font']}>FAQ</Text>
-                  </TouchableOpacity>
-                  <View>
-                    <Text style={styles.tipsText} size={12}>{t('user_api_note')}</Text>
-                  </View>
-                </View>
-              </View>
-              <View style={styles.btns}>
-                <Button style={{ ...styles.btn, backgroundColor: theme['c-button-background'] }} onPress={handleCancel}>
-                  <Text size={14} color={theme['c-button-font']}>{t('close')}</Text>
-                </Button>
-                <ImportBtn btnStyle={{ ...styles.btn, backgroundColor: theme['c-button-background'] }} onImportAction={handleImportAction} />
-              </View>
-            </Dialog>
-            <ScriptImportExport ref={scriptImportExportRef} />
-            <ScriptImportOnline ref={scriptImportOnlineRef} />
-          </>
-        ) : null
-  )
-})
+  const handleExport = useCallback((apiId: string) => {
+    scriptImportExportRef.current?.export(apiId)
+  }, [])
 
+  return visible ? (
+    <Dialog ref={dialogRef} bgHide={false}>
+      <View style={styles.content}>
+        <Text size={16} style={styles.title}>
+          {t('user_api_title')}
+        </Text>
+        <List onExport={handleExport} />
+        <View style={styles.tips}>
+          <Text style={styles.tipsText} size={12}>
+            {t('user_api_readme')}
+          </Text>
+          <TouchableOpacity onPress={openFAQPage}>
+            <Text
+              style={{ ...styles.tipsText, textDecorationLine: 'underline' }}
+              size={12}
+              color={theme['c-primary-font']}
+            >
+              FAQ
+            </Text>
+          </TouchableOpacity>
+          <View>
+            <Text style={styles.tipsText} size={12}>
+              {t('user_api_note')}
+            </Text>
+          </View>
+        </View>
+      </View>
+      <View style={styles.btns}>
+        <Button
+          style={{ ...styles.btn, backgroundColor: theme['c-button-background'] }}
+          onPress={handleCancel}
+        >
+          <Text size={14} color={theme['c-button-font']}>
+            {t('close')}
+          </Text>
+        </Button>
+        <ImportBtn btnStyle={{ ...styles.btn, backgroundColor: theme['c-button-background'] }} />
+        <ScriptImportExport ref={scriptImportExportRef} />
+      </View>
+    </Dialog>
+  ) : null
+})
 
 const styles = createStyle({
   content: {
@@ -195,5 +179,3 @@ const styles = createStyle({
     marginRight: 15,
   },
 })
-
-

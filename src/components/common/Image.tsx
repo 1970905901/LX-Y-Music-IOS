@@ -1,45 +1,24 @@
 import { useTheme } from '@/store/theme/hook'
 import { BorderRadius } from '@/theme'
 import { createStyle } from '@/utils/tools'
-import { type ComponentProps, memo, useCallback, useEffect, useMemo, useState } from 'react'
-import { View, type ViewProps, StyleSheet, Image as FastImage } from 'react-native'
-// import FastImage, { type FastImageProps } from 'react-native-fast-image'
+import { memo, useCallback, useEffect, useMemo, useState, useRef } from 'react'
+import { View, type ViewProps, Image as _Image, StyleSheet, AppState } from 'react-native'
+import FastImage, { type FastImageProps } from '@d11/react-native-fast-image'
 import Text from './Text'
 import { useLayout } from '@/utils/hooks'
-// export type { OnLoadEvent } from 'react-native-fast-image'
+export type { OnLoadEvent } from '@d11/react-native-fast-image'
 
 export interface ImageProps extends ViewProps {
-  style: ComponentProps<typeof FastImage>['style']
+  style: FastImageProps['style']
   url?: string | number | null
   cache?: boolean
-  resizeMode?: ComponentProps<typeof FastImage>['resizeMode']
+  resizeMode?: FastImageProps['resizeMode']
   onError?: (url: string | number) => void
 }
 
 
 export const defaultHeaders = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.100 Safari/537.36',
-}
-
-const encodeUriSafe = (uri: string) => {
-  try {
-    return encodeURI(decodeURI(uri))
-  } catch {
-    return encodeURI(uri)
-  }
-}
-
-const normalizeUri = (url?: string | number | null) => {
-  if (typeof url != 'string') return url
-  if (!url) return url
-  if (url.startsWith('/')) return 'file://' + url
-
-  let uri = url.trim()
-
-  if (uri.startsWith('//')) uri = 'https:' + uri
-  if (uri.includes('{size}')) uri = uri.replace(/\{size\}/g, '400')
-
-  return encodeUriSafe(uri)
 }
 
 const EmptyPic = memo(({ style, nativeID }: { style: ImageProps['style'], nativeID: ImageProps['nativeID'] }) => {
@@ -55,36 +34,53 @@ const EmptyPic = memo(({ style, nativeID }: { style: ImageProps['style'], native
   )
 })
 
-const Image = memo(({ url, cache, resizeMode = 'cover', style, onError, nativeID }: ImageProps) => {
+const Image = memo(({ url, cache, resizeMode = FastImage.resizeMode.cover, style, onError, nativeID }: ImageProps) => {
   const [isError, setError] = useState(false)
+  const urlRef = useRef(url)
+  urlRef.current = url
+
   const handleError = useCallback(() => {
     setError(true)
-    onError?.(url!)
-  }, [onError, url])
+    onError?.(urlRef.current!)
+  }, [onError])
+
   useEffect(() => {
     setError(false)
   }, [url])
+
+  // 当应用从后台返回前台时，重置错误状态以重试加载图片
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active' && isError) {
+        setError(false)
+      }
+    })
+    return () => subscription.remove()
+  }, [isError])
+
   let uri = typeof url == 'number'
-    ? FastImage.resolveAssetSource(url).uri
-    : normalizeUri(url) as string | undefined
+    ? _Image.resolveAssetSource(url).uri
+    : url?.startsWith('/')
+      ? 'file://' + url
+      : url
   const showDefault = useMemo(() => !uri || isError, [isError, uri])
   return (
     showDefault ? <EmptyPic style={style} nativeID={nativeID} />
       : (
-          <FastImage
-            style={style}
-            source={{
-              uri: uri!,
-              headers: defaultHeaders,
-              cache: cache === false ? 'reload' : 'force-cache',
-              // priority: FastImage.priority.normal,
-              // cache: cache === false ? 'web' : 'immutable',
-            }}
-            onError={handleError}
-            resizeMode={resizeMode}
-            nativeID={nativeID}
-          />
-        )
+        <FastImage
+          style={style}
+          transition="fade"
+          source={{
+            uri: uri!,
+            headers: defaultHeaders,
+            priority: FastImage.priority.normal,
+            cache: cache === false ? 'web' : 'immutable',
+          }}
+          onError={handleError}
+          resizeMode={resizeMode}
+          nativeID={nativeID}
+        />
+      )
   )
 }, (prevProps, nextProps) => {
   return prevProps.url == nextProps.url &&
@@ -93,10 +89,10 @@ const Image = memo(({ url, cache, resizeMode = 'cover', style, onError, nativeID
 })
 
 export const getSize = (uri: string, success: (width: number, height: number) => void, failure?: (error: any) => void) => {
-  FastImage.getSize(normalizeUri(uri) as string, success, failure)
+  _Image.getSize(uri, success, failure)
 }
 export const clearMemoryCache = async() => {
-  // return Promise.all([FastImage.clearMemoryCache(), FastImage.clearDiskCache()])
+  return Promise.all([FastImage.clearMemoryCache(), FastImage.clearDiskCache()])
 }
 export default Image
 

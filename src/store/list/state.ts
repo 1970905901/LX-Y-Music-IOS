@@ -1,6 +1,5 @@
 import { LIST_IDS } from '@/config/constant'
 
-
 export interface InitState {
   allMusicList: Map<string, LX.Music.MusicInfo[]>
   defaultList: LX.List.MyDefaultListInfo
@@ -43,6 +42,5 @@ const state: InitState = {
 }
 
 state.allList = [state.defaultList, state.loveList]
-
 
 export default state

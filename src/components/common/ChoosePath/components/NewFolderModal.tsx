@@ -9,7 +9,6 @@ import { useTheme } from '@/store/theme/hook'
 import type { PathItem } from './ListItem'
 const filterFileName = /[\\/:*?#"<>|]/
 
-
 interface NameInputType {
   setName: (text: string) => void
   getText: () => string
@@ -46,59 +45,63 @@ const NameInput = forwardRef<NameInputType, {}>((props, ref) => {
 export interface NewFolderType {
   show: (path: string) => void
 }
-export default forwardRef<NewFolderType, { onRefreshDir: (dir: string) => Promise<PathItem[]> }>(({ onRefreshDir }, ref) => {
-  const confirmAlertRef = useRef<ConfirmAlertType>(null)
-  const nameInputRef = useRef<NameInputType>(null)
-  const pathRef = useRef<string>('')
+export default forwardRef<NewFolderType, { onRefreshDir: (dir: string) => Promise<PathItem[]> }>(
+  ({ onRefreshDir }, ref) => {
+    const confirmAlertRef = useRef<ConfirmAlertType>(null)
+    const nameInputRef = useRef<NameInputType>(null)
+    const pathRef = useRef<string>('')
 
-  useImperativeHandle(ref, () => ({
-    show(path) {
-      pathRef.current = path
-      confirmAlertRef.current?.setVisible(true)
-      requestAnimationFrame(() => {
-        setTimeout(() => {
-          nameInputRef.current?.focus()
-        }, 300)
-      })
-    },
-  }))
+    useImperativeHandle(ref, () => ({
+      show(path) {
+        pathRef.current = path
+        confirmAlertRef.current?.setVisible(true)
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            nameInputRef.current?.focus()
+          }, 300)
+        })
+      },
+    }))
 
-  const handleHideNewFolderAlert = () => {
-    nameInputRef.current?.setName('')
-  }
-  const handleConfirmNewFolderAlert = () => {
-    const text = nameInputRef.current?.getText() ?? ''
-    if (!text) return
-    if (filterFileName.test(text)) {
-      toast(global.i18n.t('create_new_folder_error_tip'), 'long')
-      return
-    }
-    const newPath = `${pathRef.current}/${text}`
-    mkdir(newPath).then(() => {
-      void onRefreshDir(pathRef.current).then((list) => {
-        const target = list.find(item => item.name == text)
-        if (target) void onRefreshDir(target.path)
-      })
+    const handleHideNewFolderAlert = () => {
       nameInputRef.current?.setName('')
-    }).catch((err: any) => {
-      toast('Create failed: ' + (err.message as string))
-    })
-    confirmAlertRef.current?.setVisible(false)
-  }
+    }
+    const handleConfirmNewFolderAlert = () => {
+      const text = nameInputRef.current?.getText() ?? ''
+      if (!text) return
+      if (filterFileName.test(text)) {
+        toast(global.i18n.t('create_new_folder_error_tip'), 'long')
+        return
+      }
+      const newPath = `${pathRef.current}/${text}`
+      mkdir(newPath)
+        .then(() => {
+          void onRefreshDir(pathRef.current).then((list) => {
+            const target = list.find((item) => item.name == text)
+            if (target) void onRefreshDir(target.path)
+          })
+          nameInputRef.current?.setName('')
+        })
+        .catch((err: any) => {
+          toast('Create failed: ' + (err.message as string))
+        })
+      confirmAlertRef.current?.setVisible(false)
+    }
 
-  return (
-    <ConfirmAlert
-      onHide={handleHideNewFolderAlert}
-      onConfirm={handleConfirmNewFolderAlert}
-      ref={confirmAlertRef}
-    >
-      <View style={styles.newFolderContent}>
-        <Text style={styles.newFolderTitle}>{global.i18n.t('create_new_folder')}</Text>
-        <NameInput ref={nameInputRef} />
-      </View>
-    </ConfirmAlert>
-  )
-})
+    return (
+      <ConfirmAlert
+        onHide={handleHideNewFolderAlert}
+        onConfirm={handleConfirmNewFolderAlert}
+        ref={confirmAlertRef}
+      >
+        <View style={styles.newFolderContent}>
+          <Text style={styles.newFolderTitle}>{global.i18n.t('create_new_folder')}</Text>
+          <NameInput ref={nameInputRef} />
+        </View>
+      </ConfirmAlert>
+    )
+  }
+)
 
 const styles = createStyle({
   newFolderContent: {
@@ -117,4 +120,3 @@ const styles = createStyle({
     paddingBottom: 2,
   },
 })
-

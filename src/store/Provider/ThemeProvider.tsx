@@ -2,10 +2,7 @@ import { memo, useEffect, useState } from 'react'
 
 import themeState, { ThemeContext } from '../theme/state'
 
-
-export default memo(({ children }: {
-  children: React.ReactNode
-}) => {
+export default memo(({ children }: { children: React.ReactNode }) => {
   const [theme, setTheme] = useState(themeState.theme)
 
   useEffect(() => {
@@ -20,9 +17,5 @@ export default memo(({ children }: {
     }
   }, [])
 
-  return (
-    <ThemeContext.Provider value={theme}>
-      {children}
-    </ThemeContext.Provider>
-  )
+  return <ThemeContext.Provider value={theme}>{children}</ThemeContext.Provider>
 })

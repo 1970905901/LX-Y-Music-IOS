@@ -11,11 +11,13 @@ const styles = createStyle({
     flex: 1,
     flexDirection: 'row',
     borderTopWidth: BorderWidths.normal,
+    backgroundColor: 'transparent',
   },
   nav: {
     height: '100%',
     width: '22%',
     borderRightWidth: BorderWidths.normal,
+    backgroundColor: 'transparent',
   },
   main: {
     paddingLeft: 15,
@@ -23,6 +25,7 @@ const styles = createStyle({
     paddingTop: 15,
     paddingBottom: 15,
     flex: 0,
+    backgroundColor: 'transparent',
   },
 })
 
@@ -35,7 +38,7 @@ export default () => {
       <View style={{ ...styles.nav, borderRightColor: theme['c-border-background'] }}>
         <NavList onChangeId={(id) => mainRef.current?.setActiveId(id)} />
       </View>
-      <ScrollView keyboardShouldPersistTaps={'always'}>
+      <ScrollView keyboardShouldPersistTaps={'always'} style={{ backgroundColor: 'transparent' }}>
         <View style={styles.main}>
           <Main ref={mainRef} />
         </View>

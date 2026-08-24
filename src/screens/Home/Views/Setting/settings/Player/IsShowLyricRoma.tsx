@@ -5,7 +5,6 @@ import { memo } from 'react'
 import { View } from 'react-native'
 import { useSettingValue } from '@/store/setting/hook'
 
-
 import CheckBoxItem from '../../components/CheckBoxItem'
 import { toggleRoma } from '@/core/lyric'
 
@@ -19,11 +18,14 @@ export default memo(() => {
 
   return (
     <View style={styles.content}>
-      <CheckBoxItem check={isShowLyricRoma} onChange={setShowLyricRoma} label={t('setting_play_show_roma')} />
+      <CheckBoxItem
+        check={isShowLyricRoma}
+        onChange={setShowLyricRoma}
+        label={t('setting_play_show_roma')}
+      />
     </View>
   )
 })
-
 
 const styles = createStyle({
   content: {

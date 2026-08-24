@@ -23,26 +23,28 @@ const createGetMusicInfosTask = (hashs) => {
     list = list.slice(100)
   }
   let url = 'http://gateway.kugou.com/v3/album_audio/audio'
-  return tasks.map(task => createHttpFetch(url, {
-    method: 'POST',
-    body: task,
-    headers: {
-      'KG-THash': '13a3164',
-      'KG-RC': '1',
-      'KG-Fake': '0',
-      'KG-RF': '00869891',
-      'User-Agent': 'Android712-AndroidPhone-11451-376-0-FeeCacheUpdate-wifi',
-      'x-router': 'kmr.service.kugou.com',
-    },
-  }).then(data => data.map(s => s[0])))
+  return tasks.map((task) =>
+    createHttpFetch(url, {
+      method: 'POST',
+      body: task,
+      headers: {
+        'KG-THash': '13a3164',
+        'KG-RC': '1',
+        'KG-Fake': '0',
+        'KG-RF': '00869891',
+        'User-Agent': 'Android712-AndroidPhone-11451-376-0-FeeCacheUpdate-wifi',
+        'x-router': 'kmr.service.kugou.com',
+      },
+    }).then((data) => data.map((s) => s[0]))
+  )
 }
 
 export const filterMusicInfoList = (rawList) => {
   // console.log(rawList)
   let ids = new Set()
   let list = []
-  rawList.forEach(item => {
-    if (!item) return
+  rawList.forEach((item) => {
+    if (!item || !item.audio_info) return
     if (ids.has(item.audio_info.audio_id)) return
     ids.add(item.audio_info.audio_id)
     const types = []
@@ -73,44 +75,59 @@ export const filterMusicInfoList = (rawList) => {
     }
     if (item.audio_info.filesize_high !== '0') {
       let size = sizeFormate(parseInt(item.audio_info.filesize_high))
-      types.push({ type: 'flac24bit', size, hash: item.audio_info.hash_high })
-      _types.flac24bit = {
+      types.push({ type: 'hires', size, hash: item.audio_info.hash_high })
+      _types.hires = {
         size,
         hash: item.audio_info.hash_high,
       }
     }
     list.push({
+      id: `${item.audio_info.audio_id}_${item.audio_info.hash}`,
       singer: decodeName(item.author_name),
       name: decodeName(item.songname),
       albumName: decodeName(item.album_info.album_name),
       albumId: item.album_info.album_id,
       songmid: item.audio_info.audio_id,
+      songId: item.audio_info.audio_id,
       source: 'kg',
       interval: formatPlayTime(parseInt(item.audio_info.timelength) / 1000),
-      img: null,
+      img: item.album_info.sizable_cover ? item.album_info.sizable_cover.replace('{size}', '400') : null,
       lrc: null,
       hash: item.audio_info.hash,
       otherSource: null,
+      mixSongId: item.audio_info.audio_group_id || item.audio_info.mixsongid || item.mixsongid || 0,
       types,
       _types,
       typeUrl: {},
+      meta: {
+        songId: item.audio_info.audio_id,
+        albumName: decodeName(item.album_info.album_name),
+        albumId: item.album_info.album_id,
+        picUrl: item.album_info.sizable_cover ? item.album_info.sizable_cover.replace('{size}', '400') : null,
+        qualitys: types,
+        _qualitys: _types,
+        hash: item.audio_info.hash,
+        mixSongId: item.audio_info.audio_group_id || item.audio_info.mixsongid || item.mixsongid || 0,
+      },
     })
   })
   return list
 }
 
-export const getMusicInfos = async(hashs) => {
-  return filterMusicInfoList(await Promise.all(createGetMusicInfosTask(hashs)).then(data => data.flat()))
+export const getMusicInfos = async (hashs) => {
+  const rawData = await Promise.all(createGetMusicInfosTask(hashs)).then((data) => data.flat())
+  const validData = rawData.filter(item => item && item.audio_info && item.audio_info.audio_id)
+  return filterMusicInfoList(validData)
 }
 
-export const getMusicInfoRaw = async(hash) => {
-  return Promise.all(createGetMusicInfosTask([{ hash }])).then(data => data.flat()[0])
+export const getMusicInfoRaw = async (hash) => {
+  return Promise.all(createGetMusicInfosTask([{ hash }])).then((data) => data.flat()[0])
 }
 
-export const getMusicInfo = async(hash) => {
-  return getMusicInfos([{ hash }]).then(data => data[0])
+export const getMusicInfo = async (hash) => {
+  return getMusicInfos([{ hash }]).then((data) => data[0])
 }
 
 export const getMusicInfosByList = (list) => {
-  return getMusicInfos(list.map(item => ({ hash: item.hash })))
+  return getMusicInfos(list.map((item) => ({ hash: item.hash })))
 }

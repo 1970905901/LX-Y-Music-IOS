@@ -15,7 +15,12 @@ import { createStyle } from '@/utils/tools'
 
 type SyncHistoryItem = Awaited<ReturnType<typeof getSyncHostHistory>>[number]
 
-const HistoryListItem = ({ item, index, onRemove, onSelect }: {
+const HistoryListItem = ({
+  item,
+  index,
+  onRemove,
+  onSelect,
+}: {
   item: SyncHistoryItem
   index: number
   onRemove: (index: number) => void
@@ -66,7 +71,7 @@ const HistoryList = forwardRef<HistoryListType, HistoryListProps>(({ onSelect },
   const handleShow = () => {
     popupRef.current?.setVisible(true)
     requestAnimationFrame(() => {
-      void getSyncHostHistory().then(historyList => {
+      void getSyncHostHistory().then((historyList) => {
         setList([...historyList])
       })
     })
@@ -83,47 +88,48 @@ const HistoryList = forwardRef<HistoryListType, HistoryListProps>(({ onSelect },
     },
   }))
 
-  const handleSelect = useCallback((index: number) => {
-    popupRef.current?.setVisible(false)
-    onSelect(list[index])
-  }, [list, onSelect])
-
-  const handleRemove = useCallback((index: number) => {
-    void removeSyncHostHistory(index)
-    const newList = [...list]
-    newList.splice(index, 1)
-    setList(newList)
-  }, [list])
-
-
-  return (
-    visible
-      ? (
-          <Popup ref={popupRef} title={t('setting_sync_history_title')}>
-            <ScrollView style={styles.list}>
-              {
-                list.length
-                  ? list.map((item, index) => (
-                      <HistoryListItem
-                        item={item}
-                        index={index}
-                        onRemove={handleRemove}
-                        key={item}
-                        onSelect={handleSelect}
-                      />
-                  ))
-                  : <Text style={styles.tipText} color={theme['c-font-label']}>{t('setting_sync_history_empty')}</Text>
-              }
-            </ScrollView>
-          </Popup>
-        )
-      : null
+  const handleSelect = useCallback(
+    (index: number) => {
+      popupRef.current?.setVisible(false)
+      onSelect(list[index])
+    },
+    [list, onSelect]
   )
+
+  const handleRemove = useCallback(
+    (index: number) => {
+      void removeSyncHostHistory(index)
+      const newList = [...list]
+      newList.splice(index, 1)
+      setList(newList)
+    },
+    [list]
+  )
+
+  return visible ? (
+    <Popup ref={popupRef} title={t('setting_sync_history_title')}>
+      <ScrollView style={styles.list}>
+        {list.length ? (
+          list.map((item, index) => (
+            <HistoryListItem
+              item={item}
+              index={index}
+              onRemove={handleRemove}
+              key={item}
+              onSelect={handleSelect}
+            />
+          ))
+        ) : (
+          <Text style={styles.tipText} color={theme['c-font-label']}>
+            {t('setting_sync_history_empty')}
+          </Text>
+        )}
+      </ScrollView>
+    </Popup>
+  ) : null
 })
 
-export default memo(({ setHost }: {
-  setHost: (host: string) => void
-}) => {
+export default memo(({ setHost }: { setHost: (host: string) => void }) => {
   const t = useI18n()
   const isEnableSync = useSettingValue('sync.enable')
   const listRef = useRef<HistoryListType>(null)
@@ -140,7 +146,9 @@ export default memo(({ setHost }: {
   return (
     <>
       <View style={styles.btn}>
-        <Button disabled={isEnableSync} onPress={showPopup}>{t('setting_sync_history')}</Button>
+        <Button disabled={isEnableSync} onPress={showPopup}>
+          {t('setting_sync_history')}
+        </Button>
       </View>
       <HistoryList ref={listRef} onSelect={handleSelect} />
     </>

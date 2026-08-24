@@ -1,9 +1,8 @@
-import { memo, useEffect } from 'react'
-import { View, AppState } from 'react-native'
-import { screenkeepAwake, screenUnkeepAwake } from '@/utils/nativeModules/utils'
+import { memo, useEffect, useState } from 'react'
+import { View, AppState, Dimensions } from 'react-native'
+import { screenkeepAwake, screenUnkeepAwake, getCutoutLeftPx } from '@/utils/nativeModules/utils'
 import StatusBar from '@/components/common/StatusBar'
 import MoreBtn from './MoreBtn'
-
 import Header from './components/Header'
 import { setComponentId } from '@/core/common'
 import { COMPONENT_IDS } from '@/config/constant'
@@ -17,10 +16,35 @@ import Player from './Player'
 import { createStyle } from '@/utils/tools'
 import { marginLeftRaw } from './constant'
 import { useStatusbarHeight } from '@/store/common/hook'
-// import MoreBtn from './MoreBtn2'
+import { useSettingValue } from '@/store/setting/hook'
+
+const useCutoutLeft = () => {
+  const [cutoutLeftDp, setCutoutLeftDp] = useState(() => {
+    const screen = Dimensions.get('screen')
+    const win = Dimensions.get('window')
+    return Math.max(0, screen.width - win.width)
+  })
+
+  useEffect(() => {
+    const update = () => {
+      void getCutoutLeftPx().then((px: number) => {
+        const { PixelRatio } = require('react-native')
+        setCutoutLeftDp(px > 0 ? Math.round(px / PixelRatio.get()) : 0)
+      })
+    }
+    update()
+    const sub = Dimensions.addEventListener('change', update)
+    return () => sub?.remove()
+  }, [])
+
+  return cutoutLeftDp
+}
 
 export default memo(({ componentId }: { componentId: string }) => {
   const statusBarHeight = useStatusbarHeight()
+  const isLandscapeStretch = useSettingValue('theme.isLandscapeStretch')
+  const rawCutoutLeft = useCutoutLeft()
+  const cutoutLeft = isLandscapeStretch ? 0 : rawCutoutLeft
 
   useEffect(() => {
     setComponentId(COMPONENT_IDS.playDetail, componentId)
@@ -48,14 +72,13 @@ export default memo(({ componentId }: { componentId: string }) => {
       appstateListener.remove()
       screenUnkeepAwake()
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   return (
     <PageContent>
       <StatusBar />
       <View style={{ ...styles.container, paddingTop: statusBarHeight }}>
-        <View style={styles.left}>
+        <View style={{ ...styles.left, marginLeft: cutoutLeft }}>
           <Header />
           <View style={styles.leftContent}>
             <MoreBtn />
@@ -87,12 +110,17 @@ const styles = createStyle({
     // backgroundColor: 'rgba(0,0,0,0.1)',
   },
   leftContent: {
-    flexShrink: 1,
-    flexGrow: 0,
+    flex: 1,
     marginLeft: marginLeftRaw,
-    // flexDirection: 'row',
-    // backgroundColor: 'rgba(0,0,0,0.1)',
-    // alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  miniLyricContainer: {
+    position: 'absolute',
+    bottom: 20,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
   },
   right: {
     width: '55%',

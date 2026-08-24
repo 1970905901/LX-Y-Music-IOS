@@ -2,9 +2,11 @@ import { memo } from 'react'
 
 import Section from '../../components/Section'
 import IsSavePlayTime from './IsSavePlayTime'
+import IsSwipeToShowPlaylist from './IsSwipeToShowPlaylist'
 import PlayHighQuality from './PlayHighQuality'
 import IsHandleAudioFocus from './IsHandleAudioFocus'
 import IsEnableAudioOffload from './IsEnableAudioOffload'
+import IsEnableAudioPreload from './IsEnableAudioPreload'
 import IsAutoCleanPlayedList from './IsAutoCleanPlayedList'
 import IsShowBluetoothLyric from './IsShowBluetoothLyric'
 import IsShowNotificationImage from './IsShowNotificationImage'
@@ -12,25 +14,32 @@ import IsShowLyricTranslation from './IsShowLyricTranslation'
 import IsShowLyricRoma from './IsShowLyricRoma'
 import IsS2T from './IsS2T'
 import MaxCache from './MaxCache'
+import IsEnableAutoToggleSource from './IsEnableAutoToggleSource'
+import ToggleSourceMaxRetry from './ToggleSourceMaxRetry'
+import IsEnableFailureStrategy from './IsEnableFailureStrategy'
+import FailureStrategy from './FailureStrategy'
 import { useI18n } from '@/lang'
-import { isDesktopLyricSupported } from '@/utils/nativeModules/lyricDesktop'
-
 
 export default memo(() => {
   const t = useI18n()
 
   return (
-    <Section title={t('setting_player')}>
+    <Section title={t('setting_player')} sectionId="setting_player">
       <IsSavePlayTime />
+      <IsSwipeToShowPlaylist />
       <IsAutoCleanPlayedList />
       <IsHandleAudioFocus />
       <IsEnableAudioOffload />
-      {isDesktopLyricSupported ? <IsShowBluetoothLyric /> : null}
-      <IsShowNotificationImage />
+      <IsEnableAudioPreload />
+      <IsShowBluetoothLyric />
       <IsShowLyricTranslation />
       <IsShowLyricRoma />
       <IsS2T />
       <MaxCache />
+      <IsEnableAutoToggleSource />
+      <ToggleSourceMaxRetry />
+      <IsEnableFailureStrategy />
+      <FailureStrategy />
       <PlayHighQuality />
     </Section>
   )

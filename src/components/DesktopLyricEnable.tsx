@@ -5,7 +5,12 @@ import ConfirmAlert, { type ConfirmAlertType } from '@/components/common/Confirm
 import { toast } from '@/utils/tools'
 
 import { useI18n } from '@/lang'
-import { checkDesktopLyricOverlayPermission, hideDesktopLyric, openDesktopLyricOverlayPermissionActivity, showDesktopLyric } from '@/core/desktopLyric'
+import {
+  checkDesktopLyricOverlayPermission,
+  hideDesktopLyric,
+  openDesktopLyricOverlayPermissionActivity,
+  showDesktopLyric,
+} from '@/core/desktopLyric'
 import { updateSetting } from '@/core/common'
 
 export interface DesktopLyricEnableType {
@@ -33,7 +38,7 @@ export default forwardRef<DesktopLyricEnableType, {}>((props, ref) => {
       })
     }
   }
-  const handleChangeEnableDesktopLyric = async(isEnable: boolean) => {
+  const handleChangeEnableDesktopLyric = async (isEnable: boolean) => {
     if (isEnable) {
       try {
         await checkDesktopLyricOverlayPermission()
@@ -57,19 +62,16 @@ export default forwardRef<DesktopLyricEnableType, {}>((props, ref) => {
     void openDesktopLyricOverlayPermissionActivity()
   }
 
-  return (
-    visible
-      ? (
-          <ConfirmAlert
-            ref={confirmAlertRef}
-            onCancel={handleTipsCancel}
-            onConfirm={handleTipsConfirm}
-            bgHide={false}
-            closeBtn={false}
-            cancelText={t('disagree')}
-            confirmText={t('agree_go')}
-            text={t('setting_lyric_desktop_permission_tip')} />
-        )
-      : null
-  )
+  return visible ? (
+    <ConfirmAlert
+      ref={confirmAlertRef}
+      onCancel={handleTipsCancel}
+      onConfirm={handleTipsConfirm}
+      bgHide={false}
+      closeBtn={false}
+      cancelText={t('disagree')}
+      confirmText={t('agree_go')}
+      text={t('setting_lyric_desktop_permission_tip')}
+    />
+  ) : null
 })

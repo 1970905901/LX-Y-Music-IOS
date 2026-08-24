@@ -5,7 +5,6 @@ import { View } from 'react-native'
 import CheckBox, { type CheckBoxProps } from '@/components/common/CheckBox'
 import { createStyle } from '@/utils/tools'
 
-
 export default memo((props: CheckBoxProps) => {
   return (
     <View style={styles.container}>
@@ -21,4 +20,3 @@ const styles = createStyle({
     // marginBottom: 0,
   },
 })
-

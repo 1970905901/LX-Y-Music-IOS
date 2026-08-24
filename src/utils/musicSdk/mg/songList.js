@@ -133,7 +133,7 @@ export default {
     return Promise.reject(new Error('link get failed'))
   },
 
-  getListDetail(id, page, retryNum = 0) { // 获取歌曲列表内的音乐
+  getListDetail(id, page, retryNum = 0) {
     // https://h5.nf.migu.cn/app/v4/p/share/playlist/index.html?id=184187437&channel=0146921
     // http://c.migu.cn/00bTY6?ifrom=babddaadfde4ebeda289d671ab62f236
     // https://music.migu.cn/v5/#/playlist?playlistId=221573417
@@ -156,7 +156,6 @@ export default {
     })
   },
 
-  // 获取列表数据
   getList(sortId, tagId, page, tryNum = 0) {
     if (this._requestObj_list) this._requestObj_list.cancelHttp()
     if (tryNum > 2) return Promise.reject(new Error('try max num'))
@@ -265,7 +264,6 @@ export default {
     }))
   },
 
-  // 获取标签
   getTag(tryNum = 0) {
     if (this._requestObj_tags) this._requestObj_tags.cancelHttp()
     if (tryNum > 2) return Promise.reject(new Error('try max num'))

@@ -1,6 +1,3 @@
-/* eslint-disable */
-//! 此文件由 createThemes.js 生成
-
 export default [
   {
     "id": "green",
@@ -250,7 +247,8 @@ export default [
         "bg-image-size": "cover",
         "c-badge-primary": "var(c-primary)",
         "c-badge-secondary": "#4baed5",
-        "c-badge-tertiary": "#e7aa36"
+        "c-badge-tertiary": "#e7aa36",
+        "c-liked": "#ef4444"
       }
     }
   },
@@ -502,7 +500,8 @@ export default [
         "bg-image-size": "cover",
         "c-badge-primary": "var(c-primary)",
         "c-badge-secondary": "#5cbf9b",
-        "c-badge-tertiary": "#5cbf9b"
+        "c-badge-tertiary": "#5cbf9b",
+        "c-liked": "#ef4444"
       }
     }
   },
@@ -754,7 +753,8 @@ export default [
         "bg-image-size": "cover",
         "c-badge-primary": "var(c-primary)",
         "c-badge-secondary": "rgba(66.6, 150.7, 171, 1)",
-        "c-badge-tertiary": "rgba(54, 196, 231, 1)"
+        "c-badge-tertiary": "rgba(54, 196, 231, 1)",
+        "c-liked": "#ef4444"
       }
     }
   },
@@ -1006,7 +1006,8 @@ export default [
         "bg-image-size": "cover",
         "c-badge-primary": "var(c-primary)",
         "c-badge-secondary": "#9ed458",
-        "c-badge-tertiary": "#9ed458"
+        "c-badge-tertiary": "#9ed458",
+        "c-liked": "#ef4444"
       }
     }
   },
@@ -1258,7 +1259,8 @@ export default [
         "bg-image-size": "cover",
         "c-badge-primary": "var(c-primary)",
         "c-badge-secondary": "#483472",
-        "c-badge-tertiary": "#647D39"
+        "c-badge-tertiary": "#647D39",
+        "c-liked": "#ef4444"
       }
     }
   },
@@ -1510,7 +1512,8 @@ export default [
         "bg-image-size": "cover",
         "c-badge-primary": "var(c-primary)",
         "c-badge-secondary": "#dfbb6b",
-        "c-badge-tertiary": "#dfbb6b"
+        "c-badge-tertiary": "#dfbb6b",
+        "c-liked": "#ef4444"
       }
     }
   },
@@ -1762,7 +1765,8 @@ export default [
         "bg-image-size": "cover",
         "c-badge-primary": "var(c-primary)",
         "c-badge-secondary": "#f5b684",
-        "c-badge-tertiary": "#f5b684"
+        "c-badge-tertiary": "#f5b684",
+        "c-liked": "#ef4444"
       }
     }
   },
@@ -2014,7 +2018,8 @@ export default [
         "bg-image-size": "cover",
         "c-badge-primary": "var(c-primary)",
         "c-badge-secondary": "#e5a39f",
-        "c-badge-tertiary": "#e5a39f"
+        "c-badge-tertiary": "#e5a39f",
+        "c-liked": "#ef4444"
       }
     }
   },
@@ -2266,7 +2271,8 @@ export default [
         "bg-image-size": "cover",
         "c-badge-primary": "var(c-primary)",
         "c-badge-secondary": "#b19b9f",
-        "c-badge-tertiary": "#b19b9f"
+        "c-badge-tertiary": "#b19b9f",
+        "c-liked": "#ef4444"
       }
     }
   },
@@ -2518,7 +2524,8 @@ export default [
         "bg-image-size": "cover",
         "c-badge-primary": "var(c-primary)",
         "c-badge-secondary": "#6376a2",
-        "c-badge-tertiary": "#6376a2"
+        "c-badge-tertiary": "#6376a2",
+        "c-liked": "#ef4444"
       }
     }
   },
@@ -2770,7 +2777,8 @@ export default [
         "bg-image-size": "cover",
         "c-badge-primary": "var(c-primary)",
         "c-badge-secondary": "#b080db",
-        "c-badge-tertiary": "#b080db"
+        "c-badge-tertiary": "#b080db",
+        "c-liked": "#ef4444"
       }
     }
   },
@@ -3022,7 +3030,8 @@ export default [
         "bg-image-size": "cover",
         "c-badge-primary": "var(c-primary-dark-200)",
         "c-badge-secondary": "var(c-primary)",
-        "c-badge-tertiary": "var(c-primary-dark-300)"
+        "c-badge-tertiary": "var(c-primary-dark-300)",
+        "c-liked": "#ef4444"
       }
     }
   },
@@ -3274,7 +3283,8 @@ export default [
         "bg-image-size": "cover",
         "c-badge-primary": "var(c-primary)",
         "c-badge-secondary": "#af9479",
-        "c-badge-tertiary": "#af9479"
+        "c-badge-tertiary": "#af9479",
+        "c-liked": "#ef4444"
       }
     }
   },
@@ -3526,7 +3536,8 @@ export default [
         "bg-image-size": "cover",
         "c-badge-primary": "var(c-primary)",
         "c-badge-secondary": "var(c-primary-light-100)",
-        "c-badge-tertiary": "var(c-primary-light-100)"
+        "c-badge-tertiary": "var(c-primary-light-100)",
+        "c-liked": "#ef4444"
       }
     }
   },
@@ -3778,7 +3789,8 @@ export default [
         "bg-image-size": "cover",
         "c-badge-primary": "rgba(137, 70, 70, 1)",
         "c-badge-secondary": "rgba(67, 139, 65, 1)",
-        "c-badge-tertiary": "rgba(132, 135, 65, 1)"
+        "c-badge-tertiary": "rgba(132, 135, 65, 1)",
+        "c-liked": "#ef4444"
       }
     }
   },
@@ -4030,7 +4042,8 @@ export default [
         "bg-image-size": "cover",
         "c-badge-primary": "#7fb575",
         "c-badge-secondary": "#dfbb6b",
-        "c-badge-tertiary": "var(c-primary-light-100)"
+        "c-badge-tertiary": "var(c-primary-light-100)",
+        "c-liked": "#ef4444"
       }
     }
   }

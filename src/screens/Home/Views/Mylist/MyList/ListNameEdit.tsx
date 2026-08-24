@@ -43,13 +43,11 @@ const NameInput = forwardRef<NameInputType, {}>((props, ref) => {
   )
 })
 
-
 export interface ListNameEditType {
   showCreate: (position: number) => void
   show: (listInfo: LX.List.UserListInfo) => void
 }
 const initSelectInfo = {}
-
 
 export default forwardRef<ListNameEditType, {}>((props, ref) => {
   const alertRef = useRef<ConfirmAlertType>(null)
@@ -99,9 +97,13 @@ export default forwardRef<ListNameEditType, {}>((props, ref) => {
     if (position == -1) {
       void updateUserList([{ ...selectedListInfo.current, name }])
     } else {
-      void (listState.userList.some(l => l.name == name) ? confirmDialog({
-        message: global.i18n.t('list_duplicate_tip'),
-      }) : Promise.resolve(true)).then(confirmed => {
+      void (
+        listState.userList.some((l) => l.name == name)
+          ? confirmDialog({
+              message: global.i18n.t('list_duplicate_tip'),
+            })
+          : Promise.resolve(true)
+      ).then((confirmed) => {
         if (!confirmed) return
         const now = Date.now()
         void createUserList(position, [{ id: `userlist_${now}`, name, locationUpdateTime: now }])
@@ -110,21 +112,17 @@ export default forwardRef<ListNameEditType, {}>((props, ref) => {
     alertRef.current?.setVisible(false)
   }
 
-  return (
-    visible
-      ? <ConfirmAlert
-          ref={alertRef}
-          onConfirm={handleRename}
-        >
-          <View style={styles.renameContent}>
-            <Text style={{ marginBottom: 5 }}>{ position == -1 ? global.i18n.t('list_rename_title') : global.i18n.t('list_create')}</Text>
-            <NameInput ref={nameInputRef} />
-          </View>
-        </ConfirmAlert>
-      : null
-  )
+  return visible ? (
+    <ConfirmAlert ref={alertRef} onConfirm={handleRename}>
+      <View style={styles.renameContent}>
+        <Text style={{ marginBottom: 5 }}>
+          {position == -1 ? global.i18n.t('list_rename_title') : global.i18n.t('list_create')}
+        </Text>
+        <NameInput ref={nameInputRef} />
+      </View>
+    </ConfirmAlert>
+  ) : null
 })
-
 
 const styles = createStyle({
   renameContent: {
@@ -141,5 +139,3 @@ const styles = createStyle({
     // paddingBottom: 2,
   },
 })
-
-

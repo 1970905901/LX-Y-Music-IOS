@@ -4,7 +4,6 @@ import state, { type InitState } from './state'
 //   saveSearchHistoryList(list)
 // }, 500)
 
-
 // export const getHistoryList = async() => {
 //   if (isInitedSearchHistory) return
 //   historyList.push(...(await getSearchHistoryList() ?? []))
@@ -28,7 +27,6 @@ import state, { type InitState } from './state'
 //   saveSearchHistoryList([])
 // }
 
-
 export default {
   setSearchType(type: InitState['searchType']) {
     state.searchType = type
@@ -36,7 +34,10 @@ export default {
   setSearchText(text: string) {
     state.searchText = text
   },
-  setTipListInfo(keyword: InitState['tipListInfo']['text'], source: InitState['tipListInfo']['source']) {
+  setTipListInfo(
+    keyword: InitState['tipListInfo']['text'],
+    source: InitState['tipListInfo']['source']
+  ) {
     state.tipListInfo.text = keyword
     state.tipListInfo.source = source
   },

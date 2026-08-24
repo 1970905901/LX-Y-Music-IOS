@@ -17,59 +17,80 @@ import { useSettingValue } from '@/store/setting/hook'
 export interface ActiveListProps {
   onShowSearchBar: () => void
   onScrollToTop: () => void
+  showCover: boolean
+  onToggleView: () => void
+  onBack?: () => void
 }
 export interface ActiveListType {
   setVisibleBar: (visible: boolean) => void
 }
 
-export default forwardRef<ActiveListType, ActiveListProps>(({ onShowSearchBar, onScrollToTop }, ref) => {
-  const theme = useTheme()
-  const currentListId = useActiveListId()
-  const fetching = useListFetching(currentListId)
-  const langId = useSettingValue('common.langId')
-  const currentListName = useMemo(() => {
-    switch (currentListId) {
-      case LIST_IDS.TEMP:
-        return global.i18n.t('list_name_temp')
-      case LIST_IDS.DEFAULT:
-        return global.i18n.t('list_name_default')
-      case LIST_IDS.LOVE:
-        return global.i18n.t('list_name_love')
-      default:
-        return listState.allList.find(l => l.id === currentListId)?.name ?? ''
+export default forwardRef<ActiveListType, ActiveListProps>(
+  ({ onShowSearchBar, onScrollToTop, showCover, onToggleView, onBack }, ref) => {
+    const theme = useTheme()
+    const currentListId = useActiveListId()
+    const fetching = useListFetching(currentListId)
+    const langId = useSettingValue('common.langId')
+    const currentListName = useMemo(() => {
+      switch (currentListId) {
+        case LIST_IDS.TEMP:
+          return global.i18n.t('list_name_temp')
+        case LIST_IDS.DEFAULT:
+          return global.i18n.t('list_name_default')
+        case LIST_IDS.LOVE:
+          return global.i18n.t('list_name_love')
+        default:
+          return listState.allList.find((l) => l.id === currentListId)?.name ?? ''
+      }
+    }, [currentListId, langId])
+    const [visibleBar, setVisibleBar] = useState(true)
+
+    useImperativeHandle(ref, () => ({
+      setVisibleBar(visible) {
+        setVisibleBar(visible)
+      },
+    }))
+
+    const showList = () => {
+      global.app_event.changeLoveListVisible(true)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentListId, langId])
-  const [visibleBar, setVisibleBar] = useState(true)
 
-  useImperativeHandle(ref, () => ({
-    setVisibleBar(visible) {
-      setVisibleBar(visible)
-    },
-  }))
+    useEffect(() => {
+      void getListPrevSelectId().then((id) => {
+        setActiveList(id)
+      })
+    }, [])
 
-  const showList = () => {
-    global.app_event.changeLoveListVisible(true)
-  }
-
-  useEffect(() => {
-    void getListPrevSelectId().then((id) => {
-      setActiveList(id)
-    })
-  }, [])
-
-  return (
-    <TouchableOpacity onPress={showList} onLongPress={onScrollToTop} style={{ ...styles.currentList, opacity: visibleBar ? 1 : 0, borderBottomColor: theme['c-border-background'] }}>
-      <Icon style={styles.currentListIcon} color={theme['c-button-font']} name="chevron-right" size={12} />
-      { fetching ? <Loading color={theme['c-button-font']} style={styles.loading} /> : null }
-      <Text style={styles.currentListText} numberOfLines={1} color={theme['c-button-font']}>{currentListName}</Text>
-      <TouchableOpacity style={styles.currentListBtns} onPress={onShowSearchBar}>
-        <Icon color={theme['c-button-font']} name="search-2" />
+    return (
+      <TouchableOpacity
+        onPress={onBack || showList}
+        onLongPress={onScrollToTop}
+        style={{
+          ...styles.currentList,
+          opacity: visibleBar ? 1 : 0,
+          borderBottomColor: theme['c-border-background'],
+        }}
+      >
+        <Icon
+          style={styles.currentListIcon}
+          color={theme['c-button-font']}
+          name={onBack ? 'chevron-left' : 'chevron-right'}
+          size={onBack ? 18 : 12}
+        />
+        {fetching ? <Loading color={theme['c-button-font']} style={styles.loading} /> : null}
+        <Text style={styles.currentListText} numberOfLines={1} color={theme['c-button-font']}>
+          {onBack ? '返回' : currentListName}
+        </Text>
+        <TouchableOpacity style={styles.currentListBtns} onPress={onToggleView}>
+          <Icon color={theme['c-button-font']} name={showCover ? 'menu' : 'album'} />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.currentListBtns} onPress={onShowSearchBar}>
+          <Icon color={theme['c-button-font']} name="search-2" />
+        </TouchableOpacity>
       </TouchableOpacity>
-    </TouchableOpacity>
-  )
-})
-
+    )
+  }
+)
 
 const styles = createStyle({
   currentList: {

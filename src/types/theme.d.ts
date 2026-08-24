@@ -25,7 +25,6 @@ declare global {
       'c-950': string
       'c-1000': string
 
-
       'c-theme': string
 
       'c-primary': string
@@ -260,27 +259,30 @@ declare global {
       'c-primary-light-1000-alpha-900': string
     }
 
-    type ActiveTheme = ThemeColors & Omit<Theme['config']['extInfo'], 'bg-image'> & Pick<Theme, 'id' | 'name' | 'isDark'> & {
-      'c-font': string
-      'c-font-label': string
-      'c-primary-font': string
-      'c-primary-font-hover': string
-      'c-primary-font-active': string
-      'c-primary-background': string
-      'c-primary-background-hover': string
-      'c-primary-background-active': string
-      'c-primary-input-background': string
-      'c-button-font': string
-      'c-button-font-selected': string
-      'c-button-background': string
-      'c-button-background-selected': string
-      'c-button-background-hover': string
-      'c-button-background-active': string
-      'c-list-header-border-bottom': string
-      'c-content-background': string
-      'c-border-background': string
-      'bg-image'?: ImageSourcePropType
-    }
+    type ActiveTheme = ThemeColors &
+      Omit<Theme['config']['extInfo'], 'bg-image' | 'c-liked'> &
+      Pick<Theme, 'id' | 'name' | 'isDark'> & {
+        'c-font': string
+        'c-font-label': string
+        'c-primary-font': string
+        'c-primary-font-hover': string
+        'c-primary-font-active': string
+        'c-primary-background': string
+        'c-primary-background-hover': string
+        'c-primary-background-active': string
+        'c-primary-input-background': string
+        'c-button-font': string
+        'c-button-font-selected': string
+        'c-button-background': string
+        'c-button-background-selected': string
+        'c-button-background-hover': string
+        'c-button-background-active': string
+        'c-list-header-border-bottom': string
+        'c-content-background': string
+        'c-border-background': string
+        'c-liked': string;
+        'bg-image'?: ImageSourcePropType
+      }
 
     interface Theme {
       id: string
@@ -296,7 +298,7 @@ declare global {
           'bg-image-position': string
           'bg-image-size': string
 
-          // 徽章颜色
+          'c-liked'?: string
           'c-badge-primary': string
           'c-badge-secondary': string
           'c-badge-tertiary': string

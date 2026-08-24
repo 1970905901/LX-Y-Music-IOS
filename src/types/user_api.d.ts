@@ -12,7 +12,6 @@ declare namespace LX {
 
     type UserApiSources = Record<LX.Source, UserApiSourceInfo>
 
-
     interface UserApiInfo {
       id: string
       name: string
@@ -58,6 +57,5 @@ declare namespace LX {
       apiInfo: UserApiInfo
       apiList: UserApiInfo[]
     }
-
   }
 }

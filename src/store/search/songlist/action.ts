@@ -10,7 +10,6 @@ export interface SearchResult {
   source: LX.OnlineSource
 }
 
-
 /**
  * 按搜索关键词重新排序列表
  * @param list 歌曲列表
@@ -20,19 +19,15 @@ export interface SearchResult {
 const handleSortList = (list: ListInfoItem[], keyword: string) => {
   let arr: any[] = []
   for (const item of list) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     sortInsert(arr, {
       num: similar(keyword, item.name),
       data: item,
     })
   }
-  return arr.map(item => item.data).reverse()
+  return arr.map((item) => item.data).reverse()
 }
 
-
-let maxTotals: Partial<Record<LX.OnlineSource, number>> = {
-
-}
+let maxTotals: Partial<Record<LX.OnlineSource, number>> = {}
 const setLists = (results: SearchResult[], page: number, text: string): ListInfoItem[] => {
   let totals = []
   let limit = 0
@@ -67,7 +62,6 @@ const setList = (datas: SearchResult, page: number, text: string): ListInfoItem[
   state.source = datas.source
   return listInfo.list
 }
-
 
 export default {
   setSource(source: InitState['source']) {

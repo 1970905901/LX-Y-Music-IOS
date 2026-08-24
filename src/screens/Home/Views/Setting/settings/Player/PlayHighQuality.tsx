@@ -15,13 +15,19 @@ const useActive = (id: LX.Quality) => {
   return isActive
 }
 
-const Item = ({ id, name }: {
-  id: LX.Quality
-  name: string
-}) => {
+const Item = ({ id, name }: { id: LX.Quality; name: string }) => {
   const isActive = useActive(id)
-  // const [toggleCheckBox, setToggleCheckBox] = useState(false)
-  return <CheckBox marginRight={8} check={isActive} label={name} onChange={() => { updateSetting({ 'player.playQuality': id }) }} need />
+  return (
+    <CheckBox
+      marginRight={8}
+      check={isActive}
+      label={name}
+      onChange={() => {
+        updateSetting({ 'player.playQuality': id })
+      }}
+      need
+    />
+  )
 }
 
 export default memo(() => {
@@ -33,9 +39,9 @@ export default memo(() => {
   return (
     <SubTitle title={t('setting_play_play_quality')}>
       <View style={styles.list}>
-        {
-          playQualityList.map((q) => <Item name={q} id={q} key={q} />)
-        }
+        {playQualityList.map((q) => (
+          <Item name={t(q)} id={q} key={q} />
+        ))}
       </View>
     </SubTitle>
   )
@@ -43,30 +49,7 @@ export default memo(() => {
 
 const styles = StyleSheet.create({
   list: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     flexWrap: 'wrap',
   },
 })
-
-
-// export default memo(() => {
-//   const t = useI18n()
-//   const isPlayHighQuality = useSettingValue('player.isPlayHighQuality')
-//   const setPlayHighQuality = (isPlayHighQuality: boolean) => {
-//     updateSetting({ 'player.isPlayHighQuality': isPlayHighQuality })
-//   }
-
-//   return (
-//     <View style={styles.content}>
-//       <CheckBoxItem check={isPlayHighQuality} onChange={setPlayHighQuality} label={t('setting_play_quality')} />
-//     </View>
-//   )
-// })
-
-
-// const styles = createStyle({
-//   content: {
-//     marginTop: 5,
-//   },
-// })
-

@@ -3,12 +3,13 @@
 import BackgroundTimer from 'react-native-background-timer'
 
 const defaultHeaders = {
-  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.100 Safari/537.36',
+  'User-Agent':
+    'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.100 Safari/537.36',
 }
 // var proxyUrl = "http://" + user + ":" + password + "@" + host + ":" + port;
 // var proxiedRequest = request.defaults({'proxy': proxyUrl});
 
-const handleRequestData = async({
+const handleRequestData = async ({
   method = 'get',
   headers = {},
   format = 'json',
@@ -17,9 +18,12 @@ const handleRequestData = async({
   ...options
 }) => {
   // console.log(url, options)
-  headers = Object.assign({
-    Accept: 'application/json',
-  }, headers)
+  headers = Object.assign(
+    {
+      Accept: 'application/json',
+    },
+    headers
+  )
   if (method.toLocaleLowerCase() === 'post' && !headers['Content-Type']) {
     if (options.form) {
       headers['Content-Type'] = 'application/x-www-form-urlencoded'
@@ -81,39 +85,46 @@ export const fetchData = (url, { timeout = 13_000, ...options }) => {
   }, timeout)
 
   return {
-    request: handleRequestData(options).then(options => {
-      return global.fetch(url, {
-        ...options,
-        signal: controller.signal,
-      }).then(resp => (options.binary ? resp.blob() : resp.text()).then(text => {
-        // console.log(options, headers, text)
-        return {
-          headers: resp.headers.map,
-          body: text,
-          statusCode: resp.status,
-          statusMessage: resp.statusText,
-          url: resp.url,
-          ok: resp.ok,
-        }
-      })).then(resp => {
-        if (options.binary) {
-          return blobToBuffer(resp.body).then(buffer => {
-            resp.body = buffer
-            return resp
+    request: handleRequestData(options).then((options) => {
+      return global
+        .fetch(url, {
+          ...options,
+          signal: controller.signal,
+        })
+        .then((resp) =>
+          (options.binary ? resp.blob() : resp.text()).then((text) => {
+            // console.log(options, headers, text)
+            return {
+              headers: resp.headers.map,
+              body: text,
+              statusCode: resp.status,
+              statusMessage: resp.statusText,
+              url: resp.url,
+              ok: resp.ok,
+            }
           })
-        } else {
-          try {
-            resp.body = JSON.parse(resp.body)
-          } catch {}
-          return resp
-        }
-      }).catch(err => {
-        // console.log(err, err.code, err.message)
-        return Promise.reject(err)
-      }).finally(() => {
-        if (id == null) return
-        BackgroundTimer.clearTimeout(id)
-      })
+        )
+        .then((resp) => {
+          if (options.binary) {
+            return blobToBuffer(resp.body).then((buffer) => {
+              resp.body = buffer
+              return resp
+            })
+          } else {
+            try {
+              resp.body = JSON.parse(resp.body)
+            } catch {}
+            return resp
+          }
+        })
+        .catch((err) => {
+          // console.log(err, err.code, err.message)
+          return Promise.reject(err)
+        })
+        .finally(() => {
+          if (id == null) return
+          BackgroundTimer.clearTimeout(id)
+        })
     }),
     abort() {
       controller.abort()

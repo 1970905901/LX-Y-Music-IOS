@@ -14,20 +14,26 @@ const setShareType = (type: ShareType) => {
   updateSetting({ 'common.shareType': type })
 }
 
-
 const useActive = (type: ShareType) => {
   const shareType = useSettingValue('common.shareType')
   const isActive = useMemo(() => shareType == type, [shareType, type])
   return isActive
 }
 
-const Item = ({ id, name }: {
-  id: ShareType
-  name: string
-}) => {
+const Item = ({ id, name }: { id: ShareType; name: string }) => {
   const isActive = useActive(id)
   // const [toggleCheckBox, setToggleCheckBox] = useState(false)
-  return <CheckBox marginBottom={3} check={isActive} label={name} onChange={() => { setShareType(id) }} need />
+  return (
+    <CheckBox
+      marginBottom={3}
+      check={isActive}
+      label={name}
+      onChange={() => {
+        setShareType(id)
+      }}
+      need
+    />
+  )
 }
 
 export default memo(() => {
@@ -48,9 +54,9 @@ export default memo(() => {
   return (
     <SubTitle title={t('setting_basic_share_type')}>
       <View style={styles.list}>
-        {
-          list.map(({ id, name }) => <Item name={name} id={id} key={id} />)
-        }
+        {list.map(({ id, name }) => (
+          <Item name={name} id={id} key={id} />
+        ))}
       </View>
     </SubTitle>
   )

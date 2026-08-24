@@ -12,12 +12,24 @@ const noop: Noop = () => {}
 
 type ScrollElement<T> = {
   lx_scrollLockKey?: number
-  lx_scrollNextParams?: [ScrollElement<FlatList<any>>, NativeSyntheticEvent<NativeScrollEvent>['nativeEvent'], number, number, Noop]
+  lx_scrollNextParams?: [
+    ScrollElement<FlatList<any>>,
+    NativeSyntheticEvent<NativeScrollEvent>['nativeEvent'],
+    number,
+    number,
+    Noop,
+  ]
   lx_scrollTimeout?: NodeJS.Timeout
   lx_scrollDelayTimeout?: NodeJS.Timeout
 } & T
 
-const handleScrollY = (element: ScrollElement<FlatList<any>>, info: NativeSyntheticEvent<NativeScrollEvent>['nativeEvent'], to: number, duration = 300, fn = noop): Noop => {
+const handleScrollY = (
+  element: ScrollElement<FlatList<any>>,
+  info: NativeSyntheticEvent<NativeScrollEvent>['nativeEvent'],
+  to: number,
+  duration = 300,
+  fn = noop
+): Noop => {
   if (element == null) {
     fn()
     return noop
@@ -35,7 +47,6 @@ const handleScrollY = (element: ScrollElement<FlatList<any>>, info: NativeSynthe
     return clean
   }
 
-
   let start = info.contentOffset.y
   if (to > start) {
     let maxScrollTop = info.contentSize.height - info.layoutMeasurement.height
@@ -47,7 +58,7 @@ const handleScrollY = (element: ScrollElement<FlatList<any>>, info: NativeSynthe
     return noop
   }
   let change = to - start
-  const increment = 10
+  const increment = 5
   if (!change) {
     fn()
     return noop
@@ -117,14 +128,21 @@ const handleScrollY = (element: ScrollElement<FlatList<any>>, info: NativeSynthe
   return clean
 }
 /**
-  * 设置滚动条位置
-  * @param element 要设置滚动的容器 dom
-  * @param to 滚动的目标位置
-  * @param duration 滚动完成时间 ms
-  * @param fn 滚动完成后的回调
-  * @param delay 延迟执行时间
-  */
-export const scrollTo = (element: ScrollElement<FlatList<any>>, info: NativeSyntheticEvent<NativeScrollEvent>['nativeEvent'], to: number, duration = 300, fn = () => {}, delay = 0): () => void => {
+ * 设置滚动条位置
+ * @param element 要设置滚动的容器 dom
+ * @param to 滚动的目标位置
+ * @param duration 滚动完成时间 ms
+ * @param fn 滚动完成后的回调
+ * @param delay 延迟执行时间
+ */
+export const scrollTo = (
+  element: ScrollElement<FlatList<any>>,
+  info: NativeSyntheticEvent<NativeScrollEvent>['nativeEvent'],
+  to: number,
+  duration = 300,
+  fn = () => {},
+  delay = 0
+): (() => void) => {
   let cancelFn: () => void
   if (element.lx_scrollDelayTimeout != null) {
     clearTimeout(element.lx_scrollDelayTimeout)
@@ -149,4 +167,3 @@ export const scrollTo = (element: ScrollElement<FlatList<any>>, info: NativeSynt
   }
   return cancelFn
 }
-

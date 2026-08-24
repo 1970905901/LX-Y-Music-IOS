@@ -29,21 +29,27 @@ export default forwardRef<LeftBarType, LeftBarProps>(({ onChangeList }, ref) => 
   const theme = useTheme()
   const sourceSelectorRef = useRef<SourceSelectorType>(null)
   const boardsListRef = useRef<BoardsListType>(null)
-  const boundInfo = useRef<{ source: LX.OnlineSource, id: string | null }>({ source: 'kw', id: null })
-  useImperativeHandle(ref, () => ({
-    setBound(source, listId) {
-      boundInfo.current = { source, id: listId }
-      sourceSelectorRef.current?.setSourceList(boardState.sources, source)
-      void getBoardsList(source).then(list => {
-        boardsListRef.current?.setList(list, listId)
-      })
-    },
-  }), [])
-
+  const boundInfo = useRef<{ source: LX.OnlineSource; id: string | null }>({
+    source: 'kw',
+    id: null,
+  })
+  useImperativeHandle(
+    ref,
+    () => ({
+      setBound(source, listId) {
+        boundInfo.current = { source, id: listId }
+        sourceSelectorRef.current?.setSourceList(boardState.sources, source)
+        void getBoardsList(source).then((list) => {
+          boardsListRef.current?.setList(list, listId)
+        })
+      },
+    }),
+    []
+  )
 
   const onSourceChange = (source: LX.OnlineSource) => {
     boundInfo.current.source = source
-    void getBoardsList(source).then(list => {
+    void getBoardsList(source).then((list) => {
       const id = list[0].id
       requestAnimationFrame(() => {
         boardsListRef.current?.setList(list, id)
@@ -95,4 +101,3 @@ const styles = createStyle({
     height: 38,
   },
 })
-

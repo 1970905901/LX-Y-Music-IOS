@@ -3,8 +3,8 @@ import type { InitState as CommonState } from '@/store/common/state'
 import type { InitState as ListState } from '@/store/list/state'
 import type { InitState as PlayerState } from '@/store/player/state'
 import type { InitState as VersionState } from '@/store/version/state'
+import type { InitState as AnnouncementState } from '@/store/announcement/state'
 import { type I18n } from '@/lang'
-
 
 // {
 //   // sync: {
@@ -18,6 +18,30 @@ import { type I18n } from '@/lang'
 export class StateEvent extends Event {
   configUpdated(keys: Array<keyof LX.AppSetting>, setting: Partial<LX.AppSetting>) {
     this.emit('configUpdated', keys, setting)
+  }
+  wyLikedListChanged() {
+    this.emit('wyLikedListChanged')
+  }
+  txLikedListChanged() {
+    this.emit('txLikedListChanged')
+  }
+  kgLikedListChanged() {
+    this.emit('kgLikedListChanged')
+  }
+  wyFollowedListChanged() {
+    this.emit('wyFollowedListChanged')
+  }
+  wySubscribedAlbumsChanged() {
+    this.emit('wySubscribedAlbumsChanged');
+  }
+  wySubscribedPlaylistsChanged() {
+    this.emit('wySubscribedPlaylistsChanged');
+  }
+  txSubscribedPlaylistsChanged() {
+    this.emit('txSubscribedPlaylistsChanged');
+  }
+  kgSubscribedPlaylistsChanged() {
+    this.emit('kgSubscribedPlaylistsChanged');
   }
 
   languageChanged(locale: I18n['locale']) {
@@ -42,6 +66,10 @@ export class StateEvent extends Event {
 
   bgPicUpdated(bgPic: string | null) {
     this.emit('bgPicUpdated', bgPic)
+  }
+
+  isLandscapeImmersionUpdated(isLandscapeImmersion: boolean) {
+    this.emit('isLandscapeImmersionUpdated', isLandscapeImmersion)
   }
 
   playerMusicInfoChanged(musicInfo: PlayerState['musicInfo']) {
@@ -79,7 +107,9 @@ export class StateEvent extends Event {
   /**
    * 我的列表更新
    */
-  mylistUpdated(lists: Array<LX.List.MyDefaultListInfo | LX.List.MyLoveListInfo | LX.List.UserListInfo>) {
+  mylistUpdated(
+    lists: Array<LX.List.MyDefaultListInfo | LX.List.MyLoveListInfo | LX.List.UserListInfo>
+  ) {
     this.emit('mylistUpdated', lists)
   }
 
@@ -121,11 +151,13 @@ export class StateEvent extends Event {
   sourceNamesUpdated(names: CommonState['sourceNames']) {
     this.emit('sourceNamesUpdated', names)
   }
+
+  announcementUpdated(info: AnnouncementState) {
+    this.emit('announcementUpdated', info)
+  }
 }
 
-
 type EventMethods = Omit<EventType, keyof Event>
-
 
 declare class EventType extends StateEvent {
   on<K extends keyof EventMethods>(event: K, listener: EventMethods[K]): any

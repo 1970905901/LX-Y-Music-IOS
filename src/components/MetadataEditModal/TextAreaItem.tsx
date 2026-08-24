@@ -7,7 +7,6 @@ import { useTheme } from '@/store/theme/hook'
 import Text from '@/components/common/Text'
 import { createStyle } from '@/utils/tools'
 
-
 export interface TextAreaItemProps extends InputProps {
   value: string
   label: string
@@ -15,41 +14,50 @@ export interface TextAreaItemProps extends InputProps {
   onChanged?: (text: string) => void
 }
 
-export default memo(({ value, label, onOnlineMatch, onChanged, style, ...props }: TextAreaItemProps) => {
-  const theme = useTheme()
-  const handleRemove = useCallback(() => {
-    onChanged?.('')
-  }, [onChanged])
+export default memo(
+  ({ value, label, onOnlineMatch, onChanged, style, ...props }: TextAreaItemProps) => {
+    const theme = useTheme()
+    const handleRemove = useCallback(() => {
+      onChanged?.('')
+    }, [onChanged])
 
-  return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.label} size={14}>{label}</Text>
-        {
-          onChanged ? (
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.label} size={14}>
+            {label}
+          </Text>
+          {onChanged ? (
             <View style={styles.btns}>
               <TouchableOpacity onPress={handleRemove}>
-                <Text size={13} color={theme['c-button-font']}>{global.i18n.t('metadata_edit_modal_form_remove_lyric')}</Text>
+                <Text size={13} color={theme['c-button-font']}>
+                  {global.i18n.t('metadata_edit_modal_form_remove_lyric')}
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={onOnlineMatch}>
-                <Text size={13} color={theme['c-button-font']}>{global.i18n.t('metadata_edit_modal_form_match_lyric')}</Text>
+                <Text size={13} color={theme['c-button-font']}>
+                  {global.i18n.t('metadata_edit_modal_form_match_lyric')}
+                </Text>
               </TouchableOpacity>
             </View>
-          ) : null
-        }
+          ) : null}
+        </View>
+        <Input
+          value={value}
+          onChangeText={onChanged}
+          scrollEnabled={false}
+          textAlignVertical="top"
+          multiline
+          style={StyleSheet.compose(
+            { ...styles.textarea, backgroundColor: theme['c-primary-input-background'] },
+            style
+          )}
+          {...props}
+        />
       </View>
-      <Input
-        value={value}
-        onChangeText={onChanged}
-        scrollEnabled={false}
-        textAlignVertical='top'
-        multiline
-        style={StyleSheet.compose({ ...styles.textarea, backgroundColor: theme['c-primary-input-background'] }, style)}
-        {...props}
-       />
-    </View>
-  )
-})
+    )
+  }
+)
 
 const styles = createStyle({
   container: {

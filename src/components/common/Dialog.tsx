@@ -70,44 +70,70 @@ export interface DialogType {
   setVisible: (visible: boolean) => void
 }
 
-export default forwardRef<DialogType, DialogProps>(({
-  onHide,
-  keyHide = true,
-  bgHide = true,
-  closeBtn = true,
-  title = '',
-  children,
-  height,
-}: DialogProps, ref) => {
-  const theme = useTheme()
-  const { keyboardShown, keyboardHeight } = useKeyboard()
-  const modalRef = useRef<ModalType>(null)
+export default forwardRef<DialogType, DialogProps>(
+  (
+    {
+      onHide,
+      keyHide = true,
+      bgHide = true,
+      closeBtn = true,
+      title = '',
+      children,
+      height,
+    }: DialogProps,
+    ref
+  ) => {
+    const theme = useTheme()
+    const { keyboardShown, keyboardHeight } = useKeyboard()
+    const modalRef = useRef<ModalType>(null)
 
-  useImperativeHandle(ref, () => ({
-    setVisible(visible: boolean) {
-      modalRef.current?.setVisible(visible)
-    },
-  }))
+    useImperativeHandle(ref, () => ({
+      setVisible(visible: boolean) {
+        modalRef.current?.setVisible(visible)
+      },
+    }))
 
-  const closeBtnComponent = useMemo(() => {
-    return closeBtn
-      ? <TouchableHighlight style={{ ...styles.closeBtn, width: scaleSizeH(HEADER_HEIGHT) }} underlayColor={theme['c-primary-dark-200-alpha-600']} onPress={() => modalRef.current?.setVisible(false)}>
+    const closeBtnComponent = useMemo(() => {
+      return closeBtn ? (
+        <TouchableHighlight
+          style={{ ...styles.closeBtn, width: scaleSizeH(HEADER_HEIGHT) }}
+          underlayColor={theme['c-primary-dark-200-alpha-600']}
+          onPress={() => modalRef.current?.setVisible(false)}
+        >
           <Icon name="close" color={theme['c-primary-dark-500-alpha-500']} size={10} />
         </TouchableHighlight>
-      : null
-  }, [closeBtn, theme])
+      ) : null
+    }, [closeBtn, theme])
 
-  return (
-    <Modal onHide={onHide} keyHide={keyHide} bgHide={bgHide} bgColor="rgba(50,50,50,.3)" ref={modalRef}>
-      <View style={{ ...styles.centeredView, paddingBottom: keyboardShown ? keyboardHeight : 0 }}>
-        <View style={{ ...styles.modalView, height, backgroundColor: theme['c-content-background'] }} onStartShouldSetResponder={() => true}>
-          <View style={{ ...styles.header, backgroundColor: theme['c-primary-light-100-alpha-100'] }}>
-            <Text style={styles.title} size={13} color={theme['c-primary-light-1000']} numberOfLines={1}>{title}</Text>
-            {closeBtnComponent}
+    return (
+      <Modal
+        onHide={onHide}
+        keyHide={keyHide}
+        bgHide={bgHide}
+        bgColor="rgba(50,50,50,.3)"
+        ref={modalRef}
+      >
+        <View style={{ ...styles.centeredView, paddingBottom: keyboardShown ? keyboardHeight : 0 }}>
+          <View
+            style={{ ...styles.modalView, height, backgroundColor: theme['c-content-background'] }}
+          >
+            <View
+              style={{ ...styles.header, backgroundColor: theme['c-primary-light-100-alpha-100'] }}
+            >
+              <Text
+                style={styles.title}
+                size={13}
+                color={theme['c-primary-light-1000']}
+                numberOfLines={1}
+              >
+                {title}
+              </Text>
+              {closeBtnComponent}
+            </View>
+            {children}
           </View>
-          {children}
         </View>
-      </View>
-    </Modal>
-  )
-})
+      </Modal>
+    )
+  }
+)

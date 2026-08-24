@@ -1,6 +1,5 @@
 import state from './state'
 
-
 export default {
   setStatus(info: LX.Sync.Status) {
     state.status.status = info.status
@@ -21,4 +20,3 @@ export default {
     state.syncModeComponentId = id
   },
 }
-

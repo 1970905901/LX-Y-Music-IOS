@@ -1,25 +1,25 @@
-import { useRef, useEffect } from 'react'
-import { type LayoutChangeEvent, View } from 'react-native'
-
-// import music from '@/utils/musicSdk'
-// import InsetShadow from 'react-native-inset-shadow'
-// import TipList from './components/TipList'
-// import MusicList from './components/MusicList'
+import { useRef, useEffect, useState, useCallback, useMemo } from 'react'
+import { InteractionManager } from 'react-native'
+import { type LayoutChangeEvent, View, BackHandler } from 'react-native'
 import HeaderBar, { type HeaderBarProps, type HeaderBarType } from './HeaderBar'
 import searchState, { type SearchType } from '@/store/search/state'
+import commonState from '@/store/common/state'
 import searchMusicState from '@/store/search/music/state'
-import searchSonglistState from '@/store/search/songlist/state'
+import searchSonglistState, { type ListInfoItem } from '@/store/search/songlist/state'
 import { getSearchSetting, saveSearchSetting } from '@/utils/data'
-import { createStyle } from '@/utils/tools'
+import { consumePendingAction } from '@/core/pendingAction'
+import {createStyle, toast} from '@/utils/tools'
 import TipList, { type TipListType } from './TipList'
 import List, { type ListType } from './List'
-import { addHistoryWord } from '@/core/search/search'
-
+import { addHistoryWord, setSearchText as setSearchState } from '@/core/search/search'
+import SonglistDetail from '../../../SonglistDetail'
+import {COMPONENT_IDS} from "@/config/constant.ts"
+import { useSettingValue } from '@/store/setting/hook'
 
 interface SearchInfo {
   temp_source: LX.OnlineSource
   source: LX.OnlineSource | 'all'
-  searchType: 'music' | 'songlist'
+  searchType: 'music' | 'songlist' | 'singer' | 'album'
 }
 
 export default () => {
@@ -29,47 +29,191 @@ export default () => {
   const layoutHeightRef = useRef<number>(0)
   const searchInfo = useRef<SearchInfo>({ temp_source: 'kw', source: 'kw', searchType: 'music' })
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const [selectedList, setSelectedList] = useState<ListInfoItem | null>(null)
+  const selectedListRef = useRef(selectedList)
+  selectedListRef.current = selectedList
+
+  const enabledSources = useSettingValue('search.enabledSources')
+  const filteredMusicSources = useMemo(
+    () => searchMusicState.sources.filter(s => enabledSources[s] !== false),
+    [enabledSources],
+  )
+  const filteredSonglistSources = useMemo(
+    () => searchSonglistState.sources.filter(s => enabledSources[s] !== false),
+    [enabledSources],
+  )
+
+  const filteredMusicSourcesRef = useRef(filteredMusicSources)
+  filteredMusicSourcesRef.current = filteredMusicSources
+  const filteredSonglistSourcesRef = useRef(filteredSonglistSources)
+  filteredSonglistSourcesRef.current = filteredSonglistSources
 
   useEffect(() => {
-    void getSearchSetting().then(info => {
-      // info.type = 'music'
+    const sources = searchInfo.current.searchType === 'songlist' ? filteredSonglistSourcesRef.current : filteredMusicSourcesRef.current
+    if (sources.length > 0 && searchInfo.current.source) {
+      headerBarRef.current?.setSourceList(sources, searchInfo.current.source)
+    }
+  }, [filteredMusicSources, filteredSonglistSources])
+
+  const [headerKey, setHeaderKey] = useState(Date.now())
+
+  useEffect(() => {
+    const onBackPress = () => {
+      if (selectedListRef.current) {
+        const lastScreen = commonState.componentIds[commonState.componentIds.length - 1]
+
+        if (lastScreen && lastScreen.name !== COMPONENT_IDS.home) {
+          return false
+        }
+
+        setSelectedList(null)
+        return true
+      }
+      return false
+    }
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress)
+
+    return () => subscription.remove()
+  }, [])
+
+  useEffect(() => {
+    if (!selectedList) {
+      setHeaderKey(Date.now())
+      if (searchState.searchText) {
+        listRef.current?.loadList(
+          searchState.searchText,
+          searchInfo.current.source,
+          searchInfo.current.searchType,
+        )
+      }
+    }
+  }, [selectedList])
+
+  const handleSearch: HeaderBarProps['onSearch'] = useCallback((text) => {
+    handleHideTipList()
+    setSelectedList(null)
+    setSearchState(text)
+    searchTipListRef.current?.search(text, layoutHeightRef.current)
+    headerBarRef.current?.setText(text)
+    headerBarRef.current?.blur()
+    void addHistoryWord(text)
+    listRef.current?.loadList(text, searchInfo.current.source, searchInfo.current.searchType)
+  }, [])
+
+  useEffect(() => {
+    void getSearchSetting().then((info) => {
       searchInfo.current.temp_source = info.temp_source
       searchInfo.current.source = info.source
       searchInfo.current.searchType = info.type
       switch (info.type) {
         case 'music':
-          headerBarRef.current?.setSourceList(searchMusicState.sources, info.source)
+        case 'singer':
+        case 'album':
+          headerBarRef.current?.setSourceList(filteredMusicSources, info.source)
           break
         case 'songlist':
-          headerBarRef.current?.setSourceList(searchSonglistState.sources, info.source)
+          headerBarRef.current?.setSourceList(filteredSonglistSources, info.source)
           break
       }
       headerBarRef.current?.setText(searchState.searchText)
-      listRef.current?.loadList(searchState.searchText, searchInfo.current.source, searchInfo.current.searchType)
+      listRef.current?.loadList(
+        searchState.searchText,
+        searchInfo.current.source,
+        searchInfo.current.searchType,
+      )
     })
 
     const handleTypeChange = (type: SearchType) => {
+      setSelectedList(null)
       searchInfo.current.searchType = type
       void saveSearchSetting({ type })
-      listRef.current?.loadList(searchState.searchText, searchInfo.current.source, type)
+      if (searchState.searchText) {
+        listRef.current?.loadList(searchState.searchText, searchInfo.current.source, type)
+      }
     }
     global.app_event.on('searchTypeChanged', handleTypeChange)
 
+    const handleSearchDeepLink = async (keyword: string, source: string, type: string) => {
+      const info = await getSearchSetting()
+      searchInfo.current.source = (source || info.source) as LX.OnlineSource
+      searchInfo.current.searchType = (type || info.type) as SearchType
+      if (type) {
+        global.app_event.searchTypeChanged(searchInfo.current.searchType)
+      }
+      if (source) {
+        switch (searchInfo.current.searchType) {
+          case 'music':
+          case 'singer':
+          case 'album':
+            headerBarRef.current?.setSourceList(filteredMusicSources, searchInfo.current.source)
+            break
+          case 'songlist':
+            headerBarRef.current?.setSourceList(filteredSonglistSources, searchInfo.current.source)
+            break
+        }
+      }
+      if (keyword) {
+        listRef.current?.loadList(
+          keyword,
+          searchInfo.current.source,
+          searchInfo.current.searchType,
+        )
+      }
+      setTimeout(() => headerBarRef.current?.focus(), 300)
+    }
+    global.app_event.on('searchDeepLink', handleSearchDeepLink)
+
     return () => {
       global.app_event.off('searchTypeChanged', handleTypeChange)
+      global.app_event.off('searchDeepLink', handleSearchDeepLink)
+    }
+  }, [headerKey])
+
+  useEffect(() => {
+    const handleNavChange = async (id: string) => {
+      if (id === 'nav_search') {
+        const info = await getSearchSetting()
+        searchInfo.current.source = info.source
+        searchInfo.current.searchType = info.type
+        headerBarRef.current?.setText(searchState.searchText)
+        const sources = info.type === 'songlist' ? filteredSonglistSourcesRef.current : filteredMusicSourcesRef.current
+        headerBarRef.current?.setSourceList(sources, info.source)
+        if (searchState.searchText) {
+          listRef.current?.loadList(searchState.searchText, info.source, info.type)
+        }
+        if (consumePendingAction('searchFocus')) {
+          InteractionManager.runAfterInteractions(() => {
+            headerBarRef.current?.focus()
+          })
+        }
+      }
+    }
+    global.state_event.on('navActiveIdUpdated', handleNavChange)
+
+    if (consumePendingAction('searchFocus')) {
+      InteractionManager.runAfterInteractions(() => {
+        headerBarRef.current?.focus()
+      })
+    }
+
+    return () => {
+      global.state_event.off('navActiveIdUpdated', handleNavChange)
     }
   }, [])
-
 
   const handleLayout = (e: LayoutChangeEvent) => {
     layoutHeightRef.current = e.nativeEvent.layout.height
   }
-
   const handleSourceChange: HeaderBarProps['onSourceChange'] = (source) => {
+    setSelectedList(null)
     searchInfo.current.source = source
     void saveSearchSetting({ source })
-    listRef.current?.loadList(searchState.searchText, source, searchInfo.current.searchType)
+    if (searchState.searchText) {
+      listRef.current?.loadList(searchState.searchText, source, searchInfo.current.searchType)
+    }
   }
+
   const handleTipSearch: HeaderBarProps['onTipSearch'] = (text) => {
     setTimeout(() => {
       searchTipListRef.current?.search(text, layoutHeightRef.current)
@@ -82,14 +226,6 @@ export default () => {
     }
     searchTipListRef.current?.hide()
   }
-  const handleSearch: HeaderBarProps['onSearch'] = (text) => {
-    handleHideTipList()
-    searchTipListRef.current?.search(text, layoutHeightRef.current)
-    headerBarRef.current?.setText(text)
-    headerBarRef.current?.blur()
-    void addHistoryWord(text)
-    listRef.current?.loadList(text, searchInfo.current.source, searchInfo.current.searchType)
-  }
   const handleShowTipList: HeaderBarProps['onShowTipList'] = () => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current)
     timeoutRef.current = setTimeout(() => {
@@ -97,32 +233,48 @@ export default () => {
     }, 500)
   }
 
+  const handleOpenDetail = useCallback((item: ListInfoItem) => {
+    setSelectedList(item)
+  }, [])
+
   return (
     <View style={styles.container}>
-      <HeaderBar
-        ref={headerBarRef}
-        onSourceChange={handleSourceChange}
-        onTipSearch={handleTipSearch}
-        onSearch={handleSearch}
-        onHideTipList={handleHideTipList}
-        onShowTipList={handleShowTipList}
-      />
+      { !selectedList && (
+        <HeaderBar
+          key={headerKey}
+          ref={headerBarRef}
+          onSourceChange={handleSourceChange}
+          onTipSearch={handleTipSearch}
+          onSearch={handleSearch}
+          onHideTipList={handleHideTipList}
+          onShowTipList={handleShowTipList}
+        />
+      )}
       <View style={styles.content} onLayout={handleLayout}>
-        <TipList ref={searchTipListRef} onSearch={handleSearch} />
-        <List ref={listRef} onSearch={handleSearch} />
+        { selectedList
+          ? <SonglistDetail
+            componentId={commonState.componentIds.find(c => c.name === COMPONENT_IDS.home)?.id}
+            info={selectedList} onBack={() => setSelectedList(null)}
+          />
+          : (
+            <>
+              <TipList ref={searchTipListRef} onSearch={handleSearch} />
+              <List ref={listRef} onSearch={handleSearch} onOpenDetail={handleOpenDetail} />
+            </>
+          )
+        }
       </View>
     </View>
   )
 }
 
+
 const styles = createStyle({
   container: {
     width: '100%',
     flex: 1,
-    overflow: 'hidden',
   },
   content: {
     flex: 1,
-    overflow: 'hidden',
   },
 })

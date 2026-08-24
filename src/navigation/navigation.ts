@@ -4,12 +4,15 @@ import { Navigation } from 'react-native-navigation'
 import {
   HOME_SCREEN,
   PLAY_DETAIL_SCREEN,
+  VISUALIZER_SCREEN,
   SONGLIST_DETAIL_SCREEN,
-  COMMENT_SCREEN,
-  // SETTING_SCREEN,
+  SIMILAR_SONGS_SCREEN,
+  COMMENT_SCREEN, ARTIST_DETAIL_SCREEN, ALBUM_DETAIL_SCREEN, DOWNLOAD_MANAGER_SCREEN,
 } from './screenNames'
 
 import themeState from '@/store/theme/state'
+import playerState from '@/store/player/state'
+import settingState from '@/store/setting/state'
 import { NAV_SHEAR_NATIVE_IDS } from '@/config/constant'
 import { getStatusBarStyle } from './utils'
 import { windowSizeTools } from '@/utils/windowSizeTools'
@@ -53,34 +56,48 @@ export async function pushHomeScreen() {
   */
 
   const theme = themeState.theme
+  const lockLandscape = settingState.setting['common.lockLandscape']
+
+  if (lockLandscape) {
+    setTimeout(() => {
+      const { setScreenOrientation } = require('@/utils/nativeModules/utils')
+      setScreenOrientation('landscape')
+    }, 500)
+  }
+
   return Navigation.setRoot({
     root: {
       stack: {
-        children: [{
-          component: {
-            name: HOME_SCREEN,
-            options: {
-              topBar: {
-                visible: false,
-                height: 0,
-                drawBehind: false,
-              },
-              statusBar: {
-                drawBehind: true,
-                visible: true,
-                style: getStatusBarStyle(theme.isDark),
-                backgroundColor: 'transparent',
-              },
-              navigationBar: {
-                // visible: false,
-                backgroundColor: theme['c-content-background'],
-              },
-              layout: {
-                componentBackgroundColor: theme['c-content-background'],
+        children: [
+          {
+            component: {
+              name: HOME_SCREEN,
+              options: {
+                topBar: {
+                  visible: false,
+                  height: 0,
+                  drawBehind: false,
+                },
+                statusBar: {
+                  drawBehind: true,
+                  visible: true,
+                  style: getStatusBarStyle(theme.isDark),
+                  backgroundColor: 'transparent',
+                },
+                navigationBar: {
+          visible: !settingState.setting['common.hideNavigationBar'],
+          backgroundColor: theme['c-content-background'],
+        },
+                orientation: lockLandscape ? ['landscape'] : ['portrait'],
+                layout: {
+                  componentBackgroundColor: theme['c-content-background'],
+                  fitSystemWindows: false,
+                },
+                gestureEnabled: false,
               },
             },
           },
-        }],
+        ],
       },
     },
   })
@@ -120,6 +137,7 @@ export function pushPlayDetailScreen(componentId: string, skipAnimation = false)
   */
   requestAnimationFrame(() => {
     const theme = themeState.theme
+    const hasPic = !!playerState.musicInfo.pic
 
     void Navigation.push(componentId, {
       component: {
@@ -137,53 +155,58 @@ export function pushPlayDetailScreen(componentId: string, skipAnimation = false)
             backgroundColor: 'transparent',
           },
           navigationBar: {
-            // visible: false,
+            visible: !settingState.setting['common.hideNavigationBar'],
             backgroundColor: theme['c-content-background'],
           },
           layout: {
             componentBackgroundColor: theme['c-content-background'],
+                  fitSystemWindows: false,
           },
           animations: {
-            push: skipAnimation ? {} : {
-              sharedElementTransitions: [
-                {
-                  fromId: NAV_SHEAR_NATIVE_IDS.playDetail_pic,
-                  toId: NAV_SHEAR_NATIVE_IDS.playDetail_pic,
-                  interpolation: { type: 'spring' },
+            push: skipAnimation
+              ? {}
+              : hasPic ? {
+                sharedElementTransitions: [
+                  {
+                    fromId: NAV_SHEAR_NATIVE_IDS.playDetail_pic,
+                    toId: NAV_SHEAR_NATIVE_IDS.playDetail_pic,
+                    interpolation: { type: 'spring' },
+                  },
+                ],
+                elementTransitions: [
+                  {
+                    id: NAV_SHEAR_NATIVE_IDS.playDetail_header,
+                    alpha: {
+                      from: 0,
+                      duration: 300,
+                    },
+                    translationY: {
+                      from: -32,
+                      duration: 300,
+                    },
+                  },
+                  {
+                    id: NAV_SHEAR_NATIVE_IDS.playDetail_player,
+                    alpha: {
+                      from: 0,
+                      duration: 300,
+                    },
+                    translationY: {
+                      from: 32,
+                      duration: 300,
+                    },
+                  },
+                ],
+              }
+              : {
+                content: {
+                  translationX: {
+                    from: windowSizeTools.getSize().width,
+                    to: 0,
+                    duration: 300,
+                  },
                 },
-              ],
-              elementTransitions: [
-                {
-                  id: NAV_SHEAR_NATIVE_IDS.playDetail_header,
-                  alpha: {
-                    from: 0, // We don't declare 'to' value as that is the element's current alpha value, here we're essentially animating from 0 to 1
-                    duration: 300,
-                  },
-                  translationY: {
-                    from: -32, // Animate translationY from 16dp to 0dp
-                    duration: 300,
-                  },
-                },
-                {
-                  id: NAV_SHEAR_NATIVE_IDS.playDetail_player,
-                  alpha: {
-                    from: 0, // We don't declare 'to' value as that is the element's current alpha value, here we're essentially animating from 0 to 1
-                    duration: 300,
-                  },
-                  translationY: {
-                    from: 32, // Animate translationY from 16dp to 0dp
-                    duration: 300,
-                  },
-                },
-              ],
-              // content: {
-              //   translationX: {
-              //     from: windowSizeTools.getSize().width,
-              //     to: 0,
-              //     duration: 300,
-              //   },
-              // },
-            },
+              },
             pop: {
               content: {
                 translationX: {
@@ -199,6 +222,40 @@ export function pushPlayDetailScreen(componentId: string, skipAnimation = false)
     })
   })
 }
+
+export function pushVisualizerScreen(componentId: string) {
+  const theme = themeState.theme
+
+  requestAnimationFrame(() => {
+    void Navigation.push(componentId, {
+      component: {
+        name: VISUALIZER_SCREEN,
+        options: {
+          topBar: {
+            visible: false,
+            height: 0,
+            drawBehind: false,
+          },
+          statusBar: {
+            drawBehind: true,
+            visible: false,
+            style: 'light',
+            backgroundColor: 'transparent',
+          },
+          navigationBar: {
+            visible: false,
+            backgroundColor: '#000',
+          },
+          layout: {
+            componentBackgroundColor: '#000',
+            orientation: ['landscape'],
+          },
+        },
+      },
+    })
+  })
+}
+
 export function pushSonglistDetailScreen(componentId: string, info: ListInfoItem) {
   const theme = themeState.theme
 
@@ -222,11 +279,12 @@ export function pushSonglistDetailScreen(componentId: string, info: ListInfoItem
             backgroundColor: 'transparent',
           },
           navigationBar: {
-            // visible: false,
+            visible: !settingState.setting['common.hideNavigationBar'],
             backgroundColor: theme['c-content-background'],
           },
           layout: {
             componentBackgroundColor: theme['c-content-background'],
+                  fitSystemWindows: false,
           },
           animations: {
             push: {
@@ -355,11 +413,12 @@ export function pushCommentScreen(componentId: string) {
             backgroundColor: 'transparent',
           },
           navigationBar: {
-            // visible: false,
+            visible: !settingState.setting['common.hideNavigationBar'],
             backgroundColor: theme['c-content-background'],
           },
           layout: {
             componentBackgroundColor: theme['c-content-background'],
+                  fitSystemWindows: false,
           },
           animations: {
             push: {
@@ -443,6 +502,7 @@ export function pushCommentScreen(componentId: string) {
 //           },
 //           layout: {
 //             componentBackgroundColor: theme['c-content-background'],
+//             fitSystemWindows: false,
 //           },
 //           animations: {
 //             push: {
@@ -588,3 +648,194 @@ export function pushTabBasedApp() {
   })
 }
  */
+export function pushArtistDetailScreen(componentId: string, artistInfo: { id: string, mid?: string, name: string, picUrl?: string, source?: string }) {
+  const theme = themeState.theme
+  return Navigation.push(componentId, {
+    component: {
+      name: ARTIST_DETAIL_SCREEN,
+      passProps: {
+        artistInfo,
+      },
+      options: {
+        topBar: {
+          visible: false,
+          height: 0,
+        },
+        statusBar: {
+          drawBehind: true,
+          visible: true,
+          style: getStatusBarStyle(theme.isDark),
+          backgroundColor: 'transparent',
+        },
+        layout: {
+          componentBackgroundColor: theme['c-content-background'],
+                  fitSystemWindows: false,
+        },
+        animations: {
+          push: {
+            content: {
+              translationX: {
+                from: windowSizeTools.getSize().width,
+                to: 0,
+                duration: 200,
+              },
+            },
+          },
+          pop: {
+            content: {
+              translationX: {
+                from: 0,
+                to: windowSizeTools.getSize().width,
+                duration: 200,
+              },
+            },
+          },
+        },
+      },
+    },
+  })
+}
+
+export function pushAlbumDetailScreen(componentId: string, albumInfo: any) {
+  const theme = themeState.theme
+  return Navigation.push(componentId, {
+    component: {
+      name: ALBUM_DETAIL_SCREEN,
+      passProps: {
+        albumInfo,
+      },
+      options: {
+        topBar: {
+          visible: false,
+          height: 0,
+        },
+        statusBar: {
+          drawBehind: true,
+          visible: true,
+          style: getStatusBarStyle(theme.isDark),
+          backgroundColor: 'transparent',
+        },
+        layout: {
+          componentBackgroundColor: theme['c-content-background'],
+                  fitSystemWindows: false,
+        },
+        animations: {
+          push: {
+            content: {
+              translationX: {
+                from: windowSizeTools.getSize().width,
+                to: 0,
+                duration: 200,
+              },
+            },
+          },
+          pop: {
+            content: {
+              translationX: {
+                from: 0,
+                to: windowSizeTools.getSize().width,
+                duration: 200,
+              },
+            },
+          },
+        },
+      },
+    },
+  })
+}
+
+
+export function pushDownloadManagerScreen(componentId: string) {
+  const theme = themeState.theme;
+  return Navigation.push(componentId, {
+    component: {
+      name: DOWNLOAD_MANAGER_SCREEN,
+      options: {
+        topBar: {
+          visible: false,
+          height: 0,
+        },
+        statusBar: {
+          drawBehind: true,
+          visible: true,
+          style: getStatusBarStyle(theme.isDark),
+          backgroundColor: 'transparent',
+        },
+        layout: {
+          componentBackgroundColor: theme['c-content-background'],
+                  fitSystemWindows: false,
+        },
+        animations: {
+          push: {
+            content: {
+              translationX: {
+                from: windowSizeTools.getSize().width,
+                to: 0,
+                duration: 200,
+              },
+            },
+          },
+          pop: {
+            content: {
+              translationX: {
+                from: 0,
+                to: windowSizeTools.getSize().width,
+                duration: 200,
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
+
+
+export function pushSimilarSongsScreen(componentId: string, similarSongs: LX.Music.MusicInfoOnline[]) {
+  const theme = themeState.theme
+  return Navigation.push(componentId, {
+    component: {
+      name: SIMILAR_SONGS_SCREEN,
+      passProps: {
+        similarSongs,
+      },
+      options: {
+        topBar: {
+          visible: false,
+          height: 0,
+        },
+        statusBar: {
+          drawBehind: true,
+          visible: true,
+          style: getStatusBarStyle(theme.isDark),
+          backgroundColor: 'transparent',
+        },
+        layout: {
+          componentBackgroundColor: theme['c-content-background'],
+                  fitSystemWindows: false,
+        },
+        animations: {
+          push: {
+            content: {
+              translationX: {
+                from: windowSizeTools.getSize().width,
+                to: 0,
+                duration: 200,
+              },
+            },
+          },
+          pop: {
+            content: {
+              translationX: {
+                from: 0,
+                to: windowSizeTools.getSize().width,
+                duration: 200,
+              },
+            },
+          },
+        },
+      },
+    },
+  })
+}

@@ -11,7 +11,6 @@ import Text from '@/components/common/Text'
 import { setDesktopLyricTextSize } from '@/core/desktopLyric'
 import { updateSetting } from '@/core/common'
 
-
 export default memo(() => {
   const t = useI18n()
   const fontSize = useSettingValue('desktopLyric.style.fontSize')
@@ -21,17 +20,22 @@ export default memo(() => {
   const handleSlidingStart = useCallback<NonNullable<SliderProps['onSlidingStart']>>(() => {
     setSliding(true)
   }, [])
-  const handleValueChange = useCallback<NonNullable<SliderProps['onValueChange']>>(value => {
+  const handleValueChange = useCallback<NonNullable<SliderProps['onValueChange']>>((value) => {
     setSliderSize(value)
   }, [])
-  const handleSlidingComplete = useCallback<NonNullable<SliderProps['onSlidingComplete']>>(value => {
-    if (fontSize == value) return
-    void setDesktopLyricTextSize(value).then(() => {
-      updateSetting({ 'desktopLyric.style.fontSize': value })
-    }).finally(() => {
-      setSliding(false)
-    })
-  }, [fontSize])
+  const handleSlidingComplete = useCallback<NonNullable<SliderProps['onSlidingComplete']>>(
+    (value) => {
+      if (fontSize == value) return
+      void setDesktopLyricTextSize(value)
+        .then(() => {
+          updateSetting({ 'desktopLyric.style.fontSize': value })
+        })
+        .finally(() => {
+          setSliding(false)
+        })
+    },
+    [fontSize]
+  )
 
   return (
     <SubTitle title={t('setting_lyric_desktop_text_size')}>

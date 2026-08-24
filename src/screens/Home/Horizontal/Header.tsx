@@ -13,12 +13,12 @@ import { HEADER_HEIGHT as _HEADER_HEIGHT } from '@/config/constant'
 import { type InitState as CommonState } from '@/store/common/state'
 import SearchTypeSelector from '@/screens/Home/Views/Search/SearchTypeSelector'
 
+import GlobalSearch from '@/components/GlobalSearch'
 const headerComponents: Partial<Record<CommonState['navActiveId'], React.ReactNode>> = {
   nav_search: <SearchTypeSelector />,
 }
 
 const HEADER_HEIGHT = _HEADER_HEIGHT * 0.8
-
 
 // const LeftTitle = () => {
 //   const id = useNavActiveId()
@@ -30,17 +30,21 @@ const LeftHeader = () => {
   const id = useNavActiveId()
   const t = useI18n()
   const statusBarHeight = useStatusbarHeight()
-
+  const isSearchPage = id === 'nav_search'
   return (
-    <View style={{
-      ...styles.container,
-      height: scaleSizeH(HEADER_HEIGHT) + statusBarHeight,
-      paddingTop: statusBarHeight,
-    }}>
+    <View
+      style={{
+        ...styles.container,
+        height: scaleSizeH(HEADER_HEIGHT) + statusBarHeight,
+        paddingTop: statusBarHeight,
+      }}
+    >
       <View style={styles.left}>
-        <Text style={styles.leftTitle} size={18}>{t(id)}</Text>
+        <Text style={styles.leftTitle} size={18}>
+          {t(id)}
+        </Text>
       </View>
-      {headerComponents[id] ?? null}
+      {isSearchPage ? headerComponents[id] : <GlobalSearch />}
 
       {/* <TouchableOpacity style={styles.btn} onPress={openSetting}>
         <Icon style={{ ...styles.btnText, color: theme['c-font'] }} name="setting" size={styles.btnText.fontSize} />
@@ -48,7 +52,6 @@ const LeftHeader = () => {
     </View>
   )
 }
-
 
 // const RightTitle = () => {
 //   const id = useNavActiveId()
@@ -60,17 +63,22 @@ const RightHeader = () => {
   const t = useI18n()
   const id = useNavActiveId()
   const statusBarHeight = useStatusbarHeight()
+  const isSearchPage = id === 'nav_search'
 
   return (
-    <View style={{
-      ...styles.container,
-      height: scaleSizeH(HEADER_HEIGHT) + statusBarHeight,
-      paddingTop: statusBarHeight,
-    }}>
+    <View
+      style={{
+        ...styles.container,
+        height: scaleSizeH(HEADER_HEIGHT) + statusBarHeight,
+        paddingTop: statusBarHeight,
+      }}
+    >
       <View style={styles.left}>
-        <Text style={styles.rightTitle} size={18}>{t(id)}</Text>
+        <Text style={styles.rightTitle} size={18}>
+          {t(id)}
+        </Text>
       </View>
-      {headerComponents[id] ?? null}
+      {isSearchPage ? headerComponents[id] : <GlobalSearch />}
       {/* <TouchableOpacity style={styles.btn} onPress={openSetting}>
         <Icon style={{ ...styles.btnText, color: theme['c-font'] }} name="setting" size={styles.btnText.fontSize} />
       </TouchableOpacity> */}
@@ -84,16 +92,10 @@ const Header = () => {
   return (
     <>
       <StatusBar />
-      {
-        drawerLayoutPosition == 'left'
-          ? <LeftHeader />
-          : <RightHeader />
-      }
-
+      {drawerLayoutPosition == 'left' ? <LeftHeader /> : <RightHeader />}
     </>
   )
 }
-
 
 const styles = createStyle({
   container: {

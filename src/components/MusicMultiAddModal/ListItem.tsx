@@ -5,7 +5,11 @@ import { BorderWidths } from '@/theme'
 import { createStyle } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
 
-export default ({ listInfo, onPress, width }: {
+export default ({
+  listInfo,
+  onPress,
+  width,
+}: {
   listInfo: LX.List.MyListInfo
   onPress: (listInfo: LX.List.MyListInfo) => void
   width: number
@@ -19,10 +23,16 @@ export default ({ listInfo, onPress, width }: {
   return (
     <View style={{ ...styles.listItem, width }}>
       <Button
-        style={{ ...styles.button, backgroundColor: theme['c-button-background'], borderColor: theme['c-primary-light-200-alpha-700'] }}
+        style={{
+          ...styles.button,
+          backgroundColor: theme['c-button-background'],
+          borderColor: theme['c-primary-light-200-alpha-700'],
+        }}
         onPress={handlePress}
       >
-        <Text numberOfLines={1} size={14} color={theme['c-button-font']}>{listInfo.name}</Text>
+        <Text numberOfLines={1} size={14} color={theme['c-button-font']}>
+          {listInfo.name}
+        </Text>
       </Button>
     </View>
   )

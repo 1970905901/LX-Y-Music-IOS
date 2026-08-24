@@ -66,61 +66,111 @@ export interface ConfirmAlertProps {
   disabledConfirm?: boolean
   reverseBtn?: boolean
   children?: React.ReactNode | React.ReactNode[]
+  middleText?: string
+  onMiddle?: () => void
+  showMiddle?: boolean
 }
 
 export interface ConfirmAlertType {
   setVisible: (visible: boolean) => void
 }
 
-export default forwardRef<ConfirmAlertType, ConfirmAlertProps>(({
-  onHide,
-  onCancel,
-  onConfirm = () => {},
-  keyHide,
-  bgHide,
-  closeBtn,
-  title = '',
-  text = '',
-  cancelText = '',
-  confirmText = '',
-  showConfirm = true,
-  disabledConfirm = false,
-  children,
-  reverseBtn = false,
-}: ConfirmAlertProps, ref) => {
-  const theme = useTheme()
-  const t = useI18n()
+export default forwardRef<ConfirmAlertType, ConfirmAlertProps>(
+  (
+    {
+      onHide,
+      onCancel,
+      onConfirm = () => {},
+      keyHide,
+      bgHide,
+      closeBtn,
+      title = '',
+      text = '',
+      cancelText = '',
+      confirmText = '',
+      showConfirm = true,
+      disabledConfirm = false,
+      children,
+      reverseBtn = false,
+      middleText = '',
+      onMiddle = () => {},
+      showMiddle = false,
+    }: ConfirmAlertProps,
+    ref
+  ) => {
+    const theme = useTheme()
+    const t = useI18n()
 
-  const dialogRef = useRef<DialogType>(null)
+    const dialogRef = useRef<DialogType>(null)
 
-  useImperativeHandle(ref, () => ({
-    setVisible(visible: boolean) {
-      dialogRef.current?.setVisible(visible)
-    },
-  }))
+    useImperativeHandle(ref, () => ({
+      setVisible(visible: boolean) {
+        dialogRef.current?.setVisible(visible)
+      },
+    }))
 
-  const handleCancel = () => {
-    onCancel?.()
-    dialogRef.current?.setVisible(false)
-  }
+    const handleCancel = () => {
+      onCancel?.()
+      dialogRef.current?.setVisible(false)
+    }
 
-  return (
-    <Dialog onHide={onHide} keyHide={keyHide} bgHide={bgHide} closeBtn={closeBtn} title={title} ref={dialogRef}>
-      <View style={styles.main}>
-        <ScrollView style={styles.content} keyboardShouldPersistTaps={'always'}>
-          {children ?? <Text>{text}</Text>}
-        </ScrollView>
-      </View>
-      <View style={{ ...styles.btns, ...(reverseBtn ? styles.btnsReversedDirection : styles.btnsDirection) }}>
-        <Button style={{ ...styles.btn, ...(reverseBtn ? styles.btnReversedDirection : styles.btnDirection), backgroundColor: theme['c-button-background'] }} onPress={handleCancel}>
-          <Text color={theme['c-button-font']}>{cancelText || t('cancel')}</Text>
-        </Button>
-        {showConfirm
-          ? <Button style={{ ...styles.btn, ...(reverseBtn ? styles.btnReversedDirection : styles.btnDirection), backgroundColor: theme['c-button-background'] }} onPress={onConfirm} disabled={disabledConfirm}>
+    return (
+      <Dialog
+        onHide={onHide}
+        keyHide={keyHide}
+        bgHide={bgHide}
+        closeBtn={closeBtn}
+        title={title}
+        ref={dialogRef}
+      >
+        <View style={styles.main}>
+          <ScrollView style={styles.content} keyboardShouldPersistTaps={'always'}>
+            {children ?? <Text>{text}</Text>}
+          </ScrollView>
+        </View>
+        <View
+          style={{
+            ...styles.btns,
+            ...(reverseBtn ? styles.btnsReversedDirection : styles.btnsDirection),
+          }}
+        >
+          <Button
+            style={{
+              ...styles.btn,
+              ...(reverseBtn ? styles.btnReversedDirection : styles.btnDirection),
+              backgroundColor: theme['c-button-background'],
+            }}
+            onPress={handleCancel}
+          >
+            <Text color={theme['c-button-font']}>{cancelText || t('cancel')}</Text>
+          </Button>
+          {showMiddle ? (
+            <Button
+              style={{
+                ...styles.btn,
+                ...(reverseBtn ? styles.btnReversedDirection : styles.btnDirection),
+                backgroundColor: theme['c-button-background'],
+              }}
+              onPress={onMiddle}
+            >
+              <Text color={theme['c-button-font']}>{middleText}</Text>
+            </Button>
+          ) : null}
+          {showConfirm ? (
+            <Button
+              style={{
+                ...styles.btn,
+                ...(reverseBtn ? styles.btnReversedDirection : styles.btnDirection),
+                backgroundColor: theme['c-button-background'],
+              }}
+              onPress={onConfirm}
+              disabled={disabledConfirm}
+            >
               <Text color={theme['c-button-font']}>{confirmText || t('confirm')}</Text>
             </Button>
-          : null}
-      </View>
-    </Dialog>
-  )
-})
+          ) : null}
+        </View>
+      </Dialog>
+    )
+  }
+)

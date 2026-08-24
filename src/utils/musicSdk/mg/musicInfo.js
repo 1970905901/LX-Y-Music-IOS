@@ -29,33 +29,30 @@ export const filterMusicInfoList = (rawList) => {
     const types = []
     const _types = {}
     item.newRateFormats?.forEach(type => {
-      let size
+      let size = sizeFormate(type.asize ?? type.isize ?? type.size ?? type.androidSize ?? 0);
       switch (type.formatType) {
         case 'PQ':
-          size = sizeFormate(type.size ?? type.androidSize)
           types.push({ type: '128k', size })
           _types['128k'] = {
             size,
           }
           break
         case 'HQ':
-          size = sizeFormate(type.size ?? type.androidSize)
           types.push({ type: '320k', size })
           _types['320k'] = {
             size,
           }
           break
         case 'SQ':
-          size = sizeFormate(type.size ?? type.androidSize)
           types.push({ type: 'flac', size })
           _types.flac = {
             size,
           }
           break
         case 'ZQ':
-          size = sizeFormate(type.size ?? type.androidSize)
-          types.push({ type: 'flac24bit', size })
-          _types.flac24bit = {
+        case 'ZQ24':
+          types.push({ type: 'hires', size })
+          _types.hires = {
             size,
           }
           break
@@ -97,39 +94,32 @@ export const filterMusicInfoListV5 = (rawList) => {
     const types = []
     const _types = {}
     item.audioFormats?.forEach(type => {
-      let size
+      let size = sizeFormate(type.asize ?? type.isize ?? type.size ?? 0);
       switch (type.formatType) {
         case 'PQ':
-          size = sizeFormate(type.size ?? type.androidSize)
-          types.push({ type: '128k', size })
-          _types['128k'] = {
-            size,
-          }
-          break
+          types.push({ type: '128k', size });
+          _types['128k'] = { size };
+          break;
         case 'HQ':
-          size = sizeFormate(type.size ?? type.androidSize)
-          types.push({ type: '320k', size })
-          _types['320k'] = {
-            size,
-          }
-          break
+          types.push({ type: '320k', size });
+          _types['320k'] = { size };
+          break;
         case 'SQ':
-          size = sizeFormate(type.size ?? type.androidSize)
-          types.push({ type: 'flac', size })
-          _types.flac = {
-            size,
-          }
-          break
+          types.push({ type: 'flac', size });
+          _types.flac = { size };
+          break;
         case 'ZQ':
-          size = sizeFormate(type.size ?? type.androidSize)
-          types.push({ type: 'flac24bit', size })
-          _types.flac24bit = {
-            size,
-          }
-          break
+        case 'ZQ24':
+          types.push({ type: 'hires', size });
+          _types.hires = { size };
+          break;
       }
     })
 
+    let imgUrl = item.img3 || item.img2 || item.img1 || null
+    if (imgUrl) {
+      imgUrl = 'http://d.musicapp.migu.cn' + imgUrl
+    }
     list.push({
       singer: formatSingerName(item.singerList, 'name'),
       name: item.songName,
@@ -139,7 +129,7 @@ export const filterMusicInfoListV5 = (rawList) => {
       copyrightId: item.copyrightId,
       source: 'mg',
       interval: formatPlayTime(item.duration),
-      img: item.img3 || item.img2 || item.img1 || null,
+      img: imgUrl,
       lrc: null,
       lrcUrl: item.lrcUrl,
       mrcUrl: item.mrcUrl,

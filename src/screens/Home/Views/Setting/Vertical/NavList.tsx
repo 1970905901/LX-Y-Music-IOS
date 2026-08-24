@@ -8,39 +8,50 @@ import { SETTING_SCREENS, type SettingScreenIds } from '../Main'
 import { useI18n } from '@/lang'
 import { BorderRadius, BorderWidths } from '@/theme'
 
+const ListItem = memo(
+  ({
+    id,
+    activeId,
+    onPress,
+  }: {
+    onPress: (item: SettingScreenIds) => void
+    activeId: string
+    id: SettingScreenIds
+  }) => {
+    const theme = useTheme()
+    const t = useI18n()
 
-const ListItem = memo(({ id, activeId, onPress }: {
-  onPress: (item: SettingScreenIds) => void
-  activeId: string
-  id: SettingScreenIds
-}) => {
-  const theme = useTheme()
-  const t = useI18n()
+    const active = activeId == id
 
-  const active = activeId == id
+    const handlePress = () => {
+      onPress(id)
+    }
 
-  const handlePress = () => {
-    onPress(id)
+    return (
+      <View
+        style={{
+          ...styles.listItem,
+          backgroundColor: active ? theme['c-primary-background-active'] : 'transparent',
+        }}
+      >
+        <TouchableOpacity style={styles.listName} onPress={handlePress}>
+          <Text numberOfLines={1} color={active ? theme['c-primary-font'] : theme['c-font']}>
+            {t(`setting_${id}`)}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    )
+  },
+  (prevProps, nextProps) => {
+    return !!(
+      prevProps.id === nextProps.id &&
+      prevProps.activeId != nextProps.id &&
+      nextProps.activeId != nextProps.id
+    )
   }
+)
 
-  return (
-    <View style={{ ...styles.listItem, backgroundColor: active ? theme['c-primary-background-active'] : 'transparent' }}>
-      <TouchableOpacity style={styles.listName} onPress={handlePress}>
-        <Text numberOfLines={1} color={active ? theme['c-primary-font'] : theme['c-font']}>{t(`setting_${id}`)}</Text>
-      </TouchableOpacity>
-    </View>
-  )
-}, (prevProps, nextProps) => {
-  return !!(prevProps.id === nextProps.id &&
-    prevProps.activeId != nextProps.id &&
-    nextProps.activeId != nextProps.id
-  )
-})
-
-
-export default ({ onChangeId }: {
-  onChangeId: (id: SettingScreenIds) => void
-}) => {
+export default ({ onChangeId }: { onChangeId: (id: SettingScreenIds) => void }) => {
   const [activeId, setActiveId] = useState(global.lx.settingActiveId)
   const theme = useTheme()
 
@@ -48,18 +59,21 @@ export default ({ onChangeId }: {
     onChangeId(id)
     setActiveId(id)
     global.lx.settingActiveId = id
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   return (
-    <ScrollView horizontal style={{ ...styles.container, borderBottomColor: theme['c-border-background'] }} contentContainerStyle={styles.contentContainer} keyboardShouldPersistTaps={'always'}>
-      {
-        SETTING_SCREENS.map(id => <ListItem key={id} id={id} activeId={activeId} onPress={handleChangeId} />)
-      }
+    <ScrollView
+      horizontal
+      style={{ ...styles.container, borderBottomColor: theme['c-border-background'] }}
+      contentContainerStyle={styles.contentContainer}
+      keyboardShouldPersistTaps={'always'}
+    >
+      {SETTING_SCREENS.map((id) => (
+        <ListItem key={id} id={id} activeId={activeId} onPress={handleChangeId} />
+      ))}
     </ScrollView>
   )
 }
-
 
 const styles = createStyle({
   container: {

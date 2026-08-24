@@ -1,11 +1,5 @@
 import * as React from 'react'
-import {
-  Animated,
-  type GestureResponderEvent,
-  StyleSheet,
-  View,
-  Pressable,
-} from 'react-native'
+import { Animated, type GestureResponderEvent, StyleSheet, View, Pressable } from 'react-native'
 
 import { Icon } from '../Icon'
 import { createStyle } from '@/utils/tools'
@@ -44,27 +38,15 @@ const PADDING = scaleSizeW(4)
  * This component follows platform guidelines for Android, but can be used
  * on any platform.
  */
-const Checkbox = ({
-  status,
-  disabled,
-  size = 1,
-  onPress,
-  tintColors,
-  ...rest
-}: Props) => {
+const Checkbox = ({ status, disabled, size = 1, onPress, tintColors, ...rest }: Props) => {
   const checked = status === 'checked'
   const indeterminate = status === 'indeterminate'
 
-  const icon = indeterminate
-    ? 'minus-box'
-    : 'checkbox-marked'
+  const icon = indeterminate ? 'minus-box' : 'checkbox-marked'
 
-  const { current: scaleAnim } = React.useRef<Animated.Value>(
-    new Animated.Value(checked ? 1 : 0),
-  )
+  const { current: scaleAnim } = React.useRef<Animated.Value>(new Animated.Value(checked ? 1 : 0))
 
   const isFirstRendering = React.useRef<boolean>(true)
-
 
   React.useEffect(() => {
     // Do not run animation on very first rendering
@@ -79,7 +61,6 @@ const Checkbox = ({
       useNativeDriver: true,
     }).start()
   }, [checked, scaleAnim])
-
 
   return (
     <Pressable
@@ -99,12 +80,7 @@ const Checkbox = ({
       />
       <View style={[StyleSheet.absoluteFill, styles.fillContainer]}>
         <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-          <Icon
-            allowFontScaling={false}
-            name={icon}
-            size={24 * size}
-            color={tintColors.true}
-          />
+          <Icon allowFontScaling={false} name={icon} size={24 * size} color={tintColors.true} />
         </Animated.View>
       </View>
     </Pressable>
@@ -126,4 +102,3 @@ const styles = createStyle({
 })
 
 export default Checkbox
-

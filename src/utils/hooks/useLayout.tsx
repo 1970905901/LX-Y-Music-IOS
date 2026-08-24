@@ -8,7 +8,9 @@ export default () => {
     width: 0,
     height: 0,
   })
-  const onLayout = useCallback((e: LayoutChangeEvent) => { setLayout(e.nativeEvent.layout) }, [])
+  const onLayout = useCallback((e: LayoutChangeEvent) => {
+    setLayout(e.nativeEvent.layout)
+  }, [])
 
   return {
     onLayout,

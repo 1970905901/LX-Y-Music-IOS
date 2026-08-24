@@ -1,5 +1,11 @@
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react'
-import { type NativeScrollEvent, type NativeSyntheticEvent, View, TouchableOpacity, Animated } from 'react-native'
+import {
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+  View,
+  TouchableOpacity,
+  Animated,
+} from 'react-native'
 import Text from '@/components/common/Text'
 import { createStyle } from '@/utils/tools'
 import { type Lines } from 'lrc-file-parser'
@@ -8,10 +14,11 @@ import { BorderWidths } from '@/theme'
 import { formatPlayTime2 } from '@/utils'
 import { Icon } from '@/components/common/Icon'
 
-
 export interface PlayLineType {
-  updateScrollInfo: (scrollInfo: NativeSyntheticEvent<NativeScrollEvent>['nativeEvent'] | null) => void
-  updateLayoutInfo: (listLayoutInfo: { spaceHeight: number, lineHeights: number[] }) => void
+  updateScrollInfo: (
+    scrollInfo: NativeSyntheticEvent<NativeScrollEvent>['nativeEvent'] | null
+  ) => void
+  updateLayoutInfo: (listLayoutInfo: { spaceHeight: number; lineHeights: number[] }) => void
   updateLyricLines: (lyricLines: Lines) => void
   setVisible: (visible: boolean) => void
 }
@@ -24,13 +31,16 @@ const ANIMATION_DURATION = 300
 
 export default forwardRef<PlayLineType, PlayLineProps>(({ onPlayLine }, ref) => {
   const theme = useTheme()
-  const [scrollInfo, setScrollInfo] = useState<NativeSyntheticEvent<NativeScrollEvent>['nativeEvent'] | null>(null)
-  const [listLayoutInfo, setListLayoutInfo] = useState<{ spaceHeight: number, lineHeights: number[] }>({ spaceHeight: 0, lineHeights: [] })
+  const [scrollInfo, setScrollInfo] = useState<
+    NativeSyntheticEvent<NativeScrollEvent>['nativeEvent'] | null
+  >(null)
+  const [listLayoutInfo, setListLayoutInfo] = useState<{
+    spaceHeight: number
+    lineHeights: number[]
+  }>({ spaceHeight: 0, lineHeights: [] })
   const [lyricLines, setLyricLines] = useState<Lines>([])
   const [visible, setVisible] = useState(false)
-  const opsAnim = useRef<Animated.Value>(
-    new Animated.Value(0),
-  ).current
+  const opsAnim = useRef<Animated.Value>(new Animated.Value(0)).current
 
   const setShow = (visible: boolean) => {
     Animated.timing(opsAnim, {
@@ -82,7 +92,9 @@ export default forwardRef<PlayLineType, PlayLineProps>(({ onPlayLine }, ref) => 
   const timeLabel = formatPlayTime2(time / 1000)
   return (
     <Animated.View style={{ ...styles.playLine, opacity: opsAnim }}>
-      <Text style={styles.label} color={theme['c-primary-font']} size={13}>{timeLabel}</Text>
+      <Text style={styles.label} color={theme['c-primary-font']} size={13}>
+        {timeLabel}
+      </Text>
       <View style={styles.lineContent}>
         <View style={{ ...styles.line, borderBottomColor: theme['c-primary-alpha-700'] }} />
         <TouchableOpacity style={styles.button} onPress={handlePlayLine}>

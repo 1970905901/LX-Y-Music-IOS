@@ -1,6 +1,5 @@
 import state, { type InitState } from './state'
 
-
 export default {
   setVersionInfo(info: Partial<InitState['versionInfo']>) {
     Object.assign(state.versionInfo, info)
@@ -23,4 +22,3 @@ export default {
     state.showModal = visible
   },
 }
-

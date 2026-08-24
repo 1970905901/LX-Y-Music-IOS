@@ -1,8 +1,21 @@
-import { useRef, useImperativeHandle, forwardRef, useState, useCallback, memo, useEffect } from 'react'
+import {
+  useRef,
+  useImperativeHandle,
+  forwardRef,
+  useState,
+  useCallback,
+  memo,
+  useEffect,
+} from 'react'
 import Text from '@/components/common/Text'
 import { createStyle } from '@/utils/tools'
 import Dialog, { type DialogType } from '@/components/common/Dialog'
-import { FlatList, TouchableOpacity, View, type FlatListProps as _FlatListProps } from 'react-native'
+import {
+  FlatList,
+  TouchableOpacity,
+  View,
+  type FlatListProps as _FlatListProps,
+} from 'react-native'
 import { scaleSizeH } from '@/utils/pixelRatio'
 import { useTheme } from '@/store/theme/hook'
 import { type DuplicateMusicItem, filterDuplicateMusic } from './utils'
@@ -17,9 +30,7 @@ import Button from '@/components/common/Button'
 type FlatListProps = _FlatListProps<DuplicateMusicItem>
 const ITEM_HEIGHT = scaleSizeH(56)
 
-const Title = ({ title }: {
-  title: string
-}) => {
+const Title = ({ title }: { title: string }) => {
   return (
     <Text style={styles.title} size={16}>
       {title}
@@ -38,54 +49,96 @@ const Empty = () => {
   )
 }
 
-const ListItem = memo(({ info, index, onRemove, onPlay, selectedList, onPress }: {
-  info: DuplicateMusicItem
-  index: number
-  selectedList: DuplicateMusicItem[]
-  onPlay: (info: DuplicateMusicItem) => void
-  onRemove: (idx: number) => void
-  onPress: (info: DuplicateMusicItem) => void
-}) => {
-  const theme = useTheme()
-  const isSelected = selectedList.includes(info)
+const ListItem = memo(
+  ({
+    info,
+    index,
+    onRemove,
+    onPlay,
+    selectedList,
+    onPress,
+  }: {
+    info: DuplicateMusicItem
+    index: number
+    selectedList: DuplicateMusicItem[]
+    onPlay: (info: DuplicateMusicItem) => void
+    onRemove: (idx: number) => void
+    onPress: (info: DuplicateMusicItem) => void
+  }) => {
+    const theme = useTheme()
+    const isSelected = selectedList.includes(info)
 
-  return (
-    <View style={{ ...styles.listItem, height: ITEM_HEIGHT, backgroundColor: isSelected ? theme['c-primary-background-hover'] : 'rgba(0,0,0,0)' }} onStartShouldSetResponder={() => true}>
-      {/* <View style={styles.listItemLabel}>
+    return (
+      <View
+        style={{
+          ...styles.listItem,
+          height: ITEM_HEIGHT,
+          backgroundColor: isSelected ? theme['c-primary-background-hover'] : 'rgba(0,0,0,0)',
+        }}
+        onStartShouldSetResponder={() => true}
+      >
+        {/* <View style={styles.listItemLabel}>
         <Text style={styles.sn} size={13} color={theme['c-300']}>{info.index + 1}</Text>
       </View> */}
-      <TouchableOpacity style={styles.listItemInfo} onPress={() => { onPress(info) }}>
-        <Text color={theme['c-font']} size={14} numberOfLines={1}>{info.musicInfo.name}</Text>
-        <View style={styles.listItemAlbum}>
-          <Text color={theme['c-font']} size={12} numberOfLines={1}>
-            {info.musicInfo.singer}
-            {
-              info.musicInfo.meta.albumName ? (
-                <Text color={theme['c-font-label']} size={12} numberOfLines={1}> ({info.musicInfo.meta.albumName})</Text>
-              ) : null
-            }
+        <TouchableOpacity
+          style={styles.listItemInfo}
+          onPress={() => {
+            onPress(info)
+          }}
+        >
+          <Text color={theme['c-font']} size={14} numberOfLines={1}>
+            {info.musicInfo.name}
+          </Text>
+          <View style={styles.listItemAlbum}>
+            <Text color={theme['c-font']} size={12} numberOfLines={1}>
+              {info.musicInfo.singer}
+              {info.musicInfo.meta.albumName ? (
+                <Text color={theme['c-font-label']} size={12} numberOfLines={1}>
+                  {' '}
+                  ({info.musicInfo.meta.albumName})
+                </Text>
+              ) : null}
+            </Text>
+          </View>
+        </TouchableOpacity>
+        <View style={styles.listItemLabel}>
+          <Text style={styles.listItemLabelText} size={13} color={theme['c-300']}>
+            {info.musicInfo.source}
+          </Text>
+          <Text style={styles.listItemLabelText} size={13} color={theme['c-300']}>
+            {info.musicInfo.interval}
           </Text>
         </View>
-      </TouchableOpacity>
-      <View style={styles.listItemLabel}>
-        <Text style={styles.listItemLabelText} size={13} color={theme['c-300']}>{ info.musicInfo.source }</Text>
-        <Text style={styles.listItemLabelText} size={13} color={theme['c-300']}>{info.musicInfo.interval}</Text>
+        <View style={styles.listItemBtns}>
+          <Button
+            style={styles.listItemBtn}
+            onPress={() => {
+              onPlay(info)
+            }}
+          >
+            <Icon name="play-outline" style={{ color: theme['c-button-font'] }} size={18} />
+          </Button>
+          <Button
+            style={styles.listItemBtn}
+            onPress={() => {
+              onRemove(index)
+            }}
+          >
+            <Icon name="remove" style={{ color: theme['c-button-font'] }} size={18} />
+          </Button>
+        </View>
       </View>
-      <View style={styles.listItemBtns}>
-        <Button style={styles.listItemBtn} onPress={() => { onPlay(info) }}>
-          <Icon name="play-outline" style={{ color: theme['c-button-font'] }} size={18} />
-        </Button>
-        <Button style={styles.listItemBtn} onPress={() => { onRemove(index) }}>
-          <Icon name="remove" style={{ color: theme['c-button-font'] }} size={18} />
-        </Button>
-      </View>
-    </View>
-  )
-}, (prevProps, nextProps) => {
-  return prevProps.info === nextProps.info &&
-  prevProps.index === nextProps.index &&
-  nextProps.selectedList.includes(nextProps.info) == prevProps.selectedList.includes(nextProps.info)
-})
+    )
+  },
+  (prevProps, nextProps) => {
+    return (
+      prevProps.info === nextProps.info &&
+      prevProps.index === nextProps.index &&
+      nextProps.selectedList.includes(nextProps.info) ==
+        prevProps.selectedList.includes(nextProps.info)
+    )
+  }
+)
 
 const handleRemoveList = (list: DuplicateMusicItem[], index: number) => {
   let prev = list[index - 1]
@@ -117,53 +170,64 @@ const List = ({ listId }: { listId: string }) => {
       if (isUnmountedRef.current) return
       void filterDuplicateMusic(list).then((l) => {
         if (isUnmountedRef.current) return
-        setSelectedList(dataRef.current[1] = [])
-        setList(dataRef.current[0] = l)
+        setSelectedList((dataRef.current[1] = []))
+        setList((dataRef.current[0] = l))
       })
     })
   }, [isUnmountedRef, listId])
-  const handlePlay = useCallback((info: DuplicateMusicItem) => {
-    const { musicInfo } = info
-    void getListMusics(listId).then((list) => {
-      const idx = list.findIndex(m => m.id == musicInfo.id)
-      if (idx < 0) return
-      void playList(listId, idx)
-    })
-  }, [listId])
-  const handleRemovePress = useCallback((index: number) => {
-    const selectedList = dataRef.current[1]
-    const list = dataRef.current[0]
-    if (selectedList.length) {
-      handleRemove(listId, list[index].musicInfo, selectedList.map(m => m.musicInfo), () => {
-        let newList = [...list]
-        for (const item of selectedList) {
-          let idx = newList.indexOf(item)
-          if (idx < 0) continue
-          handleRemoveList(newList, idx)
-        }
-        setList(dataRef.current[0] = newList)
-        setSelectedList(dataRef.current[1] = [])
+  const handlePlay = useCallback(
+    (info: DuplicateMusicItem) => {
+      const { musicInfo } = info
+      void getListMusics(listId).then((list) => {
+        const idx = list.findIndex((m) => m.id == musicInfo.id)
+        if (idx < 0) return
+        void playList(listId, idx)
       })
-      return
-    }
-    let newList = [...list]
-    let curItem = list[index]
-    const rmItem = handleRemoveList(newList, index)
-    let newSelectList = [...selectedList]
-    for (const item of rmItem) {
-      let idx = newSelectList.indexOf(item)
-      if (idx < 0) continue
-      newSelectList.splice(idx, 1)
-    }
-    setSelectedList(dataRef.current[1] = newSelectList)
+    },
+    [listId]
+  )
+  const handleRemovePress = useCallback(
+    (index: number) => {
+      const selectedList = dataRef.current[1]
+      const list = dataRef.current[0]
+      if (selectedList.length) {
+        handleRemove(
+          listId,
+          list[index].musicInfo,
+          selectedList.map((m) => m.musicInfo),
+          () => {
+            let newList = [...list]
+            for (const item of selectedList) {
+              let idx = newList.indexOf(item)
+              if (idx < 0) continue
+              handleRemoveList(newList, idx)
+            }
+            setList((dataRef.current[0] = newList))
+            setSelectedList((dataRef.current[1] = []))
+          }
+        )
+        return
+      }
+      let newList = [...list]
+      let curItem = list[index]
+      const rmItem = handleRemoveList(newList, index)
+      let newSelectList = [...selectedList]
+      for (const item of rmItem) {
+        let idx = newSelectList.indexOf(item)
+        if (idx < 0) continue
+        newSelectList.splice(idx, 1)
+      }
+      setSelectedList((dataRef.current[1] = newSelectList))
 
-    requestAnimationFrame(() => {
-      void removeListMusics(listId, [curItem.musicInfo.id])
-    })
-    setList(dataRef.current[0] = newList)
-  }, [listId])
+      requestAnimationFrame(() => {
+        void removeListMusics(listId, [curItem.musicInfo.id])
+      })
+      setList((dataRef.current[0] = newList))
+    },
+    [listId]
+  )
   const handleSelect = useCallback((info: DuplicateMusicItem) => {
-    setSelectedList(selectedList => {
+    setSelectedList((selectedList) => {
       let nList = [...selectedList]
       let idx = nList.indexOf(info)
       if (idx < 0) nList.push(info)
@@ -175,30 +239,40 @@ const List = ({ listId }: { listId: string }) => {
 
   useEffect(handleFilterList, [handleFilterList])
 
-  const renderItem = useCallback(({ item, index }: { item: DuplicateMusicItem, index: number }) => {
-    return <ListItem info={item} index={index} onPlay={handlePlay} onRemove={handleRemovePress} selectedList={selectedList} onPress={handleSelect} />
-  }, [handlePlay, handleRemovePress, handleSelect, selectedList])
-  const getkey = useCallback<NonNullable<FlatListProps['keyExtractor']>>(item => item.id, [])
+  const renderItem = useCallback(
+    ({ item, index }: { item: DuplicateMusicItem; index: number }) => {
+      return (
+        <ListItem
+          info={item}
+          index={index}
+          onPlay={handlePlay}
+          onRemove={handleRemovePress}
+          selectedList={selectedList}
+          onPress={handleSelect}
+        />
+      )
+    },
+    [handlePlay, handleRemovePress, handleSelect, selectedList]
+  )
+  const getkey = useCallback<NonNullable<FlatListProps['keyExtractor']>>((item) => item.id, [])
   const getItemLayout = useCallback<NonNullable<FlatListProps['getItemLayout']>>((data, index) => {
     return { length: ITEM_HEIGHT, offset: ITEM_HEIGHT * index, index }
   }, [])
 
-  return (
-    list.length ? (
-      <FlatList
-        style={styles.list}
-        maxToRenderPerBatch={4}
-        windowSize={8}
-        removeClippedSubviews={true}
-        initialNumToRender={12}
-        data={list}
-        renderItem={renderItem}
-        keyExtractor={getkey}
-        getItemLayout={getItemLayout}
-      />
-    ) : (
-      <Empty />
-    )
+  return list.length ? (
+    <FlatList
+      style={styles.list}
+      maxToRenderPerBatch={4}
+      windowSize={8}
+      removeClippedSubviews={true}
+      initialNumToRender={12}
+      data={list}
+      renderItem={renderItem}
+      keyExtractor={getkey}
+      getItemLayout={getItemLayout}
+    />
+  ) : (
+    <Empty />
   )
 }
 
@@ -228,14 +302,12 @@ const Modal = forwardRef<ModalType, {}>((props, ref) => {
 
   return (
     <Dialog ref={dialogRef} onHide={handleHide}>
-      {
-        info.name
-          ? (<>
-              <Title title={info.name} />
-              <List listId={info.id} />
-            </>)
-          : null
-      }
+      {info.name ? (
+        <>
+          <Title title={info.name} />
+          <List listId={info.id} />
+        </>
+      ) : null}
     </Dialog>
   )
 })
@@ -260,13 +332,8 @@ export default forwardRef<DuplicateMusicType, {}>((props, ref) => {
     },
   }))
 
-  return (
-    visible
-      ? <Modal ref={musicAddModalRef} />
-      : null
-  )
+  return visible ? <Modal ref={musicAddModalRef} /> : null
 })
-
 
 const styles = createStyle({
   container: {
@@ -324,5 +391,3 @@ const styles = createStyle({
     alignItems: 'center',
   },
 })
-
-

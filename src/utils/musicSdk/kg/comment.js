@@ -1,16 +1,12 @@
 import { httpFetch } from '../../request'
 import { decodeName, dateFormat2 } from '../../index'
 import { signatureParams } from './util'
-// import { getMusicInfoRaw } from './musicInfo'
 
 export default {
   _requestObj: null,
   _requestObj2: null,
   async getComment({ hash }, page = 1, limit = 20) {
     if (this._requestObj) this._requestObj.cancelHttp()
-
-    // const res_id = (await getMusicInfoRaw(hash)).classification?.[0]?.res_id
-    // if (!res_id) throw new Error('获取评论失败')
 
     let timestamp = Date.now()
     const params = `dfid=0&mid=16249512204336365674023395779019&clienttime=${timestamp}&uuid=0&extdata=${hash}&appid=1005&code=fc4be23b4e972707f36b8a828a93ba8a&schash=${hash}&clientver=11409&p=${page}&clienttoken=&pagesize=${limit}&ver=10&kugouid=0`
@@ -48,7 +44,7 @@ export default {
   async getReplyComment({ songmid, audioId }, replyId, page = 1, limit = 100) {
     if (this._requestObj2) this._requestObj2.cancelHttp()
 
-    songmid = songmid.length == 32 // 修复歌曲ID存储变更导致图片获取失败的问题
+    songmid = songmid.length == 32
       ? audioId.split('_')[0]
       : songmid
 
@@ -87,16 +83,16 @@ export default {
 
       return item.pcontent
         ? {
-            id: item.id,
-            text: decodeName(item.pcontent),
-            time: null,
-            userName: item.puser,
-            avatar: null,
-            userId: item.puser_id,
-            likedCount: null,
-            replyNum: null,
-            reply: [data],
-          }
+          id: item.id,
+          text: decodeName(item.pcontent),
+          time: null,
+          userName: item.puser,
+          avatar: null,
+          userId: item.puser_id,
+          likedCount: null,
+          replyNum: null,
+          reply: [data],
+        }
         : data
     })
   },

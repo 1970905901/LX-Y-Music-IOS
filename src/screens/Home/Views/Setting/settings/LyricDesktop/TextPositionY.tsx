@@ -11,11 +11,7 @@ import { updateSetting } from '@/core/common'
 
 type Y_TYPE = LX.AppSetting['desktopLyric.textPosition.y']
 
-const Y_LIST = [
-  'top',
-  'center',
-  'bottom',
-] as const
+const Y_LIST = ['top', 'center', 'bottom'] as const
 
 const useActive = (id: Y_TYPE) => {
   const y = useSettingValue('desktopLyric.textPosition.y')
@@ -23,19 +19,25 @@ const useActive = (id: Y_TYPE) => {
   return isActive
 }
 
-const Item = ({ id, name, change }: {
-  id: Y_TYPE
-  name: string
-  change: (id: Y_TYPE) => void
-}) => {
+const Item = ({ id, name, change }: { id: Y_TYPE; name: string; change: (id: Y_TYPE) => void }) => {
   const isActive = useActive(id)
-  return <CheckBox marginBottom={3} check={isActive} label={name} onChange={() => { change(id) }} need />
+  return (
+    <CheckBox
+      marginBottom={3}
+      check={isActive}
+      label={name}
+      onChange={() => {
+        change(id)
+      }}
+      need
+    />
+  )
 }
 
 export default memo(() => {
   const t = useI18n()
   const list = useMemo(() => {
-    return Y_LIST.map(id => ({ id, name: t(`setting_lyric_desktop_text_y_${id}`) }))
+    return Y_LIST.map((id) => ({ id, name: t(`setting_lyric_desktop_text_y_${id}`) }))
   }, [t])
 
   const setPosition = (id: Y_TYPE) => {
@@ -47,9 +49,9 @@ export default memo(() => {
   return (
     <SubTitle title={t('setting_lyric_desktop_text_y')}>
       <View style={styles.list}>
-        {
-          list.map(({ id, name }) => <Item name={name} id={id} key={id} change={setPosition} />)
-        }
+        {list.map(({ id, name }) => (
+          <Item name={name} id={id} key={id} change={setPosition} />
+        ))}
       </View>
     </SubTitle>
   )

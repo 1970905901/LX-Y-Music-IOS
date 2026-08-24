@@ -2,7 +2,6 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
 import { useGetter } from '@/store'
 import { Navigation } from 'react-native-navigation'
 
-
 const Toast = ({ componentId }) => {
   const theme = useGetter('common', 'theme')
 
@@ -60,4 +59,3 @@ Toast.options = {
 }
 
 export default Toast
-

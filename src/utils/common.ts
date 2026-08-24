@@ -1,12 +1,10 @@
-// 非业务工具方法
-
 /**
- * 获取两个数之间的随机整数，大于等于min，小于max
+ * Get a random integer between two numbers, greater than or equal to min, less than max
  * @param {*} min
  * @param {*} max
  */
-export const getRandom = (min: number, max: number): number => Math.floor(Math.random() * (max - min)) + min
-
+export const getRandom = (min: number, max: number): number =>
+  Math.floor(Math.random() * (max - min)) + min
 
 export const sizeFormate = (size: number): string => {
   // https://gist.github.com/thomseddon/3511330
@@ -17,32 +15,39 @@ export const sizeFormate = (size: number): string => {
 }
 
 /**
- * 将字符串、时间戳等格式转成时间对象
- * @param date 时间
- * @returns 时间对象或空字符串
+ * Convert string, timestamp, etc. to date object
+ * @param date Date
+ * @returns Date object or empty string
  */
 export const toDateObj = (date?: number | string | Date): Date | '' => {
-  // console.log(date)
   if (!date) return ''
+  let result: Date
   switch (typeof date) {
     case 'string':
-      if (!date.includes('T')) date = date.split('.')[0].replace(/-/g, '/')
-    // eslint-disable-next-line no-fallthrough
-    case 'number':
-      date = new Date(date)
-    // eslint-disable-next-line no-fallthrough
-    case 'object':
+      const cleanDate = date.split('.')[0]
+      if (!cleanDate.includes('T')) {
+        result = new Date(cleanDate.replace(/-/g, '/'))
+      } else {
+        result = new Date(cleanDate)
+      }
       break
-    default: return ''
+    case 'number':
+      result = new Date(date)
+      break
+    case 'object':
+      result = date as Date
+      break
+    default:
+      return ''
   }
-  return date
+  return isNaN(result.getTime()) ? '' : result
 }
 
-const numFix = (n: number): string => n < 10 ? (`0${n}`) : n.toString()
+const numFix = (n: number): string => (n < 10 ? `0${n}` : n.toString())
 /**
- * 时间格式化
- * @param _date 时间
- * @param format Y-M-D h:m:s Y年 M月 D日 h时 m分 s秒
+ * Date formatting
+ * @param _date Date
+ * @param format Y-M-D h:m:s
  */
 export const dateFormat = (_date: number | string | Date, format = 'Y-M-D h:m:s') => {
   // console.log(date)
@@ -57,25 +62,10 @@ export const dateFormat = (_date: number | string | Date, format = 'Y-M-D h:m:s'
     .replace('s', numFix(date.getSeconds()))
 }
 
-
 export const formatPlayTime = (time: number) => {
   let m = Math.trunc(time / 60)
   let s = Math.trunc(time % 60)
   return m == 0 && s == 0 ? '--/--' : numFix(m) + ':' + numFix(s)
-}
-
-export const parsePlayTime = (time?: string | null) => {
-  if (!time) return 0
-  const parts = time.trim().split(':')
-  if (!parts.length || parts.some(part => !/^\d+$/.test(part))) return 0
-
-  let total = 0
-  let unit = 1
-  while (parts.length) {
-    total += parseInt(parts.pop()!, 10) * unit
-    unit *= 60
-  }
-  return total
 }
 
 export const formatPlayTime2 = (time: number) => {
@@ -84,11 +74,8 @@ export const formatPlayTime2 = (time: number) => {
   return numFix(m) + ':' + numFix(s)
 }
 
-
-
 export const isUrl = (path: string) => /https?:\/\//.test(path)
 
-// 解析URL参数为对象
 export const parseUrlParams = (str: string): Record<string, string> => {
   const params: Record<string, string> = {}
   if (typeof str !== 'string') return params
@@ -101,12 +88,15 @@ export const parseUrlParams = (str: string): Record<string, string> => {
 }
 
 /**
- * 生成节流函数
- * @param fn 回调
- * @param delay 延迟
+ * Generate a throttle function
+ * @param fn Callback
+ * @param delay Delay
  * @returns
  */
-export function throttle<Args extends any[]>(fn: (...args: Args) => void | Promise<void>, delay = 100) {
+export function throttle<Args extends any[]>(
+  fn: (...args: Args) => void | Promise<void>,
+  delay = 100
+) {
   let timer: NodeJS.Timeout | null = null
   let _args: Args
   return (...args: Args) => {
@@ -120,12 +110,15 @@ export function throttle<Args extends any[]>(fn: (...args: Args) => void | Promi
 }
 
 /**
- * 生成防抖函数
- * @param fn 回调
- * @param delay 延迟
+ * Generate a debounce function
+ * @param fn Callback
+ * @param delay Delay
  * @returns
  */
-export function debounce<Args extends any[]>(fn: (...args: Args) => void | Promise<void>, delay = 100) {
+export function debounce<Args extends any[]>(
+  fn: (...args: Args) => void | Promise<void>,
+  delay = 100
+) {
   let timer: NodeJS.Timeout | null = null
   let _args: Args
   return (...args: Args) => {
@@ -141,7 +134,6 @@ export function debounce<Args extends any[]>(fn: (...args: Args) => void | Promi
 const fileNameRxp = /[\\/:*?#"<>|]/g
 export const filterFileName = (name: string): string => name.replace(fileNameRxp, '')
 
-
 // https://blog.csdn.net/xcxy2015/article/details/77164126#comments
 /**
  *
@@ -150,15 +142,15 @@ export const filterFileName = (name: string): string => name.replace(fileNameRxp
  */
 export const similar = (a: string, b: string) => {
   if (!a || !b) return 0
-  if (a.length > b.length) { // 保证 a <= b
+  if (a.length > b.length) {
     let t = b
     b = a
     a = t
   }
   let al = a.length
   let bl = b.length
-  let mp = [] // 一个表
-  let i, j, ai, lt, tmp // ai：字符串a的第i个字符。 lt：左上角的值。 tmp：暂存新的值。
+  let mp = []
+  let i, j, ai, lt, tmp
   for (i = 0; i <= bl; i++) mp[i] = i
   for (i = 1; i <= al; i++) {
     ai = a.charAt(i - 1)
@@ -170,15 +162,18 @@ export const similar = (a: string, b: string) => {
       mp[j] = tmp
     }
   }
-  return 1 - (mp[bl] / bl)
+  return 1 - mp[bl] / bl
 }
 
 /**
- * 排序字符串
+ * Sorted insertion
  * @param arr
  * @param data
  */
-export const sortInsert = <T>(arr: Array<{ num: number, data: T }>, data: { num: number, data: T }) => {
+export const sortInsert = <T>(
+  arr: Array<{ num: number; data: T }>,
+  data: { num: number; data: T }
+) => {
   let key = data.num
   let left = 0
   let right = arr.length - 1
@@ -202,7 +197,6 @@ export const sortInsert = <T>(arr: Array<{ num: number, data: T }>, data: { num:
   arr.splice(left, 0, data)
 }
 
-
 export const arrPush = <T>(list: T[], newList: T[]) => {
   for (let i = 0; i * 1000 < newList.length; i++) {
     list.push(...newList.slice(i * 1000, (i + 1) * 1000))
@@ -224,7 +218,6 @@ export const arrPushByPosition = <T>(list: T[], newList: T[], position: number) 
   return list
 }
 
-
 // https://stackoverflow.com/a/2450976
 export const arrShuffle = <T>(array: T[]) => {
   let currentIndex = array.length
@@ -234,16 +227,14 @@ export const arrShuffle = <T>(array: T[]) => {
   while (currentIndex != 0) {
     // Pick a remaining element.
     randomIndex = Math.floor(Math.random() * currentIndex)
-    currentIndex--;
+    currentIndex--
 
     // And swap it with the current element.
-    [array[currentIndex], array[randomIndex]] = [
-      array[randomIndex], array[currentIndex]]
+    ;[array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]]
   }
 
   return array
 }
-
 
 // export const freezeListItem = <T extends any[]>(list: T): MakeArrayItemReadOnly<T> => {
 //   for (let i = 0; i < list.length; i++) {

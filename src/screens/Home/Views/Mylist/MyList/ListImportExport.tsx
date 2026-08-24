@@ -1,9 +1,7 @@
 import ChoosePath, { type ChoosePathType } from '@/components/common/ChoosePath'
 import { LXM_FILE_EXT_RXP } from '@/config/constant'
-import { Platform } from 'react-native'
-import { forwardRef, useImperativeHandle, useRef } from 'react'
+import { forwardRef, useImperativeHandle, useRef, useState } from 'react'
 import { handleExport, handleImport, handleImportMediaFile } from './listAction'
-import { toast } from '@/utils/tools'
 
 export interface SelectInfo {
   listInfo: LX.List.MyListInfo
@@ -29,36 +27,10 @@ export interface ListImportExportType {
 }
 
 export default forwardRef<ListImportExportType, {}>((props, ref) => {
+  const [visible, setVisible] = useState(false)
   const choosePathRef = useRef<ChoosePathType>(null)
-  const selectInfoRef = useRef<SelectInfo>((initSelectInfo as SelectInfo))
+  const selectInfoRef = useRef<SelectInfo>(initSelectInfo as SelectInfo)
   // console.log('render import export')
-
-  const showChoosePath = (action: SelectInfo['action']) => {
-    if (!choosePathRef.current) return
-    switch (action) {
-      case 'import':
-        choosePathRef.current.show({
-          title: global.i18n.t('list_import_part_desc'),
-          dirOnly: false,
-          filter: LXM_FILE_EXT_RXP,
-        })
-        break
-      case 'export':
-        choosePathRef.current.show({
-          title: global.i18n.t('list_export_part_desc'),
-          dirOnly: true,
-          filter: LXM_FILE_EXT_RXP,
-        })
-        break
-      case 'selectFile':
-        choosePathRef.current.show({
-          title: global.i18n.t('list_select_local_file_desc'),
-          dirOnly: true,
-          isPersist: true,
-        })
-        break
-    }
-  }
 
   useImperativeHandle(ref, () => ({
     import(listInfo, index) {
@@ -67,7 +39,22 @@ export default forwardRef<ListImportExportType, {}>((props, ref) => {
         listInfo,
         index,
       }
-      showChoosePath('import')
+      if (visible) {
+        choosePathRef.current?.show({
+          title: global.i18n.t('list_import_part_desc'),
+          dirOnly: false,
+          filter: LXM_FILE_EXT_RXP,
+        })
+      } else {
+        setVisible(true)
+        requestAnimationFrame(() => {
+          choosePathRef.current?.show({
+            title: global.i18n.t('list_import_part_desc'),
+            dirOnly: false,
+            filter: LXM_FILE_EXT_RXP,
+          })
+        })
+      }
     },
     export(listInfo, index) {
       selectInfoRef.current = {
@@ -75,11 +62,22 @@ export default forwardRef<ListImportExportType, {}>((props, ref) => {
         listInfo,
         index,
       }
-      if (Platform.OS == 'ios') {
-        handleExport(listInfo)
-        return
+      if (visible) {
+        choosePathRef.current?.show({
+          title: global.i18n.t('list_export_part_desc'),
+          dirOnly: true,
+          filter: LXM_FILE_EXT_RXP,
+        })
+      } else {
+        setVisible(true)
+        requestAnimationFrame(() => {
+          choosePathRef.current?.show({
+            title: global.i18n.t('list_export_part_desc'),
+            dirOnly: true,
+            filter: LXM_FILE_EXT_RXP,
+          })
+        })
       }
-      showChoosePath('export')
     },
     selectFile(listInfo, index) {
       selectInfoRef.current = {
@@ -87,14 +85,24 @@ export default forwardRef<ListImportExportType, {}>((props, ref) => {
         listInfo,
         index,
       }
-      if (Platform.OS == 'ios') {
-        toast(global.i18n.t('platform_feature_not_supported'), 'long')
-        return
+      if (visible) {
+        choosePathRef.current?.show({
+          title: global.i18n.t('list_select_local_file_desc'),
+          dirOnly: true,
+          isPersist: true,
+        })
+      } else {
+        setVisible(true)
+        requestAnimationFrame(() => {
+          choosePathRef.current?.show({
+            title: global.i18n.t('list_select_local_file_desc'),
+            dirOnly: true,
+            isPersist: true,
+          })
+        })
       }
-      showChoosePath('selectFile')
     },
   }))
-
 
   const onConfirmPath = (path: string) => {
     switch (selectInfoRef.current.action) {
@@ -110,7 +118,5 @@ export default forwardRef<ListImportExportType, {}>((props, ref) => {
     }
   }
 
-  return (
-    <ChoosePath ref={choosePathRef} onConfirm={onConfirmPath} />
-  )
+  return visible ? <ChoosePath ref={choosePathRef} onConfirm={onConfirmPath} /> : null
 })

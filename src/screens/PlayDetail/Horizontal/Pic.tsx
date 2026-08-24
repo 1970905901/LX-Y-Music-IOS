@@ -1,51 +1,132 @@
-import { memo, useEffect, useState } from 'react'
-import { View } from 'react-native'
-// import { useLayout } from '@/utils/hooks'
-import { usePlayerMusicInfo } from '@/store/player/hook'
-import { useWindowSize } from '@/utils/hooks'
-import { useNavigationComponentDidAppear } from '@/navigation'
-import { NAV_SHEAR_NATIVE_IDS } from '@/config/constant'
-import { createStyle } from '@/utils/tools'
-import { HEADER_HEIGHT } from './components/Header'
-import { BTN_WIDTH } from './MoreBtn/Btn'
-import { marginLeft } from './constant'
-import Image from '@/components/common/Image'
-import { useStatusbarHeight } from '@/store/common/hook'
-import commonState from '@/store/common/state'
-
+import { memo, useEffect, useMemo, useRef, useCallback } from 'react';
+import { Animated, Easing, View } from 'react-native';
+import { usePlayerMusicInfo, useIsPlay } from '@/store/player/hook';
+import { useWindowSize } from '@/utils/hooks';
+import { NAV_SHEAR_NATIVE_IDS } from '@/config/constant';
+import { createStyle } from '@/utils/tools';
+import { HEADER_HEIGHT } from './components/Header';
+import { BTN_WIDTH } from './MoreBtn/Btn';
+import { marginLeft } from './constant';
+import Image from '@/components/common/Image';
+import { useStatusbarHeight } from '@/store/common/hook';
+import { useSettingValue } from '@/store/setting/hook';
 
 export default memo(({ componentId }: { componentId: string }) => {
-  const musicInfo = usePlayerMusicInfo()
-  const { width: winWidth, height: winHeight } = useWindowSize()
-  const statusBarHeight = useStatusbarHeight()
+  const musicInfo = usePlayerMusicInfo();
+  const { width: winWidth, height: winHeight } = useWindowSize();
+  const statusBarHeight = useStatusbarHeight();
+  const isPlay = useIsPlay();
+  const isCoverSpin = useSettingValue('playDetail.isCoverSpin');
+  const coverSizeRaw = useSettingValue('playDetail.style.coverSize');
+  const coverSize = typeof coverSizeRaw === 'number' && !isNaN(coverSizeRaw) ? coverSizeRaw : 100;
+  const spinValue = useRef(new Animated.Value(0)).current;
+  const animationRef = useRef<Animated.CompositeAnimation | null>(null);
+  const isAnimating = useRef(false);
+  const isUnmounted = useRef(false);
 
-  const [animated, setAnimated] = useState(!!commonState.componentIds.playDetail)
-  const [pic, setPic] = useState(musicInfo.pic)
+  const createAnimation = useCallback((value: number) => {
+    return Animated.timing(spinValue, {
+      toValue: 1,
+      duration: 25000 * (1 - value),
+      easing: Easing.linear,
+      useNativeDriver: true,
+    });
+  }, [spinValue]);
+
+  const startAnimation = useCallback(() => {
+    if (isAnimating.current || !isCoverSpin || isUnmounted.current) return;
+    isAnimating.current = true;
+    spinValue.stopAnimation(value => {
+      if (isUnmounted.current) return;
+      animationRef.current = createAnimation(value);
+      animationRef.current.start(({ finished }) => {
+        if (finished && isAnimating.current && !isUnmounted.current) {
+          spinValue.setValue(0);
+          isAnimating.current = false;
+          startAnimation();
+        }
+      });
+    });
+  }, [spinValue, createAnimation, isCoverSpin]);
+
+  const stopAnimation = useCallback(() => {
+    if (!isAnimating.current) return;
+    isAnimating.current = false;
+    animationRef.current?.stop();
+    animationRef.current = null;
+    spinValue.stopAnimation();
+  }, [spinValue]);
+
   useEffect(() => {
-    if (animated) setPic(musicInfo.pic)
-  }, [musicInfo.pic, animated])
+    if (isPlay && isCoverSpin) {
+      startAnimation();
+    } else {
+      stopAnimation();
+    }
+  }, [isPlay, isCoverSpin, startAnimation, stopAnimation]);
 
-  useNavigationComponentDidAppear(componentId, () => {
-    setAnimated(true)
-  })
+  useEffect(() => {
+    stopAnimation();
+    spinValue.setValue(0);
+    if (isPlay && isCoverSpin) {
+      startAnimation();
+    }
+  }, [musicInfo.id, isCoverSpin, startAnimation, stopAnimation, spinValue]);
 
-  let imgWidth = Math.min((winWidth * 0.45 - marginLeft - BTN_WIDTH) * 0.76, (winHeight - statusBarHeight - HEADER_HEIGHT) * 0.62)
-  imgWidth -= imgWidth * (global.lx.fontSize - 1) * 0.3
-  let contentHeight = (winHeight - statusBarHeight - HEADER_HEIGHT) * 0.66
-  contentHeight -= contentHeight * (global.lx.fontSize - 1) * 0.2
+  useEffect(() => {
+    return () => {
+      isUnmounted.current = true;
+      stopAnimation();
+    };
+  }, [stopAnimation]);
+
+  const spin = spinValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+
+  const imageContainerStyle = useMemo(() => {
+    let baseWidth = Math.min(
+      (winWidth * 0.45 - marginLeft - BTN_WIDTH) * 0.76,
+      (winHeight - statusBarHeight - HEADER_HEIGHT) * 0.62,
+    );
+    baseWidth -= baseWidth * (global.lx.fontSize - 1) * 0.3;
+    const imgWidth = baseWidth * (coverSize / 100);
+    const radius = isCoverSpin ? imgWidth / 2 : 4;
+    return {
+      width: imgWidth,
+      height: imgWidth,
+      borderRadius: radius,
+      elevation: 3,
+      opacity: 1,
+      backgroundColor: 'transparent',
+      overflow: 'hidden',
+    };
+  }, [winWidth, winHeight, statusBarHeight, isCoverSpin, coverSize]);
+
+  const imageStyle = useMemo(() => ({
+    width: '100%',
+    height: '100%',
+    borderRadius: imageContainerStyle.borderRadius,
+  } as any), [imageContainerStyle.borderRadius]);
+
+  let contentHeight = (winHeight - statusBarHeight - HEADER_HEIGHT) * 0.66;
+  contentHeight -= contentHeight * (global.lx.fontSize - 1) * 0.2;
 
   return (
     <View style={{ ...styles.container, height: contentHeight }}>
-      <View style={{ ...styles.content, elevation: animated ? 3 : 0 }}>
-        <Image url={pic} nativeID={NAV_SHEAR_NATIVE_IDS.playDetail_pic} style={{
-          width: imgWidth,
-          height: imgWidth,
-          borderRadius: 2,
-        }} />
+      <View style={[styles.content, imageContainerStyle, { overflow: 'hidden' }]}>
+        <Animated.View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: imageContainerStyle.borderRadius, transform: [{ rotate: spin }] }}>
+          <Image
+            url={musicInfo.pic}
+            nativeID={NAV_SHEAR_NATIVE_IDS.playDetail_pic}
+            style={imageStyle}
+          />
+        </Animated.View>
       </View>
     </View>
-  )
-})
+  );
+});
 
 const styles = createStyle({
   container: {
@@ -53,12 +134,9 @@ const styles = createStyle({
     flexGrow: 0,
     justifyContent: 'center',
     alignItems: 'center',
-    // backgroundColor: 'rgba(0,0,0,0.1)',
     overflow: 'hidden',
   },
   content: {
-    // elevation: 3,
     backgroundColor: 'rgba(0,0,0,0)',
-    borderRadius: 4,
   },
-})
+});

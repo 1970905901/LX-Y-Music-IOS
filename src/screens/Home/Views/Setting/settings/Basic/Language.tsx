@@ -15,13 +15,20 @@ const useActive = (id: I18n['locale']) => {
   return isActive
 }
 
-const Item = ({ id, name }: {
-  id: I18n['locale']
-  name: string
-}) => {
+const Item = ({ id, name }: { id: I18n['locale']; name: string }) => {
   const isActive = useActive(id)
   // const [toggleCheckBox, setToggleCheckBox] = useState(false)
-  return <CheckBox marginRight={8} check={isActive} label={name} onChange={() => { setLanguage(id) }} need />
+  return (
+    <CheckBox
+      marginRight={8}
+      check={isActive}
+      label={name}
+      onChange={() => {
+        setLanguage(id)
+      }}
+      need
+    />
+  )
 }
 
 export default memo(() => {
@@ -30,9 +37,9 @@ export default memo(() => {
   return (
     <SubTitle title={t('setting_basic_lang')}>
       <View style={styles.list}>
-        {
-          langList.map(({ locale, name }) => <Item name={name} id={locale} key={locale} />)
-        }
+        {langList.map(({ locale, name }) => (
+          <Item name={name} id={locale} key={locale} />
+        ))}
       </View>
     </SubTitle>
   )

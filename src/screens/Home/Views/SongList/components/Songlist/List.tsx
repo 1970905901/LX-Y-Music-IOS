@@ -1,5 +1,5 @@
 import { useRef, useState, useMemo, forwardRef, useImperativeHandle } from 'react'
-import { FlatList, View, RefreshControl, type FlatListProps } from 'react-native'
+import {FlatList, View, RefreshControl, type FlatListProps, Keyboard} from 'react-native'
 
 import ListItem from './ListItem'
 // import { navigations } from '@/navigation'
@@ -63,21 +63,26 @@ export default forwardRef<ListType, ListProps>(({ onRefresh, onLoadMore, onOpenD
       onPress={onOpenDetail}
     />
   )
-  const getkey: FlatListType['keyExtractor'] = item => item.id
+  const getkey: FlatListType['keyExtractor'] = (item) => item.id
   // const getItemLayout: FlatListType['getItemLayout'] = (data, index) => {
   //   return { length: ITEM_HEIGHT, offset: ITEM_HEIGHT * index, index }
   // }
-  const refreshControl = useMemo(() => (
-    <RefreshControl
-      colors={[theme['c-primary']]}
-      // progressBackgroundColor={theme.primary}
-      refreshing={status == 'refreshing'}
-      onRefresh={onRefresh} />
-  ), [status, onRefresh, theme])
+  const refreshControl = useMemo(
+    () => (
+      <RefreshControl
+        colors={[theme['c-primary']]}
+        // progressBackgroundColor={theme.primary}
+        refreshing={status == 'refreshing'}
+        onRefresh={onRefresh}
+      />
+    ),
+    [status, onRefresh, theme]
+  )
   const footerComponent = useMemo(() => {
     let label: FooterLabel
     switch (status) {
-      case 'refreshing': return null
+      case 'refreshing':
+        return null
       case 'loading':
         label = 'list_loading'
         break
@@ -97,7 +102,6 @@ export default forwardRef<ListType, ListProps>(({ onRefresh, onLoadMore, onOpenD
       </View>
     )
   }, [onLoadMore, status])
-
 
   // const itemWidth = useMemo(() => {
   //   let itemWidth = Math.max(Math.trunc(width * 0.125), MAX_WIDTH)
@@ -125,7 +129,7 @@ export default forwardRef<ListType, ListProps>(({ onRefresh, onLoadMore, onOpenD
   // console.log(rowNum)
   const list = useMemo(() => {
     const list = [...currentList]
-    let whiteItemNum = (list.length % rowInfo.num)
+    let whiteItemNum = list.length % rowInfo.num
     if (whiteItemNum > 0) whiteItemNum = rowInfo.num - whiteItemNum
     for (let i = 0; i < whiteItemNum; i++) {
       list.push({
@@ -145,60 +149,51 @@ export default forwardRef<ListType, ListProps>(({ onRefresh, onLoadMore, onOpenD
 
   return (
     <View style={styles.container} onLayout={onLayout}>
-      {
-        width == 0
-          ? null
-          : (
-              <FlatList
-                key={String(rowInfo.num)}
-                ref={flatListRef}
-                style={styles.list}
-                columnWrapperStyle={{ justifyContent: 'space-evenly' }}
-                numColumns={rowInfo.num}
-                data={list}
-                maxToRenderPerBatch={4}
-                // updateCellsBatchingPeriod={80}
-                windowSize={8}
-                removeClippedSubviews={true}
-                // initialNumToRender={12}
-                renderItem={renderItem}
-                keyExtractor={getkey}
-                // getItemLayout={getItemLayout}
-                // onRefresh={onRefresh}
-                // refreshing={refreshing}
-                onEndReachedThreshold={0.6}
-                onEndReached={handleLoadMore}
-                refreshControl={refreshControl}
-                ListFooterComponent={footerComponent}
-              />
-            )
-      }
+      {width == 0 ? null : (
+        <FlatList
+          key={String(rowInfo.num)}
+          ref={flatListRef}
+          style={styles.list}
+          columnWrapperStyle={{ justifyContent: 'space-evenly' }}
+          numColumns={rowInfo.num}
+          data={list}
+          maxToRenderPerBatch={4}
+          onScrollBeginDrag={Keyboard.dismiss}
+          // updateCellsBatchingPeriod={80}
+          windowSize={8}
+          removeClippedSubviews={true}
+          // initialNumToRender={12}
+          renderItem={renderItem}
+          keyExtractor={getkey}
+          // getItemLayout={getItemLayout}
+          // onRefresh={onRefresh}
+          // refreshing={refreshing}
+          onEndReachedThreshold={0.6}
+          onEndReached={handleLoadMore}
+          refreshControl={refreshControl}
+          ListFooterComponent={footerComponent}
+        />
+      )}
     </View>
   )
 })
 
 type FooterLabel = 'list_loading' | 'list_end' | 'list_error' | null
-const Footer = ({ label, onLoadMore }: {
-  label: FooterLabel
-  onLoadMore: () => void
-}) => {
+const Footer = ({ label, onLoadMore }: { label: FooterLabel; onLoadMore: () => void }) => {
   const theme = useTheme()
   const t = useI18n()
   const handlePress = () => {
     if (label != 'list_error') return
     onLoadMore()
   }
-  return (
-    label
-      ? (
-          <View>
-            <Text onPress={handlePress} style={styles.footer} color={theme['c-font-label']}>{t(label)}</Text>
-          </View>
-        )
-      : null
-  )
+  return label ? (
+    <View>
+      <Text onPress={handlePress} style={styles.footer} color={theme['c-font-label']}>
+        {t(label)}
+      </Text>
+    </View>
+  ) : null
 }
-
 
 const styles = createStyle({
   container: {

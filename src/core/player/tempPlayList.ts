@@ -2,7 +2,6 @@ import playerActions from '@/store/player/action'
 import playerState from '@/store/player/state'
 import { playNext } from './player'
 
-
 /**
  * 添加歌曲到稍后播放列表
  * @param list 歌曲列表

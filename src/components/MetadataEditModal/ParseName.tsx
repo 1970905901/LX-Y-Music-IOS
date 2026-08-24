@@ -6,7 +6,6 @@ import Text from '@/components/common/Text'
 import ButtonPrimary from '@/components/common/ButtonPrimary'
 import { useI18n } from '@/lang'
 
-
 export interface ParseNameProps {
   fileName: string
   onNameChanged: (text: string) => void
@@ -14,7 +13,10 @@ export interface ParseNameProps {
 }
 
 const parsePath = (fileName: string) => {
-  return fileName.substring(0, fileName.lastIndexOf('.')).split('-').map(name => name.trim())
+  return fileName
+    .substring(0, fileName.lastIndexOf('.'))
+    .split('-')
+    .map((name) => name.trim())
 }
 
 export default memo(({ fileName, onNameChanged, onSingerChanged }: ParseNameProps) => {
@@ -32,13 +34,25 @@ export default memo(({ fileName, onNameChanged, onSingerChanged }: ParseNameProp
   }
   return (
     <View style={styles.container}>
-      <Text style={styles.label} size={14}>{t('metadata_edit_modal_form_parse_name')}</Text>
+      <Text style={styles.label} size={14}>
+        {t('metadata_edit_modal_form_parse_name')}
+      </Text>
       <View style={styles.btns}>
-        <ButtonPrimary style={{ backgroundColor: theme['c-button-background'] }} onPress={handleParseNameSinger}>
-          <Text color={theme['c-button-font']} size={13}>{t('metadata_edit_modal_form_parse_name_singer')}</Text>
+        <ButtonPrimary
+          style={{ backgroundColor: theme['c-button-background'] }}
+          onPress={handleParseNameSinger}
+        >
+          <Text color={theme['c-button-font']} size={13}>
+            {t('metadata_edit_modal_form_parse_name_singer')}
+          </Text>
         </ButtonPrimary>
-        <ButtonPrimary style={{ backgroundColor: theme['c-button-background'] }} onPress={handleParseSingerName}>
-          <Text color={theme['c-button-font']} size={13}>{t('metadata_edit_modal_form_parse_singer_name')}</Text>
+        <ButtonPrimary
+          style={{ backgroundColor: theme['c-button-background'] }}
+          onPress={handleParseSingerName}
+        >
+          <Text color={theme['c-button-font']} size={13}>
+            {t('metadata_edit_modal_form_parse_singer_name')}
+          </Text>
         </ButtonPrimary>
       </View>
     </View>

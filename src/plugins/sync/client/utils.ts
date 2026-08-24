@@ -2,7 +2,10 @@
 import { gzipString, unGzipString } from '@/utils/fs'
 import BackgroundTimer from 'react-native-background-timer'
 
-export const request = async(url: string, { timeout = 10000, ...options }: RequestInit & { timeout?: number } = {}) => {
+export const request = async (
+  url: string,
+  { timeout = 10000, ...options }: RequestInit & { timeout?: number } = {}
+) => {
   const controller = new AbortController()
   let id: number | null = BackgroundTimer.setTimeout(() => {
     id = null
@@ -11,22 +14,23 @@ export const request = async(url: string, { timeout = 10000, ...options }: Reque
   return fetch(url, {
     ...options,
     signal: controller.signal,
-  // eslint-disable-next-line @typescript-eslint/promise-function-async
-  }).then(async(response) => {
-    const text = await response.text()
-    return {
-      text,
-      code: response.status,
-    }
-  }).catch(err => {
-    // console.log(err, err.code, err.message)
-    throw err
-  }).finally(() => {
-    if (id == null) return
-    BackgroundTimer.clearTimeout(id)
   })
+    .then(async (response) => {
+      const text = await response.text()
+      return {
+        text,
+        code: response.status,
+      }
+    })
+    .catch((err) => {
+      // console.log(err, err.code, err.message)
+      throw err
+    })
+    .finally(() => {
+      if (id == null) return
+      BackgroundTimer.clearTimeout(id)
+    })
 }
-
 
 // export const aesEncrypt = (text: string, key: string, iv: string) => {
 //   const cipher = createCipheriv('aes-128-cbc', Buffer.from(key, 'base64'), Buffer.from(iv, 'base64'))
@@ -68,19 +72,14 @@ export { generateRsaKey } from '@/utils/nativeModules/crypto'
 //   )
 // })
 
-
-export const encryptMsg = async(keyInfo: LX.Sync.KeyInfo, msg: string): Promise<string> => {
-  return msg.length > 1024
-    ? 'cg_' + await gzipString(msg)
-    : msg
+export const encryptMsg = async (keyInfo: LX.Sync.KeyInfo, msg: string): Promise<string> => {
+  return msg.length > 1024 ? 'cg_' + (await gzipString(msg)) : msg
   // if (!keyInfo) return ''
   // return aesEncrypt(msg, keyInfo.key, keyInfo.iv)
 }
 
-export const decryptMsg = async(keyInfo: LX.Sync.KeyInfo, enMsg: string): Promise<string> => {
-  return enMsg.substring(0, 3) == 'cg_'
-    ? unGzipString(enMsg.replace('cg_', ''))
-    : enMsg
+export const decryptMsg = async (keyInfo: LX.Sync.KeyInfo, enMsg: string): Promise<string> => {
+  return enMsg.substring(0, 3) == 'cg_' ? unGzipString(enMsg.replace('cg_', '')) : enMsg
   // if (!keyInfo) return ''
   // let msg = ''
   // try {
@@ -90,7 +89,6 @@ export const decryptMsg = async(keyInfo: LX.Sync.KeyInfo, enMsg: string): Promis
   // }
   // return msg
 }
-
 
 export const parseUrl = (href: string): LX.Sync.UrlInfo => {
   // const url = new URL(host)
@@ -115,7 +113,6 @@ export const parseUrl = (href: string): LX.Sync.UrlInfo => {
     href,
   }
 }
-
 
 export const sendStatus = (status: LX.Sync.Status) => {
   // syncLog.log(JSON.stringify(status))

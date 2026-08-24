@@ -3,7 +3,15 @@ import Event from './Event'
 import commonState from '@/store/common/state'
 import { type Source as SonglistSource } from '@/store/songlist/state'
 import { type SearchType } from '@/store/search/state'
-
+import DownloadTask = LX.Download.DownloadTask
+import playerState from '@/store/player/state'
+import listState from '@/store/list/state'
+import userState from '@/store/user/state'
+import {COMPONENT_IDS, LIST_IDS, type NAV_ID_Type} from '@/config/constant'
+import {navigations} from "@/navigation";
+import {getDailyRecCache} from "@/utils/data.ts";
+import {toast} from "@/utils/tools.ts";
+import { isOneDriveMusicInfo } from '@/core/oneDrive/utils'
 
 // {
 //   // sync: {
@@ -24,51 +32,52 @@ export class AppEvent extends Event {
   }
 
   /**
-   * 我的列表更新
+   * My list updated
    */
-  mylistUpdated(lists: Array<LX.List.MyDefaultListInfo | LX.List.MyLoveListInfo | LX.List.UserListInfo>) {
+  mylistUpdated(
+    lists: Array<LX.List.MyDefaultListInfo | LX.List.MyLoveListInfo | LX.List.UserListInfo>,
+  ) {
     this.emit('mylistUpdated', lists)
   }
 
   /**
-   * 我的列表切换
+   * My list toggled
    */
   mylistToggled(id: string) {
     this.emit('listToggled', id)
   }
 
   /**
-   * 音乐信息切换
+   * Music info toggled
    */
   musicToggled() {
     this.emit('musicToggled')
   }
 
   /**
-   * 手动改变进度
-   * @param progress 进度
+   * Manually change progress
+   * @param progress progress
    */
   setProgress(progress: number, maxPlayTime?: number) {
     this.emit('setProgress', progress, maxPlayTime)
   }
 
   /**
-   * 设置音量大小
-   * @param volume 音量大小
+   * Set volume level
+   * @param volume volume level
    */
   setVolume(volume: number) {
     this.emit('setVolume', volume)
   }
 
   /**
-   * 设置是否静音
-   * @param isMute 是否静音
+   * Set whether to mute
+   * @param isMute whether to mute
    */
   setVolumeIsMute(isMute: boolean) {
     this.emit('setVolumeIsMute', isMute)
   }
 
-  // 播放器事件
   play() {
     this.emit('play')
   }
@@ -85,7 +94,6 @@ export class AppEvent extends Event {
     this.emit('error')
   }
 
-  // 播放器原始事件
   playerPlaying() {
     this.emit('playerPlaying')
   }
@@ -126,40 +134,37 @@ export class AppEvent extends Event {
     this.emit('playerWaiting')
   }
 
-
-  // 更新图片事件
   picUpdated() {
     this.emit('picUpdated')
   }
 
-  // 更新歌词事件
+  webdavPicUpdated(musicId: string, picUrl: string) {
+    this.emit('webdavPicUpdated', musicId, picUrl)
+  }
+
   lyricUpdated() {
     this.emit('lyricUpdated')
   }
 
-  // 更新歌词偏移
   lyricOffsetUpdate() {
     this.emit('lyricOffsetUpdate')
   }
 
-  seekLyric(time: number) {
-    this.emit('seekLyric', time)
-  }
-
-  // 我的列表内歌曲改变事件
   myListMusicUpdate(ids: string[]) {
     if (!ids.length) return
     this.emit('myListMusicUpdate', ids)
   }
 
-  // 下载列表改变事件
   downloadListUpdate() {
     this.emit('downloadListUpdate')
   }
 
-  // 列表里的音乐信息改变事件
   musicInfoUpdate(musicInfo: LX.Music.MusicInfo) {
     this.emit('musicInfoUpdate', musicInfo)
+  }
+
+  playHistoryUpdated() {
+    this.emit('playHistoryUpdated')
   }
 
   changeMenuVisible(visible: boolean) {
@@ -167,31 +172,133 @@ export class AppEvent extends Event {
   }
 
   /**
-   * 搜索类型改变事件
+   * Search type changed event
    * @param type
    */
   searchTypeChanged(type: SearchType) {
     this.emit('searchTypeChanged', type)
   }
 
-  jumpListPosition() {
-    if (commonState.navActiveId == 'nav_love') {
-      this.emit('jumpListPosition')
-    } else {
-      global.lx.jumpMyListPosition = true
-      setNavActiveId('nav_love')
+  searchDeepLink(keyword: string, source: string, type: string) {
+    this.emit('searchDeepLink', keyword, source, type)
+  }
+
+  openSonglistImport() {
+    this.emit('openSonglistImport')
+  }
+
+  async jumpListPosition() {
+    const playMusicInfo = playerState.playMusicInfo
+    let listId = playMusicInfo.listId
+    const rawMusicInfo = playMusicInfo.musicInfo
+    const musicInfo = rawMusicInfo && 'progress' in rawMusicInfo ? rawMusicInfo.metadata.musicInfo : rawMusicInfo
+
+    if (isOneDriveMusicInfo(musicInfo)) {
+      if (commonState.navActiveId !== 'nav_onedrive') setNavActiveId('nav_onedrive')
       setTimeout(() => {
-        this.emit('jumpListPosition')
+        this.emit('jumpOneDrivePosition')
       }, 200)
+      return
     }
+
+    if (!listId || !musicInfo) {
+      if (commonState.navActiveId === 'nav_love') {
+        this.emit('jumpListPosition')
+      } else {
+        setNavActiveId('nav_love')
+        setTimeout(() => this.emit('jumpListPosition'), 200)
+      }
+      return
+    }
+
+    if (listId === LIST_IDS.TEMP) {
+      listId = listState.tempListMeta.id
+    }
+
+    const currentComponentId = commonState.componentIds[commonState.componentIds.length - 1]?.id
+    if (!currentComponentId) return
+
+    let navigatedToDetail = false
+    const currentComponent = commonState.componentIds[commonState.componentIds.length - 1];
+
+    if (listId.startsWith('artist_detail_')) {
+      const artistId = listId.replace('artist_detail_', '')
+      if (currentComponent?.name !== COMPONENT_IDS.ARTIST_DETAIL) {
+        navigations.pushArtistDetailScreen(currentComponentId, {
+          id: artistId,
+          mid: artistId,
+          name: musicInfo.singer,
+          source: musicInfo.source as string,
+          picUrl: (musicInfo as any)?.meta?.artistPic || (musicInfo as any)?.picUrl || (musicInfo.source === 'tx' && (musicInfo as any)?.artists?.[0]?.mid ? `https://y.gtimg.cn/music/photo_new/T001R500x500M000${(musicInfo as any).artists[0].mid}.jpg` : ''),
+        })
+        navigatedToDetail = true
+      }
+    } else if (listId.startsWith('album_')) {
+      const albumId = listId.replace('album_', '')
+      if (currentComponent?.name !== COMPONENT_IDS.ALBUM_DETAIL_SCREEN) {
+        const albumMid = (musicInfo as any)?.meta?.albumMid || (musicInfo as any)?.albumMid || albumId
+        navigations.pushAlbumDetailScreen(currentComponentId, { id: albumId, mid: albumMid, name: musicInfo.meta?.albumName || '', source: musicInfo.source as LX.OnlineSource })
+        navigatedToDetail = true
+      }
+    } else if (listId.includes('__')) {
+      const [source, sourceId] = listId.split('__')
+      let targetNavId: NAV_ID_Type = 'nav_songlist'
+
+      if (source === 'tx') {
+        targetNavId = 'nav_tx_playlist'
+        if (commonState.navActiveId !== targetNavId) {
+          global.lx.jumpTxPlaylistPosition = true
+          setNavActiveId(targetNavId)
+        }
+      } else if (source === 'kg') {
+        targetNavId = 'nav_kg_playlist'
+        if (commonState.navActiveId !== targetNavId) {
+          global.lx.jumpKgPlaylistPosition = true
+          setNavActiveId(targetNavId)
+        }
+      } else if (source === 'wy') {
+        const isSubscribed = userState.wy_subscribed_playlists.some(p => String(p.id) === sourceId)
+        targetNavId = isSubscribed ? 'nav_my_playlist' : 'nav_songlist'
+        if (commonState.navActiveId !== targetNavId) {
+          global.lx.jumpMyListPosition = true
+          setNavActiveId(targetNavId)
+        }
+      } else {
+        if (commonState.navActiveId !== targetNavId) {
+          global.lx.jumpMyListPosition = true
+          setNavActiveId(targetNavId)
+        }
+      }
+    } else if (listId.startsWith('dailyrec_wy')) {
+      setNavActiveId('nav_daily_rec')
+    } else if (listId === 'similar_songs_list') {
+      if (currentComponent?.name !== COMPONENT_IDS.SIMILAR_SONGS_SCREEN) {
+        const cache = await getDailyRecCache();
+        const allSimilarSongs = cache?.items.flatMap(item => item.similarSongs) ?? [];
+        if (allSimilarSongs.length === 0) {
+          toast('找不到相似歌曲列表');
+          return;
+        }
+        const uniqueSongs = Array.from(new Map(allSimilarSongs.map(song => [song.id, song])).values());
+        navigations.pushSimilarSongsScreen(currentComponentId, uniqueSongs);
+        navigatedToDetail = true;
+      }
+    } else {
+      const targetNavId: NAV_ID_Type = 'nav_love'
+      if (commonState.navActiveId !== targetNavId) {
+        global.lx.jumpMyListPosition = true
+        setNavActiveId(targetNavId)
+      }
+    }
+
+    setTimeout(() => {
+      console.log('[appEvent] emitting jumpListPosition')
+      this.emit('jumpListPosition')
+    }, navigatedToDetail ? 500 : 200)
   }
 
   changeLoveListVisible(visible: boolean) {
     this.emit('changeLoveListVisible', visible)
-  }
-
-  changeHomePageScrollEnabled(enabled: boolean) {
-    this.emit('changeHomePageScrollEnabled', enabled)
   }
 
   showSonglistTagList(source: SonglistSource, activeId: string) {
@@ -209,11 +316,54 @@ export class AppEvent extends Event {
   selectSyncMode(mode: LX.Sync.ModeType) {
     this.emit('selectSyncMode', mode)
   }
+
+  showArtistSelector(artists: any[], onSelect: (artist: any) => void) {
+    this.emit('showArtistSelector', artists, onSelect)
+  }
+
+  triggerSearch(text: string) {
+    this.emit('triggerSearch', text)
+  }
+
+  download_list_changed() {
+    this.emit('download_list_changed')
+  }
+  download_task_add(task: DownloadTask) {
+    this.emit('download_task_add', task)
+  }
+  download_progress_update(payload: { id: string, progress: DownloadTask['progress'] }) {
+    this.emit('download_progress_update', payload)
+  }
+  download_status_update(payload: { id: string, status: DownloadTask['status'], errorMsg?: string }) {
+    this.emit('download_status_update', payload)
+  }
+  download_metadata_update(payload: { id: string, metadataStatus: DownloadTask['metadataStatus'] }) {
+    this.emit('download_metadata_update', payload)
+  }
+  show_download_ball() {
+    this.emit('show_download_ball')
+  }
+  showVideoPlayer(url: string) {
+    this.emit('showVideoPlayer', url)
+  }
+  playlist_updated(data: { source: string, listId: string }) {
+    this.emit('playlist_updated', data)
+  }
+
+  jumpOneDrivePosition() {
+    this.emit('jumpOneDrivePosition')
+  }
+
+  showPlaylist() {
+    this.emit('showPlaylist')
+  }
+
+  switchToLyricPage() {
+    this.emit('switchToLyricPage')
+  }
 }
 
-
 type EventMethods = Omit<EventType, keyof Event>
-
 
 declare class EventType extends AppEvent {
   on<K extends keyof EventMethods>(event: K, listener: EventMethods[K]): any

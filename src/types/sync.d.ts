@@ -23,20 +23,19 @@ declare global {
           dislike: boolean
         }
 
-        onClose: (handler: (err: Error) => (void | Promise<void>)) => () => void
+        onClose: (handler: (err: Error) => void | Promise<void>) => () => void
 
         remote: LX.Sync.ServerSyncActions
         remoteQueueList: LX.Sync.ServerSyncListActions
         remoteQueueDislike: LX.Sync.ServerSyncDislikeActions
       }
 
-
       interface ModeTypes {
         list: LX.Sync.List.SyncMode
         dislike: LX.Sync.Dislike.SyncMode
       }
 
-      type ModeType = { [K in keyof ModeTypes]: { type: K, mode: ModeTypes[K] } }[keyof ModeTypes]
+      type ModeType = { [K in keyof ModeTypes]: { type: K; mode: ModeTypes[K] } }[keyof ModeTypes]
 
       interface UrlInfo {
         wsProtocol: string

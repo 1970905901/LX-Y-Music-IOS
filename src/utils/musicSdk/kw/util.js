@@ -30,14 +30,15 @@ export { default as decodeLyric } from './decodeLyric'
 //   return JSON.parse(str.replace(/(^{'|'}\n$|'}$|':'|','|':\[{'|'}\],'|':{'|'},'|'},{'|':\['|':\[\],'|':{},'|'}]})/g, s => translationMap[s]))
 // }
 
-export const objStr2JSON = str => {
-  return JSON.parse(str.replace(/('(?=(,\s*')))|('(?=:))|((?<=([:,]\s*))')|((?<={)')|('(?=}))/g, '"'))
+export const objStr2JSON = (str) => {
+  return JSON.parse(
+    str.replace(/('(?=(,\s*')))|('(?=:))|((?<=([:,]\s*))')|((?<={)')|('(?=}))/g, '"')
+  )
 }
 
+export const formatSinger = (rawData) => rawData.replace(/&/g, '、')
 
-export const formatSinger = rawData => rawData.replace(/&/g, '、')
-
-export const matchToken = headers => {
+export const matchToken = (headers) => {
   try {
     return headers['set-cookie'].match(/kw_token=(\w+)/)[1]
   } catch (err) {
@@ -46,7 +47,6 @@ export const matchToken = headers => {
 }
 
 // const wait = time => new Promise(resolve => setTimeout(() => resolve(), time))
-
 
 // export const getToken = (retryNum = 0) => new Promise((resolve, reject) => {
 //   if (retryNum > 2) return Promise.reject(new Error('try max num'))
@@ -135,7 +135,8 @@ export const lrcTools = {
         const result = this.rxps.wordTime.exec(timeStr)
         const wordInfo = this.getWordInfo(result[1], result[2], preTimeInfo)
         words = words.replace(timeStr, wordInfo.timeStr)
-        if (preTimeInfo?.newTimeStr) words = words.replace(preTimeInfo.timeStr, preTimeInfo.newTimeStr)
+        if (preTimeInfo?.newTimeStr)
+          words = words.replace(preTimeInfo.timeStr, preTimeInfo.newTimeStr)
         preTimeInfo = wordInfo
       }
       this.lines.push(time + words)
@@ -151,7 +152,12 @@ export const lrcTools = {
       const valueOf = parseInt(content, 8)
       this.offset = Math.trunc(valueOf / 10)
       this.offset2 = Math.trunc(valueOf % 10)
-      if (this.offset == 0 || Number.isNaN(this.offset) || this.offset2 == 0 || Number.isNaN(this.offset2)) {
+      if (
+        this.offset == 0 ||
+        Number.isNaN(this.offset) ||
+        this.offset2 == 0 ||
+        Number.isNaN(this.offset2)
+      ) {
         this.isOK = false
       }
     } else {
@@ -179,7 +185,6 @@ export const lrcTools = {
     return lrcs
   },
 }
-
 
 // const createAesEncrypt = (buffer, mode, key, iv) => {
 //   const cipher = createCipheriv(mode, key, iv)

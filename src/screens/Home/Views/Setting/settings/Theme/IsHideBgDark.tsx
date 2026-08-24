@@ -15,16 +15,19 @@ export default memo(() => {
   const isHideBgDark = useSettingValue('theme.hideBgDark')
   const setIsAutoTheme = (isHideBgDark: boolean) => {
     updateSetting({ 'theme.hideBgDark': isHideBgDark })
-    void getTheme().then(theme => {
+    void getTheme().then((theme) => {
       if (!theme.isDark && !settingState.setting['common.isAutoTheme']) return
       applyTheme(theme)
     })
   }
 
-
   return (
     <View style={styles.content}>
-      <CheckBoxItem check={isHideBgDark} label={t('setting_basic_theme_hide_bg_dark')} onChange={setIsAutoTheme} />
+      <CheckBoxItem
+        check={isHideBgDark}
+        label={t('setting_basic_theme_hide_bg_dark')}
+        onChange={setIsAutoTheme}
+      />
     </View>
   )
 })

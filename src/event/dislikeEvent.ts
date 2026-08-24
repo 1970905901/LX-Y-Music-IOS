@@ -3,7 +3,7 @@ import Event from './Event'
 import { saveDislikeListRules } from '@/utils/data'
 import { setDislikeInfo } from '@/core/dislikeList'
 
-const updateList = async(dislikeInfo: LX.Dislike.DislikeInfo) => {
+const updateList = async (dislikeInfo: LX.Dislike.DislikeInfo) => {
   await saveDislikeListRules(dislikeInfo.rules)
   setDislikeInfo(dislikeInfo)
 }
@@ -52,9 +52,7 @@ export class DislikeEvent extends Event {
   }
 }
 
-
 type EventMethods = Omit<EventType, keyof Event>
-
 
 declare class EventType extends DislikeEvent {
   on<K extends keyof EventMethods>(event: K, listener: EventMethods[K]): any
@@ -65,4 +63,3 @@ export type DislikeEventTypes = Omit<EventType, keyof Omit<Event, 'on' | 'off'>>
 export const createDislikeEventHub = (): DislikeEventTypes => {
   return new DislikeEvent()
 }
-

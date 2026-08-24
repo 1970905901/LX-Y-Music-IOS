@@ -21,22 +21,27 @@ export interface SourceSelectorType {
   setSource: (source: Source) => void
 }
 
-export default forwardRef<SourceSelectorType, SourceSelectorProps>(({ style, onSourceChange }, ref) => {
-  const sourceSelectorRef = useRef<SourceSelectorCommonType>(null)
+export default forwardRef<SourceSelectorType, SourceSelectorProps>(
+  ({ style, onSourceChange }, ref) => {
+    const sourceSelectorRef = useRef<SourceSelectorCommonType>(null)
 
-  useImperativeHandle(ref, () => ({
-    setSource(source) {
-      sourceSelectorRef.current?.setSourceList(songlistState.sources, source)
-    },
-  }), [])
+    useImperativeHandle(
+      ref,
+      () => ({
+        setSource(source) {
+          sourceSelectorRef.current?.setSourceList(songlistState.sources, source)
+        },
+      }),
+      []
+    )
 
-
-  return (
-    <View style={StyleSheet.compose(styles.selector, style)}>
-      <SourceSelector ref={sourceSelectorRef} onSourceChange={onSourceChange} center />
-    </View>
-  )
-})
+    return (
+      <View style={StyleSheet.compose<ViewStyle>(styles.selector, style)}>
+        <SourceSelector ref={sourceSelectorRef} onSourceChange={onSourceChange} center />
+      </View>
+    )
+  }
+)
 
 const styles = createStyle({
   selector: {

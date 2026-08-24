@@ -1,20 +1,49 @@
 // import { requestStoragePermission } from '@/utils/common'
-import { temporaryDirectoryPath, existsFile, appendFile, unlink, writeFile, readFile } from '@/utils/fs'
+import {
+  temporaryDirectoryPath,
+  existsFile,
+  appendFile,
+  unlink,
+  writeFile,
+  readFile,
+  stat,
+} from '@/utils/fs'
+import RNFS from 'react-native-fs'
 
 const logPath = temporaryDirectoryPath + '/error.log'
+const sourceTestLogPath = temporaryDirectoryPath + '/source_test.log'
+const MAX_LOG_SIZE = 5 * 1024 * 1024 
+const READ_LIMIT = 1 * 1024 * 1024   
+
+const trimLogFile = async () => {
+  try {
+    const info = await stat(logPath)
+    if (info.size > MAX_LOG_SIZE) {
+      await unlink(logPath)
+      await writeFile(logPath, '')
+    }
+  } catch { /* ignore */ }
+}
 
 const logTools = {
-  tempLog: [] as Array<{ time: string, type: 'LOG' | 'WARN' | 'ERROR', text: string }> | null,
+  tempLog: [] as Array<{ time: string; type: 'LOG' | 'WARN' | 'ERROR'; text: string }> | null,
   writeLog(msg: string) {
     console.log(msg)
     void appendFile(logPath, '\n----lx log----\n' + msg)
+    void trimLogFile()
   },
   async initLogFile() {
     try {
       let isExists = await existsFile(logPath)
       // console.log(isExists)
       if (!isExists) await writeFile(logPath, '')
-      if (this.tempLog?.length) this.writeLog(this.tempLog.map(m => `${m.time} ${m.type} ${m.text}`).join('\n----lx log----\n'))
+      // 启动时强制清理：无论日志开关状态，都截断超限文件
+      // 防止老版本积累的几百兆日志残留
+      await trimLogFile()
+      if (this.tempLog?.length)
+        this.writeLog(
+          this.tempLog.map((m) => `${m.time} ${m.type} ${m.text}`).join('\n----lx log----\n')
+        )
       this.tempLog = null
     } catch (err) {
       console.log(err)
@@ -22,22 +51,33 @@ const logTools = {
   },
 }
 
-export const init = async() => {
+export const init = async () => {
   return logTools.initLogFile()
 }
 
-export const getLogs = async() => {
+export const getLogs = async () => {
+  try {
+    const info = await stat(logPath)
+    if (info.size > READ_LIMIT) {
+      const position = Math.max(0, info.size - READ_LIMIT)
+      return await RNFS.read(logPath, READ_LIMIT, position, 'utf8')
+    }
+  } catch { /* ignore */ }
   return readFile(logPath)
 }
 
-export const clearLogs = async() => {
-  return unlink(logPath).then(async() => writeFile(logPath, ''))
+export const clearLogs = async () => {
+  return unlink(logPath).then(async () => writeFile(logPath, ''))
 }
 
 export const log = {
   info(...msgs: any[]) {
-    // console.info(...msgs)
-    const msg = msgs.map(m => typeof m == 'string' ? m : m instanceof Error ? m.stack ?? m.message : JSON.stringify(m)).join(' ')
+    if (!global.lx.isEnableLog) return
+    const msg = msgs
+      .map((m) =>
+        typeof m == 'string' ? m : m instanceof Error ? (m.stack ?? m.message) : JSON.stringify(m)
+      )
+      .join(' ')
     if (msg.startsWith('%c')) return
     const time = new Date().toLocaleString()
     if (logTools.tempLog) {
@@ -45,15 +85,24 @@ export const log = {
     } else logTools.writeLog(`${time} LOG ${msg}`)
   },
   warn(...msgs: any[]) {
-    // console.warn(...msgs)
-    const msg = msgs.map(m => typeof m == 'string' ? m : m instanceof Error ? m.stack ?? m.message : JSON.stringify(m)).join(' ')
+    if (!global.lx.isEnableLog) return
+    const msg = msgs
+      .map((m) =>
+        typeof m == 'string' ? m : m instanceof Error ? (m.stack ?? m.message) : JSON.stringify(m)
+      )
+      .join(' ')
     const time = new Date().toLocaleString()
     if (logTools.tempLog) {
       logTools.tempLog.push({ type: 'WARN', time, text: msg })
     } else logTools.writeLog(`${time} WARN ${msg}`)
   },
   error(...msgs: any[]) {
-    const msg = msgs.map(m => typeof m == 'string' ? m : m instanceof Error ? m.stack ?? m.message : JSON.stringify(m)).join(' ')
+    if (!global.lx.isEnableLog) return
+    const msg = msgs
+      .map((m) =>
+        typeof m == 'string' ? m : m instanceof Error ? (m.stack ?? m.message) : JSON.stringify(m)
+      )
+      .join(' ')
     const time = new Date().toLocaleString()
     if (logTools.tempLog) {
       logTools.tempLog.push({ type: 'ERROR', time, text: msg })
@@ -62,6 +111,29 @@ export const log = {
     }
   },
 }
+
+export const getSourceTestLogs = async () => {
+  return readFile(sourceTestLogPath)
+}
+
+export const clearSourceTestLogs = async () => {
+  return unlink(sourceTestLogPath).then(async () => writeFile(sourceTestLogPath, ''))
+}
+
+export const sourceTestLog = {
+  info(...msgs: any[]) {
+    const msg = msgs
+      .map((m) =>
+        typeof m == 'string' ? m : m instanceof Error ? (m.stack ?? m.message) : JSON.stringify(m)
+      )
+      .join(' ')
+    if (msg.startsWith('%c')) return
+    const time = new Date().toLocaleString()
+    console.log(`[源测试] ${msg}`)
+    void appendFile(sourceTestLogPath, `\n----lx source test log----\n${time} LOG ${msg}`)
+  },
+}
+
 /*
 if (process.env.NODE_ENV !== 'development') {
   const logPath = externalDirectoryPath + '/debug.log'

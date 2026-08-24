@@ -44,18 +44,19 @@ const UrlInput = forwardRef<UrlInputType, {}>((props, ref) => {
   )
 })
 
-
 export interface ScriptImportOnlineType {
   show: () => void
 }
-
 
 export default forwardRef<ScriptImportOnlineType, {}>((props, ref) => {
   const t = useI18n()
   const alertRef = useRef<ConfirmAlertType>(null)
   const urlInputRef = useRef<UrlInputType>(null)
   const [visible, setVisible] = useState(false)
-  const [btn, setBtn] = useState({ disabled: false, text: t('user_api_btn_import_online_input_confirm') })
+  const [btn, setBtn] = useState({
+    disabled: false,
+    text: t('user_api_btn_import_online_input_confirm'),
+  })
 
   const handleShow = () => {
     alertRef.current?.setVisible(true)
@@ -79,7 +80,7 @@ export default forwardRef<ScriptImportOnlineType, {}>((props, ref) => {
     },
   }))
 
-  const handleImport = async() => {
+  const handleImport = async () => {
     let url = urlInputRef.current?.getText() ?? ''
     if (!/^https?:\/\//.test(url)) {
       url = ''
@@ -89,7 +90,7 @@ export default forwardRef<ScriptImportOnlineType, {}>((props, ref) => {
     setBtn({ disabled: true, text: t('user_api_btn_import_online_input_loading') })
     let script: string
     try {
-      script = await httpFetch(url).promise.then(resp => resp.body) as string
+      script = (await httpFetch(url).promise.then((resp) => resp.body)) as string
     } catch (err: any) {
       toast(t('user_api_import_failed_tip', { message: err.message }), 'long')
       return
@@ -105,23 +106,20 @@ export default forwardRef<ScriptImportOnlineType, {}>((props, ref) => {
     alertRef.current?.setVisible(false)
   }
 
-  return (
-    visible
-      ? <ConfirmAlert
-          ref={alertRef}
-          onConfirm={handleImport}
-          disabledConfirm={btn.disabled}
-          confirmText={btn.text}
-        >
-          <View style={styles.reurlContent}>
-            <Text style={{ marginBottom: 5 }}>{ t('user_api_btn_import_online')}</Text>
-            <UrlInput ref={urlInputRef} />
-          </View>
-        </ConfirmAlert>
-      : null
-  )
+  return visible ? (
+    <ConfirmAlert
+      ref={alertRef}
+      onConfirm={handleImport}
+      disabledConfirm={btn.disabled}
+      confirmText={btn.text}
+    >
+      <View style={styles.reurlContent}>
+        <Text style={{ marginBottom: 5 }}>{t('user_api_btn_import_online')}</Text>
+        <UrlInput ref={urlInputRef} />
+      </View>
+    </ConfirmAlert>
+  ) : null
 })
-
 
 const styles = createStyle({
   reurlContent: {
@@ -138,5 +136,3 @@ const styles = createStyle({
     // paddingBottom: 2,
   },
 })
-
-

@@ -52,7 +52,6 @@ const RuleInput = forwardRef<RuleInputType, {}>((props, ref) => {
   )
 })
 
-
 export interface DislikeEditModalProps {
   onSave: (rules: string) => void
   // onSourceChange: SourceSelectorProps['onSourceChange']
@@ -100,27 +99,35 @@ export default forwardRef<DislikeEditModalType, DislikeEditModalProps>(({ onSave
     onSave(rules)
   }
 
-  return (
-    visible
-      ? (
-          <Dialog height='80%' ref={dialogRef} bgHide={false}>
-            <View style={styles.content}>
-              <RuleInput ref={inputRef} />
-              <Text style={styles.inputTipText} size={13} color={theme['c-600']}>{t('setting_dislike_list_tips')}</Text>
-            </View>
-            <View style={styles.btns}>
-              <Button style={{ ...styles.btn, backgroundColor: theme['c-button-background'] }} onPress={handleCancel}>
-                <Text size={14} color={theme['c-button-font']}>{t('cancel')}</Text>
-              </Button>
-              <Button style={{ ...styles.btn, backgroundColor: theme['c-button-background'] }} onPress={handleConfirm}>
-                <Text size={14} color={theme['c-button-font']}>{t('confirm')}</Text>
-              </Button>
-            </View>
-          </Dialog>
-        ) : null
-  )
+  return visible ? (
+    <Dialog height="80%" ref={dialogRef} bgHide={false}>
+      <View style={styles.content}>
+        <RuleInput ref={inputRef} />
+        <Text style={styles.inputTipText} size={13} color={theme['c-600']}>
+          {t('setting_dislike_list_tips')}
+        </Text>
+      </View>
+      <View style={styles.btns}>
+        <Button
+          style={{ ...styles.btn, backgroundColor: theme['c-button-background'] }}
+          onPress={handleCancel}
+        >
+          <Text size={14} color={theme['c-button-font']}>
+            {t('cancel')}
+          </Text>
+        </Button>
+        <Button
+          style={{ ...styles.btn, backgroundColor: theme['c-button-background'] }}
+          onPress={handleConfirm}
+        >
+          <Text size={14} color={theme['c-button-font']}>
+            {t('confirm')}
+          </Text>
+        </Button>
+      </View>
+    </Dialog>
+  ) : null
 })
-
 
 const styles = createStyle({
   content: {
@@ -173,5 +180,3 @@ const styles = createStyle({
     marginRight: 15,
   },
 })
-
-

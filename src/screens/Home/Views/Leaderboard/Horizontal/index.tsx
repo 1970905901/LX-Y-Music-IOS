@@ -5,22 +5,14 @@ import { createStyle } from '@/utils/tools'
 import LeftBar, { type LeftBarType, type LeftBarProps } from './LeftBar'
 import MusicList, { type MusicListType } from '../MusicList'
 import { getLeaderboardSetting, saveLeaderboardSetting } from '@/utils/data'
-import { getBoardsList } from '@/core/leaderboard'
-import { type BoardItem } from '@/store/leaderboard/state'
 // import { BorderWidths } from '@/theme'
 // import { useTheme } from '@/store/theme/hook'
-
 
 export default () => {
   const leftBarRef = useRef<LeftBarType>(null)
   const musicListRef = useRef<MusicListType>(null)
   const isUnmountedRef = useRef(false)
   // const theme = useTheme()
-
-  const resolveBoardId = (list: BoardItem[], boardId: string | null) => {
-    if (!list.length) return null
-    return list.some(item => item.id == boardId) ? boardId : list[0].id
-  }
 
   const handleChangeBound: LeftBarProps['onChangeList'] = (source, id) => {
     musicListRef.current?.loadList(source, id)
@@ -33,18 +25,8 @@ export default () => {
   useEffect(() => {
     isUnmountedRef.current = false
     void getLeaderboardSetting().then(({ source, boardId }) => {
-      void getBoardsList(source).then(list => {
-        const resolvedId = resolveBoardId(list, boardId)
-        if (!resolvedId) return
-        leftBarRef.current?.setBound(source, resolvedId)
-        musicListRef.current?.loadList(source, resolvedId)
-        if (resolvedId != boardId) {
-          void saveLeaderboardSetting({
-            source,
-            boardId: resolvedId,
-          })
-        }
-      })
+      leftBarRef.current?.setBound(source, boardId)
+      musicListRef.current?.loadList(source, boardId)
     })
 
     return () => {
@@ -52,16 +34,10 @@ export default () => {
     }
   }, [])
 
-
   return (
     <View style={styles.container}>
-      <LeftBar
-        ref={leftBarRef}
-        onChangeList={handleChangeBound}
-      />
-      <MusicList
-        ref={musicListRef}
-      />
+      <LeftBar ref={leftBarRef} onChangeList={handleChangeBound} />
+      <MusicList ref={musicListRef} />
     </View>
   )
 }

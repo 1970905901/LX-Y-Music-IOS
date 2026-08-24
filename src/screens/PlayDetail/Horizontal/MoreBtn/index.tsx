@@ -14,7 +14,6 @@ export default () => {
   )
 }
 
-
 const styles = createStyle({
   container: {
     flexShrink: 0,

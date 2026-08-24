@@ -21,12 +21,9 @@ const styles = createStyle({
   },
 })
 
-export type BadgeType = 'normal' | 'secondary' | 'tertiary'
+export type BadgeType = 'normal' | 'secondary' | 'tertiary' | 'sq' | 'hq' | 'vip'
 
-export default memo(({ type = 'normal', children }: {
-  type?: BadgeType
-  children: string
-}) => {
+export default memo(({ type = 'normal', children }: { type?: BadgeType; children: string }) => {
   const theme = useTheme()
   // console.log(visible)
   const colors = useMemo(() => {
@@ -36,18 +33,29 @@ export default memo(({ type = 'normal', children }: {
         // colors.bgColor = theme.primary
         colors.textColor = theme['c-badge-primary']
         break
+      case 'vip':
+        colors.textColor = 'rgb(214, 69, 65)' // A strong red color
+        break
+      case 'sq':
+        colors.textColor = '#ffa900' // Golden yellow
+        break
+      case 'hq':
+        colors.textColor = '#007aff' // Blue
+        break
       case 'secondary':
-        // colors.bgColor = theme.primary
-        colors.textColor = theme['c-badge-secondary']
+        colors.textColor = '#b22222' // Brownish red / Dark red (24bit)
         break
       case 'tertiary':
         // colors.bgColor = theme.primary
-        colors.textColor = theme['c-badge-tertiary']
+        colors.textColor = theme['c-badge-secondary']
         break
     }
     return colors
   }, [type, theme])
 
-  return <Text style={styles.text} size={9} color={colors.textColor}>{children}</Text>
+  return (
+    <Text style={styles.text} size={9} color={colors.textColor}>
+      {children}
+    </Text>
+  )
 })
-

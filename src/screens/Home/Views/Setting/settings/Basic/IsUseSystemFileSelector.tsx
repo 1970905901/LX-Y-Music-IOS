@@ -5,7 +5,6 @@ import { memo } from 'react'
 import { View } from 'react-native'
 import { useSettingValue } from '@/store/setting/hook'
 
-
 import CheckBoxItem from '../../components/CheckBoxItem'
 
 export default memo(() => {
@@ -18,14 +17,14 @@ export default memo(() => {
   return (
     <View style={styles.content}>
       <CheckBoxItem
-      check={val}
-      label={t('setting_basic_use_system_file_selector')}
-      helpDesc={t('setting_basic_use_system_file_selector_tip')}
-      onChange={update} />
+        check={val}
+        label={t('setting_basic_use_system_file_selector')}
+        helpDesc={t('setting_basic_use_system_file_selector_tip')}
+        onChange={update}
+      />
     </View>
   )
 })
-
 
 const styles = createStyle({
   content: {

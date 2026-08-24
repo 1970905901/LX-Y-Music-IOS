@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react'
 import type { Messages, Message } from './index'
 import { messages } from './index'
 
-
 type TranslateValues = Record<string, string | number | boolean>
 
 type Langs = keyof Messages
@@ -25,7 +24,6 @@ let locale: Langs = 'zh_cn'
 
 let i18n: I18n
 
-
 const hookTools = {
   hooks: [] as Hook[],
   add(hook: Hook) {
@@ -40,20 +38,24 @@ const hookTools = {
 }
 
 const useI18n = () => {
-  const [locale, updateLocale] = useState(i18n?.locale ?? 'en_us')
+  const [locale, updateLocale] = useState(i18n?.locale ?? 'zh_cn')
   // console.log('hook run')
   useEffect(() => {
     const hook: Hook = (locale) => {
       updateLocale(locale)
     }
     hookTools.add(hook)
-    return () => { hookTools.remove(hook) }
+    return () => {
+      hookTools.remove(hook)
+    }
   }, [])
 
-  return useCallback((key: keyof Message, val?: TranslateValues): string => {
-    return i18n?.getMessage(key, val) ?? ''
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [locale])
+  return useCallback(
+    (key: keyof Message, val?: TranslateValues): string => {
+      return i18n?.getMessage(key, val) ?? ''
+    },
+    [locale]
+  )
 }
 
 const setLanguage = (lang: Langs) => {
@@ -63,15 +65,15 @@ const setLanguage = (lang: Langs) => {
 const createI18n = (_locale: Langs = locale): I18n => {
   locale = _locale
 
-  return i18n = {
+  return (i18n = {
     locale,
     fallbackLocale: 'zh_cn',
     availableLocales: Object.keys(messages) as Langs[],
     messages,
-    message: messages[locale],
+    message: messages[locale] ?? messages['zh_cn'],
     setLanguage(_locale: Langs) {
       this.locale = _locale
-      this.message = messages[_locale]
+      this.message = messages[_locale] ?? messages[this.fallbackLocale]
       hookTools.update(_locale)
     },
     fillMessage(message: string, vals: TranslateValues): string {
@@ -81,18 +83,13 @@ const createI18n = (_locale: Langs = locale): I18n => {
       return message
     },
     getMessage(key: keyof Message, val?: TranslateValues): string {
-      let targetMessage = this.message[key] ?? this.messages[this.fallbackLocale][key] ?? ''
+      let targetMessage = this.message?.[key] ?? this.messages[this.fallbackLocale]?.[key] ?? ''
       return val ? this.fillMessage(targetMessage, val) : targetMessage
     },
     t(key: keyof Message, val?: TranslateValues): string {
       return this.getMessage(key, val)
     },
-  }
+  })
 }
 
-
-export {
-  setLanguage,
-  useI18n,
-  createI18n,
-}
+export { setLanguage, useI18n, createI18n }

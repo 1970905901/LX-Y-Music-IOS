@@ -1,7 +1,15 @@
 import { useMemo, useRef, useImperativeHandle, forwardRef, useState } from 'react'
 import { useI18n } from '@/lang'
+import settingState from '@/store/setting/state'
 import Menu, { type MenuType, type Position } from '@/components/common/Menu'
 import { hasDislike } from '@/core/dislikeList'
+import {useSettingValue} from "@/store/setting/hook.ts";
+import { toast } from '@/utils/tools'
+
+const isTxCookieExpired = (): boolean => {
+  const cookie = settingState.setting['common.tx_cookie']
+  return !cookie || cookie.trim() === ''
+}
 
 export interface SelectInfo {
   musicInfo: LX.Music.MusicInfoOnline
@@ -15,29 +23,47 @@ export interface ListMenuProps {
   onPlay: (selectInfo: SelectInfo) => void
   onPlayLater: (selectInfo: SelectInfo) => void
   onAdd: (selectInfo: SelectInfo) => void
+  onDownload: (selectInfo: SelectInfo) => void
   onCopyName: (selectInfo: SelectInfo) => void
   onMusicSourceDetail: (selectInfo: SelectInfo) => void
   onDislikeMusic: (selectInfo: SelectInfo) => void
+  onArtistDetail: (selectInfo: SelectInfo) => void
+  onAlbumDetail: (selectInfo: SelectInfo) => void
+  onSimilarSongs: (selectInfo: SelectInfo) => void
+  onLike: (selectInfo: SelectInfo) => void
+  onPlayMv: (selectInfo: SelectInfo) => void
+  onMove?: (selectInfo: SelectInfo) => void
+  onRemove?: (selectInfo: SelectInfo) => void
+  onClearCache?: (selectInfo: SelectInfo) => void
+  listId?: string
+  isCreator?: boolean
 }
 export interface ListMenuType {
   show: (selectInfo: SelectInfo, position: Position) => void
 }
 
-export type {
-  Position,
-}
+export type { Position }
 
 export default forwardRef<ListMenuType, ListMenuProps>((props: ListMenuProps, ref) => {
   const t = useI18n()
   const [visible, setVisible] = useState(false)
   const menuRef = useRef<MenuType>(null)
-  const selectInfoRef = useRef<SelectInfo>(initSelectInfo as SelectInfo)
+  const [selectInfo, setSelectInfo] = useState<SelectInfo>(initSelectInfo as SelectInfo);
   const [isDislikeMusic, setDislikeMusic] = useState(false)
 
+  const menuSetting = {
+    playLater: useSettingValue('menu.playLater'),
+    addTo: useSettingValue('menu.addTo'),
+    share: useSettingValue('menu.share'),
+    playMV: useSettingValue('menu.playMV'),
+    songDetail: useSettingValue('menu.songDetail'),
+    dislike: useSettingValue('menu.dislike'),
+  }
+
   useImperativeHandle(ref, () => ({
-    show(selectInfo, position) {
-      selectInfoRef.current = selectInfo
-      setDislikeMusic(hasDislike(selectInfo.musicInfo))
+    show(newSelectInfo, position) {
+      setSelectInfo(newSelectInfo);
+      setDislikeMusic(hasDislike(newSelectInfo.musicInfo))
       if (visible) menuRef.current?.show(position)
       else {
         setVisible(true)
@@ -49,25 +75,76 @@ export default forwardRef<ListMenuType, ListMenuProps>((props: ListMenuProps, re
   }))
 
   const menus = useMemo(() => {
-    return [
-      { action: 'play', label: t('play') },
-      { action: 'playLater', label: t('play_later') },
-      // { action: 'download', label: '下载' },
-      { action: 'add', label: t('add_to') },
-      { action: 'copyName', label: t('copy_name') },
-      { action: 'musicSourceDetail', label: t('music_source_detail') },
-      { action: 'dislike', label: t('dislike'), disabled: isDislikeMusic },
-    ] as const
-  }, [t, isDislikeMusic])
+    const menu = []
+    if (menuSetting.playLater) menu.push({ action: 'playLater', label: t('play_later') });
+    menu.push({ action: 'download', label: t('download') });
+    // if (menuSetting.addTo) menu.push({ action: 'add', label: t('add_to') });
+    menu.push({ action: 'add', label: t('add_to') });
+    menu.push({ action: 'move', label: t('move_to') });
+    if (menuSetting.share) menu.push({ action: 'copyName', label: t('copy_name') });
 
-  const handleMenuPress = ({ action }: typeof menus[number]) => {
-    const selectInfo = selectInfoRef.current
+    const wyMenuItems = [];
+    if (selectInfo.musicInfo?.source === 'wy') {
+      wyMenuItems.push(
+        { action: 'artistDetail', label: t('artist_detail') },
+        { action: 'albumDetail', label: t('album_detail') },
+        { action: 'similarSongs', label: '相似歌曲' },
+      );
+      if (selectInfo.musicInfo.meta.mv && menuSetting.playMV) {
+        wyMenuItems.push({ action: 'playMv', label: '播放MV' });
+      }
+    }
+
+    if (selectInfo.musicInfo?.source === 'tx') {
+      wyMenuItems.push(
+        { action: 'artistDetail', label: t('artist_detail') },
+        { action: 'albumDetail', label: t('album_detail') },
+      );
+      if (selectInfo.musicInfo.meta.vid && menuSetting.playMV) {
+        wyMenuItems.push({ action: 'playMv', label: '播放MV' });
+      }
+    }
+
+    if (selectInfo.musicInfo?.source === 'kg') {
+      wyMenuItems.push(
+        { action: 'artistDetail', label: t('artist_detail') },
+        { action: 'albumDetail', label: t('album_detail') },
+      );
+      if (menuSetting.playMV) {
+        wyMenuItems.push({ action: 'playMv', label: '播放MV' });
+      }
+    }
+
+    const remainingMenu = []
+    if (menuSetting.songDetail)
+      remainingMenu.push({ action: 'musicSourceDetail', label: t('music_source_detail') })
+    if (menuSetting.dislike)
+      remainingMenu.push({ action: 'dislike', label: t('dislike'), disabled: isDislikeMusic })
+    remainingMenu.push({ action: 'clearCache', label: t('clear_music_cache') })
+
+    remainingMenu.push({ action: 'remove', label: t('delete') });
+
+    return [...menu, ...wyMenuItems, ...remainingMenu];
+  }, [t, isDislikeMusic, selectInfo, menuSetting, props.isCreator]);
+
+  const handleMenuPress = ({ action }: (typeof menus)[number]) => {
+    if ((action === 'move' || action === 'remove') && selectInfo.musicInfo?.source === 'tx' && isTxCookieExpired()) {
+      toast('QQ音乐Cookie已过期，请重新获取')
+      return
+    }
+
     switch (action) {
       case 'play':
         props.onPlay(selectInfo)
         break
+      case 'like':
+        props.onLike(selectInfo)
+        break
       case 'playLater':
         props.onPlayLater(selectInfo)
+        break
+      case 'download':
+        props.onDownload(selectInfo)
         break
       case 'add':
         props.onAdd(selectInfo)
@@ -75,21 +152,37 @@ export default forwardRef<ListMenuType, ListMenuProps>((props: ListMenuProps, re
       case 'copyName':
         props.onCopyName(selectInfo)
         break
+      case 'artistDetail':
+        props.onArtistDetail(selectInfo)
+        break
+      case 'albumDetail':
+        props.onAlbumDetail(selectInfo)
+        break
+      case 'similarSongs':
+        props.onSimilarSongs(selectInfo)
+        break
       case 'musicSourceDetail':
         props.onMusicSourceDetail(selectInfo)
-        // setVIsibleMusicPosition(true)
         break
       case 'dislike':
         props.onDislikeMusic(selectInfo)
         break
+      case 'playMv':
+        props.onPlayMv(selectInfo);
+        break;
+      case 'move':
+        props.onMove?.(selectInfo);
+        break;
+      case 'remove':
+        props.onRemove?.(selectInfo);
+        break;
+      case 'clearCache':
+        props.onClearCache?.(selectInfo);
+        break;
       default:
         break
     }
   }
 
-  return (
-    visible
-      ? <Menu ref={menuRef} menus={menus} onPress={handleMenuPress} />
-      : null
-  )
+  return visible ? <Menu ref={menuRef} menus={menus} onPress={handleMenuPress} /> : null
 })

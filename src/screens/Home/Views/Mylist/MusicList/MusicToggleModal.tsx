@@ -81,9 +81,6 @@ const ListItem = memo(({ info, onPlay, onOpenDetail }: {
 
   return (
     <View style={{ ...styles.listItem, height: ITEM_HEIGHT }} onStartShouldSetResponder={() => true}>
-      {/* <View style={styles.listItemLabel}>
-        <Text style={styles.sn} size={13} color={theme['c-300']}>{info.index + 1}</Text>
-      </View> */}
       <View style={styles.listItemInfo}>
         <Text color={theme['c-font']} size={14} numberOfLines={1}>{info.name}</Text>
         <View style={styles.listItemAlbum}>
@@ -98,7 +95,6 @@ const ListItem = memo(({ info, onPlay, onOpenDetail }: {
         </View>
       </View>
       <View style={styles.listItemLabel}>
-        {/* <Text style={styles.listItemLabelText} size={13} color={theme['c-300']}>{ info.source }</Text> */}
         <Text style={styles.listItemLabelText} size={13} color={theme['c-300']}>{info.interval}</Text>
       </View>
       <View style={styles.listItemBtns}>
@@ -221,7 +217,7 @@ const SourceDetail = ({ info, onConfirm, toggleSource }: { info: LX.Music.MusicI
         style={{ ...styles.button, backgroundColor: theme['c-button-background'] }}
         disabled={!toggleSource}
       >
-        <Text color={theme['c-button-font']}>{t('music_toggle__confirm')}</Text>
+        <Text color="#333333" size={14}>确认</Text>
       </Button>
     </View>
   ) : (
@@ -280,7 +276,7 @@ const SourceDetail = ({ info, onConfirm, toggleSource }: { info: LX.Music.MusicI
         style={{ ...styles.button, backgroundColor: theme['c-button-background'] }}
         disabled={!toggleSource || toggleSource.id == info.id}
       >
-        <Text color={theme['c-button-font']}>{t('music_toggle__confirm')}</Text>
+        <Text color="#333333" size={14}>确认</Text>
       </Button>
     </View>
   )
@@ -416,22 +412,14 @@ const styles = createStyle({
   tabContainer: {
     flexGrow: 0,
     flexShrink: 0,
-    // paddingLeft: 5,
-    // paddingRight: 5,
     paddingVertical: 6,
   },
   tabButton: {
-    // height: 38,
-    // lineHeight: 38,
     justifyContent: 'center',
     paddingHorizontal: 6,
-    // width: 80,
-    // backgroundColor: 'rgba(0,0,0,0.1)',
     borderBottomWidth: BorderWidths.normal3,
   },
   tabButtonText: {
-    // height: 38,
-    // lineHeight: 38,
     textAlign: 'center',
     paddingHorizontal: 2,
     paddingVertical: 5,
@@ -445,18 +433,9 @@ const styles = createStyle({
     flexWrap: 'nowrap',
     alignItems: 'center',
   },
-  // sn: {
-  //   width: 38,
-  //   // fontSize: 12,
-  //   textAlign: 'center',
-  //   // backgroundColor: 'rgba(0,0,0,0.2)',
-  //   paddingLeft: 3,
-  //   paddingRight: 3,
-  // },
   listItemInfo: {
     flexGrow: 1,
     flexShrink: 1,
-    // backgroundColor: 'rgba(0,0,0,0.2)',
     paddingLeft: 15,
     paddingRight: 5,
   },
@@ -504,7 +483,6 @@ const styles = createStyle({
     flexGrow: 0,
     flexShrink: 1,
     flexDirection: 'column',
-    // width: '50%',
     justifyContent: 'center',
   },
   detailInfoName: {
@@ -512,15 +490,12 @@ const styles = createStyle({
     flexDirection: 'row',
     flexGrow: 0,
     flexShrink: 1,
-    // backgroundColor: 'rgba(0,0,0,0.2)',
   },
   detailInfoNameText: {
-    // backgroundColor: 'rgba(0,0,0,0.2)',
     flexShrink: 1,
     flexGrow: 0,
   },
   detailInfoLabelText: {
-    // backgroundColor: 'rgba(0,0,0,0.2)',
   },
   noitem: {
     flexGrow: 1,
@@ -530,10 +505,10 @@ const styles = createStyle({
   },
   button: {
     borderRadius: BorderRadius.normal,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     alignItems: 'center',
+    flexShrink: 0,
+    justifyContent: 'center',
   },
 })
-
-

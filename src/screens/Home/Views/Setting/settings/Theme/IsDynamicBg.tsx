@@ -14,10 +14,13 @@ export default memo(() => {
     updateSetting({ 'theme.dynamicBg': isDynamicBg })
   }
 
-
   return (
     <View style={styles.content}>
-      <CheckBoxItem check={isDynamicBg} label={t('setting_basic_theme_dynamic_bg')} onChange={setIsDynamicBg} />
+      <CheckBoxItem
+        check={isDynamicBg}
+        label={t('setting_basic_theme_dynamic_bg')}
+        onChange={setIsDynamicBg}
+      />
     </View>
   )
 })

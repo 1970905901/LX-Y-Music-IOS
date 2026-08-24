@@ -1,6 +1,5 @@
 import defaultSetting from '@/config/defaultSetting'
 
-
 interface InitState {
   setting: LX.AppSetting
 }
@@ -8,6 +7,5 @@ interface InitState {
 const state: InitState = {
   setting: { ...defaultSetting },
 }
-
 
 export default state

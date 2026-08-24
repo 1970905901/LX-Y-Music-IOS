@@ -1,7 +1,6 @@
 import { buildActiveThemeColors } from '@/theme/themes'
 import state from './state'
 
-
 export default {
   setTheme(theme: LX.Theme) {
     state.theme = buildActiveThemeColors(theme)
@@ -13,4 +12,3 @@ export default {
     state.shouldUseDarkColors = shouldUseDarkColors
   },
 }
-

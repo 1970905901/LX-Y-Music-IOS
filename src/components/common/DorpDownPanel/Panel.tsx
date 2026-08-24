@@ -8,7 +8,12 @@ import { createStyle } from '@/utils/tools'
 
 // const menuItemHeight = 42
 // const menuItemWidth = 100
-interface Position { w: number, h: number, x: number, y: number }
+interface Position {
+  w: number
+  h: number
+  x: number
+  y: number
+}
 
 const styles = createStyle({
   menu: {
@@ -77,9 +82,7 @@ const Panel = ({
   return (
     <TouchableWithoutFeedback onPress={onHide}>
       <View style={{ ...styles.menu, ...style }}>
-        <View onStartShouldSetResponder={() => true}>
-          {children}
-        </View>
+        <View onStartShouldSetResponder={() => true}>{children}</View>
       </View>
     </TouchableWithoutFeedback>
   )
@@ -115,11 +118,16 @@ export default forwardRef<PanelType, PanelProps>(({ onHide, keyHide, bgHide, chi
 
   // console.log(visible)
   return (
-    <Modal ref={modalRef} onHide={onHide} onStartShouldSetResponder={() => true} keyHide={keyHide} bgHide={bgHide}>
+    <Modal
+      ref={modalRef}
+      onHide={onHide}
+      onStartShouldSetResponder={() => true}
+      keyHide={keyHide}
+      bgHide={bgHide}
+    >
       <Panel buttonPosition={position} onHide={() => modalRef.current?.setVisible(false)}>
         {children}
       </Panel>
     </Modal>
   )
 })
-

@@ -29,43 +29,51 @@ export interface HeaderBarProps {
 export interface HeaderBarType {
   setSourceList: SourceSelectorType['setSourceList']
   setText: SearchInputType['setText']
+  focus: SearchInputType['focus']
   blur: SearchInputType['blur']
 }
 
+export default forwardRef<HeaderBarType, HeaderBarProps>(
+  ({ onSourceChange, onTipSearch, onSearch, onHideTipList, onShowTipList }, ref) => {
+    const sourceSelectorRef = useRef<SourceSelectorType>(null)
+    const searchInputRef = useRef<SearchInputType>(null)
+    const theme = useTheme()
 
-export default forwardRef<HeaderBarType, HeaderBarProps>(({ onSourceChange, onTipSearch, onSearch, onHideTipList, onShowTipList }, ref) => {
-  const sourceSelectorRef = useRef<SourceSelectorType>(null)
-  const searchInputRef = useRef<SearchInputType>(null)
-  const theme = useTheme()
+    useImperativeHandle(
+      ref,
+      () => ({
+        setSourceList(list, source) {
+          sourceSelectorRef.current?.setSourceList(list, source)
+        },
+        setText(text) {
+          searchInputRef.current?.setText(text)
+        },
+        focus() {
+          searchInputRef.current?.focus()
+        },
+        blur() {
+          searchInputRef.current?.blur()
+        },
+      }),
+      []
+    )
 
-  useImperativeHandle(ref, () => ({
-    setSourceList(list, source) {
-      sourceSelectorRef.current?.setSourceList(list, source)
-    },
-    setText(text) {
-      searchInputRef.current?.setText(text)
-    },
-    blur() {
-      searchInputRef.current?.blur()
-    },
-  }), [])
-
-
-  return (
-    <View style={{ ...styles.searchBar, borderBottomColor: theme['c-border-background'] }}>
-      <View style={styles.selector}>
-        <SourceSelector ref={sourceSelectorRef} onSourceChange={onSourceChange} center />
+    return (
+      <View style={{ ...styles.searchBar, borderBottomColor: theme['c-border-background'] }}>
+        <View style={styles.selector}>
+          <SourceSelector ref={sourceSelectorRef} onSourceChange={onSourceChange} center />
+        </View>
+        <SearchInput
+          ref={searchInputRef}
+          onChangeText={onTipSearch}
+          onSubmit={onSearch}
+          onBlur={onHideTipList}
+          onTouchStart={onShowTipList}
+        />
       </View>
-      <SearchInput
-        ref={searchInputRef}
-        onChangeText={onTipSearch}
-        onSubmit={onSearch}
-        onBlur={onHideTipList}
-        onTouchStart={onShowTipList}
-      />
-    </View>
-  )
-})
+    )
+  }
+)
 
 const styles = createStyle({
   searchBar: {

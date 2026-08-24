@@ -4,10 +4,8 @@ import { deduplicationList, toNewMusicInfo } from '@/utils'
 import musicSdk from '@/utils/musicSdk'
 
 /**
- * 获取排行榜内单页歌曲
- * @param id 排行榜id  {souce}__{bangId}
- * @param isRefresh 是否跳过缓存
- * @returns
+ * Set leaderboard list detail info
+ * @param id Leaderboard id {source}__{bangId}
  */
 export const setListDetailInfo = (id: string) => {
   clearListDetail()
@@ -26,86 +24,105 @@ const setBoard = (board: Board, source: LX.OnlineSource) => {
   leaderboardActions.setBoard(board, source)
 }
 
-interface PageCache { data: ListDetailInfo, sourcePage: number }
+interface PageCache {
+  data: ListDetailInfo
+  sourcePage: number
+}
 type CacheValue = Map<string, PageCache | ListDetailInfo['list']>
 
 const cache = new Map<string, CacheValue>()
 const LIST_LOAD_LIMIT = 30
 
-export const getBoardsList = async(source: LX.OnlineSource) => {
+export const getBoardsList = async (source: LX.OnlineSource) => {
   // const source = (await getLeaderboardSetting()).source as LX.OnlineSource
-  if (leaderboardState.boards[source]) return leaderboardState.boards[source].list
+  if (leaderboardState.boards[source]) return leaderboardState.boards[source]!.list
   const board = await (musicSdk[source]?.leaderboard.getBoards() as Promise<Board>)
   setBoard(board, source)
   return leaderboardState.boards[source]!.list
 }
 
 /**
- * 获取排行榜内单页分页歌曲（用于在本地控制每页大小）
- * @param source 源
- * @param bangId 排行榜id
- * @param page 页数
+ * Get paginated songs from leaderboard (for local page size control)
+ * @param source Source
+ * @param bangId Leaderboard id
+ * @param page Page number
  * @returns
  */
-const getListLimit = async(source: LX.OnlineSource, bangId: string, page: number): Promise<ListDetailInfo> => {
+const getListLimit = async (
+  source: LX.OnlineSource,
+  bangId: string,
+  page: number
+): Promise<ListDetailInfo> => {
   const listKey = `${source}__${bangId}`
   const prevPageKey = `${source}__${bangId}__${page - 1}`
   const tempListKey = `${source}__${bangId}__temp`
 
   let listCache = cache.get(listKey)!
-  if (!listCache) cache.set(listKey, listCache = new Map<string, PageCache | LX.Music.MusicInfoOnline[]>())
+  if (!listCache)
+    cache.set(listKey, (listCache = new Map<string, PageCache | LX.Music.MusicInfoOnline[]>()))
   let sourcePage = 0
   {
     const prevPageData = listCache.get(prevPageKey) as PageCache
     if (prevPageData) sourcePage = prevPageData.sourcePage
   }
 
-  return musicSdk[source]?.leaderboard.getList(bangId, sourcePage + 1).then((result: ListDetailInfo) => {
-    if (listCache !== cache.get(listKey)) return
-    result.list = deduplicationList(result.list.map(m => toNewMusicInfo(m)) as LX.Music.MusicInfoOnline[])
-    let p = page
-    const tempList = listCache.get(tempListKey) as ListDetailInfo['list']
-    if (tempList) {
-      listCache.delete(tempListKey)
-      listCache.set(`${source}__${bangId}__${p}`, {
-        data: {
-          ...result,
-          list: [...tempList, ...result.list.splice(0, LIST_LOAD_LIMIT - tempList.length)],
-          page: p,
-          limit: LIST_LOAD_LIMIT,
-        },
-        sourcePage,
-      })
-      p++
-    }
-    sourcePage++
-    do {
-      if (result.list.length < LIST_LOAD_LIMIT && sourcePage < Math.ceil(result.total / result.limit)) {
-        listCache.set(tempListKey, result.list.splice(0, LIST_LOAD_LIMIT))
-        break
+  return (
+    musicSdk[source]?.leaderboard.getList(bangId, sourcePage + 1).then((result: ListDetailInfo) => {
+      if (listCache !== cache.get(listKey)) return
+      result.list = deduplicationList(
+        result.list.map((m) => toNewMusicInfo(m)).filter(Boolean) as LX.Music.MusicInfoOnline[]
+      )
+      let p = page
+      const tempList = listCache.get(tempListKey) as ListDetailInfo['list']
+      if (tempList) {
+        listCache.delete(tempListKey)
+        listCache.set(`${source}__${bangId}__${p}`, {
+          data: {
+            ...result,
+            list: [...tempList, ...result.list.splice(0, LIST_LOAD_LIMIT - tempList.length)],
+            page: p,
+            limit: LIST_LOAD_LIMIT,
+          },
+          sourcePage,
+        })
+        p++
       }
-      listCache.set(`${source}__${bangId}__${p}`, {
-        data: {
-          ...result,
-          list: result.list.splice(0, LIST_LOAD_LIMIT),
-          page: p,
-          limit: LIST_LOAD_LIMIT,
-        },
-        sourcePage,
-      })
-      p++
-    } while (result.list.length > 0)
-    return (listCache.get(`${source}__${bangId}__${page}`) as PageCache).data
-  }) ?? Promise.reject(new Error('source not found'))
+      sourcePage++
+      do {
+        if (
+          result.list.length < LIST_LOAD_LIMIT &&
+          sourcePage < Math.ceil(result.total / result.limit)
+        ) {
+          listCache.set(tempListKey, result.list.splice(0, LIST_LOAD_LIMIT))
+          break
+        }
+        listCache.set(`${source}__${bangId}__${p}`, {
+          data: {
+            ...result,
+            list: result.list.splice(0, LIST_LOAD_LIMIT),
+            page: p,
+            limit: LIST_LOAD_LIMIT,
+          },
+          sourcePage,
+        })
+        p++
+      } while (result.list.length > 0)
+      return (listCache.get(`${source}__${bangId}__${page}`) as PageCache).data
+    }) ?? Promise.reject(new Error('source not found'))
+  )
 }
 
 /**
- * 获取排行榜内单页歌曲
- * @param id 排行榜id  {souce}__{bangId}
- * @param isRefresh 是否跳过缓存
+ * Get single page songs from leaderboard
+ * @param id Leaderboard id {source}__{bangId}
+ * @param isRefresh Whether to skip cache
  * @returns
  */
-export const getListDetail = async(id: string, page: number, isRefresh = false): Promise<ListDetailInfo> => {
+export const getListDetail = async (
+  id: string,
+  page: number,
+  isRefresh = false
+): Promise<ListDetailInfo> => {
   // console.log(tabId)
   const [source, bangId] = id.split('__') as [LX.OnlineSource, string]
   const listKey = `${source}__${bangId}`
@@ -113,7 +130,7 @@ export const getListDetail = async(id: string, page: number, isRefresh = false):
 
   let listCache = cache.get(listKey)
   if (!listCache || isRefresh) {
-    cache.set(listKey, listCache = new Map<string, PageCache | LX.Music.MusicInfoOnline[]>())
+    cache.set(listKey, (listCache = new Map<string, PageCache | LX.Music.MusicInfoOnline[]>()))
   }
 
   let pageCache = listCache.get(pageKey) as PageCache
@@ -123,44 +140,50 @@ export const getListDetail = async(id: string, page: number, isRefresh = false):
 }
 
 /**
- * 获取排行榜内全部歌曲
- * @param id 排行榜id  {souce}__{id}
- * @param isRefresh 是否跳过缓存
+ * Get single page songs from leaderboard
+ * @param id Leaderboard id {source}__{bangId}
+ * @param isRefresh Whether to skip cache
  * @returns
  */
-export const getListDetailAll = async(id: string, isRefresh = false): Promise<LX.Music.MusicInfoOnline[]> => {
+export const getListDetailAll = async (
+  id: string,
+  isRefresh = false
+): Promise<LX.Music.MusicInfoOnline[]> => {
   const [source, bangId] = id.split('__') as [LX.OnlineSource, string]
   // console.log(tabId)
   const listKey = `${source}__${bangId}`
   let listCache = cache.get(listKey)!
   if (!listCache || isRefresh) {
-    cache.set(listKey, listCache = new Map<string, PageCache | LX.Music.MusicInfoOnline[]>())
+    cache.set(listKey, (listCache = new Map<string, PageCache | LX.Music.MusicInfoOnline[]>()))
   }
 
-  const loadData = async(page: number): Promise<ListDetailInfo> => {
+  const loadData = async (page: number): Promise<ListDetailInfo> => {
     const pageKey = `${source}__${bangId}__${page}`
     let pageCache = listCache.get(pageKey) as PageCache
     if (pageCache) return pageCache.data
     return getListLimit(source, bangId, page)
   }
-  return loadData(1).then(async result => {
-    if (result.total <= result.limit) return result.list
+  return loadData(1)
+    .then(async (result) => {
+      if (result.total <= result.limit) return result.list
 
-    let maxPage = Math.ceil(result.total / result.limit)
-    const loadDetail = async(loadPage = 2): Promise<LX.Music.MusicInfoOnline[]> => {
-      return loadPage == maxPage
-        ? loadData(loadPage).then(result => result.list)
-        // eslint-disable-next-line @typescript-eslint/promise-function-async
-        : loadData(loadPage).then(result1 => loadDetail(++loadPage).then(result2 => [...result1.list, ...result2]))
-    }
-    return loadDetail().then(result2 => [...result.list, ...result2])
-  }).then(list => deduplicationList(list))
+      let maxPage = Math.ceil(result.total / result.limit)
+      const loadDetail = async (loadPage = 2): Promise<LX.Music.MusicInfoOnline[]> => {
+        return loadPage == maxPage
+          ? loadData(loadPage).then((result) => result.list)
+          : loadData(loadPage).then((result1) =>
+              loadDetail(++loadPage).then((result2) => [...result1.list, ...result2])
+            )
+      }
+      return loadDetail().then((result2) => [...result.list, ...result2])
+    })
+    .then((list) => deduplicationList(list))
 }
 
 /**
- * 获取并设置排行榜内单页歌曲
- * @param id 排行榜id  {souce}__{id}
- * @param isRefresh 是否跳过缓存
+ * Get single page songs from leaderboard
+ * @param id Leaderboard id {source}__{bangId}
+ * @param isRefresh Whether to skip cache
  * @returns
  */
 // export const getAndSetListDetail = async(id: string, page: number, isRefresh = false) => {

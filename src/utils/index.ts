@@ -11,7 +11,9 @@ export function compareVer(currentVer: string, targetVer: string): -1 | 0 | 1 {
   // replacing them with a negative number based on charcode of each character
   const fix = (s: string) => `.${s.toLowerCase().charCodeAt(0) - 2147483647}.`
 
-  const currentVerArr: Array<string | number> = ('' + currentVer).replace(/[^0-9.]/g, fix).split('.')
+  const currentVerArr: Array<string | number> = ('' + currentVer)
+    .replace(/[^0-9.]/g, fix)
+    .split('.')
   const targetVerArr: Array<string | number> = ('' + targetVer).replace(/[^0-9.]/g, fix).split('.')
   let c = Math.max(currentVerArr.length, targetVerArr.length)
   for (let i = 0; i < c; i++) {
@@ -24,19 +26,26 @@ export function compareVer(currentVer: string, targetVer: string): -1 | 0 | 1 {
   return 0
 }
 
+export const toNewMusicInfo = (oldMusicInfo: any): LX.Music.MusicInfo | null => {
+  if (!oldMusicInfo || !oldMusicInfo.songmid || !oldMusicInfo.source) {
+    return null
+  }
 
-export const toNewMusicInfo = (oldMusicInfo: any): LX.Music.MusicInfo => {
   const meta: Record<string, any> = {
-    songId: oldMusicInfo.songmid, // 歌曲ID，local为文件路径
-    albumName: oldMusicInfo.albumName, // 歌曲专辑名称
-    picUrl: oldMusicInfo.img, // 歌曲图片链接
+    songId: oldMusicInfo.songmid,
+    albumName: oldMusicInfo.albumName || '',
+    picUrl: oldMusicInfo.img || '',
   }
   const newInfo = {
-    id: `${oldMusicInfo.source as string}_${oldMusicInfo.songmid as string}`,
-    name: oldMusicInfo.name,
-    singer: oldMusicInfo.singer,
+    id: typeof oldMusicInfo.songmid === 'string' && oldMusicInfo.songmid.startsWith(`${oldMusicInfo.source}_`) ? 
+      oldMusicInfo.songmid : 
+      `${oldMusicInfo.source}_${oldMusicInfo.songmid}`,
+    name: oldMusicInfo.name || '',
+    alias: oldMusicInfo.alias || '',
+    singer: oldMusicInfo.singer || '',
+    artists: oldMusicInfo.artists || [],
     source: oldMusicInfo.source,
-    interval: oldMusicInfo.interval,
+    interval: oldMusicInfo.interval || '',
     meta: meta as LX.Music.MusicInfoOnline['meta'],
   }
 
@@ -44,17 +53,57 @@ export const toNewMusicInfo = (oldMusicInfo: any): LX.Music.MusicInfo => {
     meta.filePath = oldMusicInfo.filePath ?? oldMusicInfo.songmid ?? ''
     meta.ext = oldMusicInfo.ext ?? /\.(\w+)$/.exec(meta.filePath as string)?.[1] ?? ''
   } else {
-    meta.qualitys = oldMusicInfo.types
-    meta._qualitys = oldMusicInfo._types
-    meta.albumId = oldMusicInfo.albumId
-    if (meta._qualitys.flac32bit && !meta._qualitys.flac24bit) {
-      meta._qualitys.flac24bit = meta._qualitys.flac32bit
-      delete meta._qualitys.flac32bit
+    meta.fee = oldMusicInfo.meta?.fee
+    meta.mv = oldMusicInfo.meta?.mv
+    meta.noCopyrightRcmd = oldMusicInfo.noCopyrightRcmd || oldMusicInfo.meta?.noCopyrightRcmd
+    if (oldMusicInfo.originCoverType || oldMusicInfo.meta?.originCoverType) {
+      meta.originCoverType = oldMusicInfo.originCoverType || oldMusicInfo.meta.originCoverType;
+    }
+    meta.qualitys = oldMusicInfo.types || []
+    meta._qualitys = oldMusicInfo._types || {}
+    meta.albumId = oldMusicInfo.albumId || ''
+    if ((oldMusicInfo as any).mixSongId) meta.mixSongId = (oldMusicInfo as any).mixSongId
 
-      meta.qualitys = (meta.qualitys as any[]).map(quality => {
-        if (quality.type == 'flac32bit') quality.type = 'flac24bit'
-        return quality
-      })
+    if (meta._qualitys && typeof meta._qualitys === 'object' && Array.isArray(meta.qualitys)) {
+      if (meta._qualitys.flac32bit && !meta._qualitys.hires) {
+        meta._qualitys.hires = meta._qualitys.flac32bit
+        delete meta._qualitys.flac32bit
+
+        meta.qualitys = meta.qualitys.map((quality) => {
+          if (quality.type == 'flac32bit') quality.type = 'hires'
+          return quality
+        })
+      }
+
+      if (meta._qualitys.flac24bit && !meta._qualitys.hires) {
+        meta._qualitys.hires = meta._qualitys.flac24bit
+        delete meta._qualitys.flac24bit
+
+        meta.qualitys = meta.qualitys.map((quality) => {
+          if (quality.type == 'flac24bit') quality.type = 'hires'
+          return quality
+        })
+      }
+
+      if (meta._qualitys.effect && !meta._qualitys.atmos) {
+        meta._qualitys.atmos = meta._qualitys.effect
+        delete meta._qualitys.effect
+
+        meta.qualitys = meta.qualitys.map((quality) => {
+          if (quality.type == 'effect') quality.type = 'atmos'
+          return quality
+        })
+      }
+
+      if (meta._qualitys.effect_plus && !meta._qualitys.atmos_plus) {
+        meta._qualitys.atmos_plus = meta._qualitys.effect_plus
+        delete meta._qualitys.effect_plus
+
+        meta.qualitys = meta.qualitys.map((quality) => {
+          if (quality.type == 'effect_plus') quality.type = 'atmos_plus'
+          return quality
+        })
+      }
     }
 
     switch (oldMusicInfo.source) {
@@ -64,14 +113,19 @@ export const toNewMusicInfo = (oldMusicInfo: any): LX.Music.MusicInfo => {
         break
       case 'tx':
         meta.strMediaMid = oldMusicInfo.strMediaMid
+        meta.songmid = oldMusicInfo.songmid || oldMusicInfo.songId || oldMusicInfo.id
         meta.albumMid = oldMusicInfo.albumMid
-        meta.id = oldMusicInfo.songId
+        meta.id = oldMusicInfo.songId || oldMusicInfo.id
+        meta.vid = oldMusicInfo.vid || oldMusicInfo.meta?.vid || ''
         break
       case 'mg':
         meta.copyrightId = oldMusicInfo.copyrightId
         meta.lrcUrl = oldMusicInfo.lrcUrl
         meta.mrcUrl = oldMusicInfo.mrcUrl
         meta.trcUrl = oldMusicInfo.trcUrl
+        break
+      case 'bilibili':
+        meta._bilibiliData = oldMusicInfo._bilibiliData
         break
     }
   }
@@ -84,7 +138,7 @@ export const toOldMusicInfo = (minfo: LX.Music.MusicInfo): any => {
     name: minfo.name,
     singer: minfo.singer,
     source: minfo.source,
-    songmid: minfo.meta.songId,
+    songmid: minfo.meta.songmid || minfo.meta.songId || minfo.meta.id || minfo.id,
     interval: minfo.interval,
     albumName: minfo.meta.albumName,
     img: minfo.meta.picUrl ?? '',
@@ -100,21 +154,27 @@ export const toOldMusicInfo = (minfo: LX.Music.MusicInfo): any => {
     oInfo.albumId = minfo.meta.albumId
     oInfo.types = minfo.meta.qualitys
     oInfo._types = minfo.meta._qualitys
+    oInfo.noCopyrightRcmd = minfo.meta.noCopyrightRcmd
 
     switch (minfo.source) {
       case 'kg':
         oInfo.hash = minfo.meta.hash
         break
       case 'tx':
-        oInfo.strMediaMid = minfo.meta.strMediaMid
-        oInfo.albumMid = minfo.meta.albumMid
-        oInfo.songId = minfo.meta.id
+        oInfo.strMediaMid = minfo.meta.strMediaMid || ''
+        oInfo.songmid = minfo.meta.songmid || minfo.songmid || minfo.meta.songId || minfo.meta.id || minfo.id || minfo.meta.strMediaMid || ''
+        oInfo.albumMid = minfo.meta.albumMid || ''
+        oInfo.songId = minfo.meta.id || minfo.id || ''
+        oInfo.vid = minfo.meta.vid || ''
         break
       case 'mg':
         oInfo.copyrightId = minfo.meta.copyrightId
         oInfo.lrcUrl = minfo.meta.lrcUrl
         oInfo.mrcUrl = minfo.meta.mrcUrl
         oInfo.trcUrl = minfo.meta.trcUrl
+        break
+      case 'bilibili':
+        oInfo._bilibiliData = minfo.meta._bilibiliData
         break
     }
   }
@@ -123,22 +183,64 @@ export const toOldMusicInfo = (minfo: LX.Music.MusicInfo): any => {
 }
 
 /**
- * 修复2.0.0-dev.8之前的新列表数据音质
+ * 修复2.0.0-dev.8之前以及LX Music Mod的新列表数据音质
  * @param musicInfo
  */
 export const fixNewMusicInfoQuality = (musicInfo: LX.Music.MusicInfo) => {
   if (musicInfo.source == 'local') return musicInfo
 
   // @ts-expect-error
-  if (musicInfo.meta._qualitys.flac32bit && !musicInfo.meta._qualitys.flac24bit) {
+  if (musicInfo.meta?._qualitys?.flac32bit && !musicInfo.meta?._qualitys?.hires) {
     // @ts-expect-error
-    musicInfo.meta._qualitys.flac24bit = musicInfo.meta._qualitys.flac32bit
+    musicInfo.meta._qualitys.hires = musicInfo.meta._qualitys.flac32bit
     // @ts-expect-error
     delete musicInfo.meta._qualitys.flac32bit
 
-    musicInfo.meta.qualitys = musicInfo.meta.qualitys.map(quality => {
+    musicInfo.meta.qualitys = musicInfo.meta.qualitys.map((quality) => {
       // @ts-expect-error
-      if (quality.type == 'flac32bit') quality.type = 'flac24bit'
+      if (quality.type == 'flac32bit') quality.type = 'hires'
+      return quality
+    })
+  }
+
+  // @ts-expect-error
+  if (musicInfo.meta?._qualitys?.flac24bit && !musicInfo.meta?._qualitys?.hires) {
+    // @ts-expect-error
+    musicInfo.meta._qualitys.hires = musicInfo.meta._qualitys.flac24bit
+    // @ts-expect-error
+    delete musicInfo.meta._qualitys.flac24bit
+
+    musicInfo.meta.qualitys = musicInfo.meta.qualitys.map((quality) => {
+      // @ts-expect-error
+      if (quality.type == 'flac24bit') quality.type = 'hires'
+      return quality
+    })
+  }
+
+  // @ts-expect-error
+  if (musicInfo.meta?._qualitys?.effect && !musicInfo.meta?._qualitys?.atmos) {
+    // @ts-expect-error
+    musicInfo.meta._qualitys.atmos = musicInfo.meta._qualitys.effect
+    // @ts-expect-error
+    delete musicInfo.meta._qualitys.effect
+
+    musicInfo.meta.qualitys = musicInfo.meta.qualitys.map((quality) => {
+      // @ts-expect-error
+      if (quality.type == 'effect') quality.type = 'atmos'
+      return quality
+    })
+  }
+
+  // @ts-expect-error
+  if (musicInfo.meta?._qualitys?.effect_plus && !musicInfo.meta?._qualitys?.atmos_plus) {
+    // @ts-expect-error
+    musicInfo.meta._qualitys.atmos_plus = musicInfo.meta._qualitys.effect_plus
+    // @ts-expect-error
+    delete musicInfo.meta._qualitys.effect_plus
+
+    musicInfo.meta.qualitys = musicInfo.meta.qualitys.map((quality) => {
+      // @ts-expect-error
+      if (quality.type == 'effect_plus') quality.type = 'atmos_plus'
       return quality
     })
   }
@@ -146,10 +248,9 @@ export const fixNewMusicInfoQuality = (musicInfo: LX.Music.MusicInfo) => {
   return musicInfo
 }
 
-
 export const filterMusicList = <T extends LX.Music.MusicInfo>(list: T[]): T[] => {
   const ids = new Set<string>()
-  return list.filter(s => {
+  return list.filter((s) => {
     if (!s.id || ids.has(s.id) || !s.name) return false
     if (s.singer == null) s.singer = ''
     ids.add(s.id)
@@ -157,16 +258,14 @@ export const filterMusicList = <T extends LX.Music.MusicInfo>(list: T[]): T[] =>
   })
 }
 
-
 export const deduplicationList = <T extends LX.Music.MusicInfo>(list: T[]): T[] => {
   const ids = new Set<string>()
-  return list.filter(s => {
+  return list.filter((s) => {
     if (ids.has(s.id)) return false
     ids.add(s.id)
     return true
   })
 }
-
 
 /**
  * 时间格式化

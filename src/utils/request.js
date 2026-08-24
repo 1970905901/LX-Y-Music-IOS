@@ -4,24 +4,25 @@ import BackgroundTimer from 'react-native-background-timer'
 import { requestMsg } from './message'
 import { bHh } from './musicSdk/options'
 import { deflateRaw } from 'pako'
-import { log } from '@/utils/log'
+import settingState from '@/store/setting/state'
+import {toast} from "@/utils/tools";
 
 const defaultHeaders = {
-  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.100 Safari/537.36',
+  'User-Agent':
+    'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.100 Safari/537.36',
 }
 // var proxyUrl = "http://" + user + ":" + password + "@" + host + ":" + port;
 // var proxiedRequest = request.defaults({'proxy': proxyUrl});
 
-
 /**
- * 请求超时自动重试
+ * Automatic retry on request timeout
  * @param {*} url
  * @param {*} options
  */
 export const httpFetch = (url, options = { method: 'get' }) => {
   const requestObj = fetchData(url, options)
   return {
-    promise: requestObj.request.catch(err => {
+    promise: requestObj.request.catch((err) => {
       console.log('出错', err.message)
       switch (err.message) {
         case 'socket hang up':
@@ -41,11 +42,11 @@ export const httpFetch = (url, options = { method: 'get' }) => {
 }
 
 /**
- * http get 请求
- * @param {*} url 地址
- * @param {*} options 选项
- * @param {*} callback 回调
- * @return {Number} index 用于取消请求
+ * HTTP GET request
+ * @param {*} url URL address
+ * @param {*} options options
+ * @param {*} callback callback
+ * @return {Number} index for canceling request
  */
 export const httpGet = (url, options, callback) => {
   if (typeof options === 'function') {
@@ -53,12 +54,14 @@ export const httpGet = (url, options, callback) => {
     options = {}
   }
   const requestObj = fetchData(url, { ...options, method: 'get' })
-  requestObj.request.then(resp => {
-    callback(null, resp, resp.body)
-  }).catch(err => {
-    // debugRequest && console.log(JSON.stringify(err))
-    callback(err, null, null)
-  })
+  requestObj.request
+    .then((resp) => {
+      callback(null, resp, resp.body)
+    })
+    .catch((err) => {
+      // debugRequest && console.log(JSON.stringify(err))
+      callback(err, null, null)
+    })
 
   return () => {
     requestObj.abort()
@@ -86,29 +89,49 @@ const fetchWithTimeout = (resource, options) => {
   }
 } */
 
-
-const handleDeflateRaw = data => new Promise((resolve, reject) => {
-  resolve(Buffer.from(deflateRaw(data)))
-  // deflateRaw(data, (err, buf) => {
-  //   if (err) return reject(err)
-  //   resolve(buf)
-  // })
-})
+const handleDeflateRaw = (data) =>
+  new Promise((resolve, reject) => {
+    resolve(Buffer.from(deflateRaw(data)))
+    // deflateRaw(data, (err, buf) => {
+    //   if (err) return reject(err)
+    //   resolve(buf)
+    // })
+  })
 
 const regx = /(?:\d\w)+/g
 
-const handleRequestData = async(url, {
-  method = 'get',
-  headers = {},
-  format = 'json',
-  cache = 'no-store',
-  ...options
-}) => {
+const handleRequestData = async (
+  url,
+  { method = 'get', headers = {}, format = 'json', cache = 'no-store', params, ...options }
+) => {
   // console.log(url, options)
-  headers = Object.assign({
-    Accept: 'application/json',
-  }, headers)
+  headers = Object.assign(
+    {
+      Accept: 'application/json',
+    },
+    headers
+  )
+  if (url.includes('music.163.com')) {
+    headers.cookie = settingState.setting['common.wy_cookie']
+  } else if (url.includes('y.qq.com')) {
+    headers.cookie = settingState.setting['common.tx_cookie']
+    console.log('[TX] req:', options.method || 'get', url.substring(0, 80))
+  }
   options.cache = cache
+  
+  if (params && Object.keys(params).length > 0) {
+    const searchParams = new URLSearchParams()
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== undefined && value !== null && value !== '') {
+        searchParams.append(key, value)
+      }
+    }
+    const queryString = searchParams.toString()
+    if (queryString) {
+      url += (url.includes('?') ? '&' : '?') + queryString
+    }
+  }
+  
   if (method.toLocaleLowerCase() === 'post' && !headers['Content-Type']) {
     if (options.form) {
       headers['Content-Type'] = 'application/x-www-form-urlencoded'
@@ -123,7 +146,7 @@ const handleRequestData = async(url, {
     } else if (options.formData) {
       headers['Content-Type'] = 'multipart/form-data'
       const formBody = []
-      for (let [key, value] of Object.entries(options.form)) {
+      for (let [key, value] of Object.entries(options.formData)) {
         let encodedKey = encodeURIComponent(key)
         let encodedValue = encodeURIComponent(value)
         formBody.push(`${encodedKey}=${encodedValue}`)
@@ -141,17 +164,30 @@ const handleRequestData = async(url, {
     let s = Buffer.from(bHh, 'hex').toString()
     s = s.replace(s.substr(-1), '')
     s = Buffer.from(s, 'base64').toString()
-    const v = process.versions.app.split('-')[0].split('.').map(n => n.length < 3 ? n.padStart(3, '0') : n).join('')
+    const v = process.versions.app
+      .split('-')[0]
+      .split('.')
+      .map((n) => (n.length < 3 ? n.padStart(3, '0') : n))
+      .join('')
     const v2 = process.versions.app.split('-')[1] || ''
-    headers[s] = !s || `${(await handleDeflateRaw(Buffer.from(JSON.stringify(`${url}${v}`.match(regx), null, 1).concat(v)).toString('base64'))).toString('hex')}&${parseInt(v)}${v2}`
+    headers[s] =
+      !s ||
+      `${(await handleDeflateRaw(Buffer.from(JSON.stringify(`${url}${v}`.match(regx), null, 1).concat(v)).toString('base64'))).toString('hex')}&${parseInt(v)}${v2}`
     delete headers[bHh]
   }
 
-  return {
+  const finalOptions = {
     ...options,
     method,
     headers: Object.assign({}, defaultHeaders, headers),
+    url,
   }
+
+  if (url.includes('y.qq.com')) {
+    console.log('[TX] req:', finalOptions.method, finalOptions.url.slice(0, 60))
+  }
+
+  return finalOptions
 }
 
 // https://stackoverflow.com/a/64945178
@@ -168,7 +204,6 @@ const blobToBuffer = (blob) => {
 }
 
 const fetchData = (url, { timeout = 15000, ...options }) => {
-  console.log('---start---', url)
 
   const controller = new global.AbortController()
   let id = BackgroundTimer.setTimeout(() => {
@@ -177,41 +212,60 @@ const fetchData = (url, { timeout = 15000, ...options }) => {
   }, timeout)
 
   return {
-    request: handleRequestData(url, options).then(options => {
-      return global.fetch(url, {
-        ...options,
-        signal: controller.signal,
-      }).then(resp => (options.binary ? resp.blob() : resp.text()).then(text => {
-        // console.log(options, headers, text)
-        // log.error('请求完成', options, text)
-        // log.error('text result:', typeof text, text ? text.slice(0, 100) : text)
-        return {
-          headers: resp.headers.map,
-          body: text,
-          statusCode: resp.status,
-          statusMessage: resp.statusText,
-          url: resp.url,
-          ok: resp.ok,
-        }
-      })).then(resp => {
-        if (options.binary) {
-          return blobToBuffer(resp.body).then(buffer => {
-            resp.body = buffer
-            return resp
+    request: handleRequestData(url, options).then((processedOptions) => {
+      const finalUrl = processedOptions.url || url
+      delete processedOptions.url
+      console.log(`[HTTP] ${processedOptions.method || 'GET'} ${finalUrl}`)
+      if (processedOptions.body) {
+        const bodyPreview = typeof processedOptions.body === 'string' 
+          ? processedOptions.body.substring(0, 200) 
+          : JSON.stringify(processedOptions.body).substring(0, 200)
+        console.log(`[HTTP] Body: ${bodyPreview}`)
+      }
+      return global
+        .fetch(finalUrl, {
+          ...processedOptions,
+          signal: controller.signal,
+        })
+        .then((resp) => {
+            return (options.binary ? resp.blob() : resp.text()).then((text) => {
+              return {
+                headers: resp.headers.map,
+                body: text,
+                statusCode: resp.status,
+                statusMessage: resp.statusText,
+                url: resp.url,
+                ok: resp.ok,
+              }
+            });
           })
-        } else {
-          try {
-            resp.body = JSON.parse(resp.body)
-          } catch {}
-          return resp
-        }
-      }).catch(err => {
-        // console.log(err, err.code, err.message)
-        return Promise.reject(err)
-      }).finally(() => {
-        if (id == null) return
-        BackgroundTimer.clearTimeout(id)
-      })
+        .then((resp) => {
+          if (options.binary) {
+            return blobToBuffer(resp.body).then((buffer) => {
+              resp.body = buffer;
+              return resp;
+            });
+          } else {
+            try {
+              const parsedBody = JSON.parse(resp.body);
+              if (parsedBody?.code === 301 && url.includes('music.163.com')) {
+                throw new Error('登录状态已过期');
+              }
+              resp.body = parsedBody;
+            } catch (e) {
+              if (e.message.startsWith('登录状态已过期')) throw e;
+            }
+            return resp;
+          }
+        })
+        .catch((err) => {
+          // console.log(err, err.code, err.message)
+          return Promise.reject(err)
+        })
+        .finally(() => {
+          if (id == null) return
+          BackgroundTimer.clearTimeout(id)
+        })
     }),
     abort() {
       controller.abort()
@@ -219,8 +273,8 @@ const fetchData = (url, { timeout = 15000, ...options }) => {
   }
 }
 
-export const checkUrl = async(url, options = {}) => {
-  return fetchData(url, { method: 'head', ...options }).request.then(resp => {
+export const checkUrl = async (url, options = {}) => {
+  return fetchData(url, { method: 'head', ...options }).request.then((resp) => {
     if (resp.statusCode === 200) {
       return Promise.resolve()
     } else {

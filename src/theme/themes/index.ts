@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-var-requires */
 import { getUserTheme, saveUserTheme } from '@/utils/data'
 import themes from '@/theme/themes/themes'
 import settingState from '@/store/setting/state'
@@ -15,10 +14,8 @@ export const BG_IMAGES = {
   'xnkl.png': require('./images/xnkl.png') as ImageSourcePropType,
 } as const
 
-
 let userThemes: LX.Theme[]
-export const getAllThemes = async() => {
-  // eslint-disable-next-line require-atomic-updates
+export const getAllThemes = async () => {
   userThemes ??= await getUserTheme()
   return {
     themes,
@@ -27,21 +24,21 @@ export const getAllThemes = async() => {
   }
 }
 
-export const saveTheme = async(theme: LX.Theme) => {
-  const targetTheme = userThemes.find(t => t.id === theme.id)
+export const saveTheme = async (theme: LX.Theme) => {
+  const targetTheme = userThemes.find((t) => t.id === theme.id)
   if (targetTheme) Object.assign(targetTheme, theme)
   else userThemes.push(theme)
   await saveUserTheme(userThemes)
 }
 
-export const removeTheme = async(id: string) => {
-  const index = userThemes.findIndex(t => t.id === id)
+export const removeTheme = async (id: string) => {
+  const index = userThemes.findIndex((t) => t.id === id)
   if (index < 0) return
   userThemes.splice(index, 1)
   await saveUserTheme(userThemes)
 }
 
-export type LocalTheme = typeof themes[number]
+export type LocalTheme = (typeof themes)[number]
 type ColorsKey = keyof LX.Theme['config']['themeColors']
 type ExtInfoKey = keyof LX.Theme['config']['extInfo']
 const varColorRxp = /^var\((.+)\)$/
@@ -49,26 +46,27 @@ export const buildActiveThemeColors = (theme: LX.Theme): LX.ActiveTheme => {
   let bgImg: ImageSourcePropType | undefined
   if (theme.isCustom) {
     if (theme.config.extInfo['bg-image']) {
-      theme.config.extInfo['bg-image'] =
-        isUrl(theme.config.extInfo['bg-image'])
-          ? theme.config.extInfo['bg-image']
-          : `${privateStorageDirectoryPath}/theme_images/${theme.config.extInfo['bg-image']}`
+      theme.config.extInfo['bg-image'] = isUrl(theme.config.extInfo['bg-image'])
+        ? theme.config.extInfo['bg-image']
+        : `${privateStorageDirectoryPath}/theme_images/${theme.config.extInfo['bg-image']}`
     }
   } else {
     const extInfo = (theme as LocalTheme).config.extInfo
     if (extInfo['bg-image']) {
-      if (!theme.isDark || !settingState.setting['theme.hideBgDark']) bgImg = BG_IMAGES[extInfo['bg-image']]
+      bgImg = BG_IMAGES[extInfo['bg-image']]
     }
   }
 
   theme.config.extInfo = { ...theme.config.extInfo }
 
-  for (const [k, v] of Object.entries(theme.config.extInfo) as Array<[ExtInfoKey, LX.Theme['config']['extInfo'][ExtInfoKey]]>) {
+  for (const [k, v] of Object.entries(theme.config.extInfo) as Array<
+    [ExtInfoKey, LX.Theme['config']['extInfo'][ExtInfoKey]]
+  >) {
     if (!v.startsWith('var(')) continue
     theme.config.extInfo[k] = theme.config.themeColors[v.replace(varColorRxp, '$1') as ColorsKey]
   }
 
-  return {
+  const activeTheme: LX.ActiveTheme = {
     id: theme.id,
     name: theme.name,
     isDark: theme.isDark,
@@ -92,10 +90,16 @@ export const buildActiveThemeColors = (theme: LX.Theme): LX.ActiveTheme => {
     'c-list-header-border-bottom': theme.config.themeColors['c-primary-alpha-900'],
     'c-content-background': theme.config.themeColors['c-primary-light-1000'],
     'c-border-background': theme.config.themeColors['c-primary-light-100-alpha-700'],
+    'c-liked': theme.config.extInfo['c-liked']!,
     'bg-image': bgImg,
-  } as const
-}
+  };
 
+  if (theme.isDark) {
+    activeTheme['c-primary-font-active'] = activeTheme['c-000'];
+  }
+
+  return activeTheme as const;
+}
 
 // const copyTheme = (theme: LX.Theme): LX.Theme => {
 //   return {
@@ -108,7 +112,7 @@ export const buildActiveThemeColors = (theme: LX.Theme): LX.ActiveTheme => {
 //   }
 // }
 // type IDS = LocalTheme['id']
-export const getTheme = async() => {
+export const getTheme = async () => {
   // fs.promises.readdir()
   const shouldUseDarkColors = themeState.shouldUseDarkColors
   // let themeId = settingState.setting['theme.id'] == 'auto'
@@ -117,19 +121,21 @@ export const getTheme = async() => {
   //     : settingState.setting['theme.lightId']
   //   // : 'china_ink'
   //   : settingState.setting['theme.id']
-  let themeId = settingState.setting['common.isAutoTheme'] && shouldUseDarkColors
-    ? 'black'
-    : settingState.setting['theme.id']
+  let themeId =
+    settingState.setting['common.isAutoTheme'] && shouldUseDarkColors
+      ? 'black'
+      : settingState.setting['theme.id']
   // themeId = 'naruto'
   // themeId = 'pink'
   // themeId = 'black'
-  let theme: LocalTheme | LX.Theme | undefined = themes.find(theme => theme.id == themeId)
+  let theme: LocalTheme | LX.Theme | undefined = themes.find((theme) => theme.id == themeId)
   if (!theme) {
     userThemes = await getUserTheme()
-    theme = userThemes.find(theme => theme.id == themeId)
+    theme = userThemes.find((theme) => theme.id == themeId)
     if (!theme) {
-      themeId = settingState.setting['theme.id'] == 'auto' && shouldUseDarkColors ? 'black' : 'green'
-      theme = themes.find(theme => theme.id == themeId) as LX.Theme
+      themeId =
+        settingState.setting['theme.id'] == 'auto' && shouldUseDarkColors ? 'black' : 'green'
+      theme = themes.find((theme) => theme.id == themeId) as LX.Theme
     }
   }
 

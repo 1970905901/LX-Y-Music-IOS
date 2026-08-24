@@ -1,8 +1,10 @@
-import { memo } from 'react'
-import { ScrollView, TouchableOpacity, View } from 'react-native'
-import { useNavActiveId, useStatusbarHeight } from '@/store/common/hook'
+import { memo, useMemo, useState, useEffect } from 'react'
+import { ScrollView, TouchableOpacity, View, Dimensions } from 'react-native'
+import { Platform } from 'react-native'
+import { useNavActiveId, useStatusbarHeight, useBgPic } from '@/store/common/hook'
 import { useTheme } from '@/store/theme/hook'
 import { Icon } from '@/components/common/Icon'
+import { SvgIcon } from '@/components/common/SvgIcon'
 import { confirmDialog, createStyle, exitApp as backHome } from '@/utils/tools'
 import { NAV_MENUS } from '@/config/constant'
 import type { InitState } from '@/store/common/state'
@@ -10,8 +12,36 @@ import type { InitState } from '@/store/common/state'
 import { exitApp, setNavActiveId } from '@/core/common'
 import { BorderWidths } from '@/theme'
 import { useSettingValue } from '@/store/setting/hook'
+import ImageBackground from '@/components/common/ImageBackground'
+import { defaultHeaders } from '@/components/common/Image'
+import { getCutoutLeftPx } from '@/utils/nativeModules/utils'
+import commonState from '@/store/common/state'
+import { navigations } from '@/navigation'
+import { startMusicRecognition } from '@/core/musicRecognition'
 
 const NAV_WIDTH = 68
+
+const useCutoutLeft = () => {
+  const [cutoutLeftDp, setCutoutLeftDp] = useState(() => {
+    const screen = Dimensions.get('screen')
+    const win = Dimensions.get('window')
+    return Math.max(0, screen.width - win.width)
+  })
+
+  useEffect(() => {
+    const update = () => {
+      void getCutoutLeftPx().then((px: number) => {
+        const { PixelRatio } = require('react-native')
+        setCutoutLeftDp(px > 0 ? Math.round(px / PixelRatio.get()) : 0)
+      })
+    }
+    update()
+    const sub = Dimensions.addEventListener('change', update)
+    return () => sub?.remove()
+  }, [])
+
+  return cutoutLeftDp
+}
 
 const styles = createStyle({
   container: {
@@ -61,24 +91,45 @@ const styles = createStyle({
     paddingLeft: 15,
     // fontWeight: '500',
   },
+  divider: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    marginVertical: 4,
+    marginHorizontal: 12,
+  },
 })
 
 const Header = () => {
   const theme = useTheme()
   const statusBarHeight = useStatusbarHeight()
+
+  const handleLogoPress = () => {
+    setNavActiveId('nav_love')
+  }
+
   return (
     <View style={{ paddingTop: statusBarHeight }}>
-      <View style={styles.header}>
+      <TouchableOpacity style={styles.header} onPress={handleLogoPress}>
         <Icon name="logo" color={theme['c-primary-dark-100-alpha-300']} size={22} />
-        {/* <Text style={styles.headerText} size={16} color={theme['c-primary-dark-100-alpha-300']}>LX Music</Text> */}
-      </View>
+      </TouchableOpacity>
     </View>
   )
 }
 
 type IdType = InitState['navActiveId'] | 'nav_exit' | 'back_home'
 
-const MenuItem = ({ id, icon, onPress }: {
+const renderIcon = (icon: string, size: number, color: string) => {
+  if (icon.startsWith('svg:')) {
+    return <SvgIcon name={icon.slice(4)} size={size} color={color} />
+  }
+  return <Icon name={icon} size={size} color={color} />
+}
+
+const MenuItem = ({
+  id,
+  icon,
+  onPress,
+}: {
   id: IdType
   icon: string
   onPress: (id: IdType) => void
@@ -87,19 +138,26 @@ const MenuItem = ({ id, icon, onPress }: {
   const activeId = useNavActiveId()
   const theme = useTheme()
 
-  return activeId == id
-    ? <View style={styles.menuItem}>
-        <View style={styles.iconContent}>
-          <Icon name={icon} size={20} color={theme['c-primary-font-active']} />
-        </View>
-        {/* <Text style={styles.text} size={14} color={theme['c-primary-font']}>{t(id)}</Text> */}
+  return activeId == id ? (
+    <View style={{ ...styles.menuItem, backgroundColor: theme['c-primary-background-hover'] }}>
+      <View style={styles.iconContent}>
+        {renderIcon(icon, 20, theme['c-primary-font-active'])}
       </View>
-    : <TouchableOpacity style={styles.menuItem} onPress={() => { onPress(id) }}>
-        <View style={styles.iconContent}>
-          <Icon name={icon} size={20} color={theme['c-font-label']} />
-        </View>
-        {/* <Text style={styles.text} size={14}>{t(id)}</Text> */}
-      </TouchableOpacity>
+      {/* <Text style={styles.text} size={14} color={theme['c-primary-font']}>{t(id)}</Text> */}
+    </View>
+  ) : (
+    <TouchableOpacity
+      style={styles.menuItem}
+      onPress={() => {
+        onPress(id)
+      }}
+    >
+      <View style={styles.iconContent}>
+        {renderIcon(icon, 20, theme['c-font-label'])}
+      </View>
+      {/* <Text style={styles.text} size={14}>{t(id)}</Text> */}
+    </TouchableOpacity>
+  )
 }
 
 export default memo(() => {
@@ -107,6 +165,17 @@ export default memo(() => {
   // console.log('render drawer nav')
   const showBackBtn = useSettingValue('common.showBackBtn')
   const showExitBtn = useSettingValue('common.showExitBtn')
+  const navStatus = useSettingValue('common.navStatus');
+  const navOrder = useSettingValue('common.navOrder');
+  const isDynamicBg = useSettingValue('theme.dynamicBg');
+  const isSidebarDynamicBg = useSettingValue('theme.sidebarDynamicBg');
+  const dynamicPic = useBgPic();
+  const customBgPicPath = useSettingValue('theme.customBgPicPath');
+  const pic = customBgPicPath || dynamicPic;
+  const blur = useSettingValue('theme.blur');
+  const picOpacity = useSettingValue('theme.picOpacity');
+
+  const showSidebarBg = isDynamicBg && isSidebarDynamicBg && pic;
 
   const handlePress = (id: IdType) => {
     switch (id) {
@@ -114,7 +183,7 @@ export default memo(() => {
         void confirmDialog({
           message: global.i18n.t('exit_app_tip'),
           confirmButtonText: global.i18n.t('list_remove_tip_button'),
-        }).then(isExit => {
+        }).then((isExit) => {
           if (!isExit) return
           exitApp('Exit Btn')
         })
@@ -125,24 +194,80 @@ export default memo(() => {
     }
 
     global.app_event.changeMenuVisible(false)
-    setNavActiveId(id)
+    setNavActiveId(id as any)
   }
 
+  const handleMusicRecognitionPress = () => {
+    global.app_event.changeMenuVisible(false);
+    startMusicRecognition();
+  };
+  const handleWebVisualizerPress = () => {
+    global.app_event.changeMenuVisible(false);
+    navigations.pushVisualizerScreen(commonState.componentIds[commonState.componentIds.length - 1]?.id!);
+  };
+
+  const filteredNavMenus = useMemo(() => {
+    if (!navOrder) return NAV_MENUS.filter(
+      menu => menu.id !== 'nav_play_history' && (menu.id === 'nav_setting' || (navStatus[menu.id] ?? true))
+    );
+
+    return navOrder
+      .filter(id => id !== 'nav_play_history')
+      .map(id => NAV_MENUS.find(menu => menu.id === id))
+      .filter((menu): menu is typeof NAV_MENUS[number] => menu !== undefined && (menu.id === 'nav_setting' || (navStatus[menu.id] ?? true)));
+  }, [navStatus, navOrder]);
+
+  const isLandscapeStretch = useSettingValue('theme.isLandscapeStretch')
+  const rawCutoutLeft = useCutoutLeft()
+  const cutoutLeft = isLandscapeStretch ? 0 : rawCutoutLeft
+
   return (
-    <View style={{ ...styles.container, borderRightColor: theme['c-border-background'] }}>
+    <View style={{ ...styles.container, marginLeft: cutoutLeft, borderRightColor: theme['c-border-background'], backgroundColor: showSidebarBg ? 'transparent' : undefined }}>
+      {showSidebarBg ? (
+        <ImageBackground
+          style={{
+            position: 'absolute',
+            left: -cutoutLeft,
+            top: 0,
+            bottom: 0,
+            right: 0,
+          }}
+          source={{ uri: pic, headers: defaultHeaders }}
+          resizeMode="cover"
+          blurRadius={blur}
+        >
+          <View
+            style={{
+              flex: 1,
+              backgroundColor: theme['c-content-background'],
+              opacity: picOpacity / 100,
+            }}
+          />
+        </ImageBackground>
+      ) : null}
       <Header />
       <ScrollView style={styles.menus}>
         <View style={styles.list}>
-          {NAV_MENUS.map(menu => <MenuItem key={menu.id} id={menu.id} icon={menu.icon} onPress={handlePress} />)}
+          {filteredNavMenus.map((menu) => (
+            <MenuItem key={menu.id} id={menu.id} icon={menu.icon} onPress={handlePress} />
+          ))}
+          <View style={styles.divider} />
+          <TouchableOpacity style={styles.menuItem} onPress={handleWebVisualizerPress}>
+            <View style={styles.iconContent}>
+              <SvgIcon name="web-visualizer" size={22} color={theme['c-font-label']} />
+            </View>
+          </TouchableOpacity>
+          {Platform.OS === 'android' ? (
+            <TouchableOpacity style={styles.menuItem} onPress={handleMusicRecognitionPress}>
+              <View style={styles.iconContent}>
+                <SvgIcon name="music-recognition" size={22} color={theme['c-font-label']} />
+              </View>
+            </TouchableOpacity>
+          ) : null}
         </View>
       </ScrollView>
-      {
-        showBackBtn ? <MenuItem id="back_home" icon="home" onPress={handlePress} /> : null
-      }
-      {
-        showExitBtn ? <MenuItem id="nav_exit" icon="exit2" onPress={handlePress} /> : null
-      }
+      {global.lx.isCarMode && showBackBtn ? <MenuItem id="back_home" icon="home" onPress={handlePress} /> : null}
+      {global.lx.isCarMode && showExitBtn ? <MenuItem id="nav_exit" icon="exit2" onPress={handlePress} /> : null}
     </View>
   )
 })
-

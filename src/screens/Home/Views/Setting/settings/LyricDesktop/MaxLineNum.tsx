@@ -11,7 +11,6 @@ import Text from '@/components/common/Text'
 import { setDesktopLyricMaxLineNum } from '@/core/desktopLyric'
 import { updateSetting } from '@/core/common'
 
-
 export default memo(() => {
   const t = useI18n()
   const maxLineNum = useSettingValue('desktopLyric.maxLineNum')
@@ -21,22 +20,29 @@ export default memo(() => {
   const handleSlidingStart = useCallback<NonNullable<SliderProps['onSlidingStart']>>(() => {
     setSliding(true)
   }, [])
-  const handleValueChange = useCallback<NonNullable<SliderProps['onValueChange']>>(value => {
+  const handleValueChange = useCallback<NonNullable<SliderProps['onValueChange']>>((value) => {
     setSliderSize(value)
   }, [])
-  const handleSlidingComplete = useCallback<NonNullable<SliderProps['onSlidingComplete']>>(value => {
-    if (maxLineNum == value) return
-    void setDesktopLyricMaxLineNum(value).then(() => {
-      updateSetting({ 'desktopLyric.maxLineNum': value })
-    }).finally(() => {
-      setSliding(false)
-    })
-  }, [maxLineNum])
+  const handleSlidingComplete = useCallback<NonNullable<SliderProps['onSlidingComplete']>>(
+    (value) => {
+      if (maxLineNum == value) return
+      void setDesktopLyricMaxLineNum(value)
+        .then(() => {
+          updateSetting({ 'desktopLyric.maxLineNum': value })
+        })
+        .finally(() => {
+          setSliding(false)
+        })
+    },
+    [maxLineNum]
+  )
 
   return (
     <SubTitle title={t('setting_lyric_desktop_maxlineNum')}>
       <View style={styles.content}>
-        <Text style={{ color: theme['c-primary-font'] }}>{isSliding ? sliderSize : maxLineNum}</Text>
+        <Text style={{ color: theme['c-primary-font'] }}>
+          {isSliding ? sliderSize : maxLineNum}
+        </Text>
         <Slider
           minimumValue={1}
           maximumValue={8}

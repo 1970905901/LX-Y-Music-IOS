@@ -2,7 +2,6 @@ import {
   play as lrcPlay,
   setLyric as lrcSetLyric,
   pause as lrcPause,
-  onLyricPlay as onPluginLyricPlay,
   setPlaybackRate as lrcSetPlaybackRate,
   toggleTranslation as lrcToggleTranslation,
   toggleRoma as lrcToggleRoma,
@@ -16,32 +15,14 @@ import {
   toggleDesktopLyricTranslation,
   toggleDesktopLyricRoma,
 } from '@/core/desktopLyric'
-import { getPosition } from '@/plugins/player/utils'
+import { getPosition } from '@/plugins/player'
 import playerState from '@/store/player/state'
-import { getLyricPayload } from '@/core/lyricInfo'
 // import settingState from '@/store/setting/state'
-
-const getReliableLyricPosition = async() => {
-  const progressPosition = Math.max(playerState.progress.nowPlayTime, 0)
-  const playerPosition = await getPosition().catch(() => progressPosition)
-
-  // Right after switching songs, progress belongs to the new song and is reset
-  // immediately, while native/player position may still transiently report the
-  // previous song. In that window, always trust the new track progress.
-  if (progressPosition <= 1) {
-    if (playerPosition > 5) return progressPosition
-    return Math.max(progressPosition, 0)
-  }
-  if (playerPosition <= 0) return progressPosition
-
-  if (Math.abs(playerPosition - progressPosition) > 2) return progressPosition
-  return playerPosition
-}
 
 /**
  * init lyric
  */
-export const init = async() => {
+export const init = async () => {
   return lrcInit()
 }
 
@@ -50,7 +31,7 @@ export const init = async() => {
  * @param lyric lyric str
  * @param translation lyric translation
  */
-const handleSetLyric = async(lyric: string, translation = '', romalrc = '') => {
+const handleSetLyric = async (lyric: string, translation = '', romalrc = '') => {
   lrcSetLyric(lyric, translation, romalrc)
   await setDesktopLyric(lyric, translation, romalrc)
 }
@@ -72,8 +53,6 @@ export const pause = () => {
   void pauseDesktopLyric()
 }
 
-export const onLyricPlay = onPluginLyricPlay
-
 /**
  * stop lyric
  */
@@ -85,12 +64,12 @@ export const stop = () => {
  * set playback rate
  * @param playbackRate playback rate
  */
-export const setPlaybackRate = async(playbackRate: number) => {
+export const setPlaybackRate = async (playbackRate: number) => {
   lrcSetPlaybackRate(playbackRate)
   await setDesktopLyricPlaybackRate(playbackRate)
   if (playerState.isPlay) {
     setTimeout(() => {
-      void getReliableLyricPosition().then((position) => {
+      void getPosition().then((position) => {
         handlePlay(position * 1000)
       })
     })
@@ -101,7 +80,7 @@ export const setPlaybackRate = async(playbackRate: number) => {
  * toggle show translation
  * @param isShowTranslation is show translation
  */
-export const toggleTranslation = async(isShowTranslation: boolean) => {
+export const toggleTranslation = async (isShowTranslation: boolean) => {
   lrcToggleTranslation(isShowTranslation)
   await toggleDesktopLyricTranslation(isShowTranslation)
   if (playerState.isPlay) play()
@@ -111,36 +90,26 @@ export const toggleTranslation = async(isShowTranslation: boolean) => {
  * toggle show roma lyric
  * @param isShowLyricRoma is show roma lyric
  */
-export const toggleRoma = async(isShowLyricRoma: boolean) => {
+export const toggleRoma = async (isShowLyricRoma: boolean) => {
   lrcToggleRoma(isShowLyricRoma)
   await toggleDesktopLyricRoma(isShowLyricRoma)
   if (playerState.isPlay) play()
 }
 
 export const play = () => {
-  void getReliableLyricPosition().then((position) => {
+  void getPosition().then((position) => {
     handlePlay(position * 1000)
   })
 }
 
-export const seek = (time: number) => {
-  pause()
-  setTimeout(() => {
-    handlePlay(time * 1000)
-    if (!playerState.isPlay) {
-      setTimeout(() => {
-        pause()
-      })
-    }
-  }, 60)
-}
-
-
-export const setLyric = async() => {
+export const setLyric = async () => {
   if (!playerState.musicInfo.id) return
-  const { lyric, tlrc, rlrc } = getLyricPayload(playerState.musicInfo)
-  if (lyric) {
-    await handleSetLyric(lyric, tlrc, rlrc)
+  if (playerState.musicInfo.lrc) {
+    let tlrc = ''
+    let rlrc = ''
+    if (playerState.musicInfo.tlrc) tlrc = playerState.musicInfo.tlrc
+    if (playerState.musicInfo.rlrc) rlrc = playerState.musicInfo.rlrc
+    await handleSetLyric(playerState.musicInfo.lrc, tlrc, rlrc)
   }
 
   if (playerState.isPlay) play()

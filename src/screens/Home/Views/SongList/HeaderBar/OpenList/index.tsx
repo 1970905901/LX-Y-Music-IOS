@@ -1,9 +1,9 @@
-import { useRef, forwardRef, useImperativeHandle } from 'react'
+import { useRef, forwardRef, useImperativeHandle, useEffect } from 'react'
 // import { Icon } from '@/components/common/Icon'
 import Button from '@/components/common/Button'
 // import { navigations } from '@/navigation'
 import Modal, { type ModalType } from './Modal'
-import { type Source } from '@/store/songlist/state'
+import {ListInfoItem, type Source} from '@/store/songlist/state'
 import { createStyle } from '@/utils/tools'
 import Text from '@/components/common/Text'
 import { useI18n } from '@/lang'
@@ -14,11 +14,15 @@ import commonState from '@/store/common/state'
 //   onTagChange: (name: string, id: string) => void
 // }
 
+interface OpenListProps {
+  onOpenDetail: (item: ListInfoItem) => void;
+}
 export interface OpenListType {
   setInfo: (source: Source) => void
 }
 
-export default forwardRef<OpenListType, {}>((props, ref) => {
+
+export default forwardRef<OpenListType, OpenListProps>(({ onOpenDetail }, ref) => {
   const t = useI18n()
   const modalRef = useRef<ModalType>(null)
   const songlistInfoRef = useRef<{ source: Source }>({ source: 'kw' })
@@ -29,9 +33,29 @@ export default forwardRef<OpenListType, {}>((props, ref) => {
     },
   }))
 
+  useEffect(() => {
+    const handleOpenModal = (source: Source) => {
+      songlistInfoRef.current.source = source
+      modalRef.current?.show(source)
+    }
+    global.app_event.on('_openSonglistModal', handleOpenModal)
+    return () => {
+      global.app_event.off('_openSonglistModal', handleOpenModal)
+    }
+  }, [])
+
   const handleOpenSonglist = (id: string) => {
     // console.log(id, songlistInfoRef.current.source)
-    navigations.pushSonglistDetailScreen(commonState.componentIds.home!, {
+    // navigations.pushSonglistDetailScreen(commonState.componentIds.home!, {
+    //   play_count: undefined,
+    //   id,
+    //   author: '',
+    //   name: '',
+    //   img: undefined,
+    //   desc: undefined,
+    //   source: songlistInfoRef.current.source,
+    // })
+    onOpenDetail({
       play_count: undefined,
       id,
       author: '',
@@ -39,17 +63,19 @@ export default forwardRef<OpenListType, {}>((props, ref) => {
       img: undefined,
       desc: undefined,
       source: songlistInfoRef.current.source,
-    })
+    });
   }
 
   // const handleSourceChange: ModalProps['onSourceChange'] = (source) => {
   //   songlistInfoRef.current.source = source
   // }
 
-
   return (
     <>
-      <Button style={styles.button} onPress={() => modalRef.current?.show(songlistInfoRef.current.source)}>
+      <Button
+        style={styles.button}
+        onPress={() => modalRef.current?.show(songlistInfoRef.current.source)}
+      >
         <Text>{t('songlist_open')}</Text>
       </Button>
       <Modal ref={modalRef} onOpenId={handleOpenSonglist} />

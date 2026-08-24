@@ -1,0 +1,87 @@
+import { memo, useState, useCallback, useEffect } from 'react'
+import { View, FlatList, RefreshControl, Keyboard } from 'react-native'
+import { useWySubscribedAlbums } from '@/store/user/hook'
+import wyApi from '@/utils/musicSdk/wy/user'
+import { setWySubscribedAlbums} from '@/store/user/action'
+import { createStyle, toast } from '@/utils/tools'
+import { useTheme } from '@/store/theme/hook'
+import { useSettingValue } from '@/store/setting/hook'
+import Text from '@/components/common/Text'
+import ListItem from './ListItem'
+import { useHorizontalMode } from '@/utils/hooks'
+
+export default memo(() => {
+  const subscribedAlbums = useWySubscribedAlbums()
+  const [loading, setLoading] = useState(false)
+  const theme = useTheme()
+  const cookie = useSettingValue('common.wy_cookie')
+  const isHorizontal = useHorizontalMode()
+
+  const onRefresh = useCallback(() => {
+    if (!cookie) {
+      setLoading(false)
+      setWySubscribedAlbums([])
+      return
+    }
+    setLoading(true)
+    wyApi.getAllSubAlbumList()
+      .then(albums => {
+        setWySubscribedAlbums(albums);
+      })
+      .catch(err => {
+        toast(`刷新失败: ${err.message}`);
+      })
+      .finally(() => {
+        setLoading(false)
+      });
+  }, [cookie])
+
+  useEffect(() => {
+    if (!subscribedAlbums.length && cookie) {
+      onRefresh()
+    }
+  }, [onRefresh, subscribedAlbums.length, cookie])
+
+  if (!cookie) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <Text>请先设置网易云 Cookie</Text>
+      </View>
+    )
+  }
+
+  return (
+    <View style={{ flex: 1 }}>
+      <FlatList
+        onScrollBeginDrag={Keyboard.dismiss}
+        data={subscribedAlbums}
+        key={isHorizontal ? 'horizontal' : 'vertical'}
+        numColumns={isHorizontal ? 2 : 1}
+        renderItem={({ item }) => (
+          <View style={isHorizontal ? styles.itemWrapper : null}>
+            <ListItem item={item} showSubscribeButton={false} />
+          </View>
+        )}
+        keyExtractor={item => String(item.id)}
+        columnWrapperStyle={isHorizontal ? styles.columnWrapper : undefined}
+        refreshControl={
+          <RefreshControl
+            colors={[theme['c-primary']]}
+            refreshing={loading}
+            onRefresh={onRefresh}
+          />
+        }
+      />
+    </View>
+  )
+})
+
+const styles = createStyle({
+  columnWrapper: {
+    paddingHorizontal: 8,
+  },
+  itemWrapper: {
+    flex: 1,
+    maxWidth: '50%',
+  },
+})

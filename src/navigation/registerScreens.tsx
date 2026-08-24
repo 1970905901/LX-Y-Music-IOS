@@ -7,31 +7,38 @@ import {
   PlayDetail,
   SonglistDetail,
   Comment,
+  ArtistDetail, AlbumDetail,
+  SimilarSongs,
   // Setting,
 } from '@/screens'
 import { Provider } from '@/store/Provider'
+import Visualizer from '@/screens/PlayDetail/Visualizer'
 
 import {
   HOME_SCREEN,
   PLAY_DETAIL_SCREEN,
+  VISUALIZER_SCREEN,
   SONGLIST_DETAIL_SCREEN,
   COMMENT_SCREEN,
   VERSION_MODAL,
   PACT_MODAL,
+  ARTIST_DETAIL_SCREEN,
   SYNC_MODE_MODAL,
+  ALBUM_DETAIL_SCREEN, DOWNLOAD_MANAGER_SCREEN,
+  SIMILAR_SONGS_SCREEN,
+  ANNOUNCEMENT_MODAL,
   // SETTING_SCREEN,
 } from './screenNames'
 import VersionModal from './components/VersionModal'
 import PactModal from './components/PactModal'
 import SyncModeModal from './components/SyncModeModal'
-
+import AnnouncementModal from './components/AnnouncementModal'
+import DownloadManager from "@/screens/DownloadManager";
 function WrappedComponent(Component: any) {
   return function inject(props: Record<string, any>) {
     const EnhancedComponent = () => (
       <Provider>
-        <Component
-          {...props}
-        />
+        <Component {...props} />
       </Provider>
     )
 
@@ -42,11 +49,17 @@ function WrappedComponent(Component: any) {
 export default () => {
   Navigation.registerComponent(HOME_SCREEN, () => WrappedComponent(Home))
   Navigation.registerComponent(PLAY_DETAIL_SCREEN, () => WrappedComponent(PlayDetail))
+  Navigation.registerComponent(VISUALIZER_SCREEN, () => WrappedComponent(Visualizer))
   Navigation.registerComponent(SONGLIST_DETAIL_SCREEN, () => WrappedComponent(SonglistDetail))
   Navigation.registerComponent(COMMENT_SCREEN, () => WrappedComponent(Comment))
   Navigation.registerComponent(VERSION_MODAL, () => WrappedComponent(VersionModal))
   Navigation.registerComponent(PACT_MODAL, () => WrappedComponent(PactModal))
+  Navigation.registerComponent(ARTIST_DETAIL_SCREEN, () => WrappedComponent(ArtistDetail))
+  Navigation.registerComponent(ALBUM_DETAIL_SCREEN, () => WrappedComponent(AlbumDetail))
   Navigation.registerComponent(SYNC_MODE_MODAL, () => WrappedComponent(SyncModeModal))
+  Navigation.registerComponent(DOWNLOAD_MANAGER_SCREEN, () => WrappedComponent(DownloadManager))
+  Navigation.registerComponent(SIMILAR_SONGS_SCREEN, () => WrappedComponent(SimilarSongs))
+  Navigation.registerComponent(ANNOUNCEMENT_MODAL, () => WrappedComponent(AnnouncementModal))
   // Navigation.registerComponent(SETTING_SCREEN, () => WrappedComponent(Setting))
 
   console.info('All screens have been registered...')

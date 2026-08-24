@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Animated } from 'react-native'
 
-
 export const DEFAULT_DURATION = 800
 
-export const useAnimateNumber = (val: number, duration = DEFAULT_DURATION, useNativeDriver = true) => {
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+export const useAnimateNumber = (
+  val: number,
+  duration = DEFAULT_DURATION,
+  useNativeDriver = true
+) => {
   const anim = useMemo(() => new Animated.Value(0), [val])
   const [finished, setFinished] = useState(true)
   const currentNumber = useRef(val)
@@ -30,13 +32,17 @@ export const useAnimateNumber = (val: number, duration = DEFAULT_DURATION, useNa
     requestAnimationFrame(() => {
       currentNumber.current = nextNumber
     })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nextNumber])
 
   return [animNumber, finished] as const
 }
 
-export const useAnimateOnecNumber = (val: number, toVal: number, duration = DEFAULT_DURATION, useNativeDriver = true) => {
+export const useAnimateOnecNumber = (
+  val: number,
+  toVal: number,
+  duration = DEFAULT_DURATION,
+  useNativeDriver = true
+) => {
   const anim = useMemo(() => new Animated.Value(0), [])
   const [finished, setFinished] = useState(true)
 
@@ -56,7 +62,6 @@ export const useAnimateOnecNumber = (val: number, toVal: number, duration = DEFA
       // currentNumber.current = nextNumber
       setFinished(true)
     })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   return [animNumber, finished] as const

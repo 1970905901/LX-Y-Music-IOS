@@ -8,7 +8,7 @@ const dislikeInfo: LX.Dislike.DislikeInfo = {
   rules: '',
 }
 
-export const getDislikeInfo = async() => {
+export const getDislikeInfo = async () => {
   updateDislikeInfo(await getDislikeListRules())
   return dislikeInfo
 }
@@ -22,9 +22,15 @@ const updateDislikeInfo = (rules: string) => {
     if (!item) continue
     let [name, singer] = item.split(SPLIT_CHAR.DISLIKE_NAME)
     if (name) {
-      name = name.replaceAll(SPLIT_CHAR.DISLIKE_NAME, SPLIT_CHAR.DISLIKE_NAME_ALIAS).toLocaleLowerCase().trim()
+      name = name
+        .replaceAll(SPLIT_CHAR.DISLIKE_NAME, SPLIT_CHAR.DISLIKE_NAME_ALIAS)
+        .toLocaleLowerCase()
+        .trim()
       if (singer) {
-        singer = singer.replaceAll(SPLIT_CHAR.DISLIKE_NAME, SPLIT_CHAR.DISLIKE_NAME_ALIAS).toLocaleLowerCase().trim()
+        singer = singer
+          .replaceAll(SPLIT_CHAR.DISLIKE_NAME, SPLIT_CHAR.DISLIKE_NAME_ALIAS)
+          .toLocaleLowerCase()
+          .trim()
         const rule = `${name}${SPLIT_CHAR.DISLIKE_NAME}${singer}`
         dislikeInfo.names.add(rule)
         list.push(rule)
@@ -33,7 +39,10 @@ const updateDislikeInfo = (rules: string) => {
         list.push(name)
       }
     } else if (singer) {
-      singer = singer.replaceAll(SPLIT_CHAR.DISLIKE_NAME, SPLIT_CHAR.DISLIKE_NAME_ALIAS).toLocaleLowerCase().trim()
+      singer = singer
+        .replaceAll(SPLIT_CHAR.DISLIKE_NAME, SPLIT_CHAR.DISLIKE_NAME_ALIAS)
+        .toLocaleLowerCase()
+        .trim()
       dislikeInfo.singerNames.add(singer)
       list.push(`${SPLIT_CHAR.DISLIKE_NAME}${singer}`)
     }
@@ -41,17 +50,23 @@ const updateDislikeInfo = (rules: string) => {
   dislikeInfo.rules = Array.from(new Set(list)).join('\n')
 }
 
-export const addDislikeInfo = async(infos: LX.Dislike.DislikeMusicInfo[]) => {
-  updateDislikeInfo(dislikeInfo.rules + '\n' + infos.map(info => `${info.name ?? ''}${SPLIT_CHAR.DISLIKE_NAME}${info.singer ?? ''}`).join('\n'))
+export const addDislikeInfo = async (infos: LX.Dislike.DislikeMusicInfo[]) => {
+  updateDislikeInfo(
+    dislikeInfo.rules +
+      '\n' +
+      infos
+        .map((info) => `${info.name ?? ''}${SPLIT_CHAR.DISLIKE_NAME}${info.singer ?? ''}`)
+        .join('\n')
+  )
   return dislikeInfo
 }
 
-export const overwirteDislikeInfo = async(rules: string) => {
+export const overwirteDislikeInfo = async (rules: string) => {
   updateDislikeInfo(rules)
   return dislikeInfo
 }
 
-export const clearDislikeInfo = async() => {
+export const clearDislikeInfo = async () => {
   updateDislikeInfo('')
   return dislikeInfo
 }

@@ -1,38 +1,45 @@
 /**
  * Created by qianxin on 17/6/1.
- * 屏幕工具类
- * ui设计基准,iphone 6
+ * Screen utility class
+ * UI design baseline, iPhone 6
  * width:375
  * height:667
  */
 import { PixelRatio } from 'react-native'
 import { windowSizeTools } from './windowSizeTools'
 
-// 高保真的宽度和高度
 const designWidth = 375.0
 const designHeight = 667.0
 
-// 获取屏幕的dp
-const size = windowSizeTools.getSize()
-// console.log('size', size)
-let screenW = size.width
-let screenH = size.height
-if (screenW > screenH) {
-  const temp = screenW
-  screenW = screenH
-  screenH = temp
-}
+let screenW = 0
+let screenH = 0
 let fontScale = PixelRatio.getFontScale()
 let pixelRatio = PixelRatio.get()
-// 根据dp获取屏幕的px
-let screenPxW = PixelRatio.getPixelSizeForLayoutSize(screenW)
-let screenPxH = PixelRatio.getPixelSizeForLayoutSize(screenH)
-// console.log(screenPxW, screenPxH)
+let screenPxW = 0
+let screenPxH = 0
+let scale = 1
 
-const scaleW = screenPxW / designWidth
-const scaleH = screenPxH / designHeight
-const scale = Math.min(scaleW, scaleH, 3.1)
-// console.log(scale)
+const recalc = () => {
+  const size = windowSizeTools.getSize()
+  screenW = size.width
+  screenH = size.height
+  if (screenW > screenH) {
+    const temp = screenW
+    screenW = screenH
+    screenH = temp
+  }
+  fontScale = PixelRatio.getFontScale()
+  pixelRatio = PixelRatio.get()
+  screenPxW = PixelRatio.getPixelSizeForLayoutSize(screenW)
+  screenPxH = PixelRatio.getPixelSizeForLayoutSize(screenH)
+
+  const scaleW = screenPxW / designWidth
+  const scaleH = screenPxH / designHeight
+  scale = Math.min(scaleW, scaleH, 3.1)
+}
+
+windowSizeTools.onSizeChanged(() => recalc())
+recalc()
 
 /**
  * 设置text
@@ -46,7 +53,7 @@ export function getTextSize(size: number) {
   let scaleHeight = screenH / designHeight
   // console.log(scaleWidth, scaleHeight)
   let scale = Math.min(scaleWidth, scaleHeight, 1.3)
-  size = Math.floor(size * scale / fontScale)
+  size = Math.floor((size * scale) / fontScale)
   // console.log(size)
   return size
 }
@@ -79,7 +86,6 @@ export function scaleSizeW(size: number) {
   size = Math.floor(scaleWidth / pixelRatio)
   return size * global.lx.fontSize
 }
-
 
 export const scaleSizeWR = (size: number) => {
   return size * 2 - scaleSizeW(size)

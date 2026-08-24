@@ -23,10 +23,19 @@ export interface CommentInfo {
   maxPage: number
 }
 
-export const getNewComment = async(musicInfo: LX.Music.MusicInfoOnline, page: number, limit: number, retryNum = 0): Promise<CommentInfo> => {
+export const getNewComment = async (
+  musicInfo: LX.Music.MusicInfoOnline,
+  page: number,
+  limit: number,
+  retryNum = 0
+): Promise<CommentInfo> => {
   let resp
   try {
-    resp = await (music[musicInfo.source].comment.getComment(toOldMusicInfo(musicInfo), page, limit) as Promise<CommentInfo>)
+    resp = await (music[musicInfo.source].comment.getComment(
+      toOldMusicInfo(musicInfo),
+      page,
+      limit
+    ) as Promise<CommentInfo>)
   } catch (error: any) {
     console.log(error.message)
     if (error.message == '取消请求' || ++retryNum > 2) throw error
@@ -35,10 +44,19 @@ export const getNewComment = async(musicInfo: LX.Music.MusicInfoOnline, page: nu
   return resp
 }
 
-export const getHotComment = async(musicInfo: LX.Music.MusicInfoOnline, page: number, limit: number, retryNum = 0): Promise<CommentInfo> => {
+export const getHotComment = async (
+  musicInfo: LX.Music.MusicInfoOnline,
+  page: number,
+  limit: number,
+  retryNum = 0
+): Promise<CommentInfo> => {
   let resp
   try {
-    resp = await (music[musicInfo.source].comment.getHotComment(toOldMusicInfo(musicInfo), page, limit) as Promise<CommentInfo>)
+    resp = await (music[musicInfo.source].comment.getHotComment(
+      toOldMusicInfo(musicInfo),
+      page,
+      limit
+    ) as Promise<CommentInfo>)
   } catch (error: any) {
     console.log(error.message)
     if (error.message == '取消请求' || ++retryNum > 2) throw error
@@ -49,10 +67,32 @@ export const getHotComment = async(musicInfo: LX.Music.MusicInfoOnline, page: nu
 
 export const filterList = (list: Comment[]) => {
   const set = new Set()
-  return list.filter(c => {
+  return list.filter((c) => {
     let id = String(c.id)
     if (set.has(id)) return false
     set.add(id)
     return true
   })
+}
+
+export const sendComment = async (
+  songmid: string,
+  content: string
+): Promise<any> => {
+  return (music as any).wy.comment.sendComment(songmid, content)
+}
+
+export const replyComment = async (
+  songmid: string,
+  content: string,
+  commentId: string
+): Promise<any> => {
+  return (music as any).wy.comment.replyComment(songmid, content, commentId)
+}
+
+export const deleteComment = async (
+  songmid: string,
+  commentId: string
+): Promise<any> => {
+  return (music as any).wy.comment.deleteComment(songmid, commentId)
 }

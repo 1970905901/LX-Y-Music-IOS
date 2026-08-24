@@ -3,7 +3,6 @@ export { default } from './Main'
 // import Main from './Main'
 // import { createStyle } from '@/utils/tools'
 
-
 // const Content = () => {
 //   return (
 //     <View style={styles.container}>

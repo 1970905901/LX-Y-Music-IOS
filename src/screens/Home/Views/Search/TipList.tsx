@@ -1,23 +1,26 @@
 import { useRef, useImperativeHandle, forwardRef, useState, useEffect } from 'react'
-import SearchTipList, { type SearchTipListProps as _SearchTipListProps, type SearchTipListType as _SearchTipListType } from '@/components/SearchTipList'
+import SearchTipList, {
+  type SearchTipListProps as _SearchTipListProps,
+  type SearchTipListType as _SearchTipListType,
+} from '@/components/SearchTipList'
 import Button from '@/components/common/Button'
 import { createStyle } from '@/utils/tools'
 import Text from '@/components/common/Text'
 import { scaleSizeH } from '@/utils/pixelRatio'
 import musicSdk from '@/utils/musicSdk'
-import { useTheme } from '@/store/theme/hook'
-import { BorderWidths } from '@/theme'
 import searchState, { type InitState as SearchState } from '@/store/search/state'
 import { setSearchText, setTipList, setTipListInfo } from '@/core/search/search'
 import { debounce } from '@/utils'
 
 export const ITEM_HEIGHT = scaleSizeH(36)
 
-export const debounceTipSearch = debounce((keyword: string, source: SearchState['temp_source'], callback: (list: string[]) => void) => {
-  // console.log(reslutList)
-  void musicSdk[source].tipSearch.search(keyword).then(callback)
-}, 200)
-
+export const debounceTipSearch = debounce(
+  (keyword: string, source: SearchState['temp_source'], callback: (list: string[]) => void) => {
+    // console.log(reslutList)
+    void musicSdk[source].tipSearch.search(keyword).then(callback)
+  },
+  200
+)
 
 export type SearchTipListProps = _SearchTipListProps<string>
 export type SearchTipListType = _SearchTipListType<string>
@@ -36,7 +39,6 @@ export default forwardRef<TipListType, TipListProps>(({ onSearch }, ref) => {
   const [visible, setVisible] = useState(false)
   const visibleListRef = useRef(false)
   const isUnmountedRef = useRef(false)
-  const theme = useTheme()
 
   useEffect(() => {
     isUnmountedRef.current = false
@@ -71,44 +73,47 @@ export default forwardRef<TipListType, TipListProps>(({ onSearch }, ref) => {
     }
   }
 
-  useImperativeHandle(ref, () => ({
-    search(keyword, height) {
-      if (visible) handleSearch(keyword, height)
-      else {
-        setVisible(true)
+  useImperativeHandle(
+    ref,
+    () => ({
+      search(keyword, height) {
+        if (visible) handleSearch(keyword, height)
+        else {
+          setVisible(true)
+          requestAnimationFrame(() => {
+            handleSearch(keyword, height)
+          })
+        }
+      },
+      show(height) {
+        visibleListRef.current = true
+        if (visible) handleShowList(height)
+        else {
+          setVisible(true)
+          requestAnimationFrame(() => {
+            handleShowList(height)
+          })
+        }
+      },
+      hide() {
         requestAnimationFrame(() => {
-          handleSearch(keyword, height)
+          visibleListRef.current = false
+          searchTipListRef.current?.setList([])
         })
-      }
-    },
-    show(height) {
-      visibleListRef.current = true
-      if (visible) handleShowList(height)
-      else {
-        setVisible(true)
-        requestAnimationFrame(() => {
-          handleShowList(height)
-        })
-      }
-    },
-    hide() {
-      requestAnimationFrame(() => {
-        visibleListRef.current = false
-        searchTipListRef.current?.setList([])
-      })
-    },
-  }), [visible])
+      },
+    }),
+    [visible]
+  )
 
   const renderItem: SearchTipListProps['renderItem'] = ({ item, index }) => {
     return (
       <Button
-        style={{
-          ...styles.item,
-          borderTopColor: theme['c-border-background'],
-          borderTopWidth: index ? BorderWidths.normal2 : 0,
+        style={styles.item}
+        onPress={() => {
+          onSearch(item)
         }}
-        onPress={() => { onSearch(item) }}
-        key={index}>
+        key={index}
+      >
         <Text numberOfLines={1}>{item}</Text>
       </Button>
     )
@@ -118,19 +123,16 @@ export default forwardRef<TipListType, TipListProps>(({ onSearch }, ref) => {
     return { length: ITEM_HEIGHT, offset: ITEM_HEIGHT * index, index }
   }
 
-  return (
-    visible
-      ? <SearchTipList
-          ref={searchTipListRef}
-          renderItem={renderItem}
-          onPressBg={() => searchTipListRef.current?.setList([])}
-          keyExtractor={getkey}
-          getItemLayout={getItemLayout}
-        />
-      : null
-  )
+  return visible ? (
+    <SearchTipList
+      ref={searchTipListRef}
+      renderItem={renderItem}
+      onPressBg={() => searchTipListRef.current?.setList([])}
+      keyExtractor={getkey}
+      getItemLayout={getItemLayout}
+    />
+  ) : null
 })
-
 
 const styles = createStyle({
   item: {
@@ -139,6 +141,6 @@ const styles = createStyle({
     alignItems: 'center',
     paddingLeft: 15,
     paddingRight: 15,
+    // backgroundColor: 'rgba(0, 0, 0, 0.2)',
   },
 })
-

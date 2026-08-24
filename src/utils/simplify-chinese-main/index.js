@@ -30,6 +30,4 @@ function tranditionalize(source) {
 //   // simplify,
 //   tranditionalize,
 // }
-export {
-  tranditionalize,
-}
+export { tranditionalize }

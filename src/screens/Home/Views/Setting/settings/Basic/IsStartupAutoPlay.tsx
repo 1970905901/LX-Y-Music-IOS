@@ -5,7 +5,6 @@ import { memo } from 'react'
 import { View } from 'react-native'
 import { useSettingValue } from '@/store/setting/hook'
 
-
 import CheckBoxItem from '../../components/CheckBoxItem'
 
 export default memo(() => {
@@ -17,11 +16,14 @@ export default memo(() => {
 
   return (
     <View style={styles.content}>
-      <CheckBoxItem check={startupAutoPlay} label={t('setting_basic_startup_auto_play')} onChange={setStartupAutoPlay} />
+      <CheckBoxItem
+        check={startupAutoPlay}
+        label={t('setting_basic_startup_auto_play')}
+        onChange={setStartupAutoPlay}
+      />
     </View>
   )
 })
-
 
 const styles = createStyle({
   content: {

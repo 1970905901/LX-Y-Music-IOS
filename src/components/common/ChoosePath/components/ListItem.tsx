@@ -16,54 +16,83 @@ export interface PathItem {
   disabled?: boolean
 }
 
-export default memo(({ item, onPress, rowInfo }: {
-  item: PathItem
-  onPress: (item: PathItem) => void
-  rowInfo: RowInfo
-}) => {
-  const theme = useTheme()
+export default memo(
+  ({
+    item,
+    onPress,
+    rowInfo,
+  }: {
+    item: PathItem
+    onPress: (item: PathItem) => void
+    rowInfo: RowInfo
+  }) => {
+    const theme = useTheme()
 
-  // const moreButtonRef = useRef()
-  // const handleShowMenu = useCallback(() => {
-  //   if (moreButtonRef.current && moreButtonRef.current.measure) {
-  //     moreButtonRef.current.measure((fx, fy, width, height, px, py) => {
-  //       // console.log(fx, fy, width, height, px, py)
-  //       showMenu(item, index, { x: Math.ceil(px), y: Math.ceil(py), w: Math.ceil(width), h: Math.ceil(height) })
-  //     })
-  //   }
-  // }, [item, index, showMenu])
+    // const moreButtonRef = useRef()
+    // const handleShowMenu = useCallback(() => {
+    //   if (moreButtonRef.current && moreButtonRef.current.measure) {
+    //     moreButtonRef.current.measure((fx, fy, width, height, px, py) => {
+    //       // console.log(fx, fy, width, height, px, py)
+    //       showMenu(item, index, { x: Math.ceil(px), y: Math.ceil(py), w: Math.ceil(width), h: Math.ceil(height) })
+    //     })
+    //   }
+    // }, [item, index, showMenu])
 
-  return (
-    <View style={{ ...styles.listItem, width: rowInfo.rowWidth }} onStartShouldSetResponder={() => true}>
-      {
-        item.disabled ? (
+    return (
+      <View
+        style={{ ...styles.listItem, width: rowInfo.rowWidth }}
+        onStartShouldSetResponder={() => true}
+      >
+        {item.disabled ? (
           <View style={{ ...styles.listItem, opacity: 0.3 }}>
             <View style={styles.itemInfo}>
               <Text style={styles.listItemTitleText}>{item.name}</Text>
-              <Text style={styles.listItemDesc} size={12} color={theme['c-font-label']} numberOfLines={1}>{item.mtime ? new Date(item.mtime).toLocaleString() : item.desc}</Text>
+              <Text
+                style={styles.listItemDesc}
+                size={12}
+                color={theme['c-font-label']}
+                numberOfLines={1}
+              >
+                {item.mtime ? new Date(item.mtime).toLocaleString() : item.desc}
+              </Text>
             </View>
-            {
-              item.isDir ? null
-                : <Text style={styles.size} size={12} color={theme['c-font-label']}>{item.sizeText}</Text>
-            }
+            {item.isDir ? null : (
+              <Text style={styles.size} size={12} color={theme['c-font-label']}>
+                {item.sizeText}
+              </Text>
+            )}
           </View>
         ) : (
-          <TouchableOpacity style={styles.listItem} onPress={ () => { onPress(item) } }>
+          <TouchableOpacity
+            style={styles.listItem}
+            onPress={() => {
+              onPress(item)
+            }}
+          >
             <View style={styles.itemInfo}>
               <Text style={styles.listItemTitleText}>{item.name}</Text>
-              <Text style={styles.listItemDesc} size={12} color={theme['c-font-label']} numberOfLines={1}>{item.mtime ? new Date(item.mtime).toLocaleString() : item.desc}</Text>
+              <Text
+                style={styles.listItemDesc}
+                size={12}
+                color={theme['c-font-label']}
+                numberOfLines={1}
+              >
+                {item.mtime ? new Date(item.mtime).toLocaleString() : item.desc}
+              </Text>
             </View>
-            {
-              item.isDir
-                ? <Icon name="chevron-right" color={theme['c-primary-light-100-alpha-600']} size={18} />
-                : <Text style={styles.size} size={12} color={theme['c-font-label']}>{item.sizeText}</Text>
-            }
+            {item.isDir ? (
+              <Icon name="chevron-right" color={theme['c-primary-light-100-alpha-600']} size={18} />
+            ) : (
+              <Text style={styles.size} size={12} color={theme['c-font-label']}>
+                {item.sizeText}
+              </Text>
+            )}
           </TouchableOpacity>
-        )
-      }
-    </View>
-  )
-})
+        )}
+      </View>
+    )
+  }
+)
 
 const styles = createStyle({
   listItem: {
@@ -96,4 +125,3 @@ const styles = createStyle({
     marginBottom: 10,
   },
 })
-

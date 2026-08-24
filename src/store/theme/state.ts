@@ -1,7 +1,6 @@
 import { createContext } from 'react'
 // import type { RootState } from '@/store'
 
-
 interface InitState {
   shouldUseDarkColors: boolean
   theme: LX.ActiveTheme
@@ -11,6 +10,7 @@ const theme = {
   id: '',
   name: '',
   isDark: false,
+  'c-liked': '#ef4444',
   'c-primary': 'rgb(77, 175, 124)',
   'c-primary-dark-100': 'rgb(69,158,112)',
   'c-primary-dark-100-alpha-100': 'rgba(69, 158, 112, 0.90)',
@@ -222,7 +222,6 @@ const theme = {
   'c-primary-light-1000-alpha-800': 'rgba(255, 255, 255, 0.20)',
   'c-primary-light-1000-alpha-900': 'rgba(255, 255, 255, 0.10)',
   'c-theme': 'rgb(77, 175, 124)',
-
 
   'c-000': 'rgb(255,255,255)',
   'c-050': 'rgb(244,244,244)',

@@ -3,7 +3,6 @@ import MusicAddModal, { type MusicAddModalType } from '@/components/MusicAddModa
 import playerState from '@/store/player/state'
 import Btn from './Btn'
 
-
 export default () => {
   const musicAddModalRef = useRef<MusicAddModalType>(null)
 

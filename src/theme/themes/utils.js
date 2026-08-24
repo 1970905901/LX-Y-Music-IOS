@@ -72,4 +72,3 @@ const createFontDarkColors = (rgbaColor) => {
 // console.log(createFontColors('rgb(255, 255, 255)', true))
 
 // console.log(createFontDarkColors('rgb(255, 255, 255)'))
-

@@ -6,7 +6,5 @@ import Horizontal from './Horizontal'
 export default () => {
   const isHorizontalMode = useHorizontalMode()
 
-  return isHorizontalMode
-    ? <Horizontal />
-    : <Vertical />
+  return isHorizontalMode ? <Horizontal /> : <Vertical />
 }

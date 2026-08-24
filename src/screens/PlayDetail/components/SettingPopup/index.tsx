@@ -8,6 +8,9 @@ import SettingVolume from './settings/SettingVolume'
 import SettingPlaybackRate from './settings/SettingPlaybackRate'
 import SettingLrcFontSize from './settings/SettingLrcFontSize'
 import SettingLrcAlign from './settings/SettingLrcAlign'
+import SettingMiniLyricAlign from './settings/SettingMiniLyricAlign'
+import SettingCoverSpin from "@/screens/PlayDetail/components/SettingPopup/settings/SettingCoverSpin.tsx";
+import SettingCoverSize from './settings/SettingCoverSize'
 
 export interface SettingPopupProps extends Omit<PopupProps, 'children'> {
   direction: 'vertical' | 'horizontal'
@@ -35,22 +38,20 @@ export default forwardRef<SettingPopupType, SettingPopupProps>(({ direction, ...
     },
   }))
 
-
-  return (
-    visible
-      ? (
-        <Popup ref={popupRef} title={t('play_detail_setting_title')} {...props}>
-          <ScrollView>
-            <View onStartShouldSetResponder={() => true}>
-              <SettingLyricProgress />
-              <SettingVolume />
-              <SettingPlaybackRate />
-              <SettingLrcFontSize direction={direction} />
-              <SettingLrcAlign />
-            </View>
-          </ScrollView>
-        </Popup>
-        )
-      : null
-  )
+  return visible ? (
+    <Popup ref={popupRef} title={t('play_detail_setting_title')} {...props}>
+      <ScrollView>
+        <View onStartShouldSetResponder={() => true}>
+          <SettingLyricProgress />
+          <SettingVolume />
+          <SettingPlaybackRate />
+          <SettingLrcFontSize direction={direction} />
+          <SettingCoverSize />
+          <SettingLrcAlign />
+          <SettingMiniLyricAlign />
+          <SettingCoverSpin />
+        </View>
+      </ScrollView>
+    </Popup>
+  ) : null
 })

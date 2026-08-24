@@ -14,7 +14,6 @@ import { Icon } from '@/components/common/Icon'
 import type { PathItem } from './ListItem'
 const filterFileName = /[\\:*?#"<>|]/
 
-
 interface PathInputType {
   setPath: (text: string) => void
   getText: () => string
@@ -45,7 +44,7 @@ const PathInput = forwardRef<PathInputType, {}>((props, ref) => {
       onChangeText={setText}
       multiline
       numberOfLines={3}
-      textAlignVertical='top'
+      textAlignVertical="top"
       style={{ ...styles.input, backgroundColor: theme['c-primary-input-background'] }}
     />
   )
@@ -54,121 +53,130 @@ const PathInput = forwardRef<PathInputType, {}>((props, ref) => {
 export interface OpenDirModalType {
   show: (paths: string[]) => void
 }
-export default forwardRef<OpenDirModalType, { onOpenDir: (dir: string) => Promise<PathItem[]> }>(({
-  onOpenDir,
-}, ref) => {
-  const confirmAlertRef = useRef<ConfirmAlertType>(null)
-  const inputRef = useRef<PathInputType>(null)
-  const [paths, setPaths] = useState<string[]>([])
-  const [contentPaths, setContentPaths] = useState<string[]>([])
-  const isUnmounted = useUnmounted()
-  const theme = useTheme()
+export default forwardRef<OpenDirModalType, { onOpenDir: (dir: string) => Promise<PathItem[]> }>(
+  ({ onOpenDir }, ref) => {
+    const confirmAlertRef = useRef<ConfirmAlertType>(null)
+    const inputRef = useRef<PathInputType>(null)
+    const [paths, setPaths] = useState<string[]>([])
+    const [contentPaths, setContentPaths] = useState<string[]>([])
+    const isUnmounted = useUnmounted()
+    const theme = useTheme()
 
-  useImperativeHandle(ref, () => ({
-    show(paths) {
-      setPaths(paths)
-      void getManagedFolders().then((dirs) => {
-        setContentPaths(dirs)
-      })
-      confirmAlertRef.current?.setVisible(true)
-      requestAnimationFrame(() => {
-        void getOpenStoragePath().then(path => {
-          if (path) inputRef.current?.setPath(path)
+    useImperativeHandle(ref, () => ({
+      show(paths) {
+        setPaths(paths)
+        void getManagedFolders().then((dirs) => {
+          setContentPaths(dirs)
         })
-      })
-    },
-  }))
+        confirmAlertRef.current?.setVisible(true)
+        requestAnimationFrame(() => {
+          void getOpenStoragePath().then((path) => {
+            if (path) inputRef.current?.setPath(path)
+          })
+        })
+      },
+    }))
 
-  // const handleHideAlert = () => {
-  //   inputRef.current?.setPath('')
-  // }
-  const handleConfirmAlert = async() => {
-    const text = inputRef.current?.getText() ?? ''
-    if (text) {
-      if (!text.startsWith('content://') && (!text.startsWith('/') || filterFileName.test(text))) {
-        toast(global.i18n.t('open_storage_error_tip'), 'long')
-        return
-      }
-      try {
-        if (!(await stat(text)).canRead) {
-          toast('Permission denied', 'long')
+    // const handleHideAlert = () => {
+    //   inputRef.current?.setPath('')
+    // }
+    const handleConfirmAlert = async () => {
+      const text = inputRef.current?.getText() ?? ''
+      if (text) {
+        if (
+          !text.startsWith('content://') &&
+          (!text.startsWith('/') || filterFileName.test(text))
+        ) {
+          toast(global.i18n.t('open_storage_error_tip'), 'long')
           return
         }
-      } catch (err: any) {
-        toast('Open failed: ' + err.message, 'long')
-        return
-      }
-      void onOpenDir(text)
-    }
-    void saveOpenStoragePath(text)
-    confirmAlertRef.current?.setVisible(false)
-  }
-  const removeSelectStoragePath = (path: string) => {
-    void removeManagedFolder(path).then(async() => {
-      return getManagedFolders().then((dirs) => {
-        setContentPaths(dirs)
-      })
-    })
-  }
-  const handleSelectStorage = () => {
-    void selectManagedFolder(true).then((dir) => {
-      if (!dir || isUnmounted.current) return
-      void onOpenDir(dir.path)
-      confirmAlertRef.current?.setVisible(false)
-    }).catch((err) => {
-      toast(global.i18n.t('open_storage_select_managed_folder_failed_tip', { msg: err.message }))
-    })
-  }
-
-  return (
-    <ConfirmAlert
-      onConfirm={handleConfirmAlert}
-      ref={confirmAlertRef}
-    >
-      <View style={styles.newFolderContent} onStartShouldSetResponder={() => true}>
-        <Text style={styles.newFolderTitle}>
-          {
-            paths.length > 1
-              ? global.i18n.t('open_storage_title')
-              : global.i18n.t('open_storage_not_found_title')
+        try {
+          if (!(await stat(text)).canRead) {
+            toast('Permission denied', 'long')
+            return
           }
-        </Text>
-        <PathInput ref={inputRef} />
-        <View style={styles.list}>
-          {
-            paths.map(path => {
+        } catch (err: any) {
+          toast('Open failed: ' + err.message, 'long')
+          return
+        }
+        void onOpenDir(text)
+      }
+      void saveOpenStoragePath(text)
+      confirmAlertRef.current?.setVisible(false)
+    }
+    const removeSelectStoragePath = (path: string) => {
+      void removeManagedFolder(path).then(async () => {
+        return getManagedFolders().then((dirs) => {
+          setContentPaths(dirs)
+        })
+      })
+    }
+    const handleSelectStorage = () => {
+      void selectManagedFolder(true)
+        .then((dir) => {
+          if (!dir || isUnmounted.current) return
+          void onOpenDir(dir.path)
+          confirmAlertRef.current?.setVisible(false)
+        })
+        .catch((err) => {
+          toast(
+            global.i18n.t('open_storage_select_managed_folder_failed_tip', { msg: err.message })
+          )
+        })
+    }
+
+    return (
+      <ConfirmAlert onConfirm={handleConfirmAlert} ref={confirmAlertRef}>
+        <View style={styles.newFolderContent} onStartShouldSetResponder={() => true}>
+          <Text style={styles.newFolderTitle}>
+            {paths.length > 1
+              ? global.i18n.t('open_storage_title')
+              : global.i18n.t('open_storage_not_found_title')}
+          </Text>
+          <PathInput ref={inputRef} />
+          <View style={styles.list}>
+            {paths.map((path) => {
               return (
-                <Button style={styles.pathBtn} key={path} onPress={() => inputRef.current?.setPath(path)}>
+                <Button
+                  style={styles.pathBtn}
+                  key={path}
+                  onPress={() => inputRef.current?.setPath(path)}
+                >
                   <Text size={12}>{path}</Text>
                 </Button>
               )
-            })
-          }
-          {
-            contentPaths.map(path => {
+            })}
+            {contentPaths.map((path) => {
               return (
                 <View style={styles.listContentItem} key={path}>
                   <Button style={styles.pathBtn} onPress={() => inputRef.current?.setPath(path)}>
                     <Text size={12}>{path}</Text>
                   </Button>
-                  <Button style={styles.removeBtn} onPress={() => { removeSelectStoragePath(path) }}>
+                  <Button
+                    style={styles.removeBtn}
+                    onPress={() => {
+                      removeSelectStoragePath(path)
+                    }}
+                  >
                     <Icon color={theme['c-font-label']} name="close" size={12} />
                   </Button>
                 </View>
               )
-            })
-          }
+            })}
+          </View>
+          <View style={styles.tips}>
+            <Text style={styles.tip} size={12}>
+              {global.i18n.t('open_storage_select_path_tip')}
+            </Text>
+            <ButtonPrimary style={styles.btn} size={12} onPress={handleSelectStorage}>
+              {global.i18n.t('open_storage_select_path')}
+            </ButtonPrimary>
+          </View>
         </View>
-        <View style={styles.tips}>
-          <Text style={styles.tip} size={12}>
-            {global.i18n.t('open_storage_select_path_tip')}
-          </Text>
-          <ButtonPrimary style={styles.btn} size={12} onPress={handleSelectStorage}>{global.i18n.t('open_storage_select_path')}</ButtonPrimary>
-        </View>
-      </View>
-    </ConfirmAlert>
-  )
-})
+      </ConfirmAlert>
+    )
+  }
+)
 
 const styles = createStyle({
   newFolderContent: {
@@ -224,4 +232,3 @@ const styles = createStyle({
     flex: 0,
   },
 })
-

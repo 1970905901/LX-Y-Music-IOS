@@ -14,6 +14,9 @@ import settingState from '@/store/setting/state'
 import { checkUpdate } from '@/core/version'
 import { bootLog } from '@/utils/bootLog'
 import { cheatTip } from '@/utils/tools'
+import { checkAnnouncement } from '@/core/announcement'
+import * as networkLyric from '@/core/networkLyric'
+import initUiMode from './uiMode'
 
 let isFirstPush = true
 const handlePushedHomeScreen = async() => {
@@ -28,6 +31,16 @@ const handlePushedHomeScreen = async() => {
     if (isFirstPush) isFirstPush = false
     showPactModal()
   }
+
+  // 延迟检查公告，确保导航已就绪（来自安卓分支）
+  setTimeout(() => {
+    try {
+      void checkAnnouncement(false)
+    } catch (err) {
+      console.error('[Announcement] Error calling checkAnnouncement:', err)
+    }
+  }, 2000)
+  networkLyric.init()
 }
 
 let isInited = false
@@ -47,6 +60,9 @@ export default async() => {
 
   await initUserApi(setting)
   bootLog('User Api inited.')
+
+  initUiMode()
+  bootLog('Ui Mode inited.')
 
   setApiSource(setting['common.apiSource'])
   bootLog('Api inited.')

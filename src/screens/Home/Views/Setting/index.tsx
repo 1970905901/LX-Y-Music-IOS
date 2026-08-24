@@ -11,15 +11,18 @@ export type { SettingScreenIds } from './Main'
 
 export default () => {
   const isHorizontalMode = useHorizontalMode()
-  useBackHandler(useCallback(() => {
-    if (Object.keys(commonState.componentIds).length == 1 && commonState.navActiveId == 'nav_setting') {
-      setNavActiveId(commonState.lastNavActiveId)
-      return true
-    }
-    return false
-  }, []))
+  useBackHandler(
+    useCallback(() => {
+      if (
+        commonState.componentIds.length == 1 &&
+        commonState.navActiveId == 'nav_setting'
+      ) {
+        setNavActiveId(commonState.lastNavActiveId)
+        return true
+      }
+      return false
+    }, [])
+  )
 
-  return isHorizontalMode
-    ? <Horizontal />
-    : <Vertical />
+  return isHorizontalMode ? <Horizontal /> : <Vertical />
 }

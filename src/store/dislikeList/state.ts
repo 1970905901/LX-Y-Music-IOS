@@ -1,4 +1,3 @@
-
 interface InitState {
   dislikeInfo: LX.Dislike.DislikeInfo
 }
@@ -11,9 +10,4 @@ const state: InitState = {
   },
 }
 
-
-export {
-  state,
-}
-
-
+export { state }

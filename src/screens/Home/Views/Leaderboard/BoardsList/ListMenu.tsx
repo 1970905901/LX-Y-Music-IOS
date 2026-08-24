@@ -18,9 +18,7 @@ export interface ListMenuType {
   show: (selectInfo: SelectInfo, position: Position) => void
 }
 
-export type {
-  Position,
-}
+export type { Position }
 
 export default forwardRef<ListMenuType, ListMenuProps>((props, ref) => {
   const t = useI18n()
@@ -48,7 +46,7 @@ export default forwardRef<ListMenuType, ListMenuProps>((props, ref) => {
     ] as const
   }, [t])
 
-  const handleMenuPress = ({ action }: typeof menus[number]) => {
+  const handleMenuPress = ({ action }: (typeof menus)[number]) => {
     const selectInfo = selectInfoRef.current
     switch (action) {
       case 'play':
@@ -62,10 +60,7 @@ export default forwardRef<ListMenuType, ListMenuProps>((props, ref) => {
     }
   }
 
-  return (
-    visible
-      ? <Menu ref={menuRef} menus={menus} onPress={handleMenuPress} onHide={props.onHideMenu} />
-      : null
-  )
+  return visible ? (
+    <Menu ref={menuRef} menus={menus} onPress={handleMenuPress} onHide={props.onHideMenu} />
+  ) : null
 })
-

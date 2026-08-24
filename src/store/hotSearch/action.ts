@@ -1,9 +1,9 @@
 import state, { type Source } from './state'
 
-export type Lists = Array<{ source: LX.OnlineSource, list: string[] }>
+export type Lists = Array<{ source: LX.OnlineSource; list: string[] }>
 
 const setList = (source: LX.OnlineSource, list: string[]): string[] => {
-  const l = state.sourceList[source] = list.slice(0, 20)
+  const l = (state.sourceList[source] = list.slice(0, 20))
   return l
 }
 
@@ -19,10 +19,9 @@ const setLists = (lists: Lists): string[] => {
   const wordsMapArr = Array.from(wordsMap)
   wordsMapArr.sort((a, b) => a[0].localeCompare(b[0]))
   wordsMapArr.sort((a, b) => b[1] - a[1])
-  const words = wordsMapArr.map(item => item[0])
-  return state.sourceList.all = words.slice(0, state.sources.length * 10)
+  const words = wordsMapArr.map((item) => item[0])
+  return (state.sourceList.all = words.slice(0, state.sources.length * 10))
 }
-
 
 export default {
   setList(source: Source, list: string[] | Lists) {

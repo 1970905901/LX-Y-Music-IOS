@@ -5,7 +5,6 @@ import { memo } from 'react'
 import { View } from 'react-native'
 import { useSettingValue } from '@/store/setting/hook'
 
-
 import CheckBoxItem from '../../components/CheckBoxItem'
 
 export default memo(() => {
@@ -17,11 +16,14 @@ export default memo(() => {
 
   return (
     <View style={styles.content}>
-      <CheckBoxItem check={showBackBtn} label={t('setting_basic_show_back_btn')} onChange={setShowBackBtn} />
+      <CheckBoxItem
+        check={showBackBtn}
+        label={t('setting_basic_show_back_btn')}
+        onChange={setShowBackBtn}
+      />
     </View>
   )
 })
-
 
 const styles = createStyle({
   content: {

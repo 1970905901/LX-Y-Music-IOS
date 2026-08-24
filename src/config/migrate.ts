@@ -4,7 +4,6 @@ import { getAllKeys, getData, getDataMultiple, removeData, saveData } from '@/pl
 import { allMusicList, listDataOverwrite, userLists } from '@/utils/listManage'
 import { saveListMusics, saveUserList } from '@/utils/data'
 
-
 interface OldUserListInfo {
   name: string
   id: string
@@ -13,7 +12,6 @@ interface OldUserListInfo {
   locationUpdateTime?: number
   list: any[]
 }
-
 
 /* export const migrateListData = async() => {
   let playList = await parseDataFile<{ defaultList?: { list: any[] }, loveList?: { list: any[] }, tempList?: { list: any[] }, userList?: OldUserListInfo[] }>('playList.json')
@@ -57,7 +55,7 @@ interface OldUserListInfo {
   }
 }
  */
-export const getAllListData = async(): Promise<{
+export const getAllListData = async (): Promise<{
   defaultList?: { list: any[] }
   loveList?: { list: any[] }
   tempList?: { list: any[] }
@@ -75,7 +73,7 @@ export const getAllListData = async(): Promise<{
       listKeys.push(key)
     }
   }
-  const listData = await getDataMultiple(listKeys) as Array<[string, any]>
+  const listData = (await getDataMultiple(listKeys)) as Array<[string, any]>
   for (const [key, value] of listData) {
     switch (key) {
       case defaultListKey:
@@ -90,7 +88,7 @@ export const getAllListData = async(): Promise<{
     }
   }
 
-  const listSort: Record<string, number> = await getData(storageDataPrefixOld.listSort) ?? {}
+  const listSort: Record<string, number> = (await getData(storageDataPrefixOld.listSort)) ?? {}
 
   userList.sort((a, b) => {
     if (listSort[a.id] == null) return listSort[b.id] == null ? -1 : 1
@@ -114,7 +112,7 @@ export const getAllListData = async(): Promise<{
  * 迁移 v1.0.0 之前的 list data
  * @returns
  */
-export const migrateListData = async() => {
+export const migrateListData = async () => {
   const playList = await getAllListData()
   let listDataAll: LX.List.ListDataFull = {
     defaultList: [],
@@ -122,21 +120,27 @@ export const migrateListData = async() => {
     userList: [],
     tempList: [],
   }
-  if (playList.defaultList) listDataAll.defaultList = filterMusicList(playList.defaultList.list.map(m => toNewMusicInfo(m)))
-  if (playList.loveList) listDataAll.loveList = filterMusicList(playList.loveList.list.map(m => toNewMusicInfo(m)))
+  if (playList.defaultList)
+    listDataAll.defaultList = filterMusicList(
+      playList.defaultList.list.map((m) => toNewMusicInfo(m))
+    )
+  if (playList.loveList)
+    listDataAll.loveList = filterMusicList(playList.loveList.list.map((m) => toNewMusicInfo(m)))
   if (playList.userList) {
-    listDataAll.userList = playList.userList.map(l => {
+    listDataAll.userList = playList.userList.map((l) => {
       return {
         ...l,
         locationUpdateTime: l.locationUpdateTime ?? null,
-        list: filterMusicList(l.list.map(m => toNewMusicInfo(m))),
+        list: filterMusicList(l.list.map((m) => toNewMusicInfo(m))),
       }
     })
   }
   listDataOverwrite(listDataAll)
   await saveUserList(userLists)
-  const allListIds = [LIST_IDS.DEFAULT, LIST_IDS.LOVE, ...userLists.map(l => l.id)]
-  await saveListMusics([...allListIds.map(id => ({ id, musics: allMusicList.get(id) as LX.List.ListMusics }))])
+  const allListIds = [LIST_IDS.DEFAULT, LIST_IDS.LOVE, ...userLists.map((l) => l.id)]
+  await saveListMusics([
+    ...allListIds.map((id) => ({ id, musics: allMusicList.get(id) as LX.List.ListMusics })),
+  ])
   await removeData(storageDataPrefixOld.listSort)
 
   const listPosition = await getData(storageDataPrefixOld.listPosition)
@@ -156,7 +160,7 @@ const timeStr2Intv = (timeStr: string) => {
   }
   return intv
 }
-const migratePlayInfo = async() => {
+const migratePlayInfo = async () => {
   const playInfo = await getData<any>(storageDataPrefixOld.playInfo)
   if (playInfo == null) return
   if (playInfo.list !== undefined) delete playInfo.list
@@ -167,7 +171,7 @@ const migratePlayInfo = async() => {
  * 迁移 v1.0.0 之前的 meta 数据
  * @returns
  */
-export const migrateMetaData = async() => {
+export const migrateMetaData = async () => {
   await migratePlayInfo()
   // const [playInfo] = await getDataMultiple([
   //   storageDataPrefixOld.listPosition,
@@ -182,4 +186,3 @@ export const migrateMetaData = async() => {
   //   storageDataPrefix.listScrollPosition,
   // ])
 }
-

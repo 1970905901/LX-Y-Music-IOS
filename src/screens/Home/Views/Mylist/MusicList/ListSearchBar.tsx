@@ -1,5 +1,5 @@
-import { useState, useRef, useCallback, useMemo, forwardRef, useImperativeHandle, useEffect } from 'react'
-import { Animated, View, TouchableOpacity, Platform, type NativeSyntheticEvent, type TextInputSelectionChangeEventData } from 'react-native'
+import { useState, useRef, useCallback, useMemo, forwardRef, useImperativeHandle } from 'react'
+import { Animated, View, TouchableOpacity } from 'react-native'
 
 import Text from '@/components/common/Text'
 import Input, { type InputType } from '@/components/common/Input'
@@ -16,56 +16,15 @@ type SearchInputType = InputType
 
 const SearchInput = forwardRef<SearchInputType, SearchInputProps>(({ onSearch }, ref) => {
   const [text, setText] = useState('')
-  const isComposingRef = useRef(false)
-  const pendingTextRef = useRef('')
-  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-
-  const flushSearch = useCallback((text: string) => {
-    pendingTextRef.current = ''
-    onSearch(text.trim())
-  }, [onSearch])
-
-  const queueSearch = useCallback((text: string) => {
-    pendingTextRef.current = text
-    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current)
-    searchTimeoutRef.current = setTimeout(() => {
-      searchTimeoutRef.current = null
-      if (isComposingRef.current) return
-      flushSearch(text)
-    }, 20)
-  }, [flushSearch])
-
-  useEffect(() => {
-    return () => {
-      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current)
-    }
-  }, [])
 
   const handleChangeText = (text: string) => {
     setText(text)
-    if (Platform.OS == 'ios') {
-      queueSearch(text)
-      return
-    }
-    flushSearch(text)
+    onSearch(text.trim())
   }
-
-  const handleSelectionChange = useCallback((event: NativeSyntheticEvent<TextInputSelectionChangeEventData>) => {
-    if (Platform.OS != 'ios') return
-    const { start, end } = event.nativeEvent.selection
-    const wasComposing = isComposingRef.current
-    isComposingRef.current = start != end
-    if (wasComposing && !isComposingRef.current && pendingTextRef.current) {
-      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current)
-      searchTimeoutRef.current = null
-      flushSearch(pendingTextRef.current)
-    }
-  }, [flushSearch])
 
   return (
     <Input
       onChangeText={handleChangeText}
-      onSelectionChange={handleSelectionChange}
       placeholder="Search for something..."
       value={text}
       style={styles.input}
@@ -76,7 +35,6 @@ const SearchInput = forwardRef<SearchInputType, SearchInputProps>(({ onSearch },
   )
 })
 
-
 export interface ListSearchBarProps {
   onSearch: (keywork: string) => void
   onExitSearch: () => void
@@ -86,100 +44,101 @@ export interface ListSearchBarType {
   hide: () => void
 }
 
-export default forwardRef<ListSearchBarType, ListSearchBarProps>(({ onSearch, onExitSearch }, ref) => {
-  const t = useI18n()
-  // const isGetDetailFailedRef = useRef(false)
-  const [visible, setVisible] = useState(false)
-  const [animatePlayed, setAnimatPlayed] = useState(true)
-  const animFade = useRef(new Animated.Value(0)).current
-  const animTranslateY = useRef(new Animated.Value(0)).current
-  const searchInputRef = useRef<SearchInputType>(null)
+export default forwardRef<ListSearchBarType, ListSearchBarProps>(
+  ({ onSearch, onExitSearch }, ref) => {
+    const t = useI18n()
+    // const isGetDetailFailedRef = useRef(false)
+    const [visible, setVisible] = useState(false)
+    const [animatePlayed, setAnimatPlayed] = useState(true)
+    const animFade = useRef(new Animated.Value(0)).current
+    const animTranslateY = useRef(new Animated.Value(0)).current
+    const searchInputRef = useRef<SearchInputType>(null)
 
-  const theme = useTheme()
+    const theme = useTheme()
 
-  useImperativeHandle(ref, () => ({
-    show() {
-      handleShow()
+    useImperativeHandle(ref, () => ({
+      show() {
+        handleShow()
+        requestAnimationFrame(() => {
+          searchInputRef.current?.focus()
+        })
+      },
+      hide() {
+        handleHide()
+      },
+    }))
+
+    const handleShow = useCallback(() => {
+      // console.log('show List')
+      setVisible(true)
+      setAnimatPlayed(false)
       requestAnimationFrame(() => {
-        searchInputRef.current?.focus()
+        animTranslateY.setValue(-20)
+
+        Animated.parallel([
+          Animated.timing(animFade, {
+            toValue: 0.92,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+          Animated.timing(animTranslateY, {
+            toValue: 0,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+        ]).start(() => {
+          setAnimatPlayed(true)
+        })
       })
-    },
-    hide() {
-      handleHide()
-    },
-  }))
+    }, [animFade, animTranslateY])
 
-
-  const handleShow = useCallback(() => {
-    // console.log('show List')
-    setVisible(true)
-    setAnimatPlayed(false)
-    requestAnimationFrame(() => {
-      animTranslateY.setValue(-20)
-
+    const handleHide = useCallback(() => {
+      setAnimatPlayed(false)
       Animated.parallel([
         Animated.timing(animFade, {
-          toValue: 0.92,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(animTranslateY, {
           toValue: 0,
           duration: 200,
           useNativeDriver: true,
         }),
-      ]).start(() => {
+        Animated.timing(animTranslateY, {
+          toValue: -20,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start((finished) => {
+        if (!finished) return
+        setVisible(false)
         setAnimatPlayed(true)
       })
-    })
-  }, [animFade, animTranslateY])
+    }, [animFade, animTranslateY])
 
-  const handleHide = useCallback(() => {
-    setAnimatPlayed(false)
-    Animated.parallel([
-      Animated.timing(animFade, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
+    const animaStyle = useMemo(
+      () => ({
+        ...styles.container,
+        // backgroundColor: theme['c-content-background'],
+        borderBottomColor: theme['c-border-background'],
+        opacity: animFade, // Bind opacity to animated value
+        transform: [{ translateY: animTranslateY }],
       }),
-      Animated.timing(animTranslateY, {
-        toValue: -20,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start(finished => {
-      if (!finished) return
-      setVisible(false)
-      setAnimatPlayed(true)
-    })
-  }, [animFade, animTranslateY])
-
-
-  const animaStyle = useMemo(() => ({
-    ...styles.container,
-    // backgroundColor: theme['c-content-background'],
-    borderBottomColor: theme['c-border-background'],
-    opacity: animFade, // Bind opacity to animated value
-    transform: [
-      { translateY: animTranslateY },
-    ],
-  }), [animFade, animTranslateY, theme])
-
-  const component = useMemo(() => {
-    return (
-      <Animated.View style={animaStyle}>
-        <View style={styles.content}>
-          <SearchInput ref={searchInputRef} onSearch={onSearch} />
-        </View>
-        <TouchableOpacity onPress={onExitSearch} style={styles.btn}>
-          <Text color={theme['c-button-font']}>{t('list_select_cancel')}</Text>
-        </TouchableOpacity>
-      </Animated.View>
+      [animFade, animTranslateY, theme]
     )
-  }, [animaStyle, onSearch, onExitSearch, theme, t])
 
-  return !visible && animatePlayed ? null : component
-})
+    const component = useMemo(() => {
+      return (
+        <Animated.View style={animaStyle}>
+          <View style={styles.content}>
+            <SearchInput ref={searchInputRef} onSearch={onSearch} />
+          </View>
+          <TouchableOpacity onPress={onExitSearch} style={styles.btn}>
+            <Text color={theme['c-button-font']}>{t('list_select_cancel')}</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      )
+    }, [animaStyle, onSearch, onExitSearch, theme, t])
+
+    return !visible && animatePlayed ? null : component
+  }
+)
 
 const styles = createStyle({
   container: {

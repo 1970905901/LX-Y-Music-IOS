@@ -26,7 +26,6 @@ export interface InitState {
 
   loadErrorPicUrl: string
 
-
   progress: {
     nowPlayTime: number
     maxPlayTime: number
@@ -59,6 +58,7 @@ const state: InitState = {
     rawlrc: null,
     // url: null,
     name: '',
+    alias: '',
     singer: '',
     album: '',
   },
@@ -82,6 +82,5 @@ const state: InitState = {
 
   lastLyric: undefined,
 }
-
 
 export default state

@@ -1,6 +1,6 @@
 // import { createStyle } from '@/utils/tools'
 import { useImperativeHandle, forwardRef, useState, useMemo } from 'react'
-import { Modal, Platform, TouchableWithoutFeedback, View, type ModalProps as _ModalProps } from 'react-native'
+import { Modal, TouchableWithoutFeedback, View, type ModalProps as _ModalProps } from 'react-native'
 import { useStatusbarHeight } from '@/store/common/hook'
 // import { useWindowSize } from '@/utils/hooks'
 
@@ -39,77 +39,68 @@ export interface ModalProps extends Omit<_ModalProps, 'visible'> {
   statusBarPadding?: boolean
 }
 
-
 export interface ModalType {
   setVisible: (visible: boolean) => void
 }
 
-export default forwardRef<ModalType, ModalProps>(({
-  onHide = () => {},
-  keyHide = true,
-  bgHide = true,
-  bgColor = 'rgba(0,0,0,0)',
-  statusBarPadding = true,
-  children,
-  ...props
-}: ModalProps, ref) => {
-  const [visible, setVisible] = useState(false)
-  // const { window: windowSize } = useWindowSize()
-  const statusBarHeight = useStatusbarHeight()
-  const handleRequestClose = () => {
-    if (keyHide) {
-      setVisible(false)
-      onHide()
-    }
-  }
-  const handleBgClose = () => {
-    if (bgHide) {
-      setVisible(false)
-      onHide()
-    }
-  }
-
-  useImperativeHandle(ref, () => ({
-    setVisible(_visible) {
-      if (visible == _visible) return
-      setVisible(_visible)
-      if (!_visible) onHide()
-    },
-  }))
-
-  const memoChildren = useMemo(() => children, [children])
-  const supportedOrientations = useMemo<_ModalProps['supportedOrientations']>(() => Platform.OS == 'ios'
-    ? ['portrait', 'portrait-upside-down', 'landscape', 'landscape-left', 'landscape-right']
-    : undefined, [])
-  const content = (
-    <View style={{ flex: 1, backgroundColor: bgColor, paddingTop: statusBarPadding ? statusBarHeight : 0 }}>
-      {memoChildren}
-    </View>
-  )
-
-  return (
-    <Modal
-      animationType="fade"
-      transparent={true}
-      hardwareAccelerated={true}
-      statusBarTranslucent={true}
-      visible={visible}
-      onRequestClose={handleRequestClose}
-      supportedOrientations={supportedOrientations}
-      {...props}
-    >
-      {/* <StatusBar /> */}
-      {/* <View style={{ flex: 1, paddingTop: statusBarPadding ? StatusBar.currentHeight : 0 }}> */}
-      {
-        bgHide
-          ? (
-              <TouchableWithoutFeedback onPress={handleBgClose}>
-                {content}
-              </TouchableWithoutFeedback>
-            )
-          : content
+export default forwardRef<ModalType, ModalProps>(
+  (
+    {
+      onHide = () => {},
+      keyHide = true,
+      bgHide = true,
+      bgColor = 'rgba(0,0,0,0)',
+      statusBarPadding = true,
+      children,
+      ...props
+    }: ModalProps,
+    ref
+  ) => {
+    const [visible, setVisible] = useState(false)
+    // const { window: windowSize } = useWindowSize()
+    const statusBarHeight = useStatusbarHeight()
+    const handleRequestClose = () => {
+      if (keyHide) {
+        setVisible(false)
+        onHide()
       }
-      {/* </View> */}
-    </Modal>
-  )
-})
+    }
+    const handleBgClose = () => {
+      if (bgHide) {
+        setVisible(false)
+        onHide()
+      }
+    }
+
+    useImperativeHandle(ref, () => ({
+      setVisible(_visible) {
+        if (visible == _visible) return
+        setVisible(_visible)
+        if (!_visible) onHide()
+      },
+    }))
+
+    const memoChildren = useMemo(() => children, [children])
+
+    return (
+      <Modal
+        animationType="fade"
+        transparent={true}
+        hardwareAccelerated={true}
+        statusBarTranslucent={true}
+        visible={visible}
+        onRequestClose={handleRequestClose}
+        {...props}
+      >
+        <View style={{ flex: 1, paddingTop: statusBarPadding ? statusBarHeight : 0, backgroundColor: bgColor }}>
+          <TouchableWithoutFeedback onPress={handleBgClose} style={{ flex: 1 }}>
+            <View style={{ flex: 1 }} />
+          </TouchableWithoutFeedback>
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
+             {memoChildren}
+           </View>
+        </View>
+      </Modal>
+    )
+  }
+)

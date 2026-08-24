@@ -1,12 +1,13 @@
 import { Navigation } from 'react-native-navigation'
 import * as screenNames from './screenNames'
 import * as navigations from './navigation'
-
 import registerScreens from './registerScreens'
 import { removeComponentId } from '@/core/common'
 import { onAppLaunched } from './regLaunchedEvent'
 
-let unRegisterEvent: ReturnType<ReturnType<typeof Navigation.events>['registerScreenPoppedListener']>
+let unRegisterEvent: ReturnType<
+  ReturnType<typeof Navigation.events>['registerScreenPoppedListener']
+>
 
 const init = (callback: () => void | Promise<void>) => {
   // Register all screens on launch
@@ -34,8 +35,4 @@ export * from './utils'
 export * from './event'
 export * from './hooks'
 
-export {
-  init,
-  screenNames,
-  navigations,
-}
+export { init, screenNames, navigations }

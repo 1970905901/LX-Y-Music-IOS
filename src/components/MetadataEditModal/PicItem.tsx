@@ -8,7 +8,6 @@ import Image from '@/components/common/Image'
 import FileSelect, { type FileSelectType } from '@/components/common/FileSelect'
 import { BorderWidths } from '@/theme'
 
-
 export interface PicItemProps {
   value: string
   label: string
@@ -23,27 +22,38 @@ export default memo(({ value, label, onOnlineMatch, onChanged }: PicItemProps) =
     onChanged('')
   }, [onChanged])
   const handleShowSelectFile = useCallback(() => {
-    fileSelectRef.current?.show({
-      title: global.i18n.t('metadata_edit_modal_form_select_pic_title'),
-      dirOnly: false,
-      filter: ['jpg', 'jpeg', 'png'],
-    }, (path) => {
-      onChanged(path)
-    })
+    fileSelectRef.current?.show(
+      {
+        title: global.i18n.t('metadata_edit_modal_form_select_pic_title'),
+        dirOnly: false,
+        filter: ['jpg', 'jpeg', 'png'],
+      },
+      (path) => {
+        onChanged(path)
+      }
+    )
   }, [onChanged])
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.label} size={14}>{label}</Text>
+        <Text style={styles.label} size={14}>
+          {label}
+        </Text>
         <View style={styles.btns}>
           <TouchableOpacity onPress={handleRemoveFile}>
-            <Text size={13} color={theme['c-button-font']}>{global.i18n.t('metadata_edit_modal_form_remove_pic')}</Text>
+            <Text size={13} color={theme['c-button-font']}>
+              {global.i18n.t('metadata_edit_modal_form_remove_pic')}
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={onOnlineMatch}>
-            <Text size={13} color={theme['c-button-font']}>{global.i18n.t('metadata_edit_modal_form_match_pic')}</Text>
+            <Text size={13} color={theme['c-button-font']}>
+              {global.i18n.t('metadata_edit_modal_form_match_pic')}
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={handleShowSelectFile}>
-            <Text size={13} color={theme['c-button-font']}>{global.i18n.t('metadata_edit_modal_form_select_pic')}</Text>
+            <Text size={13} color={theme['c-button-font']}>
+              {global.i18n.t('metadata_edit_modal_form_select_pic')}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>

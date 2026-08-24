@@ -1,6 +1,5 @@
 import music from '@/utils/musicSdk'
 
-
 // import { deduplicationList } from '@common/utils/renderer'
 
 import { type ListInfo } from '@/store/songlist/state'
@@ -8,9 +7,8 @@ export type { ListInfoItem } from '@/store/songlist/state'
 
 export type SearchListInfo = Omit<ListInfo, 'source' | 'maxPage'>
 
-
 interface ListInfos extends Partial<Record<LX.OnlineSource, SearchListInfo>> {
-  'all': SearchListInfo
+  all: SearchListInfo
 }
 
 export type Source = LX.OnlineSource | 'all'

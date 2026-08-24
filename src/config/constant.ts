@@ -1,5 +1,5 @@
 export const HEADER_HEIGHT = 42
-export const LIST_ITEM_HEIGHT = 54
+export const LIST_ITEM_HEIGHT = 70
 export const LIST_SCROLL_POSITION_KEY = '__LIST_SCROLL_POSITION_KEY__'
 
 export const SPLIT_CHAR = {
@@ -15,27 +15,26 @@ export const LIST_IDS = {
   PLAY_LATER: null,
 } as const
 
-// export const COMPONENT_IDS = {
-//   home: 'home',
-//   playDetail: 'playDetail',
-// } as const
-// export type COMPONENT_IDS_TYPE = keyof typeof COMPONENT_IDS
+
 export enum COMPONENT_IDS {
   home = 'home',
   playDetail = 'playDetail',
+  visualizer = 'visualizer',
   songlistDetail = 'songlistDetail',
   comment = 'comment',
+  ARTIST_DETAIL = 'ARTIST_DETAIL',
+  ALBUM_DETAIL_SCREEN = 'ALBUM_DETAIL_SCREEN',
+  DOWNLOAD_MANAGER = 'DOWNLOAD_MANAGER',
+  SIMILAR_SONGS_SCREEN = 'SIMILAR_SONGS_SCREEN',
 }
 
 export enum NAV_SHEAR_NATIVE_IDS {
   playDetail_pic = 'playDetail_pic',
   playDetail_header = 'playDetail_header',
-  // playDetail_pageIndicator = 'playDetail_pageIndicator',
   playDetail_player = 'playDetail_player',
   songlistDetail_pic = 'songlistDetail_pic',
   songlistDetail_title = 'songlistDetail_title',
 }
-
 
 export const storageDataPrefix = {
   setting: '@setting_v1',
@@ -45,12 +44,14 @@ export const storageDataPrefix = {
   list: '@list__',
   listScrollPosition: '@list_scroll_position',
   listPrevSelectId: '@list_prev_select_id',
+  playHistory: '@play_history',
 
   lyric: '@lyric__',
   musicUrl: '@music_url__',
   musicOtherSource: '@music_other_source__',
   playInfo: '@play_info',
 
+  sync: '@sync_',
   syncAuthKey: '@sync_auth_key',
   syncHost: '@sync_host',
   syncHostHistory: '@sync_host_history',
@@ -67,6 +68,7 @@ export const storageDataPrefix = {
   leaderboardSetting: '@leaderboard_setting',
   songListSetting: '@songist_setting',
   searchSetting: '@search_setting',
+  lastSelectQuality: '@last_select_quality',
 
   fontSize: '@font_size',
 
@@ -76,20 +78,20 @@ export const storageDataPrefix = {
   remoteLyricTip: '@remote_lyric_tip',
 
   dislikeList: '@dislike_list',
+  playlistType: '@playlist_type',
 
   userApi: '@user_api__',
-  soundEffectEQPresetList: '@sound_effect_eq_preset_list',
-  soundEffectConvolutionPresetList: '@sound_effect_convolution_preset_list',
+  downloadList: '@download_list',
+  wyUidCache: '@wy_uid_cache__',
+  similarSongsCache: '@similar_songs_cache',
+  localAnnouncementId: '@local_announcement_id',
 } as const
 
-// v0.x.x 版本的 data keys
 export const storageDataPrefixOld = {
   setting: '@setting',
   list: '@list__',
   listPosition: '@listposition__',
   listSort: '@listsort__',
-  // lyric: '@lyric__',
-  // musicUrl: '@music_url__',
   playInfo: '@play_info',
   syncAuthKey: '@sync_auth_key',
   syncHost: '@sync_host',
@@ -97,29 +99,52 @@ export const storageDataPrefixOld = {
   notificationTipEnable: '@notification_tip_enable',
 } as const
 
-export const APP_PROVIDER_NAME = 'cn.toside.music.mobile.provider'
-
+export const APP_PROVIDER_NAME = 'com.lxwalnut.music.mobile.provider'
 
 export const NAV_MENUS = [
   { id: 'nav_search', icon: 'search-2' },
+  { id: 'nav_love', icon: 'love' },
+  { id: 'nav_my_playlist', icon: 'album' },
+  { id: 'nav_daily_rec', icon: 'svg:calendar' },
+  { id: 'nav_kg_playlist', icon: 'album' },
+  { id: 'nav_kg_daily_rec', icon: 'svg:calendar' },
+  { id: 'nav_tx_playlist', icon: 'album' },
+  { id: 'nav_tx_daily_rec', icon: 'svg:calendar' },
   { id: 'nav_songlist', icon: 'album' },
   { id: 'nav_top', icon: 'leaderboard' },
-  { id: 'nav_love', icon: 'love' },
-  // { id: 'download', icon: 'download-2' },
+  { id: 'nav_followed_artists', icon: 'svg:artist' },
+  { id: 'nav_subscribed_albums', icon: 'svg:album-disc' },
+  { id: 'nav_webdav', icon: 'svg:onedrive' },
+  { id: 'nav_onedrive', icon: 'svg:onedrive' },
+  { id: 'nav_play_history', icon: 'music_time' },
   { id: 'nav_setting', icon: 'setting' },
 ] as const
 
-export type NAV_ID_Type = typeof NAV_MENUS[number]['id']
+export type NAV_ID_Type = (typeof NAV_MENUS)[number]['id']
+
+export interface NavGroup {
+  id: string
+  label: string
+  icon: string
+  children: NAV_ID_Type[]
+}
+
+export const NAV_GROUPS: NavGroup[] = [
+  { id: 'group_online', label: 'group_online', icon: 'album', children: ['nav_tx_playlist', 'nav_my_playlist', 'nav_kg_playlist', 'nav_followed_artists', 'nav_subscribed_albums'] },
+  { id: 'group_daily', label: 'group_daily', icon: 'svg:calendar', children: ['nav_tx_daily_rec', 'nav_daily_rec', 'nav_kg_daily_rec'] },
+  { id: 'group_cloud', label: 'group_cloud', icon: 'svg:onedrive', children: ['nav_webdav', 'nav_onedrive'] },
+]
 
 export const LXM_FILE_EXT_RXP = ['json', 'lxmc', 'bin']
 export const USER_API_SOURCE_FILE_EXT_RXP = ['js']
 
 export const MUSIC_TOGGLE_MODE = {
-  listLoop: 'listLoop', // 列表循环
-  random: 'random', // 列表随机
-  list: 'list', // 顺序播放
-  singleLoop: 'singleLoop', // 单曲循环
-  none: 'none', // 禁用
+  listLoop: 'listLoop',
+  random: 'random',
+  list: 'list',
+  singleLoop: 'singleLoop',
+  heartbeat: 'heartbeat',
+  none: 'none',
 } as const
 
 export const MUSIC_TOGGLE_MODE_LIST = [
@@ -144,13 +169,12 @@ export const DEFAULT_SETTING = {
   },
 
   search: {
-    temp_source: 'kw' as LX.OnlineSource,
-    source: 'all' as LX.OnlineSource | 'all',
-    type: 'music' as 'music' | 'songlist',
+    temp_source: 'wy' as LX.OnlineSource,
+    source: 'wy' as LX.OnlineSource | 'wy',
+    type: 'music' as 'music' | 'songlist' | 'singer' | 'album',
   },
 
   viewPrevState: {
     id: 'nav_search' as NAV_ID_Type,
-    // query: {},
   },
 }

@@ -1,14 +1,21 @@
 import { action, state } from '@/store/userApi'
-import { addUserApi, getUserApiScript, removeUserApi as removeUserApiFromStore, setUserApiAllowShowUpdateAlert as setUserApiAllowShowUpdateAlertFromStore } from '@/utils/data'
+import {
+  addUserApi,
+  getUserApiScript,
+  removeUserApi as removeUserApiFromStore,
+  setUserApiAllowShowUpdateAlert as setUserApiAllowShowUpdateAlertFromStore,
+  setUserApiList as setUserApiListFromStore,
+} from '@/utils/data'
 import { destroy, loadScript } from '@/utils/nativeModules/userApi'
 import { log as writeLog } from '@/utils/log'
+import {getAllKeys, removeDataMultiple, saveDataMultiple} from "@/plugins/storage.ts";
+import {storageDataPrefix} from "@/config/constant.ts";
 
-
-export const setUserApi = async(apiId: string) => {
+export const setUserApi = async (apiId: string) => {
   global.lx.qualityList = {}
   setUserApiStatus(false, 'initing')
 
-  const target = state.list.find(api => api.id === apiId)
+  const target = state.list.find((api) => api.id === apiId)
   if (!target) throw new Error('api not found')
   const script = await getUserApiScript(target.id)
   loadScript({ ...target, script })
@@ -18,57 +25,90 @@ export const destroyUserApi = () => {
   destroy()
 }
 
-
-export const setUserApiStatus: typeof action['setStatus'] = (status, message) => {
+export const setUserApiStatus: (typeof action)['setStatus'] = (status, message) => {
   action.setStatus(status, message)
 }
 
-export const setUserApiList: typeof action['setUserApiList'] = (list) => {
+export const setUserApiList: (typeof action)['setUserApiList'] = (list) => {
   action.setUserApiList(list)
 }
 
-export const importUserApi = async(script: string) => {
+export const importUserApi = async (script: string) => {
   const info = await addUserApi(script)
   action.addUserApi(info)
 }
 
-export const removeUserApi = async(ids: string[]) => {
+export const removeUserApi = async (ids: string[]) => {
   const list = await removeUserApiFromStore(ids)
   action.setUserApiList(list)
 }
 
-export const setUserApiAllowShowUpdateAlert = async(id: string, enable: boolean) => {
+export const setUserApiAllowShowUpdateAlert = async (id: string, enable: boolean) => {
   await setUserApiAllowShowUpdateAlertFromStore(id, enable)
   action.setUserApiAllowShowUpdateAlert(id, enable)
 }
 
+export const reorderUserApi = async (list: LX.UserApi.UserApiInfo[]) => {
+  const persisted = await setUserApiListFromStore(list)
+  action.setUserApiList(persisted)
+}
+
+export const overwriteUserApis = async (data: { list: LX.UserApi.UserApiInfo[], scripts: Record<string, string> }) => {
+  try {
+    const allKeys = await getAllKeys();
+    const oldScriptKeys = allKeys.filter(key => key.startsWith(storageDataPrefix.userApi) && key !== storageDataPrefix.userApi);
+    const newScriptIds = new Set(Object.keys(data.scripts ?? {}));
+    const keysToRemove = oldScriptKeys.filter(key => {
+      const scriptId = key.substring(storageDataPrefix.userApi.length);
+      return !newScriptIds.has(scriptId);
+    });
+    if (keysToRemove.length) await removeDataMultiple(keysToRemove);
+
+    const saveTasks: Array<[string, any]> = [];
+    saveTasks.push([storageDataPrefix.userApi, data.list]);
+    for (const [id, script] of Object.entries(data.scripts ?? {})) {
+      saveTasks.push([`${storageDataPrefix.userApi}${id}`, script]);
+    }
+    await saveDataMultiple(saveTasks);
+
+    action.setUserApiList(data.list);
+  } catch (error: any) {
+    log.error('Overwrite user apis failed:', error.message);
+    throw error;
+  }
+};
+
 export const log = {
   r_info(...params: any[]) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+    if (!global.lx.isEnableLog) return
     writeLog.info(...params)
   },
   r_warn(...params: any[]) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+    if (!global.lx.isEnableLog) return
     writeLog.warn(...params)
   },
   r_error(...params: any[]) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+    if (!global.lx.isEnableLog) return
     writeLog.error(...params)
   },
   log(...params: any[]) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-    if (global.lx.isEnableUserApiLog) writeLog.info(...params)
+    if (!global.lx.isEnableLog) return
+    if (!global.lx.isEnableUserApiLog) return
+    writeLog.info(...params)
   },
   info(...params: any[]) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-    if (global.lx.isEnableUserApiLog) writeLog.info(...params)
+    if (!global.lx.isEnableLog) return
+    if (!global.lx.isEnableUserApiLog) return
+    writeLog.info(...params)
   },
   warn(...params: any[]) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-    if (global.lx.isEnableUserApiLog) writeLog.warn(...params)
+    if (!global.lx.isEnableLog) return
+    if (!global.lx.isEnableUserApiLog) return
+    writeLog.warn(...params)
   },
   error(...params: any[]) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-    if (global.lx.isEnableUserApiLog) writeLog.error(...params)
+    if (!global.lx.isEnableLog) return
+    if (!global.lx.isEnableUserApiLog) return
+    writeLog.error(...params)
   },
 }

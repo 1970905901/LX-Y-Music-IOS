@@ -1,5 +1,1 @@
-
-
-export const useGetter = () => {
-
-}
+export const useGetter = () => {}

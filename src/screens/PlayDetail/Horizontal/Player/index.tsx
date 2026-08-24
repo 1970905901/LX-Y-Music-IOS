@@ -8,7 +8,6 @@ import PlayInfo from './PlayInfo'
 import ControlBtn from './ControlBtn'
 import { marginLeftRaw } from '../constant'
 
-
 export default memo(() => {
   return (
     <View style={styles.container} nativeID={NAV_SHEAR_NATIVE_IDS.playDetail_player}>
@@ -21,7 +20,7 @@ export default memo(() => {
 const styles = createStyle({
   container: {
     flexShrink: 0,
-    flexGrow: 1,
+    flexGrow: 0,
     marginLeft: marginLeftRaw,
     // paddingRight: 15,
     // backgroundColor: 'rgba(0,0,0,0.1)',

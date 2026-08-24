@@ -40,10 +40,7 @@ export default ({ url, width, height, maxWidth, maxHeight, style }: ScaledImageP
     })
   }, [height, maxHeight, maxWidth, url, width])
 
-  return (
-    wh.width ? (<Image
-      url={url}
-      style={StyleSheet.compose({ height: wh.height, width: wh.width }, style)}
-    />) : null
-  )
+  return wh.width ? (
+    <Image url={url} style={StyleSheet.compose({ height: wh.height, width: wh.width }, style)} />
+  ) : null
 }

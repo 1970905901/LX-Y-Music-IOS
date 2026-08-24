@@ -8,9 +8,7 @@ import CheckBox from '@/components/common/CheckBox'
 import { getListMusics, setFetchingListStatus, updateListMusicPosition } from '@/core/list'
 import { sortListMusicInfo } from './utils'
 
-const Title = ({ title }: {
-  title: string
-}) => {
+const Title = ({ title }: { title: string }) => {
   return (
     <Text style={styles.title} size={16}>
       {title}
@@ -20,13 +18,18 @@ const Title = ({ title }: {
 
 export interface FormType {
   reset: () => void
-  getForm: () => ([FieldName | undefined, FieldType | undefined])
+  getForm: () => [FieldName | undefined, FieldType | undefined]
 }
 const fieldNames = ['name', 'singer', 'album', 'time', 'source'] as const
 const fieldTypes = ['up', 'down', 'random'] as const
-type FieldName = typeof fieldNames[number]
-type FieldType = typeof fieldTypes[number]
-const CheckBoxItem = <T extends FieldName | FieldType>({ id, isActive, disabled, change }: {
+type FieldName = (typeof fieldNames)[number]
+type FieldType = (typeof fieldTypes)[number]
+const CheckBoxItem = <T extends FieldName | FieldType>({
+  id,
+  isActive,
+  disabled,
+  change,
+}: {
   id: T
   isActive: boolean
   disabled?: boolean
@@ -39,7 +42,11 @@ const CheckBoxItem = <T extends FieldName | FieldType>({ id, isActive, disabled,
       disabled={disabled}
       check={isActive}
       label={t(`list_sort_modal_by_${id}`)}
-      onChange={() => { change(id) }} need />
+      onChange={() => {
+        change(id)
+      }}
+      need
+    />
   )
 }
 const Form = forwardRef<FormType, {}>((props, ref) => {
@@ -61,13 +68,23 @@ const Form = forwardRef<FormType, {}>((props, ref) => {
       <View style={styles.formSection}>
         <Text>{t('list_sort_modal_by_field')}</Text>
         <View style={styles.formList}>
-          {fieldNames.map(n => <CheckBoxItem key={n} id={n} isActive={name == n} change={setName} disabled={type == 'random'} />)}
+          {fieldNames.map((n) => (
+            <CheckBoxItem
+              key={n}
+              id={n}
+              isActive={name == n}
+              change={setName}
+              disabled={type == 'random'}
+            />
+          ))}
         </View>
       </View>
       <View style={styles.formSection}>
         <Text>{t('list_sort_modal_by_type')}</Text>
         <View style={styles.formList}>
-          {fieldTypes.map(n => <CheckBoxItem key={n} id={n} isActive={type == n} change={setType} />)}
+          {fieldTypes.map((n) => (
+            <CheckBoxItem key={n} id={n} isActive={type == n} change={setType} />
+          ))}
         </View>
       </View>
     </View>
@@ -114,7 +131,7 @@ export default forwardRef<ListMusicSortType, {}>((props, ref) => {
     },
   }))
 
-  const handleSort = async() => {
+  const handleSort = async () => {
     const [name, type] = formTypeRef.current!.getForm()
     // console.log(type, name)
     if (!type || (!name && type != 'random')) return
@@ -124,7 +141,11 @@ export default forwardRef<ListMusicSortType, {}>((props, ref) => {
     requestAnimationFrame(() => {
       void InteractionManager.runAfterInteractions(() => {
         list = sortListMusicInfo(list, type, name!, global.i18n.locale)
-        void updateListMusicPosition(id, 0, list.map(m => m.id))
+        void updateListMusicPosition(
+          id,
+          0,
+          list.map((m) => m.id)
+        )
         setFetchingListStatus(id, false)
       })
     })
@@ -132,21 +153,15 @@ export default forwardRef<ListMusicSortType, {}>((props, ref) => {
     alertRef.current?.setVisible(false)
   }
 
-  return (
-    visible
-      ? <ConfirmAlert
-          ref={alertRef}
-          onConfirm={handleSort}
-        >
-          <View style={styles.renameContent}>
-            <Title title={title} />
-            <Form ref={formTypeRef} />
-          </View>
-        </ConfirmAlert>
-      : null
-  )
+  return visible ? (
+    <ConfirmAlert ref={alertRef} onConfirm={handleSort}>
+      <View style={styles.renameContent}>
+        <Title title={title} />
+        <Form ref={formTypeRef} />
+      </View>
+    </ConfirmAlert>
+  ) : null
 })
-
 
 const styles = createStyle({
   renameContent: {
@@ -167,5 +182,3 @@ const styles = createStyle({
     flexWrap: 'wrap',
   },
 })
-
-

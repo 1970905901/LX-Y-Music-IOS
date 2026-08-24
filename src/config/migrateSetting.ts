@@ -3,7 +3,6 @@ import { compareVer } from '@/utils'
 export default (setting: any): Partial<LX.AppSetting> => {
   setting = { ...setting }
 
-  // 迁移 v1 之前的配置
   if (compareVer(setting.version as string, '2.0') < 0) {
     setting['player.startupAutoPlay'] = setting.startupAutoPlay
     setting['player.togglePlayMethod'] = setting.player?.togglePlayMethod
@@ -17,7 +16,8 @@ export default (setting: any): Partial<LX.AppSetting> => {
     setting['player.isShowNotificationImage'] = setting.player?.isShowNotificationImage
     setting['player.isS2t'] = setting.player?.isS2t
     setting['playDetail.portrait.style.lrcFontSize'] = setting.player?.portrait?.style?.lrcFontSize
-    setting['playDetail.landscape.style.lrcFontSize'] = setting.player?.landscape?.style?.lrcFontSize
+    setting['playDetail.landscape.style.lrcFontSize'] =
+      setting.player?.landscape?.style?.lrcFontSize
     setting['desktopLyric.enable'] = setting.desktopLyric?.enable
     setting['desktopLyric.isLock'] = setting.desktopLyric?.isLock
     setting['desktopLyric.width'] = setting.desktopLyric?.width

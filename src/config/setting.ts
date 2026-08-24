@@ -6,19 +6,28 @@ import settingState from '@/store/setting/state'
 import { migrateMetaData, migrateListData } from './migrate'
 import { exitApp, tipDialog } from '@/utils/tools'
 
-// 业务相关工具方法
-
-
 const primitiveType = ['string', 'boolean', 'number']
 const checkPrimitiveType = (val: any): boolean => val === null || primitiveType.includes(typeof val)
 
-const mergeSetting = (originSetting: LX.AppSetting, targetSetting?: Partial<LX.AppSetting> | null): {
+const arraysEqual = (a: any[], b: any[]): boolean => {
+  if (a.length !== b.length) return false
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false
+  }
+  return true
+}
+
+const DEEP_KEYS = ['common.navStatus', 'common.navOrder', 'common.sectionExpandedStatus', 'player.failureStrategy', 'search.enabledSources', 'common.navGroupExpanded', 'common.navGroupOrder', 'common.navFlatOrder', 'common.navGroupVisible']
+
+const mergeSetting = (
+  originSetting: LX.AppSetting,
+  targetSetting?: Partial<LX.AppSetting> | null
+): {
   setting: LX.AppSetting
   updatedSettingKeys: Array<keyof LX.AppSetting>
   updatedSetting: Partial<LX.AppSetting>
 } => {
   let originSettingCopy: LX.AppSetting = { ...originSetting }
-  // const defaultVersion = targetSettingCopy.version
   const updatedSettingKeys: Array<keyof LX.AppSetting> = []
   const updatedSetting: Partial<LX.AppSetting> = {}
 
@@ -26,33 +35,42 @@ const mergeSetting = (originSetting: LX.AppSetting, targetSetting?: Partial<LX.A
     const originSettingKeys = Object.keys(originSettingCopy)
     const targetSettingKeys = Object.keys(targetSetting)
 
-    if (originSettingKeys.length > targetSettingKeys.length) {
-      for (const key of targetSettingKeys as Array<keyof LX.AppSetting>) {
-        const targetValue: any = targetSetting[key]
-        const isPrimitive = checkPrimitiveType(targetValue)
-        // if (checkPrimitiveType(value)) {
-        if (!isPrimitive || targetValue == originSettingCopy[key] || originSettingCopy[key] === undefined) continue
+    const processKey = (key: keyof LX.AppSetting) => {
+      const targetValue: any = targetSetting[key]
+      const isPrimitive = checkPrimitiveType(targetValue)
+      let shouldSkip = false
+      
+      if (!isPrimitive && !DEEP_KEYS.includes(key as string)) {
+        shouldSkip = true
+      } else if (DEEP_KEYS.includes(key as string)) {
+        if (Array.isArray(targetValue) && Array.isArray(originSettingCopy[key])) {
+          if (arraysEqual(targetValue, originSettingCopy[key])) shouldSkip = true
+        } else if (typeof targetValue === 'object' && typeof originSettingCopy[key] === 'object' && targetValue !== null && originSettingCopy[key] !== null) {
+          if (JSON.stringify(targetValue) === JSON.stringify(originSettingCopy[key])) shouldSkip = true
+        } else if (targetValue == originSettingCopy[key]) {
+          shouldSkip = true
+        }
+      } else if (targetValue == originSettingCopy[key]) {
+        shouldSkip = true
+      }
+
+      if (!shouldSkip) {
         updatedSettingKeys.push(key)
         updatedSetting[key] = targetValue
         // @ts-expect-error
         originSettingCopy[key] = targetValue
-        // } else {
-        //   if (!isPrimitive && currentValue != undefined) handleMergeSetting(value, currentValue)
-        // }
+      }
+    }
+
+    if (originSettingKeys.length > targetSettingKeys.length) {
+      for (const key of targetSettingKeys as Array<keyof LX.AppSetting>) {
+        processKey(key)
       }
     } else {
       for (const key of originSettingKeys as Array<keyof LX.AppSetting>) {
-        const targetValue: any = targetSetting[key]
-        const isPrimitive = checkPrimitiveType(targetValue)
-        // if (checkPrimitiveType(value)) {
-        if (!isPrimitive || targetValue == originSettingCopy[key]) continue
-        updatedSettingKeys.push(key)
-        updatedSetting[key] = targetValue
-        // @ts-expect-error
-        originSettingCopy[key] = targetValue
-        // } else {
-        //   if (!isPrimitive && currentValue != undefined) handleMergeSetting(value, currentValue)
-        // }
+        if (targetSetting[key] !== undefined) {
+          processKey(key)
+        }
       }
     }
   }
@@ -76,9 +94,8 @@ export const updateSetting = (setting?: Partial<LX.AppSetting> | null, isInit: b
   return result
 }
 
-export const initSetting = async() => {
+export const initSetting = async () => {
   let setting: Partial<LX.AppSetting> | null = await getData(storageDataPrefix.setting)
-
 
   // try migrate setting before v1
   if (!setting) {
@@ -103,7 +120,6 @@ export const initSetting = async() => {
     }
   }
 
-  // console.log(setting)
   const updatedSetting = updateSetting(setting, true)
   void saveData(storageDataPrefix.setting, updatedSetting.setting)
 

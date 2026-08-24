@@ -1,37 +1,55 @@
 import { LIST_IDS } from '@/config/constant'
-import { createList, getListMusics, overwriteList, overwriteListFull, overwriteListMusics } from '@/core/list'
+import {
+  createList,
+  getListMusics,
+  overwriteList,
+  overwriteListFull,
+  overwriteListMusics,
+} from '@/core/list'
+import { updateSetting } from '@/core/common'
+import { filterSensitiveSettingsForSync, getAllDataForSync } from '@/core/sync/syncHelpers'
+import { overwriteUserApis } from '@/core/userApi'
 import { filterMusicList, fixNewMusicInfoQuality, toNewMusicInfo } from '@/utils'
+import { savePlayHistory } from '@/utils/data'
+import { normalizeRemoteSyncedDownloadTasks, saveDownloadTasks } from '@/utils/data/download'
 import { log } from '@/utils/log'
 import { confirmDialog, handleReadFile, handleSaveFile, showImportTip, toast } from '@/utils/tools'
 import listState from '@/store/list/state'
-import { temporaryDirectoryPath, unlink } from '@/utils/fs'
-import { Platform } from 'react-native'
-import { shareFile } from '@/utils/nativeModules/utils'
+import downloadState from '@/store/download/state'
 
-
-const getAllLists = async() => {
+const getAllLists = async () => {
   const lists = []
-  lists.push(await getListMusics(listState.defaultList.id).then(musics => ({ ...listState.defaultList, list: musics })))
-  lists.push(await getListMusics(listState.loveList.id).then(musics => ({ ...listState.loveList, list: musics })))
+  lists.push(
+    await getListMusics(listState.defaultList.id).then((musics) => ({
+      ...listState.defaultList,
+      list: musics,
+    }))
+  )
+  lists.push(
+    await getListMusics(listState.loveList.id).then((musics) => ({
+      ...listState.loveList,
+      list: musics,
+    }))
+  )
 
   for await (const list of listState.userList) {
-    lists.push(await getListMusics(list.id).then(musics => ({ ...list, list: musics })))
+    lists.push(await getListMusics(list.id).then((musics) => ({ ...list, list: musics })))
   }
 
   return lists
 }
-const importOldListData = async(lists: any[]) => {
+const importOldListData = async (lists: any[]) => {
   const allLists = await getAllLists()
   for (const list of lists) {
     try {
-      const targetList = allLists.find(l => l.id == list.id)
+      const targetList = allLists.find((l) => l.id == list.id)
       if (targetList) {
-        targetList.list = filterMusicList((list.list as any[]).map(m => toNewMusicInfo(m)))
+        targetList.list = filterMusicList((list.list as any[]).map((m) => toNewMusicInfo(m)))
       } else {
         const listInfo = {
           name: list.name,
           id: list.id,
-          list: filterMusicList((list.list as any[]).map(m => toNewMusicInfo(m))),
+          list: filterMusicList((list.list as any[]).map((m) => toNewMusicInfo(m))),
           source: list.source,
           sourceListId: list.sourceListId,
           locationUpdateTime: list.locationUpdateTime ?? null,
@@ -44,20 +62,28 @@ const importOldListData = async(lists: any[]) => {
   }
   const defaultList = allLists.shift()!.list
   const loveList = allLists.shift()!.list
-  await overwriteListFull({ defaultList, loveList, userList: allLists as LX.List.UserListInfoFull[] })
+  await overwriteListFull({
+    defaultList,
+    loveList,
+    userList: allLists as LX.List.UserListInfoFull[],
+  })
 }
-const importNewListData = async(lists: Array<LX.List.MyDefaultListInfoFull | LX.List.MyLoveListInfoFull | LX.List.UserListInfoFull>) => {
+const importNewListData = async (
+  lists: Array<
+    LX.List.MyDefaultListInfoFull | LX.List.MyLoveListInfoFull | LX.List.UserListInfoFull
+  >
+) => {
   const allLists = await getAllLists()
   for (const list of lists) {
     try {
-      const targetList = allLists.find(l => l.id == list.id)
+      const targetList = allLists.find((l) => l.id == list.id)
       if (targetList) {
-        targetList.list = filterMusicList(list.list).map(m => fixNewMusicInfoQuality(m))
+        targetList.list = filterMusicList(list.list).map((m) => fixNewMusicInfoQuality(m))
       } else {
         const data = {
           name: list.name,
           id: list.id,
-          list: filterMusicList(list.list).map(m => fixNewMusicInfoQuality(m)),
+          list: filterMusicList(list.list).map((m) => fixNewMusicInfoQuality(m)),
           source: (list as LX.List.UserListInfoFull).source,
           sourceListId: (list as LX.List.UserListInfoFull).sourceListId,
           locationUpdateTime: (list as LX.List.UserListInfoFull).locationUpdateTime ?? null,
@@ -70,32 +96,44 @@ const importNewListData = async(lists: Array<LX.List.MyDefaultListInfoFull | LX.
   }
   const defaultList = allLists.shift()!.list
   const loveList = allLists.shift()!.list
-  await overwriteListFull({ defaultList, loveList, userList: allLists as LX.List.UserListInfoFull[] })
+  await overwriteListFull({
+    defaultList,
+    loveList,
+    userList: allLists as LX.List.UserListInfoFull[],
+  })
 }
 
 /**
- * 导入单个列表
+ * Import a single list
  * @param listData
  * @param position
  * @returns
  */
-export const handleImportListPart = async(listData: LX.ConfigFile.MyListInfoPart['data'], position: number = listState.userList.length) => {
-  const targetList = listState.allList.find(l => l.id === listData.id)
+export const handleImportListPart = async (
+  listData: LX.ConfigFile.MyListInfoPart['data'],
+  position: number = listState.userList.length
+) => {
+  const targetList = listState.allList.find((l) => l.id === listData.id)
   if (targetList) {
     const confirm = await confirmDialog({
-      message: global.i18n.t('list_import_part_confirm', { importName: listData.name, localName: targetList.name }),
+      message: global.i18n.t('list_import_part_confirm', {
+        importName: listData.name,
+        localName: targetList.name,
+      }),
       cancelButtonText: global.i18n.t('list_import_part_button_cancel'),
       confirmButtonText: global.i18n.t('list_import_part_button_confirm'),
       bgClose: false,
     })
     if (confirm) {
       listData.name = targetList.name
-      void overwriteList(listData).then(() => {
-        toast(global.i18n.t('setting_backup_part_import_list_tip_success'))
-      }).catch((err) => {
-        log.error(err)
-        toast(global.i18n.t('setting_backup_part_import_list_tip_error'))
-      })
+      void overwriteList(listData)
+        .then(() => {
+          toast(global.i18n.t('setting_backup_part_import_list_tip_success'))
+        })
+        .catch((err) => {
+          log.error(err)
+          toast(global.i18n.t('setting_backup_part_import_list_tip_error'))
+        })
       return
     }
     listData.id += `__${Date.now()}`
@@ -108,15 +146,17 @@ export const handleImportListPart = async(listData: LX.ConfigFile.MyListInfoPart
     source: userList.source,
     sourceListId: userList.sourceListId,
     position: Math.max(position, -1),
-  }).then(() => {
-    toast(global.i18n.t('setting_backup_part_import_list_tip_success'))
-  }).catch((err) => {
-    log.error(err)
-    toast(global.i18n.t('setting_backup_part_import_list_tip_error'))
   })
+    .then(() => {
+      toast(global.i18n.t('setting_backup_part_import_list_tip_success'))
+    })
+    .catch((err) => {
+      log.error(err)
+      toast(global.i18n.t('setting_backup_part_import_list_tip_error'))
+    })
 }
 
-const showConfirm = async() => {
+const showConfirm = async () => {
   return confirmDialog({
     message: global.i18n.t('list_import_part_confirm_tip'),
     cancelButtonText: global.i18n.t('dialog_cancel'),
@@ -124,7 +164,32 @@ const showConfirm = async() => {
     bgClose: false,
   })
 }
-const importPlayList = async(path: string) => {
+
+const importBackupData = async (data: LX.ConfigFile.AllDataV3['data']) => {
+  if (!(await showConfirm())) return true
+
+  if (data.lists) await overwriteListFull(data.lists)
+
+  if (Array.isArray(data.playHistory)) {
+    await savePlayHistory(data.playHistory)
+    global.app_event.playHistoryUpdated()
+  }
+
+  if (Array.isArray(data.downloadTasks)) {
+    const tasks = normalizeRemoteSyncedDownloadTasks(data.downloadTasks)
+    downloadState.tasks = tasks
+    await saveDownloadTasks(tasks)
+    global.app_event.download_list_changed()
+  }
+
+  if (data.settings) updateSetting(filterSensitiveSettingsForSync(data.settings))
+
+  if (data.userApis) await overwriteUserApis(data.userApis)
+  
+  toast('部分设置需要重启后生效')
+}
+
+const importPlayList = async (path: string) => {
   let configData: any
   try {
     configData = await handleReadFile(path)
@@ -134,89 +199,101 @@ const importPlayList = async(path: string) => {
   }
 
   switch (configData.type) {
-    case 'defautlList': // 兼容0.6.2及以前版本的列表数据
-      if (!await showConfirm()) return true
-      await overwriteListMusics(LIST_IDS.DEFAULT, filterMusicList((configData.data as LX.List.MyDefaultListInfoFull).list.map(m => toNewMusicInfo(m))))
+    case 'defautlList':
+      if (!(await showConfirm())) return true
+      await overwriteListMusics(
+        LIST_IDS.DEFAULT,
+        filterMusicList(
+          (configData.data as LX.List.MyDefaultListInfoFull).list.map((m) => toNewMusicInfo(m))
+        )
+      )
       break
     case 'playList':
-      if (!await showConfirm()) return true
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+      if (!(await showConfirm())) return true
       await importOldListData(configData.data)
       break
     case 'playList_v2':
-      if (!await showConfirm()) return true
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+      if (!(await showConfirm())) return true
       await importNewListData(configData.data)
       break
     case 'allData':
-      if (!await showConfirm()) return true
-      // 兼容0.6.2及以前版本的列表数据
-      if (configData.defaultList) await overwriteListMusics(LIST_IDS.DEFAULT, filterMusicList((configData.defaultList as LX.List.MyDefaultListInfoFull).list.map(m => toNewMusicInfo(m))))
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+      if (!(await showConfirm())) return true
+      if (configData.defaultList)
+        await overwriteListMusics(
+          LIST_IDS.DEFAULT,
+          filterMusicList(
+            (configData.defaultList as LX.List.MyDefaultListInfoFull).list.map((m) =>
+              toNewMusicInfo(m)
+            )
+          )
+        )
       else await importOldListData(configData.playList)
       break
     case 'allData_v2':
-      if (!await showConfirm()) return true
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+      if (!(await showConfirm())) return true
       await importNewListData(configData.playList)
       break
+    case 'allData_v3':
+      return importBackupData(configData.data as LX.ConfigFile.AllDataV3['data'])
     case 'playListPart':
-      configData.data.list = filterMusicList((configData.data as LX.ConfigFile.MyListInfoPart['data']).list.map(m => toNewMusicInfo(m)))
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+      configData.data.list = filterMusicList(
+        (configData.data as LX.ConfigFile.MyListInfoPart['data']).list.map((m) => toNewMusicInfo(m))
+      )
+
       void handleImportListPart(configData.data)
       return true
     case 'playListPart_v2':
-      configData.data.list = filterMusicList((configData.data as LX.ConfigFile.MyListInfoPart['data']).list).map(m => fixNewMusicInfoQuality(m))
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+      configData.data.list = filterMusicList(
+        (configData.data as LX.ConfigFile.MyListInfoPart['data']).list
+      ).map((m) => fixNewMusicInfoQuality(m))
+
       void handleImportListPart(configData.data)
       return true
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-    default: showImportTip(configData.type)
+
+    default:
+      showImportTip(configData.type)
   }
 }
 
 export const handleImportList = (path: string) => {
   console.log(path)
   toast(global.i18n.t('setting_backup_part_import_list_tip_unzip'))
-  void importPlayList(path).then((skipTip) => {
-    if (skipTip) return
-    toast(global.i18n.t('setting_backup_part_import_list_tip_success'))
-  }).catch((err) => {
-    log.error(err)
-    toast(global.i18n.t('setting_backup_part_import_list_tip_error'))
-  })
+  void importPlayList(path)
+    .then((skipTip) => {
+      if (skipTip) return
+      toast(global.i18n.t('setting_backup_part_import_list_tip_success'))
+    })
+    .catch((err) => {
+      log.error(err)
+      toast(global.i18n.t('setting_backup_part_import_list_tip_error'))
+    })
 }
 
-
-const exportAllList = async(path: string) => {
-  const data = JSON.parse(JSON.stringify({
-    type: 'playList_v2',
-    data: await getAllLists(),
-  }))
+const exportAllList = async (path: string) => {
+  const data: LX.ConfigFile.AllDataV3 = JSON.parse(
+    JSON.stringify({
+      type: 'allData_v3',
+      data: await getAllDataForSync(),
+    })
+  )
 
   try {
-    await handleSaveFile(path + '/lx_list.lxmc', data)
+    await handleSaveFile(path + '/lx_backup.lxmc', data)
   } catch (error: any) {
     log.error(error.stack)
+    throw error
   }
 }
-export const handleExportList = (path?: string) => {
+export const handleExportList = (path: string) => {
   toast(global.i18n.t('setting_backup_part_export_list_tip_zip'))
-  const exportPath = Platform.OS == 'ios' ? temporaryDirectoryPath : path
-  if (!exportPath) {
-    toast(global.i18n.t('setting_backup_part_export_list_tip_failed'), 'long')
-    return
-  }
-  const filePath = exportPath + '/lx_list.lxmc'
-  void exportAllList(exportPath).then(async() => {
-    if (Platform.OS == 'ios') {
-      await shareFile(global.i18n.t('share_title_music'), filePath).finally(() => {
-        void unlink(filePath)
-      })
-    }
-    toast(global.i18n.t('setting_backup_part_export_list_tip_success'))
-  }).catch((err: any) => {
-    log.error(err.message)
-    toast(global.i18n.t('setting_backup_part_export_list_tip_failed') + ': ' + (err.message as string))
-  })
+  void exportAllList(path)
+    .then(() => {
+      toast(global.i18n.t('setting_backup_part_export_list_tip_success'))
+    })
+    .catch((err: any) => {
+      log.error(err.message)
+      toast(
+        global.i18n.t('setting_backup_part_export_list_tip_failed') + ': ' + (err.message as string)
+      )
+    })
 }

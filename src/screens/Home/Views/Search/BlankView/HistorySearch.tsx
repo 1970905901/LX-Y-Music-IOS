@@ -9,10 +9,13 @@ import { useI18n } from '@/lang'
 import { clearHistoryList, getSearchHistory, removeHistoryWord } from '@/core/search/search'
 import { Icon } from '@/components/common/Icon'
 
-
 export type List = NonNullable<InitState['sourceList'][keyof InitState['sourceList']]>
 
-const ListItem = ({ keyword, onSearch, onRemove }: {
+const ListItem = ({
+  keyword,
+  onSearch,
+  onRemove,
+}: {
   keyword: string
   onSearch: (keyword: string) => void
   onRemove: (keyword: string) => void
@@ -21,14 +24,19 @@ const ListItem = ({ keyword, onSearch, onRemove }: {
   return (
     <Button
       style={{ ...styles.button, backgroundColor: theme['c-button-background'] }}
-      onPress={() => { onSearch(keyword) }}
-      onLongPress={() => { onRemove(keyword) }}
+      onPress={() => {
+        onSearch(keyword)
+      }}
+      onLongPress={() => {
+        onRemove(keyword)
+      }}
     >
-      <Text color={theme['c-button-font']} size={13}>{keyword}</Text>
+      <Text color={theme['c-button-font']} size={13}>
+        {keyword}
+      </Text>
     </Button>
   )
 }
-
 
 interface HistorySearchProps {
   onSearch: (keyword: string) => void
@@ -50,14 +58,18 @@ export default forwardRef<HistorySearchType, HistorySearchProps>((props, ref) =>
     }
   }, [])
 
-  useImperativeHandle(ref, () => ({
-    show() {
-      void getSearchHistory().then((list) => {
-        if (isUnmountedRef.current) return
-        setList(list)
-      })
-    },
-  }), [])
+  useImperativeHandle(
+    ref,
+    () => ({
+      show() {
+        void getSearchHistory().then((list) => {
+          if (isUnmountedRef.current) return
+          setList(list)
+        })
+      },
+    }),
+    []
+  )
 
   const handleClear = () => {
     clearHistoryList()
@@ -65,7 +77,7 @@ export default forwardRef<HistorySearchType, HistorySearchProps>((props, ref) =>
   }
 
   const handleRemove = useCallback((keyword: string) => {
-    setList(list => {
+    setList((list) => {
       list = [...list]
       const index = list.indexOf(keyword)
       list.splice(index, 1)
@@ -74,27 +86,27 @@ export default forwardRef<HistorySearchType, HistorySearchProps>((props, ref) =>
     })
   }, [])
 
-  return (
-    list.length
-      ? (
-          <View>
-            <View style={styles.titleContent}>
-              <Text size={16}>{t('search_history_search')}</Text>
-              <TouchableOpacity onPress={handleClear} style={styles.titleBtn}>
-                <Icon name="eraser" color={theme['c-300']} size={14} />
-              </TouchableOpacity>
-            </View>
-            <View style={styles.list}>
-              {
-                list.map(keyword => <ListItem keyword={keyword} key={keyword} onSearch={props.onSearch} onRemove={handleRemove} />)
-              }
-            </View>
-          </View>
-        )
-      : null
-  )
+  return list.length ? (
+    <View>
+      <View style={styles.titleContent}>
+        <Text size={16}>{t('search_history_search')}</Text>
+        <TouchableOpacity onPress={handleClear} style={styles.titleBtn}>
+          <Icon name="eraser" color={theme['c-300']} size={14} />
+        </TouchableOpacity>
+      </View>
+      <View style={styles.list}>
+        {list.map((keyword) => (
+          <ListItem
+            keyword={keyword}
+            key={keyword}
+            onSearch={props.onSearch}
+            onRemove={handleRemove}
+          />
+        ))}
+      </View>
+    </View>
+  ) : null
 })
-
 
 const styles = createStyle({
   titleContent: {

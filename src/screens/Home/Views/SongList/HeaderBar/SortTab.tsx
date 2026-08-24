@@ -15,7 +15,6 @@ export interface SortTabType {
   setSource: (source: Source, activeTab: SortInfo['id']) => void
 }
 
-
 export default forwardRef<SortTabType, SortTabProps>(({ onSortChange }, ref) => {
   const [sortList, setSortList] = useState<SortInfo[]>([])
   const [activeId, setActiveId] = useState<SortInfo['id']>('')
@@ -32,7 +31,7 @@ export default forwardRef<SortTabType, SortTabProps>(({ onSortChange }, ref) => 
   }))
 
   const sorts = useMemo(() => {
-    return sortList.map(s => ({ label: t(`songlist_${s.tid}`), id: s.id }))
+    return sortList.map((s) => ({ label: t(`songlist_${s.tid}`), id: s.id }))
   }, [sortList, t])
 
   const handleSortChange = (id: string) => {
@@ -41,18 +40,35 @@ export default forwardRef<SortTabType, SortTabProps>(({ onSortChange }, ref) => 
   }
 
   return (
-    <ScrollView ref={scrollViewRef} style={styles.container} keyboardShouldPersistTaps={'always'} horizontal>
-      {
-        sorts.map(s => (
-          <TouchableOpacity style={styles.button} onPress={() => { handleSortChange(s.id) }} key={s.id}>
-            <Text style={{ ...styles.buttonText, borderBottomColor: activeId == s.id ? theme['c-primary-background-active'] : 'transparent' }} color={activeId == s.id ? theme['c-primary-font-active'] : theme['c-font']}>{s.label}</Text>
-          </TouchableOpacity>
-        ))
-      }
+    <ScrollView
+      ref={scrollViewRef}
+      style={styles.container}
+      keyboardShouldPersistTaps={'always'}
+      horizontal
+    >
+      {sorts.map((s) => (
+        <TouchableOpacity
+          style={styles.button}
+          onPress={() => {
+            handleSortChange(s.id)
+          }}
+          key={s.id}
+        >
+          <Text
+            style={{
+              ...styles.buttonText,
+              borderBottomColor:
+                activeId == s.id ? theme['c-primary-background-active'] : 'transparent',
+            }}
+            color={activeId == s.id ? theme['c-primary-font-active'] : theme['c-font']}
+          >
+            {s.label}
+          </Text>
+        </TouchableOpacity>
+      ))}
     </ScrollView>
   )
 })
-
 
 const styles = createStyle({
   container: {

@@ -26,10 +26,13 @@ export default <T extends Menus>({
   const showMenu = () => {
     buttonRef.current?.measure((fx, fy, width, height, px, py) => {
       // console.log(fx, fy, width, height, px, py)
-      menuRef.current?.show({ x: Math.ceil(px), y: Math.ceil(py), w: Math.ceil(width), h: Math.ceil(height) }, {
-        width,
-        height,
-      })
+      menuRef.current?.show(
+        { x: Math.ceil(px), y: Math.ceil(py), w: Math.ceil(width), h: Math.ceil(height) },
+        {
+          width,
+          height,
+        }
+      )
     })
   }
 

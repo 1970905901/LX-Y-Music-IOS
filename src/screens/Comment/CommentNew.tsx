@@ -2,35 +2,52 @@ import { useEffect, useRef } from 'react'
 import { filterList, getNewComment } from './utils'
 import music from '@/utils/musicSdk'
 import List, { type ListType } from './components/List'
+import { type CommentFloorActions } from './components/CommentFloor'
 const limit = 15
 
-export default ({ musicInfo, onUpdateTotal }: {
+export default ({
+  musicInfo,
+  onUpdateTotal,
+  actions,
+  refreshKey,
+}: {
   musicInfo: LX.Music.MusicInfoOnline
   onUpdateTotal: (total: number) => void
+  actions?: CommentFloorActions
+  refreshKey?: number
 }) => {
   // const [isLoading, setIsLoading] = useState(false)
   const listRef = useRef<ListType>(null)
-  const listInfo = useRef({ page: 1, total: 0, maxPage: 1, isEnd: false, isLoading: false, isLoadError: false })
-  const handleGetComment = async(musicInfo: LX.Music.MusicInfoOnline, page: number) => {
+  const listInfo = useRef({
+    page: 1,
+    total: 0,
+    maxPage: 1,
+    isEnd: false,
+    isLoading: false,
+    isLoadError: false,
+  })
+  const handleGetComment = async (musicInfo: LX.Music.MusicInfoOnline, page: number) => {
     // setIsLoading(true)
     listInfo.current.isLoading = true
-    return getNewComment(musicInfo, page, limit).then(commentInfo => {
-      listInfo.current.page = page
-      listInfo.current.isLoading = false
-      // setIsLoading(false)
-      if (listInfo.current.isLoadError) {
-        listInfo.current.isLoadError = false
-      }
-      return commentInfo
-    }).catch(async err => {
-      console.log(err)
-      if (err.message != '取消请求') {
+    return getNewComment(musicInfo, page, limit)
+      .then((commentInfo) => {
+        listInfo.current.page = page
         listInfo.current.isLoading = false
         // setIsLoading(false)
-        listInfo.current.isLoadError = true
-      }
-      throw err
-    })
+        if (listInfo.current.isLoadError) {
+          listInfo.current.isLoadError = false
+        }
+        return commentInfo
+      })
+      .catch(async (err) => {
+        console.log(err)
+        if (err.message != '取消请求') {
+          listInfo.current.isLoading = false
+          // setIsLoading(false)
+          listInfo.current.isLoadError = true
+        }
+        throw err
+      })
   }
   const updateStatus = () => {
     if (listInfo.current.isLoadError) {
@@ -47,23 +64,27 @@ export default ({ musicInfo, onUpdateTotal }: {
     const list = listRef.current?.getList() ?? []
     const page = list.length ? listInfo.current.page + 1 : 1
     listRef.current?.setStatus('loading')
-    void handleGetComment(musicInfo, page).then(({ comments }) => {
-      let isEnd = page >= listInfo.current.maxPage
-      if (listInfo.current.isEnd != isEnd) listInfo.current.isEnd = isEnd
-      listRef.current?.setList(filterList([...listRef.current.getList(), ...comments]))
-    }).finally(updateStatus)
+    void handleGetComment(musicInfo, page)
+      .then(({ comments }) => {
+        let isEnd = page >= listInfo.current.maxPage
+        if (listInfo.current.isEnd != isEnd) listInfo.current.isEnd = isEnd
+        listRef.current?.setList(filterList([...listRef.current.getList(), ...comments]))
+      })
+      .finally(updateStatus)
   }
 
   const handleListRefresh = () => {
     listRef.current?.setStatus('refreshing')
-    void handleGetComment(musicInfo, 1).then(({ comments, maxPage, total }) => {
-      listInfo.current.total = total
-      listInfo.current.maxPage = maxPage
-      onUpdateTotal(total)
-      let isEnd = maxPage === 1
-      if (listInfo.current.isEnd != isEnd) listInfo.current.isEnd = isEnd
-      listRef.current?.setList(filterList(comments))
-    }).finally(updateStatus)
+    void handleGetComment(musicInfo, 1)
+      .then(({ comments, maxPage, total }) => {
+        listInfo.current.total = total
+        listInfo.current.maxPage = maxPage
+        onUpdateTotal(total)
+        let isEnd = maxPage === 1
+        if (listInfo.current.isEnd != isEnd) listInfo.current.isEnd = isEnd
+        listRef.current?.setList(filterList(comments))
+      })
+      .finally(updateStatus)
   }
 
   const handleShowComment = (musicInfo: LX.Music.MusicInfoOnline) => {
@@ -91,15 +112,17 @@ export default ({ musicInfo, onUpdateTotal }: {
 
   useEffect(() => {
     handleShowComment(musicInfo)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [musicInfo.id])
 
+  // Force refresh when refreshKey changes (after send/delete)
+  const isFirstRender = useRef(true)
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false
+      return
+    }
+    handleListRefresh()
+  }, [refreshKey])
 
-  return (
-    <List
-      ref={listRef}
-      onLoadMore={handleListLoadMore}
-      onRefresh={handleListRefresh}
-    />
-  )
+  return <List ref={listRef} onLoadMore={handleListLoadMore} onRefresh={handleListRefresh} actions={actions} />
 }

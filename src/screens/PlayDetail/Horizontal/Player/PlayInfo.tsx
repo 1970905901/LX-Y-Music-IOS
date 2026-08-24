@@ -30,19 +30,20 @@ export default () => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.status} >
+      <View style={styles.status}>
         <Status />
       </View>
-      <View style={{ flexGrow: 0, flexShrink: 0, flexDirection: 'row' }} >
+      <View style={{ flexGrow: 0, flexShrink: 0, flexDirection: 'row' }}>
         <PlayTimeCurrent timeStr={nowPlayTimeStr} />
         <Text color={theme['c-500']}> / </Text>
         <PlayTimeMax timeStr={maxPlayTimeStr} />
       </View>
-      <View style={[StyleSheet.absoluteFill, styles.progress]}><Progress progress={progress} duration={maxPlayTime} buffered={buffered} /></View>
+      <View style={[StyleSheet.absoluteFill, styles.progress]}>
+        <Progress progress={progress} duration={maxPlayTime} buffered={buffered} />
+      </View>
     </View>
   )
 }
-
 
 const styles = createStyle({
   container: {

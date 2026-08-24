@@ -24,26 +24,24 @@ const buildData = (key: string, value: any, datas: Array<[string, string]>) => {
   datas.push([key, partKeyArrPrefix + JSON.stringify(partKeys)])
 }
 
-// 1.4.0 之前的数据分片存储方式，存在key的内容与分隔符冲突的问题
-// 1.4.0 开始改用数组存储，不再使用分隔符的方式
-const handleGetDataOld = async<T>(partKeys: string): Promise<T> => {
+const handleGetDataOld = async <T>(partKeys: string): Promise<T> => {
   const keys = partKeys.replace(partKeyPrefixRxp, '').split(keySplit)
 
-  return AsyncStorage.multiGet(keys).then(datas => {
-    return JSON.parse(datas.map(data => data[1]).join(''))
+  return AsyncStorage.multiGet(keys).then((datas) => {
+    return JSON.parse(datas.map((data) => data[1]).join(''))
   })
 }
 
-const handleGetData = async<T>(partKeys: string): Promise<T> => {
+const handleGetData = async <T>(partKeys: string): Promise<T> => {
   if (partKeys.startsWith(partKeyPrefix)) return handleGetDataOld<T>(partKeys)
 
   const keys = JSON.parse(partKeys.replace(partKeyArrPrefixRxp, '')) as string[]
-  return AsyncStorage.multiGet(keys).then(datas => {
-    return JSON.parse(datas.map(data => data[1]).join(''))
+  return AsyncStorage.multiGet(keys).then((datas) => {
+    return JSON.parse(datas.map((data) => data[1]).join(''))
   })
 }
 
-export const saveData = async(key: string, value: any) => {
+export const saveData = async (key: string, value: any) => {
   const datas: Array<[string, string]> = []
   buildData(key, value, datas)
 
@@ -57,7 +55,7 @@ export const saveData = async(key: string, value: any) => {
   }
 }
 
-export const getData = async<T = unknown>(key: string): Promise<T | null> => {
+export const getData = async <T = unknown>(key: string): Promise<T | null> => {
   let value: string | null
   try {
     value = await AsyncStorage.getItem(key)
@@ -72,7 +70,7 @@ export const getData = async<T = unknown>(key: string): Promise<T | null> => {
   return JSON.parse(value)
 }
 
-export const removeData = async(key: string) => {
+export const removeData = async (key: string) => {
   let value: string | null
   try {
     value = await AsyncStorage.getItem(key)
@@ -116,7 +114,7 @@ export const removeData = async(key: string) => {
   }
 }
 
-export const getAllKeys = async() => {
+export const getAllKeys = async () => {
   let keys
   try {
     keys = await AsyncStorage.getAllKeys()
@@ -129,12 +127,11 @@ export const getAllKeys = async() => {
   return keys
 }
 
-
-export const getDataMultiple = async<T extends readonly string[]>(keys: T) => {
+export const getDataMultiple = async <T extends readonly string[]>(keys: T) => {
   type RawData = { [K in keyof T]: [T[K], string | null] }
   let datas: RawData
   try {
-    datas = await AsyncStorage.multiGet(keys) as RawData
+    datas = (await AsyncStorage.multiGet(keys)) as RawData
   } catch (e: any) {
     // read error
     log.error('storage error[getDataMultiple]:', e.message)
@@ -145,22 +142,21 @@ export const getDataMultiple = async<T extends readonly string[]>(keys: T) => {
     if (value && (partKeyPrefixRxp.test(value) || partKeyArrPrefixRxp.test(value))) {
       promises.push(handleGetData(value))
     } else {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       promises.push(Promise.resolve(value ? JSON.parse(value) : value))
     }
   }
-  return Promise.all(promises).then(values => {
-    return datas.map(([key], index) => ([key, values[index]])) as { [K in keyof T]: [T[K], unknown] }
+  return Promise.all(promises).then((values) => {
+    return datas.map(([key], index) => [key, values[index]]) as { [K in keyof T]: [T[K], unknown] }
   })
 }
 
-export const saveDataMultiple = async(datas: Array<[string, any]>) => {
+export const saveDataMultiple = async (datas: Array<[string, any]>) => {
   const allData: Array<[string, string]> = []
   for (const [key, value] of datas) {
     buildData(key, value, allData)
   }
   try {
-    await removeDataMultiple(datas.map(k => k[0]))
+    await removeDataMultiple(datas.map((k) => k[0]))
     await AsyncStorage.multiSet(allData)
   } catch (e: any) {
     // save error
@@ -169,8 +165,7 @@ export const saveDataMultiple = async(datas: Array<[string, any]>) => {
   }
 }
 
-
-export const removeDataMultiple = async(keys: string[]) => {
+export const removeDataMultiple = async (keys: string[]) => {
   if (!keys.length) return
   const datas = await AsyncStorage.multiGet(keys)
   let allKeys = []
@@ -180,7 +175,7 @@ export const removeDataMultiple = async(keys: string[]) => {
       if (partKeyPrefixRxp.test(value)) {
         allKeys.push(...value.replace(partKeyPrefixRxp, '').split(keySplit))
       } else if (partKeyArrPrefixRxp.test(value)) {
-        allKeys.push(...JSON.parse(value.replace(partKeyArrPrefixRxp, '')) as string[])
+        allKeys.push(...(JSON.parse(value.replace(partKeyArrPrefixRxp, '')) as string[]))
       }
     }
   }
@@ -193,7 +188,7 @@ export const removeDataMultiple = async(keys: string[]) => {
   }
 }
 
-export const clearAll = async() => {
+export const clearAll = async () => {
   try {
     await AsyncStorage.clear()
   } catch (e: any) {

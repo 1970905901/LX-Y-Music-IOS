@@ -1,19 +1,19 @@
-import { useState, useRef, useImperativeHandle, forwardRef, type Ref } from 'react'
-import { FlatList, Platform, StyleSheet, type FlatListProps } from 'react-native'
+import { useState, forwardRef, useImperativeHandle, type Ref } from 'react'
+import { FlatList, type FlatListProps } from 'react-native'
 
 // import InsetShadow from 'react-native-inset-shadow'
 
 export type ItemT<T> = FlatListProps<T>['data']
 
-export type ListProps<T> = Pick<FlatListProps<T>,
-| 'renderItem'
-| 'maxToRenderPerBatch'
-| 'windowSize'
-| 'initialNumToRender'
-| 'keyExtractor'
-| 'getItemLayout'
-| 'keyboardShouldPersistTaps'
-| 'ListEmptyComponent'
+export type ListProps<T> = Pick<
+  FlatListProps<T>,
+  | 'renderItem'
+  | 'maxToRenderPerBatch'
+  | 'windowSize'
+  | 'initialNumToRender'
+  | 'keyExtractor'
+  | 'getItemLayout'
+  | 'keyboardShouldPersistTaps'
 >
 
 export interface ListType<T> {
@@ -22,39 +22,22 @@ export interface ListType<T> {
 
 const List = <T extends ItemT<T>>(props: ListProps<T>, ref: Ref<ListType<T>>) => {
   const [list, setList] = useState<T[]>([])
-  const flatListRef = useRef<FlatList<T>>(null)
   useImperativeHandle(ref, () => ({
     setList(list) {
       setList(list)
-      requestAnimationFrame(() => {
-        flatListRef.current?.scrollToOffset({ offset: 0, animated: false })
-      })
     },
   }))
 
   return (
     <FlatList
-      ref={flatListRef}
-      removeClippedSubviews={false}
-      automaticallyAdjustContentInsets={false}
-      contentInsetAdjustmentBehavior={Platform.OS == 'ios' ? 'never' : undefined}
-      contentContainerStyle={styles.content}
+      removeClippedSubviews={true}
       keyboardShouldPersistTaps={'always'}
-      showsVerticalScrollIndicator={false}
       {...props}
       data={list}
     />
   )
 }
 
-export default forwardRef(List) as
-  <M,>(p: ListProps<M> & { ref?: Ref<ListType<M>> }) => JSX.Element | null
-
-const styles = StyleSheet.create({
-  content: {
-    paddingTop: 2,
-    paddingBottom: 6,
-  },
-})
-
-
+export default forwardRef(List) as <M>(
+  p: ListProps<M> & { ref?: Ref<ListType<M>> }
+) => JSX.Element | null

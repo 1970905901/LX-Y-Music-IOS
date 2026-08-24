@@ -1,4 +1,4 @@
-export type SearchType = 'music' | 'songlist'
+export type SearchType = 'music' | 'songlist' | 'singer' | 'album'
 
 export interface InitState {
   temp_source: 'kw'
@@ -24,6 +24,5 @@ const state: InitState = {
   },
   historyList: [],
 }
-
 
 export default state

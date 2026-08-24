@@ -1,0 +1,220 @@
+import { useEffect, useState } from 'react'
+import state from './state'
+
+export const useWyUid = () => {
+  return state.wy_uid;
+}
+
+export const useIsWyLiked = (songId: string | number) => {
+  const strId = String(songId)
+  const [isLiked, setIsLiked] = useState(() => state.wy_liked_song_ids.has(strId))
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      const newLikedStatus = state.wy_liked_song_ids.has(strId)
+      setIsLiked(currentStatus => currentStatus === newLikedStatus ? currentStatus : newLikedStatus)
+    }
+    global.state_event.on('wyLikedListChanged', handleUpdate)
+    handleUpdate()
+    return () => {
+      global.state_event.off('wyLikedListChanged', handleUpdate)
+    }
+  }, [strId])
+
+  return isLiked
+}
+
+export const useIsTxLiked = (songMid: string | number) => {
+  const strId = String(songMid)
+  const [isLiked, setIsLiked] = useState(() => state.tx_liked_song_ids.has(strId))
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      const newLikedStatus = state.tx_liked_song_ids.has(strId)
+      setIsLiked(currentStatus => currentStatus === newLikedStatus ? currentStatus : newLikedStatus)
+    }
+    global.state_event.on('txLikedListChanged', handleUpdate)
+    handleUpdate()
+    return () => {
+      global.state_event.off('txLikedListChanged', handleUpdate)
+    }
+  }, [strId])
+
+  return isLiked
+}
+
+export const useIsWyArtistFollowed = (artistId: string | number | undefined) => {
+  const strId = String(artistId)
+  const [isFollowed, setIsFollowed] = useState(() => artistId === undefined || artistId === null ? false : state.wy_followed_artists.some(a => String(a.id) === strId))
+
+  useEffect(() => {
+    if (artistId === undefined || artistId === null) {
+      setIsFollowed(false)
+      return
+    }
+
+    const handleUpdate = () => {
+      const newFollowedStatus = state.wy_followed_artists.some(a => String(a.id) === strId)
+      setIsFollowed(newFollowedStatus)
+    }
+
+    global.state_event.on('wyFollowedListChanged', handleUpdate)
+    handleUpdate()
+
+    return () => {
+      global.state_event.off('wyFollowedListChanged', handleUpdate)
+    }
+  }, [strId, artistId])
+
+  return isFollowed
+}
+
+export const useWyFollowedArtists = () => {
+  const [list, setList] = useState(() => state.wy_followed_artists)
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      setList([...state.wy_followed_artists])
+    }
+    global.state_event.on('wyFollowedListChanged', handleUpdate)
+    handleUpdate()
+    return () => {
+      global.state_event.off('wyFollowedListChanged', handleUpdate)
+    }
+  }, [])
+
+  return list
+}
+
+
+export const useIsWyAlbumSubscribed = (albumId: string | number | undefined) => {
+  const strId = String(albumId);
+  const [isSubscribed, setIsSubscribed] = useState(() =>
+    albumId === undefined || albumId === null ? false : state.wy_subscribed_albums.some(a => String(a.id) === strId),
+  );
+
+  useEffect(() => {
+    if (albumId === undefined || albumId === null) {
+      setIsSubscribed(false);
+      return;
+    }
+
+    const handleUpdate = () => {
+      const newSubscribedStatus = state.wy_subscribed_albums.some(a => String(a.id) === strId);
+      setIsSubscribed(newSubscribedStatus);
+    };
+
+    global.state_event.on('wySubscribedAlbumsChanged', handleUpdate);
+    handleUpdate();
+
+    return () => {
+      global.state_event.off('wySubscribedAlbumsChanged', handleUpdate);
+    };
+  }, [strId, albumId]);
+
+  return isSubscribed;
+};
+
+export const useWySubscribedAlbums = () => {
+  const [list, setList] = useState(() => state.wy_subscribed_albums);
+  useEffect(() => {
+    const handleUpdate = () => {
+      setList([...state.wy_subscribed_albums]);
+    };
+    global.state_event.on('wySubscribedAlbumsChanged', handleUpdate);
+    handleUpdate();
+    return () => {
+      global.state_event.off('wySubscribedAlbumsChanged', handleUpdate);
+    };
+  }, []);
+  return list;
+};
+
+export const useIsWyPlaylistSubscribed = (playlistId: string | number | undefined) => {
+  const strId = String(playlistId);
+  const [isSubscribed, setIsSubscribed] = useState(() =>
+    playlistId === undefined || playlistId === null ? false : state.wy_subscribed_playlists.some(p => String(p.id) === strId),
+  );
+
+  useEffect(() => {
+    if (playlistId === undefined || playlistId === null) {
+      setIsSubscribed(false);
+      return;
+    }
+    const handleUpdate = () => {
+      const newSubscribedStatus = state.wy_subscribed_playlists.some(p => String(p.id) === strId);
+      setIsSubscribed(newSubscribedStatus);
+    };
+    global.state_event.on('wySubscribedPlaylistsChanged', handleUpdate);
+    handleUpdate();
+    return () => {
+      global.state_event.off('wySubscribedPlaylistsChanged', handleUpdate);
+    };
+  }, [strId, playlistId]);
+
+  return isSubscribed;
+};
+
+export const useWySubscribedPlaylists = () => {
+  const [list, setList] = useState(() => state.wy_subscribed_playlists);
+  useEffect(() => {
+    const handleUpdate = () => {
+      setList([...state.wy_subscribed_playlists]);
+    };
+    global.state_event.on('wySubscribedPlaylistsChanged', handleUpdate);
+    handleUpdate();
+    return () => {
+      global.state_event.off('wySubscribedPlaylistsChanged', handleUpdate);
+    };
+  }, []);
+  return list;
+};
+
+export const useTxSubscribedPlaylists = () => {
+  const [list, setList] = useState(() => state.tx_subscribed_playlists);
+  useEffect(() => {
+    const handleUpdate = () => {
+      setList([...state.tx_subscribed_playlists]);
+    };
+    global.state_event.on('txSubscribedPlaylistsChanged', handleUpdate);
+    handleUpdate();
+    return () => {
+      global.state_event.off('txSubscribedPlaylistsChanged', handleUpdate);
+    };
+  }, []);
+  return list;
+};
+
+export const useIsKgLiked = (songId: string | number) => {
+  const strId = String(songId)
+  const [isLiked, setIsLiked] = useState(() => state.kg_liked_song_ids.has(strId))
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      const newLikedStatus = state.kg_liked_song_ids.has(strId)
+      setIsLiked(currentStatus => currentStatus === newLikedStatus ? currentStatus : newLikedStatus)
+    }
+    global.state_event.on('kgLikedListChanged', handleUpdate)
+    handleUpdate()
+    return () => {
+      global.state_event.off('kgLikedListChanged', handleUpdate)
+    }
+  }, [strId])
+
+  return isLiked
+}
+
+export const useKgSubscribedPlaylists = () => {
+  const [list, setList] = useState(() => state.kg_subscribed_playlists);
+  useEffect(() => {
+    const handleUpdate = () => {
+      setList([...state.kg_subscribed_playlists]);
+    };
+    global.state_event.on('kgSubscribedPlaylistsChanged', handleUpdate);
+    handleUpdate();
+    return () => {
+      global.state_event.off('kgSubscribedPlaylistsChanged', handleUpdate);
+    };
+  }, []);
+  return list;
+};

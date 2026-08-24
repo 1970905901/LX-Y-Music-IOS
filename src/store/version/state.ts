@@ -30,16 +30,12 @@ const state: InitState = {
   showModal: false,
   versionInfo: {
     version,
-    newVersion: {
-      version,
-      desc: '',
-      history: [],
-    },
+    newVersion: null,
     showModal: false,
     reCheck: false,
     isUnknown: false,
-    isLatest: true,
-    status: 'idle',
+    isLatest: false,
+    status: 'checking',
   },
   ignoreVersion: null,
   progress: {
@@ -47,6 +43,5 @@ const state: InitState = {
     current: 0,
   },
 }
-
 
 export default state

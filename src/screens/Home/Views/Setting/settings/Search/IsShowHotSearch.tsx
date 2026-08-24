@@ -5,7 +5,6 @@ import { memo } from 'react'
 import { View } from 'react-native'
 import { useSettingValue } from '@/store/setting/hook'
 
-
 import CheckBoxItem from '../../components/CheckBoxItem'
 
 export default memo(() => {
@@ -17,15 +16,17 @@ export default memo(() => {
 
   return (
     <View style={styles.content}>
-      <CheckBoxItem check={isShowHotSearch} onChange={handleUpdate} label={t('setting_search_show_hot_search')} />
+      <CheckBoxItem
+        check={isShowHotSearch}
+        onChange={handleUpdate}
+        label={t('setting_search_show_hot_search')}
+      />
     </View>
   )
 })
-
 
 const styles = createStyle({
   content: {
     marginTop: 5,
   },
 })
-

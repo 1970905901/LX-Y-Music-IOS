@@ -5,12 +5,13 @@ import { Navigation } from 'react-native-navigation'
 export const useNavigationCommandComplete = (callback = () => {}) => {
   useEffect(() => {
     // Register the listener to all events related to our component
-    let commandCompletedListener: EmitterSubscription | null = Navigation.events().registerCommandCompletedListener(({ commandId }) => {
-      callback()
-      if (!commandCompletedListener) return
-      commandCompletedListener.remove()
-      commandCompletedListener = null
-    })
+    let commandCompletedListener: EmitterSubscription | null =
+      Navigation.events().registerCommandCompletedListener(({ commandId }) => {
+        callback()
+        if (!commandCompletedListener) return
+        commandCompletedListener.remove()
+        commandCompletedListener = null
+      })
     return () => {
       // Make sure to unregister the listener during cleanup
       if (!commandCompletedListener) return
@@ -35,7 +36,10 @@ export const useNavigationComponentDidAppear = (componentId: string, callback = 
   }, [callback, componentId])
 }
 
-export const onNavigationComponentDidDisappearEvent = (componentId: string, callback = () => {}) => {
+export const onNavigationComponentDidDisappearEvent = (
+  componentId: string,
+  callback = () => {}
+) => {
   const listener = {
     componentDidDisappear: () => {
       callback()

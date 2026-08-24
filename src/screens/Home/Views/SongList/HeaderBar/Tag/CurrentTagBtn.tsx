@@ -4,7 +4,6 @@ import { useI18n } from '@/lang'
 import { createStyle } from '@/utils/tools'
 import { forwardRef, useImperativeHandle, useState } from 'react'
 
-
 export interface CurrentTagBtnProps {
   onShowList: () => void
 }
@@ -30,7 +29,6 @@ export default forwardRef<CurrentTagBtnType, CurrentTagBtnProps>(({ onShowList }
     </Button>
   )
 })
-
 
 const styles = createStyle({
   btn: {

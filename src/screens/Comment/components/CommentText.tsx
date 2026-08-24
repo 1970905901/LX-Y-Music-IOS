@@ -32,19 +32,32 @@ export default memo(({ text }: { text: string }) => {
     return 0
   }, [text])
 
-  return (
-    length ? (
-      <View>
-        {
-          show ? <Text selectable style={styles.text}>{text}</Text>
-            : <Text selectable style={styles.text}>{text.substring(0, length)} <Text color={theme['c-font-label']}>……</Text></Text>
-        }
-        <TouchableOpacity style={styles.toggle} onPress={() => { setShow(!show) }}>
-          <Text color={theme['c-primary-font']}>{show ? global.i18n.t('comment_hide_text') : global.i18n.t('comment_show_text')}</Text>
-        </TouchableOpacity>
-
-      </View>
-    ) : <Text selectable style={styles.text}>{text}</Text>
+  return length ? (
+    <View>
+      {show ? (
+        <Text selectable style={styles.text}>
+          {text}
+        </Text>
+      ) : (
+        <Text selectable style={styles.text}>
+          {text.substring(0, length)} <Text color={theme['c-font-label']}>……</Text>
+        </Text>
+      )}
+      <TouchableOpacity
+        style={styles.toggle}
+        onPress={() => {
+          setShow(!show)
+        }}
+      >
+        <Text color={theme['c-primary-font']}>
+          {show ? global.i18n.t('comment_hide_text') : global.i18n.t('comment_show_text')}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  ) : (
+    <Text selectable style={styles.text}>
+      {text}
+    </Text>
   )
 })
 

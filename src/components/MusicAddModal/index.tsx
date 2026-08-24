@@ -1,5 +1,9 @@
 import { useRef, useImperativeHandle, forwardRef, useState } from 'react'
-import Modal, { type MusicAddModalType as ModalType, type MusicAddModalProps as ModalProps, type SelectInfo } from './MusicAddModal'
+import Modal, {
+  type MusicAddModalType as ModalType,
+  type MusicAddModalProps as ModalProps,
+  type SelectInfo,
+} from './MusicAddModal'
 
 export interface MusicAddModalProps {
   onAdded?: ModalProps['onAdded']
@@ -24,9 +28,5 @@ export default forwardRef<MusicAddModalType, MusicAddModalProps>(({ onAdded }, r
     },
   }))
 
-  return (
-    visible
-      ? <Modal ref={musicAddModalRef} onAdded={onAdded} />
-      : null
-  )
+  return visible ? <Modal ref={musicAddModalRef} onAdded={onAdded} /> : null
 })

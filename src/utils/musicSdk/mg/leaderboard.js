@@ -145,8 +145,8 @@ export default {
   getBoardsData() {
     if (this.requestBoardsObj) this._requestBoardsObj.cancelHttp()
     this.requestBoardsObj = httpFetch('https://app.c.nf.migu.cn/pc/bmw/rank/rank-index/v1.0', {
-    // this.requestBoardsObj = httpFetch('https://app.c.nf.migu.cn/MIGUM3.0/v1.0/template/rank-list/release', {
-    // this.requestBoardsObj = httpFetch('https://app.c.nf.migu.cn/MIGUM2.0/v2.0/content/indexrank.do?templateVersion=8', {
+      // this.requestBoardsObj = httpFetch('https://app.c.nf.migu.cn/MIGUM3.0/v1.0/template/rank-list/release', {
+      // this.requestBoardsObj = httpFetch('https://app.c.nf.migu.cn/MIGUM2.0/v2.0/content/indexrank.do?templateVersion=8', {
       headers: {
         Referer: 'https://app.c.nf.migu.cn/',
         'User-Agent': 'Mozilla/5.0 (Linux; Android 5.1.1; Nexus 6 Build/LYZ28E) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.115 Mobile Safari/537.36',

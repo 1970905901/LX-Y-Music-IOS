@@ -1,0 +1,260 @@
+import { memo, useEffect, useState, useCallback, useRef } from 'react'
+import {View, FlatList, RefreshControl, BackHandler, StyleSheet, Keyboard} from 'react-native'
+import ListItem from './ListItem'
+import wyApi from '@/utils/musicSdk/wy/user'
+import wyDailyRecApi from '@/utils/musicSdk/wy/dailyRec'
+import wyMusicDetailApi from '@/utils/musicSdk/wy/musicDetail'
+import { playOnlineList } from '@/core/list'
+import { MUSIC_TOGGLE_MODE } from '@/config/constant'
+import { updateSetting } from '@/core/common'
+import { useWySubscribedPlaylists, useWyUid } from '@/store/user/hook.ts'
+import userState from '@/store/user/state'
+import { useSettingValue } from '@/store/setting/hook'
+import { toast, confirmDialog } from '@/utils/tools'
+import { useTheme } from '@/store/theme/hook'
+import Text from '@/components/common/Text'
+import SonglistDetail from '../../../SonglistDetail'
+import { type ListInfoItem } from '@/store/songlist/state'
+import commonState from '@/store/common/state'
+import playerState from '@/store/player/state'
+import { LIST_IDS } from '@/config/constant'
+import listState from '@/store/list/state'
+import {setWySubscribedPlaylists, removeWySubscribedPlaylist, updateWySubscribedPlaylist} from "@/store/user/action.ts"
+import Menu, { type MenuType, type Position } from '@/components/common/Menu'
+import PlaylistEditModal, { type PlaylistEditModalType } from './PlaylistEditModal'
+import MusicInfoOnline = LX.Music.MusicInfoOnline;
+
+export default memo(() => {
+  const playlists = useWySubscribedPlaylists()
+  const uid = useWyUid()
+  const [loading, setLoading] = useState(true)
+  const cookie = useSettingValue('common.wy_cookie')
+  const theme = useTheme()
+  const [selectedPlaylist, setSelectedPlaylist] = useState<ListInfoItem | null>(null)
+  const [scrollToMusicInfo, setScrollToMusicInfo] = useState<MusicInfoOnline | null>(null)
+  const selectedPlaylistRef = useRef(selectedPlaylist)
+  selectedPlaylistRef.current = selectedPlaylist
+
+  const [menuVisible, setMenuVisible] = useState(false)
+  const menuRef = useRef<MenuType>(null)
+  const selectedItemRef = useRef<any>(null)
+  const playlistEditModalRef = useRef<PlaylistEditModalType>(null)
+
+  useEffect(() => {
+    const handleJumpPosition = () => {
+      let listId = playerState.playMusicInfo.listId
+      if (listId === LIST_IDS.TEMP) listId = listState.tempListMeta.id
+      if (!listId?.startsWith('wy__')) return
+
+      const playlistId = listId.replace('wy__', '')
+      const targetPlaylist = playlists.find(p => String(p.id) === playlistId)
+
+      if (targetPlaylist) {
+        const playlistInfo: ListInfoItem = {
+          id: String(targetPlaylist.id),
+          name: targetPlaylist.name,
+          author: targetPlaylist.creator?.nickname,
+          img: targetPlaylist.coverImgUrl,
+          play_count: targetPlaylist.playCount,
+          desc: targetPlaylist.description,
+          source: 'wy',
+          userId: targetPlaylist.userId,
+          total: targetPlaylist.trackCount,
+        }
+        const musicInfo = 'progress' in playerState.playMusicInfo.musicInfo
+          ? playerState.playMusicInfo.musicInfo.metadata.musicInfo
+          : playerState.playMusicInfo.musicInfo
+        if (musicInfo) setScrollToMusicInfo(musicInfo as MusicInfoOnline)
+        setSelectedPlaylist(playlistInfo)
+      }
+    }
+
+    global.app_event.on('jumpListPosition', handleJumpPosition)
+    return () => {
+      global.app_event.off('jumpListPosition', handleJumpPosition)
+    }
+  }, [playlists])
+
+  useEffect(() => {
+    if (!cookie || !uid) {
+      setLoading(false)
+      setWySubscribedPlaylists([])
+      return
+    }
+    if (playlists.length > 0) {
+      setLoading(false)
+      return
+    }
+    setLoading(true)
+    wyApi.getUserPlaylists(uid, cookie)
+      .then(playlists => {
+        setWySubscribedPlaylists(playlists)
+      })
+      .catch(err => {
+        toast(`获取歌单失败: ${err.message}`)
+      })
+      .finally(() => {
+        setLoading(false)
+      })
+  }, [cookie, uid])
+
+  const onRefresh = useCallback(() => {
+    if (!cookie || !uid) {
+      setLoading(false)
+      setWySubscribedPlaylists([])
+      return
+    }
+    setLoading(true)
+    wyApi.getUserPlaylists(uid, cookie)
+      .then(playlists => {
+        setWySubscribedPlaylists(playlists)
+      })
+      .catch(err => {
+        toast(`刷新歌单失败: ${err.message}`)
+      })
+      .finally(() => {
+        setLoading(false)
+      })
+  }, [cookie, uid])
+
+  useEffect(() => {
+    const onBackPress = () => {
+      if (selectedPlaylistRef.current) {
+        if (commonState.componentIds.length > 1) {
+          return false;
+        }
+
+        setSelectedPlaylist(null);
+        return true;
+      }
+
+      return false;
+    };
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => subscription.remove();
+  }, []);
+
+  const handleItemPress = useCallback((playlistInfo: ListInfoItem) => {
+    setSelectedPlaylist(playlistInfo)
+  }, [])
+
+  const handleHeartbeatPress = useCallback(async (playlistInfo: ListInfoItem) => {
+    if (!cookie || !uid) return
+    try {
+      toast('正在开启心动模式...')
+      let ids = Array.from(userState.wy_liked_song_ids)
+      if (!ids || !ids.length) {
+        ids = (await wyApi.getLikedSongList(uid, cookie)).map(String)
+      }
+
+      if (!ids || !ids.length) {
+        toast('没有喜欢的歌曲')
+        return
+      }
+
+      const randomSongId = ids[Math.floor(Math.random() * ids.length)]
+      const musicInfoRes = await wyMusicDetailApi.getList([randomSongId])
+      const mInfo = musicInfoRes.list[0]
+
+      if (!mInfo) {
+        toast('获取歌曲详情失败')
+        return
+      }
+
+      const res = await wyDailyRecApi.getHeartbeatModeList(cookie, playlistInfo.id, randomSongId)
+      const heartbeatList = [mInfo, ...res.list].filter(Boolean) as any[]
+
+      updateSetting({ 'player.togglePlayMethod': MUSIC_TOGGLE_MODE.heartbeat })
+      playOnlineList('heartbeat', heartbeatList, 0, false)
+      toast('心动模式已开启')
+    } catch (err: any) {
+      toast(`开启心动模式失败: ${err.message}`)
+    }
+  }, [cookie, uid])
+
+  const handleMenuPress = useCallback((item: any, position: Position) => {
+    selectedItemRef.current = item
+    setMenuVisible(true)
+    requestAnimationFrame(() => {
+      menuRef.current?.show(position)
+    })
+  }, [])
+
+  const handleMenuAction = useCallback(({ action }: { action: string }) => {
+    setMenuVisible(false)
+    const item = selectedItemRef.current
+    if (!item) return
+
+    switch (action) {
+      case 'edit':
+        playlistEditModalRef.current?.show({
+          id: String(item.id),
+          name: item.name,
+          desc: item.description || '',
+        })
+        break
+      case 'delete':
+        confirmDialog({
+          message: `确定要删除歌单"${item.name}"吗？`,
+          confirmButtonText: '删除',
+        }).then(async (confirmed) => {
+          if (!confirmed) return
+          try {
+            await wyApi.deletePlaylist(item.id)
+            toast('删除成功')
+            removeWySubscribedPlaylist(item.id)
+          } catch (err: any) {
+            toast(`删除失败: ${err.message}`)
+          }
+        })
+        break
+    }
+  }, [])
+
+  if (!cookie) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <Text>请先设置网易云 Cookie</Text>
+      </View>
+    )
+  }
+
+  const handleBack = useCallback(() => {
+    setSelectedPlaylist(null)
+    setScrollToMusicInfo(null)
+  }, [])
+  return (
+    <View style={{ flex: 1 }}>
+      <View style={[{ flex: 1 }, selectedPlaylist ? { opacity: 0 } : null]} pointerEvents={selectedPlaylist ? 'none' : 'auto'}>
+        <FlatList
+          onScrollBeginDrag={Keyboard.dismiss}
+          data={playlists}
+          renderItem={({ item }) => <ListItem item={item} onPress={handleItemPress} onHeartbeatPress={handleHeartbeatPress} onMenuPress={handleMenuPress} />}
+          keyExtractor={item => String(item.id)}
+          refreshControl={
+            <RefreshControl
+              colors={[theme['c-primary']]}
+              refreshing={loading}
+              onRefresh={onRefresh}
+            />
+          }
+        />
+      </View>
+      {selectedPlaylist && (
+        <View style={[StyleSheet.absoluteFill]}>
+          <SonglistDetail info={selectedPlaylist} onBack={handleBack} initialScrollToInfo={scrollToMusicInfo} />
+        </View>
+      )}
+      {menuVisible && (
+        <Menu
+          ref={menuRef}
+          menus={[{ action: 'edit', label: '编辑' }, { action: 'delete', label: '删除' }]}
+          onPress={handleMenuAction}
+          onHide={() => setMenuVisible(false)}
+        />
+      )}
+      <PlaylistEditModal ref={playlistEditModalRef} />
+    </View>
+  )
+})

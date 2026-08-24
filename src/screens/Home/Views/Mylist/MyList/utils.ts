@@ -21,7 +21,12 @@ const getIntv = (musicInfo: LX.Music.MusicInfo) => {
  * @param localeId 排序语言
  * @returns
  */
-export const sortListMusicInfo = (list: LX.Music.MusicInfo[], sortType: 'up' | 'down' | 'random', fieldName: 'name' | 'singer' | 'album' | 'time' | 'source', localeId: string) => {
+export const sortListMusicInfo = (
+  list: LX.Music.MusicInfo[],
+  sortType: 'up' | 'down' | 'random',
+  fieldName: 'name' | 'singer' | 'album' | 'time' | 'source',
+  localeId: string
+) => {
   // console.log(sortType, fieldName, localeId)
   localeId = localeId.replaceAll('_', '-')
   switch (sortType) {
@@ -43,14 +48,18 @@ export const sortListMusicInfo = (list: LX.Music.MusicInfo[], sortType: 'up' | '
             list.sort((a, b) => {
               if (a[fieldName] == null) {
                 return b[fieldName] == null ? 0 : -1
-              } else return b[fieldName] == null ? 1 : a[fieldName].localeCompare(b[fieldName], localeId)
+              } else
+                return b[fieldName] == null ? 1 : a[fieldName].localeCompare(b[fieldName], localeId)
             })
             break
           case 'album':
             list.sort((a, b) => {
               if (a.meta.albumName == null) {
                 return b.meta.albumName == null ? 0 : -1
-              } else return b.meta.albumName == null ? 1 : a.meta.albumName.localeCompare(b.meta.albumName, localeId)
+              } else
+                return b.meta.albumName == null
+                  ? 1
+                  : a.meta.albumName.localeCompare(b.meta.albumName, localeId)
             })
             break
         }
@@ -71,14 +80,20 @@ export const sortListMusicInfo = (list: LX.Music.MusicInfo[], sortType: 'up' | '
             list.sort((a, b) => {
               if (a[fieldName] == null) {
                 return b[fieldName] == null ? 0 : 1
-              } else return b[fieldName] == null ? -1 : b[fieldName].localeCompare(a[fieldName], localeId)
+              } else
+                return b[fieldName] == null
+                  ? -1
+                  : b[fieldName].localeCompare(a[fieldName], localeId)
             })
             break
           case 'album':
             list.sort((a, b) => {
               if (a.meta.albumName == null) {
                 return b.meta.albumName == null ? 0 : 1
-              } else return b.meta.albumName == null ? -1 : b.meta.albumName.localeCompare(a.meta.albumName, localeId)
+              } else
+                return b.meta.albumName == null
+                  ? -1
+                  : b.meta.albumName.localeCompare(a.meta.albumName, localeId)
             })
             break
         }
@@ -87,7 +102,6 @@ export const sortListMusicInfo = (list: LX.Music.MusicInfo[], sortType: 'up' | '
   }
   return list
 }
-
 
 const variantRxp = /(\(|（).+(\)|）)/g
 const variantRxp2 = /\s|'|\.|,|，|&|"|、|\(|\)|（|）|`|~|-|<|>|\||\/|\]|\[/g
@@ -103,7 +117,10 @@ export interface DuplicateMusicItem {
  * @param isFilterVariant 是否过滤 Live Explicit 等歌曲名
  * @returns
  */
-export const filterDuplicateMusic = async(list: LX.Music.MusicInfo[], isFilterVariant: boolean = true) => {
+export const filterDuplicateMusic = async (
+  list: LX.Music.MusicInfo[],
+  isFilterVariant: boolean = true
+) => {
   const listMap = new Map<string, DuplicateMusicItem[]>()
   const duplicateList = new Set<string>()
   const handleFilter = (name: string, index: number, musicInfo: LX.Music.MusicInfo) => {
@@ -117,17 +134,22 @@ export const filterDuplicateMusic = async(list: LX.Music.MusicInfo[], isFilterVa
       })
       duplicateList.add(name)
     } else {
-      listMap.set(name, [{
-        id: musicInfo.id,
-        index,
-        musicInfo,
-        group: name,
-      }])
+      listMap.set(name, [
+        {
+          id: musicInfo.id,
+          index,
+          musicInfo,
+          group: name,
+        },
+      ])
     }
   }
   if (isFilterVariant) {
     list.forEach((musicInfo, index) => {
-      let musicInfoName = musicInfo.name.toLowerCase().replace(variantRxp, '').replace(variantRxp2, '')
+      let musicInfoName = musicInfo.name
+        .toLowerCase()
+        .replace(variantRxp, '')
+        .replace(variantRxp2, '')
       musicInfoName ||= musicInfo.name.toLowerCase().replace(/\s+/g, '')
       handleFilter(musicInfoName, index, musicInfo)
     })
@@ -140,5 +162,5 @@ export const filterDuplicateMusic = async(list: LX.Music.MusicInfo[], isFilterVa
   // console.log(duplicateList)
   const duplicateNames = Array.from(duplicateList)
   duplicateNames.sort((a, b) => a.localeCompare(b))
-  return duplicateNames.map(name => listMap.get(name)!).flat()
+  return duplicateNames.map((name) => listMap.get(name)!).flat()
 }

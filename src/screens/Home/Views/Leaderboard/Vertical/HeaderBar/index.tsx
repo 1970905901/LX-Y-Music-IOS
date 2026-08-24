@@ -6,9 +6,7 @@ import { View } from 'react-native'
 // import OpenList from './OpenList'
 import { createStyle } from '@/utils/tools'
 // import { BorderWidths } from '@/theme'
-import SourceSelector, {
-  type SourceSelectorType,
-} from './SourceSelector'
+import SourceSelector, { type SourceSelectorType } from './SourceSelector'
 import { useTheme } from '@/store/theme/hook'
 // import { BorderWidths } from '@/theme'
 import ActiveListName, { type ActiveListNameType } from './ActiveListName'
@@ -23,19 +21,21 @@ export interface HeaderBarType {
   setBound: (source: LX.OnlineSource, id: string, name: string) => void
 }
 
-
 export default forwardRef<HeaderBarType, HeaderBarProps>(({ onShowBound, onSourceChange }, ref) => {
   const activeListNameRef = useRef<ActiveListNameType>(null)
   const sourceSelectorRef = useRef<SourceSelectorType>(null)
   const theme = useTheme()
 
-  useImperativeHandle(ref, () => ({
-    setBound(source, id, name) {
-      sourceSelectorRef.current?.setSource(source)
-      activeListNameRef.current?.setBound(id, name)
-    },
-  }), [])
-
+  useImperativeHandle(
+    ref,
+    () => ({
+      setBound(source, id, name) {
+        sourceSelectorRef.current?.setSource(source)
+        activeListNameRef.current?.setBound(id, name)
+      },
+    }),
+    []
+  )
 
   return (
     <View style={{ ...styles.currentList, borderBottomColor: theme['c-border-background'] }}>

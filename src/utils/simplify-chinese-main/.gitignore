@@ -7,7 +7,6 @@ package-lock.json
 tsconfig.tsbuildinfo
 report.*.json
 
-.eslintcache
 .DS_Store
 .idea
 .vscode

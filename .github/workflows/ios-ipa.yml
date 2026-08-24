@@ -3,6 +3,7 @@ name: Build iOS IPA
 on:
   push:
     branches:
+      - master
       - ios-adaptation
     tags:
       - 'v*'
@@ -45,7 +46,7 @@ jobs:
           bundler-cache: true
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Install CocoaPods dependencies
         shell: bash
@@ -113,6 +114,19 @@ jobs:
         with:
           name: ios-ipa-v${{ env.PACKAGE_VERSION }}-unsigned
           path: build/lx-music-mobile-v${{ env.PACKAGE_VERSION }}-ios-unsigned.ipa
+
+      - name: Publish unsigned IPA to rolling "latest" release
+        if: github.ref == 'refs/heads/master'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          make_latest: false
+          prerelease: true
+          name: Latest Unsigned Build
+          body: |
+            Automated unsigned IPA build from master @ ${{ github.sha }}.
+            Built on ${{ github.run_id }} — do not use as a stable release.
+          files: build/lx-music-mobile-v${{ env.PACKAGE_VERSION }}-ios-unsigned.ipa
 
       - name: Release unsigned IPA
         if: startsWith(github.ref, 'refs/tags/v')

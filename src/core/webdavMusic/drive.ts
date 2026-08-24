@@ -1,14 +1,7 @@
 import { getData, saveData } from '@/plugins/storage'
+import { createClient, FileStat } from 'webdav'
 import settingState from '@/store/setting/state'
 import { webDAVLog } from './logger'
-
-// WebDAV npm 包按需动态加载，避免在未安装该依赖的平台（如 iOS）上模块加载即崩溃
-let _webdavMod: any = null
-async function loadWebdav() {
-  if (_webdavMod) return _webdavMod
-  _webdavMod = await import('webdav')
-  return _webdavMod
-}
 
 const CONFIG_KEY = '@webdav_music_config'
 const audioExts = new Set([
@@ -35,7 +28,7 @@ async function getClient() {
     throw new Error('WebDAV 未配置')
   }
 
-  const { createClient } = await loadWebdav()
+  // createClient imported at top
   return createClient(url, { username, password })
 }
 

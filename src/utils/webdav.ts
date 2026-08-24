@@ -1,17 +1,11 @@
 import settingState from '@/store/setting/state';
 import { webDAVLog } from '@/core/webdavMusic/logger';
 
-// WebDAV npm 包按需动态加载，避免在未安装该依赖的平台（如 iOS）上模块加载即崩溃
-let _webdavMod: any = null;
-async function loadWebdav() {
-  if (_webdavMod) return _webdavMod;
-  _webdavMod = await import('webdav');
-  return _webdavMod;
-}
+import { createClient, FileStat } from 'webdav';
 
 let client: any = null;
 
-async function getClient() {
+function getClient() {
   if (client) return client;
 
   const settings = settingState.setting;
@@ -24,7 +18,7 @@ async function getClient() {
     return null;
   }
 
-  const { createClient } = await loadWebdav();
+  // createClient imported at top
   client = createClient(url, { username, password });
   return client;
 }

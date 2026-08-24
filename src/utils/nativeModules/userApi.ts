@@ -1,10 +1,13 @@
-import { NativeEventEmitter, NativeModules } from 'react-native'
+import { NativeEventEmitter, NativeModules, Platform } from 'react-native'
 
 const { UserApiModule } = NativeModules
+const isIOS = Platform.OS === 'ios'
 
+// iOS 无 UserApiModule 原生实现（用户自定义 API 脚本引擎为安卓特性），安全降级。
 let loadScriptInfo: LX.UserApi.UserApiInfo | null = null
 export const loadScript = (info: LX.UserApi.UserApiInfo & { script: string }) => {
   loadScriptInfo = info
+  if (isIOS || !UserApiModule) return
   UserApiModule.loadScript({
     id: info.id,
     name: info.name,
@@ -31,6 +34,7 @@ export interface SendActions {
   response: SendResponseParams
 }
 export const sendAction = <T extends keyof SendActions>(action: T, data: SendActions[T]) => {
+  if (isIOS || !UserApiModule) return
   UserApiModule.sendAction(action, JSON.stringify(data))
 }
 
@@ -77,6 +81,8 @@ export interface Actions {
 export type ActionsEvent = { [K in keyof Actions]: { action: K; data: Actions[K] } }[keyof Actions]
 
 export const onScriptAction = (handler: (event: ActionsEvent) => void): (() => void) => {
+  // iOS 无原生模块，直接返回空订阅（用户 API 脚本功能在 iOS 不可用）
+  if (isIOS || !UserApiModule) return () => {}
   const eventEmitter = new NativeEventEmitter(UserApiModule)
   const eventListener = eventEmitter.addListener('api-action', (event) => {
     if (event.data) event.data = JSON.parse(event.data as string)
@@ -95,5 +101,6 @@ export const onScriptAction = (handler: (event: ActionsEvent) => void): (() => v
 }
 
 export const destroy = () => {
+  if (isIOS || !UserApiModule) return
   UserApiModule.destroy()
 }

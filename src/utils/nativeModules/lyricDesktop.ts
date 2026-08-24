@@ -1,6 +1,13 @@
-import { NativeModules, NativeEventEmitter } from 'react-native'
+import { NativeModules, NativeEventEmitter, Platform } from 'react-native'
 
 const { LyricModule } = NativeModules
+const isIOS = Platform.OS === 'ios'
+
+// iOS 无 LyricModule 原生实现（桌面歌词为安卓悬浮窗特性），所有方法安全降级。
+const safeLyric = <T>(fn: () => T): T | undefined => {
+  if (isIOS || !LyricModule) return undefined
+  return fn()
+}
 
 // export const themes = [
 //   { id: 'green', value: '#07c556' },
@@ -38,7 +45,7 @@ const getTextSize = (num: number) => num / 10
  * @returns
  */
 export const setSendLyricTextEvent = async (isSend: boolean) => {
-  return LyricModule.setSendLyricTextEvent(isSend)
+  return safeLyric(() => LyricModule.setSendLyricTextEvent(isSend)
 }
 
 /**
@@ -75,7 +82,7 @@ export const showDesktopLyricView = async ({
   textPositionX: LX.AppSetting['desktopLyric.textPosition.x']
   textPositionY: LX.AppSetting['desktopLyric.textPosition.y']
 }): Promise<void> => {
-  return LyricModule.showDesktopLyric({
+  return safeLyric(() =>   return LyricModule.showDesktopLyric({
     isSingleLine,
     isShowToggleAnima,
     isLock,
@@ -90,14 +97,14 @@ export const showDesktopLyricView = async ({
     textY: textPositionY.toUpperCase(),
     width,
     maxLineNum,
-  })
+  }))
 }
 
 /**
  * hide lyric
  */
 export const hideDesktopLyricView = async (): Promise<void> => {
-  return LyricModule.hideDesktopLyric()
+  return safeLyric(() =>   return LyricModule.hideDesktopLyric())
 }
 
 /**
@@ -106,14 +113,14 @@ export const hideDesktopLyricView = async (): Promise<void> => {
  * @returns {Promise} Promise
  */
 export const play = async (time: number): Promise<void> => {
-  return LyricModule.play(time)
+  return safeLyric(() =>   return LyricModule.play(time))
 }
 
 /**
  * pause lyric
  */
 export const pause = async (): Promise<void> => {
-  return LyricModule.pause()
+  return safeLyric(() =>   return LyricModule.pause())
 }
 
 /**
@@ -127,11 +134,11 @@ export const setLyric = async (
   translation: string,
   romalrc: string
 ): Promise<void> => {
-  return LyricModule.setLyric(lyric, translation || '', romalrc || '')
+  return safeLyric(() =>   return LyricModule.setLyric(lyric, translation || '', romalrc || ''))
 }
 
 export const setPlaybackRate = async (rate: number): Promise<void> => {
-  return LyricModule.setPlaybackRate(rate)
+  return safeLyric(() =>   return LyricModule.setPlaybackRate(rate))
 }
 
 /**
@@ -139,7 +146,7 @@ export const setPlaybackRate = async (rate: number): Promise<void> => {
  * @param isShowTranslation is show translation
  */
 export const toggleTranslation = async (isShowTranslation: boolean): Promise<void> => {
-  return LyricModule.toggleTranslation(isShowTranslation)
+  return safeLyric(() =>   return LyricModule.toggleTranslation(isShowTranslation))
 }
 
 /**
@@ -147,7 +154,7 @@ export const toggleTranslation = async (isShowTranslation: boolean): Promise<voi
  * @param isShowRoma is show roma lyric
  */
 export const toggleRoma = async (isShowRoma: boolean): Promise<void> => {
-  return LyricModule.toggleRoma(isShowRoma)
+  return safeLyric(() =>   return LyricModule.toggleRoma(isShowRoma))
 }
 
 /**
@@ -155,7 +162,7 @@ export const toggleRoma = async (isShowRoma: boolean): Promise<void> => {
  * @param isLock is lock lyric window
  */
 export const toggleLock = async (isLock: boolean): Promise<void> => {
-  return LyricModule.toggleLock(isLock)
+  return safeLyric(() =>   return LyricModule.toggleLock(isLock))
 }
 
 /**
@@ -169,7 +176,7 @@ export const setColor = async (
   playedColor: string,
   shadowColor: string
 ): Promise<void> => {
-  return LyricModule.setColor(unplayColor, playedColor, shadowColor)
+  return safeLyric(() =>   return LyricModule.setColor(unplayColor, playedColor, shadowColor))
 }
 
 /**
@@ -177,7 +184,7 @@ export const setColor = async (
  * @param alpha text alpha
  */
 export const setAlpha = async (alpha: number): Promise<void> => {
-  return LyricModule.setAlpha(getAlpha(alpha))
+  return safeLyric(() =>   return LyricModule.setAlpha(getAlpha(alpha)))
 }
 
 /**
@@ -185,27 +192,27 @@ export const setAlpha = async (alpha: number): Promise<void> => {
  * @param size text size
  */
 export const setTextSize = async (size: number): Promise<void> => {
-  return LyricModule.setTextSize(getTextSize(size))
+  return safeLyric(() =>   return LyricModule.setTextSize(getTextSize(size)))
 }
 
 export const setShowToggleAnima = async (isShowToggleAnima: boolean): Promise<void> => {
-  return LyricModule.setShowToggleAnima(isShowToggleAnima)
+  return safeLyric(() =>   return LyricModule.setShowToggleAnima(isShowToggleAnima))
 }
 
 export const setSingleLine = async (isSingleLine: boolean): Promise<void> => {
-  return LyricModule.setSingleLine(isSingleLine)
+  return safeLyric(() =>   return LyricModule.setSingleLine(isSingleLine))
 }
 
 export const setPosition = async (x: number, y: number): Promise<void> => {
-  return LyricModule.setPosition(x, y)
+  return safeLyric(() =>   return LyricModule.setPosition(x, y))
 }
 
 export const setMaxLineNum = async (maxLineNum: number): Promise<void> => {
-  return LyricModule.setMaxLineNum(maxLineNum)
+  return safeLyric(() =>   return LyricModule.setMaxLineNum(maxLineNum))
 }
 
 export const setWidth = async (width: number): Promise<void> => {
-  return LyricModule.setWidth(width)
+  return safeLyric(() =>   return LyricModule.setWidth(width))
 }
 
 // export const fixViewPosition = async(): Promise<void> => {
@@ -216,20 +223,21 @@ export const setLyricTextPosition = async (
   textX: LX.AppSetting['desktopLyric.textPosition.x'],
   textY: LX.AppSetting['desktopLyric.textPosition.y']
 ): Promise<void> => {
-  return LyricModule.setLyricTextPosition(textX.toUpperCase(), textY.toUpperCase())
+  return safeLyric(() =>   return LyricModule.setLyricTextPosition(textX.toUpperCase(), textY.toUpperCase()))
 }
 
 export const checkOverlayPermission = async (): Promise<void> => {
-  return LyricModule.checkOverlayPermission()
+  return safeLyric(() =>   return LyricModule.checkOverlayPermission())
 }
 
 export const openOverlayPermissionActivity = async (): Promise<void> => {
-  return LyricModule.openOverlayPermissionActivity()
+  return safeLyric(() =>   return LyricModule.openOverlayPermissionActivity()))
 }
 
 export const onPositionChange = (
   handler: (position: { x: number; y: number }) => void
 ): (() => void) => {
+  if (isIOS || !LyricModule) return () => {}
   const eventEmitter = new NativeEventEmitter(LyricModule)
   const eventListener = eventEmitter.addListener('set-position', (event) => {
     handler(event as { x: number; y: number })
@@ -243,6 +251,7 @@ export const onPositionChange = (
 export const onLyricLinePlay = (
   handler: (lineInfo: { text: string; extendedLyrics: string[] }) => void
 ): (() => void) => {
+  if (isIOS || !LyricModule) return () => {}
   const eventEmitter = new NativeEventEmitter(LyricModule)
   const eventListener = eventEmitter.addListener('lyric-line-play', (event) => {
     handler(event as { text: string; extendedLyrics: string[] })
@@ -256,6 +265,7 @@ export const onLyricLinePlay = (
 export const onLockChange = (
   handler: (isLock: boolean) => void
 ): (() => void) => {
+  if (isIOS || !LyricModule) return () => {}
   const eventEmitter = new NativeEventEmitter(LyricModule)
   const eventListener = eventEmitter.addListener('set-lock', (event) => {
     handler((event as { isLock: boolean }).isLock)

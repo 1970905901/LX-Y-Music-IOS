@@ -1,9 +1,11 @@
-import { NativeModules } from 'react-native'
+import { NativeModules, Platform } from 'react-native'
 import { getMusicUrl, getLyricInfo } from '@/core/music/online'
 import { getListMusicSync } from '@/utils/listManage'
 import playerState from '@/store/player/state'
 
 const { LocalProxy } = NativeModules
+// iOS 无 LocalProxy 原生实现（该模块仅 Android 存在），显式守卫避免调用 undefined 崩溃。
+const isLocalProxyAvailable = Platform.OS === 'android' && typeof LocalProxy?.start === 'function'
 
 const SOURCE_REFERERS: Record<string, string> = {
   wy: 'https://music.163.com/',
@@ -23,6 +25,7 @@ class LxmHeadlessServer {
 
   async initProxy() {
     if (this.proxyPort > 0) return this.proxyPort
+    if (!isLocalProxyAvailable) return -1
     try {
       this.proxyPort = await LocalProxy.start()
       return this.proxyPort
@@ -44,7 +47,7 @@ class LxmHeadlessServer {
   }
 
   stopProxy() {
-    if (this.proxyPort > 0) {
+    if (this.proxyPort > 0 && isLocalProxyAvailable) {
       LocalProxy.stop()
       this.proxyPort = -1
     }

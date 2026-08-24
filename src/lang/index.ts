@@ -1,9 +1,6 @@
 import zh_cn from './zh-cn.json'
-import zh_tw from './zh-tw.json'
 
-type Message =
-  | Record<keyof typeof zh_cn, string>
-  | Record<keyof typeof zh_tw, string>
+type Message = Record<keyof typeof zh_cn, string>
 
 const langs = [
   {
@@ -13,13 +10,6 @@ const langs = [
     country: 'cn',
     fallback: true,
     message: zh_cn,
-  },
-  {
-    name: '繁體中文',
-    locale: 'zh_tw',
-    // alternate: 'zh-hant',
-    country: 'cn',
-    message: zh_tw,
   },
 ] as const
 

@@ -11,9 +11,6 @@ import {
 import { updateSetting } from '@/core/common'
 import settingState from '@/store/setting/state'
 import {
-  onDesktopLyricPositionChange,
-  onDesktopLyricLockChange,
-  showDesktopLyric,
   onLyricLinePlay,
   showRemoteLyric,
 } from '@/core/desktopLyric'
@@ -49,27 +46,11 @@ export default async (setting: LX.AppSetting) => {
     toggleRoma(setting['player.isShowLyricRoma']),
   ])
 
-  if (setting['desktopLyric.enable']) {
-    showDesktopLyric().catch(() => {
-      updateSetting({ 'desktopLyric.enable': false })
-    })
-  }
   if (setting['player.isShowBluetoothLyric']) {
     showRemoteLyric(true).catch(() => {
       updateSetting({ 'player.isShowBluetoothLyric': false })
     })
   }
-  onDesktopLyricPositionChange((position) => {
-    updateSetting({
-      'desktopLyric.position.x': position.x,
-      'desktopLyric.position.y': position.y,
-    })
-  })
-  onDesktopLyricLockChange((isLock) => {
-    if (settingState.setting['desktopLyric.isLock'] !== isLock) {
-      updateSetting({ 'desktopLyric.isLock': isLock })
-    }
-  })
   onLyricLinePlay(({ text, extendedLyrics }) => {
     if (!settingState.setting['player.isShowBluetoothLyric']) return
     if (!text && !state.isPlaying) {

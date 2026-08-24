@@ -1,6 +1,4 @@
-import { hideDesktopLyric } from './desktopLyric'
 import { exitApp as utilExitApp } from '@/utils/nativeModules/utils'
-import { updateWidget } from '@/utils/nativeModules/musicWidget'
 import { destroy as destroyPlayer } from '@/plugins/player/utils'
 import { initSetting as initAppSetting } from '@/config/setting'
 import { setLanguage as applyLanguage } from '@/lang/i18n'
@@ -14,7 +12,6 @@ import {
   saveViewPrevState,
 } from '@/utils/data'
 import { showPactModal as handleShowPactModal } from '@/navigation'
-import { hideDesktopLyricView } from '@/utils/nativeModules/lyricDesktop'
 
 /**
  * 初始化设置
@@ -47,10 +44,7 @@ export const exitApp = (reason: string) => {
   if (isDestroying) return
   isDestroying = true
   void Promise.all([
-    hideDesktopLyric(),
     destroyPlayer(),
-    hideDesktopLyricView(),
-    updateWidget('', '', false).catch(() => { }),
   ]).finally(() => {
     isDestroying = false
     utilExitApp()

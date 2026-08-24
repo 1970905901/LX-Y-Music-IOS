@@ -2,7 +2,6 @@ import { forwardRef, useImperativeHandle, useMemo, useState } from 'react'
 
 import Basic from './settings/Basic'
 import Player from './settings/Player'
-import LyricDesktop from './settings/LyricDesktop'
 import Search from './settings/Search'
 import List from './settings/List'
 import Download from './settings/Download'
@@ -19,7 +18,6 @@ export const SETTING_SCREENS = [
   'theme',
   'platform',
   'player',
-  'lyric_desktop',
   'search',
   'list',
   'download',
@@ -57,8 +55,6 @@ const Main = forwardRef<MainType, {}>((props, ref) => {
         return <PlatformScreen />
       case 'player':
         return <Player />
-      case 'lyric_desktop':
-        return <LyricDesktop />
       case 'search':
         return <Search />
       case 'list':

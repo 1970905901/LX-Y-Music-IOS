@@ -3,7 +3,6 @@ import {FlatList, type FlatListProps, ScrollView} from 'react-native'
 
 import Basic from '../settings/Basic'
 import Player from '../settings/Player'
-import LyricDesktop from '../settings/LyricDesktop'
 import Search from '../settings/Search'
 import List from '../settings/List'
 import Sync from '../settings/Sync'
@@ -39,8 +38,6 @@ const ListItem = memo(
         return <PlatformScreen />
       case 'player':
         return <Player />
-      case 'lyric_desktop':
-        return <LyricDesktop />
       case 'search':
         return <Search />
       case 'list':

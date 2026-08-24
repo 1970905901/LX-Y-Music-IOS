@@ -2,7 +2,6 @@ import {createStyle, toast} from '@/utils/tools'
 import { View, TouchableOpacity } from 'react-native'
 import PlayModeBtn from './PlayModeBtn'
 import MusicAddBtn from './MusicAddBtn'
-import DesktopLyricBtn from './DesktopLyricBtn'
 import CommentBtn from './CommentBtn'
 import {memo, useRef, useCallback, useEffect} from 'react'
 import Btn from './Btn'
@@ -173,7 +172,6 @@ export default memo(({ componentId }: { componentId: string }) => {
   return (
     <>
       <View style={styles.container}>
-        <DesktopLyricBtn />
         <MusicAddBtn />
         <PlayModeBtn />
         {isOneDrive ? null : <CommentBtn />}

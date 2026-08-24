@@ -1,7 +1,6 @@
 import { memo, useRef, useCallback, useState, useEffect } from 'react'
 import { View, TouchableOpacity, Alert } from 'react-native'
 import { Icon } from '@/components/common/Icon'
-import { SvgIcon } from '@/components/common/SvgIcon'
 import { useTheme } from '@/store/theme/hook'
 import { createStyle, toast } from '@/utils/tools'
 import { scaleSizeW } from '@/utils/pixelRatio'
@@ -12,9 +11,7 @@ import { useSettingValue } from '@/store/setting/hook'
 import PlayDetailMenu, { type PlayDetailMenuType, type SelectInfo } from '@/screens/PlayDetail/components/PlayDetailMenu'
 import MusicAddModal, { type MusicAddModalType } from '@/components/MusicAddModal'
 import MusicDownloadModal, { type MusicDownloadModalType } from '@/screens/Home/Views/Mylist/MusicList/MusicDownloadModal'
-import DesktopLyricEnable, { type DesktopLyricEnableType } from '@/components/DesktopLyricEnable'
 import SimilarSongsModal, { type SimilarSongsModalType } from '@/components/SimilarSongsModal'
-import { toggleDesktopLyricLock } from '@/core/desktopLyric'
 import { updateSetting } from '@/core/common'
 import settingState from '@/store/setting/state'
 import { handleDislikeMusic, handleShare, handleShowMusicSourceDetail, handleClearMusicCache } from '@/screens/Home/Views/Mylist/MusicList/listAction'
@@ -37,16 +34,10 @@ export default memo(({ componentId }: { componentId: string }) => {
   const menuRef = useRef<PlayDetailMenuType>(null)
   const musicAddModalRef = useRef<MusicAddModalType>(null)
   const musicDownloadModalRef = useRef<MusicDownloadModalType>(null)
-  const desktopLyricEnableRef = useRef<DesktopLyricEnableType>(null)
   const similarSongsModalRef = useRef<SimilarSongsModalType>(null)
   const moreBtnRef = useRef<TouchableOpacity>(null)
   const playMusicInfo = usePlayMusicInfo()
   const isOneDrive = isOneDriveMusicInfo(playMusicInfo.musicInfo)
-  const enabledLyric = useSettingValue('desktopLyric.enable')
-
-  const handleLyricPress = useCallback(() => {
-    desktopLyricEnableRef.current?.setEnabled(!enabledLyric)
-  }, [enabledLyric])
 
   const handleDownloadPress = useCallback(() => {
     const info = playerState.playMusicInfo.musicInfo
@@ -199,9 +190,6 @@ export default memo(({ componentId }: { componentId: string }) => {
 
   return (
     <View style={[styles.container, isSmallWindow && { paddingVertical: 6 }]}>
-      <TouchableOpacity style={styles.btnItem} onPress={handleLyricPress} activeOpacity={0.6}>
-        <SvgIcon name="lyric" color={enabledLyric ? theme['c-primary'] : theme['c-font']} style={{ opacity: enabledLyric ? 1 : iconOpacity }} rawSize={BTN_SIZE * 0.55} />
-      </TouchableOpacity>
       <TouchableOpacity style={styles.btnItem} onPress={handleAddPress} activeOpacity={0.6}>
         <View style={{ opacity: iconOpacity }}><Icon name="add-music" color={theme['c-font']} rawSize={BTN_SIZE * 0.6} /></View>
       </TouchableOpacity>
@@ -230,7 +218,6 @@ export default memo(({ componentId }: { componentId: string }) => {
       />
       <MusicAddModal ref={musicAddModalRef} />
       {settingState.setting['download.enable'] && <MusicDownloadModal ref={musicDownloadModalRef} onDownloadInfo={() => {}} />}
-      <DesktopLyricEnable ref={desktopLyricEnableRef} />
       <SimilarSongsModal ref={similarSongsModalRef} />
     </View>
   )

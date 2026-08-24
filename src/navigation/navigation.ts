@@ -22,6 +22,17 @@ import { type ListInfoItem } from '@/store/songlist/state'
 // const getTheme = () => getter('common', 'theme')(store.getState())
 
 export async function pushHomeScreen() {
+  // iOS 安全区适配：默认给所有 screen 底部保留 home indicator 安全区，
+  // 顶部由自定义 StatusBar（drawBehind）+ SizeView 处理，故 top 设为 never。
+  Navigation.setDefaultOptions({
+    layout: {
+      safeAreaInsets: {
+        top: 'never',
+        bottom: 'always',
+      },
+    },
+  })
+
   /*
     Navigation.setDefaultOptions({
       topBar: {
@@ -94,6 +105,10 @@ export async function pushHomeScreen() {
                 layout: {
                   componentBackgroundColor: theme['c-content-background'],
                   fitSystemWindows: false,
+                  safeAreaInsets: {
+                    top: 'never',
+                    bottom: 'always',
+                  },
                 },
                 gestureEnabled: false,
               },
@@ -163,6 +178,10 @@ export function pushPlayDetailScreen(componentId: string, skipAnimation = false)
           layout: {
             componentBackgroundColor: theme['c-content-background'],
                   fitSystemWindows: false,
+                  safeAreaInsets: {
+                    top: 'never',
+                    bottom: 'always',
+                  },
           },
           animations: {
             push: skipAnimation
@@ -287,6 +306,10 @@ export function pushSonglistDetailScreen(componentId: string, info: ListInfoItem
           layout: {
             componentBackgroundColor: theme['c-content-background'],
                   fitSystemWindows: false,
+                  safeAreaInsets: {
+                    top: 'never',
+                    bottom: 'always',
+                  },
           },
           animations: {
             push: {
@@ -421,6 +444,10 @@ export function pushCommentScreen(componentId: string) {
           layout: {
             componentBackgroundColor: theme['c-content-background'],
                   fitSystemWindows: false,
+                  safeAreaInsets: {
+                    top: 'never',
+                    bottom: 'always',
+                  },
           },
           animations: {
             push: {

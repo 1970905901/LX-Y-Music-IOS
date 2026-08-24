@@ -20,12 +20,14 @@ import { useSettingValue } from '@/store/setting/hook'
 
 const useCutoutLeft = () => {
   const [cutoutLeftDp, setCutoutLeftDp] = useState(() => {
+    if (Platform.OS === 'ios') return 0
     const screen = Dimensions.get('screen')
     const win = Dimensions.get('window')
     return Math.max(0, screen.width - win.width)
   })
 
   useEffect(() => {
+    if (Platform.OS === 'ios') return
     const update = () => {
       void getCutoutLeftPx().then((px: number) => {
         const { PixelRatio } = require('react-native')

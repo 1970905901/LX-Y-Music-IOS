@@ -144,7 +144,7 @@ const Menu = ({
   return (
     <View
       style={{ ...styles.menu, ...menuStyle, backgroundColor: theme['c-content-background'] }}
-      onStartShouldSetResponder={() => true}
+      pointerEvents="auto"
     >
       <Animated.ScrollView keyboardShouldPersistTaps={'always'}>
         {menus.map((menu, index) =>

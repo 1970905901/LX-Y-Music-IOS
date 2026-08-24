@@ -7,6 +7,7 @@ import initPlayProgress from './playProgress'
 import initPlayHistory from './playHistory'
 import initPreloadNextMusic from './preloadNextMusic'
 import initLyric from './lyric'
+import initRemoteCommand from './remoteCommand'
 
 export default async (setting: LX.AppSetting) => {
   await initPlayer(setting)
@@ -18,4 +19,5 @@ export default async (setting: LX.AppSetting) => {
   initPlayProgress()
   initPlayHistory()
   initPreloadNextMusic()
+  initRemoteCommand()
 }

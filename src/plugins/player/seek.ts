@@ -14,34 +14,40 @@ export const getAccuratePosition = async() => {
   return TrackPlayer.getPosition()
 }
 
-export const seekToTime = async(targetTime: number) => {
-  await TrackPlayer.seekTo(targetTime)
-  if (Platform.OS != 'ios') return targetTime
+// 防止用户连续拖动进度条时并发 seek 导致播放器状态混乱
+let isSeeking = false
+let pendingSeekTime: number | null = null
 
-  let position = targetTime
-  let stableCount = 0
-  for (const [delay, tolerance] of [
-    [140, 1.2],
-    [200, 0.75],
-    [280, 0.4],
-    [360, 0.22],
-    [520, 0.12],
-  ] as const) {
-    await wait(delay)
-    const currentPosition = await getAccuratePosition().catch(() => position)
-    const nextPosition = currentPosition > 0 ? currentPosition : position
-    // eslint-disable-next-line require-atomic-updates
-    position = nextPosition
-    if (Math.abs(position - targetTime) <= tolerance) {
-      stableCount++
-      if (stableCount > 1 || tolerance <= 0.22) break
-      continue
-    }
-    stableCount = 0
-    await TrackPlayer.seekTo(targetTime)
+export const seekToTime = async(targetTime: number) => {
+  if (isSeeking) {
+    pendingSeekTime = targetTime
+    return targetTime
   }
-  const finalPosition = await getAccuratePosition().catch(() => position)
-  // eslint-disable-next-line require-atomic-updates
-  position = finalPosition > 0 ? finalPosition : position
-  return position
+  isSeeking = true
+
+  const runSeek = async() => {
+    await TrackPlayer.seekTo(targetTime)
+    if (Platform.OS != 'ios') return targetTime
+
+    // iOS 上做少量校验即可，避免原 5 轮循环长时间阻塞/反复 seek 导致拖动无响应。
+    await wait(180)
+    const currentPosition = await getAccuratePosition().catch(() => targetTime)
+    if (currentPosition > 0 && Math.abs(currentPosition - targetTime) > 0.5) {
+      await TrackPlayer.seekTo(targetTime)
+    }
+    return targetTime
+  }
+
+  try {
+    await runSeek()
+  } finally {
+    isSeeking = false
+    if (pendingSeekTime != null) {
+      const next = pendingSeekTime
+      pendingSeekTime = null
+      void seekToTime(next)
+    }
+  }
+
+  return targetTime
 }

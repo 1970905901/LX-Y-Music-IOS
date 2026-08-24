@@ -134,6 +134,20 @@ export const onWindowSizeChange = (
   }
 }
 
+export const onRemoteCommand = (
+  handler: (event: { command: string; position?: number }) => void
+): (() => void) => {
+  if (!isIOS) return () => {}
+  // iOS：原生 UtilsModule 会监听 MPRemoteCommandCenter 并把命令通过 remote-command 事件转发给 JS
+  const eventEmitter = new NativeEventEmitter(UtilsModule)
+  const eventListener = eventEmitter.addListener('remote-command', (event) => {
+    handler(event as { command: string; position?: number })
+  })
+  return () => {
+    eventListener.remove()
+  }
+}
+
 export const isIgnoringBatteryOptimization = async (): Promise<boolean> => {
   if (isIOS) return true
   return UtilsModule.isIgnoringBatteryOptimization()

@@ -96,7 +96,7 @@ export default forwardRef<ModalType, ModalProps>(
           <TouchableWithoutFeedback onPress={handleBgClose} style={{ flex: 1 }}>
             <View style={{ flex: 1 }} />
           </TouchableWithoutFeedback>
-          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} pointerEvents="box-none">
              {memoChildren}
            </View>
         </View>

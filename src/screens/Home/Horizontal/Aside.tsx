@@ -1,5 +1,5 @@
 import { memo, useMemo, useState, useEffect } from 'react'
-import { ScrollView, TouchableOpacity, View, Dimensions } from 'react-native'
+import { ScrollView, TouchableOpacity, View, Dimensions, Platform } from 'react-native'
 import { useNavActiveId, useStatusbarHeight, useBgPic } from '@/store/common/hook'
 import { useTheme } from '@/store/theme/hook'
 import { Icon } from '@/components/common/Icon'
@@ -21,12 +21,16 @@ const NAV_WIDTH = 68
 
 const useCutoutLeft = () => {
   const [cutoutLeftDp, setCutoutLeftDp] = useState(() => {
+    // iOS 不存在 Android 式的左侧刘海缺口，安全区由 RNN/system 处理；
+    // 旧逻辑用 screen.width - window.width 在 iPad 横屏/Stage Manager 下会算出巨大边距，挤压右侧内容。
+    if (Platform.OS === 'ios') return 0
     const screen = Dimensions.get('screen')
     const win = Dimensions.get('window')
     return Math.max(0, screen.width - win.width)
   })
 
   useEffect(() => {
+    if (Platform.OS === 'ios') return
     const update = () => {
       void getCutoutLeftPx().then((px: number) => {
         const { PixelRatio } = require('react-native')

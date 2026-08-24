@@ -3,7 +3,8 @@ import { NativeModules, Platform } from 'react-native'
 const { CacheModule } = NativeModules
 const isIOS = Platform.OS === 'ios'
 
-// iOS 无 CacheModule 原生实现（缓存清理由 JS 层 react-native-fs 处理），安全降级。
+// CacheModule 在 iOS/Android 均有原生实现（iOS 遍历 Caches/Tmp 目录）。
+// 以下导出对缺失情况做兜底降级。
 export const getAppCacheSize = async (): Promise<number> => {
   if (isIOS || !CacheModule) return 0
   return CacheModule.getAppCacheSize().then((size: number) => Math.trunc(size))

@@ -1,12 +1,11 @@
-import { NativeModules, Platform } from 'react-native'
+import { NativeModules } from 'react-native'
 
 const { CryptoModule } = NativeModules
-const isIOS = Platform.OS === 'ios'
 
-// iOS 无 CryptoModule 原生实现（加解密为安卓特性）。iOS 上同步功能不可用，
-// 此处让相关方法抛出明确错误，由调用方（sync）catch 后降级，而非 undefined is not a function。
+// CryptoModule 在 iOS/Android 均有原生实现（iOS 用 Security/CommonCrypto 框架）。
+// 仅当原生模块缺失时抛出明确错误，由调用方（sync）catch 后降级。
 const assertCrypto = () => {
-  if (isIOS || !CryptoModule) throw new Error('CryptoModule is not supported on iOS')
+  if (!CryptoModule) throw new Error('CryptoModule is not available')
   return CryptoModule
 }
 

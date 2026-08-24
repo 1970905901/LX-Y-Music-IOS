@@ -45,7 +45,7 @@ const getTextSize = (num: number) => num / 10
  * @returns
  */
 export const setSendLyricTextEvent = async (isSend: boolean) => {
-  return safeLyric(() => LyricModule.setSendLyricTextEvent(isSend)
+  return safeLyric(() => LyricModule.setSendLyricTextEvent(isSend))
 }
 
 /**
@@ -82,7 +82,7 @@ export const showDesktopLyricView = async ({
   textPositionX: LX.AppSetting['desktopLyric.textPosition.x']
   textPositionY: LX.AppSetting['desktopLyric.textPosition.y']
 }): Promise<void> => {
-  return safeLyric(() =>   return LyricModule.showDesktopLyric({
+  return safeLyric(() => LyricModule.showDesktopLyric({
     isSingleLine,
     isShowToggleAnima,
     isLock,
@@ -104,7 +104,7 @@ export const showDesktopLyricView = async ({
  * hide lyric
  */
 export const hideDesktopLyricView = async (): Promise<void> => {
-  return safeLyric(() =>   return LyricModule.hideDesktopLyric())
+  return safeLyric(() => LyricModule.hideDesktopLyric())
 }
 
 /**
@@ -113,14 +113,14 @@ export const hideDesktopLyricView = async (): Promise<void> => {
  * @returns {Promise} Promise
  */
 export const play = async (time: number): Promise<void> => {
-  return safeLyric(() =>   return LyricModule.play(time))
+  return safeLyric(() => LyricModule.play(time))
 }
 
 /**
  * pause lyric
  */
 export const pause = async (): Promise<void> => {
-  return safeLyric(() =>   return LyricModule.pause())
+  return safeLyric(() => LyricModule.pause())
 }
 
 /**
@@ -134,11 +134,11 @@ export const setLyric = async (
   translation: string,
   romalrc: string
 ): Promise<void> => {
-  return safeLyric(() =>   return LyricModule.setLyric(lyric, translation || '', romalrc || ''))
+  return safeLyric(() => LyricModule.setLyric(lyric, translation || '', romalrc || ''))
 }
 
 export const setPlaybackRate = async (rate: number): Promise<void> => {
-  return safeLyric(() =>   return LyricModule.setPlaybackRate(rate))
+  return safeLyric(() => LyricModule.setPlaybackRate(rate))
 }
 
 /**
@@ -146,7 +146,7 @@ export const setPlaybackRate = async (rate: number): Promise<void> => {
  * @param isShowTranslation is show translation
  */
 export const toggleTranslation = async (isShowTranslation: boolean): Promise<void> => {
-  return safeLyric(() =>   return LyricModule.toggleTranslation(isShowTranslation))
+  return safeLyric(() => LyricModule.toggleTranslation(isShowTranslation))
 }
 
 /**
@@ -154,7 +154,7 @@ export const toggleTranslation = async (isShowTranslation: boolean): Promise<voi
  * @param isShowRoma is show roma lyric
  */
 export const toggleRoma = async (isShowRoma: boolean): Promise<void> => {
-  return safeLyric(() =>   return LyricModule.toggleRoma(isShowRoma))
+  return safeLyric(() => LyricModule.toggleRoma(isShowRoma))
 }
 
 /**
@@ -162,7 +162,7 @@ export const toggleRoma = async (isShowRoma: boolean): Promise<void> => {
  * @param isLock is lock lyric window
  */
 export const toggleLock = async (isLock: boolean): Promise<void> => {
-  return safeLyric(() =>   return LyricModule.toggleLock(isLock))
+  return safeLyric(() => LyricModule.toggleLock(isLock))
 }
 
 /**
@@ -176,7 +176,7 @@ export const setColor = async (
   playedColor: string,
   shadowColor: string
 ): Promise<void> => {
-  return safeLyric(() =>   return LyricModule.setColor(unplayColor, playedColor, shadowColor))
+  return safeLyric(() => LyricModule.setColor(unplayColor, playedColor, shadowColor))
 }
 
 /**
@@ -184,7 +184,7 @@ export const setColor = async (
  * @param alpha text alpha
  */
 export const setAlpha = async (alpha: number): Promise<void> => {
-  return safeLyric(() =>   return LyricModule.setAlpha(getAlpha(alpha)))
+  return safeLyric(() => LyricModule.setAlpha(getAlpha(alpha)))
 }
 
 /**
@@ -192,27 +192,27 @@ export const setAlpha = async (alpha: number): Promise<void> => {
  * @param size text size
  */
 export const setTextSize = async (size: number): Promise<void> => {
-  return safeLyric(() =>   return LyricModule.setTextSize(getTextSize(size)))
+  return safeLyric(() => LyricModule.setTextSize(getTextSize(size)))
 }
 
 export const setShowToggleAnima = async (isShowToggleAnima: boolean): Promise<void> => {
-  return safeLyric(() =>   return LyricModule.setShowToggleAnima(isShowToggleAnima))
+  return safeLyric(() => LyricModule.setShowToggleAnima(isShowToggleAnima))
 }
 
 export const setSingleLine = async (isSingleLine: boolean): Promise<void> => {
-  return safeLyric(() =>   return LyricModule.setSingleLine(isSingleLine))
+  return safeLyric(() => LyricModule.setSingleLine(isSingleLine))
 }
 
 export const setPosition = async (x: number, y: number): Promise<void> => {
-  return safeLyric(() =>   return LyricModule.setPosition(x, y))
+  return safeLyric(() => LyricModule.setPosition(x, y))
 }
 
 export const setMaxLineNum = async (maxLineNum: number): Promise<void> => {
-  return safeLyric(() =>   return LyricModule.setMaxLineNum(maxLineNum))
+  return safeLyric(() => LyricModule.setMaxLineNum(maxLineNum))
 }
 
 export const setWidth = async (width: number): Promise<void> => {
-  return safeLyric(() =>   return LyricModule.setWidth(width))
+  return safeLyric(() => LyricModule.setWidth(width))
 }
 
 // export const fixViewPosition = async(): Promise<void> => {
@@ -223,15 +223,15 @@ export const setLyricTextPosition = async (
   textX: LX.AppSetting['desktopLyric.textPosition.x'],
   textY: LX.AppSetting['desktopLyric.textPosition.y']
 ): Promise<void> => {
-  return safeLyric(() =>   return LyricModule.setLyricTextPosition(textX.toUpperCase(), textY.toUpperCase()))
+  return safeLyric(() => LyricModule.setLyricTextPosition(textX.toUpperCase(), textY.toUpperCase()))
 }
 
 export const checkOverlayPermission = async (): Promise<void> => {
-  return safeLyric(() =>   return LyricModule.checkOverlayPermission())
+  return safeLyric(() => LyricModule.checkOverlayPermission())
 }
 
 export const openOverlayPermissionActivity = async (): Promise<void> => {
-  return safeLyric(() =>   return LyricModule.openOverlayPermissionActivity()))
+  return safeLyric(() => LyricModule.openOverlayPermissionActivity())
 }
 
 export const onPositionChange = (

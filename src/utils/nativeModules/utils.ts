@@ -3,6 +3,9 @@ import { AppState, BackHandler, Dimensions, NativeEventEmitter, NativeModules, P
 const { UtilsModule } = NativeModules
 const isIOS = Platform.OS === 'ios'
 
+// UtilsModule 在 iOS/Android 均有原生实现（见 ios/AppDelegate.mm）。
+// 以下导出对 iOS 上不存在/不适用的方法做平台守卫，统一降级以避免调用 undefined。
+
 // iOS 无 UtilsModule 原生实现，所有导出在 iOS 上安全降级，避免调用 undefined 崩溃。
 
 export const exitApp = (): void => {

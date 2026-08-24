@@ -1,4 +1,4 @@
-import { AppState, NativeEventEmitter, NativeModules, Platform } from 'react-native'
+import { AppState, Dimensions, NativeEventEmitter, NativeModules, Platform } from 'react-native'
 
 const { UtilsModule } = NativeModules
 
@@ -65,6 +65,11 @@ export const onScreenStateChange = (handler: (state: 'ON' | 'OFF') => void): (()
 }
 
 export const getWindowSize = async (): Promise<{ width: number; height: number }> => {
+  // iOS 未实现 UtilsModule.getWindowSize，回退到 Dimensions（返回逻辑像素的物理像素当量）
+  if (Platform.OS !== 'android' || !UtilsModule?.getWindowSize) {
+    const { width, height, scale } = Dimensions.get('window')
+    return { width: width * scale, height: height * scale }
+  }
   return UtilsModule.getWindowSize()
 }
 

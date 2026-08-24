@@ -22,12 +22,13 @@ import { type ListInfoItem } from '@/store/songlist/state'
 // const getTheme = () => getter('common', 'theme')(store.getState())
 
 export async function pushHomeScreen() {
-  // iOS 安全区适配：默认给所有 screen 底部保留 home indicator 安全区，
-  // 顶部由自定义 StatusBar（drawBehind）+ SizeView 处理，故 top 设为 never。
+  // iOS 安全区适配：默认给所有 screen 顶部/底部均保留安全区。
+  // 顶部安全区刘海/状态栏由 RNN 原生统一处理，避免 SizeView 在 iOS 上
+  // StatusBar.currentHeight 为 0 导致 Header 被刘海遮挡。
   Navigation.setDefaultOptions({
     layout: {
       safeAreaInsets: {
-        top: 'never',
+        top: 'always',
         bottom: 'always',
       },
     },
@@ -106,7 +107,7 @@ export async function pushHomeScreen() {
                   componentBackgroundColor: theme['c-content-background'],
                   fitSystemWindows: false,
                   safeAreaInsets: {
-                    top: 'never',
+                    top: 'always',
                     bottom: 'always',
                   },
                 },
@@ -179,7 +180,7 @@ export function pushPlayDetailScreen(componentId: string, skipAnimation = false)
             componentBackgroundColor: theme['c-content-background'],
                   fitSystemWindows: false,
                   safeAreaInsets: {
-                    top: 'never',
+                    top: 'always',
                     bottom: 'always',
                   },
           },
@@ -307,7 +308,7 @@ export function pushSonglistDetailScreen(componentId: string, info: ListInfoItem
             componentBackgroundColor: theme['c-content-background'],
                   fitSystemWindows: false,
                   safeAreaInsets: {
-                    top: 'never',
+                    top: 'always',
                     bottom: 'always',
                   },
           },
@@ -445,7 +446,7 @@ export function pushCommentScreen(componentId: string) {
             componentBackgroundColor: theme['c-content-background'],
                   fitSystemWindows: false,
                   safeAreaInsets: {
-                    top: 'never',
+                    top: 'always',
                     bottom: 'always',
                   },
           },

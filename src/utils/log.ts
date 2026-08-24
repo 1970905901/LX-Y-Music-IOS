@@ -8,7 +8,7 @@ import {
   readFile,
   stat,
 } from '@/utils/fs'
-import RNFS from 'react-native-fs'
+import { read } from '@/utils/fs'
 
 const logPath = temporaryDirectoryPath + '/error.log'
 const sourceTestLogPath = temporaryDirectoryPath + '/source_test.log'
@@ -60,7 +60,7 @@ export const getLogs = async () => {
     const info = await stat(logPath)
     if (info.size > READ_LIMIT) {
       const position = Math.max(0, info.size - READ_LIMIT)
-      return await RNFS.read(logPath, READ_LIMIT, position, 'utf8')
+      return await read(logPath, READ_LIMIT, position, 'utf8')
     }
   } catch { /* ignore */ }
   return readFile(logPath)

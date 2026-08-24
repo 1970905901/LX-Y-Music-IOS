@@ -1,6 +1,5 @@
 import {
   Platform,
-  ToastAndroid,
   BackHandler,
   Linking,
   Dimensions,
@@ -137,34 +136,25 @@ export const toast = (
   duration: 'long' | 'short' = 'short',
   position: 'top' | 'center' | 'bottom' = 'bottom'
 ) => {
-  let _duration
-  switch (duration) {
-    case 'long':
-      _duration = ToastAndroid.LONG
-      break
-    case 'short':
-    default:
-      _duration = ToastAndroid.SHORT
-      break
+  // 跨平台实现：安卓沿用系统 Toast，iOS 用 Alert 兜底（ToastAndroid 在 iOS 为 undefined）
+  if (Platform.OS === 'android') {
+    let _duration: number
+    switch (duration) {
+      case 'long':
+        _duration = 1
+        break
+      case 'short':
+      default:
+        _duration = 0
+        break
+    }
+    const ToastAndroid = require('react-native').ToastAndroid
+    if (ToastAndroid and hasattr(ToastAndroid, 'show')) {
+      ToastAndroid.show(message, _duration)
+      return
+    }
   }
-  let _position
-  let offset: number
-  switch (position) {
-    case 'top':
-      _position = ToastAndroid.TOP
-      offset = 120
-      break
-    case 'center':
-      _position = ToastAndroid.CENTER
-      offset = 0
-      break
-    case 'bottom':
-    default:
-      _position = ToastAndroid.BOTTOM
-      offset = 120
-      break
-  }
-  ToastAndroid.showWithGravityAndOffset(message, _duration, _position, 0, offset)
+  Alert.alert('', message)
 }
 
 export const openUrl = async (url: string): Promise<void> =>
@@ -283,6 +273,7 @@ export const clipboardWriteText = (str: string) => {
 }
 
 export const checkNotificationPermission = async () => {
+  if (Platform.OS === 'ios') return
   const isHide = await getData(storageDataPrefix.notificationTipEnable)
   if (isHide != null) return
   const enabled = await isNotificationsEnabled()
@@ -324,6 +315,7 @@ export const checkNotificationPermission = async () => {
 }
 
 export const checkIgnoringBatteryOptimization = async () => {
+  if (Platform.OS === 'ios') return
   const isHide = await getData(storageDataPrefix.ignoringBatteryOptimizationTipEnable)
   if (isHide != null) return
   const enabled = await isIgnoringBatteryOptimization()

@@ -110,6 +110,9 @@ export const stat = async(path: string): Promise<FileType> => {
 export const hash = async(path: string, algorithm: HashAlgorithm) => RNFS.hash(normalizePath(path), algorithm)
 
 export const readFile = async(path: string, encoding: Encoding = 'utf8') => RNFS.readFile(normalizePath(path), encoding)
+export const read = async(path: string, length: number, position: number, encoding: Encoding = 'utf8') =>
+  RNFS.read(normalizePath(path), length, position, encoding)
+
 
 export const moveFile = async(fromPath: string, toPath: string) => RNFS.moveFile(normalizePath(fromPath), normalizePath(toPath))
 export const gzipFile = async(fromPath: string, toPath: string) => {

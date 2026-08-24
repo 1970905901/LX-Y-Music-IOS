@@ -14,7 +14,7 @@ import settingState from '@/store/setting/state'
 import Pic from './Pic'
 import Lyric from './Lyric'
 import Player from './Player'
-import RNFS from 'react-native-fs'
+import { downloadFile, appendFile, DownloadDirectoryPath } from '@/utils/fs'
 
 export default memo(({ componentId }: { componentId: string }) => {
   const lastBackTime = useRef(0)
@@ -32,9 +32,9 @@ export default memo(({ componentId }: { componentId: string }) => {
   const blur = useSettingValue('theme.blur')
 
   useEffect(() => {
-    const logPath = `${RNFS.DownloadDirectoryPath}/lx-music-window-log.txt`;
+    const logPath = `${DownloadDirectoryPath}/lx-music-window-log.txt`;
     const logContent = `[${new Date().toISOString()}] Window size changed: ${JSON.stringify(windowSize)}\n`;
-    RNFS.appendFile(logPath, logContent, 'utf8')
+    appendFile(logPath, logContent, 'utf8')
       .catch(err => {
         console.error('Failed to write window size log:', err);
       });

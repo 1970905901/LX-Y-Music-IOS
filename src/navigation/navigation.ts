@@ -1,5 +1,5 @@
 import { Navigation } from 'react-native-navigation'
-// import { InteractionManager } from 'react-native'
+import { InteractionManager, Platform } from 'react-native'
 
 import {
   HOME_SCREEN,
@@ -60,8 +60,10 @@ export async function pushHomeScreen() {
 
   if (lockLandscape) {
     setTimeout(() => {
-      const { setScreenOrientation } = require('@/utils/nativeModules/utils')
-      setScreenOrientation('landscape')
+      if (Platform.OS !== 'ios') {
+        const { setScreenOrientation } = require('@/utils/nativeModules/utils')
+        setScreenOrientation('landscape')
+      }
     }, 500)
   }
 

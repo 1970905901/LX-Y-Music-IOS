@@ -4,7 +4,6 @@ import { handleMusicAction } from './musicAction'
 import { handlePlayerAction, type PlayerAction } from './playerAction'
 import { handleSonglistAction } from './songlistAction'
 import { handleSearchAction } from './searchAction'
-import { startMusicRecognition } from '@/core/musicRecognition'
 import { setNavActiveId } from '@/core/common'
 import { setPendingAction } from '@/core/pendingAction'
 import { extname, stat } from '@/utils/fs'
@@ -56,9 +55,6 @@ const handleLinkAction = async (link: string) => {
       break
     case 'search':
       await handleSearchAction(action, params)
-      break
-    case 'recognition':
-      await startMusicRecognition()
       break
     case 'setting':
       setNavActiveId('nav_setting')

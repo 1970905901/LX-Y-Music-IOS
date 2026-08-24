@@ -1,5 +1,5 @@
 import { memo, useMemo, useRef, useState, useCallback } from 'react'
-import { ScrollView, TouchableOpacity, View, Platform } from 'react-native'
+import { ScrollView, TouchableOpacity, View } from 'react-native'
 import { useI18n } from '@/lang'
 import { useNavActiveId, useStatusbarHeight, useBgPic } from '@/store/common/hook'
 import { useTheme } from '@/store/theme/hook'
@@ -18,7 +18,6 @@ import { navigations } from "@/navigation"
 import commonState from '@/store/common/state'
 import ImageBackground from '@/components/common/ImageBackground'
 import { defaultHeaders } from '@/components/common/Image'
-import { startMusicRecognition } from '@/core/musicRecognition'
 import { updateSetting } from '@/core/common'
 
 interface MyListItemProps {
@@ -342,10 +341,6 @@ export default memo(() => {
     global.app_event.changeMenuVisible(false);
     setNavActiveId('nav_play_history');
   };
-  const handleMusicRecognitionPress = () => {
-    global.app_event.changeMenuVisible(false);
-    startMusicRecognition();
-  };
   const handleWebVisualizerPress = () => {
     global.app_event.changeMenuVisible(false);
     navigations.pushVisualizerScreen(commonState.componentIds[commonState.componentIds.length - 1]?.id!);
@@ -450,11 +445,6 @@ export default memo(() => {
         <TouchableOpacity style={styles.footerBtn} onPress={handleWebVisualizerPress}>
           <SvgIcon name="web-visualizer" size={25} color={theme['c-font-label']} />
         </TouchableOpacity>
-        {Platform.OS === 'android' ? (
-          <TouchableOpacity style={styles.footerBtn} onPress={handleMusicRecognitionPress}>
-            <SvgIcon name="music-recognition" size={25} color={theme['c-font-label']} />
-          </TouchableOpacity>
-        ) : null}
         <TouchableOpacity style={styles.footerBtn} onPress={handleHistoryPress}>
           <Icon name="music_time" size={25} color={theme['c-font-label']} />
         </TouchableOpacity>

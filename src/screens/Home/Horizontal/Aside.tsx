@@ -1,6 +1,5 @@
 import { memo, useMemo, useState, useEffect } from 'react'
 import { ScrollView, TouchableOpacity, View, Dimensions } from 'react-native'
-import { Platform } from 'react-native'
 import { useNavActiveId, useStatusbarHeight, useBgPic } from '@/store/common/hook'
 import { useTheme } from '@/store/theme/hook'
 import { Icon } from '@/components/common/Icon'
@@ -17,7 +16,6 @@ import { defaultHeaders } from '@/components/common/Image'
 import { getCutoutLeftPx } from '@/utils/nativeModules/utils'
 import commonState from '@/store/common/state'
 import { navigations } from '@/navigation'
-import { startMusicRecognition } from '@/core/musicRecognition'
 
 const NAV_WIDTH = 68
 
@@ -197,10 +195,6 @@ export default memo(() => {
     setNavActiveId(id as any)
   }
 
-  const handleMusicRecognitionPress = () => {
-    global.app_event.changeMenuVisible(false);
-    startMusicRecognition();
-  };
   const handleWebVisualizerPress = () => {
     global.app_event.changeMenuVisible(false);
     navigations.pushVisualizerScreen(commonState.componentIds[commonState.componentIds.length - 1]?.id!);
@@ -257,13 +251,6 @@ export default memo(() => {
               <SvgIcon name="web-visualizer" size={22} color={theme['c-font-label']} />
             </View>
           </TouchableOpacity>
-          {Platform.OS === 'android' ? (
-            <TouchableOpacity style={styles.menuItem} onPress={handleMusicRecognitionPress}>
-              <View style={styles.iconContent}>
-                <SvgIcon name="music-recognition" size={22} color={theme['c-font-label']} />
-              </View>
-            </TouchableOpacity>
-          ) : null}
         </View>
       </ScrollView>
       {global.lx.isCarMode && showBackBtn ? <MenuItem id="back_home" icon="home" onPress={handlePress} /> : null}

@@ -199,11 +199,6 @@ export default memo(() => {
     setNavActiveId(id as any)
   }
 
-  const handleWebVisualizerPress = () => {
-    global.app_event.changeMenuVisible(false);
-    navigations.pushVisualizerScreen(commonState.componentIds[commonState.componentIds.length - 1]?.id!);
-  };
-
   const filteredNavMenus = useMemo(() => {
     if (!navOrder) return NAV_MENUS.filter(
       menu => menu.id !== 'nav_play_history' && (menu.id === 'nav_setting' || (navStatus[menu.id] ?? true))
@@ -250,11 +245,6 @@ export default memo(() => {
             <MenuItem key={menu.id} id={menu.id} icon={menu.icon} onPress={handlePress} />
           ))}
           <View style={styles.divider} />
-          <TouchableOpacity style={styles.menuItem} onPress={handleWebVisualizerPress}>
-            <View style={styles.iconContent}>
-              <SvgIcon name="web-visualizer" size={22} color={theme['c-font-label']} />
-            </View>
-          </TouchableOpacity>
         </View>
       </ScrollView>
       {global.lx.isCarMode && showBackBtn ? <MenuItem id="back_home" icon="home" onPress={handlePress} /> : null}

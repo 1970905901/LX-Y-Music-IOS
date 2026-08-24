@@ -4,7 +4,6 @@ import { InteractionManager, Platform } from 'react-native'
 import {
   HOME_SCREEN,
   PLAY_DETAIL_SCREEN,
-  VISUALIZER_SCREEN,
   SONGLIST_DETAIL_SCREEN,
   SIMILAR_SONGS_SCREEN,
   COMMENT_SCREEN, ARTIST_DETAIL_SCREEN, ALBUM_DETAIL_SCREEN, DOWNLOAD_MANAGER_SCREEN,
@@ -238,39 +237,6 @@ export function pushPlayDetailScreen(componentId: string, skipAnimation = false)
                 },
               },
             },
-          },
-        },
-      },
-    })
-  })
-}
-
-export function pushVisualizerScreen(componentId: string) {
-  const theme = themeState.theme
-
-  requestAnimationFrame(() => {
-    void Navigation.push(componentId, {
-      component: {
-        name: VISUALIZER_SCREEN,
-        options: {
-          topBar: {
-            visible: false,
-            height: 0,
-            drawBehind: false,
-          },
-          statusBar: {
-            drawBehind: true,
-            visible: false,
-            style: 'light',
-            backgroundColor: 'transparent',
-          },
-          navigationBar: {
-            visible: false,
-            backgroundColor: '#000',
-          },
-          layout: {
-            componentBackgroundColor: '#000',
-            orientation: ['landscape'],
           },
         },
       },

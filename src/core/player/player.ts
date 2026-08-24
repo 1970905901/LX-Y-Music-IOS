@@ -1018,7 +1018,6 @@ export const dislikeMusic = async () => {
 
 /**
  * Headless playlist switch - state update only, no TrackPlayer calls
- * Used by WebViewSyncManager to switch tracks without triggering native audio chain
  */
 export const playListHeadlessServer = (listId: string, index: number) => {
   setPlayListId(listId)

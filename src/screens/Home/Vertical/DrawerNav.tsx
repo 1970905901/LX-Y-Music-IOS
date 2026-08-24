@@ -341,10 +341,6 @@ export default memo(() => {
     global.app_event.changeMenuVisible(false);
     setNavActiveId('nav_play_history');
   };
-  const handleWebVisualizerPress = () => {
-    global.app_event.changeMenuVisible(false);
-    navigations.pushVisualizerScreen(commonState.componentIds[commonState.componentIds.length - 1]?.id!);
-  };
   const filteredNavMenus = useMemo(() => {
     if (!navOrder) return NAV_MENUS.filter(
       menu => menu.id !== 'nav_play_history' && (menu.id === 'nav_setting' || (navStatus[menu.id] ?? true))
@@ -442,9 +438,6 @@ export default memo(() => {
       </ScrollView>
 
       <View style={styles.footer}>
-        <TouchableOpacity style={styles.footerBtn} onPress={handleWebVisualizerPress}>
-          <SvgIcon name="web-visualizer" size={25} color={theme['c-font-label']} />
-        </TouchableOpacity>
         <TouchableOpacity style={styles.footerBtn} onPress={handleHistoryPress}>
           <Icon name="music_time" size={25} color={theme['c-font-label']} />
         </TouchableOpacity>

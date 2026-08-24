@@ -43,7 +43,6 @@ jobs:
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.2"
-          bundler-cache: true
 
       - name: Install dependencies
         run: npm install
@@ -51,8 +50,9 @@ jobs:
       - name: Install CocoaPods dependencies
         shell: bash
         run: |
+          gem install cocoapods -v '~> 1.12' --no-document
           cd ios
-          bundle exec pod install --repo-update
+          pod install --repo-update
 
       - name: Read package version
         shell: bash

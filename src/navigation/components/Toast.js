@@ -1,13 +1,18 @@
 import { useEffect } from 'react'
 import { View, Text, StyleSheet } from 'react-native'
-import { useTheme } from '@/store/theme/hook'
+import state from '@/store/theme/state'
 import { Navigation } from 'react-native-navigation'
 
 // 非阻塞 Toast 浮层（替代 iOS 的 Alert.alert）。
 // 通过 RNN showOverlay 呈现，overlay.interceptTouchOutside=false 保证不拦截底层触摸，
 // 因此即使连续弹出多个也不会破坏 iOS 的 keyWindow/交互状态，从根本上避免整页卡死。
+//
+// 注意：Toast 由 Navigation.showOverlay 渲染，位于应用 <ThemeProvider> 之外，
+// 若用 useTheme()（useContext）取到的是 createContext 在模块加载时捕获的初始默认主题，
+// 不会随用户在设置中切换的主题（尤其是暗色）更新，导致 Toast 背景错位（表现为“主题问题”）。
+// 因此这里直接读取模块级 state.theme——setTheme 会重写它，始终反映当前真实主题。
 const Toast = ({ componentId, message = '', duration = 2000, position = 'bottom' }) => {
-  const theme = useTheme()
+  const theme = state.theme
 
   useEffect(() => {
     const timer = setTimeout(() => {

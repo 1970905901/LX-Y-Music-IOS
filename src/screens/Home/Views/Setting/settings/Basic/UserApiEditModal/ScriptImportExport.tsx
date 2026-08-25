@@ -70,6 +70,9 @@ export default forwardRef<ScriptImportExportType, ScriptImportExportProps>((prop
             })
             .catch((err: any) => {
               if (err?.code === 'picker_cancelled') return
+              // 诊断：把原生选择器失败原因直接弹出，便于真机复现后定位“本地导入没反应”的根因
+              // （如 picker_present=找不到可呈现的 VC、picker_busy=上一个面板未释放）。
+              toast(global.i18n.t('user_api_import_failed_tip', { message: err?.message ?? '' }), 'long')
               // 原生选择器不可用或失败时回退到内置目录浏览器
               showChoosePath(choosePathRef, visible, setVisible, {
                 title: global.i18n.t('user_api_import_desc'),

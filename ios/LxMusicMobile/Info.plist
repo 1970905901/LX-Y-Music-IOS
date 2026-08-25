@@ -71,8 +71,8 @@
 		<key>NSAllowsArbitraryLoads</key>
 		<true/>
 	</dict>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string></string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>用于局域网内获取歌词与声学指纹数据</string>
 	<key>UTImportedTypeDeclarations</key>
 	<array>
 		<dict>

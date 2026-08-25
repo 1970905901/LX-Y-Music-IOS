@@ -158,3 +158,14 @@ export const downloadFile = (url: string, path: string, options: Omit<RNFS.Downl
 export const stopDownload = (jobId: number) => {
   RNFS.stopDownload(jobId)
 }
+
+export const getWebDAVPrivateDirectory = () => {
+  const docDir = privateStorageDirectoryPath
+  if (!docDir || typeof docDir !== 'string') {
+    return `${RNFS.DocumentDirectoryPath}/WebDAV`
+  }
+  return `${docDir}/WebDAV`
+}
+
+export const copyFile = async (fromPath: string, toPath: string) =>
+  RNFS.copyFile(normalizePath(fromPath), normalizePath(toPath))

@@ -23,7 +23,6 @@ import { Navigation } from 'react-native-navigation'
 
 const CARD_HEIGHT = scaleSizeH(90)
 const LONG_PRESS_MS = 350
-const DRAG_CANCEL_THRESHOLD = 6
 
 interface ListItemInfo {
   id: string
@@ -136,6 +135,8 @@ const PlaylistCard = memo(({
   const moreButtonRef = useRef<TouchableOpacity>(null)
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isActivatedRef = useRef(false)
+  const currentDyRef = useRef(0)
+  const activationDyRef = useRef(0)
 
   const clearLongPressTimer = () => {
     if (longPressTimer.current != null) {
@@ -153,40 +154,31 @@ const PlaylistCard = memo(({
   const panResponder = useMemo(
     () =>
       PanResponder.create({
-        onStartShouldSetPanResponder: () => false,
+        onStartShouldSetPanResponder: () => true,
         onStartShouldSetPanResponderCapture: () => true,
-        onMoveShouldSetPanResponder: (_e: GestureResponderEvent, gs: PanResponderGestureState) => {
-          if (!isActivatedRef.current) return false
-          return Math.abs(gs.dy) > 1 || Math.abs(gs.dx) > 1
-        },
-        onMoveShouldSetPanResponderCapture: (
-          _e: GestureResponderEvent,
-          gs: PanResponderGestureState
-        ) => {
-          if (!isActivatedRef.current) return false
-          return Math.abs(gs.dy) > 2
-        },
+        // 关键修复：长按时立即接管手势，避免父级 ScrollView 抢占导致整页随拖动滚动。
+        onMoveShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponderCapture: () => true,
         onPanResponderGrant: () => {
           onTouchStart()
           clearLongPressTimer()
           isActivatedRef.current = false
+          currentDyRef.current = 0
           longPressTimer.current = setTimeout(() => {
             longPressTimer.current = null
             isActivatedRef.current = true
+            // 记录激活瞬间的位移作为基准，避免松开/激活时条目突跳。
+            activationDyRef.current = currentDyRef.current
             onLongPressStart(userListIndex)
           }, LONG_PRESS_MS)
         },
         onPanResponderMove: (_e, gs) => {
+          currentDyRef.current = gs.dy
           if (!isActivatedRef.current) {
-            if (
-              Math.abs(gs.dy) > DRAG_CANCEL_THRESHOLD ||
-              Math.abs(gs.dx) > DRAG_CANCEL_THRESHOLD
-            ) {
-              clearLongPressTimer()
-            }
+            // 激活前仅消费手势（防止 ScrollView 滚动），不触发拖动。
             return
           }
-          onDragMove(gs.dy)
+          onDragMove(gs.dy - activationDyRef.current)
         },
         onPanResponderRelease: () => {
           onTouchEnd()
@@ -204,7 +196,8 @@ const PlaylistCard = memo(({
             onDragCancel()
           }
         },
-        onPanResponderTerminationRequest: () => !isActivatedRef.current,
+        // 一旦接管手势就不再释放给 ScrollView，避免整页被滚动。
+        onPanResponderTerminationRequest: () => false,
       }),
     [userListIndex, onLongPressStart, onDragMove, onDragRelease, onDragCancel, onTouchStart, onTouchEnd]
   )

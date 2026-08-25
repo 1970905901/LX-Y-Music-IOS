@@ -10,7 +10,6 @@ import { useTheme } from '@/store/theme/hook';
 import { Icon } from '@/components/common/Icon';
 
 const LONG_PRESS_MS = 350;
-const DRAG_CANCEL_THRESHOLD = 6;
 
 interface MenuItemData {
   id: string;
@@ -162,6 +161,8 @@ const DraggableItem = memo(({ item, index, isChecked, isDragging, isDragSource, 
   const t = useI18n();
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isActivatedRef = useRef(false);
+  const currentDyRef = useRef(0);
+  const activationDyRef = useRef(0);
 
   const clearLongPressTimer = () => { if (longPressTimer.current != null) { clearTimeout(longPressTimer.current); longPressTimer.current = null; } };
   useEffect(() => () => { clearLongPressTimer(); }, []);
@@ -170,16 +171,19 @@ const DraggableItem = memo(({ item, index, isChecked, isDragging, isDragSource, 
     () => PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onStartShouldSetPanResponderCapture: () => true,
-      onMoveShouldSetPanResponder: (_e: any, gs: any) => { if (!isActivatedRef.current) return false; return Math.abs(gs.dy) > 1 || Math.abs(gs.dx) > 1; },
-      onMoveShouldSetPanResponderCapture: (_e: any, gs: any) => { if (!isActivatedRef.current) return false; return Math.abs(gs.dy) > 2; },
+      // 关键修复：长按时立即接管手势，避免父级 ScrollView 抢占导致整页随拖动滚动。
+      onMoveShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponderCapture: () => true,
       onPanResponderGrant: () => {
         clearLongPressTimer(); isActivatedRef.current = false;
-        longPressTimer.current = setTimeout(() => { longPressTimer.current = null; isActivatedRef.current = true; onLongPressStart(index); }, LONG_PRESS_MS);
+        currentDyRef.current = 0;
+        longPressTimer.current = setTimeout(() => { longPressTimer.current = null; isActivatedRef.current = true; activationDyRef.current = currentDyRef.current; onLongPressStart(index); }, LONG_PRESS_MS);
       },
-      onPanResponderMove: (_e: any, gs: any) => { if (!isActivatedRef.current) { if (Math.abs(gs.dy) > DRAG_CANCEL_THRESHOLD || Math.abs(gs.dx) > DRAG_CANCEL_THRESHOLD) clearLongPressTimer(); return; } onDragMove(gs.dy); },
+      onPanResponderMove: (_e: any, gs: any) => { currentDyRef.current = gs.dy; if (!isActivatedRef.current) { return; } onDragMove(gs.dy - activationDyRef.current); },
       onPanResponderRelease: () => { clearLongPressTimer(); if (isActivatedRef.current) { isActivatedRef.current = false; onDragRelease(); } },
       onPanResponderTerminate: () => { clearLongPressTimer(); if (isActivatedRef.current) { isActivatedRef.current = false; onDragCancel(); } },
-      onPanResponderTerminationRequest: () => !isActivatedRef.current,
+      // 一旦接管手势就不再释放给 ScrollView，避免整页被滚动。
+      onPanResponderTerminationRequest: () => false,
     }),
     [index, onLongPressStart, onDragMove, onDragRelease, onDragCancel]
   );

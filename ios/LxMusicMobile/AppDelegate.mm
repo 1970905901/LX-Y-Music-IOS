@@ -3809,9 +3809,14 @@ RCT_REMAP_METHOD(openDocument, openDocument:(NSDictionary *)options resolver:(RC
     return;
   }
   UIViewController *controller = LXTopViewController();
-  // 仍需等待的情况：① 取不到 VC；② 顶层 VC 仍持有上一个 modal（RN Modal 以 present 方式挂载）；
-  // ③ 仍有 RCTModalHostViewController 的独立 window 残留（部分 RN 版本）。
-  if (controller == nil || controller.presentedViewController != nil || LXAnotherRNModalWindowPresent()) {
+  // 仍需等待的情况：
+  // ① 取不到 VC；② 顶层 VC 仍持有上一个 modal（RN Modal 以 present 方式挂载）；
+  // ③ 顶层 VC 自身就是 RN Modal 的 RCTModalHostViewController（Modal 直接挂在主 window 上，
+  //    LXAnotherRNModalWindowPresent 检测不到，会导致 picker 呈现到正在消失的 Modal VC 上）；
+  // ④ 顶层 VC 正在 dismiss；⑤ 仍有 RCTModalHostViewController 的独立 window 残留。
+  BOOL isRNModalVC = controller != nil && [NSStringFromClass([controller class]) isEqualToString:@"RCTModalHostViewController"];
+  BOOL isBeingDismissed = controller != nil && controller.isBeingDismissed;
+  if (controller == nil || controller.presentedViewController != nil || isRNModalVC || isBeingDismissed || LXAnotherRNModalWindowPresent()) {
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(50 * NSEC_PER_MSEC)), dispatch_get_main_queue(), ^{
       [self presentDocumentPickerWhenReady:picker attempts:attempts + 1];
     });

@@ -43,12 +43,11 @@ export default () => {
       setNowPlayTime(position)
       updateScrobblePlayTime(position)
 
-      // 用真实播放进度持续校正歌词时钟：歌词解析器内部以墙钟驱动、与音频位置解耦，
-      // 若不每拍校正，拖动进度/倍速播放后歌词会错位。
-      if (playerState.isPlay) {
-        try { lrcPlay(position * 1000) } catch {}
-      }
-
+      // 注意：此处不再每拍用 getPosition() 重新锚定歌词时钟。
+      // 歌词解析器以自身墙钟自驱，且在 play / 拖动 / 点击 / 倍速时都会通过
+      // setProgress 与 handlePlay 重新锚定。若每拍都按 getPosition() 重锚，
+      // iOS 上一次 seek 需 ~180ms 才生效，下一拍读到的是 seek 前的旧位置，
+      // 会把刚点击跳转的高亮行又拽回旧行（即“点歌词不跟随”），并造成倍速下抖动。
       if (!playerState.isPlay) return
       if (
         settingState.setting['player.isSavePlayTime'] &&

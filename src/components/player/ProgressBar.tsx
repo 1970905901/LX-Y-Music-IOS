@@ -76,9 +76,13 @@ const PreassBar = memo(
         onPanResponderRelease: () => {
           onDragEnd()
         },
-        // onPanResponderTerminate: (evt, gestureState) => {
-        //   onDragEnd()
-        // },
+        onPanResponderTerminate: () => {
+          onDragEnd()
+        },
+        // 关键修复：拒绝被父级（播放页纵向滑动切歌）手势抢占。
+        // 否则拖动进度条时父级 onMoveShouldSetPanResponderCapture 会夺走手势，
+        // 导致 onDragEnd 不触发、onSetProgress(seek) 被丢弃，进度条拖动不跳转。
+        onPanResponderTerminationRequest: () => false,
       })
     ).current
 

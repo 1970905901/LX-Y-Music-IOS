@@ -106,7 +106,8 @@ export const useLrcPlay = (autoUpdate = true) => {
       setLrcInfo({ line: 0, text: '' })
     }
     const playCallback: PlayHook = (line, text) => {
-      setLrcInfo({ line, text })
+      // 仅当高亮行变化时才更新状态，避免每次进度校正都触发整列表重渲染
+      setLrcInfo((prev) => (prev.line === line ? prev : { line, text }))
     }
     lrcTools.addSetLyricHook(setLrcCallback)
     lrcTools.addPlayHook(playCallback)

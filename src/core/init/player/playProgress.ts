@@ -1,6 +1,7 @@
 import { updateListMusics } from '@/core/list'
 import { setMaxplayTime, setNowPlayTime } from '@/core/player/progress'
 import { setCurrentTime, getDuration, getPosition } from '@/plugins/player'
+import { play as lrcPlay } from '@/plugins/lyric'
 import { formatPlayTime2 } from '@/utils/common'
 import { savePlayInfo } from '@/utils/data'
 import { throttleBackgroundTimer } from '@/utils/tools'
@@ -41,6 +42,12 @@ export default () => {
       if (!position || id != playerState.musicInfo.id) return
       setNowPlayTime(position)
       updateScrobblePlayTime(position)
+
+      // 用真实播放进度持续校正歌词时钟：歌词解析器内部以墙钟驱动、与音频位置解耦，
+      // 若不每拍校正，拖动进度/倍速播放后歌词会错位。
+      if (playerState.isPlay) {
+        try { lrcPlay(position * 1000) } catch {}
+      }
 
       if (!playerState.isPlay) return
       if (
@@ -97,6 +104,8 @@ export default () => {
     setNowPlayTime(time)
     updateScrobblePlayTime(time)
     void setCurrentTime(time)
+    // 跳转进度时同步校正歌词时钟：点击歌词段落 / 拖动进度条后让高亮行立即跟随
+    try { lrcPlay(time * 1000) } catch {}
     if (maxTime != null) {
       setMaxplayTime(maxTime)
       updateScrobbleTotalTime(maxTime)

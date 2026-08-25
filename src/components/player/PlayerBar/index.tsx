@@ -10,6 +10,7 @@ import { useTheme } from '@/store/theme/hook'
 import { useSettingValue } from '@/store/setting/hook'
 import { Icon } from '@/components/common/Icon'
 import { navigations } from '@/navigation'
+import { PLAY_DETAIL_SCREEN } from '@/navigation/screenNames'
 import commonState from '@/store/common/state'
 import { usePlayerMusicInfo } from '@/store/player/hook'
 import PlayerPlaylist, { PlayerPlaylistType } from '@/components/player/PlayerPlaylist.tsx'
@@ -22,6 +23,7 @@ export default memo(({ componentId, isHome = false }: { isHome?: boolean }) => {
   const theme = useTheme()
   const musicInfo = usePlayerMusicInfo()
   const longPressedRef = useRef(false)
+  const navigatingRef = useRef(false)
   const playlistRef = useRef<PlayerPlaylistType>(null)
   const drawerLayoutPosition = useSettingValue('common.drawerLayoutPosition')
   const picOpacity = useSettingValue('theme.picOpacity')
@@ -40,8 +42,17 @@ export default memo(({ componentId, isHome = false }: { isHome?: boolean }) => {
       return
     }
     if (!musicInfo.id) return
-    const currentComponentId = commonState.componentIds[commonState.componentIds.length - 1]?.id!
+    // 防重入：动画进行中忽略连续点击，避免 PlayDetail 被反复压栈导致界面卡死。
+    if (navigatingRef.current) return
+    const ids = commonState.componentIds
+    // 若顶层已是播放详情页，不再重复 push。
+    if (ids.length && ids[ids.length - 1]?.name === PLAY_DETAIL_SCREEN) return
+    navigatingRef.current = true
+    const currentComponentId = ids[ids.length - 1]?.id!
     navigations.pushPlayDetailScreen(currentComponentId)
+    setTimeout(() => {
+      navigatingRef.current = false
+    }, 600)
   }
 
   const handleShowPlaylist = () => {

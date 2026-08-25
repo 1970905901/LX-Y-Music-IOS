@@ -18,6 +18,7 @@ import { useTheme } from '@/store/theme/hook'
 import { Icon } from '@/components/common/Icon'
 import { reorderUserApi } from '@/core/userApi'
 import { state as userApiState } from '@/store/userApi'
+import { acquireScrollLock, releaseScrollLock } from '@/utils/scrollLock'
 
 const apiSourceList = apiSourceInfo.map((api) => ({
   id: api.id,
@@ -292,6 +293,19 @@ export default memo(() => {
   const draggingIndexRef = useRef<number | null>(null)
   const targetIndexRef = useRef<number | null>(null)
   const lastTargetRef = useRef<number | null>(null)
+  // 拖拽期间锁定祖先滚动容器（设置页外层 ScrollView），避免 iOS 原生 UIScrollView
+  // 抢手势导致整页随拖动滚动。使用引用计数保证与 scrollLock 模块的其他占用者不冲突。
+  const lockAcquiredRef = useRef(false)
+  const acquireDragLock = useCallback(() => {
+    if (lockAcquiredRef.current) return
+    lockAcquiredRef.current = true
+    acquireScrollLock()
+  }, [])
+  const releaseDragLock = useCallback(() => {
+    if (!lockAcquiredRef.current) return
+    lockAcquiredRef.current = false
+    releaseScrollLock()
+  }, [])
 
   if (animsRef.current.length !== userApiList.length) {
     if (animsRef.current.length < userApiList.length) {
@@ -323,6 +337,7 @@ export default memo(() => {
     draggingIndexRef.current = index
     targetIndexRef.current = index
     lastTargetRef.current = index
+    acquireDragLock()
     setDraggingIndex(index)
     const anim = animsRef.current[index]
     if (!anim) return
@@ -413,6 +428,7 @@ export default memo(() => {
     draggingIndexRef.current = null
     targetIndexRef.current = null
     lastTargetRef.current = null
+    releaseDragLock()
     if (from == null) return
     const needsReorder = to != null && to !== from
     if (needsReorder) {
@@ -420,15 +436,22 @@ export default memo(() => {
     }
     setTimeout(resetAllAnims, 100)
     setDraggingIndex(null)
-  }, [persistReorder, resetAllAnims])
+  }, [persistReorder, resetAllAnims, releaseDragLock])
 
   const handleDragCancel = useCallback(() => {
     draggingIndexRef.current = null
     targetIndexRef.current = null
     lastTargetRef.current = null
+    releaseDragLock()
     setDraggingIndex(null)
     resetAllAnims()
-  }, [resetAllAnims])
+  }, [resetAllAnims, releaseDragLock])
+
+  useEffect(() => {
+    return () => {
+      releaseDragLock()
+    }
+  }, [releaseDragLock])
 
   const reorderHint = t('setting_basic_source_user_api_reorder_tip')
 

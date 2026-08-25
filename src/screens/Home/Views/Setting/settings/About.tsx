@@ -81,6 +81,11 @@ export default memo(() => {
           <Text style={textLinkStyle}>WalnutBai/lx-lxwalnut-music-mobile (main-debug)</Text>
         </TouchableOpacity>
       </View>
+      <View style={styles.part}>
+        <Text style={styles.text}>
+          QQ交流群：<Text style={styles.boldText}>1013518794</Text>
+        </Text>
+      </View>
     </Section>
   )
 })

@@ -70,13 +70,18 @@ const PreassBar = memo(
           onDrag(gestureState.dx)
         },
         onPanResponderGrant: (evt, gestureState) => {
-          // console.log(evt.nativeEvent.locationX, gestureState)
+          // 拖动进度条期间禁用 PagerView 原生横滑，避免原生分页控件抢占横向手势
+          // （原生 PagerView 在 native 层处理手势，不理会 RN PanResponder 的终止请求，
+          // 否则左拖会被识别为“切到歌词页”，且 RN 收不到 onPanResponderTerminate，导致 seek 丢失）
+          try { global.app_event.emit('progressDragState', true) } catch {}
           onDragStart(gestureState.dx, evt.nativeEvent.locationX)
         },
         onPanResponderRelease: () => {
+          try { global.app_event.emit('progressDragState', false) } catch {}
           onDragEnd()
         },
         onPanResponderTerminate: () => {
+          try { global.app_event.emit('progressDragState', false) } catch {}
           onDragEnd()
         },
         // 关键修复：拒绝被父级（播放页纵向滑动切歌）手势抢占。

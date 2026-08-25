@@ -48,6 +48,7 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
   const slideThreshold = winHeight * 0.12;
   const velocityThreshold = 800;
   const isAnimating = useRef(false);
+  const [isProgressDragging, setIsProgressDragging] = useState(false);
 
   const isEnableSlideSwitchSongRef = useRef(isEnableSlideSwitchSong)
   const pageIndexRef = useRef(pageIndex)
@@ -177,12 +178,17 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
       else if (AppState.currentState === 'active') screenkeepAwake()
     }
 
+    // 进度条拖动期间禁用 PagerView 横滑，避免与“切到歌词页”的原生手势冲突
+    const handleProgressDragState = (dragging: boolean) => setIsProgressDragging(dragging)
+    global.app_event.on('progressDragState', handleProgressDragState)
+
     global.state_event.on('componentIdsUpdated', handleComponentIdsChange)
     global.app_event.on('switchToLyricPage', handleSwitchToLyricPage)
     global.app_event.on('showPlaylist', () => { playlistRef.current?.show() })
 
     return () => {
       global.state_event.off('componentIdsUpdated', handleComponentIdsChange)
+      global.app_event.off('progressDragState', handleProgressDragState)
       global.app_event.off('switchToLyricPage', handleSwitchToLyricPage)
       global.app_event.off('showPlaylist', () => { playlistRef.current?.show() })
       appstateListener.remove()
@@ -200,6 +206,7 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
           onPageSelected={onPageSelected}
           style={styles.pagerView}
           ref={pagerViewRef}
+          scrollEnabled={!isProgressDragging}
         >
           <View collapsable={false} style={styles.pageContainer}>
             <Animated.View collapsable={false} style={[styles.picPageContainerNew, slideStyle, { paddingTop: containerPaddingH }]}>

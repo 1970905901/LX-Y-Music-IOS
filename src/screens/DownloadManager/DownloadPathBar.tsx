@@ -9,7 +9,7 @@ import FileSelect, { type FileSelectType } from '@/components/common/FileSelect'
 import { selectFolder } from '@/utils/fs'
 import { createStyle, toast } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
-import RNFetchBlob from '@/utils/rnFetchBlob'
+import { getDefaultDownloadPath } from '@/utils/downloadPath'
 
 // 与「设置 → 下载 → 下载路径」共用同一套 download.path 设置与选择逻辑，
 // 让下载列表页也能直接查看 / 更改下载目录，二者保持一致、相互连通。
@@ -19,7 +19,7 @@ export default memo(() => {
   const downloadPath = useSettingValue('download.path')
   const fileSelectRef = useRef<FileSelectType>(null)
 
-  const defaultDownloadPath = RNFetchBlob.fs.dirs.MusicDir + '/LX-Y Music'
+  const defaultDownloadPath = getDefaultDownloadPath()
 
   const handleSelectPath = () => {
     // iOS：使用系统原生文件夹选择器（UIDocumentPicker 目录模式）

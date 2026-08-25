@@ -4,6 +4,7 @@ import { getMusicUrl, getLyricInfo } from '@/core/music';
 import {getFileExtension, getFileExtensionFromUrl} from '@/screens/Home/Views/Mylist/MusicList/download/utils';
 import { mergeLyrics } from '@/screens/Home/Views/Mylist/MusicList/download/lrcTool';
 import {writeFile, unlink, downloadFile, mkdir, moveFile, stopDownload} from '@/utils/fs';
+import { getDefaultDownloadPath } from '@/utils/downloadPath';
 import { writeMetadata, writePic, writeLyric } from '@/utils/localMediaMetadata';
 import settingState from '@/store/setting/state';
 import downloadState from '@/store/download/state';
@@ -95,11 +96,11 @@ const startDownload = async (task: DownloadTask) => {
 
   let downloadFilePath = task.filePath;
   if (isBilibiliSource && urlExtension) {
-    const downloadDir = settingState.setting['download.path'] || (RNFetchBlob.fs.dirs.MusicDir + '/LX-Y Music');
+    const downloadDir = settingState.setting['download.path'] || getDefaultDownloadPath();
     downloadFilePath = `${downloadDir}/${task.fileName}.download.${urlExtension}`;
     console.log(`[Download] Bilibili 源使用临时路径下载: ${downloadFilePath}`);
   } else if (urlExtension && urlExtension !== taskExt) {
-    const downloadDir = settingState.setting['download.path'] || (RNFetchBlob.fs.dirs.MusicDir + '/LX-Y Music');
+    const downloadDir = settingState.setting['download.path'] || getDefaultDownloadPath();
     downloadFilePath = `${downloadDir}/${task.fileName}.download.${urlExtension}`;
     finalFilePath = `${downloadDir}/${task.fileName}.${urlExtension}`;
     console.log(`[Download] URL 扩展名(${urlExtension})与任务扩展名(${taskExt})不一致，使用真实扩展名下载: ${downloadFilePath} -> ${finalFilePath}`);
@@ -113,7 +114,7 @@ const startDownload = async (task: DownloadTask) => {
   let lastWritten = 0;
   let lastTime = Date.now();
   let downloadedFilePath: string;
-  const effectiveDownloadDir = settingState.setting['download.path'] || (RNFetchBlob.fs.dirs.MusicDir + '/LX-Y Music');
+  const effectiveDownloadDir = settingState.setting['download.path'] || getDefaultDownloadPath();
   try {
     await mkdir(effectiveDownloadDir)
 
@@ -206,7 +207,7 @@ const handleMetadata = async (task: DownloadTask, filePath: string) => {
     }
   }
 
-  const downloadDir = settingState.setting['download.path'] || (RNFetchBlob.fs.dirs.MusicDir + '/LX-Y Music')
+  const downloadDir = settingState.setting['download.path'] || getDefaultDownloadPath()
   if (settingState.setting['download.writePicture']) {
     try {
       const picUrl = await getPicUrl({ musicInfo: task.musicInfo });
@@ -405,7 +406,7 @@ export const addTask = (musicInfo: LX.Music.MusicInfo, quality: LX.Quality, isFo
     .replace('歌名', musicInfo.name)
     .replace('歌手', finalSingerString);
   fileName = filterFileName(fileName);
-  const downloadDir = settingState.setting['download.path'] || (RNFetchBlob.fs.dirs.MusicDir + '/LX-Y Music');
+  const downloadDir = settingState.setting['download.path'] || getDefaultDownloadPath();
   const filePath = `${downloadDir}/${fileName}.${extension}`;
 
   const task: DownloadTask = {

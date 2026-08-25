@@ -8,7 +8,7 @@ import { updateSetting } from '@/core/common';
 import { NAV_MENUS, NAV_GROUPS, NAV_ID_Type } from '@/config/constant';
 import { useTheme } from '@/store/theme/hook';
 import { Icon } from '@/components/common/Icon';
-import { acquireScrollLock, releaseScrollLock } from '@/utils/scrollLock';
+import { acquireScrollLock, releaseScrollLock, subscribeScrollLock } from '@/utils/scrollLock';
 
 const LONG_PRESS_MS = 350;
 
@@ -72,8 +72,6 @@ const SortableList = ({ items: initialItems, onReorder, dragHint, navGroupVisibl
 
   const handleLongPressStart = useCallback((index: number) => {
     draggingIndexRef.current = index; targetIndexRef.current = index; lastTargetRef.current = index;
-    // 拖拽激活即锁定祖先滚动容器，避免原生 UIScrollView 跟随手势滚动整页。
-    acquireScrollLock();
     setDraggingIndex(index);
     const anim = animsRef.current[index];
     if (!anim) return;
@@ -118,7 +116,6 @@ const SortableList = ({ items: initialItems, onReorder, dragHint, navGroupVisibl
   const handleDragRelease = useCallback(() => {
     const from = draggingIndexRef.current; const to = targetIndexRef.current ?? from;
     draggingIndexRef.current = null; targetIndexRef.current = null; lastTargetRef.current = null;
-    releaseScrollLock();
     if (from == null) return;
     if (to != null && to !== from) {
       const next = [...displayItems]; const [moved] = next.splice(from, 1);
@@ -129,7 +126,6 @@ const SortableList = ({ items: initialItems, onReorder, dragHint, navGroupVisibl
 
   const handleDragCancel = useCallback(() => {
     draggingIndexRef.current = null; targetIndexRef.current = null; lastTargetRef.current = null;
-    releaseScrollLock();
     setDraggingIndex(null); resetAllAnims();
   }, [resetAllAnims]);
 
@@ -185,11 +181,21 @@ const DraggableItem = memo(({ item, index, isChecked, isDragging, isDragSource, 
       onPanResponderGrant: () => {
         clearLongPressTimer(); isActivatedRef.current = false;
         currentDyRef.current = 0;
+        // 手指放上 dragHandle 瞬间即锁定祖先滚动，避免 iOS 原生 UIScrollView 在长按激活前就开始滚动整页。
+        acquireScrollLock();
         longPressTimer.current = setTimeout(() => { longPressTimer.current = null; isActivatedRef.current = true; activationDyRef.current = currentDyRef.current; onLongPressStart(index); }, LONG_PRESS_MS);
       },
       onPanResponderMove: (_e: any, gs: any) => { currentDyRef.current = gs.dy; if (!isActivatedRef.current) { return; } onDragMove(gs.dy - activationDyRef.current); },
-      onPanResponderRelease: () => { clearLongPressTimer(); if (isActivatedRef.current) { isActivatedRef.current = false; onDragRelease(); } },
-      onPanResponderTerminate: () => { clearLongPressTimer(); if (isActivatedRef.current) { isActivatedRef.current = false; onDragCancel(); } },
+      onPanResponderRelease: () => {
+        clearLongPressTimer();
+        releaseScrollLock();
+        if (isActivatedRef.current) { isActivatedRef.current = false; onDragRelease(); }
+      },
+      onPanResponderTerminate: () => {
+        clearLongPressTimer();
+        releaseScrollLock();
+        if (isActivatedRef.current) { isActivatedRef.current = false; onDragCancel(); }
+      },
       // 一旦接管手势就不再释放给 ScrollView，避免整页被滚动。
       onPanResponderTerminationRequest: () => false,
     }),

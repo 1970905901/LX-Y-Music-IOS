@@ -96,6 +96,8 @@ const StrategyItem = memo(({
           clearLongPressTimer()
           isActivatedRef.current = false
           currentDyRef.current = 0
+          // 手指放上拖拽手柄瞬间即锁定祖先滚动，避免 iOS 原生 UIScrollView 在长按激活前就开始滚动整页。
+          acquireScrollLock()
           longPressTimer.current = setTimeout(() => {
             longPressTimer.current = null
             isActivatedRef.current = true
@@ -114,6 +116,7 @@ const StrategyItem = memo(({
         },
         onPanResponderRelease: () => {
           clearLongPressTimer()
+          releaseScrollLock()
           if (isActivatedRef.current) {
             isActivatedRef.current = false
             onDragReleaseRef.current()
@@ -121,6 +124,7 @@ const StrategyItem = memo(({
         },
         onPanResponderTerminate: () => {
           clearLongPressTimer()
+          releaseScrollLock()
           if (isActivatedRef.current) {
             isActivatedRef.current = false
             onDragCancelRef.current()
@@ -243,8 +247,6 @@ export default memo(() => {
     draggingIndexRef.current = index
     targetIndexRef.current = index
     lastTargetRef.current = index
-    // 拖拽激活即锁定祖先滚动容器，避免原生 UIScrollView 跟随手势滚动整页。
-    acquireScrollLock()
     setDraggingIndex(index)
     const anim = animsRef.current[index]
     if (!anim) return
@@ -337,7 +339,6 @@ export default memo(() => {
         updateSetting({ 'player.failureStrategy': newOrder })
       }
     }
-    releaseScrollLock()
     setTimeout(resetAllAnims, 100)
     setDraggingIndex(null)
   }, [strategyList, resetAllAnims])
@@ -346,7 +347,6 @@ export default memo(() => {
     draggingIndexRef.current = null
     targetIndexRef.current = null
     lastTargetRef.current = null
-    releaseScrollLock()
     setDraggingIndex(null)
     resetAllAnims()
   }, [resetAllAnims])

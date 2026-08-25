@@ -25,6 +25,7 @@ import { requestStoragePermission } from '@/utils/tools'
 import { getMusicUrl, getLyricInfo, getPicUrl } from '@/core/music/online'
 import { writeMetadata, writePic, writeLyric } from '@/utils/localMediaMetadata'
 import { downloadFile, writeFile } from '@/utils/fs'
+import { getDefaultDownloadPath } from '@/utils/downloadPath'
 import { clearMusicUrl } from '@/utils/data'
 import { getAllKeys, removeDataMultiple } from '@/plugins/storage'
 import { storageDataPrefix } from '@/config/constant'
@@ -240,27 +241,17 @@ export const handleDownload = async (musicInfo: LX.Music.MusicInfo, quality: LX.
 
       fileName = filterFileName(fileName)
 
-      const downloadDir = settingState.setting['download.path'] || (RNFetchBlob.fs.dirs.MusicDir + '/LX-Y Music')
+      const downloadDir = settingState.setting['download.path'] || getDefaultDownloadPath()
       const path = `${downloadDir}/${fileName}.${extension}`
 
-      const downloader = RNFetchBlob.config({
-        fileCache: true,
-        path: path,
-        // addAndroidDownloads: {
-        //   useDownloadManager: true,
-        //   notification: true,
-        //   path: path,
-        //   title: `${musicInfo.name} - ${musicInfo.singer}`,
-        //   description: '正在下载文件...',
-        // },
-      })
       const headers = musicInfo.source === 'wy'
         ? { 'User-Agent': '' }
         : {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36 Edg/108.0.1462.54',
           }
-      const data = await downloader.fetch('GET', url, headers)
-      const filePath = data.path()
+      const downloadTask = downloadFile(url, path, { headers })
+      await downloadTask.promise
+      const filePath = path
 
       toast(`${fileName} 下载成功! 正在写入元数据`, 'short')
 

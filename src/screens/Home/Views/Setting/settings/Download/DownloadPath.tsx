@@ -9,14 +9,14 @@ import FileSelect, { type FileSelectType } from '@/components/common/FileSelect'
 import { selectFolder } from '@/utils/fs'
 import { createStyle, toast } from '@/utils/tools'
 import Text from '@/components/common/Text'
-import RNFetchBlob from '@/utils/rnFetchBlob'
+import { getDefaultDownloadPath } from '@/utils/downloadPath'
 
 export default memo(() => {
   const t = useI18n()
   const downloadPath = useSettingValue('download.path')
   const fileSelectRef = useRef<FileSelectType>(null)
 
-  const defaultDownloadPath = RNFetchBlob.fs.dirs.MusicDir + '/LX-Y Music'
+  const defaultDownloadPath = getDefaultDownloadPath()
 
   const handleSelectPath = () => {
     // iOS：使用系统原生文件夹选择器（UIDocumentPicker 目录模式）

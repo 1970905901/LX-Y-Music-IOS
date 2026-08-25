@@ -1,4 +1,4 @@
-import { useRef, useImperativeHandle, forwardRef, useState, useCallback, useEffect } from 'react'
+import { useRef, useImperativeHandle, forwardRef, useState, useCallback } from 'react'
 import Text from '@/components/common/Text'
 import { View, TouchableOpacity } from 'react-native'
 import { createStyle, openUrl } from '@/utils/tools'
@@ -99,33 +99,26 @@ export default forwardRef<UserApiEditModalType, {}>((props, ref) => {
 
   // iOS：原生选择器/分享面板（UIDocumentPicker / UIActivityViewController）若覆盖在仍存在的
   // RN Modal 上，dismiss 后会令底层 Modal 的触摸响应链断裂、整页卡死（只能重启）。
-  // 因此这里先记录真正要执行的原生调用 proceed，并完全卸载整个 Dialog（连同其 RN Modal），
-  // 待 Dialog 真正从视图树移除后再执行 proceed 调起原生面板。面板结束后再重新挂载 Dialog。
+  // 因此这里先隐藏内部 RN Modal，并等待其淡出动画（约 250ms）与原生视图移除完成后再调起原生面板，
+  // 确保原生面板不会覆盖在仍存在的 RN Modal 之上。
   const hideDialogForNativePicker = useCallback((proceed: () => void) => {
     pendingProceedRef.current = proceed
-    setVisible(false)
+    // 仅隐藏内部 RN Modal（不卸载整个 Dialog），避免额外的状态切换延迟
+    dialogRef.current?.setVisible(false)
+    // 关键：延迟到 Modal 完全淡出并移除后再执行原生面板调用。
+    // requestAnimationFrame（~16ms）过早——此时原生视图尚未移除，故用 400ms 保险值。
+    setTimeout(() => {
+      const p = pendingProceedRef.current
+      pendingProceedRef.current = null
+      if (p) p()
+    }, 400)
   }, [])
   const showDialogAfterNativePicker = useCallback(() => {
-    // 使用 requestAnimationFrame 确保原生面板已完全 dismiss 再重新挂载 Dialog，
-    // 并在挂载后再显示其内部的 RN Modal。
+    // 原生面板已 dismiss 完成，重新显示内部 RN Modal
     requestAnimationFrame(() => {
-      setVisible(true)
-      requestAnimationFrame(() => {
-        dialogRef.current?.setVisible(true)
-      })
+      dialogRef.current?.setVisible(true)
     })
   }, [])
-  // Dialog 完全卸载（visible=false）后，再延迟一帧执行原生面板调用，
-  // 确保此时底层 RN Modal 已从视图树移除，原生面板不会覆盖在 Modal 之上。
-  useEffect(() => {
-    if (!visible && pendingProceedRef.current) {
-      const proceed = pendingProceedRef.current
-      pendingProceedRef.current = null
-      requestAnimationFrame(() => {
-        proceed()
-      })
-    }
-  }, [visible])
 
   return visible ? (
     <Dialog ref={dialogRef} bgHide={false}>

@@ -23,12 +23,14 @@ import {
   ALBUM_DETAIL_SCREEN, DOWNLOAD_MANAGER_SCREEN,
   SIMILAR_SONGS_SCREEN,
   ANNOUNCEMENT_MODAL,
+  TOAST_SCREEN,
   // SETTING_SCREEN,
 } from './screenNames'
 import PactModal from './components/PactModal'
 import SyncModeModal from './components/SyncModeModal'
 import AnnouncementModal from './components/AnnouncementModal'
 import DownloadManager from "@/screens/DownloadManager";
+import ToastOverlay from './components/Toast'
 function WrappedComponent(Component: any) {
   return function inject(props: Record<string, any>) {
     const EnhancedComponent = () => (
@@ -53,6 +55,8 @@ export default () => {
   Navigation.registerComponent(DOWNLOAD_MANAGER_SCREEN, () => WrappedComponent(DownloadManager))
   Navigation.registerComponent(SIMILAR_SONGS_SCREEN, () => WrappedComponent(SimilarSongs))
   Navigation.registerComponent(ANNOUNCEMENT_MODAL, () => WrappedComponent(AnnouncementModal))
+  // 非阻塞 Toast 浮层：用于替代 iOS 上的 Alert.alert，避免连续 toast 弹原生 Alert 堆叠导致整页卡死
+  Navigation.registerComponent(TOAST_SCREEN, () => WrappedComponent(ToastOverlay))
   // Navigation.registerComponent(SETTING_SCREEN, () => WrappedComponent(Setting))
 
   console.info('All screens have been registered...')

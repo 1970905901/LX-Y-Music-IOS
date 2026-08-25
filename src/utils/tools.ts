@@ -36,6 +36,8 @@ import { scaleSizeH, scaleSizeW, setSpText } from './pixelRatio'
 import { toOldMusicInfo } from './index'
 import { stringMd5 } from 'react-native-quick-md5'
 import { windowSizeTools } from '@/utils/windowSizeTools'
+import { Navigation } from 'react-native-navigation'
+import { TOAST_SCREEN } from '@/navigation/screenNames'
 
 // https://stackoverflow.com/a/47349998
 export const getDeviceLanguage = async () => {
@@ -135,12 +137,15 @@ export const requestStoragePermission = async () => {
  * @param duration duration
  * @param position position
  */
+// 当前已展示的 Toast overlay 的 componentId（同一次只保留一个，避免堆叠）
+let currentToastId: string | null = null
+
 export const toast = (
   message: string,
   duration: 'long' | 'short' = 'short',
   position: 'top' | 'center' | 'bottom' = 'bottom'
 ) => {
-  // 跨平台实现：安卓沿用系统 Toast，iOS 用 Alert 兜底（ToastAndroid 在 iOS 为 undefined）
+  // 跨平台实现：安卓沿用系统 Toast，iOS 用非阻塞 RNN 浮层（避免连续 toast 弹原生 Alert 堆叠导致整页卡死）
   if (Platform.OS === 'android') {
     let _duration: number
     switch (duration) {
@@ -158,7 +163,40 @@ export const toast = (
       return
     }
   }
-  Alert.alert('', message)
+
+  // iOS 分支：用 RNN overlay 呈现非阻塞 Toast，替代 Alert.alert
+  const durationMs = duration === 'long' ? 3500 : 2000
+  const showOverlay = () => {
+    void Navigation.showOverlay({
+      component: {
+        name: TOAST_SCREEN,
+        passProps: {
+          message,
+          duration: durationMs,
+          position,
+        },
+        options: {
+          layout: {
+            componentBackgroundColor: 'transparent',
+          },
+          overlay: {
+            interceptTouchOutside: false,
+          },
+        },
+      },
+    }).then((componentId: string) => {
+      currentToastId = componentId
+    })
+  }
+
+  // 若上一个 Toast 仍在，先 dismiss 再显示新的，防止多个 overlay 堆叠
+  if (currentToastId) {
+    void Navigation.dismissOverlay(currentToastId)
+      .catch(() => {})
+      .finally(showOverlay)
+  } else {
+    showOverlay()
+  }
 }
 
 export const openUrl = async (url: string): Promise<void> =>

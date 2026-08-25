@@ -1,5 +1,6 @@
 import TrackPlayer from 'react-native-track-player'
 import { Platform } from 'react-native'
+import { toast } from '@/utils/tools'
 import {
   getNativeFlacTrackId,
   resetNativeFlacPlayback,
@@ -33,7 +34,15 @@ export const loadPlaybackResource = async({
   const currentTrackIndex = await TrackPlayer.getCurrentTrack()
   const shouldAutoStart = resolveShouldAutoStart(currentTrackIndex)
 
-  if (Platform.OS == 'ios' && await shouldUseNativeFlacPlayer(musicInfo, url, quality)) {
+  // FLAC 调试：仅对 FLAC 相关播放上下文提示，避免打扰普通音质。
+  const qualityStr = String(quality ?? '')
+  const isFlacContext = qualityStr === 'flac' || qualityStr === 'flac24bit' || /flac/i.test(url)
+  const useNativeFlac = Platform.OS == 'ios' && await shouldUseNativeFlacPlayer(musicInfo, url, quality)
+  if (isFlacContext) {
+    toast(`FLAC调试: 原生路径=${useNativeFlac} quality=${qualityStr} url=${url.slice(0, 100)}`, 'long')
+  }
+
+  if (useNativeFlac) {
     global.lx.playerStatus.ignoreTrackPlayerLifecycle = true
     try {
       await TrackPlayer.reset().catch(async() => {
@@ -56,6 +65,8 @@ export const loadPlaybackResource = async({
     } catch (err) {
       // 原生 FLAC 播放器不可用或启动失败（例如非远程/加密格式、原生模块异常）：
       // 不抛出，回退到下方标准 TrackPlayer 路径，避免"播放但无声音/卡死"。
+      const errMsg = String((err as any)?.message ?? err)
+      toast(`FLAC调试: 原生启动失败→回退TrackPlayer：${errMsg}`, 'long')
       console.warn('[FLAC] 原生 FLAC 播放失败，回退到 TrackPlayer:', err)
       await resetNativeFlacPlayback().catch(() => {})
     } finally {

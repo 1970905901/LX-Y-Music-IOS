@@ -124,6 +124,7 @@ export const startNativeFlacPlayback = async(musicInfo: LX.Player.PlayMusic, url
       currentTrackId = ''
       currentMode = 'none'
       currentState = 'idle'
+      toast(`FLAC调试: openStreamingFlac 抛错：${String((err as any)?.message ?? err)}`, 'long')
       throw err
     }
   }
@@ -264,6 +265,7 @@ export const onNativeFlacPlayerEvent = (listener: (event: NativeFlacEvent) => vo
         currentState = 'stopped'
         currentTrackId = ''
         currentMode = 'none'
+        toast(`FLAC调试: 播放结束`, 'long')
         listener({
           type: 'ended',
           state: 'stopped',
@@ -274,7 +276,7 @@ export const onNativeFlacPlayerEvent = (listener: (event: NativeFlacEvent) => vo
         break
       case 'error':
         currentState = 'paused'
-        if (event.message) toast(`FLAC 播放失败：${event.message}`, 'long')
+        toast(`FLAC 播放失败：${event.message ?? '(无错误文案)'}`, 'long')
         listener({
           type: 'error',
           message: event.message,
@@ -285,7 +287,7 @@ export const onNativeFlacPlayerEvent = (listener: (event: NativeFlacEvent) => vo
         break
       case 'warning':
         // 解码告警（如 lost-sync）往往就是"有进度但失真/没声"的直接信号，必须暴露给用户。
-        if (event.message) toast(`FLAC 警告：${event.message}`, 'long')
+        toast(`FLAC 警告：${event.message ?? '(无告警文案)'}`, 'long')
         listener({
           type: 'warning',
           message: event.message,

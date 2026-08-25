@@ -3,6 +3,7 @@ import { View, FlatList } from 'react-native';
 import PageContent from '@/components/PageContent';
 import Header from './Header';
 import ListItem from './ListItem';
+import DownloadPathBar from './DownloadPathBar';
 import { useDownloadTasks } from '@/store/download/hook';
 import { createStyle } from '@/utils/tools';
 import { setComponentId } from '@/core/common';
@@ -23,6 +24,7 @@ export default memo(({ componentId }: { componentId: string }) => {
     <PageContent>
       <View style={styles.container}>
         <Header componentId={componentId} />
+        <DownloadPathBar />
         <FlatList
           data={tasks}
           renderItem={({ item }) => (

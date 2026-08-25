@@ -1,11 +1,12 @@
 import { memo, useRef } from 'react'
-import { View } from 'react-native'
+import { View, Platform } from 'react-native'
 import SubTitle from '../../components/SubTitle'
 import Button from '../../components/Button'
 import { useI18n } from '@/lang'
 import { useSettingValue } from '@/store/setting/hook'
 import { updateSetting } from '@/core/common'
 import FileSelect, { type FileSelectType } from '@/components/common/FileSelect'
+import { selectFolder } from '@/utils/fs'
 import { createStyle, toast } from '@/utils/tools'
 import Text from '@/components/common/Text'
 import RNFetchBlob from '@/utils/rnFetchBlob'
@@ -18,6 +19,20 @@ export default memo(() => {
   const defaultDownloadPath = RNFetchBlob.fs.dirs.MusicDir + '/LX-Y Music'
 
   const handleSelectPath = () => {
+    // iOS：使用系统原生文件夹选择器（UIDocumentPicker 目录模式）
+    if (Platform.OS === 'ios') {
+      void selectFolder()
+        .then((res) => {
+          const path = res?.path
+          if (!path) return
+          updateSetting({ 'download.path': path })
+          toast(t('setting_download_path_set_success'))
+        })
+        .catch((err: any) => {
+          if (err?.code === 'picker_cancelled') return
+        })
+      return
+    }
     fileSelectRef.current?.show(
       {
         title: t('setting_download_path_select'),

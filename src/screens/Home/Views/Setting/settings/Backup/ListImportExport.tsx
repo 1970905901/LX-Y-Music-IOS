@@ -2,8 +2,10 @@ import ChoosePath, { type ChoosePathType } from '@/components/common/ChoosePath'
 import { LXM_FILE_EXT_RXP } from '@/config/constant'
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react'
 import { Platform } from 'react-native'
-import { selectFile } from '@/utils/fs'
-import { handleExportList, handleImportList } from './actions'
+import { selectFile, shareFile, temporaryDirectoryPath } from '@/utils/fs'
+import { handleExportList, handleExportListToFile, handleImportList } from './actions'
+import { toast } from '@/utils/tools'
+import { log } from '@/utils/log'
 
 export interface SelectInfo {
   // listInfo: LX.List.MyListInfo
@@ -83,6 +85,25 @@ export default forwardRef<ListImportExportType, {}>((props, ref) => {
     },
     export() {
       selectInfoRef.current.action = 'export'
+      // iOS：导出备份使用系统原生分享面板（UIActivityViewController）
+      if (Platform.OS === 'ios') {
+        toast(global.i18n.t('setting_backup_part_export_list_tip_zip'))
+        const tempFile = `${temporaryDirectoryPath}/lx_backup.lxmc`
+        void handleExportListToFile(tempFile)
+          .then(() => shareFile(tempFile))
+          .then(() => toast(global.i18n.t('setting_backup_part_export_list_tip_success')))
+          .catch((err: any) => {
+            if (err?.code === 'file_not_found') {
+              toast(global.i18n.t('setting_backup_part_export_list_tip_failed'))
+              return
+            }
+            log.error(err)
+            toast(
+              global.i18n.t('setting_backup_part_export_list_tip_failed') + ': ' + (err?.message ?? '')
+            )
+          })
+        return
+      }
       if (visible) {
         choosePathRef.current?.show({
           title: global.i18n.t('setting_backup_all_export_desc'),

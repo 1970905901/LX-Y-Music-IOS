@@ -2,8 +2,10 @@ import ChoosePath, { type ChoosePathType } from '@/components/common/ChoosePath'
 import { USER_API_SOURCE_FILE_EXT_RXP } from '@/config/constant'
 import { forwardRef, useImperativeHandle, useRef, useState, type MutableRefObject } from 'react'
 import { Platform } from 'react-native'
-import { selectFile } from '@/utils/fs'
-import { handleImportLocalFile, handleExportUserApi } from './action'
+import { selectFile, shareFile, temporaryDirectoryPath } from '@/utils/fs'
+import { handleImportLocalFile, handleExportUserApi, handleExportUserApiToFile } from './action'
+import { toast } from '@/utils/tools'
+import { log } from '@/utils/log'
 
 export interface SelectInfo {
   action: 'import' | 'export'
@@ -69,6 +71,21 @@ export default forwardRef<ScriptImportExportType, {}>((props, ref) => {
       selectInfoRef.current = {
         action: 'export',
         apiId,
+      }
+      // iOS：导出自定义源使用系统原生分享面板（UIActivityViewController）
+      if (Platform.OS === 'ios') {
+        void handleExportUserApiToFile(apiId, temporaryDirectoryPath)
+          .then((fullPath) => shareFile(fullPath))
+          .then(() => toast(global.i18n.t('user_api_export_success_tip')))
+          .catch((err: any) => {
+            if (err?.code === 'file_not_found') {
+              toast(global.i18n.t('user_api_export_failed_tip', { message: '' }), 'long')
+              return
+            }
+            log.error(err)
+            toast(global.i18n.t('user_api_export_failed_tip', { message: err?.message ?? '' }), 'long')
+          })
+        return
       }
       showChoosePath(choosePathRef, visible, setVisible, {
         title: global.i18n.t('user_api_export_desc'),

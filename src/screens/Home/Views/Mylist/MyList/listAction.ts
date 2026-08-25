@@ -79,6 +79,28 @@ const exportList = async (listInfo: LX.List.MyListInfo, path: string) => {
     log.error(error.stack)
   }
 }
+
+// iOS 导出：写入指定文件并返回其路径（供系统分享面板使用）
+export const exportListToFile = async (listInfo: LX.List.MyListInfo, dirPath: string): Promise<string> => {
+  const data = JSON.parse(
+    JSON.stringify({
+      type: 'playListPart_v2',
+      data: {
+        ...listInfo,
+        list: await getListMusics(listInfo.id),
+      },
+    })
+  )
+  const fileName = `lx_list_part_${filterFileName(listInfo.name)}.lxmc`
+  const filePath = dirPath.endsWith('/') ? `${dirPath}${fileName}` : `${dirPath}/${fileName}`
+  try {
+    await handleSaveFile(filePath, data)
+  } catch (error: any) {
+    log.error(error.stack)
+    throw error
+  }
+  return filePath
+}
 export const handleExport = (listInfo: LX.List.MyListInfo, path: string) => {
   toast(global.i18n.t('setting_backup_part_export_list_tip_zip'))
   exportList(listInfo, path)

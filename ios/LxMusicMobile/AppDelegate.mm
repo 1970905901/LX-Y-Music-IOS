@@ -3690,6 +3690,7 @@ static NSString *LXStreamingFlacDecoderErrorStatusName(FLAC__StreamDecoderErrorS
 @property (nonatomic, copy) NSString *targetPath;
 @property (nonatomic, strong) UIDocumentPickerViewController *pickerController;
 @property (nonatomic, assign) BOOL pickerPresenting;
+@property (nonatomic, assign) BOOL pickerIsFolder;
 @end
 
 @implementation FilePickerModule
@@ -3706,6 +3707,7 @@ RCT_EXPORT_MODULE();
   self.targetPath = nil;
   self.pickerController = nil;
   self.pickerPresenting = NO;
+  self.pickerIsFolder = NO;
 }
 
 - (void)rejectPickerWithCode:(NSString *)code message:(NSString *)message error:(NSError *)error {
@@ -3765,6 +3767,17 @@ RCT_REMAP_METHOD(openDocument, openDocument:(NSDictionary *)options resolver:(RC
     return;
   }
 
+  // 目录选择模式：直接返回所选文件夹路径（不复制文件）
+  if (self.pickerIsFolder) {
+    NSString *folderPath = [pickedURL.path stringByStandardizingPath];
+    NSMutableDictionary *result = [NSMutableDictionary dictionary];
+    result[@"path"] = folderPath;
+    result[@"data"] = folderPath;
+    if (self.pickerResolve != nil) self.pickerResolve(result);
+    [self resetPickerState];
+    return;
+  }
+
   NSError *error = nil;
   BOOL startedAccessing = [pickedURL startAccessingSecurityScopedResource];
   NSString *targetPath = LXPrepareImportedFilePath(self.targetPath ?: @"", pickedURL, &error);
@@ -3789,6 +3802,69 @@ RCT_REMAP_METHOD(openDocument, openDocument:(NSDictionary *)options resolver:(RC
   result[@"data"] = targetPath;
   if (self.pickerResolve != nil) self.pickerResolve(result);
   [self resetPickerState];
+}
+
+// 选择文件夹（系统原生目录选择器，用于"下载路径"等选目录场景）
+RCT_REMAP_METHOD(selectFolder, selectFolderWithResolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
+  dispatch_async(dispatch_get_main_queue(), ^{
+    if (self.pickerController != nil || self.pickerPresenting) {
+      reject(@"picker_busy", @"Another picker is already active", LXError(@"picker_busy", @"Another picker is already active"));
+      return;
+    }
+    UIViewController *controller = LXTopViewController();
+    if (controller == nil) {
+      reject(@"picker_present", @"Unable to find a view controller to present folder picker", LXError(@"picker_present", @"Unable to find a view controller to present folder picker"));
+      return;
+    }
+
+    self.pickerResolve = resolve;
+    self.pickerReject = reject;
+    self.pickerIsFolder = YES;
+
+    // public.folder 在 UIDocumentPickerModeOpen 下用于选择目录
+    NSArray<NSString *> *documentTypes = @[@"public.folder"];
+    UIDocumentPickerViewController *picker = [[UIDocumentPickerViewController alloc] initWithDocumentTypes:documentTypes inMode:UIDocumentPickerModeOpen];
+    picker.delegate = self;
+    picker.allowsMultipleSelection = NO;
+    // 同 openDocument：FormSheet 避免 FullScreen 关闭后底层 RN 视图交互丢失
+    picker.modalPresentationStyle = UIModalPresentationFormSheet;
+    self.pickerPresenting = YES;
+    [controller presentViewController:picker animated:YES completion:^{
+      self.pickerController = picker;
+      self.pickerPresenting = NO;
+    }];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+      if (self.pickerPresenting && self.pickerController == nil) {
+        [self rejectPickerWithCode:@"picker_present" message:@"Folder picker did not finish presenting" error:LXError(@"picker_present", @"Folder picker did not finish presenting")];
+      }
+    });
+  });
+}
+
+// 系统分享面板（UIActivityViewController），用于"导出/保存"场景
+RCT_REMAP_METHOD(shareFile, shareFile:(NSString *)filePath resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
+  dispatch_async(dispatch_get_main_queue(), ^{
+    NSFileManager *fileManager = [NSFileManager defaultManager];
+    if (![fileManager fileExistsAtPath:filePath]) {
+      reject(@"file_not_found", @"File not found", LXError(@"file_not_found", @"File not found"));
+      return;
+    }
+    NSURL *fileURL = [NSURL fileURLWithPath:filePath];
+    UIActivityViewController *activityViewController = [[UIActivityViewController alloc] initWithActivityItems:@[fileURL] applicationActivities:nil];
+    UIViewController *controller = LXTopViewController();
+    if (controller == nil) {
+      reject(@"share_present", @"Unable to find a view controller to present share sheet", LXError(@"share_present", @"Unable to find a view controller to present share sheet"));
+      return;
+    }
+    if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad) {
+      activityViewController.popoverPresentationController.sourceView = controller.view;
+      activityViewController.popoverPresentationController.sourceRect = CGRectMake(CGRectGetMidX(controller.view.bounds), CGRectGetMaxY(controller.view.bounds), 0, 0);
+      activityViewController.popoverPresentationController.permittedArrowDirections = UIPopoverArrowDirectionDown;
+    }
+    [controller presentViewController:activityViewController animated:YES completion:^{
+      resolve(nil);
+    }];
+  });
 }
 
 @end

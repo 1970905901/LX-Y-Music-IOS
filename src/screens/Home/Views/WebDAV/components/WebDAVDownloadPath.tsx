@@ -1,5 +1,5 @@
 import { memo, useRef } from 'react'
-import { View } from 'react-native'
+import { View, Platform } from 'react-native'
 import { createStyle } from '@/utils/tools'
 import Text from '@/components/common/Text'
 import Button from '@/components/common/Button'
@@ -9,7 +9,7 @@ import { useTheme } from '@/store/theme/hook'
 import { updateSetting } from '@/core/common'
 import FileSelect, { type FileSelectType } from '@/components/common/FileSelect'
 import { toast } from '@/utils/tools'
-import { getWebDAVPrivateDirectory } from '@/utils/fs'
+import { getWebDAVPrivateDirectory, selectFolder } from '@/utils/fs'
 
 export default memo(() => {
   const t = useI18n()
@@ -20,6 +20,20 @@ export default memo(() => {
   const defaultPath = getWebDAVPrivateDirectory()
 
   const handleSelectPath = () => {
+    // iOS：使用系统原生文件夹选择器（UIDocumentPicker 目录模式）
+    if (Platform.OS === 'ios') {
+      void selectFolder()
+        .then((res) => {
+          const path = res?.path
+          if (!path) return
+          updateSetting({ 'webdav.downloadPath': path })
+          toast(t('webdav_download_path_set_success'))
+        })
+        .catch((err: any) => {
+          if (err?.code === 'picker_cancelled') return
+        })
+      return
+    }
     fileSelectRef.current?.show(
       {
         title: t('webdav_download_path_select'),

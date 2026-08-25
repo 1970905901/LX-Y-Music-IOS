@@ -297,3 +297,20 @@ export const handleExportList = (path: string) => {
       )
     })
 }
+
+// iOS 导出：写入指定文件（供系统分享面板使用）
+export const handleExportListToFile = async (filePath: string) => {
+  const data: LX.ConfigFile.AllDataV3 = JSON.parse(
+    JSON.stringify({
+      type: 'allData_v3',
+      data: await getAllDataForSync(),
+    })
+  )
+
+  try {
+    await handleSaveFile(filePath, data)
+  } catch (error: any) {
+    log.error(error.stack)
+    throw error
+  }
+}

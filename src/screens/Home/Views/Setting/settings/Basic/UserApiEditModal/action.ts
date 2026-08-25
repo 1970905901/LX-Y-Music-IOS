@@ -47,3 +47,15 @@ export const handleExportUserApi = async (apiId: string, path: string) => {
     toast(global.i18n.t('user_api_export_failed_tip', { message: error.message }), 'long')
   }
 }
+
+// iOS 导出：写入指定目录下的 <名称>.js 并返回完整路径（供系统分享面板使用）
+export const handleExportUserApiToFile = async (apiId: string, dirPath: string): Promise<string> => {
+  const script = await getUserApiScript(apiId)
+  const apiList = await getUserApiList()
+  const apiInfo = apiList.find(api => api.id === apiId)
+  if (!apiInfo) throw new Error('API not found')
+  const fileName = `${apiInfo.name}.js`
+  const fullPath = dirPath.endsWith('/') ? `${dirPath}${fileName}` : `${dirPath}/${fileName}`
+  await writeFile(fullPath, script)
+  return fullPath
+}

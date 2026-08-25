@@ -2,8 +2,10 @@ import ChoosePath, { type ChoosePathType } from '@/components/common/ChoosePath'
 import { LXM_FILE_EXT_RXP } from '@/config/constant'
 import { forwardRef, useImperativeHandle, useRef, useState, type MutableRefObject } from 'react'
 import { Platform } from 'react-native'
-import { selectFile } from '@/utils/fs'
-import { handleExport, handleImport, handleImportMediaFile } from './listAction'
+import { selectFile, selectFolder, shareFile, temporaryDirectoryPath } from '@/utils/fs'
+import { handleExport, handleImport, handleImportMediaFile, exportListToFile } from './listAction'
+import { toast } from '@/utils/tools'
+import { log } from '@/utils/log'
 
 export interface SelectInfo {
   listInfo: LX.List.MyListInfo
@@ -86,6 +88,24 @@ export default forwardRef<ListImportExportType, {}>((props, ref) => {
         listInfo,
         index,
       }
+      // iOS：导出歌单使用系统原生分享面板（UIActivityViewController）
+      if (Platform.OS === 'ios') {
+        toast(global.i18n.t('setting_backup_part_export_list_tip_zip'))
+        void exportListToFile(listInfo, temporaryDirectoryPath)
+          .then((filePath) => shareFile(filePath))
+          .then(() => toast(global.i18n.t('setting_backup_part_export_list_tip_success')))
+          .catch((err: any) => {
+            if (err?.code === 'file_not_found') {
+              toast(global.i18n.t('setting_backup_part_export_list_tip_failed'))
+              return
+            }
+            log.error(err)
+            toast(
+              global.i18n.t('setting_backup_part_export_list_tip_failed') + ': ' + (err?.message ?? '')
+            )
+          })
+        return
+      }
       showChoosePath(choosePathRef, visible, setVisible, {
         title: global.i18n.t('list_export_part_desc'),
         dirOnly: true,
@@ -97,6 +117,19 @@ export default forwardRef<ListImportExportType, {}>((props, ref) => {
         action: 'selectFile',
         listInfo,
         index,
+      }
+      // iOS：选择本地音乐文件夹使用系统原生文件夹选择器（UIDocumentPicker 目录模式）
+      if (Platform.OS === 'ios') {
+        void selectFolder()
+          .then((res) => {
+            const path = res?.path
+            if (!path) return
+            void handleImportMediaFile(listInfo, path)
+          })
+          .catch((err: any) => {
+            if (err?.code === 'picker_cancelled') return
+          })
+        return
       }
       showChoosePath(choosePathRef, visible, setVisible, {
         title: global.i18n.t('list_select_local_file_desc'),

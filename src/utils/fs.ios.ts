@@ -83,6 +83,18 @@ export const selectFile = async(options: OpenDocumentOptions): Promise<OpenDocum
   if (!isSystemFileSelectorSupported) throw unsupportedError('File selection')
   return FilePickerModule.openDocument(options) as Promise<OpenDocumentResult>
 }
+export const selectFolder = async(): Promise<{ path: string }> => {
+  if (!isSystemFileSelectorSupported || typeof FilePickerModule?.selectFolder !== 'function') {
+    throw unsupportedError('Folder selection')
+  }
+  return FilePickerModule.selectFolder() as Promise<{ path: string }>
+}
+export const shareFile = async(path: string): Promise<void> => {
+  if (!isSystemFileSelectorSupported || typeof FilePickerModule?.shareFile !== 'function') {
+    throw unsupportedError('File sharing')
+  }
+  return FilePickerModule.shareFile(path) as Promise<void>
+}
 export const removeManagedFolder = async(_path: string) => {
   throw unsupportedError('Managed folder removal')
 }

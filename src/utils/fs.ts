@@ -35,6 +35,12 @@ export const selectManagedFolder = async (isPersist: boolean = false) =>
   AndroidScoped.openDocumentTree(isPersist)
 export const selectFile = async (options: OpenDocumentOptions) =>
   AndroidScoped.openDocument(options)
+export const selectFolder = async (): Promise<{ path: string }> => {
+  throw new Error('Folder selection is not supported on this platform')
+}
+export const shareFile = async (_path: string): Promise<void> => {
+  throw new Error('File sharing is not supported on this platform')
+}
 export const removeManagedFolder = async (path: string) =>
   AndroidScoped.releasePersistableUriPermission(path)
 export const getManagedFolders = async () => AndroidScoped.getPersistedUriPermissions()

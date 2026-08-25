@@ -3,7 +3,7 @@
  */
 
 import { forwardRef, useImperativeHandle, useRef, useCallback, useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import Modal, { type ModalType } from '@/components/common/Modal';
 import WebView from 'react-native-webview';
 import { useTheme } from '@/store/theme/hook';
@@ -11,8 +11,6 @@ import { useStatusbarHeight } from '@/store/common/hook';
 import { Icon } from '@/components/common/Icon';
 import Text from '@/components/common/Text';
 import { getVerifyInfo, verifyUserInfo } from '@/utils/musicSdk/kg/utils/api';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export interface KgVerifyModalType {
   show: (ssaCode: string, onComplete?: (success: boolean) => void) => void;
@@ -206,5 +204,5 @@ const styles = StyleSheet.create({
   backButton: { padding: 8, width: 44, alignItems: 'center', justifyContent: 'center' },
   placeholder: { width: 44 },
   webViewContainer: { flex: 1 },
-  webView: { flex: 1, width: SCREEN_WIDTH },
+  webView: { flex: 1 },
 });

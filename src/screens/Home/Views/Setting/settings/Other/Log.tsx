@@ -1,5 +1,5 @@
 import { memo, useRef, useState, useEffect } from 'react'
-import { View, Clipboard, Text as RNText, ScrollView, Dimensions } from 'react-native'
+import { View, Clipboard, Text as RNText, ScrollView } from 'react-native'
 import { getLogs, clearLogs } from '@/utils/log'
 
 import SubTitle from '../../components/SubTitle'
@@ -16,7 +16,6 @@ import { searchLog } from '@/utils/searchLog'
 import { playerLog } from '@/utils/playerLog'
 
 const DEFAULT_MAX_LOG_LINES = 2000
-const LIST_MAX_HEIGHT = Dimensions.get('window').height * 0.5
 
 export default memo(() => {
   const t = useI18n()

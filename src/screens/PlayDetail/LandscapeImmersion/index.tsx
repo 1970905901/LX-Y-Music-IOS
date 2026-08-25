@@ -1,6 +1,7 @@
-import { memo, useEffect, useRef, useMemo } from 'react'
-import { View, BackHandler, StyleSheet, Image, Dimensions } from 'react-native'
+import { memo, useEffect, useRef, useMemo, useCallback } from 'react'
+import { View, BackHandler, StyleSheet, Image, Dimensions, TouchableOpacity } from 'react-native'
 import { Navigation } from 'react-native-navigation'
+import { Icon } from '@/components/common/Icon'
 import { setIsLandscapeImmersion } from '@/core/common'
 import { createStyle, toast } from '@/utils/tools'
 import { screenkeepAwake, screenUnkeepAwake } from '@/utils/nativeModules/utils'
@@ -30,6 +31,25 @@ export default memo(({ componentId }: { componentId: string }) => {
   }, [customBgPicPath, dynamicPic, musicInfo.pic, playMusicInfo.musicInfo])
     const picOpacity = useSettingValue('theme.picOpacity')
   const blur = useSettingValue('theme.blur')
+
+  // iOS 无硬件返回键，横屏沉浸模式必须提供显式退出入口，否则进入后无法退出。
+  const exitImmersion = useCallback(() => {
+    Navigation.mergeOptions(componentId, {
+      statusBar: {
+        visible: true,
+        drawBehind: false,
+      },
+      navigationBar: {
+        visible: !settingState.setting['common.hideNavigationBar'],
+      },
+      layout: {
+        orientation: ['portrait'],
+      },
+    })
+    setTimeout(() => {
+      setIsLandscapeImmersion(false)
+    }, 100)
+  }, [componentId])
 
   useEffect(() => {
     const logPath = `${DownloadDirectoryPath}/lx-music-window-log.txt`;
@@ -74,22 +94,7 @@ export default memo(({ componentId }: { componentId: string }) => {
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
       const now = Date.now()
       if (now - lastBackTime.current < 2000) {
-        // Restore settings before switching state
-        Navigation.mergeOptions(componentId, {
-          statusBar: {
-            visible: true,
-            drawBehind: false,
-          },
-          navigationBar: {
-            visible: !settingState.setting['common.hideNavigationBar'],
-          },
-          layout: {
-            orientation: ['portrait'],
-          },
-        })
-        setTimeout(() => {
-          setIsLandscapeImmersion(false)
-        }, 100)
+        exitImmersion()
         return true
       }
       lastBackTime.current = now
@@ -124,6 +129,11 @@ export default memo(({ componentId }: { componentId: string }) => {
 
   return (
     <View style={styles.container}>
+      {/* 显式退出按钮：iOS 无硬件返回键，必须提供关闭入口 */}
+      <TouchableOpacity style={styles.closeBtn} onPress={exitImmersion} activeOpacity={0.6}>
+        <Icon name="close" size={26} color={theme['c-font']} />
+      </TouchableOpacity>
+
       {/* Background Layer */}
       <View style={StyleSheet.absoluteFill}>
         <Image
@@ -162,6 +172,18 @@ const styles = createStyle({
     flex: 1,
     flexDirection: 'row',
     backgroundColor: 'transparent',
+  },
+  closeBtn: {
+    position: 'absolute',
+    top: 24,
+    right: 24,
+    zIndex: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
   },
   left: {
     flex: 1,

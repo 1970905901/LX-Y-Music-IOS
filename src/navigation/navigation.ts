@@ -12,13 +12,29 @@ import {
 import themeState from '@/store/theme/state'
 import playerState from '@/store/player/state'
 import settingState from '@/store/setting/state'
-import { NAV_SHEAR_NATIVE_IDS } from '@/config/constant'
+import commonState from '@/store/common/state'
+import { NAV_SHEAR_NATIVE_IDS, COMPONENT_IDS } from '@/config/constant'
 import { getStatusBarStyle } from './utils'
 import { windowSizeTools } from '@/utils/windowSizeTools'
 import { type ListInfoItem } from '@/store/songlist/state'
 
 // const store = getStore()
 // const getTheme = () => getter('common', 'theme')(store.getState())
+
+
+// 集中管理各界面 push 的进行中状态，防止快速重复点击/滑动导致界面卡死。
+const pendingPushes = new Set<string>()
+const isTopScreen = (id: COMPONENT_IDS) => {
+  const ids = commonState.componentIds
+  return ids.length > 0 && ids[ids.length - 1]?.name === id
+}
+const startPush = (id: COMPONENT_IDS, allowSameTop = false) => {
+  if (pendingPushes.has(id)) return false
+  if (!allowSameTop && isTopScreen(id)) return false
+  pendingPushes.add(id)
+  return true
+}
+const endPush = (id: COMPONENT_IDS) => { pendingPushes.delete(id) }
 
 export async function pushHomeScreen() {
   // iOS 安全区适配：默认给所有 screen 顶部/底部均保留安全区。
@@ -120,6 +136,7 @@ export async function pushHomeScreen() {
   })
 }
 export function pushPlayDetailScreen(componentId: string, skipAnimation = false) {
+  if (!startPush(COMPONENT_IDS.playDetail)) return
   /*
     Navigation.setDefaultOptions({
       topBar: {
@@ -240,11 +257,14 @@ export function pushPlayDetailScreen(componentId: string, skipAnimation = false)
           },
         },
       },
-    })
+    }
+      .catch(() => {})
+      .finally(() => { endPush(COMPONENT_IDS.playDetail) }))
   })
 }
 
 export function pushSonglistDetailScreen(componentId: string, info: ListInfoItem) {
+  if (!startPush(COMPONENT_IDS.songlistDetail)) return
   const theme = themeState.theme
 
   requestAnimationFrame(() => {
@@ -350,10 +370,13 @@ export function pushSonglistDetailScreen(componentId: string, info: ListInfoItem
           },
         },
       },
-    })
+    }
+      .catch(() => {})
+      .finally(() => { endPush(COMPONENT_IDS.songlistDetail) }))
   })
 }
 export function pushCommentScreen(componentId: string) {
+  if (!startPush(COMPONENT_IDS.comment)) return
   /*
     Navigation.setDefaultOptions({
       topBar: {
@@ -438,7 +461,9 @@ export function pushCommentScreen(componentId: string) {
           },
         },
       },
-    })
+    }
+      .catch(() => {})
+      .finally(() => { endPush(COMPONENT_IDS.comment) }))
   })
 }
 
@@ -645,6 +670,7 @@ export function pushTabBasedApp() {
 }
  */
 export function pushArtistDetailScreen(componentId: string, artistInfo: { id: string, mid?: string, name: string, picUrl?: string, source?: string }) {
+  if (!startPush(COMPONENT_IDS.ARTIST_DETAIL)) return
   const theme = themeState.theme
   return Navigation.push(componentId, {
     component: {
@@ -689,10 +715,13 @@ export function pushArtistDetailScreen(componentId: string, artistInfo: { id: st
         },
       },
     },
-  })
+  }
+    .catch(() => {})
+    .finally(() => { endPush(COMPONENT_IDS.ARTIST_DETAIL) }))
 }
 
 export function pushAlbumDetailScreen(componentId: string, albumInfo: any) {
+  if (!startPush(COMPONENT_IDS.ALBUM_DETAIL_SCREEN)) return
   const theme = themeState.theme
   return Navigation.push(componentId, {
     component: {
@@ -737,11 +766,14 @@ export function pushAlbumDetailScreen(componentId: string, albumInfo: any) {
         },
       },
     },
-  })
+  }
+    .catch(() => {})
+    .finally(() => { endPush(COMPONENT_IDS.ALBUM_DETAIL_SCREEN) }))
 }
 
 
 export function pushDownloadManagerScreen(componentId: string) {
+  if (!startPush(COMPONENT_IDS.DOWNLOAD_MANAGER)) return
   const theme = themeState.theme;
   return Navigation.push(componentId, {
     component: {
@@ -783,12 +815,15 @@ export function pushDownloadManagerScreen(componentId: string) {
         },
       },
     },
-  });
+  }
+    .catch(() => {})
+    .finally(() => { endPush(COMPONENT_IDS.DOWNLOAD_MANAGER) }));
 }
 
 
 
 export function pushSimilarSongsScreen(componentId: string, similarSongs: LX.Music.MusicInfoOnline[]) {
+  if (!startPush(COMPONENT_IDS.SIMILAR_SONGS_SCREEN)) return
   const theme = themeState.theme
   return Navigation.push(componentId, {
     component: {
@@ -833,5 +868,7 @@ export function pushSimilarSongsScreen(componentId: string, similarSongs: LX.Mus
         },
       },
     },
-  })
+  }
+    .catch(() => {})
+    .finally(() => { endPush(COMPONENT_IDS.SIMILAR_SONGS_SCREEN) }))
 }

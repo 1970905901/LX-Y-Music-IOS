@@ -789,6 +789,26 @@ static UIViewController *LXTopViewController(void) {
   return controller;
 }
 
+// UIDocumentPickerViewController 以独立进程运行。选中/取消并关闭后，应用主窗口可能
+// 不再是 keyWindow，或其 userInteractionEnabled 未被系统恢复，导致整屏无响应（只能重启）。
+// 在关闭完成后显式恢复主窗口为 key 并重新开启交互。
+static void LXEnsureKeyWindow(void) {
+  dispatch_async(dispatch_get_main_queue(), ^{
+    for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
+      if (![scene isKindOfClass:[UIWindowScene class]]) continue;
+      UIWindowScene *windowScene = (UIWindowScene *)scene;
+      for (UIWindow *win in windowScene.windows) {
+        if (win.rootViewController != nil) {
+          if (!win.isKeyWindow) [win makeKeyAndVisible];
+          win.userInteractionEnabled = YES;
+          win.rootViewController.view.userInteractionEnabled = YES;
+          return;
+        }
+      }
+    }
+  });
+}
+
 static NSDictionary *LXFileInfoFromPath(NSString *path) {
   NSFileManager *fileManager = [NSFileManager defaultManager];
   BOOL isDirectory = NO;
@@ -3738,9 +3758,10 @@ RCT_REMAP_METHOD(openDocument, openDocument:(NSDictionary *)options resolver:(RC
     UIDocumentPickerViewController *picker = [[UIDocumentPickerViewController alloc] initWithDocumentTypes:documentTypes inMode:UIDocumentPickerModeImport];
     picker.delegate = self;
     picker.allowsMultipleSelection = NO;
-    // 不能用 UIModalPresentationFullScreen：UIDocumentPicker 在 iOS 13+ 跨进程运行，
-    // FullScreen 会在呈现时移除底层 VC 的 view，关闭后 RN root view 的 userInteractionEnabled
-    // 偶尔不被恢复，导致整屏失去交互（只能重启）。FormSheet 不移除底层 view，可避免该问题。
+    // FormSheet 不移除底层 VC 的 view（FullScreen 会移除），降低交互异常概率。
+    // 真正导致“选完文件后整屏卡死、只能重启”的根因是：UIDocumentPicker 以独立进程运行，
+    // 关闭后应用主窗口常常不再是 keyWindow / 交互未恢复。该问题已由 LXEnsureKeyWindow()
+    // 在关闭完成的回调中修复，与 modalPresentationStyle 无关。
     picker.modalPresentationStyle = UIModalPresentationFormSheet;
     self.pickerPresenting = YES;
     [controller presentViewController:picker animated:YES completion:^{
@@ -3756,13 +3777,17 @@ RCT_REMAP_METHOD(openDocument, openDocument:(NSDictionary *)options resolver:(RC
 }
 
 - (void)documentPickerWasCancelled:(UIDocumentPickerViewController *)controller {
-  [controller dismissViewControllerAnimated:YES completion:nil];
+  [controller dismissViewControllerAnimated:YES completion:^{
+    LXEnsureKeyWindow();
+  }];
   [self rejectPickerWithCode:@"picker_cancelled" message:@"Document selection was cancelled" error:LXError(@"picker_cancelled", @"Document selection was cancelled")];
 }
 
 - (void)documentPicker:(UIDocumentPickerViewController *)controller didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
   NSURL *pickedURL = urls.firstObject;
-  [controller dismissViewControllerAnimated:YES completion:nil];
+  [controller dismissViewControllerAnimated:YES completion:^{
+    LXEnsureKeyWindow();
+  }];
 
   if (pickedURL == nil) {
     [self rejectPickerWithCode:@"picker_empty" message:@"No document was selected" error:LXError(@"picker_empty", @"No document was selected")];
@@ -3842,7 +3867,7 @@ RCT_REMAP_METHOD(selectFolder, selectFolderWithResolver:(RCTPromiseResolveBlock)
     UIDocumentPickerViewController *picker = [[UIDocumentPickerViewController alloc] initWithDocumentTypes:documentTypes inMode:UIDocumentPickerModeOpen];
     picker.delegate = self;
     picker.allowsMultipleSelection = NO;
-    // 同 openDocument：FormSheet 避免 FullScreen 关闭后底层 RN 视图交互丢失
+    // 同 openDocument：FormSheet 不移除底层 view；关闭后的主窗口交互恢复由 LXEnsureKeyWindow() 负责
     picker.modalPresentationStyle = UIModalPresentationFormSheet;
     self.pickerPresenting = YES;
     [controller presentViewController:picker animated:YES completion:^{

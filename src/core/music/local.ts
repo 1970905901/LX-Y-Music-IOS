@@ -383,6 +383,8 @@ export const getPicUrl = async ({
         const { getWebDAVPrivateDirectory } = await import('@/utils/fs')
         downloadDir = getWebDAVPrivateDirectory()
       }
+      // 所选下载目录可能位于沙盒外，读取封面/音频前需开启安全作用域访问（沙盒内目录为 no-op）
+      await beginFolderAccess(downloadDir).catch(() => {})
       const audioFilePath = musicInfo.meta.filePath
       let targetFilePath = audioFilePath
       
@@ -416,7 +418,7 @@ export const getPicUrl = async ({
       } else {
         webDAVLog?.warn('getPicUrl: audio file not found in download dir', { targetFilePath })
       }
-      
+
       if (musicInfo.meta.picUrl) {
         if (musicInfo.meta.picUrl.startsWith('file://')) {
           const picFilePath = musicInfo.meta.picUrl.replace('file://', '')
@@ -430,7 +432,9 @@ export const getPicUrl = async ({
           return musicInfo.meta.picUrl
         }
       }
-      
+      // 结束对所选下载目录的安全作用域访问（仅在外部目录时实际关闭）
+      await endFolderAccess(downloadDir).catch(() => {})
+
       webDAVLog?.info('getPicUrl: no cover found, return empty')
       return ''
     }
@@ -511,6 +515,8 @@ export const getLyricInfo = async ({
         const { getWebDAVPrivateDirectory } = await import('@/utils/fs')
         downloadDir = getWebDAVPrivateDirectory()
       }
+      // 所选下载目录可能位于沙盒外，读取歌词/音频前需开启安全作用域访问（沙盒内目录为 no-op）
+      await beginFolderAccess(downloadDir).catch(() => {})
       const audioFilePath = musicInfo.meta.filePath
       let targetFilePath = audioFilePath
 
@@ -532,6 +538,8 @@ export const getLyricInfo = async ({
           return buildLyricInfo(rawlrcInfo)
         }
       }
+      // 结束对所选下载目录的安全作用域访问（仅在外部目录时实际关闭）
+      await endFolderAccess(downloadDir).catch(() => {})
 
       webDAVLog?.info('getLyricInfo: WebDAV music fetching lyric from online source', { musicId: musicInfo.id })
       try {

@@ -24,7 +24,6 @@
 
 已支持的平台：
 
-- Android 5 及以上
 - iOS（通过 GitHub Actions 自动构建未签名 IPA）
 
 ## 致谢（上游项目）

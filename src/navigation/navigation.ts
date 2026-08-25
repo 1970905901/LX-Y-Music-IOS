@@ -186,6 +186,26 @@ export function pushPlayDetailScreen(componentId: string, skipAnimation = false)
   requestAnimationFrame(() => {
     const theme = themeState.theme
     const hasPic = !!(playerState.musicInfo.pic && playerState.isPlay)
+    // 未播放（暂停/无源视图）不使用任何自定义转场：本构建下 RNN 自定义 content 滑入会使
+    // Navigation.push 原生转场挂起、界面硬卡死只能重启，改用 RNN 内置默认转场规避。
+    const playDetailAnimations = skipAnimation
+      ? { push: {}, pop: { content: { translationX: { from: 0, to: windowSizeTools.getSize().width, duration: 300 } } } }
+      : hasPic
+        ? {
+            push: {
+              sharedElementTransitions: [
+                { fromId: NAV_SHEAR_NATIVE_IDS.playDetail_pic, toId: NAV_SHEAR_NATIVE_IDS.playDetail_pic, interpolation: { type: 'spring' } },
+              ],
+              elementTransitions: [
+                { id: NAV_SHEAR_NATIVE_IDS.playDetail_header, alpha: { from: 0, duration: 300 }, translationY: { from: -32, duration: 300 } },
+                { id: NAV_SHEAR_NATIVE_IDS.playDetail_player, alpha: { from: 0, duration: 300 }, translationY: { from: 32, duration: 300 } },
+              ],
+            },
+            pop: {
+              content: { translationX: { from: 0, to: windowSizeTools.getSize().width, duration: 300 } },
+            },
+          }
+        : undefined
 
     void guardPush(Navigation.push(componentId, {
       component: {
@@ -214,61 +234,7 @@ export function pushPlayDetailScreen(componentId: string, skipAnimation = false)
                     bottom: 'always',
                   },
           },
-          animations: {
-            push: skipAnimation
-              ? {}
-              : hasPic ? {
-                sharedElementTransitions: [
-                  {
-                    fromId: NAV_SHEAR_NATIVE_IDS.playDetail_pic,
-                    toId: NAV_SHEAR_NATIVE_IDS.playDetail_pic,
-                    interpolation: { type: 'spring' },
-                  },
-                ],
-                elementTransitions: [
-                  {
-                    id: NAV_SHEAR_NATIVE_IDS.playDetail_header,
-                    alpha: {
-                      from: 0,
-                      duration: 300,
-                    },
-                    translationY: {
-                      from: -32,
-                      duration: 300,
-                    },
-                  },
-                  {
-                    id: NAV_SHEAR_NATIVE_IDS.playDetail_player,
-                    alpha: {
-                      from: 0,
-                      duration: 300,
-                    },
-                    translationY: {
-                      from: 32,
-                      duration: 300,
-                    },
-                  },
-                ],
-              }
-              : {
-                content: {
-                  translationX: {
-                    from: windowSizeTools.getSize().width,
-                    to: 0,
-                    duration: 300,
-                  },
-                },
-              },
-            pop: {
-              content: {
-                translationX: {
-                  from: 0,
-                  to: windowSizeTools.getSize().width,
-                  duration: 300,
-                },
-              },
-            },
-          },
+          ...(playDetailAnimations ? { animations: playDetailAnimations } : {}),
         },
       },
     }),

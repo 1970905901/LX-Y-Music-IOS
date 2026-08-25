@@ -84,6 +84,12 @@ export const shouldUseNativeFlacPlayer = async(musicInfo: LX.Player.PlayMusic, _
   // - 加密格式（mflac/mgg/ncm/kgm 等）原生播放器无法解码，必须回退到带解密的 TrackPlayer 路径。
   if (!isRemoteUrl(_url) || isEncryptedAudioUrl(_url)) return false
 
+  // 网易云音乐（wy）的无损链接实际为 NCM 加密格式：
+  // URL 常以 music.126.net/.../jdymusic/obj/<objKey> 结尾，没有 .flac/.ncm 等扩展名，
+  // isEncryptedAudioUrl 按后缀判断会漏掉，交给原生 libFLAC 解码必然失败（无声/失真）。
+  // 必须走带解密的 TrackPlayer 路径。
+  if (getMusicInfo(musicInfo).source == 'wy') return false
+
   if (quality != null) return preferredPreciseQualities.has(quality)
   return getMusicInfo(musicInfo).source != 'local' && preferredPreciseQualities.has(settingState.setting['player.playQuality'])
 }

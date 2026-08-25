@@ -243,8 +243,15 @@ const AnnouncementModal = ({ componentId }: { componentId: string }) => {
 
   const handleButtonPress = (url: string) => {
     if (url && url.trim() !== '') {
-      // 有链接：打开链接
-      void openUrl(url)
+      // 特殊协议：复制 QQ 群号
+      if (url.startsWith('qq-group:')) {
+        const groupId = url.replace('qq-group:', '')
+        Clipboard.setString(groupId)
+        toast(`已复制 QQ 群号：${groupId}`)
+      } else {
+        // 有链接：打开链接
+        void openUrl(url)
+      }
     }
     // 无论是否有链接，都关闭弹窗
     void handleClose()

@@ -11,20 +11,15 @@ export const DEBUG_MODE = false
 const TEST_MODE = true
 
 const testAnnouncementData = {
-  announcementId: '15111',
-  title: '🎉 公告功能测试',
-  content: '## 功能说明\n\n这是一个 **本地测试** 公告，用于验证所有 Markdown 功能。\n\n### 文字样式\n\n- **粗体文本**\n- *斜体文本*\n- `行内代码`\n- <color=#FF0000>红色字体</color>\n- <color=#00FF00>绿色字体</color>\n- <color=#0000FF>蓝色字体</color>\n\n---\n\n### 链接测试\n\n点击这里访问 [GitHub 仓库](https://github.com/WalnutBai/lx-lxwalnut-music-mobile)\n\n---\n\n### 图片测试\n\n![React Native Logo](https://reactnative.dev/img/header_logo.svg)\n\n---\n\n### 视频测试\n\n[video](https://tools.mgtv100.com/short/djVWP63oNk)\n\n---\n\n### 代码块测试\n\n```javascript\nconst greeting = "Hello, LX Music!";\nconsole.log(greeting);\n```\n\n---\n\n> 测试所有样式是否正常显示！',
+  announcementId: 'qqgroup-1013518794',
+  title: '🎉 欢迎加入 LX-Y Music 交流群',
+  content: '## 加入 QQ 交流群\n\n欢迎加入 LX-Y Music 官方交流群，与开发者和其他用户一起交流：\n\n### 群号\n\n**1013518794**\n\n### 提示\n\n- 点击 **复制群号** 按钮可快速复制群号\n- 打开 QQ → 加群 → 粘贴群号即可加入\n- 有问题、建议或想获取最新版本，都可以在群里交流',
   image: '',
   buttons: [
     {
-      text: '网盘下载',
+      text: '复制群号',
       enabled: true,
-      url: 'https://1813811951.share.123pan.cn/123pan/XINlVv-II4TH'
-    },
-    {
-      text: '帮助文档',
-      enabled: true,
-      url: 'https://github.com/WalnutBai/lx-lxwalnut-music-mobile/blob/master/README.md'
+      url: 'qq-group:1013518794'
     },
     {
       text: '关闭',

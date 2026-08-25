@@ -97,3 +97,9 @@ export const cancelTimeoutExit = () => {
   global.lx.isPlayedStop = false
   timeoutTools.callHooks()
 }
+
+// 标记用户通过锁屏/控制中心进行了交互。
+// 本函数原为智能睡眠模式的"交互重置"钩子，该模式在 iOS 适配时已被移除，
+// 故此处保留为空实现，仅用于满足锁屏远程控制回调（service.ts / remoteCommand.ts）的调用，
+// 避免 undefined is not a function 崩溃。
+export const markTimeoutExitInteraction = () => {}

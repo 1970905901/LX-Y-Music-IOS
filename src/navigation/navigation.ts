@@ -32,6 +32,9 @@ const startPush = (id: COMPONENT_IDS, allowSameTop = false) => {
   if (pendingPushes.has(id)) return false
   if (!allowSameTop && isTopScreen(id)) return false
   pendingPushes.add(id)
+  // 安全兜底：即使 push 的 Promise 始终不结算（如 RNN 返回 undefined 或原生转场挂起），
+  // 也确保锁最终释放，避免界面永久卡死只能重启。
+  setTimeout(() => { endPush(id) }, 3000)
   return true
 }
 const endPush = (id: COMPONENT_IDS) => { pendingPushes.delete(id) }
@@ -143,6 +146,11 @@ export async function pushHomeScreen() {
 }
 export function pushPlayDetailScreen(componentId: string, skipAnimation = false) {
   if (!startPush(COMPONENT_IDS.playDetail)) return
+  // 未载入任何歌曲时不打开播放详情页，避免空状态导致卡死
+  if (!playerState.playMusicInfo.musicInfo) {
+    endPush(COMPONENT_IDS.playDetail)
+    return
+  }
   /*
     Navigation.setDefaultOptions({
       topBar: {
@@ -177,7 +185,7 @@ export function pushPlayDetailScreen(componentId: string, skipAnimation = false)
   */
   requestAnimationFrame(() => {
     const theme = themeState.theme
-    const hasPic = !!playerState.musicInfo.pic
+    const hasPic = !!(playerState.musicInfo.pic && playerState.isPlay)
 
     void guardPush(Navigation.push(componentId, {
       component: {

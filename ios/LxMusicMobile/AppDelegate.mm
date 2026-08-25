@@ -839,8 +839,11 @@ static NSArray<NSString *> *LXDocumentTypesForExtensions(id extTypes) {
     if (!ext.length) continue;
 
     if ([ext isEqualToString:@"js"]) {
+      [types addObject:@"public.javascript"];
+      [types addObject:@"public.source-code"];
       [types addObject:@"com.netscape.javascript-source"];
       [types addObject:@"public.text"];
+      [types addObject:@"public.data"];
       continue;
     }
     if ([ext isEqualToString:@"json"]) {

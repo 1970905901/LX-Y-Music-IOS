@@ -1,6 +1,8 @@
 import ChoosePath, { type ChoosePathType } from '@/components/common/ChoosePath'
 import { USER_API_SOURCE_FILE_EXT_RXP } from '@/config/constant'
-import { forwardRef, useImperativeHandle, useRef, useState } from 'react'
+import { forwardRef, useImperativeHandle, useRef, useState, type MutableRefObject } from 'react'
+import { Platform } from 'react-native'
+import { selectFile } from '@/utils/fs'
 import { handleImportLocalFile, handleExportUserApi } from './action'
 
 export interface SelectInfo {
@@ -14,6 +16,22 @@ export interface ScriptImportExportType {
   export: (apiId: string) => void
 }
 
+const showChoosePath = (
+  choosePathRef: MutableRefObject<ChoosePathType | null>,
+  visible: boolean,
+  setVisible: (v: boolean) => void,
+  opts: { title: string; dirOnly: boolean; filter?: string[] },
+) => {
+  if (visible) {
+    choosePathRef.current?.show(opts)
+  } else {
+    setVisible(true)
+    requestAnimationFrame(() => {
+      choosePathRef.current?.show(opts)
+    })
+  }
+}
+
 export default forwardRef<ScriptImportExportType, {}>((props, ref) => {
   const [visible, setVisible] = useState(false)
   const choosePathRef = useRef<ChoosePathType>(null)
@@ -24,44 +42,39 @@ export default forwardRef<ScriptImportExportType, {}>((props, ref) => {
       selectInfoRef.current = {
         action: 'import',
       }
-      if (visible) {
-        choosePathRef.current?.show({
-          title: global.i18n.t('user_api_import_desc'),
-          dirOnly: false,
-          filter: USER_API_SOURCE_FILE_EXT_RXP,
-        })
-      } else {
-        setVisible(true)
-        requestAnimationFrame(() => {
-          choosePathRef.current?.show({
-            title: global.i18n.t('user_api_import_desc'),
-            dirOnly: false,
-            filter: USER_API_SOURCE_FILE_EXT_RXP,
+      // iOS：使用系统原生文档选择器（UIDocumentPicker），而非安卓风格目录浏览器
+      if (Platform.OS === 'ios') {
+        void selectFile({ extTypes: USER_API_SOURCE_FILE_EXT_RXP })
+          .then((res) => {
+            if (res?.data) handleImportLocalFile(res.data)
           })
-        })
+          .catch((err: any) => {
+            if (err?.code === 'picker_cancelled') return
+            // 原生选择器不可用或失败时回退到内置目录浏览器
+            showChoosePath(choosePathRef, visible, setVisible, {
+              title: global.i18n.t('user_api_import_desc'),
+              dirOnly: false,
+              filter: USER_API_SOURCE_FILE_EXT_RXP,
+            })
+          })
+        return
       }
+      showChoosePath(choosePathRef, visible, setVisible, {
+        title: global.i18n.t('user_api_import_desc'),
+        dirOnly: false,
+        filter: USER_API_SOURCE_FILE_EXT_RXP,
+      })
     },
     export(apiId) {
       selectInfoRef.current = {
         action: 'export',
         apiId,
       }
-      if (visible) {
-        choosePathRef.current?.show({
-          title: global.i18n.t('user_api_export_desc'),
-          dirOnly: true,
-          filter: USER_API_SOURCE_FILE_EXT_RXP,
-        })
-      } else {
-        setVisible(true)
-        requestAnimationFrame(() => {
-          choosePathRef.current?.show({
-            title: global.i18n.t('user_api_export_desc'),
-            dirOnly: true,
-            filter: USER_API_SOURCE_FILE_EXT_RXP,
-          })
-        })
-      }
+      showChoosePath(choosePathRef, visible, setVisible, {
+        title: global.i18n.t('user_api_export_desc'),
+        dirOnly: true,
+        filter: USER_API_SOURCE_FILE_EXT_RXP,
+      })
     },
   }))
 

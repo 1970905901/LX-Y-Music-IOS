@@ -3,7 +3,7 @@ import {toMD5, toast, requestStoragePermission} from '@/utils/tools';
 import { getMusicUrl, getLyricInfo } from '@/core/music';
 import {getFileExtension, getFileExtensionFromUrl} from '@/screens/Home/Views/Mylist/MusicList/download/utils';
 import { mergeLyrics } from '@/screens/Home/Views/Mylist/MusicList/download/lrcTool';
-import {writeFile, unlink} from '@/utils/fs';
+import {writeFile, unlink, downloadFile, mkdir, moveFile, stopDownload} from '@/utils/fs';
 import { writeMetadata, writePic, writeLyric } from '@/utils/localMediaMetadata';
 import settingState from '@/store/setting/state';
 import downloadState from '@/store/download/state';
@@ -115,41 +115,43 @@ const startDownload = async (task: DownloadTask) => {
   let downloadedFilePath: string;
   const effectiveDownloadDir = settingState.setting['download.path'] || (RNFetchBlob.fs.dirs.MusicDir + '/LX-Y Music');
   try {
-    const downloadTask = RNFetchBlob.config({
-      path: downloadFilePath,
-      fileCache: true,
-    }).fetch('GET', url, headers);
+    await mkdir(effectiveDownloadDir)
 
-    currentDownloadTask = downloadTask;
-    downloadTask.progress({ interval: 500 }, (written, total) => {
-      const now = Date.now();
-      const deltaTime = now - lastTime;
-      if (deltaTime === 0) return;
+    const downloadTask = downloadFile(url, downloadFilePath, {
+      headers,
+      progress: (res) => {
+        const now = Date.now()
+        const written = res.bytesWritten
+        const total = res.contentLength
+        const deltaTime = now - lastTime
+        if (deltaTime === 0) return
 
-      const deltaBytes = written - lastWritten;
-      const speed = deltaBytes / (deltaTime / 1000);
+        const deltaBytes = written - lastWritten
+        const speed = deltaBytes / (deltaTime / 1000)
 
-      lastWritten = written;
-      lastTime = now;
-      const percent = total > 0 ? written / total : 0;
-      downloadActions.updateTask(task.id, {
-        progress: {
-          ...task.progress,
-          percent,
-          downloaded: written,
-          total,
-          speed: `${sizeFormate(speed)}/s`,
-        },
-      });
-    });
+        lastWritten = written
+        lastTime = now
+        const percent = total > 0 ? written / total : 0
+        downloadActions.updateTask(task.id, {
+          progress: {
+            ...task.progress,
+            percent,
+            downloaded: written,
+            total,
+            speed: `${sizeFormate(speed)}/s`,
+          },
+        })
+      },
+    })
 
-    const res = await downloadTask;
-    downloadedFilePath = res.path();
-    console.log('下载完成:', downloadedFilePath);
+    currentDownloadTask = downloadTask
+    await downloadTask.promise
+    downloadedFilePath = downloadFilePath
+    console.log('下载完成:', downloadedFilePath)
     
     if (finalFilePath !== downloadedFilePath) {
       try {
-        await RNFetchBlob.fs.mv(downloadedFilePath, finalFilePath);
+        await moveFile(downloadedFilePath, finalFilePath);
         downloadedFilePath = finalFilePath;
         console.log(`[Download] 重命名为最终路径: ${downloadedFilePath}`);
       } catch (renameError) {
@@ -211,10 +213,11 @@ const handleMetadata = async (task: DownloadTask, filePath: string) => {
       const extension = getFileExtensionFromUrl(picUrl) || 'jpg'
       const picPath = `${downloadDir}/temp.${extension}`
       console.log(`[Metadata] 下载封面: ${picUrl} -> ${picPath}`);
-      const res = await RNFetchBlob.config({ path: picPath }).fetch('GET', picUrl);
+      const { promise } = downloadFile(picUrl, picPath);
+      await promise;
       console.log(`[Metadata] 封面下载完成，开始写入到音频文件`);
-      await writePic(filePath, res.path());
-      await unlink(res.path());
+      await writePic(filePath, picPath);
+      await unlink(picPath);
       console.log(`[Metadata] 封面写入完成`);
       downloadActions.updateTask(task.id, { metadataStatus: { ...task.metadataStatus, cover: 'success' } });
     } catch (e: any) {
@@ -296,10 +299,11 @@ export const retryMetadata = async (taskId: string) => {
       const picPath = `${RNFetchBlob.fs.dirs.CacheDir}/lx_temp_pic_${task.id}.${extension}`;
 
       console.log(`[Retry Metadata] 下载封面: ${picUrl} -> ${picPath}`);
-      const res = await RNFetchBlob.config({ path: picPath }).fetch('GET', picUrl);
+      const { promise } = downloadFile(picUrl, picPath);
+      await promise;
       console.log(`[Retry Metadata] 封面下载完成，开始写入`);
-      await writePic(filePath, res.path());
-      await unlink(res.path());
+      await writePic(filePath, picPath);
+      await unlink(picPath);
       metadataStatus.cover = 'success';
       console.log(`[Retry Metadata] 封面写入成功`);
     } catch (e: any) {
@@ -430,18 +434,15 @@ export const addTask = (musicInfo: LX.Music.MusicInfo, quality: LX.Quality, isFo
 export const removeTask = (id: string) => {
   const taskToRemove = downloadState.tasks.find(t => t.id === id);
   if (currentDownloadTask && taskToRemove && taskToRemove.status === 'downloading') {
-    currentDownloadTask.cancel(async () => {
-      try {
-        console.log(taskToRemove)
-        if (taskToRemove.filePath) {
-          await unlink(taskToRemove.filePath);
-          console.log(`[Download Manager] Canceled and deleted partial file: ${taskToRemove.filePath}`);
-        }
-      } catch (error) {
-        console.error(`[Download Manager] Failed to delete partial file on remove:`, error);
-      }
-      currentDownloadTask = null;
-    })
+    const jobId = currentDownloadTask.jobId
+    if (typeof jobId === 'number') {
+      stopDownload(jobId)
+    }
+    if (taskToRemove.filePath) {
+      void unlink(taskToRemove.filePath).catch(() => {});
+      console.log(`[Download Manager] Canceled and deleted partial file: ${taskToRemove.filePath}`);
+    }
+    currentDownloadTask = null;
   } else if (taskToRemove && taskToRemove.status !== 'completed' && taskToRemove.filePath) {
     void unlink(taskToRemove.filePath).catch(() => {});
   }

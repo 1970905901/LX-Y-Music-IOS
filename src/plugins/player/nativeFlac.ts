@@ -79,19 +79,19 @@ export const isNativeFlacPlayerAvailable = () => Platform.OS == 'ios' && isStrea
 export const shouldUseNativeFlacPlayer = async(musicInfo: LX.Player.PlayMusic, _url: string, quality?: LX.Quality | null) => {
   if (!isNativeFlacPlayerAvailable()) return false
 
-  // 仅对可直接解码的远程普通 FLAC 使用原生播放器：
+  // 原生 StreamingFlac 播放器在当前 iOS 构建中对所有音源均无法出声：
+  // 用户实测网易云、酷狗、酷我、咪咕、QQ 音乐（企鹅）的 FLAC 都无声/失真，
+  // 即使 URL 明确以 .flac 结尾（如 QQ 音乐 isure6.ptqqmusic.../...flac?guid=...）也播不了。
+  // 先整体禁用原生 FLAC 路径，让 FLAC 回退到经过验证的 TrackPlayer 主路径。
+  toast('FLAC调试: 原生FLAC已禁用，走TrackPlayer路径', 'long')
+  return false
+
+  // 保留原决策逻辑供后续修复原生引擎后恢复：
   // - 本地文件走 TrackPlayer；
   // - 加密格式（mflac/mgg/ncm/kgm 等）原生播放器无法解码，必须回退到带解密的 TrackPlayer 路径。
-  if (!isRemoteUrl(_url) || isEncryptedAudioUrl(_url)) return false
-
-  // 网易云音乐（wy）的无损链接实际为 NCM 加密格式：
-  // URL 常以 music.126.net/.../jdymusic/obj/<objKey> 结尾，没有 .flac/.ncm 等扩展名，
-  // isEncryptedAudioUrl 按后缀判断会漏掉，交给原生 libFLAC 解码必然失败（无声/失真）。
-  // 必须走带解密的 TrackPlayer 路径。
-  if (getMusicInfo(musicInfo).source == 'wy') return false
-
-  if (quality != null) return preferredPreciseQualities.has(quality)
-  return getMusicInfo(musicInfo).source != 'local' && preferredPreciseQualities.has(settingState.setting['player.playQuality'])
+  // if (!isRemoteUrl(_url) || isEncryptedAudioUrl(_url)) return false
+  // if (quality != null) return preferredPreciseQualities.has(quality)
+  // return getMusicInfo(musicInfo).source != 'local' && preferredPreciseQualities.has(settingState.setting['player.playQuality'])
 }
 
 export const prefetchNativeFlacPlayback = async(musicInfo: LX.Player.PlayMusic, url: string, quality?: LX.Quality | null) => {

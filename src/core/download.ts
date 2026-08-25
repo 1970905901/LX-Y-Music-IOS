@@ -3,8 +3,7 @@ import {toMD5, toast, requestStoragePermission} from '@/utils/tools';
 import { getMusicUrl, getLyricInfo } from '@/core/music';
 import {getFileExtension, getFileExtensionFromUrl} from '@/screens/Home/Views/Mylist/MusicList/download/utils';
 import { mergeLyrics } from '@/screens/Home/Views/Mylist/MusicList/download/lrcTool';
-import {writeFile, unlink, beginFolderAccess, endFolderAccess} from '@/utils/fs';
-import {Platform} from 'react-native';
+import {writeFile, unlink} from '@/utils/fs';
 import { writeMetadata, writePic, writeLyric } from '@/utils/localMediaMetadata';
 import settingState from '@/store/setting/state';
 import downloadState from '@/store/download/state';
@@ -115,9 +114,6 @@ const startDownload = async (task: DownloadTask) => {
   let lastTime = Date.now();
   let downloadedFilePath: string;
   const effectiveDownloadDir = settingState.setting['download.path'] || (RNFetchBlob.fs.dirs.MusicDir + '/LX-Y Music');
-  if (Platform.OS === 'ios') {
-    await beginFolderAccess(effectiveDownloadDir).catch(() => {});
-  }
   try {
     const downloadTask = RNFetchBlob.config({
       path: downloadFilePath,
@@ -180,9 +176,6 @@ const startDownload = async (task: DownloadTask) => {
     }
   } finally {
     currentDownloadTask = null;
-    if (Platform.OS === 'ios') {
-      await endFolderAccess(effectiveDownloadDir).catch(() => {});
-    }
   }
 };
 

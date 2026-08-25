@@ -3711,8 +3711,6 @@ static NSString *LXStreamingFlacDecoderErrorStatusName(FLAC__StreamDecoderErrorS
 @property (nonatomic, strong) UIDocumentPickerViewController *pickerController;
 @property (nonatomic, assign) BOOL pickerPresenting;
 @property (nonatomic, assign) BOOL pickerIsFolder;
-@property (nonatomic, strong) NSMutableDictionary<NSString *, NSData *> *folderBookmarks;
-@property (nonatomic, strong) NSMutableDictionary<NSString *, NSURL *> *folderAccessURLs;
 @end
 
 @implementation FilePickerModule
@@ -3794,26 +3792,11 @@ RCT_REMAP_METHOD(openDocument, openDocument:(NSDictionary *)options resolver:(RC
     return;
   }
 
-  // 目录选择模式：直接返回所选文件夹路径（不复制文件）
+  // 目录选择模式：直接返回所选文件夹路径（不复制文件）。
+  // 选择器已通过 directoryURL 限定在应用沙盒 Documents 内，所选目录恒可写，
+  // 无需安全作用域书签（iOS 对沙盒外目录的持久写入才需要，已在 JS 层拒绝此类选择）。
   if (self.pickerIsFolder) {
     NSString *folderPath = [pickedURL.path stringByStandardizingPath];
-    // 持久化书签：沙盒之外的目录在后续下载写入时需通过书签重新解析并开启访问权限，
-    // 否则沙盒外的文件写入会因权限不足而失败。沙盒内目录无需书签（beginFolderAccess 会直接放行）。
-    // 注意：NSURLBookmarkCreationWithSecurityScope / NSURLBookmarkResolutionWithSecurityScope
-    // 仅 macOS 可用；iOS 上对 security-scoped URL 创建“最小书签”即可在书签中自动携带安全作用域，
-    // 后续解析得到的 URL 仍可通过 startAccessingSecurityScopedResource 取得访问权限。
-    BOOL accessed = [pickedURL startAccessingSecurityScopedResource];
-    NSError *bmError = nil;
-    NSData *bookmark = [pickedURL bookmarkDataWithOptions:NSURLBookmarkCreationMinimal
-                                    includingResourceValuesForKeys:nil
-                                                 relativeToURL:nil
-                                                         error:&bmError];
-    if (accessed) [pickedURL stopAccessingSecurityScopedResource];
-    if (bookmark != nil) {
-      if (self.folderBookmarks == nil) self.folderBookmarks = [NSMutableDictionary dictionary];
-      self.folderBookmarks[folderPath] = bookmark;
-      [[NSUserDefaults standardUserDefaults] setObject:bookmark forKey:[@"lx_folder_bookmark_" stringByAppendingString:folderPath]];
-    }
     NSMutableDictionary *result = [NSMutableDictionary dictionary];
     result[@"path"] = folderPath;
     result[@"data"] = folderPath;
@@ -3865,9 +3848,11 @@ RCT_REMAP_METHOD(selectFolder, selectFolderWithResolver:(RCTPromiseResolveBlock)
     self.pickerReject = reject;
     self.pickerIsFolder = YES;
 
-    // public.folder 在 UIDocumentPickerModeOpen 下用于选择目录
+    // public.folder 在 UIDocumentPickerModeOpen 下用于选择目录。
+    // 将初始目录限定在应用沙盒 Documents，用户在该范围内所选目录恒可写（无需安全作用域书签）。
     NSArray<NSString *> *documentTypes = @[@"public.folder"];
     UIDocumentPickerViewController *picker = [[UIDocumentPickerViewController alloc] initWithDocumentTypes:documentTypes inMode:UIDocumentPickerModeOpen];
+    picker.directoryURL = [[NSFileManager defaultManager] URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask].lastObject;
     picker.delegate = self;
     picker.allowsMultipleSelection = NO;
     // 同 openDocument：FormSheet 不移除底层 view；关闭后的主窗口交互恢复由 LXEnsureKeyWindow() 负责
@@ -3911,45 +3896,6 @@ RCT_REMAP_METHOD(shareFile, shareFile:(NSString *)filePath resolver:(RCTPromiseR
   });
 }
 
-// 开启对（可能位于沙盒外的）所选下载目录的安全作用域访问。
-// 沙盒内目录（如默认下载目录）无需书签，直接返回 YES；外部目录需从持久化书签解析并开启访问，
-// 后续下载写入才能成功。访问必须在下载写入期间保持开启，写入结束后调用 endFolderAccess 关闭。
-RCT_REMAP_METHOD(beginFolderAccess, beginFolderAccess:(NSString *)path resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
-  if (path.length == 0) { resolve(@YES); return; }
-  NSString *stdPath = [path stringByStandardizingPath];
-  if (self.folderBookmarks == nil) {
-    NSData *saved = [[NSUserDefaults standardUserDefaults] objectForKey:[@"lx_folder_bookmark_" stringByAppendingString:stdPath]];
-    if (saved != nil) {
-      self.folderBookmarks = [NSMutableDictionary dictionary];
-      self.folderBookmarks[stdPath] = saved;
-    }
-  }
-  NSData *bookmark = self.folderBookmarks[stdPath];
-  if (bookmark == nil) { resolve(@YES); return; } // 沙盒内目录，无需安全作用域
-  BOOL isStale = NO;
-  NSError *err = nil;
-  NSURL *url = [NSURL URLByResolvingBookmarkData:bookmark
-                                         options:NSURLBookmarkResolutionWithoutUI
-                                   relativeToURL:nil
-                             bookmarkDataIsStale:&isStale
-                                           error:&err];
-  if (url == nil) { resolve(@NO); return; }
-  [url startAccessingSecurityScopedResource];
-  if (self.folderAccessURLs == nil) self.folderAccessURLs = [NSMutableDictionary dictionary];
-  self.folderAccessURLs[stdPath] = url;
-  resolve(@YES);
-}
-
-RCT_REMAP_METHOD(endFolderAccess, endFolderAccess:(NSString *)path resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
-  if (path.length == 0) { resolve(@YES); return; }
-  NSString *stdPath = [path stringByStandardizingPath];
-  NSURL *url = self.folderAccessURLs[stdPath];
-  if (url != nil) {
-    [url stopAccessingSecurityScopedResource];
-    [self.folderAccessURLs removeObjectForKey:stdPath];
-  }
-  resolve(@YES);
-}
 
 @end
 

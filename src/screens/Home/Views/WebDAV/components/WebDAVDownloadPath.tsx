@@ -31,6 +31,7 @@ export default memo(() => {
         })
         .catch((err: any) => {
           if (err?.code === 'picker_cancelled') return
+          if (err?.message) toast(err.message, 'long')
         })
       return
     }

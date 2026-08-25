@@ -87,24 +87,19 @@ export const selectFolder = async(): Promise<{ path: string }> => {
   if (!isSystemFileSelectorSupported || typeof FilePickerModule?.selectFolder !== 'function') {
     throw unsupportedError('Folder selection')
   }
-  return FilePickerModule.selectFolder() as Promise<{ path: string }>
+  const result = await (FilePickerModule.selectFolder() as Promise<{ path: string }>)
+  const folderPath = result?.path ?? ''
+  // 仅允许选择应用沙盒内的目录（可在“文件”App 中访问）。沙盒外目录无法持久写入（需安全作用域书签），故拒绝。
+  if (!folderPath || !folderPath.startsWith(privateStorageDirectoryPath)) {
+    throw new Error('请选择应用目录内的文件夹（可在“文件”App 的 LX-Y Music 中访问）')
+  }
+  return result
 }
 export const shareFile = async(path: string): Promise<void> => {
   if (!isSystemFileSelectorSupported || typeof FilePickerModule?.shareFile !== 'function') {
     throw unsupportedError('File sharing')
   }
   return FilePickerModule.shareFile(path) as Promise<void>
-}
-// 开启/关闭对（可能位于沙盒外的）所选下载目录的安全作用域访问。
-// 沙盒内目录无需书签，beginFolderAccess 直接返回 true；外部目录需通过持久化书签获取访问权限，
-// 否则下载写入会因权限不足失败。写入期间应保持开启，写入结束后调用 endFolderAccess。
-export const beginFolderAccess = async(path: string): Promise<boolean> => {
-  if (!isSystemFileSelectorSupported || typeof (FilePickerModule as any)?.beginFolderAccess !== 'function') return true
-  return (FilePickerModule.beginFolderAccess(path) as Promise<boolean>).catch(() => true)
-}
-export const endFolderAccess = async(path: string): Promise<boolean> => {
-  if (!isSystemFileSelectorSupported || typeof (FilePickerModule as any)?.endFolderAccess !== 'function') return true
-  return (FilePickerModule.endFolderAccess(path) as Promise<boolean>).catch(() => true)
 }
 export const removeManagedFolder = async(_path: string) => {
   throw unsupportedError('Managed folder removal')

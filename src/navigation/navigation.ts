@@ -35,6 +35,12 @@ const startPush = (id: COMPONENT_IDS, allowSameTop = false) => {
   return true
 }
 const endPush = (id: COMPONENT_IDS) => { pendingPushes.delete(id) }
+const guardPush = (promise: Promise<string> | undefined, id: COMPONENT_IDS): Promise<void> => {
+  return Promise.resolve(promise)
+    .catch(() => {})
+    .finally(() => { endPush(id) })
+}
+
 
 export async function pushHomeScreen() {
   // iOS 安全区适配：默认给所有 screen 顶部/底部均保留安全区。
@@ -173,7 +179,7 @@ export function pushPlayDetailScreen(componentId: string, skipAnimation = false)
     const theme = themeState.theme
     const hasPic = !!playerState.musicInfo.pic
 
-    void Navigation.push(componentId, {
+    void guardPush(Navigation.push(componentId, {
       component: {
         name: PLAY_DETAIL_SCREEN,
         options: {
@@ -257,9 +263,8 @@ export function pushPlayDetailScreen(componentId: string, skipAnimation = false)
           },
         },
       },
-    }
-      .catch(() => {})
-      .finally(() => { endPush(COMPONENT_IDS.playDetail) }))
+    }),
+      COMPONENT_IDS.playDetail)
   })
 }
 
@@ -268,7 +273,7 @@ export function pushSonglistDetailScreen(componentId: string, info: ListInfoItem
   const theme = themeState.theme
 
   requestAnimationFrame(() => {
-    void Navigation.push(componentId, {
+    void guardPush(Navigation.push(componentId, {
       component: {
         name: SONGLIST_DETAIL_SCREEN,
         passProps: {
@@ -370,9 +375,8 @@ export function pushSonglistDetailScreen(componentId: string, info: ListInfoItem
           },
         },
       },
-    }
-      .catch(() => {})
-      .finally(() => { endPush(COMPONENT_IDS.songlistDetail) }))
+    }),
+      COMPONENT_IDS.songlistDetail)
   })
 }
 export function pushCommentScreen(componentId: string) {
@@ -412,7 +416,7 @@ export function pushCommentScreen(componentId: string) {
   requestAnimationFrame(() => {
     const theme = themeState.theme
 
-    void Navigation.push(componentId, {
+    void guardPush(Navigation.push(componentId, {
       component: {
         name: COMMENT_SCREEN,
         options: {
@@ -461,9 +465,8 @@ export function pushCommentScreen(componentId: string) {
           },
         },
       },
-    }
-      .catch(() => {})
-      .finally(() => { endPush(COMPONENT_IDS.comment) }))
+    }),
+      COMPONENT_IDS.comment)
   })
 }
 
@@ -672,7 +675,7 @@ export function pushTabBasedApp() {
 export function pushArtistDetailScreen(componentId: string, artistInfo: { id: string, mid?: string, name: string, picUrl?: string, source?: string }) {
   if (!startPush(COMPONENT_IDS.ARTIST_DETAIL)) return
   const theme = themeState.theme
-  return Navigation.push(componentId, {
+  void guardPush(Navigation.push(componentId, {
     component: {
       name: ARTIST_DETAIL_SCREEN,
       passProps: {
@@ -715,15 +718,14 @@ export function pushArtistDetailScreen(componentId: string, artistInfo: { id: st
         },
       },
     },
-  }
-    .catch(() => {})
-    .finally(() => { endPush(COMPONENT_IDS.ARTIST_DETAIL) }))
+  }),
+    COMPONENT_IDS.ARTIST_DETAIL)
 }
 
 export function pushAlbumDetailScreen(componentId: string, albumInfo: any) {
   if (!startPush(COMPONENT_IDS.ALBUM_DETAIL_SCREEN)) return
   const theme = themeState.theme
-  return Navigation.push(componentId, {
+  void guardPush(Navigation.push(componentId, {
     component: {
       name: ALBUM_DETAIL_SCREEN,
       passProps: {
@@ -766,16 +768,15 @@ export function pushAlbumDetailScreen(componentId: string, albumInfo: any) {
         },
       },
     },
-  }
-    .catch(() => {})
-    .finally(() => { endPush(COMPONENT_IDS.ALBUM_DETAIL_SCREEN) }))
+  }),
+    COMPONENT_IDS.ALBUM_DETAIL_SCREEN)
 }
 
 
 export function pushDownloadManagerScreen(componentId: string) {
   if (!startPush(COMPONENT_IDS.DOWNLOAD_MANAGER)) return
   const theme = themeState.theme;
-  return Navigation.push(componentId, {
+  void guardPush(Navigation.push(componentId, {
     component: {
       name: DOWNLOAD_MANAGER_SCREEN,
       options: {
@@ -815,9 +816,8 @@ export function pushDownloadManagerScreen(componentId: string) {
         },
       },
     },
-  }
-    .catch(() => {})
-    .finally(() => { endPush(COMPONENT_IDS.DOWNLOAD_MANAGER) }));
+  }),
+    COMPONENT_IDS.DOWNLOAD_MANAGER)
 }
 
 
@@ -825,7 +825,7 @@ export function pushDownloadManagerScreen(componentId: string) {
 export function pushSimilarSongsScreen(componentId: string, similarSongs: LX.Music.MusicInfoOnline[]) {
   if (!startPush(COMPONENT_IDS.SIMILAR_SONGS_SCREEN)) return
   const theme = themeState.theme
-  return Navigation.push(componentId, {
+  void guardPush(Navigation.push(componentId, {
     component: {
       name: SIMILAR_SONGS_SCREEN,
       passProps: {
@@ -868,7 +868,6 @@ export function pushSimilarSongsScreen(componentId: string, similarSongs: LX.Mus
         },
       },
     },
-  }
-    .catch(() => {})
-    .finally(() => { endPush(COMPONENT_IDS.SIMILAR_SONGS_SCREEN) }))
+  }),
+    COMPONENT_IDS.SIMILAR_SONGS_SCREEN)
 }

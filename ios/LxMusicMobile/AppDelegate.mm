@@ -2477,7 +2477,7 @@ RCT_EXPORT_MODULE();
   if (@available(iOS 13.0, *)) {
     if (![session setCategory:AVAudioSessionCategoryPlayback
                       mode:AVAudioSessionModeDefault
-        routeSharingPolicy:AVAudioSessionRouteSharingPolicyLongFormAudio
+        routeSharingPolicy:AVAudioSessionRouteSharingPolicyDefault
                    options:0
                      error:error]) return NO;
   } else {

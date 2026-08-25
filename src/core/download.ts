@@ -1,3 +1,4 @@
+import { Platform } from 'react-native'
 import RNFetchBlob from '@/utils/rnFetchBlob';
 import {toMD5, toast, requestStoragePermission} from '@/utils/tools';
 import { getMusicUrl, getLyricInfo } from '@/core/music';
@@ -183,6 +184,9 @@ const startDownload = async (task: DownloadTask) => {
 };
 
 const handleMetadata = async (task: DownloadTask, filePath: string) => {
+  // iOS 无 react-native-local-media-metadata 原生模块，标签/封面/内嵌歌词写入能力不可用，
+  // 直接跳过整段写入（与 MusicList/listAction.ts 的下载写入守卫保持一致，避免误报与假成功）。
+  if (Platform.OS !== 'android') return
   console.log('开始处理元数据:', filePath);
   
   const fileExt = filePath.substring(filePath.lastIndexOf('.') + 1).toLowerCase();
@@ -262,6 +266,12 @@ export const retryMetadata = async (taskId: string) => {
   const task = downloadState.tasks.find(t => t.id === taskId);
   if (!task || !task.filePath) {
     toast('任务或文件不存在，无法重试');
+    return;
+  }
+
+  // iOS 跳过：写入能力不可用（同 handleMetadata）
+  if (Platform.OS !== 'android') {
+    toast('当前平台不支持写入元数据');
     return;
   }
 

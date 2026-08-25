@@ -146,7 +146,7 @@ const heartbeatTools = {
 
 let client: LX.Sync.Socket | null
 // let listSyncPromise: Promise<void>
-export const connect = (urlInfo: LX.Sync.UrlInfo, keyInfo: LX.Sync.KeyInfo) => {
+export const connect = (urlInfo: LX.Sync.UrlInfo, keyInfo: LX.Sync.KeyInfo, options?: { silent?: boolean }) => {
   client = new WebSocket(
     `${urlInfo.wsProtocol}//${urlInfo.hostPath}/socket?i=${encodeURIComponent(keyInfo.clientId)}&t=${encodeURIComponent(aesEncrypt(SYNC_CODE.msgConnect, keyInfo.key))}`
   ) as LX.Sync.Socket
@@ -163,7 +163,9 @@ export const connect = (urlInfo: LX.Sync.UrlInfo, keyInfo: LX.Sync.KeyInfo) => {
     funcsObj: {
       ...callObj,
       finished() {
-        toast('Sync connected')
+        // 仅对真实（手动/重连）连接成功弹 toast；App 冷启动的自动连接不弹，
+        // 避免"每次杀死后台再打开都显示 sync connected"的骚扰。
+        if (!options?.silent) toast('Sync connected')
         client!.isReady = true
         sendSyncStatus({
           status: true,

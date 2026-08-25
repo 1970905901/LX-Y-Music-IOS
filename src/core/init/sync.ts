@@ -15,5 +15,6 @@ export default async (setting: LX.AppSetting) => {
     updateSetting({ 'sync.enable': false })
     return
   }
-  void connectServer(host)
+  // 冷启动自动连接：静默连接，不弹 "Sync connected" toast（手动/重连仍会弹）。
+  void connectServer(host, undefined, { silent: true })
 }

@@ -53,6 +53,11 @@ export const loadPlaybackResource = async({
         elapsedTime: playbackInfo.position,
       })
       return
+    } catch (err) {
+      // 原生 FLAC 播放器不可用或启动失败（例如非远程/加密格式、原生模块异常）：
+      // 不抛出，回退到下方标准 TrackPlayer 路径，避免"播放但无声音/卡死"。
+      console.warn('[FLAC] 原生 FLAC 播放失败，回退到 TrackPlayer:', err)
+      await resetNativeFlacPlayback().catch(() => {})
     } finally {
       global.lx.playerStatus.ignoreTrackPlayerLifecycle = false
     }

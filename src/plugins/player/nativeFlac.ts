@@ -55,10 +55,33 @@ const clearCurrentContext = (nextState: NativeFlacState) => {
 const getMusicInfo = (musicInfo: LX.Player.PlayMusic) => 'progress' in musicInfo ? musicInfo.metadata.musicInfo : musicInfo
 const isRemoteUrl = (url: string) => /^https?:\/\//i.test(url)
 
+// 这些扩展名是各音源加密格式，原生 StreamingFlac 播放器无法解码，必须走带解密的 TrackPlayer 路径。
+// 若把它们交给原生玩家，会出现"界面播放但无声音"的现象。
+const ENCRYPTED_AUDIO_EXTENSIONS = new Set([
+  'mflac', 'mflac0', 'mgg', 'mgg0', 'mgg1', 'ncm',
+  'kgm', 'kgma', 'kgg', 'vpr', 'kwm', 'kwl', 'kwb',
+  'kwmv', 'kwac', 'kwring', 'kwshort',
+])
+
+const isEncryptedAudioUrl = (url: string): boolean => {
+  try {
+    const pathname = new URL(url).pathname.toLowerCase()
+    const ext = pathname.split('.').pop() || ''
+    return ENCRYPTED_AUDIO_EXTENSIONS.has(ext)
+  } catch {
+    return false
+  }
+}
+
 export const isNativeFlacPlayerAvailable = () => Platform.OS == 'ios' && isStreamingFlacSupported
 
 export const shouldUseNativeFlacPlayer = async(musicInfo: LX.Player.PlayMusic, _url: string, quality?: LX.Quality | null) => {
   if (!isNativeFlacPlayerAvailable()) return false
+
+  // 仅对可直接解码的远程普通 FLAC 使用原生播放器：
+  // - 本地文件走 TrackPlayer；
+  // - 加密格式（mflac/mgg/ncm/kgm 等）原生播放器无法解码，必须回退到带解密的 TrackPlayer 路径。
+  if (!isRemoteUrl(_url) || isEncryptedAudioUrl(_url)) return false
 
   if (quality != null) return preferredPreciseQualities.has(quality)
   return getMusicInfo(musicInfo).source != 'local' && preferredPreciseQualities.has(settingState.setting['player.playQuality'])

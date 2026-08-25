@@ -99,12 +99,13 @@ export default forwardRef<UserApiEditModalType, {}>((props, ref) => {
 
   // iOS：原生选择器/分享面板（UIDocumentPicker / UIActivityViewController）若覆盖在仍存在的
   // RN Modal 上，dismiss 后会令底层 Modal 的触摸响应链断裂、整页卡死（只能重启）。
-  // 因此这里先隐藏内部 RN Modal，并等待其淡出动画（约 250ms）与原生视图移除完成后再调起原生面板，
-  // 确保原生面板不会覆盖在仍存在的 RN Modal 之上。
+  // 因此这里先把整个 Dialog 完全卸载（外层 visible=false，RN Modal 走 fade 淡出约 250ms 后移除），
+  // 等其彻底从视图层级移除后再调起原生面板——这样原生面板的 presenting VC 是底层真实页面，
+  // 不会出现“picker 呈现到隐藏 Modal 上、肉眼看不到”的问题。
   const hideDialogForNativePicker = useCallback((proceed: () => void) => {
     pendingProceedRef.current = proceed
-    // 仅隐藏内部 RN Modal（不卸载整个 Dialog），避免额外的状态切换延迟
-    dialogRef.current?.setVisible(false)
+    // 完全卸载底部 RN Modal（而非仅隐藏），确保原生面板从底层 VC 呈现
+    setVisible(false)
     // 关键：延迟到 Modal 完全淡出并移除后再执行原生面板调用。
     // requestAnimationFrame（~16ms）过早——此时原生视图尚未移除，故用 400ms 保险值。
     setTimeout(() => {
@@ -114,7 +115,8 @@ export default forwardRef<UserApiEditModalType, {}>((props, ref) => {
     }, 400)
   }, [])
   const showDialogAfterNativePicker = useCallback(() => {
-    // 原生面板已 dismiss 完成，重新显示内部 RN Modal
+    // 原生面板已 dismiss 完成，重新挂载并显示 Dialog
+    setVisible(true)
     requestAnimationFrame(() => {
       dialogRef.current?.setVisible(true)
     })

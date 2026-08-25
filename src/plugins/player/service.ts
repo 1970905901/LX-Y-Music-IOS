@@ -69,7 +69,9 @@ const registerPlaybackService = async() => {
     // On iOS, interruptions surface through RemoteDuck and we need to explicitly
     // restore playback/volume after the system finishes ducking or pausing audio.
     if (permanent) {
-      shouldResumeAfterDuck = false
+      // iOS 上“其它应用开始播放音频”属于 permanent 中断（系统未给出 ShouldResume 提示）。
+      // 记住中断前是否在播放，待中断结束（ended）事件到达时再恢复，而非永久停住。
+      shouldResumeAfterDuck = playerState.isPlay
       clearDuckRecoveryTimeouts()
       if (paused) void pause()
       return

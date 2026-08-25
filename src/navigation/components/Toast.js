@@ -1,13 +1,13 @@
 import { useEffect } from 'react'
 import { View, Text, StyleSheet } from 'react-native'
-import { useGetter } from '@/store'
+import { useTheme } from '@/store/theme/hook'
 import { Navigation } from 'react-native-navigation'
 
 // 非阻塞 Toast 浮层（替代 iOS 的 Alert.alert）。
 // 通过 RNN showOverlay 呈现，overlay.interceptTouchOutside=false 保证不拦截底层触摸，
 // 因此即使连续弹出多个也不会破坏 iOS 的 keyWindow/交互状态，从根本上避免整页卡死。
 const Toast = ({ componentId, message = '', duration = 2000, position = 'bottom' }) => {
-  const theme = useGetter('common', 'theme')
+  const theme = useTheme()
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -26,7 +26,7 @@ const Toast = ({ componentId, message = '', duration = 2000, position = 'bottom'
 
   return (
     <View style={rootStyle}>
-      <View style={{ ...styles.toast, backgroundColor: theme.secondary10 }}>
+      <View style={{ ...styles.toast, backgroundColor: theme['c-primary'] }}>
         <Text style={styles.text} numberOfLines={4}>
           {message}
         </Text>

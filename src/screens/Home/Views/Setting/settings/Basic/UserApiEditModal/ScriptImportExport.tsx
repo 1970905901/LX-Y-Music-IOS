@@ -20,10 +20,12 @@ export interface ScriptImportExportType {
 
 export interface ScriptImportExportProps {
   /**
-   * iOS 上调用原生选择器/分享面板前调用，用于隐藏底层 RN Modal，
-   * 避免 UIDocumentPicker / UIActivityViewController 覆盖在 RN Modal 上导致模态框失活。
+   * iOS 上调用原生选择器/分享面板前调用，并传入一个 proceed 回调。
+   * proceed 内部才真正调起原生面板（UIDocumentPicker / UIActivityViewController）。
+   * 父组件会先完全卸载底层 RN Modal，再在 proceed 中调起原生面板，
+   * 从而避免原生面板覆盖在仍存在的 RN Modal 上、dismiss 后整页卡死。
    */
-  onBeforeNativePicker?: () => void
+  onBeforeNativePicker?: (proceed: () => void) => void
   /**
    * iOS 上原生选择器/分享面板结束后调用，用于重新显示 RN Modal。
    */
@@ -57,25 +59,28 @@ export default forwardRef<ScriptImportExportType, ScriptImportExportProps>((prop
       selectInfoRef.current = {
         action: 'import',
       }
-      // iOS：使用系统原生文档选择器（UIDocumentPicker），而非安卓风格目录浏览器
+      // iOS：使用系统原生文档选择器（UIDocumentPicker），而非安卓风格目录浏览器。
+      // 将原生面板调用包进 proceed：父组件会先完全卸载底层 RN Modal，再执行 proceed，
+      // 避免 UIDocumentPicker 覆盖在仍存在的 RN Modal 上、dismiss 后整页卡死。
       if (Platform.OS === 'ios') {
-        onBeforeNativePicker?.()
-        void selectFile({ extTypes: USER_API_SOURCE_FILE_EXT_RXP })
-          .then((res) => {
-            if (res?.data) handleImportLocalFile(res.data)
-          })
-          .catch((err: any) => {
-            if (err?.code === 'picker_cancelled') return
-            // 原生选择器不可用或失败时回退到内置目录浏览器
-            showChoosePath(choosePathRef, visible, setVisible, {
-              title: global.i18n.t('user_api_import_desc'),
-              dirOnly: false,
-              filter: USER_API_SOURCE_FILE_EXT_RXP,
+        onBeforeNativePicker?.(() => {
+          void selectFile({ extTypes: USER_API_SOURCE_FILE_EXT_RXP })
+            .then((res) => {
+              if (res?.data) handleImportLocalFile(res.data)
             })
-          })
-          .finally(() => {
-            onAfterNativePicker?.()
-          })
+            .catch((err: any) => {
+              if (err?.code === 'picker_cancelled') return
+              // 原生选择器不可用或失败时回退到内置目录浏览器
+              showChoosePath(choosePathRef, visible, setVisible, {
+                title: global.i18n.t('user_api_import_desc'),
+                dirOnly: false,
+                filter: USER_API_SOURCE_FILE_EXT_RXP,
+              })
+            })
+            .finally(() => {
+              onAfterNativePicker?.()
+            })
+        })
         return
       }
       showChoosePath(choosePathRef, visible, setVisible, {
@@ -89,23 +94,25 @@ export default forwardRef<ScriptImportExportType, ScriptImportExportProps>((prop
         action: 'export',
         apiId,
       }
-      // iOS：导出自定义源使用系统原生分享面板（UIActivityViewController）
+      // iOS：导出自定义源使用系统原生分享面板（UIActivityViewController）。
+      // 同样包进 proceed，确保面板调起前底层 RN Modal 已完全卸载。
       if (Platform.OS === 'ios') {
-        onBeforeNativePicker?.()
-        void handleExportUserApiToFile(apiId, temporaryDirectoryPath)
-          .then((fullPath) => shareFile(fullPath))
-          .then(() => toast(global.i18n.t('user_api_export_success_tip')))
-          .catch((err: any) => {
-            if (err?.code === 'file_not_found') {
-              toast(global.i18n.t('user_api_export_failed_tip', { message: '' }), 'long')
-              return
-            }
-            log.error(err)
-            toast(global.i18n.t('user_api_export_failed_tip', { message: err?.message ?? '' }), 'long')
-          })
-          .finally(() => {
-            onAfterNativePicker?.()
-          })
+        onBeforeNativePicker?.(() => {
+          void handleExportUserApiToFile(apiId, temporaryDirectoryPath)
+            .then((fullPath) => shareFile(fullPath))
+            .then(() => toast(global.i18n.t('user_api_export_success_tip')))
+            .catch((err: any) => {
+              if (err?.code === 'file_not_found') {
+                toast(global.i18n.t('user_api_export_failed_tip', { message: '' }), 'long')
+                return
+              }
+              log.error(err)
+              toast(global.i18n.t('user_api_export_failed_tip', { message: err?.message ?? '' }), 'long')
+            })
+            .finally(() => {
+              onAfterNativePicker?.()
+            })
+        })
         return
       }
       showChoosePath(choosePathRef, visible, setVisible, {

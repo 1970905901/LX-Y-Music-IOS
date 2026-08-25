@@ -792,19 +792,27 @@ static UIViewController *LXTopViewController(void) {
 // UIDocumentPickerViewController 以独立进程运行。选中/取消并关闭后，应用主窗口可能
 // 不再是 keyWindow，或其 userInteractionEnabled 未被系统恢复，导致整屏无响应（只能重启）。
 // 在关闭完成后显式恢复主窗口为 key 并重新开启交互。
+// 注意：此处仅作为兜底。真正的修复是 JS 侧在调起原生面板前先完整卸载底层 RN Modal
+// （见 UserApiEditModal），使原生面板不会覆盖在仍存在的 RN Modal 之上。
 static void LXEnsureKeyWindow(void) {
   dispatch_async(dispatch_get_main_queue(), ^{
+    UIWindow *mainWindow = nil;
     for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
       if (![scene isKindOfClass:[UIWindowScene class]]) continue;
       UIWindowScene *windowScene = (UIWindowScene *)scene;
       for (UIWindow *win in windowScene.windows) {
-        if (win.rootViewController != nil) {
-          if (!win.isKeyWindow) [win makeKeyAndVisible];
-          win.userInteractionEnabled = YES;
+        // 对所有窗口恢复交互，避免某个窗口的交互被系统遗留为关闭状态。
+        win.userInteractionEnabled = YES;
+        if (win.rootViewController != nil && win.rootViewController.view != nil) {
           win.rootViewController.view.userInteractionEnabled = YES;
-          return;
         }
+        // 记录首个带 rootViewController 的窗口作为主窗口候选。
+        if (mainWindow == nil) mainWindow = win;
       }
+    }
+    // 仅当主窗口当前不是 keyWindow 时才切换，避免不必要的 window 层级抖动。
+    if (mainWindow != nil && !mainWindow.isKeyWindow) {
+      [mainWindow makeKeyAndVisible];
     }
   });
 }
@@ -3890,6 +3898,10 @@ RCT_REMAP_METHOD(shareFile, shareFile:(NSString *)filePath resolver:(RCTPromiseR
       activityViewController.popoverPresentationController.sourceRect = CGRectMake(CGRectGetMidX(controller.view.bounds), CGRectGetMaxY(controller.view.bounds), 0, 0);
       activityViewController.popoverPresentationController.permittedArrowDirections = UIPopoverArrowDirectionDown;
     }
+    // 分享面板关闭后恢复主窗口为 key 并重新开启交互（兜底，真正修复依赖 JS 侧先卸载 RN Modal）。
+    activityViewController.completionWithItemsHandler = ^(UIActivityType __nullable activityType, BOOL completed, NSArray * __nullable returnedItems, NSError * __nullable activityError) {
+      LXEnsureKeyWindow();
+    };
     [controller presentViewController:activityViewController animated:YES completion:^{
       resolve(nil);
     }];

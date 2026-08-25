@@ -1,4 +1,4 @@
-import { useRef, useImperativeHandle, forwardRef, useState, useCallback } from 'react'
+import { useRef, useImperativeHandle, forwardRef, useState, useCallback, useEffect } from 'react'
 import Text from '@/components/common/Text'
 import { View, TouchableOpacity } from 'react-native'
 import { createStyle, openUrl } from '@/utils/tools'
@@ -65,6 +65,8 @@ export default forwardRef<UserApiEditModalType, {}>((props, ref) => {
   const dialogRef = useRef<DialogType>(null)
   const scriptImportExportRef = useRef<ScriptImportExportType>(null)
   const [visible, setVisible] = useState(false)
+  // 待执行的原生面板调用（在 Dialog 完全卸载后才会真正执行）
+  const pendingProceedRef = useRef<(() => void) | null>(null)
   const theme = useTheme()
   const t = useI18n()
 
@@ -95,18 +97,35 @@ export default forwardRef<UserApiEditModalType, {}>((props, ref) => {
     scriptImportExportRef.current?.export(apiId)
   }, [])
 
-  // iOS：原生选择器/分享面板（UIDocumentPicker / UIActivityViewController）覆盖在 RN Modal 上时，
-  // 会导致底层 Modal 的触摸响应链断裂、按钮无响应。因此在调起原生面板前隐藏本 Dialog，
-  // 面板结束后再恢复显示。
-  const hideDialogForNativePicker = useCallback(() => {
-    dialogRef.current?.setVisible(false)
+  // iOS：原生选择器/分享面板（UIDocumentPicker / UIActivityViewController）若覆盖在仍存在的
+  // RN Modal 上，dismiss 后会令底层 Modal 的触摸响应链断裂、整页卡死（只能重启）。
+  // 因此这里先记录真正要执行的原生调用 proceed，并完全卸载整个 Dialog（连同其 RN Modal），
+  // 待 Dialog 真正从视图树移除后再执行 proceed 调起原生面板。面板结束后再重新挂载 Dialog。
+  const hideDialogForNativePicker = useCallback((proceed: () => void) => {
+    pendingProceedRef.current = proceed
+    setVisible(false)
   }, [])
   const showDialogAfterNativePicker = useCallback(() => {
-    // 使用 requestAnimationFrame 确保原生面板已完全 dismiss 再恢复 Modal
+    // 使用 requestAnimationFrame 确保原生面板已完全 dismiss 再重新挂载 Dialog，
+    // 并在挂载后再显示其内部的 RN Modal。
     requestAnimationFrame(() => {
-      dialogRef.current?.setVisible(true)
+      setVisible(true)
+      requestAnimationFrame(() => {
+        dialogRef.current?.setVisible(true)
+      })
     })
   }, [])
+  // Dialog 完全卸载（visible=false）后，再延迟一帧执行原生面板调用，
+  // 确保此时底层 RN Modal 已从视图树移除，原生面板不会覆盖在 Modal 之上。
+  useEffect(() => {
+    if (!visible && pendingProceedRef.current) {
+      const proceed = pendingProceedRef.current
+      pendingProceedRef.current = null
+      requestAnimationFrame(() => {
+        proceed()
+      })
+    }
+  }, [visible])
 
   return visible ? (
     <Dialog ref={dialogRef} bgHide={false}>

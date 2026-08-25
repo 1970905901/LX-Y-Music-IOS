@@ -1,5 +1,6 @@
 import { Platform } from 'react-native'
 import settingState from '@/store/setting/state'
+import { toast } from '@/utils/tools'
 import {
   getStreamingFlacBufferedPosition,
   getStreamingFlacDuration,
@@ -273,6 +274,7 @@ export const onNativeFlacPlayerEvent = (listener: (event: NativeFlacEvent) => vo
         break
       case 'error':
         currentState = 'paused'
+        if (event.message) toast(`FLAC 播放失败：${event.message}`, 'long')
         listener({
           type: 'error',
           message: event.message,
@@ -282,6 +284,8 @@ export const onNativeFlacPlayerEvent = (listener: (event: NativeFlacEvent) => vo
         })
         break
       case 'warning':
+        // 解码告警（如 lost-sync）往往就是"有进度但失真/没声"的直接信号，必须暴露给用户。
+        if (event.message) toast(`FLAC 警告：${event.message}`, 'long')
         listener({
           type: 'warning',
           message: event.message,

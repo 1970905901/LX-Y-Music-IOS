@@ -1,6 +1,8 @@
 import ChoosePath, { type ChoosePathType } from '@/components/common/ChoosePath'
 import { LXM_FILE_EXT_RXP } from '@/config/constant'
-import { forwardRef, useImperativeHandle, useRef, useState } from 'react'
+import { forwardRef, useImperativeHandle, useRef, useState, type MutableRefObject } from 'react'
+import { Platform } from 'react-native'
+import { selectFile } from '@/utils/fs'
 import { handleExport, handleImport, handleImportMediaFile } from './listAction'
 
 export interface SelectInfo {
@@ -26,6 +28,22 @@ export interface ListImportExportType {
   selectFile: (listInfo: LX.List.MyListInfo, index: number) => void
 }
 
+const showChoosePath = (
+  choosePathRef: MutableRefObject<ChoosePathType | null>,
+  visible: boolean,
+  setVisible: (v: boolean) => void,
+  opts: { title: string; dirOnly: boolean; filter?: string[]; isPersist?: boolean },
+) => {
+  if (visible) {
+    choosePathRef.current?.show(opts)
+  } else {
+    setVisible(true)
+    requestAnimationFrame(() => {
+      choosePathRef.current?.show(opts)
+    })
+  }
+}
+
 export default forwardRef<ListImportExportType, {}>((props, ref) => {
   const [visible, setVisible] = useState(false)
   const choosePathRef = useRef<ChoosePathType>(null)
@@ -39,22 +57,28 @@ export default forwardRef<ListImportExportType, {}>((props, ref) => {
         listInfo,
         index,
       }
-      if (visible) {
-        choosePathRef.current?.show({
-          title: global.i18n.t('list_import_part_desc'),
-          dirOnly: false,
-          filter: LXM_FILE_EXT_RXP,
-        })
-      } else {
-        setVisible(true)
-        requestAnimationFrame(() => {
-          choosePathRef.current?.show({
-            title: global.i18n.t('list_import_part_desc'),
-            dirOnly: false,
-            filter: LXM_FILE_EXT_RXP,
+      // iOS：导入歌单文件使用系统原生文档选择器（UIDocumentPicker）
+      if (Platform.OS === 'ios') {
+        void selectFile({ extTypes: LXM_FILE_EXT_RXP })
+          .then((res) => {
+            if (res?.data) handleImport(res.data, index)
           })
-        })
+          .catch((err: any) => {
+            if (err?.code === 'picker_cancelled') return
+            // 原生选择器不可用或失败时回退到内置目录浏览器
+            showChoosePath(choosePathRef, visible, setVisible, {
+              title: global.i18n.t('list_import_part_desc'),
+              dirOnly: false,
+              filter: LXM_FILE_EXT_RXP,
+            })
+          })
+        return
       }
+      showChoosePath(choosePathRef, visible, setVisible, {
+        title: global.i18n.t('list_import_part_desc'),
+        dirOnly: false,
+        filter: LXM_FILE_EXT_RXP,
+      })
     },
     export(listInfo, index) {
       selectInfoRef.current = {
@@ -62,22 +86,11 @@ export default forwardRef<ListImportExportType, {}>((props, ref) => {
         listInfo,
         index,
       }
-      if (visible) {
-        choosePathRef.current?.show({
-          title: global.i18n.t('list_export_part_desc'),
-          dirOnly: true,
-          filter: LXM_FILE_EXT_RXP,
-        })
-      } else {
-        setVisible(true)
-        requestAnimationFrame(() => {
-          choosePathRef.current?.show({
-            title: global.i18n.t('list_export_part_desc'),
-            dirOnly: true,
-            filter: LXM_FILE_EXT_RXP,
-          })
-        })
-      }
+      showChoosePath(choosePathRef, visible, setVisible, {
+        title: global.i18n.t('list_export_part_desc'),
+        dirOnly: true,
+        filter: LXM_FILE_EXT_RXP,
+      })
     },
     selectFile(listInfo, index) {
       selectInfoRef.current = {
@@ -85,22 +98,11 @@ export default forwardRef<ListImportExportType, {}>((props, ref) => {
         listInfo,
         index,
       }
-      if (visible) {
-        choosePathRef.current?.show({
-          title: global.i18n.t('list_select_local_file_desc'),
-          dirOnly: true,
-          isPersist: true,
-        })
-      } else {
-        setVisible(true)
-        requestAnimationFrame(() => {
-          choosePathRef.current?.show({
-            title: global.i18n.t('list_select_local_file_desc'),
-            dirOnly: true,
-            isPersist: true,
-          })
-        })
-      }
+      showChoosePath(choosePathRef, visible, setVisible, {
+        title: global.i18n.t('list_select_local_file_desc'),
+        dirOnly: true,
+        isPersist: true,
+      })
     },
   }))
 

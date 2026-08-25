@@ -3763,8 +3763,21 @@ RCT_EXPORT_MODULE();
 RCT_REMAP_METHOD(openDocument, openDocument:(NSDictionary *)options resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
   dispatch_async(dispatch_get_main_queue(), ^{
     if (self.pickerController != nil || self.pickerPresenting) {
-      reject(@"picker_busy", @"Another picker is already active", LXError(@"picker_busy", @"Another picker is already active"));
-      return;
+      // 若旧 picker 已不在视图层级（例如之前 present 到了正在消失的 VC 上，delegate 永远不会回调），
+      // 状态机会一直占住导致后续点击全部 busy。检测到这种 orphan picker 时强制清理并继续 present。
+      BOOL isOrphan = self.pickerController != nil
+        && self.pickerController.presentingViewController == nil
+        && self.pickerController.view.window == nil
+        && ![self.pickerController isBeingPresented];
+      if (isOrphan || (self.pickerPresenting && self.pickerController == nil)) {
+        if (self.pickerController != nil) {
+          [self.pickerController dismissViewControllerAnimated:NO completion:^{ LXEnsureKeyWindow(); }];
+        }
+        [self resetPickerState];
+      } else {
+        reject(@"picker_busy", @"Another picker is already active", LXError(@"picker_busy", @"Another picker is already active"));
+        return;
+      }
     }
 
     self.pickerResolve = resolve;

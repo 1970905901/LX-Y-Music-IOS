@@ -789,6 +789,23 @@ static UIViewController *LXTopViewController(void) {
   return controller;
 }
 
+// 检测是否仍有 React Native 的 Modal 独立 window 残留（部分 RN 版本把 Modal 渲染在独立 UIWindow 上，
+// 其 rootViewController 为 RCTModalHostViewController）。在原生文件选择器 present 之前需要等它彻底消失，
+// 否则 picker 会被遮挡或 present 到正在释放的 VC 上，表现为“点了没反应”。
+static BOOL LXAnotherRNModalWindowPresent(void) {
+  for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
+    if (![scene isKindOfClass:[UIWindowScene class]]) continue;
+    UIWindowScene *windowScene = (UIWindowScene *)scene;
+    for (UIWindow *win in windowScene.windows) {
+      if (win.rootViewController != nil &&
+          [NSStringFromClass([win.rootViewController class]) isEqualToString:@"RCTModalHostViewController"]) {
+        return YES;
+      }
+    }
+  }
+  return NO;
+}
+
 // UIDocumentPickerViewController 以独立进程运行。选中/取消并关闭后，应用主窗口可能
 // 不再是 keyWindow，或其 userInteractionEnabled 未被系统恢复，导致整屏无响应（只能重启）。
 // 在关闭完成后显式恢复主窗口为 key 并重新开启交互。
@@ -3750,12 +3767,6 @@ RCT_REMAP_METHOD(openDocument, openDocument:(NSDictionary *)options resolver:(RC
       return;
     }
 
-    UIViewController *controller = LXTopViewController();
-    if (controller == nil) {
-      reject(@"picker_present", @"Unable to find a view controller to present file picker", LXError(@"picker_present", @"Unable to find a view controller to present file picker"));
-      return;
-    }
-
     self.pickerResolve = resolve;
     self.pickerReject = reject;
     self.targetPath = [options[@"toPath"] isKindOfClass:[NSString class]] ? options[@"toPath"] : @"";
@@ -3770,16 +3781,33 @@ RCT_REMAP_METHOD(openDocument, openDocument:(NSDictionary *)options resolver:(RC
     // 在关闭完成的回调中修复，与 modalPresentationStyle 无关。
     picker.modalPresentationStyle = UIModalPresentationFormSheet;
     self.pickerPresenting = YES;
-    [controller presentViewController:picker animated:YES completion:^{
-      self.pickerController = picker;
-      self.pickerPresenting = NO;
-    }];
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-      if (self.pickerPresenting && self.pickerController == nil) {
-        [self rejectPickerWithCode:@"picker_present" message:@"File picker did not finish presenting" error:LXError(@"picker_present", @"File picker did not finish presenting")];
-      }
-    });
+    // 不立即 present：JS 侧已在调起原生面板前卸载了底层 RN Modal，但 Modal 的原生视图
+    // 释放存在时序（淡出动画 / 独立 window 移除 / keyWindow 切回主窗口），过早 present
+    // 会让 picker 落到正在释放的 VC 上或被残留的 Modal window 遮挡，表现为“点了没反应”。
+    // 这里轮询等待到底层 Modal 彻底消失后再 present，最多等待约 2s，超时则明确报错便于定位。
+    [self presentDocumentPickerWhenReady:picker attempts:0];
   });
+}
+
+- (void)presentDocumentPickerWhenReady:(UIDocumentPickerViewController *)picker attempts:(NSInteger)attempts {
+  if (attempts >= 40) {
+    self.pickerPresenting = NO;
+    [self rejectPickerWithCode:@"picker_present" message:@"Timed out waiting for previous modal to dismiss before showing file picker" error:LXError(@"picker_present", @"Timed out waiting for previous modal to dismiss before showing file picker")];
+    return;
+  }
+  UIViewController *controller = LXTopViewController();
+  // 仍需等待的情况：① 取不到 VC；② 顶层 VC 仍持有上一个 modal（RN Modal 以 present 方式挂载）；
+  // ③ 仍有 RCTModalHostViewController 的独立 window 残留（部分 RN 版本）。
+  if (controller == nil || controller.presentedViewController != nil || LXAnotherRNModalWindowPresent()) {
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(50 * NSEC_PER_MSEC)), dispatch_get_main_queue(), ^{
+      [self presentDocumentPickerWhenReady:picker attempts:attempts + 1];
+    });
+    return;
+  }
+  [controller presentViewController:picker animated:YES completion:^{
+    self.pickerController = picker;
+    self.pickerPresenting = NO;
+  }];
 }
 
 - (void)documentPickerWasCancelled:(UIDocumentPickerViewController *)controller {

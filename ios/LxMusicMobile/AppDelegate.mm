@@ -3797,11 +3797,14 @@ RCT_REMAP_METHOD(openDocument, openDocument:(NSDictionary *)options resolver:(RC
   // 目录选择模式：直接返回所选文件夹路径（不复制文件）
   if (self.pickerIsFolder) {
     NSString *folderPath = [pickedURL.path stringByStandardizingPath];
-    // 持久化安全作用域书签：沙盒之外的目录在后续下载写入时需通过书签重新获取访问权限，
+    // 持久化书签：沙盒之外的目录在后续下载写入时需通过书签重新解析并开启访问权限，
     // 否则沙盒外的文件写入会因权限不足而失败。沙盒内目录无需书签（beginFolderAccess 会直接放行）。
+    // 注意：NSURLBookmarkCreationWithSecurityScope / NSURLBookmarkResolutionWithSecurityScope
+    // 仅 macOS 可用；iOS 上对 security-scoped URL 创建“最小书签”即可在书签中自动携带安全作用域，
+    // 后续解析得到的 URL 仍可通过 startAccessingSecurityScopedResource 取得访问权限。
     BOOL accessed = [pickedURL startAccessingSecurityScopedResource];
     NSError *bmError = nil;
-    NSData *bookmark = [pickedURL bookmarkDataWithOptions:(NSURLBookmarkCreationSecurityScopeAllowed | NSURLBookmarkCreationWithSecurityScope)
+    NSData *bookmark = [pickedURL bookmarkDataWithOptions:NSURLBookmarkCreationMinimal
                                     includingResourceValuesForKeys:nil
                                                  relativeToURL:nil
                                                          error:&bmError];
@@ -3926,7 +3929,7 @@ RCT_REMAP_METHOD(beginFolderAccess, beginFolderAccess:(NSString *)path resolver:
   BOOL isStale = NO;
   NSError *err = nil;
   NSURL *url = [NSURL URLByResolvingBookmarkData:bookmark
-                                         options:NSURLBookmarkResolutionWithSecurityScope
+                                         options:NSURLBookmarkResolutionWithoutUI
                                    relativeToURL:nil
                              bookmarkDataIsStale:&isStale
                                            error:&err];

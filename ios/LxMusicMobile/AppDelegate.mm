@@ -3734,7 +3734,10 @@ RCT_REMAP_METHOD(openDocument, openDocument:(NSDictionary *)options resolver:(RC
     UIDocumentPickerViewController *picker = [[UIDocumentPickerViewController alloc] initWithDocumentTypes:documentTypes inMode:UIDocumentPickerModeImport];
     picker.delegate = self;
     picker.allowsMultipleSelection = NO;
-    picker.modalPresentationStyle = UIModalPresentationFullScreen;
+    // 不能用 UIModalPresentationFullScreen：UIDocumentPicker 在 iOS 13+ 跨进程运行，
+    // FullScreen 会在呈现时移除底层 VC 的 view，关闭后 RN root view 的 userInteractionEnabled
+    // 偶尔不被恢复，导致整屏失去交互（只能重启）。FormSheet 不移除底层 view，可避免该问题。
+    picker.modalPresentationStyle = UIModalPresentationFormSheet;
     self.pickerPresenting = YES;
     [controller presentViewController:picker animated:YES completion:^{
       self.pickerController = picker;

@@ -22,7 +22,7 @@ export interface ListProps {
   onLoadMore: () => void
   onOpenDetail: (item: ListInfoItem, index: number) => void
 }
-export type Status = 'loading' | 'refreshing' | 'end' | 'error' | 'idle'
+export type Status = 'loading' | 'refreshing' | 'end' | 'error' | 'idle' | 'empty'
 
 export interface ListType {
   setList: (list: ListInfoItem[], showSource?: boolean) => void
@@ -94,6 +94,9 @@ export default forwardRef<ListType, ListProps>(({ onRefresh, onLoadMore, onOpenD
         break
       case 'idle':
         label = null
+        break
+      case 'empty':
+        label = 'list_empty'
         break
     }
     return (
@@ -178,7 +181,7 @@ export default forwardRef<ListType, ListProps>(({ onRefresh, onLoadMore, onOpenD
   )
 })
 
-type FooterLabel = 'list_loading' | 'list_end' | 'list_error' | null
+type FooterLabel = 'list_loading' | 'list_end' | 'list_error' | 'list_empty' | null
 const Footer = ({ label, onLoadMore }: { label: FooterLabel; onLoadMore: () => void }) => {
   const theme = useTheme()
   const t = useI18n()

@@ -79,6 +79,7 @@
   "list_edit_action_tip_move_success": "移动成功",
   "list_edit_action_tip_remove_success": "移除成功",
   "list_end": "到底啦~",
+  "list_empty": "暂无数据~",
   "list_error": "加载失败😥，点击尝试重新加载",
   "list_export": "导出",
   "list_export_part_desc": "选择备份文件保存位置",
@@ -704,5 +705,5 @@
   "setting_basic_tx_cookie": "QQ音乐 Cookie",
   "setting_basic_tx_cookie_placeholder": "在此处粘贴你的 QQ音乐 Cookie",
   "setting_basic_kg_cookie": "酷狗音乐 Cookie",
-  "setting_basic_kg_cookie_placeholder": "在此处粘贴你的酷狗音乐 Cookie",
+  "setting_basic_kg_cookie_placeholder": "在此处粘贴你的酷狗音乐 Cookie"
 }

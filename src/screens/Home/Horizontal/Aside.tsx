@@ -169,6 +169,8 @@ export default memo(() => {
   const showExitBtn = useSettingValue('common.showExitBtn')
   const navStatus = useSettingValue('common.navStatus');
   const navOrder = useSettingValue('common.navOrder');
+  const navFlatOrder = useSettingValue('common.navFlatOrder');
+  const navGroupEnabled = useSettingValue('common.navGroupEnabled');
   const isDynamicBg = useSettingValue('theme.dynamicBg');
   const isSidebarDynamicBg = useSettingValue('theme.sidebarDynamicBg');
   const dynamicPic = useBgPic();
@@ -200,15 +202,18 @@ export default memo(() => {
   }
 
   const filteredNavMenus = useMemo(() => {
-    if (!navOrder) return NAV_MENUS.filter(
+    const order = navGroupEnabled
+      ? navOrder
+      : (navFlatOrder?.length ? navFlatOrder : navOrder);
+    if (!order?.length) return NAV_MENUS.filter(
       menu => menu.id !== 'nav_play_history' && (menu.id === 'nav_setting' || (navStatus[menu.id] ?? true))
     );
 
-    return navOrder
+    return order
       .filter(id => id !== 'nav_play_history')
       .map(id => NAV_MENUS.find(menu => menu.id === id))
       .filter((menu): menu is typeof NAV_MENUS[number] => menu !== undefined && (menu.id === 'nav_setting' || (navStatus[menu.id] ?? true)));
-  }, [navStatus, navOrder]);
+  }, [navStatus, navOrder, navFlatOrder, navGroupEnabled]);
 
   const isLandscapeStretch = useSettingValue('theme.isLandscapeStretch')
   const rawCutoutLeft = useCutoutLeft()

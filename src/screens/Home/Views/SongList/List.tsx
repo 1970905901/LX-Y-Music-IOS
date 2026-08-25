@@ -12,12 +12,25 @@ export interface ListType {
 export default forwardRef<ListType, { onOpenDetail: (item: ListInfoItem) => void }>(({ onOpenDetail }, ref) => {
   const listRef = useRef<SonglistType>(null)
   const isUnmountedRef = useRef(false)
+  const loadIdRef = useRef(0)
+
+  const applyListResult = (result: typeof songlistState.listInfo, page: number, currentLoadId: number) => {
+    if (currentLoadId !== loadIdRef.current || isUnmountedRef.current) return
+    if (!result.list.length) {
+      listRef.current?.setList([])
+      listRef.current?.setStatus('empty')
+      return
+    }
+    listRef.current?.setList(result.list)
+    listRef.current?.setStatus(songlistState.listInfo.maxPage <= page ? 'end' : 'idle')
+  }
+
   useImperativeHandle(
     ref,
     () => ({
       async loadList(source, sortId, tagId) {
+        const currentLoadId = ++loadIdRef.current
         const listInfo = songlistState.listInfo
-        listRef.current?.setList([])
         if (
           listInfo.tagId == tagId &&
           listInfo.sortId == sortId &&
@@ -25,26 +38,29 @@ export default forwardRef<ListType, { onOpenDetail: (item: ListInfoItem) => void
           listInfo.list.length
         ) {
           requestAnimationFrame(() => {
+            if (currentLoadId !== loadIdRef.current || isUnmountedRef.current) return
             listRef.current?.setList(listInfo.list)
+            listRef.current?.setStatus(songlistState.listInfo.maxPage <= 1 ? 'end' : 'idle')
           })
-        } else {
-          listRef.current?.setStatus('loading')
-          setListInfo(source, tagId, sortId)
-          const page = 1
-          return getList(source, tagId, sortId, page)
-            .then((info) => {
-              const result = setList(info, tagId, sortId, page)
-              if (isUnmountedRef.current) return
-              requestAnimationFrame(() => {
-                listRef.current?.setList(result.list)
-                listRef.current?.setStatus(songlistState.listInfo.maxPage <= page ? 'end' : 'idle')
-              })
-            })
-            .catch(() => {
-              if (songlistState.listInfo.list.length && page == 1) clearList()
-              listRef.current?.setStatus('error')
-            })
+          return
         }
+
+        listRef.current?.setList([])
+        if (currentLoadId !== loadIdRef.current) return
+        listRef.current?.setStatus('loading')
+        setListInfo(source, tagId, sortId)
+        const page = 1
+        return getList(source, tagId, sortId, page)
+          .then((info) => {
+            if (currentLoadId !== loadIdRef.current || isUnmountedRef.current) return
+            const result = setList(info, tagId, sortId, page)
+            applyListResult(result, page, currentLoadId)
+          })
+          .catch(() => {
+            if (currentLoadId !== loadIdRef.current || isUnmountedRef.current) return
+            if (songlistState.listInfo.list.length && page == 1) clearList()
+            listRef.current?.setStatus('error')
+          })
       },
     }),
     []
@@ -58,6 +74,7 @@ export default forwardRef<ListType, { onOpenDetail: (item: ListInfoItem) => void
   }, [])
 
   const handleRefresh: SonglistProps['onRefresh'] = () => {
+    const currentLoadId = ++loadIdRef.current
     const page = 1
     listRef.current?.setStatus('refreshing')
     getList(
@@ -68,22 +85,23 @@ export default forwardRef<ListType, { onOpenDetail: (item: ListInfoItem) => void
       true
     )
       .then((info) => {
+        if (currentLoadId !== loadIdRef.current || isUnmountedRef.current) return
         const result = setList(
           info,
           songlistState.listInfo.tagId,
           songlistState.listInfo.sortId,
           page
         )
-        if (isUnmountedRef.current) return
-        listRef.current?.setList(result.list)
-        listRef.current?.setStatus(songlistState.listInfo.maxPage <= page ? 'end' : 'idle')
+        applyListResult(result, page, currentLoadId)
       })
       .catch(() => {
+        if (currentLoadId !== loadIdRef.current || isUnmountedRef.current) return
         if (songlistState.listInfo.list.length && page == 1) clearList()
         listRef.current?.setStatus('error')
       })
   }
   const handleLoadMore: SonglistProps['onLoadMore'] = () => {
+    const currentLoadId = ++loadIdRef.current
     listRef.current?.setStatus('loading')
     const page = songlistState.listInfo.list.length ? songlistState.listInfo.page + 1 : 1
     getList(
@@ -93,17 +111,17 @@ export default forwardRef<ListType, { onOpenDetail: (item: ListInfoItem) => void
       page
     )
       .then((info) => {
+        if (currentLoadId !== loadIdRef.current || isUnmountedRef.current) return
         const result = setList(
           info,
           songlistState.listInfo.tagId,
           songlistState.listInfo.sortId,
           page
         )
-        if (isUnmountedRef.current) return
-        listRef.current?.setList(result.list)
-        listRef.current?.setStatus(songlistState.listInfo.maxPage <= page ? 'end' : 'idle')
+        applyListResult(result, page, currentLoadId)
       })
       .catch(() => {
+        if (currentLoadId !== loadIdRef.current || isUnmountedRef.current) return
         if (songlistState.listInfo.list.length && page == 1) clearList()
         listRef.current?.setStatus('error')
       })

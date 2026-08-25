@@ -303,6 +303,7 @@ export default memo(() => {
   const isShowMyListSubMenu = useSettingValue('list.isShowMyListSubMenu');
   const navGroupEnabled = useSettingValue('common.navGroupEnabled');
   const navGroupVisible = useSettingValue('common.navGroupVisible');
+  const navFlatOrder = useSettingValue('common.navFlatOrder');
   const isDynamicBg = useSettingValue('theme.dynamicBg');
   const isSidebarDynamicBg = useSettingValue('theme.sidebarDynamicBg');
   const dynamicPic = useBgPic();
@@ -342,14 +343,17 @@ export default memo(() => {
     setNavActiveId('nav_play_history');
   };
   const filteredNavMenus = useMemo(() => {
-    if (!navOrder) return NAV_MENUS.filter(
+    const order = navGroupEnabled
+      ? navOrder
+      : (navFlatOrder?.length ? navFlatOrder : navOrder)
+    if (!order?.length) return NAV_MENUS.filter(
       menu => menu.id !== 'nav_play_history' && (menu.id === 'nav_setting' || (navStatus[menu.id] ?? true))
     )
-    return navOrder
+    return order
       .filter(id => id !== 'nav_play_history')
       .map(id => NAV_MENUS.find(menu => menu.id === id))
       .filter((menu): menu is typeof NAV_MENUS[number] => menu !== undefined && (menu.id === 'nav_setting' || (navStatus[menu.id] ?? true)))
-  }, [navStatus, navOrder])
+  }, [navStatus, navOrder, navFlatOrder, navGroupEnabled])
 
   const visibleGroups = useMemo(() => {
     return NAV_GROUPS.filter(group => {

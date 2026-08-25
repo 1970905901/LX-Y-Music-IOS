@@ -83,7 +83,6 @@ export const shouldUseNativeFlacPlayer = async(musicInfo: LX.Player.PlayMusic, _
   // 用户实测网易云、酷狗、酷我、咪咕、QQ 音乐（企鹅）的 FLAC 都无声/失真，
   // 即使 URL 明确以 .flac 结尾（如 QQ 音乐 isure6.ptqqmusic.../...flac?guid=...）也播不了。
   // 先整体禁用原生 FLAC 路径，让 FLAC 回退到经过验证的 TrackPlayer 主路径。
-  toast('FLAC调试: 原生FLAC已禁用，走TrackPlayer路径', 'long')
   return false
 
   // 保留原决策逻辑供后续修复原生引擎后恢复：

@@ -34,13 +34,7 @@ export const loadPlaybackResource = async({
   const currentTrackIndex = await TrackPlayer.getCurrentTrack()
   const shouldAutoStart = resolveShouldAutoStart(currentTrackIndex)
 
-  // FLAC 调试：仅对 FLAC 相关播放上下文提示，避免打扰普通音质。
-  const qualityStr = String(quality ?? '')
-  const isFlacContext = qualityStr === 'flac' || qualityStr === 'flac24bit' || /flac/i.test(url)
   const useNativeFlac = Platform.OS == 'ios' && await shouldUseNativeFlacPlayer(musicInfo, url, quality)
-  if (isFlacContext) {
-    toast(`FLAC调试: 原生路径=${useNativeFlac} quality=${qualityStr} url=${url.slice(0, 100)}`, 'long')
-  }
 
   if (useNativeFlac) {
     global.lx.playerStatus.ignoreTrackPlayerLifecycle = true

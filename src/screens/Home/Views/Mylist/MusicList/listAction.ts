@@ -1,3 +1,4 @@
+import { Platform } from 'react-native'
 import musicSdk from '@/utils/musicSdk'
 import RNFetchBlob from '@/utils/rnFetchBlob'
 import playerState from '@/store/player/state'
@@ -253,9 +254,10 @@ export const handleDownload = async (musicInfo: LX.Music.MusicInfo, quality: LX.
       await downloadTask.promise
       const filePath = path
 
-      toast(`${fileName} 下载成功! 正在写入元数据`, 'short')
+      toast(Platform.OS === 'android' ? `${fileName} 下载成功! 正在写入元数据` : `${fileName} 下载成功!`, 'short')
 
-      if (settingState.setting['download.writeMetadata']) {
+      // iOS 没有 react-native-local-media-metadata 原生模块，标签写入不可用，直接跳过（避免误报「写入失败」）
+      if (Platform.OS === 'android' && settingState.setting['download.writeMetadata']) {
         try {
           const metadata: {
             name: string
@@ -302,7 +304,8 @@ export const handleDownload = async (musicInfo: LX.Music.MusicInfo, quality: LX.
           })
           const tasks = []
           const baseFilePath = filePath.substring(0, filePath.lastIndexOf('.'))
-          if (settingState.setting['download.writeEmbedLyric']) {
+          // 内嵌歌词走原生标签模块，iOS 不可用，仅 Android 执行；.lrc 文件写入（下方 writeFile）在 iOS 仍可用
+          if (settingState.setting['download.writeEmbedLyric'] && Platform.OS === 'android') {
             const embedLyricContent = mergeLyrics(lyrics.lyric, lyrics.tlyric, null)
             if (embedLyricContent) {
               tasks.push(writeLyric(filePath, embedLyricContent))
@@ -327,7 +330,8 @@ export const handleDownload = async (musicInfo: LX.Music.MusicInfo, quality: LX.
         }
       }
 
-      if (settingState.setting['download.writePicture']) {
+      // iOS 没有原生封面写入模块，直接跳过（避免误报「写入封面失败」）
+      if (Platform.OS === 'android' && settingState.setting['download.writePicture']) {
         try {
           const picUrl = await getPicUrl({
             // @ts-ignore

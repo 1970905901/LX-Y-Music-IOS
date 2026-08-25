@@ -91,7 +91,6 @@ declare global {
        */
       'common.lockLandscape': boolean
 
-      'common.isShowStartupGreeting': boolean
       'common.hideNavigationBar': boolean
       'common.isEnableLog': boolean
       'common.isEnableSyncLog': boolean

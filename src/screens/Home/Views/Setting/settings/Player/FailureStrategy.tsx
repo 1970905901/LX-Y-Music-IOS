@@ -1,10 +1,11 @@
-import { memo, useCallback, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View, Animated, PanResponder, StyleSheet } from 'react-native'
 import { useI18n } from '@/lang'
 import { useSettingValue } from '@/store/setting/hook'
 import { useTheme } from '@/store/theme/hook'
 import { updateSetting } from '@/core/common'
 import { createStyle } from '@/utils/tools'
+import { acquireScrollLock, releaseScrollLock } from '@/utils/scrollLock'
 import { Icon } from '@/components/common/Icon'
 import Text from '@/components/common/Text'
 import SubTitle from '../../components/SubTitle'
@@ -218,6 +219,11 @@ export default memo(() => {
     heightsRef.current.length = strategyList.length
   }
 
+  // 兜底：组件卸载时若仍处于拖拽锁定状态，释放之，避免页面滚动被永久禁用。
+  useEffect(() => () => {
+    releaseScrollLock()
+  }, [])
+
   const handleLayoutHeight = useCallback((index: number, height: number) => {
     heightsRef.current[index] = height
   }, [])
@@ -237,6 +243,8 @@ export default memo(() => {
     draggingIndexRef.current = index
     targetIndexRef.current = index
     lastTargetRef.current = index
+    // 拖拽激活即锁定祖先滚动容器，避免原生 UIScrollView 跟随手势滚动整页。
+    acquireScrollLock()
     setDraggingIndex(index)
     const anim = animsRef.current[index]
     if (!anim) return
@@ -329,6 +337,7 @@ export default memo(() => {
         updateSetting({ 'player.failureStrategy': newOrder })
       }
     }
+    releaseScrollLock()
     setTimeout(resetAllAnims, 100)
     setDraggingIndex(null)
   }, [strategyList, resetAllAnims])
@@ -337,6 +346,7 @@ export default memo(() => {
     draggingIndexRef.current = null
     targetIndexRef.current = null
     lastTargetRef.current = null
+    releaseScrollLock()
     setDraggingIndex(null)
     resetAllAnims()
   }, [resetAllAnims])

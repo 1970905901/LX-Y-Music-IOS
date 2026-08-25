@@ -1,5 +1,6 @@
-import { memo } from 'react'
+import { memo, useEffect, useState } from 'react'
 import {FlatList, type FlatListProps, ScrollView} from 'react-native'
+import { subscribeScrollLock } from '@/utils/scrollLock'
 
 import Basic from '../settings/Basic'
 import Player from '../settings/Player'
@@ -59,11 +60,13 @@ const ListItem = memo(
 )
 
 export default () => {
+  const [scrollLocked, setScrollLocked] = useState(false)
+  useEffect(() => subscribeScrollLock(setScrollLocked), [])
   const renderItem: FlatListType['renderItem'] = ({ item }) => <ListItem id={item} />
   const getkey: FlatListType['keyExtractor'] = (item) => item
 
   return (
-    <ScrollView keyboardShouldPersistTaps={'always'} contentContainerStyle={styles.content}>
+    <ScrollView keyboardShouldPersistTaps={'always'} contentContainerStyle={styles.content} scrollEnabled={!scrollLocked}>
       {SETTING_SCREENS.map(id => <ListItem id={id} key={id} />)}
     </ScrollView>
   )

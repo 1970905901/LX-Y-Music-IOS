@@ -8,6 +8,7 @@ import { updateSetting } from '@/core/common';
 import { NAV_MENUS, NAV_GROUPS, NAV_ID_Type } from '@/config/constant';
 import { useTheme } from '@/store/theme/hook';
 import { Icon } from '@/components/common/Icon';
+import { acquireScrollLock, releaseScrollLock } from '@/utils/scrollLock';
 
 const LONG_PRESS_MS = 350;
 
@@ -71,6 +72,8 @@ const SortableList = ({ items: initialItems, onReorder, dragHint, navGroupVisibl
 
   const handleLongPressStart = useCallback((index: number) => {
     draggingIndexRef.current = index; targetIndexRef.current = index; lastTargetRef.current = index;
+    // 拖拽激活即锁定祖先滚动容器，避免原生 UIScrollView 跟随手势滚动整页。
+    acquireScrollLock();
     setDraggingIndex(index);
     const anim = animsRef.current[index];
     if (!anim) return;
@@ -115,6 +118,7 @@ const SortableList = ({ items: initialItems, onReorder, dragHint, navGroupVisibl
   const handleDragRelease = useCallback(() => {
     const from = draggingIndexRef.current; const to = targetIndexRef.current ?? from;
     draggingIndexRef.current = null; targetIndexRef.current = null; lastTargetRef.current = null;
+    releaseScrollLock();
     if (from == null) return;
     if (to != null && to !== from) {
       const next = [...displayItems]; const [moved] = next.splice(from, 1);
@@ -125,8 +129,12 @@ const SortableList = ({ items: initialItems, onReorder, dragHint, navGroupVisibl
 
   const handleDragCancel = useCallback(() => {
     draggingIndexRef.current = null; targetIndexRef.current = null; lastTargetRef.current = null;
+    releaseScrollLock();
     setDraggingIndex(null); resetAllAnims();
   }, [resetAllAnims]);
+
+  // 兜底：组件卸载时若仍处于拖拽锁定状态，释放之，避免滚动被永久禁用。
+  useEffect(() => () => { releaseScrollLock(); }, []);
 
   return (
     <View style={{ overflow: 'hidden', borderRadius: 8, backgroundColor: `rgba(255, 255, 255, ${(subContainerOpacity ?? 100) / 100})` }}>
@@ -222,6 +230,8 @@ export default memo(() => {
   const navFlatOrder = useSettingValue('common.navFlatOrder');
   const navGroupVisible = useSettingValue('common.navGroupVisible');
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
+  const [scrollLocked, setScrollLocked] = useState(false);
+  useEffect(() => subscribeScrollLock(setScrollLocked), []);
 
   const effectiveFlatOrder = useMemo(() => {
     if (navFlatOrder && navFlatOrder.length > 0) return navFlatOrder;
@@ -349,12 +359,12 @@ export default memo(() => {
               <Icon name="chevron-left" size={14} color="#666" />
               <Text size={13} color="#666" style={{ marginLeft: 4 }}>{t('setting_basic_nav_menu_back_top')}</Text>
             </TouchableOpacity>
-            <ScrollView keyboardShouldPersistTaps="always">
+            <ScrollView keyboardShouldPersistTaps="always" scrollEnabled={!scrollLocked}>
               <SortableList key={`group-${selectedGroup}`} items={groupItems} onReorder={handleGroupReorder} dragHint={t('setting_basic_nav_menu_reorder_tip')} navGroupVisible={navGroupVisible} />
             </ScrollView>
           </View>
         ) : (
-          <ScrollView keyboardShouldPersistTaps="always">
+          <ScrollView keyboardShouldPersistTaps="always" scrollEnabled={!scrollLocked}>
             <SortableList key={`top-${navGroupEnabled}`} items={topLevelItems} onReorder={handleTopLevelReorder} dragHint={t('setting_basic_nav_menu_reorder_tip')} navGroupVisible={navGroupVisible} />
           </ScrollView>
         )}

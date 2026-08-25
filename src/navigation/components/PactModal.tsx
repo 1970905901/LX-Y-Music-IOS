@@ -10,7 +10,6 @@ import Text from '@/components/common/Text'
 import ModalContent from './ModalContent'
 import { exitApp } from '@/utils/nativeModules/utils'
 import { updateSetting } from '@/core/common'
-import { checkUpdate } from '@/core/version'
 import { initDeeplink } from '@/core/init/deeplink'
 import settingState from '@/store/setting/state'
 
@@ -50,7 +49,7 @@ const Content = () => {
           许可证发行，以下协议是对于 Apache License 2.0 的补充，如有冲突，以以下协议为准。{'\n'}
         </Text>
         <Text selectable style={styles.text}>
-          词语约定：本协议中的“本项目”指 LX-X Music
+          词语约定：本协议中的“本项目”指 LX-Y Music
           移动版项目；“使用者”指签署本协议的使用者；“官方音乐平台”指对本项目内置的包括酷我、酷狗、咪咕等音乐源的官方平台统称；“版权数据”指包括但不限于图像、音频、名字等在内的他人拥有所属版权的数据。
           {'\n'}
         </Text>
@@ -175,7 +174,6 @@ const Footer = ({ componentId }: { componentId: string }) => {
             {
               text: Buffer.from('e5a5bde79a8420284f4b29', 'hex').toString(),
               onPress: () => {
-                void checkUpdate()
                 void initDeeplink()
               },
             },

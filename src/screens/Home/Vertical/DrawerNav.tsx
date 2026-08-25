@@ -248,7 +248,7 @@ const Header = () => {
       <TouchableOpacity style={styles.header} onPress={handleLogoPress}>
         <Icon name="logo" color={theme['c-primary-dark-100-alpha-300']} size={28} />
         <Text style={styles.headerText} size={28} color={theme['c-primary-dark-100-alpha-300']}>
-          LX-X Music
+          LX-Y Music
         </Text>
       </TouchableOpacity>
     </View>

@@ -27,7 +27,7 @@ const wy = {
   user,
   cookie: apiCookie,
   getMusicUrl(songInfo, type) {
-    console.log('[LX Music SDK] Requested quality:', type);
+    console.log('[LX-Y Music SDK] Requested quality:', type);
     const qualityToRequest = resolveQualityAlias('wy', type);
     return apis('wy').getMusicUrl(songInfo, qualityToRequest);
   },

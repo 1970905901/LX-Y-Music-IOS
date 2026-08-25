@@ -9,7 +9,6 @@ import Sync from '../settings/Sync'
 import Download from '../settings/Download'
 import Backup from '../settings/Backup'
 import Other from '../settings/Other'
-import Version from '../settings/Version'
 import About from '../settings/About'
 import ThemeScreen from '../settings/ThemeScreen'
 import PlatformScreen from '../settings/PlatformScreen'
@@ -50,8 +49,6 @@ const ListItem = memo(
         return <Backup />
       case 'other':
         return <Other />
-      case 'version':
-        return <Version />
       case 'about':
         return <About />
       case 'basic':

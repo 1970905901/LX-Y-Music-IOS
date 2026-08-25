@@ -240,7 +240,7 @@ export const handleDownload = async (musicInfo: LX.Music.MusicInfo, quality: LX.
 
       fileName = filterFileName(fileName)
 
-      const downloadDir = settingState.setting['download.path'] || (RNFetchBlob.fs.dirs.MusicDir + '/LX-X Music')
+      const downloadDir = settingState.setting['download.path'] || (RNFetchBlob.fs.dirs.MusicDir + '/LX-Y Music')
       const path = `${downloadDir}/${fileName}.${extension}`
 
       const downloader = RNFetchBlob.config({

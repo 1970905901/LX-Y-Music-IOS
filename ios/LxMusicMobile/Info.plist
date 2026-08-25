@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>LX Music</string>
+	<string>LX-Y Music</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -13,12 +13,12 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>LX Music</string>
+	<string>LX-Y Music</string>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>
 			<key>CFBundleTypeName</key>
-			<string>LX Music Song List</string>
+			<string>LX-Y Music Song List</string>
 			<key>CFBundleTypeRole</key>
 			<string>Viewer</string>
 			<key>LSHandlerRank</key>
@@ -30,7 +30,7 @@
 		</dict>
 		<dict>
 			<key>CFBundleTypeName</key>
-			<string>LX Music Backup</string>
+			<string>LX-Y Music Backup</string>
 			<key>CFBundleTypeRole</key>
 			<string>Viewer</string>
 			<key>LSHandlerRank</key>
@@ -79,7 +79,7 @@
 			<key>UTTypeIdentifier</key>
 			<string>cn.toside.music.mobile.songlist</string>
 			<key>UTTypeDescription</key>
-			<string>LX Music Song List</string>
+			<string>LX-Y Music Song List</string>
 			<key>UTTypeConformsTo</key>
 			<array>
 				<string>public.data</string>
@@ -96,7 +96,7 @@
 			<key>UTTypeIdentifier</key>
 			<string>cn.toside.music.mobile.backup</string>
 			<key>UTTypeDescription</key>
-			<string>LX Music Backup</string>
+			<string>LX-Y Music Backup</string>
 			<key>UTTypeConformsTo</key>
 			<array>
 				<string>public.data</string>

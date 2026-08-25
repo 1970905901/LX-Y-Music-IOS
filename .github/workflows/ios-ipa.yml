@@ -20,7 +20,7 @@ jobs:
       NO_FLIPPER: 1
       IOS_SCHEME: LxMusicMobile
       IOS_WORKSPACE: ios/LxMusicMobile.xcworkspace
-      IOS_BUNDLE_IDENTIFIER: cn.toside.music.mobile
+      IOS_BUNDLE_IDENTIFIER: com.LX-YMusic.shuhao
       DERIVED_DATA_PATH: build/DerivedData
       ARCHIVE_PATH: build/LxMusicMobile.xcarchive
       IOS_P12_BASE64: ${{ secrets.IOS_P12_BASE64 }}
@@ -54,11 +54,11 @@ jobs:
           cd ios
           pod install --repo-update
 
-      - name: Read package version
+      - name: Read package version (date-based)
         shell: bash
         run: |
-          PACKAGE_VERSION=$(node -p "require('./package.json').version")
-          PACKAGE_VERSION_CODE=$(node -p "require('./package.json').versionCode")
+          PACKAGE_VERSION=$(date +%Y%m%d)
+          PACKAGE_VERSION_CODE=$(date +%Y%m%d)
           echo "PACKAGE_VERSION=$PACKAGE_VERSION" >> "$GITHUB_ENV"
           echo "PACKAGE_VERSION_CODE=$PACKAGE_VERSION_CODE" >> "$GITHUB_ENV"
 
@@ -104,16 +104,17 @@ jobs:
           rm -rf build/Payload
           mkdir -p build/Payload
           cp -R "$APP_PATH" build/Payload/
+          IPA_NAME="LX-Y Music-v${PACKAGE_VERSION}-ios-unsigned.ipa"
           (
             cd build
-            zip -qry "lx-music-mobile-v${PACKAGE_VERSION}-ios-unsigned.ipa" Payload
+            zip -qry "$IPA_NAME" Payload
           )
 
       - name: Upload unsigned IPA artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ios-ipa-v${{ env.PACKAGE_VERSION }}-unsigned
-          path: build/lx-music-mobile-v${{ env.PACKAGE_VERSION }}-ios-unsigned.ipa
+          name: ios-ipa-LX-Y-Music-v${{ env.PACKAGE_VERSION }}-unsigned
+          path: build/LX-Y Music-v${{ env.PACKAGE_VERSION }}-ios-unsigned.ipa
 
       - name: Publish unsigned IPA to rolling "latest" release
         if: github.ref == 'refs/heads/master'
@@ -126,7 +127,7 @@ jobs:
           body: |
             Automated unsigned IPA build from master @ ${{ github.sha }}.
             Built on ${{ github.run_id }} — do not use as a stable release.
-          files: build/lx-music-mobile-v${{ env.PACKAGE_VERSION }}-ios-unsigned.ipa
+          files: build/LX-Y Music-v${{ env.PACKAGE_VERSION }}-ios-unsigned.ipa
 
       - name: Release unsigned IPA
         if: startsWith(github.ref, 'refs/tags/v')
@@ -135,7 +136,7 @@ jobs:
           tag_name: v${{ env.PACKAGE_VERSION }}
           prerelease: false
           draft: false
-          files: build/lx-music-mobile-v${{ env.PACKAGE_VERSION }}-ios-unsigned.ipa
+          files: build/LX-Y Music-v${{ env.PACKAGE_VERSION }}-ios-unsigned.ipa
 
       - name: Install signing certificate
         if: ${{ env.IOS_P12_BASE64 != '' && env.IOS_P12_PASSWORD != '' && env.IOS_MOBILEPROVISION_BASE64 != '' && env.IOS_TEAM_ID != '' }}
@@ -164,7 +165,7 @@ jobs:
         if: ${{ env.IOS_P12_BASE64 != '' && env.IOS_P12_PASSWORD != '' && env.IOS_MOBILEPROVISION_BASE64 != '' && env.IOS_TEAM_ID != '' }}
         shell: bash
         run: |
-          BUNDLE_IDENTIFIER="${IOS_BUNDLE_IDENTIFIER_SECRET:-cn.toside.music.mobile}"
+          BUNDLE_IDENTIFIER="${IOS_BUNDLE_IDENTIFIER_SECRET:-com.LX-YMusic.shuhao}"
           xcodebuild \
             -workspace "$IOS_WORKSPACE" \
             -scheme "$IOS_SCHEME" \
@@ -210,11 +211,11 @@ jobs:
 
           IPA_PATH="$(find build/export -maxdepth 1 -name '*.ipa' -print -quit)"
           test -n "$IPA_PATH"
-          cp "$IPA_PATH" "build/lx-music-mobile-v${PACKAGE_VERSION}-ios-signed.ipa"
+          cp "$IPA_PATH" "build/LX-Y Music-v${PACKAGE_VERSION}-ios-signed.ipa"
 
       - name: Upload signed IPA artifact
         if: ${{ env.IOS_P12_BASE64 != '' && env.IOS_P12_PASSWORD != '' && env.IOS_MOBILEPROVISION_BASE64 != '' && env.IOS_TEAM_ID != '' }}
         uses: actions/upload-artifact@v4
         with:
-          name: ios-ipa-v${{ env.PACKAGE_VERSION }}-signed
-          path: build/lx-music-mobile-v${{ env.PACKAGE_VERSION }}-ios-signed.ipa
+          name: ios-ipa-LX-Y-Music-v${{ env.PACKAGE_VERSION }}-signed
+          path: build/LX-Y Music-v${{ env.PACKAGE_VERSION }}-ios-signed.ipa

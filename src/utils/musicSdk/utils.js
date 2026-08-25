@@ -22,20 +22,20 @@ export const formatSingerName = (singers, nameKey = 'name', join = '、') => {
 export const resolveQualityAlias = (source, type) => {
   const activeApiId = settingState.setting['common.apiSource'];
   if (!/^user_api/.test(activeApiId)) {
-    console.log(`[LX Music SDK] No custom API detected (activeApiId: '${activeApiId}'), skipping quality alias resolution.`);
+    console.log(`[LX-Y Music SDK] No custom API detected (activeApiId: '${activeApiId}'), skipping quality alias resolution.`);
     return type;
   }
   const supportedQualities = global.lx.qualityList[source];
-  // console.log(`[LX Music SDK] Supported qualities for source '${source}':`, supportedQualities);
+  // console.log(`[LX-Y Music SDK] Supported qualities for source '${source}':`, supportedQualities);
   if (!supportedQualities) {
-    console.log(`[LX Music SDK] No quality configuration found for source '${source}', skipping quality alias resolution.`);
+    console.log(`[LX-Y Music SDK] No quality configuration found for source '${source}', skipping quality alias resolution.`);
     return type;
   }
   if (
     type === 'hires' &&
     !supportedQualities.includes('hires')
   ) {
-    console.log(`[LX Music SDK] Resolving quality alias for source '${source}': 'hires' -> 'flac24bit'`);
+    console.log(`[LX-Y Music SDK] Resolving quality alias for source '${source}': 'hires' -> 'flac24bit'`);
     return 'flac24bit';
   }
 

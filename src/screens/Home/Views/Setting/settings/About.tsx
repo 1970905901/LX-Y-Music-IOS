@@ -12,7 +12,13 @@ export default memo(() => {
   const theme = useTheme()
   const t = useI18n()
   const openHomePage = () => {
-    void openUrl('https://github.com/WalnutBai/lx-lxwalnut-music-mobile#readme') 
+    void openUrl('https://github.com/1970905901/LX-Y-Music-IOS#readme')
+  }
+  const openUpstreamIos = () => {
+    void openUrl('https://github.com/Q-1515/lx-music-mobile/tree/ios-adaptation')
+  }
+  const openUpstreamDebug = () => {
+    void openUrl('https://github.com/WalnutBai/lx-lxwalnut-music-mobile/tree/main-debug')
   }
 
   const textLinkStyle = {
@@ -24,9 +30,9 @@ export default memo(() => {
   return (
     <Section title={t('setting_about')} sectionId="setting_about">
       <View style={styles.part}>
-        <Text style={styles.text}>本软件(LX-X Music)完全免费，代码已开源。开源地址：</Text>
+        <Text style={styles.text}>本软件(LX-Y Music)完全免费，代码已开源。开源地址：</Text>
         <TouchableOpacity onPress={openHomePage}>
-          <Text style={textLinkStyle}>https://github.com/WalnutBai/lx-lxwalnut-music-mobile</Text>
+          <Text style={textLinkStyle}>https://github.com/1970905901/LX-Y-Music-IOS</Text>
         </TouchableOpacity>
       </View>
       <View style={styles.part}>
@@ -62,6 +68,18 @@ export default memo(() => {
           <Text style={styles.boldText}>有一方</Text>是「
           <Text style={styles.boldText}>第三方修改版</Text>」。
         </Text>
+      </View>
+      <View style={styles.part}>
+        <Text style={styles.boldText}>致谢</Text>
+        <Text style={styles.text}>
+          本软件基于以下上游项目构建，在此致以诚挚的感谢：
+        </Text>
+        <TouchableOpacity onPress={openUpstreamIos}>
+          <Text style={textLinkStyle}>Q-1515/lx-music-mobile (ios-adaptation)</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={openUpstreamDebug}>
+          <Text style={textLinkStyle}>WalnutBai/lx-lxwalnut-music-mobile (main-debug)</Text>
+        </TouchableOpacity>
       </View>
     </Section>
   )

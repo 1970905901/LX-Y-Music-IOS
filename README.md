@@ -1,18 +1,11 @@
-<p align="center"><a href="https://github.com/lyswhut/lx-music-mobile"><img width="200" src="https://github.com/lyswhut/lx-music-mobile/blob/master/doc/images/icon.png" alt="lx-music logo"></a></p>
-
-<h1 align="center">LX Music 移动版</h1>
+<h1 align="center">LX-Y Music 移动版</h1>
 
 <p align="center">
-  <a href="https://github.com/lyswhut/lx-music-mobile/releases"><img src="https://img.shields.io/github/release/lyswhut/lx-music-mobile" alt="Release version"></a>
-  <a href="https://github.com/lyswhut/lx-music-mobile/actions/workflows/release.yml"><img src="https://github.com/lyswhut/lx-music-mobile/workflows/Build/badge.svg" alt="Build status"></a>
-  <a href="https://github.com/lyswhut/lx-music-mobile/actions/workflows/beta-pack.yml"><img src="https://github.com/lyswhut/lx-music-mobile/workflows/Build%20Beta/badge.svg" alt="Build status"></a>
-  <a href="https://github.com/facebook/react-native"><img src="https://img.shields.io/github/package-json/dependency-version/lyswhut/lx-music-mobile/react-native/master" alt="React native version"></a>
-  <!-- <a href="https://github.com/lyswhut/lx-music-mobile/releases"><img src="https://img.shields.io/github/downloads/lyswhut/lx-music-mobile/latest/total" alt="Downloads"></a> -->
-  <a href="https://github.com/lyswhut/lx-music-mobile/tree/dev"><img src="https://img.shields.io/github/package-json/v/lyswhut/lx-music-mobile/dev" alt="Dev branch version"></a>
-  <!-- <a href="https://github.com/lyswhut/lx-music-mobile/blob/master/LICENSE"><img src="https://img.shields.io/github/license/lyswhut/lx-music-mobile" alt="License"></a> -->
+  <a href="https://github.com/1970905901/LX-Y-Music-IOS/releases"><img src="https://img.shields.io/github/release/1970905901/LX-Y-Music-IOS" alt="Release version"></a>
+  <a href="https://github.com/1970905901/LX-Y-Music-IOS/actions/workflows/ios-ipa.yml"><img src="https://github.com/1970905901/LX-Y-Music-IOS/workflows/Build%20iOS%20IPA/badge.svg" alt="Build status"></a>
 </p>
 
-<p align="center">一个基于 React Native 开发的音乐软件</p>
+<p align="center">一个基于 React Native 开发的音乐软件（LX-Y Music）</p>
 
 ## 说明
 
@@ -21,27 +14,44 @@
 - React Native
 - Redux
 
+本项目是 [lx-music-mobile](https://github.com/lyswhut/lx-music-mobile) 的一个分支（fork），在 [@WalnutBai/lx-lxwalnut-music-mobile](https://github.com/WalnutBai/lx-lxwalnut-music-mobile/tree/main-debug) 的基础上适配并构建，**重点支持 iOS 平台**，并发布未签名（unsigned）IPA 供自签安装使用。
+
+软件基础信息：
+
+- **软件名称**：LX-Y Music
+- **软件 ID（包名 / Bundle ID）**：`com.LX-YMusic.shuhao`
+- **版本号**：随构建日期变化，格式为 `YYYYMMDD`（例如 `20260825`）
+
 已支持的平台：
 
 - Android 5 及以上
+- iOS（通过 GitHub Actions 自动构建未签名 IPA）
 
-***注：目前没有计划支持 iOS 和 HarmonyOS NEXT**。*<br>
-*桌面版项目地址：<https://github.com/lyswhut/lx-music-desktop>*<br>
-*LX Music 项目发展调整与新项目计划：https://github.com/lyswhut/lx-music-desktop/issues/1912*
+## 致谢（上游项目）
 
-软件变化请查看[更新日志](https://github.com/lyswhut/lx-music-mobile/blob/master/CHANGELOG.md)。
+本项目的构建离不开以下上游项目的支持与启发，特此感谢：
 
-软件下载请查看 [GitHub Releases](https://github.com/lyswhut/lx-music-mobile/releases)。
+- [@Q-1515/lx-music-mobile](https://github.com/Q-1515/lx-music-mobile/tree/ios-adaptation)（ios-adaptation 分支）
+- [@WalnutBai/lx-lxwalnut-music-mobile](https://github.com/WalnutBai/lx-lxwalnut-music-mobile/tree/main-debug)（main-debug 分支）
 
-使用常见问题请参阅[移动版常见问题](https://lyswhut.github.io/lx-music-doc/mobile/faq)。
+## 下载与构建
 
-目前本项目的原始发布地址只有 [**GitHub**](https://github.com/lyswhut/lx-music-mobile/releases)，其他渠道均为第三方转载发布，与本项目无关！
+- 未签名 IPA 由 GitHub Actions 自动构建，产物文件名格式为：
 
-为了提高使用门槛，本软件内的默认设置、UI 操作不以新手友好为目标，所以使用前建议先根据你的喜好浏览调整一遍软件设置，阅读一遍[音乐播放列表机制](https://lyswhut.github.io/lx-music-doc/mobile/faq/playlist)。
+  ```
+  LX-Y Music-v<YYYYMMDD>-ios-unsigned.ipa
+  ```
 
-### 数据同步服务
+- 最新构建可在仓库的 **Releases**（滚动的 `latest` 预发布）或打 `v*` 标签时发布的 Release 中获取。
+- 使用说明与常见问题请参阅上游项目的移动版文档。
 
-从 v1.0.0 起，我们发布了一个独立的[数据同步服务](https://github.com/lyswhut/lx-music-sync-server#readme)。如果你有服务器，可以将其部署到服务器上作为私人多端同步服务使用，详情看该项目说明。
+> 注意：本分支**已移除软件内的「检查更新」功能**，不会在应用内提示版本更新。
+
+目前本项目的原始发布地址只有 **GitHub**，其他渠道均为第三方转载发布，与本项目无关！
+
+## 数据同步服务
+
+从 v1.0.0 起，上游发布了一个独立的[数据同步服务](https://github.com/lyswhut/lx-music-sync-server#readme)。如果你有服务器，可以将其部署到服务器上作为私人多端同步服务使用。
 
 ## 贡献代码
 
@@ -51,24 +61,13 @@
 - 对于修复 bug 的 PR，请提供修复前后的说明及重现方式；
 - 对于其他类型的 PR，则适当附上说明。
 
-贡献代码步骤：
-
-1. 参照[源码使用方法](https://lyswhut.github.io/lx-music-doc/mobile/use-source-code)设置开发环境；
-2. 克隆本仓库代码并切换至 `dev` 分支进行开发；
-3. 提交 PR 至 `dev` 分支。
-
-<!--
-## 用户界面
-
-<p><img width="100%" src="https://github.com/lyswhut/lx-music-mobile/blob/master/doc/images/app.png" alt="lx-music mobile UI"></p> -->
-
 ## 项目协议
 
-本项目基于 [Apache License 2.0](https://github.com/lyswhut/lx-music-mobile/blob/master/LICENSE) 许可证发行，以下协议是对于 Apache License 2.0 的补充，如有冲突，以以下协议为准。
+本项目基于 [Apache License 2.0](https://github.com/1970905901/LX-Y-Music-IOS/blob/master/LICENSE) 许可证发行，以下协议是对于 Apache License 2.0 的补充，如有冲突，以以下协议为准。
 
 ---
 
-*词语约定：本协议中的“本项目”指 LX Music（洛雪音乐）移动版项目；“使用者”指签署本协议的使用者；“官方音乐平台”指对本项目内置的包括酷我、酷狗、咪咕等音乐源的官方平台统称；“版权数据”指包括但不限于图像、音频、名字等在内的他人拥有所属版权的数据。*
+*词语约定：本协议中的“本项目”指 LX-Y Music 移动版项目；“使用者”指签署本协议的使用者；“官方音乐平台”指对本项目内置的包括酷我、酷狗、咪咕等音乐源的官方平台统称；“版权数据”指包括但不限于图像、音频、名字等在内的他人拥有所属版权的数据。*
 
 ### 一、数据来源
 

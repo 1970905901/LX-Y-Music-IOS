@@ -9,7 +9,7 @@ import {
   PanResponder,
 } from 'react-native'
 // import { useLayout } from '@/utils/hooks'
-import { type Line, useLrcPlay, useLrcSet } from '@/plugins/lyric'
+import { type Line, useLrcPlay, useLrcSet, play as lrcPlay } from '@/plugins/lyric'
 import { createStyle } from '@/utils/tools'
 import { updateSetting } from '@/core/common'
 import { useTheme } from '@/store/theme/hook'
@@ -387,6 +387,9 @@ export default () => {
     isPauseScrollRef.current = false;
     const line = lyricLines[index];
     if (line) {
+      // 同步重锚歌词时钟，使高亮行立即跟随点击位置（不依赖 app_event 的异步派发，
+      // 否则在 iOS 上高亮会滞后/不跟随音频跳转）
+      try { lrcPlay(line.time) } catch {}
       global.app_event.setProgress(line.time / 1000);
     }
     handleScrollToActive(index);

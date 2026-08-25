@@ -5,6 +5,7 @@ import { useTheme } from '@/store/theme/hook'
 import { scaleSizeW, scaleSizeH } from '@/utils/pixelRatio'
 import { useDrag } from '@/utils/hooks'
 import { Icon } from '@/components/common/Icon'
+import { setPagerScrollEnabled } from '@/utils/pagerScrollControl'
 // import { AppColors } from '@/theme'
 
 const DefaultBar = memo(() => {
@@ -70,17 +71,19 @@ const PreassBar = memo(
           onDrag(gestureState.dx)
         },
         onPanResponderGrant: (evt, gestureState) => {
-          // 拖动进度条期间禁用 PagerView 原生横滑，避免原生分页控件抢占横向手势
-          // （原生 PagerView 在 native 层处理手势，不理会 RN PanResponder 的终止请求，
-          // 否则左拖会被识别为“切到歌词页”，且 RN 收不到 onPanResponderTerminate，导致 seek 丢失）
+          // 拖动进度条期间同步禁用 PagerView 原生横滑（直接 setNativeProps，绕过 state 异步），
+          // 避免原生分页控件在左拖时抢占横向手势导致卡顿 / 误切歌词页
+          setPagerScrollEnabled(false)
           try { global.app_event.emit('progressDragState', true) } catch {}
           onDragStart(gestureState.dx, evt.nativeEvent.locationX)
         },
         onPanResponderRelease: () => {
+          setPagerScrollEnabled(true)
           try { global.app_event.emit('progressDragState', false) } catch {}
           onDragEnd()
         },
         onPanResponderTerminate: () => {
+          setPagerScrollEnabled(true)
           try { global.app_event.emit('progressDragState', false) } catch {}
           onDragEnd()
         },

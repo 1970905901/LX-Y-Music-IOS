@@ -13,6 +13,7 @@ import { createStyle } from '@/utils/tools'
 import { useWindowSize } from '@/utils/hooks'
 import { useSettingValue } from '@/store/setting/hook'
 import { playNext, playPrev } from '@/core/player/player'
+import { registerPager } from '@/utils/pagerScrollControl'
 import PlayerPlaylist, { type PlayerPlaylistType } from '@/components/player/PlayerPlaylist.tsx'
 import VerticalNew from './VerticalNew'
 
@@ -176,6 +177,9 @@ const VerticalOld = memo(({ componentId }: { componentId: string }) => {
     const handleProgressDragState = (dragging: boolean) => setIsProgressDragging(dragging)
     global.app_event.on('progressDragState', handleProgressDragState)
 
+    // 将 PagerView ref 注册给同步手势锁，供进度条拖动时立即禁用原生横滑
+    registerPager(pagerViewRef)
+
     global.state_event.on('componentIdsUpdated', handleComponentIdsChange)
     global.app_event.on('switchToLyricPage', handleSwitchToLyricPage)
     global.app_event.on('showPlaylist', () => { playlistRef.current?.show() })
@@ -183,6 +187,7 @@ const VerticalOld = memo(({ componentId }: { componentId: string }) => {
     return () => {
       global.state_event.off('componentIdsUpdated', handleComponentIdsChange)
       global.app_event.off('progressDragState', handleProgressDragState)
+      registerPager(null)
       global.app_event.off('switchToLyricPage', handleSwitchToLyricPage)
       global.app_event.off('showPlaylist', () => { playlistRef.current?.show() })
       appstateListener.remove()

@@ -18,6 +18,18 @@ export interface ScriptImportExportType {
   export: (apiId: string) => void
 }
 
+export interface ScriptImportExportProps {
+  /**
+   * iOS 上调用原生选择器/分享面板前调用，用于隐藏底层 RN Modal，
+   * 避免 UIDocumentPicker / UIActivityViewController 覆盖在 RN Modal 上导致模态框失活。
+   */
+  onBeforeNativePicker?: () => void
+  /**
+   * iOS 上原生选择器/分享面板结束后调用，用于重新显示 RN Modal。
+   */
+  onAfterNativePicker?: () => void
+}
+
 const showChoosePath = (
   choosePathRef: MutableRefObject<ChoosePathType | null>,
   visible: boolean,
@@ -34,7 +46,8 @@ const showChoosePath = (
   }
 }
 
-export default forwardRef<ScriptImportExportType, {}>((props, ref) => {
+export default forwardRef<ScriptImportExportType, ScriptImportExportProps>((props, ref) => {
+  const { onBeforeNativePicker, onAfterNativePicker } = props
   const [visible, setVisible] = useState(false)
   const choosePathRef = useRef<ChoosePathType>(null)
   const selectInfoRef = useRef<SelectInfo>(initSelectInfo as SelectInfo)
@@ -46,6 +59,7 @@ export default forwardRef<ScriptImportExportType, {}>((props, ref) => {
       }
       // iOS：使用系统原生文档选择器（UIDocumentPicker），而非安卓风格目录浏览器
       if (Platform.OS === 'ios') {
+        onBeforeNativePicker?.()
         void selectFile({ extTypes: USER_API_SOURCE_FILE_EXT_RXP })
           .then((res) => {
             if (res?.data) handleImportLocalFile(res.data)
@@ -58,6 +72,9 @@ export default forwardRef<ScriptImportExportType, {}>((props, ref) => {
               dirOnly: false,
               filter: USER_API_SOURCE_FILE_EXT_RXP,
             })
+          })
+          .finally(() => {
+            onAfterNativePicker?.()
           })
         return
       }
@@ -74,6 +91,7 @@ export default forwardRef<ScriptImportExportType, {}>((props, ref) => {
       }
       // iOS：导出自定义源使用系统原生分享面板（UIActivityViewController）
       if (Platform.OS === 'ios') {
+        onBeforeNativePicker?.()
         void handleExportUserApiToFile(apiId, temporaryDirectoryPath)
           .then((fullPath) => shareFile(fullPath))
           .then(() => toast(global.i18n.t('user_api_export_success_tip')))
@@ -84,6 +102,9 @@ export default forwardRef<ScriptImportExportType, {}>((props, ref) => {
             }
             log.error(err)
             toast(global.i18n.t('user_api_export_failed_tip', { message: err?.message ?? '' }), 'long')
+          })
+          .finally(() => {
+            onAfterNativePicker?.()
           })
         return
       }

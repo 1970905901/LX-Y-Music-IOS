@@ -5,7 +5,7 @@ import DorpDownMenu, {
 } from '@/components/common/DorpDownMenu'
 import Text from '@/components/common/Text'
 import { useI18n } from '@/lang'
-import ScriptImportExport, { type ScriptImportExportType } from './ScriptImportExport'
+import ScriptImportExport, { type ScriptImportExportType, type ScriptImportExportProps } from './ScriptImportExport'
 import ScriptImportOnline, { type ScriptImportOnlineType } from './ScriptImportOnline'
 import { state } from '@/store/userApi'
 import { tipDialog } from '@/utils/tools'
@@ -14,9 +14,11 @@ import { useTheme } from '@/store/theme/hook'
 
 interface BtnProps {
   btnStyle?: _DorpDownMenuProps<any[]>['btnStyle']
+  onBeforeNativePicker?: ScriptImportExportProps['onBeforeNativePicker']
+  onAfterNativePicker?: ScriptImportExportProps['onAfterNativePicker']
 }
 
-export default ({ btnStyle }: BtnProps) => {
+export default ({ btnStyle, onBeforeNativePicker, onAfterNativePicker }: BtnProps) => {
   const t = useI18n()
   const theme = useTheme()
   const scriptImportExportRef = useRef<ScriptImportExportType>(null)
@@ -52,7 +54,11 @@ export default ({ btnStyle }: BtnProps) => {
       <Text size={14} color={theme['c-button-font']}>
         {t('user_api_btn_import')}
       </Text>
-      <ScriptImportExport ref={scriptImportExportRef} />
+      <ScriptImportExport
+        ref={scriptImportExportRef}
+        onBeforeNativePicker={onBeforeNativePicker}
+        onAfterNativePicker={onAfterNativePicker}
+      />
       <ScriptImportOnline ref={scriptImportOnlineRef} />
     </DorpDownMenu>
   )

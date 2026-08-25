@@ -95,6 +95,19 @@ export default forwardRef<UserApiEditModalType, {}>((props, ref) => {
     scriptImportExportRef.current?.export(apiId)
   }, [])
 
+  // iOS：原生选择器/分享面板（UIDocumentPicker / UIActivityViewController）覆盖在 RN Modal 上时，
+  // 会导致底层 Modal 的触摸响应链断裂、按钮无响应。因此在调起原生面板前隐藏本 Dialog，
+  // 面板结束后再恢复显示。
+  const hideDialogForNativePicker = useCallback(() => {
+    dialogRef.current?.setVisible(false)
+  }, [])
+  const showDialogAfterNativePicker = useCallback(() => {
+    // 使用 requestAnimationFrame 确保原生面板已完全 dismiss 再恢复 Modal
+    requestAnimationFrame(() => {
+      dialogRef.current?.setVisible(true)
+    })
+  }, [])
+
   return visible ? (
     <Dialog ref={dialogRef} bgHide={false}>
       <View style={styles.content}>
@@ -131,8 +144,16 @@ export default forwardRef<UserApiEditModalType, {}>((props, ref) => {
             {t('close')}
           </Text>
         </Button>
-        <ImportBtn btnStyle={{ ...styles.btn, backgroundColor: theme['c-button-background'] }} />
-        <ScriptImportExport ref={scriptImportExportRef} />
+        <ImportBtn
+          btnStyle={{ ...styles.btn, backgroundColor: theme['c-button-background'] }}
+          onBeforeNativePicker={hideDialogForNativePicker}
+          onAfterNativePicker={showDialogAfterNativePicker}
+        />
+        <ScriptImportExport
+          ref={scriptImportExportRef}
+          onBeforeNativePicker={hideDialogForNativePicker}
+          onAfterNativePicker={showDialogAfterNativePicker}
+        />
       </View>
     </Dialog>
   ) : null

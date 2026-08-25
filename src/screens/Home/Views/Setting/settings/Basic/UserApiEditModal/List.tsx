@@ -89,7 +89,7 @@ const ListItem = ({
 }
 
 export interface UserApiEditModalProps {
-  onSave: (rules: string) => void
+  onSave?: (rules: string) => void
   onExport: (id: string) => void
 }
 

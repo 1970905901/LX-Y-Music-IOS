@@ -5,6 +5,8 @@ import playerActions from '@/store/player/action'
 import settingState from '@/store/setting/state'
 import { setMusicUrl, stop } from '@/core/player/player'
 import { log } from '@/utils/log'
+import { Platform } from 'react-native'
+import { beginFolderAccess, endFolderAccess } from '@/utils/fs'
 
 import { addListMusics, removeListMusics, updateListMusicPosition, updateListMusics } from '@/core/list'
 import { playList, playListById, playNext } from '@/core/player/player'
@@ -243,6 +245,10 @@ export const handleDownload = async (musicInfo: LX.Music.MusicInfo, quality: LX.
       const downloadDir = settingState.setting['download.path'] || (RNFetchBlob.fs.dirs.MusicDir + '/LX-Y Music')
       const path = `${downloadDir}/${fileName}.${extension}`
 
+      if (Platform.OS === 'ios') {
+        await beginFolderAccess(downloadDir).catch(() => {});
+      }
+
       const downloader = RNFetchBlob.config({
         fileCache: true,
         path: path,
@@ -353,6 +359,9 @@ export const handleDownload = async (musicInfo: LX.Music.MusicInfo, quality: LX.
           console.log(err)
           toast(`${fileName} 写入封面失败!`, 'short')
         }
+      }
+      if (Platform.OS === 'ios') {
+        await endFolderAccess(downloadDir).catch(() => {});
       }
       toast(`路径: ${filePath}`, 'long')
     } catch (e) {

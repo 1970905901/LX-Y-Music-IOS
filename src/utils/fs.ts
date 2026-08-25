@@ -41,6 +41,8 @@ export const selectFolder = async (): Promise<{ path: string }> => {
 export const shareFile = async (_path: string): Promise<void> => {
   throw new Error('File sharing is not supported on this platform')
 }
+export const beginFolderAccess = async (_path: string): Promise<boolean> => true
+export const endFolderAccess = async (_path: string): Promise<boolean> => true
 export const removeManagedFolder = async (path: string) =>
   AndroidScoped.releasePersistableUriPermission(path)
 export const getManagedFolders = async () => AndroidScoped.getPersistedUriPermissions()

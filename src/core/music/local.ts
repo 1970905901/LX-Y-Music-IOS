@@ -13,7 +13,8 @@ import {
 } from './utils'
 import { getLocalFilePath } from '@/utils/music'
 import { readLyric, readPic } from '@/utils/localMediaMetadata'
-import { stat, existsFile, mkdir, writeFile, readDir } from '@/utils/fs'
+import { stat, existsFile, mkdir, writeFile, readDir, beginFolderAccess, endFolderAccess } from '@/utils/fs'
+import { Platform } from 'react-native'
 import { requestStoragePermission } from '@/utils/tools'
 import { searchMusic } from '@/utils/musicSdk'
 import { toNewMusicInfo } from '@/utils'
@@ -191,6 +192,9 @@ const downloadWebDAVMusic = async (musicInfo: LX.WebDAV.MusicInfo): Promise<stri
   webDAVLog?.info('downloadWebDAVMusic: starting new download', { musicId: musicInfo.id, fileName })
   const downloadPromise = (async () => {
     try {
+      if (Platform.OS === 'ios') {
+        await beginFolderAccess(downloadDir).catch(() => {});
+      }
       await mkdir(downloadDir)
 
       const username = settingState.setting['sync.webdav.username']
@@ -247,6 +251,9 @@ const downloadWebDAVMusic = async (musicInfo: LX.WebDAV.MusicInfo): Promise<stri
       })
       throw error
     } finally {
+      if (Platform.OS === 'ios') {
+        await endFolderAccess(downloadDir).catch(() => {});
+      }
       downloadPromises.delete(filePath)
     }
   })()

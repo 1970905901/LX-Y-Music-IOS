@@ -573,7 +573,8 @@ static void LXSyncRemoteCommandAvailability(void) {
   BOOL isPlaying = LXNowPlayingState == MPNowPlayingPlaybackStatePlaying;
   commandCenter.playCommand.enabled = !isPlaying;
   commandCenter.pauseCommand.enabled = isPlaying;
-  commandCenter.togglePlayPauseCommand.enabled = NO;
+  // 控制中心合并的「播放/暂停」按钮对应 togglePlayPauseCommand，必须启用，否则按钮灰置不可点
+  commandCenter.togglePlayPauseCommand.enabled = YES;
   commandCenter.nextTrackCommand.enabled = YES;
   commandCenter.previousTrackCommand.enabled = YES;
   commandCenter.changePlaybackPositionCommand.enabled = YES;

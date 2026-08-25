@@ -2,6 +2,7 @@
 
 import { updateMetaData } from '@/plugins/player'
 import playerState from '@/store/player/state'
+import { syncNowPlayingState } from '@/core/player/nowPlaying'
 
 export default () => {
   // const setVisibleDesktopLyric = useCommit('setVisibleDesktopLyric')
@@ -33,12 +34,22 @@ export default () => {
     if (buttons.play) return
     buttons.play = true
     setButtons()
+    // iOS 控制中心 / 锁屏需同步播放状态，否则按钮无播放态
+    void syncNowPlayingState('play')
   }
   const handlePause = () => {
     // if (buttons.empty) buttons.empty = false
     if (!buttons.play) return
     buttons.play = false
     setButtons()
+    // iOS 控制中心 / 锁屏需同步播放状态，否则按钮无播放态
+    void syncNowPlayingState('pause')
+  }
+  const handleStop = () => {
+    if (!buttons.play) return
+    buttons.play = false
+    setButtons()
+    void syncNowPlayingState('stop')
   }
   // const handleStop = () => {
   //   // if (playerState.playMusicInfo.musicInfo != null) return
@@ -66,7 +77,7 @@ export default () => {
   // }
   global.app_event.on('play', handlePlay)
   global.app_event.on('pause', handlePause)
-  global.app_event.on('stop', handlePause)
+  global.app_event.on('stop', handleStop)
   // global.app_event.on('musicToggled', handleSetPlayInfo)
   // window.app_event.on(eventTaskbarNames.setTaskbarThumbnailClip, handleSetTaskbarThumbnailClip)
   // window.app_event.on('myListMusicUpdate', throttleListChange)

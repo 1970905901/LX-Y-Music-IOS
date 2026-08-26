@@ -11,6 +11,7 @@ import { handleLikeMusic, handleTxLikeMusic, handleKgLikeMusic, handleShowArtist
 import playerState from '@/store/player/state'
 import { useIsWyLiked, useIsTxLiked, useIsKgLiked } from '@/store/user/hook'
 import { useWindowSize } from '@/utils/hooks'
+import SourceQualityBadge from '../../components/SourceQualityBadge'
 
 export default memo(() => {
   const playMusicInfo = usePlayMusicInfo()
@@ -102,6 +103,8 @@ export default memo(() => {
           </TouchableOpacity>
         )}
       </View>
+
+      <SourceQualityBadge />
 
       <View style={styles.artistWrapper}>
         {artists.length > 0 ? (

@@ -56,7 +56,12 @@ export default memo(() => {
 
 
   const handleEnableWebDAV = (enable: boolean) => {
-    updateSetting({ 'sync.webdav.enable': enable });
+    // 启用 WebDAV 同步时，自动开启“同步歌单”，避免仅连接而不同步歌单导致列表为空
+    if (enable) {
+      updateSetting({ 'sync.webdav.enable': enable, 'sync.webdav.syncLists': true });
+    } else {
+      updateSetting({ 'sync.webdav.enable': enable });
+    }
     resetClient();
   }
 

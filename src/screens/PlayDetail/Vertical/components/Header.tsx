@@ -18,6 +18,7 @@ import Marquee from './Marquee'
 import StatusBar from '@/components/common/StatusBar'
 import { handleShowArtistDetail } from '@/components/OnlineList/listAction'
 import HeaderNew from './HeaderNew'
+import SourceQualityBadge from '../../components/SourceQualityBadge'
 
 export const HEADER_HEIGHT = scaleSizeH(_HEADER_HEIGHT)
 
@@ -98,6 +99,7 @@ const Title = () => {
             {musicInfo.name}
             {musicInfo.alias ? <Text color={theme['c-font-label']}> ({musicInfo.alias})</Text> : null}
           </Marquee>
+          <SourceQualityBadge />
           {singerRender}
         </>
       ) : null}

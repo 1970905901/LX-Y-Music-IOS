@@ -85,8 +85,6 @@ const styles = createStyle({
   controlBtn: {
     justifyContent: 'center',
     alignItems: 'center',
-    shadowOpacity: 1,
-    textShadowRadius: 1,
   },
   oldContainer: {
     flexDirection: 'row',

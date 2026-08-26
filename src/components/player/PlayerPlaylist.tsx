@@ -37,6 +37,7 @@ import { getMvUrl as getWyMvUrl } from '@/utils/musicSdk/wy/mv.js'
 import { getMvUrl as getTxMvUrl } from '@/utils/musicSdk/tx/mv.js'
 import { getMvUrl as getKgMvUrl } from '@/utils/musicSdk/kg/mv.js'
 import { isOneDriveMusicInfo } from '@/core/oneDrive/utils'
+import { isBaiduPanMusicInfo } from '@/core/baiduPan/utils'
 
 export interface PlayerPlaylistType {
   show: () => void;
@@ -125,7 +126,7 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
 
   const renderItem = ({ item, index }: { item: LX.Player.PlayMusic, index: number }) => {
     const originalMusicInfo = ('progress' in item ? item.metadata.musicInfo : item);
-    const isOneDrive = isOneDriveMusicInfo(originalMusicInfo);
+    const isOneDrive = isOneDriveMusicInfo(originalMusicInfo) || isBaiduPanMusicInfo(originalMusicInfo);
 
     const renderableMusicInfo: LX.Music.MusicInfoOnline = {
       ...originalMusicInfo,

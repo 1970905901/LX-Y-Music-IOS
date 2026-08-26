@@ -1,0 +1,60 @@
+LX-Y-Music-IOS 更新日志（2026-08-26）
+================================
+
+本日志汇总本次会话已推送的全部改动（提交 8aeaf5ff → 197a1e97，已 push 至 master）。
+
+【1. 播放界面控制按钮阴影消除】
+- 播放详情页旧版 / 新版（竖屏）/ 横屏三处 ControlBtn 的 iOS 阴影（shadowOpacity、textShadowRadius）已删除。
+
+【2. 播放界面新增音质 + 平台缩写徽章】
+- 新建 SourceQualityBadge.tsx，按映射显示平台缩写：酷狗=KG、网易=WY、企鹅=QQ、酷我=KW、咪咕=MG。
+- 同时显示当前歌曲实际可播放音质（Master / Atmos / 24bit / SQ / HQ / 128K）。
+- 已挂载到旧版 Header.tsx 与新版 SongInfo.tsx 的歌名下方。
+
+【3. WebDAV 同步优化】
+- 根因：歌单自动同步开关 sync.webdav.syncLists 默认关闭，仅开“连接”不同步歌单。
+- 修复：开启 WebDAV 连接开关时自动开启“同步歌单”，连上即可同步列表。
+
+【4. 侧边栏自定义排序（关闭分组时）修复】
+- 根因：NavMenu.tsx 的 topLevelItems 的 useMemo 依赖数组漏了 navFlatOrder，关闭“侧边栏功能分组”后排序不生效（只有开分组才生效）。
+- 修复：补上 navFlatOrder 依赖，扁平模式排序与分组模式一致生效。
+
+【5. 拖拽进度后歌词高亮滞后修复】
+- 根因：歌词时钟每 1000ms 用有延迟的 getPosition() 重锚，且 seek 后 500ms 抑制窗口，拖拽后高亮最多滞后约 1.5s。
+- 修复：重锚节拍收紧到 250ms、seek 抑制窗口降到 250ms；并为 useLrcPlay 加守卫避免高频重锚空转重绘。
+
+【6. 迷你播放器阴影补充消除】
+- 迷你播放器 ControlBtn，以及竖屏/横屏的 MoreBtn、横屏 Control Btn 遗漏的 iOS 阴影一并删除。
+
+【7. 代码格式统一】
+- 对本次改动文件执行 eslint --fix，统一 standard 风格（去分号、双引号转单引号、函数前空格、缩进、尾随空格），未触碰任何功能逻辑。
+- 注：CI 构建（ios-ipa.yml）不跑 lint，仅做 install→pod install→xcodebuild→打包 IPA。
+
+【未处理项】
+- 网易云歌单显示成 KW：经全链路扫描，实时网易数据均为 source:'wy'，不可能显示 KW，判定为旧落盘数据问题，本次未盲改。如需修复请提供具体界面入口。
+
+【8. 封面→歌词滑动后高亮歌词滞后修复】
+- 根因：Vertical/Lyric.tsx 的 handleScrollToActive(force=true) 仍用 animated:true，切到歌词页时高亮行动画滚动到位，视觉上出现滞后。
+- 修复：改为 animated:!force，切回歌词页时立即定位到当前高亮行。
+
+【9. 歌单页面左右滑动切换排序标签 + 开关】
+- 新增设置项 common.songListSwipeSwitchSort（默认 true），开关位于设置→基础→“歌单页面左右滑动切换排序”。
+- SongList/Content.tsx 内容区增加 PanResponder，左右滑动切换排序标签（默认/打开/最热/最新…）。
+- Main.tsx：在歌单页且开关开启时禁用首页 PagerView 横向滚动，避免手势冲突。
+
+【构建状态】
+- 此前已推送：Build iOS IPA（run 32974350299，commit 197a1e9）✅ 成功，未签名 IPA 发布至 v20260826：
+  https://github.com/1970905901/LX-Y-Music-IOS/releases/download/v20260826/LX-Y.Music-v20260826-ios-unsigned.ipa
+- 新提交 0f58c393（歌词切页定位 + 歌单滑动切换排序）已本地提交，尚未推送。
+
+【10. 挂载百度网盘（仅听歌）】
+- 新增百度网盘云盘源，复用现有云盘架构（与 OneDrive / WebDAV 同源），入口位于侧边栏「云盘」分组，默认开启。
+- 鉴权方式：在百度网盘页内「设置」面板粘贴浏览器完整 Cookie（BDUSS 开头），仅保存于本机设置；可选填写音乐目录路径（默认从根目录浏览）。
+- 交互：文件夹浏览器模式——进入目录后列出子文件夹与音频文件，点文件夹下钻、点歌曲即播；顶部「返回上级 / 设置」；支持「播放全部」（播放当前目录全部音频）。
+- 播放链路：复用播放内核的 music/index.ts 分发，新增 'baidupan' in meta 分支；播放时通过百度网盘 web API（api/list 列目录、api/download 取直链）将文件下载到 App 沙盒缓存目录后本地播放，按 fs_id 缓存，重复播放免重复下载。
+- 歌词：复用在线歌词检索（按歌名/歌手匹配）并写入歌词缓存。
+- 兼容性：在 PlayDetail / 播放列表 / 播放历史 / 跳转到当前播放等位置补充 isBaiduPanMusicInfo 守卫，百度网盘歌曲不再误显「切换音源 / 下载」等不适用按钮；支持「跳转到当前播放」自动定位所在目录。
+
+【构建状态】
+- 本功能已本地提交（尚未推送，待你确认后我再 push 并触发 CI）。
+- 入口验证点：侧边栏「云盘 → 百度网盘」；首次进入填写 Cookie 后点「加载目录」即可浏览与播放。

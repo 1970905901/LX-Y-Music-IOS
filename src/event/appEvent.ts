@@ -12,6 +12,7 @@ import {navigations} from "@/navigation";
 import {getDailyRecCache} from "@/utils/data.ts";
 import {toast} from "@/utils/tools.ts";
 import { isOneDriveMusicInfo } from '@/core/oneDrive/utils'
+import { isBaiduPanMusicInfo } from '@/core/baiduPan/utils'
 
 // {
 //   // sync: {
@@ -208,6 +209,14 @@ export class AppEvent extends Event {
     const rawMusicInfo = playMusicInfo.musicInfo
     const musicInfo = rawMusicInfo && 'progress' in rawMusicInfo ? rawMusicInfo.metadata.musicInfo : rawMusicInfo
 
+    if (isBaiduPanMusicInfo(musicInfo)) {
+      if (commonState.navActiveId !== 'nav_baidupan') setNavActiveId('nav_baidupan')
+      setTimeout(() => {
+        this.emit('jumpBaiduPanPosition')
+      }, 200)
+      return
+    }
+
     if (isOneDriveMusicInfo(musicInfo)) {
       if (commonState.navActiveId !== 'nav_onedrive') setNavActiveId('nav_onedrive')
       setTimeout(() => {
@@ -367,6 +376,10 @@ export class AppEvent extends Event {
 
   jumpOneDrivePosition() {
     this.emit('jumpOneDrivePosition')
+  }
+
+  jumpBaiduPanPosition() {
+    this.emit('jumpBaiduPanPosition')
   }
 
   showPlaylist() {

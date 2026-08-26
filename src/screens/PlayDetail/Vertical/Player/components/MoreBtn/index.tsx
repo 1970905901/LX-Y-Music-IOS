@@ -18,6 +18,7 @@ import {getMvUrl as getTxMvUrl} from "@/utils/musicSdk/tx/mv.js";
 import {getMvUrl as getKgMvUrl} from "@/utils/musicSdk/kg/mv.js";
 import SimilarSongsModal, { type SimilarSongsModalType } from '@/components/SimilarSongsModal'
 import { isOneDriveMusicInfo } from '@/core/oneDrive/utils'
+import { isBaiduPanMusicInfo } from '@/core/baiduPan/utils'
 import { usePlayMusicInfo } from '@/store/player/hook'
 
 
@@ -28,7 +29,7 @@ export default memo(({ componentId }: { componentId: string }) => {
   const musicDownloadModalRef = useRef<MusicDownloadModalType>(null);
   const similarSongsModalRef = useRef<SimilarSongsModalType>(null);
   const playMusicInfo = usePlayMusicInfo();
-  const isOneDrive = isOneDriveMusicInfo(playMusicInfo.musicInfo);
+  const isOneDrive = isOneDriveMusicInfo(playMusicInfo.musicInfo) || isBaiduPanMusicInfo(playMusicInfo.musicInfo);
 
   useEffect(() => {
     const handleMusicChange = () => {

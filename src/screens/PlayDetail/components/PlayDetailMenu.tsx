@@ -6,6 +6,7 @@ import settingState from '@/store/setting/state'
 import userState from '@/store/user/state'
 import {useSettingValue} from "@/store/setting/hook.ts";
 import { isOneDriveMusicInfo } from '@/core/oneDrive/utils'
+import { isBaiduPanMusicInfo } from '@/core/baiduPan/utils'
 import { Icon } from '@/components/common/Icon'
 import Text from '@/components/common/Text'
 import { useTheme } from '@/store/theme/hook'
@@ -84,7 +85,7 @@ export default forwardRef<PlayDetailMenuType, PlayDetailMenuProps>((props, ref) 
 
   const menus = useMemo((): Menus => {
     const musicInfo = selectInfoRef.current.musicInfo;
-    const isOneDrive = isOneDriveMusicInfo(musicInfo);
+    const isOneDrive = isOneDriveMusicInfo(musicInfo) || isBaiduPanMusicInfo(musicInfo);
     const menuItems: Menus[number][] = [];
     if (!isOneDrive) menuItems.push({ action: 'download', label: t('download') });
     if (menuSetting.share) menuItems.push({ action: 'copyName', label: t('copy_name') });

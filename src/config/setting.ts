@@ -1,4 +1,4 @@
-import { storageDataPrefix, storageDataPrefixOld, NAV_MENUS } from '@/config/constant'
+import { storageDataPrefix, storageDataPrefixOld, NAV_MENUS, NAV_GROUPS } from '@/config/constant'
 import defaultSetting from '@/config/defaultSetting'
 import { getData, removeData, saveData } from '@/plugins/storage'
 import migrateSetting from './migrateSetting'
@@ -122,17 +122,52 @@ export const initSetting = async () => {
 
   const updatedSetting = updateSetting(setting, true)
 
-  // 扁平模式顺序补全：把 navOrder 中新增、但用户已有 navFlatOrder 缺失的菜单项追加到末尾。
-  // 修复「后加的导航项（如百度网盘）在关闭分组后从侧边栏 / 自定义排序列表 / 播放页 PagerView 消失」的迁移缺口。
+  // 导航顺序迁移：以当前 NAV_MENUS / NAV_GROUPS 为权威来源，把后续新增的菜单项
+  // （如百度网盘）补进老用户持久化的 navOrder、navFlatOrder 与 navGroupOrder 末尾，
+  // 避免侧边栏、自定义排序列表、播放页 PagerView 在任何模式下丢失新增项。
+  const allMenuIds = NAV_MENUS.map(m => m.id)
+  const patchOrder = (key: 'common.navOrder' | 'common.navFlatOrder') => {
+    const order = updatedSetting.setting[key] as string[] | undefined
+    if (!Array.isArray(order)) return
+    const set = new Set(order)
+    const missing = allMenuIds.filter(id => !set.has(id))
+    if (!missing.length) return
+    // 空数组保持为空，让运行时 getEffectiveFlatOrder 回退到 navOrder / NAV_MENUS，
+    // 避免把从未自定义过扁平顺序的老用户的 flat 顺序强制覆盖成默认顺序。
+    if (order.length === 0 && key === 'common.navFlatOrder') return
+    // @ts-expect-error 补全缺失的导航项（运行时为字符串数组，类型受 NAV_ID_Type 约束）
+    updatedSetting.setting[key] = [...order, ...missing]
+  }
+  patchOrder('common.navOrder')
+  patchOrder('common.navFlatOrder')
+
+  // 另外把 navOrder 里存在、navFlatOrder 仍缺失的项再补一次（兼容旧逻辑）。
   const navOrder = updatedSetting.setting['common.navOrder'] as string[] | undefined
   const navFlatOrder = (updatedSetting.setting['common.navFlatOrder'] as string[] | undefined) ?? []
   if (Array.isArray(navOrder) && navOrder.length) {
     const flatSet = new Set(navFlatOrder)
     const missing = navOrder.filter(id => !flatSet.has(id) && NAV_MENUS.some(m => m.id === id))
     if (missing.length) {
-      // @ts-expect-error 补全缺失的扁平导航项（运行时为字符串数组，类型受 NAV_ID_Type 约束）
+      // @ts-expect-error
       updatedSetting.setting['common.navFlatOrder'] = [...navFlatOrder, ...missing]
     }
+  }
+
+  // 分组顺序迁移：每个分组补全缺失的当前子项。
+  const navGroupOrder = (updatedSetting.setting['common.navGroupOrder'] as Record<string, string[]> | undefined) ?? {}
+  let patchedGroupOrder: Record<string, string[]> | null = null
+  for (const group of NAV_GROUPS) {
+    const saved = navGroupOrder[group.id] ?? []
+    if (!Array.isArray(saved)) continue
+    const set = new Set(saved)
+    const missing = group.children.filter(id => !set.has(id))
+    if (missing.length) {
+      patchedGroupOrder = patchedGroupOrder ?? { ...navGroupOrder }
+      patchedGroupOrder[group.id] = [...saved, ...missing]
+    }
+  }
+  if (patchedGroupOrder) {
+    updatedSetting.setting['common.navGroupOrder'] = patchedGroupOrder
   }
 
   void saveData(storageDataPrefix.setting, updatedSetting.setting)

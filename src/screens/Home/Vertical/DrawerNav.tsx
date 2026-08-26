@@ -6,7 +6,7 @@ import { useTheme } from '@/store/theme/hook'
 import { Icon } from '@/components/common/Icon'
 import { SvgIcon } from '@/components/common/SvgIcon'
 import { confirmDialog, createStyle, exitApp as backHome } from '@/utils/tools'
-import { NAV_MENUS, NAV_GROUPS, type NavGroup, getEffectiveFlatOrder } from '@/config/constant'
+import { NAV_MENUS, NAV_GROUPS, type NavGroup, getEffectiveFlatOrder, getEffectiveGroupChildren } from '@/config/constant'
 import type { InitState } from '@/store/common/state'
 import { exitApp, setNavActiveId } from '@/core/common'
 import Text from '@/components/common/Text'
@@ -122,11 +122,8 @@ const CollapsibleGroupItem = ({ group, activeId, onPress }: { group: NavGroup; a
   const [contentHeight, setContentHeight] = useState(0)
 
   const orderedChildren = useMemo(() => {
-    const savedOrder = navGroupOrder[group.id]
-    const childIds = savedOrder && savedOrder.length > 0
-      ? savedOrder.filter(id => group.children.includes(id as any))
-      : group.children
-    return childIds.filter(id => (navStatus[id as keyof typeof navStatus] ?? true))
+    return getEffectiveGroupChildren(group, navGroupOrder[group.id])
+      .filter(id => (navStatus[id as keyof typeof navStatus] ?? true))
   }, [group, navGroupOrder, navStatus])
 
   const toggleCollapse = () => {

@@ -137,9 +137,10 @@ export const NAV_GROUPS: NavGroup[] = [
 
 /**
  * 扁平模式（关闭侧边栏分组）下的有效导航顺序。
- * 以用户自定义的 navFlatOrder 为主，并把 navOrder 中存在、navFlatOrder 缺失的合法菜单项
- * 追加到末尾，确保后加的导航项（如百度网盘）不会因持久化的 navFlatOrder 不完整，
- * 而在侧边栏 / 自定义排序列表 / 播放页 PagerView 三处丢失。
+ * 以用户自定义的 navFlatOrder 为主；都没有时回退到 navOrder；再回退到 NAV_MENUS 默认顺序。
+ * 最后以 NAV_MENUS 为权威来源，把 base 中缺失的合法菜单项（如后续新增的百度网盘）
+ * 追加到末尾，确保老用户持久化的顺序不完整时，侧边栏 / 自定义排序列表 / 播放页 PagerView
+ * 三处都不会丢失新增导航项。
  */
 export const getEffectiveFlatOrder = (
   navFlatOrder: string[] | undefined | null,
@@ -150,9 +151,28 @@ export const getEffectiveFlatOrder = (
       ? (navFlatOrder as NAV_ID_Type[])
       : (Array.isArray(navOrder) && navOrder.length > 0 ? (navOrder as NAV_ID_Type[]) : NAV_MENUS.map(m => m.id))
   const set = new Set(base)
-  const extra = (navOrder ?? []) as NAV_ID_Type[]
-  const extraFiltered = extra.filter(id => !set.has(id) && NAV_MENUS.some(m => m.id === id))
-  return extraFiltered.length ? [...base, ...extraFiltered] : base
+  const allMenuIds = NAV_MENUS.map(m => m.id)
+  const extra = allMenuIds.filter(id => !set.has(id))
+  return extra.length ? [...base, ...extra] : base
+}
+
+/**
+ * 分组模式下某分组的最终子项顺序。
+ * 以用户自定义的 navGroupOrder[group.id] 为主，缺失时回退到 group.children。
+ * 最后以 group.children 为权威来源，追加保存顺序中缺失的新增子项（如百度网盘），
+ * 避免老用户持久化的分组顺序不完整导致侧边栏分组内漏项。
+ */
+export const getEffectiveGroupChildren = (
+  group: NavGroup,
+  savedOrder: string[] | undefined | null,
+): NAV_ID_Type[] => {
+  const base: NAV_ID_Type[] =
+    Array.isArray(savedOrder) && savedOrder.length > 0
+      ? (savedOrder.filter(id => group.children.includes(id as NAV_ID_Type)) as NAV_ID_Type[])
+      : ([...group.children] as NAV_ID_Type[])
+  const set = new Set(base)
+  const extra = (group.children.filter(id => !set.has(id as NAV_ID_Type)) as NAV_ID_Type[])
+  return extra.length ? [...base, ...extra] : base
 }
 
 export const LXM_FILE_EXT_RXP = ['json', 'lxmc', 'bin']

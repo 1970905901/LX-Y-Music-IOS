@@ -5,7 +5,7 @@ import CheckBox from '@/components/common/CheckBox'
 import { useSettingValue } from '@/store/setting/hook'
 import { useI18n } from '@/lang'
 import { updateSetting } from '@/core/common'
-import { NAV_MENUS, NAV_GROUPS, type NAV_ID_Type, getEffectiveFlatOrder } from '@/config/constant'
+import { NAV_MENUS, NAV_GROUPS, type NAV_ID_Type, getEffectiveFlatOrder, getEffectiveGroupChildren } from '@/config/constant'
 import { useTheme } from '@/store/theme/hook'
 import { Icon } from '@/components/common/Icon'
 import { acquireScrollLock, releaseScrollLock, subscribeScrollLock } from '@/utils/scrollLock'
@@ -304,11 +304,7 @@ export default memo(() => {
     if (!selectedGroup) return []
     const group = NAV_GROUPS.find(g => g.id === selectedGroup)
     if (!group) return []
-    const savedOrder = navGroupOrder[group.id]
-    const childIds = savedOrder && savedOrder.length > 0
-      ? savedOrder.filter(id => group.children.includes(id as NAV_ID_Type))
-      : group.children
-    return childIds
+    return getEffectiveGroupChildren(group, navGroupOrder[group.id])
       .map(id => ({ id, name: t(id as any), isGroup: false }))
   }, [selectedGroup, navGroupOrder, navStatus, t])
 

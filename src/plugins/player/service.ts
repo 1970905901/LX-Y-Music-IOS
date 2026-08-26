@@ -42,6 +42,8 @@ const registerPlaybackService = async() => {
   TrackPlayer.addEventListener(TPEvent.RemotePause, () => {
     // console.log('remote-pause')
     markTimeoutExitInteraction()
+    // 用户主动暂停时清除“被中断后自动恢复”意图，避免恢复事件到达后误播
+    shouldResumeAfterDuck = false
     void pause()
   })
 
@@ -66,12 +68,16 @@ const registerPlaybackService = async() => {
   })
 
   TrackPlayer.addEventListener(TPEvent.RemoteDuck, ({ permanent, paused, ducking }) => {
+    // 设置关闭时，完全不理会音频焦点事件：既不暂停也不自动恢复，
+    // 让用户自行控制播放（例如边玩游戏边听歌）。
+    if (!settingState.setting['player.isHandleAudioFocus']) return
+
     // On iOS, interruptions surface through RemoteDuck and we need to explicitly
     // restore playback/volume after the system finishes ducking or pausing audio.
     if (permanent) {
       // iOS 上“其它应用开始播放音频”属于 permanent 中断（系统未给出 ShouldResume 提示）。
       // 记住中断前是否在播放，待中断结束（ended）事件到达时再恢复，而非永久停住。
-      shouldResumeAfterDuck = playerState.isPlay
+      shouldResumeAfterDuck ||= playerState.isPlay
       clearDuckRecoveryTimeouts()
       if (paused) void pause()
       return
@@ -84,7 +90,9 @@ const registerPlaybackService = async() => {
     }
 
     if (paused) {
-      shouldResumeAfterDuck = playerState.isPlay
+      // 使用 ||= 保留已有的恢复意图，避免系统连续派发多个 paused 事件时
+      // 把 shouldResumeAfterDuck 重置为 false，导致中断结束后无法自动恢复。
+      shouldResumeAfterDuck ||= playerState.isPlay
       clearDuckRecoveryTimeouts()
       void pause()
       return

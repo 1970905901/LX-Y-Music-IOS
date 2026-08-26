@@ -6,6 +6,8 @@ import { zzcSign } from './utils/crypto'
 import dailyRec from './dailyRec'
 import { log } from '@/utils/log'
 import settingState from '@/store/setting/state'
+import musicSearchApi from './musicSearch'
+import { log as txLog } from '@/utils/txLog'
 
 export default {
   _requestObj_tags: null,
@@ -532,7 +534,25 @@ export default {
     return `https://y.qq.com/n/ryqq/playlist/${id}`
   },
 
-  search(text, page, limit = 20, retryNum = 0) {
+  handleSearchResult(rawList) {
+    if (!rawList || !Array.isArray(rawList)) return []
+    return rawList.map((item) => {
+      const creator = item.creator || item.creator_info || {}
+      return {
+        play_count: formatPlayCount(item.listennum ?? item.playnum ?? item.play_count ?? item.access_num ?? 0),
+        id: String(item.dissid ?? item.tid ?? item.id ?? ''),
+        author: decodeName(creator.name ?? creator.nick ?? ''),
+        name: decodeName(item.dissname ?? item.title ?? ''),
+        time: dateFormat(item.createtime ?? item.create_time, 'Y-M-D'),
+        img: item.imgurl ?? item.cover_url_medium ?? item.cover_url ?? item.cover ?? '',
+        total: item.song_count ?? item.songnum ?? item.total ?? 0,
+        desc: decodeName(decodeName(item.introduction ?? item.desc ?? '')).replace(/<br>/g, '\n'),
+        source: 'tx',
+      }
+    }).filter(item => item.id)
+  },
+
+  searchOld(text, page, limit = 20, retryNum = 0) {
     if (retryNum > 5) throw new Error('max retry')
     return httpFetch(
       `http://c.y.qq.com/soso/fcgi-bin/client_music_search_songlist?page_no=${
@@ -547,27 +567,39 @@ export default {
         },
       }
     ).promise.then(({ body }) => {
-      if (body.code != 0) return this.search(text, page, limit, ++retryNum)
-      // console.log(body.data.list)
+      if (body.code != 0) return this.searchOld(text, page, limit, ++retryNum)
       return {
-        list: body.data.list.map((item) => {
-          return {
-            play_count: formatPlayCount(item.listennum),
-            id: String(item.dissid),
-            author: decodeName(item.creator.name),
-            name: decodeName(item.dissname),
-            time: dateFormat(item.createtime, 'Y-M-D'),
-            img: item.imgurl,
-            // grade: item.favorcnt / 10,
-            total: item.song_count,
-            desc: decodeName(decodeName(item.introduction)).replace(/<br>/g, '\n'),
-            source: 'tx',
-          }
-        }),
+        list: this.handleSearchResult(body.data.list),
         limit,
         total: body.data.sum,
         source: 'tx',
       }
+    })
+  },
+
+  search(text, page, limit = 20, retryNum = 0) {
+    if (retryNum > 5) throw new Error('max retry')
+    // 歌单搜索改用与歌曲/歌手/专辑统一的 SearchCgiService 接口（search_type=3），
+    // 旧的 soso 歌单搜索接口已频繁返回失败。
+    return musicSearchApi.musicSearch(text, page, limit, 3).then(({ body, meta }) => {
+      txLog.info('[TX SongList] search musicSearch 返回', {
+        query: text,
+        page,
+        bodyKeys: body ? Object.keys(body) : [],
+        itemSonglistLength: body?.item_songlist?.length ?? 0,
+        itemPlaylistLength: body?.item_playlist?.length ?? 0,
+      })
+      const rawList = body.item_songlist || body.item_playlist || body.playlist || []
+      const list = this.handleSearchResult(rawList)
+      return {
+        list,
+        limit,
+        total: meta?.estimate_sum ?? list.length,
+        source: 'tx',
+      }
+    }).catch((err) => {
+      txLog.warn('[TX SongList] search musicSearch 失败，降级旧接口', { error: err.message, retryNum: retryNum + 1 })
+      return this.searchOld(text, page, limit, retryNum)
     })
   },
 }

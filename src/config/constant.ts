@@ -135,6 +135,26 @@ export const NAV_GROUPS: NavGroup[] = [
   { id: 'group_cloud', label: 'group_cloud', icon: 'svg:onedrive', children: ['nav_webdav', 'nav_onedrive', 'nav_baidupan'] },
 ]
 
+/**
+ * 扁平模式（关闭侧边栏分组）下的有效导航顺序。
+ * 以用户自定义的 navFlatOrder 为主，并把 navOrder 中存在、navFlatOrder 缺失的合法菜单项
+ * 追加到末尾，确保后加的导航项（如百度网盘）不会因持久化的 navFlatOrder 不完整，
+ * 而在侧边栏 / 自定义排序列表 / 播放页 PagerView 三处丢失。
+ */
+export const getEffectiveFlatOrder = (
+  navFlatOrder: string[] | undefined | null,
+  navOrder: string[] | undefined | null,
+): NAV_ID_Type[] => {
+  const base: NAV_ID_Type[] =
+    Array.isArray(navFlatOrder) && navFlatOrder.length > 0
+      ? (navFlatOrder as NAV_ID_Type[])
+      : (Array.isArray(navOrder) && navOrder.length > 0 ? (navOrder as NAV_ID_Type[]) : NAV_MENUS.map(m => m.id))
+  const set = new Set(base)
+  const extra = (navOrder ?? []) as NAV_ID_Type[]
+  const extraFiltered = extra.filter(id => !set.has(id) && NAV_MENUS.some(m => m.id === id))
+  return extraFiltered.length ? [...base, ...extraFiltered] : base
+}
+
 export const LXM_FILE_EXT_RXP = ['json', 'lxmc', 'bin']
 export const USER_API_SOURCE_FILE_EXT_RXP = ['js']
 

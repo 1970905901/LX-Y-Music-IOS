@@ -6,7 +6,7 @@ import { useTheme } from '@/store/theme/hook'
 import { Icon } from '@/components/common/Icon'
 import { SvgIcon } from '@/components/common/SvgIcon'
 import { confirmDialog, createStyle, exitApp as backHome } from '@/utils/tools'
-import { NAV_MENUS, NAV_GROUPS, type NavGroup } from '@/config/constant'
+import { NAV_MENUS, NAV_GROUPS, type NavGroup, getEffectiveFlatOrder } from '@/config/constant'
 import type { InitState } from '@/store/common/state'
 import { exitApp, setNavActiveId } from '@/core/common'
 import Text from '@/components/common/Text'
@@ -345,7 +345,7 @@ export default memo(() => {
   const filteredNavMenus = useMemo(() => {
     const order = navGroupEnabled
       ? navOrder
-      : (navFlatOrder?.length ? navFlatOrder : navOrder)
+      : getEffectiveFlatOrder(navFlatOrder, navOrder)
     if (!order?.length) return NAV_MENUS.filter(
       menu => menu.id !== 'nav_play_history' && (menu.id === 'nav_setting' || (navStatus[menu.id] ?? true))
     )

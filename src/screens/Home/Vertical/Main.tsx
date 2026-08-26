@@ -18,7 +18,7 @@ import TXDailyRec from '../Views/DailyRec/TXDailyRec'
 import MyPlaylist from '../Views/MyPlaylist'
 import FollowedArtists from '../Views/FollowedArtists'
 import SubscribedAlbums from '../Views/SubscribedAlbums';
-import {NAV_MENUS, NAV_GROUPS, type NAV_ID_Type} from "@/config/constant.ts";
+import {NAV_MENUS, NAV_GROUPS, type NAV_ID_Type, getEffectiveFlatOrder} from "@/config/constant.ts";
 import {useSettingValue} from "@/store/setting/hook.ts";
 import PlayHistory from '../Views/PlayHistory'
 import { useTheme } from '@/store/theme/hook'
@@ -631,7 +631,7 @@ const Main = () => {
   // 注意：分组开启时 DrawerNav 会通过 NAV_GROUPS 显示 group children（如云盘下的百度网盘），
   // 如果老用户的 navOrder 里缺少这些子项，必须补进 PagerView 页面列表，否则点击会 fallback 到第一页。
   const effectiveOrder = useMemo(() => {
-    if (!navGroupEnabled && navFlatOrder?.length) return navFlatOrder;
+    if (!navGroupEnabled) return getEffectiveFlatOrder(navFlatOrder, navOrder);
     const baseOrder = navOrder || [];
     const groupChildIds = NAV_GROUPS.flatMap(g => g.children) as NAV_ID_Type[];
     const missing = groupChildIds.filter(id => !baseOrder.includes(id));

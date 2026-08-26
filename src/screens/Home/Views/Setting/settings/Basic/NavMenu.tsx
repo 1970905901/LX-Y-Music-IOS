@@ -5,7 +5,7 @@ import CheckBox from '@/components/common/CheckBox'
 import { useSettingValue } from '@/store/setting/hook'
 import { useI18n } from '@/lang'
 import { updateSetting } from '@/core/common'
-import { NAV_MENUS, NAV_GROUPS, type NAV_ID_Type } from '@/config/constant'
+import { NAV_MENUS, NAV_GROUPS, type NAV_ID_Type, getEffectiveFlatOrder } from '@/config/constant'
 import { useTheme } from '@/store/theme/hook'
 import { Icon } from '@/components/common/Icon'
 import { acquireScrollLock, releaseScrollLock, subscribeScrollLock } from '@/utils/scrollLock'
@@ -247,8 +247,7 @@ export default memo(() => {
   useEffect(() => subscribeScrollLock(setScrollLocked), [])
 
   const effectiveFlatOrder = useMemo(() => {
-    if (navFlatOrder && navFlatOrder.length > 0) return navFlatOrder
-    return navOrder || NAV_MENUS.map(m => m.id)
+    return getEffectiveFlatOrder(navFlatOrder, navOrder)
   }, [navFlatOrder, navOrder])
 
   const topLevelItems = useMemo((): MenuItemData[] => {

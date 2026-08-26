@@ -93,15 +93,15 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
       PanResponder.create({
         onStartShouldSetPanResponder: () => false,
         onStartShouldSetPanResponderCapture: () => false,
-        onMoveShouldSetPanResponder: (_, gestureState) => {
-          if (!isEnableSlideSwitchSongRef.current || pageIndexRef.current !== 0) return false;
-          const { dy, dx } = gestureState;
-          return Math.abs(dy) > 15 && Math.abs(dy) > Math.abs(dx) * 1.2;
-        },
+        // 仅捕获“明显垂直”的拖拽用于切歌；水平分量不能占主导，
+        // 否则会吞掉 PagerView 的横向切页手势，导致切页卡顿/不跟手。
+        // 只用 capture 阶段判断，阈值放宽到 dy > dx*2（强垂直意图），
+        // 普通带轻微上下抖动的横向滑页不会被拦截（这是此前切页不顺滑的主因）。
+        onMoveShouldSetPanResponder: () => false,
         onMoveShouldSetPanResponderCapture: (_, gestureState) => {
           if (!isEnableSlideSwitchSongRef.current || pageIndexRef.current !== 0) return false;
           const { dy, dx } = gestureState;
-          return Math.abs(dy) > 20 && Math.abs(dy) > Math.abs(dx) * 1.5;
+          return Math.abs(dy) > 20 && Math.abs(dy) > Math.abs(dx) * 2;
         },
         onPanResponderMove: (_, gestureState) => {
           const { dy } = gestureState;
@@ -217,6 +217,7 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
           style={styles.pagerView}
           ref={pagerViewRef}
           scrollEnabled={!isProgressDragging}
+          overScrollMode="never"
           onLayout={({ nativeEvent }) => {
             const h = Math.round(nativeEvent.layout.height)
             if (h > 0 && h !== pagerHeight) setPagerHeight(h)

@@ -143,7 +143,6 @@ const LrcLine = memo(
     )
   }
 )
-const wait = async () => new Promise((resolve) => setTimeout(resolve, 100))
 
 export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHeight?: number }) => {
   const lyricLines = useLrcSet()
@@ -164,6 +163,7 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
     lineHeights: [],
   })
   const scrollCancelRef = useRef<(() => void) | null>(null)
+  const scrollYRef = useRef(0)
   const isShowLyricProgressSetting = settingState.setting['playDetail.isShowLyricProgressSetting']
 
   const initialDistanceRef = useRef(0)
@@ -220,21 +220,26 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
   // }, [playMusicInfo])
 
   // const imgWidth = useMemo(() => layout.width * 0.75, [layout.width])
-  const handleScrollToActive = (index = lineRef.current.line) => {
-    if (index < 0) return
-    if (flatListRef.current) {
-      if (scrollCancelRef.current) {
-        scrollCancelRef.current()
-        scrollCancelRef.current = null
-      }
-      try {
-        flatListRef.current.scrollToIndex({
-          index,
-          animated: true,
-          viewPosition: 0.42,
-        })
-      } catch { }
+  // 视口舒适区感知滚动：仅在当前行漂出“舒适区”时才真正滚动，避免逐行
+  // 微滚动（scrollToIndex(animated) 频繁启停）造成的卡顿/抖动。
+  // force=true 时无视舒适区，用于切回歌词页 / 切歌等需要立即定位的场景。
+  const handleScrollToActive = (index = lineRef.current.line, force = false) => {
+    if (index < 0 || !flatListRef.current || isPauseScrollRef.current) return
+    if (scrollCancelRef.current) {
+      scrollCancelRef.current()
+      scrollCancelRef.current = null
     }
+    const listHeight = pageHeight > 0 ? pageHeight : pagerHeight
+    if (listHeight <= 0) return
+    const itemTop = getItemLayout(lyricLines, index).offset
+    // 等效 viewPosition:0.42 —— 让当前行落在视口 42% 高度处
+    const targetOffset = Math.max(0, itemTop - listHeight * 0.42)
+    const delta = Math.abs(targetOffset - scrollYRef.current)
+    // 当前行已在可视舒适区内（距目标 < 15% 视高）则跳过本次滚动
+    if (!force && delta < listHeight * 0.15) return
+    try {
+      flatListRef.current.scrollToOffset({ offset: targetOffset, animated: true })
+    } catch { }
   }
   const handleScrollBeginDrag = () => {
     isPauseScrollRef.current = true
@@ -288,6 +293,7 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
       offset: 0,
       animated: false,
     })
+    scrollYRef.current = 0
     if (!lyricLines.length) return
     // playLineRef.current?.updateLyricLines(lyricLines)
     requestAnimationFrame(() => {
@@ -295,12 +301,12 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
         isFirstSetLrc.current = false
         setTimeout(() => {
           isPauseScrollRef.current = false
-          handleScrollToActive()
+          handleScrollToActive(0, true)
         }, 100)
       } else {
         if (delayScrollTimeout.current) clearTimeout(delayScrollTimeout.current)
         delayScrollTimeout.current = setTimeout(() => {
-          handleScrollToActive(0)
+          handleScrollToActive(0, true)
         }, 100)
       }
     })
@@ -319,9 +325,9 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
     handleScrollToActive()
   }, [line, active])
 
-  // 从封面页切回歌词页时，立即把当前行定位到 42% 位置
+  // 从封面页切回歌词页时，立即把当前行定位到 42% 位置（force 无视舒适区）
   useEffect(() => {
-    if (active) handleScrollToActive()
+    if (active) handleScrollToActive(lineRef.current.line, true)
   }, [active])
 
   // useEffect(() => {
@@ -331,11 +337,10 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
   //   })
   // }, [isShowLyricProgressSetting])
 
-  const handleScrollToIndexFailed: FlatListType['onScrollToIndexFailed'] = (info) => {
-    void wait().then(() => {
-      handleScrollToActive(info.index)
-    })
-  }
+  // 仅记录当前滚动偏移，供“舒适区感知滚动”判断使用；不触发重渲染。
+  const handleScroll = useCallback((e: { nativeEvent: { contentOffset: { y: number } } }) => {
+    scrollYRef.current = e.nativeEvent.contentOffset.y
+  }, [])
 
   const handleLineLayout = useCallback<LineProps['onLayout']>((lineNum, height) => {
     listLayoutInfoRef.current.lineHeights[lineNum] = height
@@ -401,6 +406,8 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
         }}
         ref={flatListRef}
         showsVerticalScrollIndicator={false}
+        onScroll={handleScroll}
+        scrollEventThrottle={400}
         onScrollBeginDrag={handleScrollBeginDrag}
         onScrollEndDrag={onScrollEndDrag}
         initialNumToRender={20}
@@ -410,7 +417,6 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
         getItemLayout={getItemLayout}
         extraData={line}
         removeClippedSubviews={true}
-        onScrollToIndexFailed={handleScrollToIndexFailed}
         {...panResponder.panHandlers}
       />
     </View>

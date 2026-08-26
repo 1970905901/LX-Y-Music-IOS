@@ -18,14 +18,14 @@ import PlayerPlaylist, { type PlayerPlaylistType } from '@/components/player/Pla
 import { registerPager } from '@/utils/pagerScrollControl'
 import { scaleSizeW } from '@/utils/pixelRatio'
 
-const LyricPage = ({ activeIndex }: { activeIndex: number }) => {
+const LyricPage = ({ activeIndex, pagerHeight = 0 }: { activeIndex: number; pagerHeight?: number }) => {
   const initedRef = useRef(false)
   switch (activeIndex) {
     case 1:
       if (!initedRef.current) initedRef.current = true
-      return <Lyric key="lyric" active={true} />
+      return <Lyric key="lyric" active={true} pagerHeight={pagerHeight} />
     default:
-      return initedRef.current ? <Lyric key="lyric" active={false} /> : null
+      return initedRef.current ? <Lyric key="lyric" active={false} pagerHeight={pagerHeight} /> : null
   }
 }
 
@@ -35,6 +35,11 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
   const showLyricRef = useRef(false)
   const playlistRef = useRef<PlayerPlaylistType>(null)
   const { height: winHeight } = useWindowSize()
+  // 直接测量 PagerView 的真实渲染高度（与歌词页可用高度一致），作为歌词
+  // FlatList 的确定高度来源。PagerView 在普通 flex:1 容器里撑满，onLayout
+  // 测得的高度比“PagerView 子页面”或“winHeight 估算”都可靠，避免歌词页
+  // 因高度算小而在下方露出空白。
+  const [pagerHeight, setPagerHeight] = useState(0)
   const isEnableSlideSwitchSong = useSettingValue('player.isEnableSlideSwitchSong')
   const miniLyricAlign = useSettingValue('playDetail.style.miniLyricAlign')
 
@@ -211,6 +216,10 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
           style={styles.pagerView}
           ref={pagerViewRef}
           scrollEnabled={!isProgressDragging}
+          onLayout={({ nativeEvent }) => {
+            const h = Math.round(nativeEvent.layout.height)
+            if (h > 0 && h !== pagerHeight) setPagerHeight(h)
+          }}
         >
           <View collapsable={false} style={styles.pageContainer}>
             <Animated.View collapsable={false} {...panResponder.panHandlers} style={[styles.picPageContainerNew, slideStyle, { paddingTop: containerPaddingH }]}>
@@ -227,7 +236,7 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
             </Animated.View>
           </View>
           <View collapsable={false} style={{ flex: 1, width: '100%', height: '100%' }}>
-            <LyricPage activeIndex={pageIndex} />
+            <LyricPage activeIndex={pageIndex} pagerHeight={pagerHeight} />
           </View>
         </PagerView>
         {/* Progress bar must live OUTSIDE the PagerView so its horizontal drag never

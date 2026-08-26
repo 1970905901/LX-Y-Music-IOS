@@ -145,7 +145,7 @@ const LrcLine = memo(
 )
 const wait = async () => new Promise((resolve) => setTimeout(resolve, 100))
 
-export default ({ active = true }: { active?: boolean }) => {
+export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHeight?: number }) => {
   const lyricLines = useLrcSet()
   const { line } = useLrcPlay()
   const { height: winHeight } = useWindowSize()
@@ -392,12 +392,11 @@ export default ({ active = true }: { active?: boolean }) => {
         data={lyricLines}
         renderItem={renderItem}
         keyExtractor={getkey}
-        style={{ height: pageHeight, width: '100%' }}
-        // 歌词整体居中且占满全屏：内容不足时垂直居中（无“下方大片空白”），
-        // 内容超长时自动撑满并正常滚动，当前行由 scrollToIndex 定位到 42%。
+        style={{ height: pagerHeight > 0 ? pagerHeight : pageHeight, width: '100%' }}
+        // 歌词列表从顶部排布，当前行由 scrollToIndex(viewPosition 0.42) 定位到中上；
+        // 不再用 justifyContent:'center' 整体垂直居中——否则歌词少时整页被顶到中间、
+        // 上下露出大片空白（即用户反馈的“被空白遮住 / 下面空白”）。
         contentContainerStyle={{
-          flexGrow: 1,
-          justifyContent: 'center',
           paddingHorizontal: isSmallWindow ? 12 : 20,
         }}
         ref={flatListRef}

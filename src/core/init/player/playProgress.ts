@@ -127,10 +127,18 @@ export default () => {
     }
   }
 
-  // bug③: 拖动进度条期间接管歌词时钟，使其高亮行跟随手指位置而不 seek 音频（防卡顿）。
+  // bug③: 拖动进度条期间接管歌词时钟，使其高亮行跟随手指位置；
+  // 同时实时 seek 音频，让音频与高亮歌词一起跟手指走，达到「播放时拖动进度条音频与歌词绝对同步」。
+  let lastPreviewTime = 0
   const handleProgressDragPreview = (time: number) => {
     if (!playerState.musicInfo.id) return
     try { lrcPlay(time) } catch {}
+    // 拖动过程中同步 seek 音频（秒），避免歌词跳到手指位置而音频仍停在原处导致的不同步。
+    // 仅在时间变化时 seek，减少重复 seek 开销。
+    if (time !== lastPreviewTime) {
+      lastPreviewTime = time
+      void setCurrentTime(time / 1000)
+    }
   }
   const handleProgressDragState = (drag: boolean) => {
     isDragging = drag

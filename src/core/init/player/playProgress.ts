@@ -35,6 +35,9 @@ export default () => {
 
   let updateTimeout: number | null = null
   let isScreenOn = true
+  // 最近一次 seek/点击跳转的时间戳。每拍重锚歌词时钟前需判断是否在 seek 沉降窗口内，
+  // 避免把刚跳转的高亮行又拽回 seek 前的旧位置（iOS 一次 seek 约需 ~180ms 才生效）。
+  let lastSeekTime = 0
 
   const getCurrentTime = () => {
     let id = playerState.musicInfo.id
@@ -43,12 +46,15 @@ export default () => {
       setNowPlayTime(position)
       updateScrobblePlayTime(position)
 
-      // 注意：此处不再每拍用 getPosition() 重新锚定歌词时钟。
-      // 歌词解析器以自身墙钟自驱，且在 play / 拖动 / 点击 / 倍速时都会通过
-      // setProgress 与 handlePlay 重新锚定。若每拍都按 getPosition() 重锚，
-      // iOS 上一次 seek 需 ~180ms 才生效，下一拍读到的是 seek 前的旧位置，
-      // 会把刚点击跳转的高亮行又拽回旧行（即“点歌词不跟随”），并造成倍速下抖动。
       if (!playerState.isPlay) return
+
+      // 长期同步：每拍用真实音频位置重锚歌词时钟，避免 seek/拖动/卡顿/倍速后
+      // 歌词解析器自身的墙钟与真实音频位置永久漂移（表现为“快进后/点歌词后对不齐”）。
+      // seek/点击后的 ~500ms 内跳过，避免把刚跳转的高亮行又拽回 seek 前的旧位置
+      // （iOS 一次 seek 约需 ~180ms 才生效，期间 getPosition 仍是旧位置）。
+      if (Date.now() - lastSeekTime > 500) {
+        try { lrcPlay(position * 1000) } catch {}
+      }
       if (
         settingState.setting['player.isSavePlayTime'] &&
         !playerState.playMusicInfo.isTempPlay &&
@@ -100,6 +106,7 @@ export default () => {
 
   const setProgress = (time: number, maxTime?: number) => {
     if (!playerState.musicInfo.id) return
+    lastSeekTime = Date.now()
     setNowPlayTime(time)
     updateScrobblePlayTime(time)
     void setCurrentTime(time)

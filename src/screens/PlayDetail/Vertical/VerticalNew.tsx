@@ -226,12 +226,15 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
                 />
               </View>
             </Animated.View>
-            {pageIndex === 0 && <Player componentId={componentId} isNewUI={true} />}
           </View>
           <View collapsable={false}>
             <LyricPage activeIndex={pageIndex} />
           </View>
         </PagerView>
+        {/* Progress bar must live OUTSIDE the PagerView so its horizontal drag never
+            enters the native pager gesture domain (otherwise left-drag stutters / is
+            hijacked as a page swipe). */}
+        {pageIndex === 0 && <Player componentId={componentId} isNewUI={true} />}
       </View>
       <PlayerPlaylist ref={playlistRef} />
     </>
@@ -256,6 +259,7 @@ const styles = createStyle({
   picPageContainerNew: {
     flex: 1,
     flexDirection: 'column',
+    justifyContent: 'space-between',
     position: 'relative',
     overflow: 'hidden',
   },

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Lyric, { type Lines } from 'lrc-file-parser'
 import { getPosition } from '@/plugins/player'
 // import { getStore, subscribe } from '@/store'
@@ -133,14 +133,20 @@ export const useLrcPlay = (autoUpdate = true) => {
     line: lrcTools.currentLineData.line,
     text: lrcTools.currentLineData.text,
   }))
+  // 进度重锚会以 250ms 节拍高频回弹 onPlay（即使行未变），用 ref 记录上次值，
+  // 行/文案未变时跳过重渲染，避免歌词 FlatList 空转。
+  const lastLrcRef = useRef({ line: -1, text: '' })
   useEffect(() => {
     if (!autoUpdate) return
     const setLrcCallback: SetLyricHook = () => {
+      lastLrcRef.current = { line: -1, text: '' }
       setLrcInfo({ line: 0, text: '' })
     }
     const playCallback: PlayHook = (line, text) => {
-      // 每次歌词行变化都生成新对象，确保 React 重新渲染高亮行。
-      // （lrc-file-parser 的 onPlay 只在跨行边界时回调，所以这里不会频繁触发。）
+      // 行未变化（仅进度重锚回弹）时跳过，避免每拍重渲染整张歌词列表。
+      if (lastLrcRef.current.line === line && lastLrcRef.current.text === text) return
+      lastLrcRef.current = { line, text }
+      // 生成新对象，确保 React 在跨行时重新渲染高亮行。
       setLrcInfo({ line, text })
     }
     lrcTools.addSetLyricHook(setLrcCallback)

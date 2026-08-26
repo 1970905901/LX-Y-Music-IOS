@@ -54,9 +54,9 @@ export default () => {
       // 长期同步：每拍用真实音频位置重锚歌词时钟，避免 seek/拖动/卡顿/倍速后
       // 歌词解析器自身的墙钟与真实音频位置永久漂移（表现为“快进后/点歌词后对不齐”）。
       // 拖动进度条期间由 progressDragPreview 事件接管歌词时钟，这里跳过，避免把预览高亮拽回旧位置。
-      // seek/点击后的 ~500ms 内跳过，避免把刚跳转的高亮行又拽回 seek 前的旧位置
-      // （iOS 一次 seek 约需 ~180ms 才生效，期间 getPosition 仍是旧位置）。
-      if (!isDragging && Date.now() - lastSeekTime > 500) {
+      // seek/点击后的 ~250ms 内跳过，避免把刚跳转的高亮行又拽回 seek 前的旧位置
+      // （iOS 一次 seek 约需 ~180ms 才生效，期间 getPosition 仍是旧位置；250ms 已留足余量）。
+      if (!isDragging && Date.now() - lastSeekTime > 250) {
         try { lrcPlay(position * 1000) } catch {}
       }
       if (
@@ -102,9 +102,13 @@ export default () => {
   const startUpdateTimeout = () => {
     if (!isScreenOn) return
     clearUpdateTimeout()
+    // 歌词时钟与音频位置的重锚节拍：原 1000ms 过粗，叠加 seek 后 500ms 抑制窗口，
+    // 拖拽/快进后高亮行最大可滞后约 1.5s（用户反馈“高亮歌词晚一点”）。
+    // 收紧到 250ms，使高亮更贴近音频真实位置（getPosition 本身仍有轮询延迟，
+    // 该值即高亮与音频的稳态偏差上限）。
     updateTimeout = BackgroundTimer.setInterval(() => {
       getCurrentTime()
-    }, 1000 / settingState.setting['player.playbackRate'])
+    }, 250 / settingState.setting['player.playbackRate'])
     getCurrentTime()
   }
 

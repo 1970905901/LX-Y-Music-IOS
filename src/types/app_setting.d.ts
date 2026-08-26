@@ -55,11 +55,6 @@ declare global {
       'common.homePageScroll': boolean
 
       /**
-       * 控制界面（播放详情页）左右滑动切换封面/歌词
-       */
-      'common.playDetailSwipeSwitch': boolean
-
-      /**
        * 是否显示返回按钮
        */
       'common.showBackBtn': boolean

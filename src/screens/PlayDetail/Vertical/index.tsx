@@ -37,7 +37,6 @@ const VerticalOld = memo(({ componentId }: { componentId: string }) => {
   const { height: winHeight } = useWindowSize()
   const isEnableSlideSwitchSong = useSettingValue('player.isEnableSlideSwitchSong')
   const miniLyricAlign = useSettingValue('playDetail.style.miniLyricAlign')
-  const playDetailSwipeSwitch = useSettingValue('common.playDetailSwipeSwitch')
 
   const slideOffset = useRef(new Animated.Value(0)).current;
   const maxSlide = winHeight * 0.5;
@@ -204,7 +203,7 @@ const VerticalOld = memo(({ componentId }: { componentId: string }) => {
           onPageSelected={onPageSelected}
           style={styles.pagerView}
           ref={pagerViewRef}
-          scrollEnabled={!isProgressDragging && playDetailSwipeSwitch}
+          scrollEnabled={!isProgressDragging}
         >
           <View collapsable={false} style={styles.pageContainer}>
             <Animated.View collapsable={false} style={[styles.picPageContainerOld, slideStyle]}>

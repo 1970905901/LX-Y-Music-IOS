@@ -1,5 +1,5 @@
 import type { I18n } from '@/lang/i18n'
-import {NAV_ID_Type} from "@/config/constant.ts";
+import { type NAV_ID_Type } from '@/config/constant.ts'
 
 declare global {
   namespace LX {
@@ -8,7 +8,7 @@ declare global {
 
     interface AppSetting {
       version: string
-      'version.autoCheckUpdate': boolean;
+      'version.autoCheckUpdate': boolean
       /**
        * 是否跟随系统切换亮暗主题
        */
@@ -104,14 +104,14 @@ declare global {
       'common.isEnableSearchLog': boolean
       'common.isEnablePlayerLog': boolean
 
-      'common.navStatus': Partial<Record<NAV_ID_Type, boolean>>;
+      'common.navStatus': Partial<Record<NAV_ID_Type, boolean>>
 
-      'common.navOrder': NAV_ID_Type[];
-      'common.navGroupExpanded': Record<string, boolean>;
-      'common.navGroupEnabled': boolean;
-      'common.navGroupOrder': Record<string, string[]>;
-      'common.navFlatOrder': NAV_ID_Type[];
-      'common.navGroupVisible': Record<string, boolean>;
+      'common.navOrder': NAV_ID_Type[]
+      'common.navGroupExpanded': Record<string, boolean>
+      'common.navGroupEnabled': boolean
+      'common.navGroupOrder': Record<string, string[]>
+      'common.navFlatOrder': NAV_ID_Type[]
+      'common.navGroupVisible': Record<string, boolean>
 
       /**
        * 主题id
@@ -496,7 +496,7 @@ declare global {
        * 是否写入歌词
        */
       'download.writeLyric': boolean
-       /**
+      /**
          * 是否写入罗马音歌词
        */
       'download.writeRomaLyric': boolean
@@ -519,16 +519,16 @@ declare global {
        * 是否启用同步
        */
       'sync.enable': boolean
-      'sync.webdav.enable': boolean;
-      'sync.webdav.syncLists': boolean;
-      'sync.webdav.syncPlayHistory': boolean;
-      'sync.webdav.syncDownloadTasks': boolean;
-      'sync.webdav.url': string;
-      'sync.webdav.username': string;
-      'sync.webdav.password': string;
-      'webdav.downloadPath': string;
-      'sync.webdav.path': string;
-      'sync.webdav.lastSyncTimeLists': number;
+      'sync.webdav.enable': boolean
+      'sync.webdav.syncLists': boolean
+      'sync.webdav.syncPlayHistory': boolean
+      'sync.webdav.syncDownloadTasks': boolean
+      'sync.webdav.url': string
+      'sync.webdav.username': string
+      'sync.webdav.password': string
+      'webdav.downloadPath': string
+      'sync.webdav.path': string
+      'sync.webdav.lastSyncTimeLists': number
     }
   }
 }

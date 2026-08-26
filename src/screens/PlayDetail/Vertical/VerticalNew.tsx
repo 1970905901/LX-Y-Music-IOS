@@ -17,6 +17,7 @@ import { playNext, playPrev } from '@/core/player/player'
 import PlayerPlaylist, { type PlayerPlaylistType } from '@/components/player/PlayerPlaylist.tsx'
 import { registerPager } from '@/utils/pagerScrollControl'
 import { scaleSizeW } from '@/utils/pixelRatio'
+import { COMPONENT_IDS } from '@/config/constant'
 
 const LyricPage = ({ activeIndex, pagerHeight = 0 }: { activeIndex: number; pagerHeight?: number }) => {
   const initedRef = useRef(false)
@@ -170,7 +171,7 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
     let appstateListener = AppState.addEventListener('change', (state) => {
       switch (state) {
         case 'active':
-          if (showLyricRef.current && !commonState.componentIds.comment) screenkeepAwake()
+          if (showLyricRef.current && !commonState.componentIds.find(item => item.name === COMPONENT_IDS.comment)) screenkeepAwake()
           break
         case 'background':
           screenUnkeepAwake()
@@ -179,7 +180,7 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
     })
 
     const handleComponentIdsChange = (ids: CommonState['componentIds']) => {
-      if (ids.comment) screenUnkeepAwake()
+      if (ids.find(item => item.name === COMPONENT_IDS.comment)) screenUnkeepAwake()
       else if (AppState.currentState === 'active') screenkeepAwake()
     }
 
@@ -230,7 +231,7 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
                 <SongInfo />
                 <MiniLyric
                   onPress={handleSwitchToLyricPage}
-                  style={[styles.miniLyricContainerNew, styles[`miniLyricAlign${miniLyricAlign.charAt(0).toUpperCase() + miniLyricAlign.slice(1)}`]]}
+                  style={[styles.miniLyricContainerNew, miniLyricAlignStyles[miniLyricAlign]]}
                 />
               </View>
             </Animated.View>
@@ -299,3 +300,11 @@ const styles = createStyle({
     alignItems: 'flex-end',
   },
 })
+
+// 类型安全的“小歌词对齐”样式查表，替代 styles[`miniLyricAlign${...}`] 的
+// 字符串动态索引（后者因 key 被推断为 string 触发 TS7053）。
+const miniLyricAlignStyles = {
+  left: styles.miniLyricAlignLeft,
+  center: styles.miniLyricAlignCenter,
+  right: styles.miniLyricAlignRight,
+}

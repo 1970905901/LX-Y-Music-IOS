@@ -9,6 +9,7 @@ import Lyric from './Lyric'
 import MiniLyric from '../components/MiniLyric'
 import { screenkeepAwake, screenUnkeepAwake } from '@/utils/nativeModules/utils'
 import commonState, { type InitState as CommonState } from '@/store/common/state'
+import { COMPONENT_IDS } from '@/config/constant'
 import { createStyle } from '@/utils/tools'
 import { useWindowSize } from '@/utils/hooks'
 import { useSettingValue } from '@/store/setting/hook'
@@ -160,7 +161,7 @@ const VerticalOld = memo(({ componentId }: { componentId: string }) => {
     let appstateListener = AppState.addEventListener('change', (state) => {
       switch (state) {
         case 'active':
-          if (showLyricRef.current && !commonState.componentIds.comment) screenkeepAwake()
+          if (showLyricRef.current && !commonState.componentIds.find(item => item.name === COMPONENT_IDS.comment)) screenkeepAwake()
           break
         case 'background':
           screenUnkeepAwake()
@@ -169,7 +170,7 @@ const VerticalOld = memo(({ componentId }: { componentId: string }) => {
     })
 
     const handleComponentIdsChange = (ids: CommonState['componentIds']) => {
-      if (ids.comment) screenUnkeepAwake()
+      if (ids.find(item => item.name === COMPONENT_IDS.comment)) screenUnkeepAwake()
       else if (AppState.currentState === 'active') screenkeepAwake()
     }
 
@@ -210,7 +211,7 @@ const VerticalOld = memo(({ componentId }: { componentId: string }) => {
               <Pic componentId={componentId} />
               <MiniLyric
                 onPress={handleSwitchToLyricPage}
-                style={[styles.miniLyricContainer, styles[`miniLyricAlign${miniLyricAlign.charAt(0).toUpperCase() + miniLyricAlign.slice(1)}`]]}
+                style={[styles.miniLyricContainer, miniLyricAlignStyles[miniLyricAlign]]}
               />
             </Animated.View>
           </View>
@@ -265,3 +266,11 @@ const styles = createStyle({
     alignItems: 'flex-end',
   },
 })
+
+// 类型安全的“小歌词对齐”样式查表，替代 styles[`miniLyricAlign${...}`] 的
+// 字符串动态索引（后者因 key 被推断为 string 触发 TS7053）。
+const miniLyricAlignStyles = {
+  left: styles.miniLyricAlignLeft,
+  center: styles.miniLyricAlignCenter,
+  right: styles.miniLyricAlignRight,
+}

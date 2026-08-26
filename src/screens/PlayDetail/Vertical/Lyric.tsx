@@ -171,13 +171,15 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
   // 使高亮行与进度条（及音频）绝对同步；被动逐秒重锚时仍用舒适区节流，避免逐行微滚动卡顿。
   const forceScrollRef = useRef(false)
   const forceScrollTimer = useRef<NodeJS.Timeout | null>(null)
-  const setForceScroll = useCallback((on: boolean) => {
+  const setForceScroll = useCallback((on: boolean, persist = false) => {
     forceScrollRef.current = on
     if (forceScrollTimer.current) {
       clearTimeout(forceScrollTimer.current)
       forceScrollTimer.current = null
     }
-    if (on) {
+    // 瞬时动作（persist=false）在 500ms 后自动复位；持续动作（persist=true，如拖动进度条）
+    // 保持 force 直到手动复位，避免拖动过程中被定时器复位后“舒适区”节流导致高亮行滞后/错位。
+    if (on && !persist) {
       forceScrollTimer.current = setTimeout(() => {
         forceScrollRef.current = false
         forceScrollTimer.current = null
@@ -306,7 +308,20 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
   // 拖动进度条 / 跳转 / 恢复播放等用户动作期间强制让歌词列表立即滚动到高亮行，
   // 保证高亮行与进度条（及音频）绝对同步，不出现“高亮行滞后 / 错位的 15% 舒适区跳过重滚动”。
   useEffect(() => {
-    const handleDragState = (dragging: boolean) => setForceScroll(dragging)
+    const handleDragState = (dragging: boolean) => {
+      if (dragging) {
+        // 拖动进度条期间持续强制同步：让 force 一直为 true，不被 500ms 定时器复位，
+        // 否则长拖动中途被复位后“舒适区”节流会让高亮行跟不上进度条。
+        setForceScroll(true, true)
+      } else {
+        // 拖动结束：保持一小段时间让最后一段定位动画落位，再复位。
+        if (forceScrollTimer.current) clearTimeout(forceScrollTimer.current)
+        forceScrollTimer.current = setTimeout(() => {
+          forceScrollRef.current = false
+          forceScrollTimer.current = null
+        }, 500)
+      }
+    }
     const handleSetProgress = () => setForceScroll(true)
     const handlePlay = () => setForceScroll(true)
     global.app_event.on('progressDragState', handleDragState)

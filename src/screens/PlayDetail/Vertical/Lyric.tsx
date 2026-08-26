@@ -257,9 +257,11 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
     }
     const listHeight = pageHeight > 0 ? pageHeight : pagerHeight
     if (listHeight <= 0) return
+    // 上下留白 = 列表半高：让首行 / 尾行也能被滚动到中央（否则首行贴顶、尾行贴底，无法满足“必在中央”）。
+    const paddingV = pageHeight > 0 ? pageHeight / 2 : 0
     const { offset: itemTop, length: itemHeight } = getItemLayout(lyricLines, index)
-    // 等效 viewPosition:0.5 —— 让当前行（行高中心）落在视口中央
-    const targetOffset = Math.max(0, itemTop + itemHeight / 2 - listHeight / 2)
+    // 等效 viewPosition:0.5 —— 当前行（行高中心）落在视口中央
+    const targetOffset = Math.max(0, paddingV + itemTop + itemHeight / 2 - listHeight / 2)
     const lineChanged = index !== lastScrolledLineRef.current
     // 非强制 + 同一行 + 当前行已在可视舒适区内（距目标 < 15% 视高）则跳过本次滚动（防抖动）；
     // 跨行切换 / 强制场景无条件滚动到中央，保证高亮行与音频同步且居中。
@@ -498,6 +500,9 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
         // 上下露出大片空白（即用户反馈的“被空白遮住 / 下面空白”）。
         contentContainerStyle={{
           paddingHorizontal: isSmallWindow ? 12 : 20,
+          // 上下各半屏留白：配合 handleScrollToActive 的居中算法，使首/尾行也能居中
+          paddingTop: pageHeight > 0 ? pageHeight / 2 : 0,
+          paddingBottom: pageHeight > 0 ? pageHeight / 2 : 0,
         }}
         ref={flatListRef}
         showsVerticalScrollIndicator={false}

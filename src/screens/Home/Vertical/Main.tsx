@@ -18,7 +18,7 @@ import TXDailyRec from '../Views/DailyRec/TXDailyRec'
 import MyPlaylist from '../Views/MyPlaylist'
 import FollowedArtists from '../Views/FollowedArtists'
 import SubscribedAlbums from '../Views/SubscribedAlbums';
-import {NAV_MENUS, type NAV_ID_Type} from "@/config/constant.ts";
+import {NAV_MENUS, NAV_GROUPS, type NAV_ID_Type} from "@/config/constant.ts";
 import {useSettingValue} from "@/store/setting/hook.ts";
 import PlayHistory from '../Views/PlayHistory'
 import { useTheme } from '@/store/theme/hook'
@@ -626,12 +626,16 @@ const Main = () => {
   const navGroupEnabled = useSettingValue('common.navGroupEnabled');
 
   // 与侧边栏（DrawerNav）保持同一套“有效顺序”，否则二者不一致时点击侧边栏项会跳错页面。
-  // 分组建开启用 navOrder；否则优先用用户在“侧边栏导航”里自定义过的扁平顺序 navFlatOrder，
-  // 都没有再回退 navOrder。例如仅在 navFlatOrder 中新增 nav_baidupan 而 navOrder 未包含时，
-  // 侧边栏会显示“百度网盘”，但 PagerView 没有对应页面，点击会被回退到第一页（我的列表）。
+  // 分组开启用 navOrder；否则优先用用户在“侧边栏导航”里自定义过的扁平顺序 navFlatOrder，
+  // 都没有再回退 navOrder。
+  // 注意：分组开启时 DrawerNav 会通过 NAV_GROUPS 显示 group children（如云盘下的百度网盘），
+  // 如果老用户的 navOrder 里缺少这些子项，必须补进 PagerView 页面列表，否则点击会 fallback 到第一页。
   const effectiveOrder = useMemo(() => {
     if (!navGroupEnabled && navFlatOrder?.length) return navFlatOrder;
-    return navOrder;
+    const baseOrder = navOrder || [];
+    const groupChildIds = NAV_GROUPS.flatMap(g => g.children) as NAV_ID_Type[];
+    const missing = groupChildIds.filter(id => !baseOrder.includes(id));
+    return missing.length ? [...baseOrder, ...missing] : baseOrder;
   }, [navGroupEnabled, navFlatOrder, navOrder]);
 
   const visibleNavs = useMemo(() => {

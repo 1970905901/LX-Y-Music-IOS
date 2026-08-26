@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import Lyric, { type Lines } from 'lrc-file-parser'
-import playerState from '@/store/player/state'
+import { getPosition } from '@/plugins/player'
 // import { getStore, subscribe } from '@/store'
 export type Line = Lines[number]
 type PlayHook = (line: number, text: string) => void
@@ -68,9 +68,11 @@ export const init = async () => {
 }
 
 export const setLyric = (lyric: string, translation?: string, romalrc?: string) => {
-  // 记录重设歌词前是否处于播放态，歌词就绪后立即按当前进度重锚时钟，
+  // 记录重设歌词前是否处于播放态；歌词就绪后立即用【引擎实时位置】重锚时钟，
   // 避免“进度条已跳到记忆位置、歌词却停在顶部/第 0 行”的错位
   // （尤其“杀死后台再点击播放”的记忆恢复场景：歌词异步加载后才就绪）。
+  // 必须用 getPosition() 实时值，绝不能改用 store 的 nowPlayTime——后者在切歌/恢复瞬间
+  // 常残留上一首或旧进度，会把歌词锚到错误位置（高亮行整体错位，回归 bug）。
   const wasPlaying = lrcTools.isPlay
   lrcTools.isPlay = false
   lrcTools.lyricText = lyric
@@ -78,8 +80,14 @@ export const setLyric = (lyric: string, translation?: string, romalrc?: string) 
   lrcTools.romaText = romalrc
   lrcTools.setLyric()
   if (wasPlaying) {
-    try { lrcTools.lrc!.play(playerState.progress.nowPlayTime * 1000) } catch {}
-    lrcTools.isPlay = true
+    void getPosition()
+      .then((position) => {
+        try { lrcTools.lrc!.play((position || 0) * 1000) } catch {}
+        lrcTools.isPlay = true
+      })
+      .catch(() => {
+        lrcTools.isPlay = true
+      })
   }
 }
 export const setPlaybackRate = (playbackRate: number) => {
@@ -96,9 +104,11 @@ export const toggleRoma = (isShow: boolean) => {
   lrcTools.setLyric()
 }
 export const play = (time?: number) => {
-  // 未传时间（如 app_event.play() 在播放开始事件里无参触发）时，
-  // 用当前记忆进度作为锚点，避免歌词时钟被重置到 0 而与进度条错位。
-  const playTime = (time ?? playerState.progress.nowPlayTime) * 1000
+  // app_event.play() 多为无参触发（播放开始事件）。原始语义：从 lrc 当前时钟
+  // （新歌 setLyric 后为 0）起步，由逐秒 tick（playProgress.ts 用 getPosition() 实时
+  // 位置）持续重锚到真实音频位置。
+  // 不可默认用 nowPlayTime——残留上一首进度时歌词会被锚到错误位置 → 高亮行整体错位。
+  const playTime = (time ?? 0) * 1000
   lrcTools.isPlay = true
   lrcTools.lrc!.play(playTime)
 }

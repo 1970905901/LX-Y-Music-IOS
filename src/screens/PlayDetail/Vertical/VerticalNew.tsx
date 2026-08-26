@@ -234,11 +234,11 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
         {/* Progress bar must live OUTSIDE the PagerView so its horizontal drag never
             enters the native pager gesture domain (otherwise left-drag stutters / is
             hijacked as a page swipe).
-            保持 Player 始终挂载，仅用 display 切换显隐：若按 pageIndex 条件渲染，
-            每次左右切页都会卸载/重挂底部控制条，重挂会重新订阅播放状态并初始化，
-            在 iOS 上表现为切回播放器页瞬间的掉帧/卡顿。display:none 不触发卸载，
-            且 Player 本身是 memo + 稳定 props，pageIndex 变化不会引起其重渲染。 */}
-        <View style={{ display: pageIndex === 0 ? 'flex' : 'none' }}>
+            保持 Player 始终挂载（避免切页卸载/重挂导致的掉帧），并改用 opacity +
+            pointerEvents 切换显隐——仅作用在合成层、不触发布局重算（layout thrash），
+            避免切页瞬间因 display 切换引起的卡顿。Player 本身是 memo + 稳定 props，
+            pageIndex 变化不会引起其重渲染。 */}
+        <View style={{ opacity: pageIndex === 0 ? 1 : 0, pointerEvents: pageIndex === 0 ? 'auto' : 'none' }}>
           <Player componentId={componentId} isNewUI={true} />
         </View>
       </View>

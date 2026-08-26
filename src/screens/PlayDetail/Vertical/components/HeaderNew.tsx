@@ -27,13 +27,13 @@ const AnimatedIndicatorDot = ({ isActive }: { isActive: boolean }) => {
     Animated.parallel([
       Animated.spring(animatedWidth, {
         toValue: isActive ? DOT_ACTIVE_WIDTH : DOT_INACTIVE_WIDTH,
-        useNativeDriver: false,
+        useNativeDriver: true,
         tension: 50,
         friction: 7,
       }),
       Animated.spring(animatedOpacity, {
         toValue: isActive ? 1 : 0.7,
-        useNativeDriver: false,
+        useNativeDriver: true,
         tension: 50,
         friction: 7,
       }),

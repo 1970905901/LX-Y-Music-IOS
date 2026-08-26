@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from 'react'
-import { View, ScrollView, Alert } from 'react-native'
+import { View, ScrollView, Alert, Image } from 'react-native'
 import { Navigation } from 'react-native-navigation'
 
 import Button from '@/components/common/Button'
@@ -142,6 +142,19 @@ const Content = () => {
         <Text selectable style={styles.text}>
           * 若协议更新，恕不另行通知，可到开源地址查看。
         </Text>
+        <View style={styles.rewardWrap}>
+          <Text selectable style={styles.bold}>
+            赞赏支持{'\n'}
+          </Text>
+          <Text selectable style={styles.text}>
+            若你觉得本软件不错，欢迎赞赏支持开发者：{'\n'}
+          </Text>
+          <Image
+            source={require('@/resources/images/reward-qrcode.jpg')}
+            style={styles.rewardImage}
+            resizeMode="contain"
+          />
+        </View>
       </ScrollView>
     </View>
   )
@@ -286,6 +299,18 @@ const styles = createStyle({
     paddingLeft: 15,
     paddingRight: 15,
     paddingBottom: 15,
+  },
+  rewardWrap: {
+    marginTop: 15,
+    paddingLeft: 10,
+    paddingRight: 10,
+    paddingBottom: 10,
+  },
+  rewardImage: {
+    width: 200,
+    height: 200,
+    marginTop: 10,
+    alignSelf: 'center',
   },
   btns: {
     flexDirection: 'row',

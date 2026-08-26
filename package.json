@@ -60,6 +60,7 @@
     "react-native-exception-handler": "^2.10.10",
     "react-native-file-system": "github:lyswhut/react-native-file-system#fcb0e6f55af684ac60598c720c77cfe0502f2c65",
     "react-native-fs": "^2.20.0",
+    "react-native-image-picker": "^7.2.3",
     "react-native-local-media-metadata": "github:lyswhut/react-native-local-media-metadata#1b5be310d112afce0df598d3e9c7521c3311049c",
     "react-native-navigation": "7.39.2",
     "react-native-pager-view": "6.7.1",
@@ -71,8 +72,8 @@
     "react-native-udp": "^4.1.7",
     "react-native-vector-icons": "10.2.0",
     "react-native-video": "^6.17.0",
-    "webdav": "^5.8.0",
-    "react-native-webview": "^13.16.0"
+    "react-native-webview": "^13.16.0",
+    "webdav": "^5.8.0"
   },
   "devDependencies": {
     "@babel/core": "^7.29.0",

@@ -99,6 +99,15 @@ const styles = createStyle({
     marginVertical: 4,
     marginHorizontal: 12,
   },
+  footer: {
+    paddingVertical: 6,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  footerBtn: {
+    padding: 8,
+  },
 })
 
 const Header = () => {
@@ -219,6 +228,13 @@ export default memo(() => {
   const rawCutoutLeft = useCutoutLeft()
   const cutoutLeft = isLandscapeStretch ? 0 : rawCutoutLeft
 
+  const handleHistoryPress = () => {
+    setNavActiveId('nav_play_history')
+  }
+  const handleDownloadPress = () => {
+    navigations.pushDownloadManagerScreen(commonState.componentIds[commonState.componentIds.length - 1]?.id!)
+  }
+
   return (
     <View style={{ ...styles.container, marginLeft: cutoutLeft, borderRightColor: theme['c-border-background'], backgroundColor: showSidebarBg ? 'transparent' : undefined }}>
       {showSidebarBg ? (
@@ -254,6 +270,15 @@ export default memo(() => {
       </ScrollView>
       {global.lx.isCarMode && showBackBtn ? <MenuItem id="back_home" icon="home" onPress={handlePress} /> : null}
       {global.lx.isCarMode && showExitBtn ? <MenuItem id="nav_exit" icon="exit2" onPress={handlePress} /> : null}
+
+      <View style={styles.footer}>
+        <TouchableOpacity style={styles.footerBtn} onPress={handleHistoryPress}>
+          <Icon name="music_time" size={22} color={theme['c-font-label']} />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.footerBtn} onPress={handleDownloadPress}>
+          <Icon name="download-2" size={20} color={theme['c-font-label']} />
+        </TouchableOpacity>
+      </View>
     </View>
   )
 })

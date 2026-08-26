@@ -73,6 +73,8 @@
 	</dict>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>用于局域网内获取歌词与声学指纹数据</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>用于选择自定义背景图片</string>
 	<key>UTImportedTypeDeclarations</key>
 	<array>
 		<dict>

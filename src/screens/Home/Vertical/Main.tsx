@@ -748,7 +748,7 @@ const styles = createStyle({
     bottom: 0,
     left: 0,
     zIndex: 1,
-    elevation: 1,
+    // iOS-only 项目，移除 Android 专属的 elevation，避免 iOS 侧样式/层级歧义
   },
   pageStyle: {
     // alignItems: 'center',

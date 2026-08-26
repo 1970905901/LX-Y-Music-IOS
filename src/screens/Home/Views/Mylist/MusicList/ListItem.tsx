@@ -17,9 +17,10 @@ import { handleLikeMusic, handleTxLikeMusic, handleKgLikeMusic } from '@/compone
 
 export const ITEM_HEIGHT = scaleSizeH(LIST_ITEM_HEIGHT)
 
-const useQualityTag = (musicInfo: LX.Music.MusicInfoOnline) => {
+const useQualityTag = (musicInfo: LX.Music.MusicInfo) => {
   const t = useI18n()
   let info: { type: BadgeType | null; text: string } = { type: null, text: '' }
+  if (musicInfo.source === 'local') return info
   const qualitys = (musicInfo.meta as LX.Music.MusicInfoMeta_online)?._qualitys ?? {}
   const showHighest = settingState.setting['common.quality_show_highest']
 
@@ -118,7 +119,7 @@ export default memo(
       }
     }
 
-    const tagInfo = item.source === 'local' ? { type: null, text: '' } : useQualityTag(item as LX.Music.MusicInfoOnline)
+    const tagInfo = useQualityTag(item)
 
     const handleShowMenu = () => {
       if (moreButtonRef.current?.measure) {

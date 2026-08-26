@@ -206,7 +206,7 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
   return (
     <>
       <Header isNewUI={true} pageIndex={pageIndex} />
-      <View style={styles.container} {...panResponder.panHandlers}>
+      <View style={styles.container}>
         <PagerView
           onPageSelected={onPageSelected}
           style={styles.pagerView}
@@ -214,7 +214,7 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
           scrollEnabled={!isProgressDragging}
         >
           <View collapsable={false} style={styles.pageContainer}>
-            <Animated.View collapsable={false} style={[styles.picPageContainerNew, slideStyle, { paddingTop: containerPaddingH }]}>
+            <Animated.View collapsable={false} {...panResponder.panHandlers} style={[styles.picPageContainerNew, slideStyle, { paddingTop: containerPaddingH }]}>
               <View style={styles.picContainer}>
                 <Pic componentId={componentId} maxCoverHeight={maxCoverHeight} />
               </View>

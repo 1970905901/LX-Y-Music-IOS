@@ -104,13 +104,18 @@ export const toggleRoma = (isShow: boolean) => {
   lrcTools.setLyric()
 }
 export const play = (time?: number) => {
-  // app_event.play() 多为无参触发（播放开始事件）。原始语义：从 lrc 当前时钟
-  // （新歌 setLyric 后为 0）起步，由逐秒 tick（playProgress.ts 用 getPosition() 实时
-  // 位置）持续重锚到真实音频位置。
-  // 不可默认用 nowPlayTime——残留上一首进度时歌词会被锚到错误位置 → 高亮行整体错位。
-  const playTime = (time ?? 0) * 1000
+  // 调用方统一传入【毫秒】（lrc-file-parser 的语义）：
+  //   - playProgress 的逐秒重锚 / setProgress 传 time*1000（秒→毫秒）
+  //   - 拖动预览 progressDragPreview、点击歌词行 line.time 直接传毫秒
+  //   - app_event.play() 等多为无参触发（播放开始事件），默认从 0 起步，
+  //     由 setLyric 的 getPosition() 实时重锚与逐秒 tick 持续校准到真实音频位置。
+  // ⚠ 切忌再对 time 做 *1000：014b7b1f 曾误加 *1000，叠加调用方已有的 *1000
+  //   形成双重换算（ms×1000），导致每次逐秒重锚都把歌词时钟拉到 1000 倍位置，
+  //   高亮行永远停在末尾 → ⑦“进度条与歌词高亮行对不齐”；且因 VerticalNew 让
+  //   Lyric 常驻挂载，错位的歌词 FlatList 每秒都在后台滚动、抢占 JS 线程 →
+  //   ⑥“左右滑页不顺滑”。恢复为「调用方传毫秒」的原始契约后两者一并消除。
   lrcTools.isPlay = true
-  lrcTools.lrc!.play(playTime)
+  lrcTools.lrc!.play(time ?? 0)
 }
 export const pause = () => {
   // console.log('pause')

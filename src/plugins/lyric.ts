@@ -123,6 +123,35 @@ export const pause = () => {
   lrcTools.lrc!.pause()
 }
 
+/**
+ * 仅按传入时间（ms）设置当前歌词行，不启动内部 ticker。
+ * 用于音频暂停/seek 等需要“歌词位置跟上播放头但不自动走字”的场景。
+ * 直接根据 currentLines 查找当前行，避免调用 play() 启动 ticker 导致暂停态歌词自行前进。
+ */
+export const setPlayTime = (time: number) => {
+  const lines = lrcTools.currentLines
+  if (!lines.length) {
+    if (lrcTools.currentLineData.line !== -1) {
+      lrcTools.currentLineData.line = -1
+      lrcTools.currentLineData.text = ''
+      lrcTools.onPlay(-1, '')
+    }
+    return
+  }
+  let lineIndex = lines.length - 1
+  for (let i = 0; i < lines.length; i++) {
+    if (time <= lines[i].time) {
+      lineIndex = i === 0 ? 0 : i - 1
+      break
+    }
+  }
+  const line = lines[lineIndex]
+  if (lrcTools.currentLineData.line === lineIndex && lrcTools.currentLineData.text === line.text) return
+  lrcTools.currentLineData.line = lineIndex
+  lrcTools.currentLineData.text = line.text
+  lrcTools.onPlay(lineIndex, line.text)
+}
+
 // on lyric play hook
 export const useLrcPlay = (autoUpdate = true) => {
   // 注意：初值必须是 currentLineData 的【副本】，绝不能直接引用这个可变对象。

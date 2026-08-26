@@ -2,7 +2,7 @@ import { updateListMusics } from '@/core/list'
 import { setMaxplayTime, setNowPlayTime } from '@/core/player/progress'
 import { play } from '@/core/player/player'
 import { setCurrentTime, getDuration, getPosition } from '@/plugins/player'
-import { play as lrcPlay } from '@/plugins/lyric'
+import { play as lrcPlay, setPlayTime } from '@/plugins/lyric'
 import { formatPlayTime2 } from '@/utils/common'
 import { savePlayInfo } from '@/utils/data'
 import { throttleBackgroundTimer } from '@/utils/tools'
@@ -48,18 +48,26 @@ export default () => {
     void getPosition().then((position) => {
       if (!position || id != playerState.musicInfo.id) return
       setNowPlayTime(position)
-      updateScrobblePlayTime(position)
 
-      if (!playerState.isPlay) return
-
-      // 长期同步：每拍用真实音频位置重锚歌词时钟，避免 seek/拖动/卡顿/倍速后
-      // 歌词解析器自身的墙钟与真实音频位置永久漂移（表现为“快进后/点歌词后对不齐”）。
-      // 拖动进度条期间由 progressDragPreview 事件接管歌词时钟，这里跳过，避免把预览高亮拽回旧位置。
+      // 歌词同步：无论播放还是暂停，只要没在拖动/seek 沉降窗口内，就用真实音频位置重锚。
+      // 播放态启动 lrc 内部 ticker（ lyrics 随时间前进）；暂停态仅 setPlayTime 更新当前行，
+      // 不启动 ticker，避免暂停时歌词自行前进。覆盖“暂停 seek / 后台重开 / 封面页歌词”等场景。
+      // 拖动进度条期间由 progressDragPreview 事件接管，这里跳过，避免把预览高亮拽回旧位置。
       // seek/点击后的 ~250ms 内跳过，避免把刚跳转的高亮行又拽回 seek 前的旧位置
       // （iOS 一次 seek 约需 ~180ms 才生效，期间 getPosition 仍是旧位置；250ms 已留足余量）。
       if (!isDragging && Date.now() - lastSeekTime > 250) {
-        try { lrcPlay(position * 1000) } catch {}
+        try {
+          if (playerState.isPlay) {
+            lrcPlay(position * 1000)
+          } else {
+            setPlayTime(position * 1000)
+          }
+        } catch {}
       }
+
+      if (!playerState.isPlay) return
+
+      updateScrobblePlayTime(position)
       if (
         settingState.setting['player.isSavePlayTime'] &&
         !playerState.playMusicInfo.isTempPlay &&
@@ -117,10 +125,17 @@ export default () => {
     if (!playerState.musicInfo.id) return
     lastSeekTime = Date.now()
     setNowPlayTime(time)
-    updateScrobblePlayTime(time)
+    if (playerState.isPlay) updateScrobblePlayTime(time)
     void setCurrentTime(time)
-    // 跳转进度时同步校正歌词时钟：点击歌词段落 / 拖动进度条后让高亮行立即跟随
-    try { lrcPlay(time * 1000) } catch {}
+    // 跳转进度时同步校正歌词：播放态启动 ticker，暂停态仅更新当前行，
+    // 避免暂停 seek 后歌词自行前进。
+    try {
+      if (playerState.isPlay) {
+        lrcPlay(time * 1000)
+      } else {
+        setPlayTime(time * 1000)
+      }
+    } catch {}
     if (maxTime != null) {
       setMaxplayTime(maxTime)
       updateScrobbleTotalTime(maxTime)
@@ -132,7 +147,14 @@ export default () => {
   let lastPreviewTime = 0
   const handleProgressDragPreview = (time: number) => {
     if (!playerState.musicInfo.id) return
-    try { lrcPlay(time) } catch {}
+    // 拖动预览歌词：播放态启动 ticker 随音频走；暂停态仅更新当前行，不启动 ticker。
+    try {
+      if (playerState.isPlay) {
+        lrcPlay(time)
+      } else {
+        setPlayTime(time)
+      }
+    } catch {}
     // 拖动过程中同步 seek 音频（秒），避免歌词跳到手指位置而音频仍停在原处导致的不同步。
     // 仅在时间变化时 seek，减少重复 seek 开销。
     if (time !== lastPreviewTime) {
@@ -161,7 +183,8 @@ export default () => {
   }
 
   const handlePause = () => {
-    clearUpdateTimeout()
+    // 不再清除 updateTimeout：暂停时仍保持 250ms 轮询，使歌词（含封面页 MiniLyric）
+    // 始终与音频当前位置同步。播放/保存/Scrobble 等播放态专属逻辑由 getCurrentTime 内部判断。
   }
 
   const handleStop = () => {
@@ -202,7 +225,9 @@ export default () => {
   const handleScreenStateChanged: Parameters<typeof onScreenStateChange>[0] = (state) => {
     isScreenOn = state == 'ON'
     if (isScreenOn) {
-      if (playerState.isPlay) startUpdateTimeout()
+      // 亮屏时即启动轮询：无论播放/暂停都保持歌词与音频位置同步
+      // （暂停 seek / 后台重开 / 封面页 MiniLyric 等场景）。
+      startUpdateTimeout()
     } else clearUpdateTimeout()
   }
 

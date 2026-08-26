@@ -6,6 +6,7 @@ import { zzcSign } from './utils/crypto'
 import dailyRec from './dailyRec'
 import { log } from '@/utils/log'
 import settingState from '@/store/setting/state'
+import musicSearchApi from './musicSearch'
 
 export default {
   _requestObj_tags: null,
@@ -534,17 +535,21 @@ export default {
 
   handleSearchResult(rawList) {
     if (!rawList || !Array.isArray(rawList)) return []
+    // 兼容两种歌单来源：
+    //  - SearchCgiService(search_type=3)：item_songlist，字段 nickname/logo/songnum/description
+    //  - 老接口 client_music_search_songlist：字段 creator.name/imgurl/song_count/introduction
+    const stripEm = (str) => (str || '').replace(/<[^>]+>/g, '')
     return rawList.map((item) => {
       const creator = item.creator || item.creator_info || {}
       return {
         play_count: formatPlayCount(item.listennum ?? item.playnum ?? item.play_count ?? item.access_num ?? 0),
         id: String(item.dissid ?? item.tid ?? item.id ?? ''),
-        author: decodeName(creator.name ?? creator.nick ?? ''),
-        name: decodeName(item.dissname ?? item.title ?? ''),
+        author: decodeName(item.nickname ?? creator.name ?? creator.nick ?? ''),
+        name: decodeName(stripEm(item.dissname ?? item.title ?? '')),
         time: dateFormat(item.createtime ?? item.create_time, 'Y-M-D'),
-        img: item.imgurl ?? item.cover_url_medium ?? item.cover_url ?? item.cover ?? '',
-        total: item.song_count ?? item.songnum ?? item.total ?? 0,
-        desc: decodeName(decodeName(item.introduction ?? item.desc ?? '')).replace(/<br>/g, '\n'),
+        img: item.logo ?? item.imgurl ?? item.cover_url_medium ?? item.cover_url ?? item.cover ?? '',
+        total: item.songnum ?? item.song_count ?? item.total ?? 0,
+        desc: decodeName(stripEm(item.description ?? item.introduction ?? item.desc ?? '')).replace(/<br>/g, '\n'),
         source: 'tx',
       }
     }).filter(item => item.id)
@@ -575,12 +580,20 @@ export default {
     })
   },
 
-  // 企鹅音乐歌单搜索：直接走 client_music_search_songlist 接口（searchOld）。
-  // 与上游 lx-music-mobile 实现一致；经验证该接口可稳定返回 body.data.list，
-  // 由 handleSearchResult 映射 dissid/dissname/creator.name/imgurl/listennum/song_count/introduction。
-  // 注意：SearchCgiService（search_type=3）返回结构与歌单不一致，不能作为歌单搜索来源。
-  search(text, page, limit = 20, retryNum = 0) {
-    if (retryNum > 5) throw new Error('max retry')
-    return this.searchOld(text, page, limit, retryNum)
+  // 企鹅音乐歌单搜索：走 SearchCgiService(search_type=3)，与歌曲/歌手/专辑搜索同源，
+  // 由 signRequest(musics.fcg) 签名请求。已用真实接口验证返回结构：
+  //   musicSearch(...,3) 返回 body.req.data，歌单列表位于 data.body.item_songlist，
+  //   meta 位于 data.meta（含 estimate_sum）。失败则兜底 searchOld（老接口）。
+  search(text, page, limit = 20) {
+    return musicSearchApi.musicSearch(text, page, limit, 3).then((data) => {
+      const rawList = data?.body?.item_songlist || []
+      const list = this.handleSearchResult(rawList)
+      return {
+        list,
+        limit,
+        total: data?.meta?.estimate_sum ?? data?.meta?.sum ?? list.length,
+        source: 'tx',
+      }
+    }).catch(() => this.searchOld(text, page, limit))
   },
 }

@@ -11,7 +11,7 @@ import settingState from '@/store/setting/state'
 import { onScreenStateChange } from '@/utils/nativeModules/utils'
 import { AppState } from 'react-native'
 import { updateScrobblePlayTime, updateScrobbleTotalTime } from '@/core/player/scrobble'
-import { LIST_IDS } from "@/config/constant.ts"
+import { LIST_IDS } from '@/config/constant.ts'
 import listState from '@/store/list/state'
 
 const delaySavePlayInfo = throttleBackgroundTimer(() => {
@@ -69,7 +69,7 @@ export default () => {
     })
   }
 
-  const getMaxTime = async () => {
+  const getMaxTime = async() => {
     const duration = await getDuration()
     setMaxplayTime(duration)
     updateScrobbleTotalTime(duration)
@@ -159,7 +159,7 @@ export default () => {
   const handleSetPlayInfo = () => {
     handlePause()
     if (!playerState.playMusicInfo.isTempPlay) {
-      const playMusicInfo = playerState.playMusicInfo;
+      const playMusicInfo = playerState.playMusicInfo
       if (!playMusicInfo.listId) return
 
       const playInfoToSave: LX.Player.SavedPlayInfo = {

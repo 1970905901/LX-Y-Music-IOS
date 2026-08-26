@@ -61,7 +61,7 @@ export default () => {
   const { onLayout, height, width } = useLayout()
   const size = Math.max(
     Math.min(height * 0.65, (width - marginLeft) * 0.52 * 0.3) * global.lx.fontSize,
-    MIN_SIZE
+    MIN_SIZE,
   )
   return (
     <View style={{ ...styles.content, gap: size * 0.5 }} onLayout={onLayout}>

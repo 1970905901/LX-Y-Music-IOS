@@ -20,9 +20,9 @@ export default memo(() => {
   const isSmallWindow = winHeight < 700
   const musicInfo = playMusicInfo.musicInfo ? ('progress' in playMusicInfo.musicInfo ? playMusicInfo.musicInfo.metadata.musicInfo : playMusicInfo.musicInfo) : null
 
-  const handleArtistPress = (artist: { id: string | number; mid?: string; name: string }) => {
+  const handleArtistPress = (artist: { id: string | number, mid?: string, name: string }) => {
     if (!musicInfo || (musicInfo.source !== 'wy' && musicInfo.source !== 'tx' && musicInfo.source !== 'kg') || !artist.id) return
-    navigations.pushArtistDetailScreen(commonState.componentIds[commonState.componentIds.length - 1]?.id!, { id: String(artist.id), mid: artist.mid, name: artist.name, source: musicInfo.source })
+    navigations.pushArtistDetailScreen(commonState.componentIds[commonState.componentIds.length - 1]?.id, { id: String(artist.id), mid: artist.mid, name: artist.name, source: musicInfo.source })
   }
 
   const handleAlbumPress = () => {
@@ -33,9 +33,9 @@ export default memo(() => {
     const albumMid = (musicInfo.meta as any)?.albumMid || musicInfo.albumMid || albumId
     if (!albumId || !albumName) return
     if (musicInfo.source === 'tx') {
-      navigations.pushAlbumDetailScreen(commonState.componentIds[commonState.componentIds.length - 1]?.id!, { id: String(albumId), mid: albumMid, name: albumName, source: 'tx' })
+      navigations.pushAlbumDetailScreen(commonState.componentIds[commonState.componentIds.length - 1]?.id, { id: String(albumId), mid: albumMid, name: albumName, source: 'tx' })
     } else {
-      navigations.pushAlbumDetailScreen(commonState.componentIds[commonState.componentIds.length - 1]?.id!, { id: String(albumId), name: albumName, source: musicInfo.source })
+      navigations.pushAlbumDetailScreen(commonState.componentIds[commonState.componentIds.length - 1]?.id, { id: String(albumId), name: albumName, source: musicInfo.source })
     }
   }
 
@@ -110,7 +110,7 @@ export default memo(() => {
         {artists.length > 0 ? (
           <View style={styles.artistRow}>
             {artists.map((artist, index) => (
-              <TouchableOpacity key={artist.id || index} onPress={() => handleArtistPress(artist)}>
+              <TouchableOpacity key={artist.id || index} onPress={() => { handleArtistPress(artist) }}>
                 <Text numberOfLines={1} size={16} color={theme['c-font-secondary']}>
                   {artist.name}
                   {index < artists.length - 1 ? '、' : ''}
@@ -119,7 +119,7 @@ export default memo(() => {
             ))}
           </View>
         ) : (
-          <TouchableOpacity onPress={() => handleShowArtistDetail(commonState.componentIds[commonState.componentIds.length - 1]?.id!, musicInfo)}>
+          <TouchableOpacity onPress={async() => handleShowArtistDetail(commonState.componentIds[commonState.componentIds.length - 1]?.id, musicInfo)}>
             <Text numberOfLines={1} size={16} color={theme['c-font-secondary']}>
               {artistText}
             </Text>

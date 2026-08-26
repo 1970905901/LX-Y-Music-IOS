@@ -4,17 +4,18 @@ import { SvgIcon } from '@/components/common/SvgIcon'
 import { createStyle } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
 import { scaleSizeW } from '@/utils/pixelRatio'
-import React, { forwardRef } from 'react'
+import type React from 'react'
+import { forwardRef } from 'react'
 
 export const BTN_WIDTH = scaleSizeW(36)
 export const BTN_ICON_SIZE = 24
 
 const Btn = forwardRef(({
-                          icon,
-                          color,
-                          onPress,
-                          onLongPress,
-                        }: {
+  icon,
+  color,
+  onPress,
+  onLongPress,
+}: {
   icon: string
   color?: string
   onPress: () => void
@@ -29,8 +30,8 @@ const Btn = forwardRef(({
       onPress={onPress}
       onLongPress={onLongPress}
     >
-      {icon.startsWith('svg:') 
-        ? <SvgIcon name={icon.replace('svg:', '')} color={color ?? theme['c-font-label']} size={BTN_ICON_SIZE} /> 
+      {icon.startsWith('svg:')
+        ? <SvgIcon name={icon.replace('svg:', '')} color={color ?? theme['c-font-label']} size={BTN_ICON_SIZE} />
         : <Icon name={icon} color={color ?? theme['c-font-label']} size={BTN_ICON_SIZE} />
       }
     </TouchableOpacity>

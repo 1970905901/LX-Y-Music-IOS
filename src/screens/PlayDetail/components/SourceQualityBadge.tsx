@@ -20,7 +20,7 @@ const SOURCE_ABBR: Record<string, string> = {
   gitee: 'GITEE',
 }
 
-function getQualityBadge(quality: string, t: (k: string) => string): { label: string; type: BadgeType } {
+function getQualityBadge(quality: string, t: (k: string) => string): { label: string, type: BadgeType } {
   switch (quality) {
     case 'master':
       return { label: t('quality_lossless_master'), type: 'vip' }

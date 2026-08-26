@@ -24,8 +24,8 @@ export default ({
       activeOpacity={0.5}
       onPress={onPress}
     >
-      {icon.startsWith('svg:') 
-        ? <SvgIcon name={icon.replace('svg:', '')} color={color ?? theme['c-font-label']} size={BTN_ICON_SIZE} /> 
+      {icon.startsWith('svg:')
+        ? <SvgIcon name={icon.replace('svg:', '')} color={color ?? theme['c-font-label']} size={BTN_ICON_SIZE} />
         : <Icon name={icon} color={color ?? theme['c-font-label']} size={BTN_ICON_SIZE} />
       }
     </TouchableOpacity>

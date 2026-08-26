@@ -1,140 +1,140 @@
-import { memo, useState, useCallback, useMemo, useEffect } from 'react';
-import { View } from 'react-native';
-import Section from '../../components/Section';
-import SubTitle from '../../components/SubTitle';
-import InputItem from '../../components/InputItem';
-import Button from '../../components/Button';
-import CheckBoxItem from '../../components/CheckBoxItem';
-import History from './History';
-import { useI18n } from '@/lang';
-import { useSettingValue } from '@/store/setting/hook';
-import { updateSetting } from '@/core/common';
-import { createStyle, toast } from '@/utils/tools';
-import { dateFormat } from '@/utils/common';
-import { useTheme } from '@/store/theme/hook';
-import Text from '@/components/common/Text';
-import { getSyncHost } from '@/utils/data';
-import { testConnection, resetClient } from '@/utils/webdav';
+import { memo, useState, useCallback, useMemo, useEffect } from 'react'
+import { View } from 'react-native'
+import Section from '../../components/Section'
+import SubTitle from '../../components/SubTitle'
+import InputItem from '../../components/InputItem'
+import Button from '../../components/Button'
+import CheckBoxItem from '../../components/CheckBoxItem'
+import History from './History'
+import { useI18n } from '@/lang'
+import { useSettingValue } from '@/store/setting/hook'
+import { updateSetting } from '@/core/common'
+import { createStyle, toast } from '@/utils/tools'
+import { dateFormat } from '@/utils/common'
+import { useTheme } from '@/store/theme/hook'
+import Text from '@/components/common/Text'
+import { getSyncHost } from '@/utils/data'
+import { testConnection, resetClient } from '@/utils/webdav'
 import {
   triggerWebDAVSync,
   manualUploadSettingsAndApis,
   manualDownloadSettingsAndApis,
   manualUploadLists,
   manualDownloadLists,
-} from '@/core/sync/webdavSync';
-import IsEnable from "@/screens/Home/Views/Setting/settings/Sync/IsEnable.tsx";
+} from '@/core/sync/webdavSync'
+import IsEnable from '@/screens/Home/Views/Setting/settings/Sync/IsEnable.tsx'
 
 export default memo(() => {
-  const t = useI18n();
-  const theme = useTheme();
-  const isEnableWebdav = useSettingValue('sync.webdav.enable');
-  const isSyncLists = useSettingValue('sync.webdav.syncLists');
-  const isSyncPlayHistory = useSettingValue('sync.webdav.syncPlayHistory');
-  const isSyncDownloadTasks = useSettingValue('sync.webdav.syncDownloadTasks');
-  const webdavUrl = useSettingValue('sync.webdav.url');
-  const webdavUsername = useSettingValue('sync.webdav.username');
-  const webdavPassword = useSettingValue('sync.webdav.password');
-  const webdavPath = useSettingValue('sync.webdav.path');
-  
-  const lastSyncTimeLists = useSettingValue('sync.webdav.lastSyncTimeLists');
+  const t = useI18n()
+  const theme = useTheme()
+  const isEnableWebdav = useSettingValue('sync.webdav.enable')
+  const isSyncLists = useSettingValue('sync.webdav.syncLists')
+  const isSyncPlayHistory = useSettingValue('sync.webdav.syncPlayHistory')
+  const isSyncDownloadTasks = useSettingValue('sync.webdav.syncDownloadTasks')
+  const webdavUrl = useSettingValue('sync.webdav.url')
+  const webdavUsername = useSettingValue('sync.webdav.username')
+  const webdavPassword = useSettingValue('sync.webdav.password')
+  const webdavPath = useSettingValue('sync.webdav.path')
 
-  const [isTesting, setIsTesting] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const [isDownloading, setIsDownloading] = useState(false);
-  const [isUploadingLists, setIsUploadingLists] = useState(false);
-  const [isDownloadingLists, setIsDownloadingLists] = useState(false);
-  const [host, setHost] = useState('');
+  const lastSyncTimeLists = useSettingValue('sync.webdav.lastSyncTimeLists')
+
+  const [isTesting, setIsTesting] = useState(false)
+  const [isSyncing, setIsSyncing] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
+  const [isDownloading, setIsDownloading] = useState(false)
+  const [isUploadingLists, setIsUploadingLists] = useState(false)
+  const [isDownloadingLists, setIsDownloadingLists] = useState(false)
+  const [host, setHost] = useState('')
 
   useEffect(() => {
-    void getSyncHost().then(setHost);
-  }, []);
+    void getSyncHost().then(setHost)
+  }, [])
 
   const lastSyncTimeListsStr = useMemo(() => {
-    return lastSyncTimeLists ? dateFormat(lastSyncTimeLists, 'Y-M-D h:m:s') : '从未';
-  }, [lastSyncTimeLists]);
+    return lastSyncTimeLists ? dateFormat(lastSyncTimeLists, 'Y-M-D h:m:s') : '从未'
+  }, [lastSyncTimeLists])
 
 
   const handleEnableWebDAV = (enable: boolean) => {
     // 启用 WebDAV 同步时，自动开启“同步歌单”，避免仅连接而不同步歌单导致列表为空
     if (enable) {
-      updateSetting({ 'sync.webdav.enable': enable, 'sync.webdav.syncLists': true });
+      updateSetting({ 'sync.webdav.enable': enable, 'sync.webdav.syncLists': true })
     } else {
-      updateSetting({ 'sync.webdav.enable': enable });
+      updateSetting({ 'sync.webdav.enable': enable })
     }
-    resetClient();
+    resetClient()
   }
 
   const handleEnableListSync = (enable: boolean) => {
-    updateSetting({ 'sync.webdav.syncLists': enable });
-  };
+    updateSetting({ 'sync.webdav.syncLists': enable })
+  }
 
   const handleEnablePlayHistorySync = (enable: boolean) => {
-    updateSetting({ 'sync.webdav.syncPlayHistory': enable });
-  };
+    updateSetting({ 'sync.webdav.syncPlayHistory': enable })
+  }
 
   const handleEnableDownloadTasksSync = (enable: boolean) => {
-    updateSetting({ 'sync.webdav.syncDownloadTasks': enable });
-  };
+    updateSetting({ 'sync.webdav.syncDownloadTasks': enable })
+  }
 
-  const handleTestConnection = useCallback(async () => {
-    if (isTesting) return;
-    setIsTesting(true);
-    toast('正在测试连接...');
+  const handleTestConnection = useCallback(async() => {
+    if (isTesting) return
+    setIsTesting(true)
+    toast('正在测试连接...')
     try {
-      await testConnection();
-      toast('连接成功！');
+      await testConnection()
+      toast('连接成功！')
     } catch (error: any) {
-      toast(`连接失败: ${error.message}`, 'long');
+      toast(`连接失败: ${error.message}`, 'long')
     } finally {
-      setIsTesting(false);
+      setIsTesting(false)
     }
-  }, [isTesting]);
+  }, [isTesting])
 
-  const handleSyncNow = useCallback(async () => {
-    if (isSyncing) return;
-    setIsSyncing(true);
+  const handleSyncNow = useCallback(async() => {
+    if (isSyncing) return
+    setIsSyncing(true)
     try {
-      await triggerWebDAVSync(true);
+      await triggerWebDAVSync(true)
     } finally {
-      setIsSyncing(false);
+      setIsSyncing(false)
     }
-  }, [isSyncing]);
+  }, [isSyncing])
 
-  const handleUpload = useCallback(async () => {
-    if (isUploading) return;
-    setIsUploading(true);
-    await manualUploadSettingsAndApis();
-    setIsUploading(false);
-  }, [isUploading]);
+  const handleUpload = useCallback(async() => {
+    if (isUploading) return
+    setIsUploading(true)
+    await manualUploadSettingsAndApis()
+    setIsUploading(false)
+  }, [isUploading])
 
-  const handleDownload = useCallback(async () => {
-    if (isDownloading) return;
-    setIsDownloading(true);
-    await manualDownloadSettingsAndApis();
-    setIsDownloading(false);
-  }, [isDownloading]);
+  const handleDownload = useCallback(async() => {
+    if (isDownloading) return
+    setIsDownloading(true)
+    await manualDownloadSettingsAndApis()
+    setIsDownloading(false)
+  }, [isDownloading])
 
-  const handleUploadLists = useCallback(async () => {
-    if (isUploadingLists) return;
-    setIsUploadingLists(true);
-    await manualUploadLists();
-    setIsUploadingLists(false);
-  }, [isUploadingLists]);
+  const handleUploadLists = useCallback(async() => {
+    if (isUploadingLists) return
+    setIsUploadingLists(true)
+    await manualUploadLists()
+    setIsUploadingLists(false)
+  }, [isUploadingLists])
 
-  const handleDownloadLists = useCallback(async () => {
-    if (isDownloadingLists) return;
-    setIsDownloadingLists(true);
-    await manualDownloadLists();
-    setIsDownloadingLists(false);
-  }, [isDownloadingLists]);
+  const handleDownloadLists = useCallback(async() => {
+    if (isDownloadingLists) return
+    setIsDownloadingLists(true)
+    await manualDownloadLists()
+    setIsDownloadingLists(false)
+  }, [isDownloadingLists])
 
 
   const handleWebdavSettingChanged = (key: keyof LX.AppSetting) => (text: string, callback: (value: string) => void) => {
-    updateSetting({ [key]: text });
-    resetClient();
-    callback(text);
-  };
+    updateSetting({ [key]: text })
+    resetClient()
+    callback(text)
+  }
 
   return (
     <Section title={t('setting_sync')} sectionId="setting_sync">
@@ -234,8 +234,8 @@ export default memo(() => {
       <IsEnable host={host} setHost={setHost} />
       <History setHost={setHost} />
     </Section>
-  );
-});
+  )
+})
 
 const styles = createStyle({
   btnRow: {
@@ -248,4 +248,4 @@ const styles = createStyle({
     paddingLeft: 25,
     marginTop: 5,
   },
-});
+})

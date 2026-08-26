@@ -9,6 +9,7 @@ import { useStatusbarHeight } from '@/store/common/hook';
 import { useSettingValue } from '@/store/setting/hook';
 import { createStyle, toast, requestStoragePermission } from '@/utils/tools';
 import Menu, { type MenuType, type Menus } from '@/components/common/Menu';
+import SourceQualityBadge from '../components/SourceQualityBadge';
 import { addTask } from '@/core/download';
 import RNFetchBlob from '@/utils/rnFetchBlob';
 import { getPicUrl } from '@/core/music/online';
@@ -228,6 +229,11 @@ export default memo(({ componentId, maxCoverHeight }: { componentId: string, max
 
   return (
     <View style={containerStyle}>
+      {!isNewUI && (
+        <View style={styles.badgeContainer}>
+          <SourceQualityBadge />
+        </View>
+      )}
       <TouchableWithoutFeedback onLongPress={handleLongPress}>
         <View
           ref={coverRef}
@@ -267,6 +273,12 @@ const styles = createStyle({
     flexShrink: 0,
     marginTop: 30,
     paddingBottom: 5,
+  },
+  badgeContainer: {
+    alignSelf: 'stretch',
+    alignItems: 'flex-start',
+    paddingHorizontal: 20,
+    paddingBottom: 8,
   },
   content: {
     backgroundColor: 'rgba(0,0,0,0)',

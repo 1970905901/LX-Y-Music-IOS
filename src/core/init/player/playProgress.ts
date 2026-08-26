@@ -141,6 +141,15 @@ export default () => {
   const handlePlay = () => {
     void getMaxTime()
     startUpdateTimeout()
+    // 从暂停 / 后台返回后恢复播放的瞬间，立即用引擎实时位置重锚歌词时钟，
+    // 避免首句高亮与音频真实位置错位，覆盖「暂停→后台→重开→播放」场景。
+    if (playerState.musicInfo.id) {
+      void getPosition().then((position) => {
+        if (position != null && playerState.musicInfo.id) {
+          try { lrcPlay(position * 1000) } catch {}
+        }
+      })
+    }
   }
 
   const handlePause = () => {

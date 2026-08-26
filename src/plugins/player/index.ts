@@ -40,6 +40,10 @@ const initial = async({ volume, playRate, cacheSize, isHandleAudioFocus, isEnabl
     handleAudioFocus: isHandleAudioFocus,
     audioOffload: isEnableAudioOffload,
     autoUpdateMetadata: false,
+    // iOS 音频焦点：关闭时允许与其他 App 混音，避免被系统强制中断；
+    // 开启时使用标准 Playback 分类，其他 App 出声时系统会发起中断。
+    iosCategory: 'playback',
+    iosCategoryOptions: isHandleAudioFocus ? [] : ['mixWithOthers'],
   })
   global.lx.playerStatus.isInitialized = true
   global.lx.playerStatus.isIniting = false

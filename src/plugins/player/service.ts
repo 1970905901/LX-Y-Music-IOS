@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-misused-promises */
-import TrackPlayer, { Event as TPEvent } from 'react-native-track-player'
+import TrackPlayer, { Event as TPEvent, State } from 'react-native-track-player'
 import { Platform } from 'react-native'
 import { pause, play, playNext, playPrev } from '@/core/player/player'
 import { markTimeoutExitInteraction } from '@/core/player/timeoutExit'
@@ -67,37 +67,31 @@ const registerPlaybackService = async() => {
     exitApp('Remote Stop')
   })
 
-  TrackPlayer.addEventListener(TPEvent.RemoteDuck, ({ permanent, paused, ducking }) => {
-    // 设置关闭时，完全不理会音频焦点事件：既不暂停也不自动恢复，
-    // 让用户自行控制播放（例如边玩游戏边听歌）。
+  TrackPlayer.addEventListener(TPEvent.RemoteDuck, async ({ permanent, paused, ducking }) => {
+    // 设置关闭时，完全不理会音频焦点事件：既不暂停也不自动恢复。
+    // iOS 侧已通过 iosCategoryOptions: ['mixWithOthers'] 避免系统强制中断。
     if (!settingState.setting['player.isHandleAudioFocus']) return
 
-    // On iOS, interruptions surface through RemoteDuck and we need to explicitly
-    // restore playback/volume after the system finishes ducking or pausing audio.
+    // permanent 中断：系统明确告知中断结束后不应自动恢复（Android / iOS）。
     if (permanent) {
-      // iOS 上“其它应用开始播放音频”属于 permanent 中断（系统未给出 ShouldResume 提示）。
-      // 记住中断前是否在播放，待中断结束（ended）事件到达时再恢复，而非永久停住。
-      shouldResumeAfterDuck ||= playerState.isPlay
+      shouldResumeAfterDuck = false
       clearDuckRecoveryTimeouts()
       if (paused) void pause()
       return
     }
 
-    if (ducking) {
-      shouldResumeAfterDuck ||= playerState.isPlay
+    // 中断开始：iOS 发送 { paused: true }，Android 可能发送 { ducking: true }。
+    // 以 TrackPlayer 当前真实状态为准，避免 playerState.isPlay 因并发状态更新
+    // 已被提前置为 false，导致中断结束后无法自动恢复。
+    if (paused || ducking) {
       clearDuckRecoveryTimeouts()
+      const state = await TrackPlayer.getState().catch(() => null)
+      if (state == State.Playing) shouldResumeAfterDuck = true
+      if (paused) void pause()
       return
     }
 
-    if (paused) {
-      // 使用 ||= 保留已有的恢复意图，避免系统连续派发多个 paused 事件时
-      // 把 shouldResumeAfterDuck 重置为 false，导致中断结束后无法自动恢复。
-      shouldResumeAfterDuck ||= playerState.isPlay
-      clearDuckRecoveryTimeouts()
-      void pause()
-      return
-    }
-
+    // 中断结束 / ducking 结束：恢复音量，并根据恢复意图继续播放。
     if (Platform.OS == 'ios' || ducking === false) restoreConfiguredVolume()
 
     if (shouldResumeAfterDuck) {

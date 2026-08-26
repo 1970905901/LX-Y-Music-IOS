@@ -128,28 +128,20 @@ const Progress = ({
         <DefaultBar />
         <BufferedBar progress={buffered} />
         {draging ? (
-          <>
-            <View
-              style={{
-                ...styles.progressBar,
-                backgroundColor: activeColor,
-                width: progressStr,
-                position: 'absolute',
-                left: 0,
-                top: 0,
-              }}
-            />
-            <View
-              style={{
-                ...styles.progressBar,
-                backgroundColor: activeColor,
-                width: `${dragProgress * 100}%`,
-                position: 'absolute',
-                left: 0,
-                top: 0,
-              }}
-            />
-          </>
+          // 拖动期间只渲染拖动进度条：
+          // 左右拖动时进度条都会实时跟随手指；
+          // 若同时显示当前进度条，左拖时拖动条会被更长的当前进度条覆盖，
+          // 表现为“直接跳到位置、没有动效”。
+          <View
+            style={{
+              ...styles.progressBar,
+              backgroundColor: activeColor,
+              width: `${dragProgress * 100}%`,
+              position: 'absolute',
+              left: 0,
+              top: 0,
+            }}
+          />
         ) : (
           <View
             style={{

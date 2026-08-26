@@ -92,6 +92,73 @@ export default {
       return body.req.data
     })
   },
+
+  // 桌面端 SearchCgiService，用于歌单/MV 等移动端接口不稳定或返回空的场景
+  musicSearchDesktop(str, page, limit, searchType = 0, retryNum = 0) {
+    if (retryNum > 5) return Promise.reject(new Error('搜索失败'))
+    txLog.info('=== musicSearchDesktop 开始 ===', {
+      searchType: getSearchTypeName(searchType),
+      query: str,
+      page,
+      limit,
+      retryNum,
+      timestamp: new Date().toISOString(),
+    })
+    const searchRequest = signRequest({
+      comm: getComm(),
+      req: {
+        module: 'music.search.SearchCgiService',
+        method: 'DoSearchForQQMusicDesktop',
+        param: {
+          search_type: searchType,
+          searchid: Math.random().toString().slice(2),
+          query: str,
+          page_num: page,
+          num_per_page: limit,
+          highlight: 0,
+          nqc_flag: 0,
+          multi_zhida: 0,
+          cat: 2,
+          grp: 0,
+          sin: 0,
+          sem: 0,
+        },
+      },
+    })
+    return searchRequest.then(({ body }) => {
+      txLog.info('=== musicSearchDesktop 请求成功 ===', {
+        searchType: getSearchTypeName(searchType),
+        query: str,
+        page,
+        responseKeys: body ? Object.keys(body) : [],
+        reqCode: body?.req?.code,
+        bodyCode: body?.code,
+        hasData: !!(body?.req?.data),
+        dataKeys: body?.req?.data ? Object.keys(body.req.data) : [],
+      })
+
+      if (!body || !body.req || body.code != this.successCode || body.req.code != this.successCode) {
+        txLog.warn('=== musicSearchDesktop 请求失败，准备重试 ===', {
+          query: str,
+          page,
+          bodyCode: body?.code,
+          reqCode: body?.req?.code,
+          retryNum: retryNum + 1,
+        })
+        return this.musicSearchDesktop(str, page, limit, searchType, ++retryNum)
+      }
+      txLog.info('=== musicSearchDesktop 返回数据概览 ===', {
+        searchType: getSearchTypeName(searchType),
+        query: str,
+        itemSongCount: body.req.data?.item_song?.length || 0,
+        itemSonglistCount: body.req.data?.item_songlist?.length || 0,
+        bodySonglistCount: body.req.data?.body?.songlist?.list?.length || 0,
+        meta: body.req.data?.meta,
+      })
+      return body.req.data
+    })
+  },
+
   handleResult(rawList) {
     if (!rawList || !Array.isArray(rawList)) return []
     const list = []

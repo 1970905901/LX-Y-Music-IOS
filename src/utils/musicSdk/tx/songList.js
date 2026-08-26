@@ -581,24 +581,54 @@ export default {
     if (retryNum > 5) throw new Error('max retry')
     // 歌单搜索改用与歌曲/歌手/专辑统一的 SearchCgiService 接口（search_type=3），
     // 旧的 soso 歌单搜索接口已频繁返回失败。
-    return musicSearchApi.musicSearch(text, page, limit, 3).then(({ body, meta }) => {
+    // musicSearch 返回的是 data 对象本身（不是 { body, meta }），需兼容多种可能的字段路径。
+    return musicSearchApi.musicSearch(text, page, limit, 3).then((data) => {
       txLog.info('[TX SongList] search musicSearch 返回', {
         query: text,
         page,
-        bodyKeys: body ? Object.keys(body) : [],
-        itemSonglistLength: body?.item_songlist?.length ?? 0,
-        itemPlaylistLength: body?.item_playlist?.length ?? 0,
+        dataKeys: data ? Object.keys(data) : [],
+        itemSonglistLength: data?.item_songlist?.length ?? 0,
+        itemPlaylistLength: data?.item_playlist?.length ?? 0,
+        bodySonglistLength: data?.body?.songlist?.list?.length ?? 0,
+        meta: data?.meta,
       })
-      const rawList = body.item_songlist || body.item_playlist || body.playlist || []
+      const rawList = data?.item_songlist || data?.item_playlist || data?.playlist ||
+        data?.body?.songlist?.list || data?.body?.playlist?.list || []
       const list = this.handleSearchResult(rawList)
       return {
         list,
         limit,
-        total: meta?.estimate_sum ?? list.length,
+        total: data?.meta?.estimate_sum ?? data?.meta?.sum ?? list.length,
         source: 'tx',
       }
     }).catch((err) => {
-      txLog.warn('[TX SongList] search musicSearch 失败，降级旧接口', { error: err.message, retryNum: retryNum + 1 })
+      txLog.warn('[TX SongList] search musicSearch 失败，降级桌面端接口', { error: err.message, retryNum: retryNum + 1 })
+      return this.searchDesktop(text, page, limit, retryNum)
+    })
+  },
+
+  searchDesktop(text, page, limit = 20, retryNum = 0) {
+    if (retryNum > 5) throw new Error('max retry')
+    return musicSearchApi.musicSearchDesktop(text, page, limit, 3).then((data) => {
+      txLog.info('[TX SongList] searchDesktop 返回', {
+        query: text,
+        page,
+        dataKeys: data ? Object.keys(data) : [],
+        bodySonglistLength: data?.body?.songlist?.list?.length ?? 0,
+        bodyPlaylistLength: data?.body?.playlist?.list?.length ?? 0,
+        meta: data?.meta,
+      })
+      const rawList = data?.body?.songlist?.list || data?.body?.playlist?.list ||
+        data?.item_songlist || data?.item_playlist || data?.playlist || []
+      const list = this.handleSearchResult(rawList)
+      return {
+        list,
+        limit,
+        total: data?.meta?.estimate_sum ?? data?.meta?.sum ?? list.length,
+        source: 'tx',
+      }
+    }).catch((err) => {
+      txLog.warn('[TX SongList] searchDesktop 失败，降级旧接口', { error: err.message, retryNum: retryNum + 1 })
       return this.searchOld(text, page, limit, retryNum)
     })
   },

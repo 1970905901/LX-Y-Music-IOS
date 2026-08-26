@@ -292,7 +292,7 @@ export default memo(() => {
       items.push({ id: 'nav_setting', name: t('nav_setting'), isGroup: false });
     }
     return items;
-  }, [navGroupEnabled, navOrder, navStatus, t]);
+  }, [navGroupEnabled, navOrder, navStatus, navFlatOrder, t]);
 
   const groupItems = useMemo((): MenuItemData[] => {
     if (!selectedGroup) return [];

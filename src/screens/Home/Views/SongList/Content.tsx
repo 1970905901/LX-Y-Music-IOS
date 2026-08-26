@@ -1,6 +1,7 @@
 import { getSongListSetting, saveSongListSetting } from '@/utils/data'
-import { useEffect, useRef, useState, useCallback } from 'react'
-import { StyleSheet, View, BackHandler } from 'react-native'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
+import { StyleSheet, View, BackHandler, PanResponder } from 'react-native'
+import { useSettingValue } from '@/store/setting/hook'
 import { consumePendingAction } from '@/core/pendingAction'
 
 import HeaderBar, { type HeaderBarProps, type HeaderBarType } from './HeaderBar'
@@ -30,6 +31,39 @@ export default () => {
   const songlistInfo = useRef<SonglistInfo>({ source: 'kw', sortId: '5', tagId: '' })
   const [headerKey, setHeaderKey] = useState(Date.now())
   const subscribedPlaylists = useWySubscribedPlaylists()
+  const songListSwipeSwitchSort = useSettingValue('common.songListSwipeSwitchSort')
+
+  const switchSort = useCallback((direction: 'next' | 'prev') => {
+    const sorts = songlistState.sortList[songlistInfo.current.source]
+    if (!sorts || sorts.length < 2) return
+    const currentIndex = sorts.findIndex(s => s.id === songlistInfo.current.sortId)
+    if (currentIndex < 0) return
+    const newIndex = direction === 'next'
+      ? (currentIndex + 1) % sorts.length
+      : (currentIndex - 1 + sorts.length) % sorts.length
+    const newSort = sorts[newIndex]
+    if (newSort) handleSortChange(newSort.id)
+  }, [handleSortChange])
+
+  const panResponder = useMemo(() => PanResponder.create({
+    onStartShouldSetPanResponder: () => false,
+    onStartShouldSetPanResponderCapture: () => false,
+    onMoveShouldSetPanResponder: (_, gestureState) => {
+      if (!songListSwipeSwitchSort) return false
+      const { dx, dy } = gestureState
+      return Math.abs(dx) > Math.abs(dy) * 1.5 && Math.abs(dx) > 15
+    },
+    onMoveShouldSetPanResponderCapture: (_, gestureState) => {
+      if (!songListSwipeSwitchSort) return false
+      const { dx, dy } = gestureState
+      return Math.abs(dx) > Math.abs(dy) * 1.5 && Math.abs(dx) > 15
+    },
+    onPanResponderRelease: (_, gestureState) => {
+      const { dx } = gestureState
+      if (dx < -50) switchSort('next')
+      else if (dx > 50) switchSort('prev')
+    },
+  }), [songListSwipeSwitchSort, switchSort])
 
   const loadList = useCallback(() => {
     listRef.current?.loadList(songlistInfo.current.source, songlistInfo.current.sortId, songlistInfo.current.tagId)
@@ -176,7 +210,9 @@ export default () => {
         onSourceChange={handleSourceChange}
         onOpenDetail={handleOpenDetail}
       />
-      <List ref={listRef} onOpenDetail={handleOpenDetail} />
+      <View style={styles.listContainer} {...panResponder.panHandlers}>
+        <List ref={listRef} onOpenDetail={handleOpenDetail} />
+      </View>
     </View>
   )
 }
@@ -184,6 +220,9 @@ export default () => {
 const styles = StyleSheet.create({
   container: {
     position: 'relative',
+    flex: 1,
+  },
+  listContainer: {
     flex: 1,
   },
 })

@@ -55,6 +55,11 @@ declare global {
       'common.homePageScroll': boolean
 
       /**
+       * 歌单页面左右滑动切换排序标签
+       */
+      'common.songListSwipeSwitchSort': boolean
+
+      /**
        * 是否显示返回按钮
        */
       'common.showBackBtn': boolean

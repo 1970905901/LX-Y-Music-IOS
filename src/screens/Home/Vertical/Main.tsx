@@ -669,7 +669,8 @@ const Main = () => {
   useEffect(() => {
     const handleUpdate = (id: CommonState['navActiveId']) => {
       setActiveNavIdState(id)
-      pagerViewRef.current?.setScrollEnabled(!!settingState.setting['common.homePageScroll'] && id !== 'nav_play_history');
+      const isSongListSwipe = id === 'nav_songlist' && !!settingState.setting['common.songListSwipeSwitchSort'];
+      pagerViewRef.current?.setScrollEnabled(!!settingState.setting['common.homePageScroll'] && id !== 'nav_play_history' && !isSongListSwipe);
       // 播放历史是浮层，切到它时不要同步 PagerView 页面，否则 setPageWithoutAnimation(0)
       // 会触发 onPageSelected，进而把 navActiveId 又覆盖成我的列表。
       if (id === 'nav_play_history') return
@@ -686,8 +687,10 @@ const Main = () => {
       keys: Array<keyof LX.AppSetting>,
       setting: Partial<LX.AppSetting>
     ) => {
-      if (!keys.includes('common.homePageScroll')) return;
-      pagerViewRef.current?.setScrollEnabled(!!setting['common.homePageScroll'] && commonState.navActiveId !== 'nav_play_history');
+      if (!keys.includes('common.homePageScroll') && !keys.includes('common.songListSwipeSwitchSort')) return;
+      const activeId = commonState.navActiveId;
+      const isSongListSwipe = activeId === 'nav_songlist' && !!settingState.setting['common.songListSwipeSwitchSort'];
+      pagerViewRef.current?.setScrollEnabled(!!settingState.setting['common.homePageScroll'] && activeId !== 'nav_play_history' && !isSongListSwipe);
     };
 
     global.state_event.on('navActiveIdUpdated', handleUpdate);
@@ -732,7 +735,7 @@ const Main = () => {
         offscreenPageLimit={1}
         onPageSelected={onPageSelected}
         onPageScrollStateChanged={onPageScrollStateChanged}
-        scrollEnabled={settingState.setting['common.homePageScroll'] && activeNavId !== 'nav_play_history'}
+        scrollEnabled={settingState.setting['common.homePageScroll'] && activeNavId !== 'nav_play_history' && !(activeNavId === 'nav_songlist' && settingState.setting['common.songListSwipeSwitchSort'])}
         style={styles.pagerView}
       >
         {pages}

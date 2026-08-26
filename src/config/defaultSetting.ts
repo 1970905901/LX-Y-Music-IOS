@@ -10,6 +10,7 @@ const defaultSetting: LX.AppSetting = {
   'common.autoHidePlayBar': true,
   'common.drawerLayoutPosition': 'left',
   'common.homePageScroll': true,
+  'common.songListSwipeSwitchSort': true,
   'common.showBackBtn': false,
   'common.showExitBtn': false,
   'common.useSystemFileSelector': true,

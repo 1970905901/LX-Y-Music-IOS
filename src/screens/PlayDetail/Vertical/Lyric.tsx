@@ -238,7 +238,8 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
     // 当前行已在可视舒适区内（距目标 < 15% 视高）则跳过本次滚动
     if (!force && delta < listHeight * 0.15) return
     try {
-      flatListRef.current.scrollToOffset({ offset: targetOffset, animated: true })
+      // force=true（切回歌词页 / 切歌 / 初次加载）时立即定位，不用动画，避免高亮行“姗姗来迟”。
+      flatListRef.current.scrollToOffset({ offset: targetOffset, animated: !force })
     } catch { }
   }
   const handleScrollBeginDrag = () => {

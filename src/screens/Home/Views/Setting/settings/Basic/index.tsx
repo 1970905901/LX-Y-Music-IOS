@@ -12,6 +12,7 @@ import IsPlayDetailNewUI from './IsPlayDetailNewUI'
 import IsStartupPushPlayDetailScreen from './IsStartupPushPlayDetailScreen'
 import IsAutoHidePlayBar from './IsAutoHidePlayBar'
 import IsHomePageScroll from './IsHomePageScroll'
+import IsSongListSwipeSwitchSort from './IsSongListSwipeSwitchSort'
 import IsShowBackBtn from './IsShowBackBtn'
 import IsShowExitBtn from './IsShowExitBtn'
 import IsUseSystemFileSelector from './IsUseSystemFileSelector'
@@ -41,6 +42,7 @@ export default memo(() => {
       <IsShowMyListSubMenu />
       <LockLandscape />
       <IsHomePageScroll />
+      <IsSongListSwipeSwitchSort />
       <IsUseSystemFileSelector />
       <IsAlwaysKeepStatusbarHeight />
       <DrawerLayoutPosition />

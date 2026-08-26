@@ -244,9 +244,11 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
   // }, [playMusicInfo])
 
   // const imgWidth = useMemo(() => layout.width * 0.75, [layout.width])
-  // 视口舒适区感知滚动：仅在当前行漂出“舒适区”时才真正滚动，避免逐行
-  // 微滚动（scrollToIndex(animated) 频繁启停）造成的卡顿/抖动。
-  // force=true 时无视舒适区，用于切回歌词页 / 切歌等需要立即定位的场景。
+  // 歌词高亮行定位：让当前行始终落在歌词界面【中央】（viewPosition:0.5，以行高中心对齐视口中心）。
+  // 跨行切换时无条件滚动居中，确保播放中高亮行与音频同步且始终居中（需求2/5）。
+  // 同一行重锚时再用“舒适区 15%”节流，避免逐秒重锚把歌词列表反复微滚动造成抖动。
+  // force=true 时无视舒适区，用于切回歌词页 / 切歌 / 拖动进度条 / 点击歌词 / 恢复播放等需要立即居中定位的场景。
+  const lastScrolledLineRef = useRef(-1)
   const handleScrollToActive = (index = lineRef.current.line, force = false) => {
     if (index < 0 || !flatListRef.current || isPauseScrollRef.current) return
     if (scrollCancelRef.current) {
@@ -255,15 +257,17 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
     }
     const listHeight = pageHeight > 0 ? pageHeight : pagerHeight
     if (listHeight <= 0) return
-    const itemTop = getItemLayout(lyricLines, index).offset
-    // 等效 viewPosition:0.42 —— 让当前行落在视口 42% 高度处
-    const targetOffset = Math.max(0, itemTop - listHeight * 0.42)
-    const delta = Math.abs(targetOffset - scrollYRef.current)
-    // 当前行已在可视舒适区内（距目标 < 15% 视高）则跳过本次滚动
-    if (!force && delta < listHeight * 0.15) return
+    const { offset: itemTop, length: itemHeight } = getItemLayout(lyricLines, index)
+    // 等效 viewPosition:0.5 —— 让当前行（行高中心）落在视口中央
+    const targetOffset = Math.max(0, itemTop + itemHeight / 2 - listHeight / 2)
+    const lineChanged = index !== lastScrolledLineRef.current
+    // 非强制 + 同一行 + 当前行已在可视舒适区内（距目标 < 15% 视高）则跳过本次滚动（防抖动）；
+    // 跨行切换 / 强制场景无条件滚动到中央，保证高亮行与音频同步且居中。
+    if (!force && !lineChanged && Math.abs(targetOffset - scrollYRef.current) < listHeight * 0.15) return
     try {
-      // force=true（切回歌词页 / 切歌 / 初次加载）时立即定位，不用动画，避免高亮行“姗姗来迟”。
+      // force=true（切回歌词页 / 切歌 / 初次加载 / 拖动 / 点击）时立即定位，不用动画，避免高亮行“姗姗来迟”。
       flatListRef.current.scrollToOffset({ offset: targetOffset, animated: !force })
+      lastScrolledLineRef.current = index
     } catch { }
   }
   const handleScrollBeginDrag = () => {
@@ -489,7 +493,7 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
         renderItem={renderItem}
         keyExtractor={getkey}
         style={{ height: pageHeight > 0 ? pageHeight : pagerHeight, width: '100%' }}
-        // 歌词列表从顶部排布，当前行由 scrollToIndex(viewPosition 0.42) 定位到中上；
+        // 歌词列表从顶部排布，当前行由 scrollToOffset(viewPosition 0.5) 定位到【中央】；
         // 不再用 justifyContent:'center' 整体垂直居中——否则歌词少时整页被顶到中间、
         // 上下露出大片空白（即用户反馈的“被空白遮住 / 下面空白”）。
         contentContainerStyle={{

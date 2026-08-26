@@ -1,4 +1,4 @@
-import { storageDataPrefix, storageDataPrefixOld } from '@/config/constant'
+import { storageDataPrefix, storageDataPrefixOld, NAV_MENUS } from '@/config/constant'
 import defaultSetting from '@/config/defaultSetting'
 import { getData, removeData, saveData } from '@/plugins/storage'
 import migrateSetting from './migrateSetting'
@@ -121,6 +121,20 @@ export const initSetting = async () => {
   }
 
   const updatedSetting = updateSetting(setting, true)
+
+  // 扁平模式顺序补全：把 navOrder 中新增、但用户已有 navFlatOrder 缺失的菜单项追加到末尾。
+  // 修复「后加的导航项（如百度网盘）在关闭分组后从侧边栏 / 自定义排序列表 / 播放页 PagerView 消失」的迁移缺口。
+  const navOrder = updatedSetting.setting['common.navOrder'] as string[] | undefined
+  const navFlatOrder = (updatedSetting.setting['common.navFlatOrder'] as string[] | undefined) ?? []
+  if (Array.isArray(navOrder) && navOrder.length) {
+    const flatSet = new Set(navFlatOrder)
+    const missing = navOrder.filter(id => !flatSet.has(id) && NAV_MENUS.some(m => m.id === id))
+    if (missing.length) {
+      // @ts-expect-error 补全缺失的扁平导航项（运行时为字符串数组，类型受 NAV_ID_Type 约束）
+      updatedSetting.setting['common.navFlatOrder'] = [...navFlatOrder, ...missing]
+    }
+  }
+
   void saveData(storageDataPrefix.setting, updatedSetting.setting)
 
   return updatedSetting

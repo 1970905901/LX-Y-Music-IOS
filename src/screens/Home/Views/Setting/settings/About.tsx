@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { View, TouchableOpacity } from 'react-native'
+import { View, TouchableOpacity, Image } from 'react-native'
 
 import Section from '../components/Section'
 
@@ -86,6 +86,17 @@ export default memo(() => {
           QQ交流群：<Text style={styles.boldText}>1013518794</Text>
         </Text>
       </View>
+      <View style={styles.part}>
+        <Text style={styles.boldText}>赞赏支持</Text>
+        <Text style={styles.text}>
+          若你觉得本软件不错，欢迎赞赏支持开发者：
+        </Text>
+        <Image
+          source={require('@/resources/images/reward-qrcode.jpg')}
+          style={styles.rewardImage}
+          resizeMode="contain"
+        />
+      </View>
     </Section>
   )
 })
@@ -114,5 +125,11 @@ const styles = createStyle({
   },
   btn: {
     flexDirection: 'row',
+  },
+  rewardImage: {
+    width: 220,
+    height: 220,
+    marginTop: 10,
+    alignSelf: 'center',
   },
 })

@@ -1,6 +1,10 @@
 <h1 align="center">LX-Y Music 移动版</h1>
 
 <p align="center">
+  <img src="doc/images/app-icon.png" width="160" alt="LX-Y Music 图标">
+</p>
+
+<p align="center">
   <a href="https://github.com/1970905901/LX-Y-Music-IOS/releases"><img src="https://img.shields.io/github/release/1970905901/LX-Y-Music-IOS" alt="Release version"></a>
   <a href="https://github.com/1970905901/LX-Y-Music-IOS/actions/workflows/ios-ipa.yml"><img src="https://github.com/1970905901/LX-Y-Music-IOS/workflows/Build%20iOS%20IPA/badge.svg" alt="Build status"></a>
 </p>

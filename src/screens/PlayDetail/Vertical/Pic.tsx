@@ -24,7 +24,7 @@ export default memo(({ componentId, maxCoverHeight }: { componentId: string, max
   const isCoverSpin = useSettingValue('playDetail.isCoverSpin');
   const coverSizeRaw = useSettingValue('playDetail.style.coverSize');
   const coverSize = typeof coverSizeRaw === 'number' && !isNaN(coverSizeRaw) ? coverSizeRaw : 100;
-  const isNewUI = useSettingValue('playDetail.style.newUI');
+  const isNewUI = useSettingValue('list.isNewListUI');
   const spinValue = useRef(new Animated.Value(0)).current;
   const animationRef = useRef<Animated.CompositeAnimation | null>(null);
   const isAnimating = useRef(false);

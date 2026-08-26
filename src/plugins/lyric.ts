@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import Lyric, { type Lines } from 'lrc-file-parser'
+import playerState from '@/store/player/state'
 // import { getStore, subscribe } from '@/store'
 export type Line = Lines[number]
 type PlayHook = (line: number, text: string) => void
@@ -67,11 +68,19 @@ export const init = async () => {
 }
 
 export const setLyric = (lyric: string, translation?: string, romalrc?: string) => {
+  // 记录重设歌词前是否处于播放态，歌词就绪后立即按当前进度重锚时钟，
+  // 避免“进度条已跳到记忆位置、歌词却停在顶部/第 0 行”的错位
+  // （尤其“杀死后台再点击播放”的记忆恢复场景：歌词异步加载后才就绪）。
+  const wasPlaying = lrcTools.isPlay
   lrcTools.isPlay = false
   lrcTools.lyricText = lyric
   lrcTools.translationText = translation
   lrcTools.romaText = romalrc
   lrcTools.setLyric()
+  if (wasPlaying) {
+    try { lrcTools.lrc!.play(playerState.progress.nowPlayTime * 1000) } catch {}
+    lrcTools.isPlay = true
+  }
 }
 export const setPlaybackRate = (playbackRate: number) => {
   lrcTools.lrc!.setPlaybackRate(playbackRate)
@@ -86,10 +95,12 @@ export const toggleRoma = (isShow: boolean) => {
   if (!lrcTools.lyricText) return
   lrcTools.setLyric()
 }
-export const play = (time: number) => {
-  // console.log(time)
+export const play = (time?: number) => {
+  // 未传时间（如 app_event.play() 在播放开始事件里无参触发）时，
+  // 用当前记忆进度作为锚点，避免歌词时钟被重置到 0 而与进度条错位。
+  const playTime = (time ?? playerState.progress.nowPlayTime) * 1000
   lrcTools.isPlay = true
-  lrcTools.lrc!.play(time)
+  lrcTools.lrc!.play(playTime)
 }
 export const pause = () => {
   // console.log('pause')

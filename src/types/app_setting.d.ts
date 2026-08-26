@@ -55,9 +55,9 @@ declare global {
       'common.homePageScroll': boolean
 
       /**
-       * 歌单页面左右滑动切换排序标签
+       * 控制界面（播放详情页）左右滑动切换封面/歌词
        */
-      'common.songListSwipeSwitchSort': boolean
+      'common.playDetailSwipeSwitch': boolean
 
       /**
        * 是否显示返回按钮
@@ -278,6 +278,11 @@ declare global {
        * 是否启用滑动切歌
        */
       'player.isEnableSlideSwitchSong': boolean
+
+      /**
+       * 从后台切换回软件时是否自动恢复播放
+       */
+      'player.autoPlayOnReturn': boolean
 
       /**
        * 是否启用自动切换音源（播放失败时自动尝试其他音源）

@@ -9,17 +9,18 @@ import CheckBoxItem from '../../components/CheckBoxItem'
 
 export default memo(() => {
   const t = useI18n()
-  const songListSwipeSwitchSort = useSettingValue('common.songListSwipeSwitchSort')
-  const setSongListSwipeSwitchSort = (songListSwipeSwitchSort: boolean) => {
-    updateSetting({ 'common.songListSwipeSwitchSort': songListSwipeSwitchSort })
+  const autoPlayOnReturn = useSettingValue('player.autoPlayOnReturn')
+  const setAutoPlayOnReturn = (autoPlayOnReturn: boolean) => {
+    updateSetting({ 'player.autoPlayOnReturn': autoPlayOnReturn })
   }
 
   return (
     <View style={styles.content}>
       <CheckBoxItem
-        check={songListSwipeSwitchSort}
-        label={t('setting_basic_songlist_swipe_switch_sort')}
-        onChange={setSongListSwipeSwitchSort}
+        check={autoPlayOnReturn}
+        label={t('setting_player_auto_play_on_return')}
+        onChange={setAutoPlayOnReturn}
+        helpDesc={t('setting_player_auto_play_on_return_tip')}
       />
     </View>
   )

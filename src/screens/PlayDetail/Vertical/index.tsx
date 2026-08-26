@@ -18,17 +18,16 @@ import { registerPager } from '@/utils/pagerScrollControl'
 import PlayerPlaylist, { type PlayerPlaylistType } from '@/components/player/PlayerPlaylist.tsx'
 import VerticalNew from './VerticalNew'
 
-const LyricPage = ({ activeIndex }: { activeIndex: number }) => {
-  const initedRef = useRef(false)
-  const lyric = useMemo(() => <Lyric />, [])
-  switch (activeIndex) {
-    case 1:
-      if (!initedRef.current) initedRef.current = true
-      return lyric
-    default:
-      return initedRef.current ? lyric : null
+  const LyricPage = ({ activeIndex }: { activeIndex: number }) => {
+    const initedRef = useRef(false)
+    switch (activeIndex) {
+      case 1:
+        if (!initedRef.current) initedRef.current = true
+        return <Lyric active={true} />
+      default:
+        return initedRef.current ? <Lyric active={false} /> : null
+    }
   }
-}
 
 const VerticalOld = memo(({ componentId }: { componentId: string }) => {
   const [pageIndex, setPageIndex] = useState(0)
@@ -38,6 +37,7 @@ const VerticalOld = memo(({ componentId }: { componentId: string }) => {
   const { height: winHeight } = useWindowSize()
   const isEnableSlideSwitchSong = useSettingValue('player.isEnableSlideSwitchSong')
   const miniLyricAlign = useSettingValue('playDetail.style.miniLyricAlign')
+  const playDetailSwipeSwitch = useSettingValue('common.playDetailSwipeSwitch')
 
   const slideOffset = useRef(new Animated.Value(0)).current;
   const maxSlide = winHeight * 0.5;
@@ -204,7 +204,7 @@ const VerticalOld = memo(({ componentId }: { componentId: string }) => {
           onPageSelected={onPageSelected}
           style={styles.pagerView}
           ref={pagerViewRef}
-          scrollEnabled={!isProgressDragging}
+          scrollEnabled={!isProgressDragging && playDetailSwipeSwitch}
         >
           <View collapsable={false} style={styles.pageContainer}>
             <Animated.View collapsable={false} style={[styles.picPageContainerOld, slideStyle]}>

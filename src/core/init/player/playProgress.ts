@@ -1,5 +1,6 @@
 import { updateListMusics } from '@/core/list'
 import { setMaxplayTime, setNowPlayTime } from '@/core/player/progress'
+import { play } from '@/core/player/player'
 import { setCurrentTime, getDuration, getPosition } from '@/plugins/player'
 import { play as lrcPlay } from '@/plugins/lyric'
 import { formatPlayTime2 } from '@/utils/common'
@@ -189,7 +190,13 @@ export default () => {
   }
 
   AppState.addEventListener('change', (state) => {
-    if (state == 'active' && !isScreenOn) handleScreenStateChanged('ON')
+    if (state == 'active' && !isScreenOn) {
+      handleScreenStateChanged('ON')
+      // 从后台切换回软件时，若开启开关且当前有歌曲但处于暂停状态，则自动恢复播放
+      if (settingState.setting['player.autoPlayOnReturn'] && !playerState.isPlay && playerState.musicInfo.id) {
+        play()
+      }
+    }
   })
 
   global.app_event.on('play', handlePlay)

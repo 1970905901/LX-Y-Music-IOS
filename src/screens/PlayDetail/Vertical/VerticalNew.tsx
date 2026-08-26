@@ -43,6 +43,7 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
   const [pagerHeight, setPagerHeight] = useState(0)
   const isEnableSlideSwitchSong = useSettingValue('player.isEnableSlideSwitchSong')
   const miniLyricAlign = useSettingValue('playDetail.style.miniLyricAlign')
+  const playDetailSwipeSwitch = useSettingValue('common.playDetailSwipeSwitch')
 
   const maxCoverHeight = useMemo(() => {
     const availableHeight = winHeight - HEADER_HEIGHT
@@ -216,7 +217,7 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
           onPageSelected={onPageSelected}
           style={styles.pagerView}
           ref={pagerViewRef}
-          scrollEnabled={!isProgressDragging}
+          scrollEnabled={!isProgressDragging && playDetailSwipeSwitch}
           overScrollMode="never"
           onLayout={({ nativeEvent }) => {
             const h = Math.round(nativeEvent.layout.height)

@@ -9,6 +9,7 @@ import {
 } from 'react-native'
 // import { useLayout } from '@/utils/hooks'
 import { type Line, useLrcPlay, useLrcSet, play as lrcPlay } from '@/plugins/lyric'
+import { getPosition } from '@/plugins/player'
 import { createStyle } from '@/utils/tools'
 import { updateSetting } from '@/core/common'
 import { useTheme } from '@/store/theme/hook'
@@ -166,6 +167,24 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
   const scrollYRef = useRef(0)
   const isShowLyricProgressSetting = settingState.setting['playDetail.isShowLyricProgressSetting']
 
+  // 用户动作（拖动进度条 / 跳转 / 恢复播放）期间强制让歌词列表立即滚动到高亮行，
+  // 使高亮行与进度条（及音频）绝对同步；被动逐秒重锚时仍用舒适区节流，避免逐行微滚动卡顿。
+  const forceScrollRef = useRef(false)
+  const forceScrollTimer = useRef<NodeJS.Timeout | null>(null)
+  const setForceScroll = useCallback((on: boolean) => {
+    forceScrollRef.current = on
+    if (forceScrollTimer.current) {
+      clearTimeout(forceScrollTimer.current)
+      forceScrollTimer.current = null
+    }
+    if (on) {
+      forceScrollTimer.current = setTimeout(() => {
+        forceScrollRef.current = false
+        forceScrollTimer.current = null
+      }, 500)
+    }
+  }, [])
+
   const initialDistanceRef = useRef(0)
   const initialFontSizeRef = useRef(0)
 
@@ -284,6 +303,22 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
     }
   }, [])
 
+  // 拖动进度条 / 跳转 / 恢复播放等用户动作期间强制让歌词列表立即滚动到高亮行，
+  // 保证高亮行与进度条（及音频）绝对同步，不出现“高亮行滞后 / 错位的 15% 舒适区跳过重滚动”。
+  useEffect(() => {
+    const handleDragState = (dragging: boolean) => setForceScroll(dragging)
+    const handleSetProgress = () => setForceScroll(true)
+    const handlePlay = () => setForceScroll(true)
+    global.app_event.on('progressDragState', handleDragState)
+    global.app_event.on('setProgress', handleSetProgress)
+    global.app_event.on('play', handlePlay)
+    return () => {
+      global.app_event.off('progressDragState', handleDragState)
+      global.app_event.off('setProgress', handleSetProgress)
+      global.app_event.off('play', handlePlay)
+    }
+  }, [setForceScroll])
+
   useEffect(() => {
     // linesRef.current = lyricLines
     listLayoutInfoRef.current.lineHeights = []
@@ -323,12 +358,23 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
     // 避免 PagerView 横向滑页时与歌词的逐秒 scrollToIndex 抢帧导致卡顿。
     if (!active) return
 
-    handleScrollToActive()
+    // 拖动进度条 / 跳转 / 恢复播放等用户动作期间强制滚动（force），使高亮行绝对同步跟随；
+    // 被动逐秒重锚时仍用舒适区节流，避免逐行微滚动卡顿。
+    handleScrollToActive(lineRef.current.line, forceScrollRef.current)
   }, [line, active])
 
-  // 从封面页切回歌词页时，立即把当前行定位到 42% 位置（force 无视舒适区）
+  // 从封面页切回歌词页时，立即把歌词时钟重锚到真实音频位置，并强制把当前行定位到 42% 位置，
+  // 避免“长暂停后再播放 / 重开后”高亮行姗姗来迟、与音频不同步。
   useEffect(() => {
-    if (active) handleScrollToActive(lineRef.current.line, true)
+    if (active) {
+      void getPosition().then((p) => {
+        if (p != null) {
+          try { lrcPlay(p * 1000) } catch {}
+        }
+      })
+      setForceScroll(true)
+      handleScrollToActive(lineRef.current.line, true)
+    }
   }, [active])
 
   // useEffect(() => {

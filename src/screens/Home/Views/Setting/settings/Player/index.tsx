@@ -18,6 +18,7 @@ import IsEnableAutoToggleSource from './IsEnableAutoToggleSource'
 import ToggleSourceMaxRetry from './ToggleSourceMaxRetry'
 import IsEnableFailureStrategy from './IsEnableFailureStrategy'
 import FailureStrategy from './FailureStrategy'
+import IsAutoPlayOnReturn from './IsAutoPlayOnReturn'
 import { useI18n } from '@/lang'
 
 export default memo(() => {
@@ -26,6 +27,7 @@ export default memo(() => {
   return (
     <Section title={t('setting_player')} sectionId="setting_player">
       <IsSavePlayTime />
+      <IsAutoPlayOnReturn />
       <IsSwipeToShowPlaylist />
       <IsAutoCleanPlayedList />
       <IsHandleAudioFocus />

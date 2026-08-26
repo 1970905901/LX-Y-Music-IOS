@@ -392,7 +392,7 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
         data={lyricLines}
         renderItem={renderItem}
         keyExtractor={getkey}
-        style={{ height: pagerHeight > 0 ? pagerHeight : pageHeight, width: '100%' }}
+        style={{ height: pageHeight > 0 ? pageHeight : pagerHeight, width: '100%' }}
         // 歌词列表从顶部排布，当前行由 scrollToIndex(viewPosition 0.42) 定位到中上；
         // 不再用 justifyContent:'center' 整体垂直居中——否则歌词少时整页被顶到中间、
         // 上下露出大片空白（即用户反馈的“被空白遮住 / 下面空白”）。

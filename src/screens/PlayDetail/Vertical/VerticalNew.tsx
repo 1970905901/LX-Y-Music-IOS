@@ -246,7 +246,7 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
             pointerEvents 切换显隐——仅作用在合成层、不触发布局重算（layout thrash），
             避免切页瞬间因 display 切换引起的卡顿。Player 本身是 memo + 稳定 props，
             pageIndex 变化不会引起其重渲染。 */}
-        <View style={{ opacity: pageIndex === 0 ? 1 : 0, pointerEvents: pageIndex === 0 ? 'auto' : 'none' }}>
+        <View>
           <Player componentId={componentId} isNewUI={true} />
         </View>
       </View>

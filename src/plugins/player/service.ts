@@ -53,23 +53,26 @@ const registerPlaybackService = async() => {
     const handleAudioFocus = settingState.setting['player.isHandleAudioFocus']
 
     // 设置关闭：不希望被其他 App 打断。
-    // 首选由 iOS 的 mixWithOthers 避免系统中断；若仍收到中断事件（兜底），
-    // 立即恢复播放，使“其他 App 出声不打断音乐”的效果成立。
+    // 首选由 iOS 的 mixWithOthers（原生 setupPlayer 在 mixWithOthers 时使用 .default policy 确保生效）
+    // 避免系统中断；若仍收到中断事件（兜底，如来电），立即恢复播放。
     if (!handleAudioFocus) {
       if (paused) void play()
       return
     }
 
-    // 系统明确告知中断结束后不应恢复（如来电打断）。
+    // 系统明确告知中断结束后不应恢复（被其他 App 永久接管、来电等）。
+    // 但若本次中断开始时我们确实在播放（仅没收到 shouldResume 信号），仍恢复，
+    // 满足“其他 App 没声音了自动恢复”的预期。
     if (permanent) {
-      shouldResumeAfterDuck = false
-      if (paused) void pause()
+      if (shouldResumeAfterDuck) {
+        shouldResumeAfterDuck = false
+        void play()
+      }
       return
     }
 
     // 中断开始（原生仅发 { paused: true }）：iOS 此刻已将播放器暂停，
-    // 因此不能用 getState() 判断“是否在播放”——只要收到 began 中断，
-    // 必然是播放中被打断，故标记结束时要恢复。
+    // 只要收到 began 中断必然是播放中被打断，故标记结束时要恢复。
     if (paused) {
       shouldResumeAfterDuck = true
       void pause()

@@ -18,6 +18,7 @@ import { setSpText } from '@/utils/pixelRatio'
 import settingState from '@/store/setting/state'
 import playerState from '@/store/player/state'
 import { useWindowSize } from '@/utils/hooks'
+import { HEADER_HEIGHT } from './components/Header'
 // import { screenkeepAwake } from '@/utils/nativeModules/utils'
 // import { log } from '@/utils/log'
 // import { toast } from '@/utils/tools'
@@ -150,6 +151,9 @@ export default ({ active = true }: { active?: boolean }) => {
   const { line } = useLrcPlay()
   const { height: winHeight } = useWindowSize()
   const isSmallWindow = winHeight < 700
+  // 歌词页位于 Header 之下，用确定像素高度直接撑满，避免依赖 PagerView 子页面
+  // 的 flex:1 / height:100% 在 iOS 原生侧不撑满而导致的“下方大片空白”。
+  const lyricAreaHeight = Math.max(0, winHeight - HEADER_HEIGHT)
   const flatListRef = useRef<FlatList>(null)
   const isPauseScrollRef = useRef(true)
   const scrollTimoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -166,29 +170,33 @@ export default ({ active = true }: { active?: boolean }) => {
   const initialFontSizeRef = useRef(0)
 
   const panResponder = useMemo(() => PanResponder.create({
-    onStartShouldSetPanResponder: (evt) => evt.nativeEvent.touches.length === 2,
-    onMoveShouldSetPanResponder: (evt) => evt.nativeEvent.touches.length === 2,
+    // 仅当两根手指同时按下时才接管手势（双指缩放歌词字号），
+    // 单指留给 FlatList 自身做垂直滚动。用 gestureState.numberActiveTouches
+    // 判断，避免直接读 evt.nativeEvent.touches（iOS 某些触摸事件下为 undefined，
+    // 会抛 “Cannot read property 'length' of undefined” 导致整个歌词界面崩溃）。
+    onStartShouldSetPanResponder: (_, gestureState) => gestureState.numberActiveTouches === 2,
+    onMoveShouldSetPanResponder: (_, gestureState) => gestureState.numberActiveTouches === 2,
     onPanResponderGrant: (evt) => {
-      if (evt.nativeEvent.touches.length === 2) {
-        const dx = evt.nativeEvent.touches[0].pageX - evt.nativeEvent.touches[1].pageX
-        const dy = evt.nativeEvent.touches[0].pageY - evt.nativeEvent.touches[1].pageY
-        initialDistanceRef.current = Math.sqrt(dx * dx + dy * dy)
-        initialFontSizeRef.current = settingState.setting['playDetail.vertical.style.lrcFontSize']
-      }
+      const touches = evt.nativeEvent.touches ?? evt.nativeEvent.changedTouches
+      if (!touches || touches.length < 2) return
+      const dx = touches[0].pageX - touches[1].pageX
+      const dy = touches[0].pageY - touches[1].pageY
+      initialDistanceRef.current = Math.sqrt(dx * dx + dy * dy)
+      initialFontSizeRef.current = settingState.setting['playDetail.vertical.style.lrcFontSize']
     },
     onPanResponderMove: (evt) => {
-      if (evt.nativeEvent.touches.length === 2 && initialDistanceRef.current > 0) {
-        const dx = evt.nativeEvent.touches[0].pageX - evt.nativeEvent.touches[1].pageX
-        const dy = evt.nativeEvent.touches[0].pageY - evt.nativeEvent.touches[1].pageY
-        const distance = Math.sqrt(dx * dx + dy * dy)
+      const touches = evt.nativeEvent.touches ?? evt.nativeEvent.changedTouches
+      if (!touches || touches.length < 2 || initialDistanceRef.current <= 0) return
+      const dx = touches[0].pageX - touches[1].pageX
+      const dy = touches[0].pageY - touches[1].pageY
+      const distance = Math.sqrt(dx * dx + dy * dy)
 
-        const scale = distance / initialDistanceRef.current
-        let newSize = Math.round((initialFontSizeRef.current * scale) / 2) * 2
-        newSize = Math.max(100, Math.min(newSize, 300)) // ensure within bounds
+      const scale = distance / initialDistanceRef.current
+      let newSize = Math.round((initialFontSizeRef.current * scale) / 2) * 2
+      newSize = Math.max(100, Math.min(newSize, 300)) // ensure within bounds
 
-        if (settingState.setting['playDetail.vertical.style.lrcFontSize'] !== newSize) {
-          updateSetting({ 'playDetail.vertical.style.lrcFontSize': newSize })
-        }
+      if (settingState.setting['playDetail.vertical.style.lrcFontSize'] !== newSize) {
+        updateSetting({ 'playDetail.vertical.style.lrcFontSize': newSize })
       }
     },
     onPanResponderRelease: () => {
@@ -378,7 +386,7 @@ export default ({ active = true }: { active?: boolean }) => {
       data={lyricLines}
       renderItem={renderItem}
       keyExtractor={getkey}
-      style={{ flex: 1, width: '100%' }}
+      style={{ height: lyricAreaHeight, width: '100%' }}
       // 歌词整体居中且占满全屏：内容不足时垂直居中（无“下方大片空白”），
       // 内容超长时自动撑满并正常滚动，当前行由 scrollToIndex 定位到 42%。
       contentContainerStyle={{

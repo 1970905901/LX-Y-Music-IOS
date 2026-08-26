@@ -2,7 +2,7 @@ import { updateListMusics } from '@/core/list'
 import { setMaxplayTime, setNowPlayTime } from '@/core/player/progress'
 import { play } from '@/core/player/player'
 import { setCurrentTime, getDuration, getPosition } from '@/plugins/player'
-import { play as lrcPlay, setPlayTime } from '@/plugins/lyric'
+import { syncToTime as lrcSyncToTime } from '@/plugins/lyric'
 import { formatPlayTime2 } from '@/utils/common'
 import { savePlayInfo } from '@/utils/data'
 import { throttleBackgroundTimer } from '@/utils/tools'
@@ -50,18 +50,17 @@ export default () => {
       setNowPlayTime(position)
 
       // 歌词同步：无论播放还是暂停，只要没在拖动/seek 沉降窗口内，就用真实音频位置重锚。
-      // 播放态启动 lrc 内部 ticker（ lyrics 随时间前进）；暂停态仅 setPlayTime 更新当前行，
-      // 不启动 ticker，避免暂停时歌词自行前进。覆盖“暂停 seek / 后台重开 / 封面页歌词”等场景。
+      // syncToTime 是【纯镜像】：歌词行永远由当前音频位置推导，不启动任何独立 ticker，
+      // 因此歌词时钟不可能脱离音频自行走字（缓冲/卡顿/JS 线程繁忙时也不会跑在音频前面）。
+      // 覆盖“暂停 seek / 后台重开 / 封面页歌词 / 倍速”等全部场景（⑩ 绝对同步）。
       // 拖动进度条期间由 progressDragPreview 事件接管，这里跳过，避免把预览高亮拽回旧位置。
       // seek/点击后的 ~250ms 内跳过，避免把刚跳转的高亮行又拽回 seek 前的旧位置
       // （iOS 一次 seek 约需 ~180ms 才生效，期间 getPosition 仍是旧位置；250ms 已留足余量）。
       if (!isDragging && Date.now() - lastSeekTime > 250) {
         try {
-          if (playerState.isPlay) {
-            lrcPlay(position * 1000)
-          } else {
-            setPlayTime(position * 1000)
-          }
+          // 无论播放/暂停，都用【真实音频位置】做纯镜像重锚（不启动 ticker），
+          // 歌词行永远等于音频真实位置 → 音频与歌词绝对同步（覆盖所有场景，含 ⑩）。
+          lrcSyncToTime(position * 1000, playerState.isPlay)
         } catch {}
       }
 
@@ -127,14 +126,10 @@ export default () => {
     setNowPlayTime(time)
     if (playerState.isPlay) updateScrobblePlayTime(time)
     void setCurrentTime(time)
-    // 跳转进度时同步校正歌词：播放态启动 ticker，暂停态仅更新当前行，
-    // 避免暂停 seek 后歌词自行前进。
+    // 跳转进度时同步校正歌词：用真实音频位置纯镜像重锚（含点击歌词行 / 进度条 seek），
+    // 无论播放暂停都锚到该位置，歌词行与音频绝对同步（不启动 ticker）。
     try {
-      if (playerState.isPlay) {
-        lrcPlay(time * 1000)
-      } else {
-        setPlayTime(time * 1000)
-      }
+      lrcSyncToTime(time * 1000, playerState.isPlay)
     } catch {}
     if (maxTime != null) {
       setMaxplayTime(maxTime)
@@ -147,13 +142,10 @@ export default () => {
   let lastPreviewTime = 0
   const handleProgressDragPreview = (time: number) => {
     if (!playerState.musicInfo.id) return
-    // 拖动预览歌词：播放态启动 ticker 随音频走；暂停态仅更新当前行，不启动 ticker。
+    // 拖动预览歌词：用真实音频位置纯镜像重锚（time 已是毫秒），
+    // 歌词高亮行跟随手指位置，与实时 seek 的音频绝对同步（不启动 ticker）。
     try {
-      if (playerState.isPlay) {
-        lrcPlay(time)
-      } else {
-        setPlayTime(time)
-      }
+      lrcSyncToTime(time, playerState.isPlay)
     } catch {}
     // 拖动过程中同步 seek 音频（秒），避免歌词跳到手指位置而音频仍停在原处导致的不同步。
     // 仅在时间变化时 seek，减少重复 seek 开销。
@@ -176,7 +168,8 @@ export default () => {
     if (playerState.musicInfo.id) {
       void getPosition().then((position) => {
         if (position != null && playerState.musicInfo.id) {
-          try { lrcPlay(position * 1000) } catch {}
+          // 恢复播放瞬间用真实位置纯镜像重锚（不启动 ticker），消除起播错位。
+          try { lrcSyncToTime(position * 1000, true) } catch {}
         }
       })
     }

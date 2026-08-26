@@ -8,7 +8,7 @@ import {
   PanResponder,
 } from 'react-native'
 // import { useLayout } from '@/utils/hooks'
-import { type Line, useLrcPlay, useLrcSet, play as lrcPlay } from '@/plugins/lyric'
+import { type Line, useLrcPlay, useLrcSet, syncToTime as lrcSyncToTime } from '@/plugins/lyric'
 import { getPosition } from '@/plugins/player'
 import { createStyle } from '@/utils/tools'
 import { updateSetting } from '@/core/common'
@@ -411,7 +411,7 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
       })
       void getPosition().then((p) => {
         if (p != null) {
-          try { lrcPlay(p * 1000) } catch {}
+          try { lrcSyncToTime(p * 1000, playerState.isPlay) } catch {}
           // 重锚后 line 会在下一 tick 更新并走上面的 force 路径；再补一次 rAF 立即定位，
           // 确保重锚后的正确行第一时间出现在视口，不被舒适区动画拖慢。
           requestAnimationFrame(() => {
@@ -468,7 +468,7 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
     if (line) {
       // 同步重锚歌词时钟，使高亮行立即跟随点击位置（不依赖 app_event 的异步派发，
       // 否则在 iOS 上高亮会滞后/不跟随音频跳转）
-      try { lrcPlay(line.time) } catch {}
+      try { lrcSyncToTime(line.time, playerState.isPlay) } catch {}
       // setProgress 内部会真正 seek 音频（setCurrentTime -> seekToTime），
       // 同时把歌词时钟重锚到该行时间，保证音频与该行高亮绝对同步。
       global.app_event.setProgress(line.time / 1000);

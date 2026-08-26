@@ -1,5 +1,5 @@
 import {
-  play as lrcPlay,
+  syncToTime as lrcSyncToTime,
   setLyric as lrcSetLyric,
   pause as lrcPause,
   setPlaybackRate as lrcSetPlaybackRate,
@@ -41,7 +41,7 @@ const handleSetLyric = async (lyric: string, translation = '', romalrc = '') => 
  * @param time play time
  */
 export const handlePlay = (time: number) => {
-  lrcPlay(time)
+  lrcSyncToTime(time, true)
   void playDesktopLyric(time)
 }
 

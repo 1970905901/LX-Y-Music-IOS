@@ -12,7 +12,7 @@ import playerState from '@/store/player/state'
 import settingState from '@/store/setting/state'
 import { getList, setPlayMusicInfo, setMusicInfo, setPlayListId } from '@/core/player/playInfo'
 import { setNowPlayTime, setMaxplayTime } from '@/core/player/progress'
-import { play as lrcPlay } from '@/plugins/lyric'
+import { syncToTime as lrcSyncToTime } from '@/plugins/lyric'
 import { clearPlayedList, addPlayedList, removePlayedList } from '@/core/player/playedList'
 import { clearTempPlayeList, removeTempPlayList } from '@/core/player/tempPlayList'
 import { getMusicUrl, getPicPath, getLyricInfo } from '@/core/music'
@@ -494,7 +494,7 @@ const handleRestorePlay = async (restorePlayInfo: LX.Player.SavedPlayInfo) => {
   const restoreTime = settingState.setting['player.isSavePlayTime'] ? restorePlayInfo.time : 0
   setNowPlayTime(restoreTime)
   setMaxplayTime(restorePlayInfo.maxTime)
-  try { lrcPlay(restoreTime * 1000) } catch {}
+  try { lrcSyncToTime(restoreTime * 1000, true) } catch {}
 
   const playMusicInfo = playerState.playMusicInfo
 

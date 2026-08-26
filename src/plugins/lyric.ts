@@ -82,8 +82,9 @@ export const setLyric = (lyric: string, translation?: string, romalrc?: string) 
   if (wasPlaying) {
     void getPosition()
       .then((position) => {
-        try { lrcTools.lrc!.play((position || 0) * 1000) } catch {}
-        lrcTools.isPlay = true
+        // 切歌/恢复瞬间用【引擎实时位置】纯镜像重锚（不启动 ticker），
+        // 避免歌词时钟先于音频自行走字导致高亮行错位。
+        try { syncToTime((position || 0) * 1000, true) } catch {}
       })
       .catch(() => {
         lrcTools.isPlay = true
@@ -104,18 +105,12 @@ export const toggleRoma = (isShow: boolean) => {
   lrcTools.setLyric()
 }
 export const play = (time?: number) => {
-  // 调用方统一传入【毫秒】（lrc-file-parser 的语义）：
-  //   - playProgress 的逐秒重锚 / setProgress 传 time*1000（秒→毫秒）
-  //   - 拖动预览 progressDragPreview、点击歌词行 line.time 直接传毫秒
-  //   - app_event.play() 等多为无参触发（播放开始事件），默认从 0 起步，
-  //     由 setLyric 的 getPosition() 实时重锚与逐秒 tick 持续校准到真实音频位置。
-  // ⚠ 切忌再对 time 做 *1000：014b7b1f 曾误加 *1000，叠加调用方已有的 *1000
-  //   形成双重换算（ms×1000），导致每次逐秒重锚都把歌词时钟拉到 1000 倍位置，
-  //   高亮行永远停在末尾 → ⑦“进度条与歌词高亮行对不齐”；且因 VerticalNew 让
-  //   Lyric 常驻挂载，错位的歌词 FlatList 每秒都在后台滚动、抢占 JS 线程 →
-  //   ⑥“左右滑页不顺滑”。恢复为「调用方传毫秒」的原始契约后两者一并消除。
-  lrcTools.isPlay = true
-  lrcTools.lrc!.play(time ?? 0)
+  // 调用方统一传入【毫秒】（lrc-file-parser 的语义）。
+  // 改为【纯镜像】语义：仅把当前行锚到指定音频位置，不再启动 lrc-file-parser
+  // 内部 ticker——避免歌词时钟脱离音频真实位置自行走字（缓冲/卡顿/JS 线程繁忙
+  // 时 ticker 与音频脱节，表现为“歌词跑在音频前面”）。真正的前进由 playProgress
+  // 的 250ms 重锚循环驱动，歌词行永远等于音频真实位置（⑩ 绝对同步）。
+  syncToTime(time ?? 0, true)
 }
 export const pause = () => {
   // console.log('pause')
@@ -150,6 +145,16 @@ export const setPlayTime = (time: number) => {
   lrcTools.currentLineData.line = lineIndex
   lrcTools.currentLineData.text = line.text
   lrcTools.onPlay(lineIndex, line.text)
+}
+
+/**
+ * 把歌词当前行【纯镜像】到给定音频位置（ms），不启动任何独立 ticker。
+ * isPlaying 同步写入 lrcTools.isPlay，供切歌时 setLyric 判断 wasPlaying 正确重锚。
+ * 这是“音频与歌词绝对同步”的核心：歌词行永远由音频真实位置推导，不会自行漂移。
+ */
+export const syncToTime = (time: number, isPlaying: boolean) => {
+  lrcTools.isPlay = isPlaying
+  setPlayTime(time)
 }
 
 // on lyric play hook

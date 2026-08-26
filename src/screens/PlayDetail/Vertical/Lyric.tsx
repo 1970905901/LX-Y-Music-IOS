@@ -159,6 +159,9 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
   const scrollTimoutRef = useRef<NodeJS.Timeout | null>(null)
   const delayScrollTimeout = useRef<NodeJS.Timeout | null>(null)
   const lineRef = useRef({ line: 0, prevLine: 0 })
+  // 记录上一帧的 active，用于检测“从封面页切回歌词页”的上升沿，
+  // 上升沿这一次强制走 force 路径，避免被 [line, active] effect 的“舒适区动画滚动”抢先。
+  const activeRef = useRef(active)
   const isFirstSetLrc = useRef(true)
   const listLayoutInfoRef = useRef<{ lineHeights: number[] }>({
     lineHeights: [],
@@ -367,28 +370,49 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
     if (line < 0) return
     lineRef.current.prevLine = lineRef.current.line
     lineRef.current.line = line
-    if (!flatListRef.current || isPauseScrollRef.current) return
+    if (!flatListRef.current || isPauseScrollRef.current) {
+      activeRef.current = active
+      return
+    }
 
     // 非歌词页（封面页）时，歌词时钟仍在推进，但不在后台驱动 FlatList 滚动，
     // 避免 PagerView 横向滑页时与歌词的逐秒 scrollToIndex 抢帧导致卡顿。
-    if (!active) return
+    if (!active) {
+      activeRef.current = active
+      return
+    }
 
+    // 从封面页切回歌词页的“上升沿”这一次强制立刻定位（force=true）：
+    // 否则本 effect 比 [active] effect 先执行，会先发一个 animated:true 的舒适区动画滚动，
+    // 高亮行就“慢慢滚”到目标，而非立即到位。
+    const force = forceScrollRef.current || activeRef.current === false
+    activeRef.current = active
     // 拖动进度条 / 跳转 / 恢复播放等用户动作期间强制滚动（force），使高亮行绝对同步跟随；
     // 被动逐秒重锚时仍用舒适区节流，避免逐行微滚动卡顿。
-    handleScrollToActive(lineRef.current.line, forceScrollRef.current)
+    handleScrollToActive(lineRef.current.line, force)
   }, [line, active])
 
   // 从封面页切回歌词页时，立即把歌词时钟重锚到真实音频位置，并强制把当前行定位到 42% 位置，
   // 避免“长暂停后再播放 / 重开后”高亮行姗姗来迟、与音频不同步。
   useEffect(() => {
     if (active) {
+      setForceScroll(true)
+      // 等 FlatList 完成本次布局（pageHeight / 行高就绪）后再立即无动画定位，
+      // 避免切页瞬间高度未就绪导致定位偏差或延时。
+      requestAnimationFrame(() => {
+        handleScrollToActive(lineRef.current.line, true)
+      })
       void getPosition().then((p) => {
         if (p != null) {
           try { lrcPlay(p * 1000) } catch {}
+          // 重锚后 line 会在下一 tick 更新并走上面的 force 路径；再补一次 rAF 立即定位，
+          // 确保重锚后的正确行第一时间出现在视口，不被舒适区动画拖慢。
+          requestAnimationFrame(() => {
+            setForceScroll(true)
+            handleScrollToActive(lineRef.current.line, true)
+          })
         }
       })
-      setForceScroll(true)
-      handleScrollToActive(lineRef.current.line, true)
     }
   }, [active])
 

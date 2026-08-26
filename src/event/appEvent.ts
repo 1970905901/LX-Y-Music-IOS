@@ -63,6 +63,21 @@ export class AppEvent extends Event {
   }
 
   /**
+   * 拖动进度条过程中实时预览：携带当前拖动到的毫秒时间，
+   * 用于在不 seek 音频的前提下把歌词时钟重锚到拖动位置（修复拖动时歌词高亮行与进度条不同步）。
+   */
+  progressDragPreview(time: number) {
+    this.emit('progressDragPreview', time)
+  }
+
+  /**
+   * 进度条拖动状态切换（开始/结束），用于暂停逐秒歌词重锚，避免把预览高亮拽回音频旧位置。
+   */
+  progressDragState(isDrag: boolean) {
+    this.emit('progressDragState', isDrag)
+  }
+
+  /**
    * Set volume level
    * @param volume volume level
    */

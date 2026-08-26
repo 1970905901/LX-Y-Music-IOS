@@ -47,15 +47,18 @@ const PreassBar = memo(
     onDragState,
     setDragProgress,
     onSetProgress,
+    onPreview,
   }: {
     onDragState: (drag: boolean) => void
     setDragProgress: (progress: number) => void
     onSetProgress: (progress: number) => void
+    onPreview?: (progress: number) => void
   }) => {
     const { onLayout, onDragStart, onDragEnd, onDrag } = useDrag(
       onSetProgress,
       onDragState,
-      setDragProgress
+      setDragProgress,
+      onPreview
     )
     // const handlePress = useCallback((event: GestureResponderEvent) => {
     //   onPress(event.nativeEvent.locationX)
@@ -121,6 +124,10 @@ const Progress = ({
   const onSetProgress = useCallback((progress: number) => {
     global.app_event.setProgress(progress * durationRef.current)
   }, [])
+  // bug③: 拖动中实时把歌词时钟重锚到手指位置（毫秒），不 seek 音频，避免卡顿与高亮行错位
+  const onPreview = useCallback((progress: number) => {
+    global.app_event.progressDragPreview(progress * durationRef.current * 1000)
+  }, [])
   const activeColor = theme.isDark ? theme['c-font'] : theme['c-primary'];
   return (
     <View style={styles.progress}>
@@ -159,6 +166,7 @@ const Progress = ({
         onDragState={setDraging}
         setDragProgress={setDragProgress}
         onSetProgress={onSetProgress}
+        onPreview={onPreview}
       />
     </View>
   )

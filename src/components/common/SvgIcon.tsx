@@ -170,6 +170,21 @@ const FuzzySearchIcon = ({ size, color }: { size: number; color: string }) => (
   </Svg>
 )
 
+const HeartPath =
+  'M512 862.4c-14.4 0-28.8-4.8-41.6-14.4C316.8 725.6 153.6 581.6 153.6 403.2c0-105.6 85.6-191.2 191.2-191.2 56 0 109.6 25.6 145.6 67.2C526.4 237.6 580 212 636 212c105.6 0 191.2 85.6 191.2 191.2 0 178.4-162.4 322.4-305.6 442.4-16 10.4-34.4 16.8-54.4 16.8z'
+
+const HeartIcon = ({ size, color }: { size: number; color: string }) => (
+  <Svg width={size} height={size} viewBox="0 0 1024 1024" fill="none">
+    <Path d={HeartPath} fill="none" stroke={color} strokeWidth={64} strokeLinejoin="round" />
+  </Svg>
+)
+
+const HeartFilledIcon = ({ size, color }: { size: number; color: string }) => (
+  <Svg width={size} height={size} viewBox="0 0 1024 1024" fill="none">
+    <Path d={HeartPath} fill={color} />
+  </Svg>
+)
+
 
 export const SvgIcon = memo(({ name, size = 15, rawSize, color = '#000', style }: SvgIconProps) => {
   const finalSize = rawSize ?? scaleSizeW(size)
@@ -200,6 +215,10 @@ export const SvgIcon = memo(({ name, size = 15, rawSize, color = '#000', style }
         return <LyricIcon size={finalSize} color={color} />
       case 'fuzzy-search':
         return <FuzzySearchIcon size={finalSize} color={color} />
+      case 'heart':
+        return <HeartIcon size={finalSize} color={color} />
+      case 'heart-filled':
+        return <HeartFilledIcon size={finalSize} color={color} />
       default:
         return null
     }

@@ -11,6 +11,8 @@ import { setStatusText } from '@/core/player/playStatus'
 import playerState from '@/store/player/state'
 import settingState from '@/store/setting/state'
 import { getList, setPlayMusicInfo, setMusicInfo, setPlayListId } from '@/core/player/playInfo'
+import { setNowPlayTime, setMaxplayTime } from '@/core/player/progress'
+import { play as lrcPlay } from '@/plugins/lyric'
 import { clearPlayedList, addPlayedList, removePlayedList } from '@/core/player/playedList'
 import { clearTempPlayeList, removeTempPlayList } from '@/core/player/tempPlayList'
 import { getMusicUrl, getPicPath, getLyricInfo } from '@/core/music'
@@ -25,6 +27,7 @@ import {
   checkIgnoringBatteryOptimization,
   checkNotificationPermission,
   debounceBackgroundTimer,
+  toast,
 } from '@/utils/tools'
 
 const createGettingUrlId = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem) => {
@@ -34,6 +37,10 @@ const createGettingUrlId = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem
       : musicInfo.meta.toggleMusicInfo
   return `${musicInfo.id}_${tInfo?.id ?? ''}`
 }
+
+// bug②: 未设置自定义音源时，列表循环播放失败会无限递归 playNext。
+// 这里统计连续加载失败次数，整列循环一遍仍无一可播则停止并提示。
+let consecutiveLoadFailures = 0
 
 const diffCurrentMusicInfo = (curMusicInfo: LX.Music.MusicInfo | LX.Download.ListItem): boolean => {
   return (
@@ -443,6 +450,8 @@ export const setMusicUrl = (
         } else {
           setResource(currentMusicInfo, url, playerState.progress.nowPlayTime)
         }
+        // 成功取得并加载音源，清零连续失败计数
+        consecutiveLoadFailures = 0
         
         preloadLog.info(`Current song URL ready, triggering preload`)
         startPreload()
@@ -454,6 +463,17 @@ export const setMusicUrl = (
       console.log(err)
       setStatusText(err.message as string)
       global.app_event.error()
+
+      // bug②: 连续加载失败达到当前列表长度，说明整列都无可播音源，停止并提示，避免无限循环
+      consecutiveLoadFailures++
+      const listId = playerState.playInfo.playerListId
+      const listLen = listId ? getList(listId).length : 0
+      if (listLen > 0 && consecutiveLoadFailures >= listLen) {
+        consecutiveLoadFailures = 0
+        void setStop()
+        toast(global.i18n.t('player__no_available_source'))
+        return
+      }
       void playNext(true)
     })
     .finally(() => {
@@ -468,12 +488,13 @@ const handleRestorePlay = async (restorePlayInfo: LX.Player.SavedPlayInfo) => {
   const musicInfo = playerState.playMusicInfo.musicInfo
   if (!musicInfo) return
 
-  setTimeout(() => {
-    global.app_event.setProgress(
-      settingState.setting['player.isSavePlayTime'] ? restorePlayInfo.time : 0,
-      restorePlayInfo.maxTime
-    )
-  })
+  // bug④: 恢复播放时直接写进度 store，绕过 setProgress 的 `if (!playerState.musicInfo.id) return` 守卫。
+  // 恢复初期 playerState.musicInfo.id 尚未就绪，走 setProgress 会被丢弃，导致记忆进度以 0 起播。
+  // 直接写 nowPlayTime / maxPlayTime 后，setMusicUrl 会以该时间向音频引擎 seek，并同步重锚歌词时钟。
+  const restoreTime = settingState.setting['player.isSavePlayTime'] ? restorePlayInfo.time : 0
+  setNowPlayTime(restoreTime)
+  setMaxplayTime(restorePlayInfo.maxTime)
+  try { lrcPlay(restoreTime * 1000) } catch {}
 
   const playMusicInfo = playerState.playMusicInfo
 

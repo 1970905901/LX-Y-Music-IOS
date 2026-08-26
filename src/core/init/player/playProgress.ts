@@ -35,6 +35,9 @@ export default () => {
 
   let updateTimeout: number | null = null
   let isScreenOn = true
+  // 进度条拖动进行中：此时歌词时钟交由拖动预览重锚，暂停逐秒的 lrc 重锚，
+  // 否则每拍都会把预览高亮拽回音频旧位置，表现为“拖动时进度条与歌词高亮行不同步”。
+  let isDragging = false
   // 最近一次 seek/点击跳转的时间戳。每拍重锚歌词时钟前需判断是否在 seek 沉降窗口内，
   // 避免把刚跳转的高亮行又拽回 seek 前的旧位置（iOS 一次 seek 约需 ~180ms 才生效）。
   let lastSeekTime = 0
@@ -50,9 +53,10 @@ export default () => {
 
       // 长期同步：每拍用真实音频位置重锚歌词时钟，避免 seek/拖动/卡顿/倍速后
       // 歌词解析器自身的墙钟与真实音频位置永久漂移（表现为“快进后/点歌词后对不齐”）。
+      // 拖动进度条期间由 progressDragPreview 事件接管歌词时钟，这里跳过，避免把预览高亮拽回旧位置。
       // seek/点击后的 ~500ms 内跳过，避免把刚跳转的高亮行又拽回 seek 前的旧位置
       // （iOS 一次 seek 约需 ~180ms 才生效，期间 getPosition 仍是旧位置）。
-      if (Date.now() - lastSeekTime > 500) {
+      if (!isDragging && Date.now() - lastSeekTime > 500) {
         try { lrcPlay(position * 1000) } catch {}
       }
       if (
@@ -118,6 +122,17 @@ export default () => {
     }
   }
 
+  // bug③: 拖动进度条期间接管歌词时钟，使其高亮行跟随手指位置而不 seek 音频（防卡顿）。
+  const handleProgressDragPreview = (time: number) => {
+    if (!playerState.musicInfo.id) return
+    try { lrcPlay(time) } catch {}
+  }
+  const handleProgressDragState = (drag: boolean) => {
+    isDragging = drag
+    // 进入拖动瞬间记一次 seek 时间戳，避免刚结束拖动时逐秒重锚把高亮拽回旧位置
+    if (drag) lastSeekTime = Date.now()
+  }
+
   const handlePlay = () => {
     void getMaxTime()
     startUpdateTimeout()
@@ -178,6 +193,8 @@ export default () => {
   global.app_event.on('stop', handleStop)
   global.app_event.on('error', handleError)
   global.app_event.on('setProgress', setProgress)
+  global.app_event.on('progressDragPreview', handleProgressDragPreview)
+  global.app_event.on('progressDragState', handleProgressDragState)
   global.app_event.on('musicToggled', handleSetPlayInfo)
   global.state_event.on('configUpdated', handleConfigUpdated)
   onScreenStateChange(handleScreenStateChanged)

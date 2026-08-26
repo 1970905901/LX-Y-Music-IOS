@@ -4,7 +4,8 @@ import { type LayoutChangeEvent } from 'react-native'
 export const useDrag = (
   onSetProgress: (progress: number) => void,
   onDragState: (drag: boolean) => void,
-  setDragProgress: (progress: number) => void
+  setDragProgress: (progress: number) => void,
+  onPreview?: (progress: number) => void
 ) => {
   const info = useRef({
     isDraging: false,
@@ -26,8 +27,10 @@ export const useDrag = (
       setDragProgress((info.current.dragStartProgress = info.current.dragProgress = val))
       // dragProgress.value = msEvent.msDownProgress = val
       onDragState(true)
+      // 拖动开始即预览一次，让歌词高亮行立即跟随手指初始位置
+      onPreview?.(val)
     },
-    [onDragState, setDragProgress]
+    [onDragState, setDragProgress, onPreview]
   )
   const onDragEnd = useCallback(() => {
     if (info.current.isDraging) onSetProgress(info.current.dragProgress)
@@ -45,8 +48,10 @@ export const useDrag = (
       if (progress > 1) progress = 1
       else if (progress < 0) progress = 0
       setDragProgress((info.current.dragProgress = progress))
+      // bug③: 拖动过程中实时预览歌词时钟（不 seek 音频），让高亮行跟随进度条
+      onPreview?.(progress)
     },
-    [setDragProgress]
+    [setDragProgress, onPreview]
   )
 
   const onLayout = useCallback((e: LayoutChangeEvent) => {

@@ -423,10 +423,15 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
       // 同步重锚歌词时钟，使高亮行立即跟随点击位置（不依赖 app_event 的异步派发，
       // 否则在 iOS 上高亮会滞后/不跟随音频跳转）
       try { lrcPlay(line.time) } catch {}
+      // setProgress 内部会真正 seek 音频（setCurrentTime -> seekToTime），
+      // 同时把歌词时钟重锚到该行时间，保证音频与该行高亮绝对同步。
       global.app_event.setProgress(line.time / 1000);
     }
-    handleScrollToActive(index);
-  }, [isShowLyricProgressSetting, lyricLines]);
+    // 用户点击歌词行属于主动跳转：强制让歌词列表立即、无动画地定位到被点行，
+    // 越过“舒适区 15%”节流与动画延迟，使高亮行与音频（及进度条）绝对同步跟随。
+    setForceScroll(true);
+    handleScrollToActive(index, true);
+  }, [isShowLyricProgressSetting, lyricLines, setForceScroll, handleScrollToActive]);
 
   const renderItem: FlatListType['renderItem'] = ({ item, index }) => {
     return <LrcLine line={item} lineNum={index} activeLine={line} onLayout={handleLineLayout} onPress={handleLinePress} isSmallWindow={isSmallWindow} />;

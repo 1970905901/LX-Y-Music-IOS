@@ -622,13 +622,24 @@ const Main = () => {
   const [activeNavId, setActiveNavIdState] = useState(commonState.navActiveId)
   const navStatus = useSettingValue('common.navStatus');
   const navOrder = useSettingValue('common.navOrder');
+  const navFlatOrder = useSettingValue('common.navFlatOrder');
+  const navGroupEnabled = useSettingValue('common.navGroupEnabled');
+
+  // 与侧边栏（DrawerNav）保持同一套“有效顺序”，否则二者不一致时点击侧边栏项会跳错页面。
+  // 分组建开启用 navOrder；否则优先用用户在“侧边栏导航”里自定义过的扁平顺序 navFlatOrder，
+  // 都没有再回退 navOrder。例如仅在 navFlatOrder 中新增 nav_baidupan 而 navOrder 未包含时，
+  // 侧边栏会显示“百度网盘”，但 PagerView 没有对应页面，点击会被回退到第一页（我的列表）。
+  const effectiveOrder = useMemo(() => {
+    if (!navGroupEnabled && navFlatOrder?.length) return navFlatOrder;
+    return navOrder;
+  }, [navGroupEnabled, navFlatOrder, navOrder]);
 
   const visibleNavs = useMemo(() => {
-    return navOrder.filter(id => isMenuVisible(id, navStatus)).map(id => {
+    return effectiveOrder.filter(id => isMenuVisible(id, navStatus)).map(id => {
       const menuInfo = NAV_MENUS.find(menu => menu.id === id);
       return menuInfo || { id, icon: 'unknown' };
     });
-  }, [navStatus, navOrder]);
+  }, [navStatus, effectiveOrder]);
 
   const { viewMap, indexMap } = useMemo(() => {
     const viewMap: Partial<Record<NAV_ID_Type, number>> = {};

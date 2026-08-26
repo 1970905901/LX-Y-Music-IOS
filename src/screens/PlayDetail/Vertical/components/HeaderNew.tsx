@@ -25,12 +25,14 @@ const AnimatedIndicatorDot = ({ isActive }: { isActive: boolean }) => {
 
   useEffect(() => {
     Animated.parallel([
+      // width 在 iOS 原生动画驱动下不被支持，必须用 JS 驱动（useNativeDriver: false）
       Animated.spring(animatedWidth, {
         toValue: isActive ? DOT_ACTIVE_WIDTH : DOT_INACTIVE_WIDTH,
-        useNativeDriver: true,
+        useNativeDriver: false,
         tension: 50,
         friction: 7,
       }),
+      // opacity 原生驱动支持，保留以释放 JS 线程
       Animated.spring(animatedOpacity, {
         toValue: isActive ? 1 : 0.7,
         useNativeDriver: true,

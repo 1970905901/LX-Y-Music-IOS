@@ -1,4 +1,4 @@
-import { memo, useMemo, useEffect, useRef, useCallback } from 'react'
+import { memo, useMemo, useEffect, useRef, useCallback, useState } from 'react'
 import {
   View,
   FlatList,
@@ -18,7 +18,6 @@ import { setSpText } from '@/utils/pixelRatio'
 import settingState from '@/store/setting/state'
 import playerState from '@/store/player/state'
 import { useWindowSize } from '@/utils/hooks'
-import { HEADER_HEIGHT } from './components/Header'
 // import { screenkeepAwake } from '@/utils/nativeModules/utils'
 // import { log } from '@/utils/log'
 // import { toast } from '@/utils/tools'
@@ -151,9 +150,10 @@ export default ({ active = true }: { active?: boolean }) => {
   const { line } = useLrcPlay()
   const { height: winHeight } = useWindowSize()
   const isSmallWindow = winHeight < 700
-  // 歌词页位于 Header 之下，用确定像素高度直接撑满，避免依赖 PagerView 子页面
-  // 的 flex:1 / height:100% 在 iOS 原生侧不撑满而导致的“下方大片空白”。
-  const lyricAreaHeight = Math.max(0, winHeight - HEADER_HEIGHT)
+  // 歌词页实际可用高度由父容器（PagerView 子页面）的 onLayout 给出，
+  // 不再用 winHeight - HEADER_HEIGHT 估算：后者未扣除状态栏高和底部 Player
+  // 控制区高，导致 FlatList 被撑得比歌词页还大，下方被 PagerView 裁剪或顶上去。
+  const [pageHeight, setPageHeight] = useState(winHeight > 0 ? Math.max(0, winHeight - 180) : 0)
   const flatListRef = useRef<FlatList>(null)
   const isPauseScrollRef = useRef(true)
   const scrollTimoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -381,33 +381,40 @@ export default ({ active = true }: { active?: boolean }) => {
   };
   const getkey: FlatListType['keyExtractor'] = (item, index) => `${index}${item.text}`
 
+  const handlePageLayout = useCallback(({ nativeEvent }: LayoutChangeEvent) => {
+    const h = Math.round(nativeEvent.layout.height)
+    if (h > 0 && h !== pageHeight) setPageHeight(h)
+  }, [pageHeight])
+
   return (
-    <FlatList
-      data={lyricLines}
-      renderItem={renderItem}
-      keyExtractor={getkey}
-      style={{ height: lyricAreaHeight, width: '100%' }}
-      // 歌词整体居中且占满全屏：内容不足时垂直居中（无“下方大片空白”），
-      // 内容超长时自动撑满并正常滚动，当前行由 scrollToIndex 定位到 42%。
-      contentContainerStyle={{
-        flexGrow: 1,
-        justifyContent: 'center',
-        paddingHorizontal: isSmallWindow ? 12 : 20,
-      }}
-      ref={flatListRef}
-      showsVerticalScrollIndicator={false}
-      onScrollBeginDrag={handleScrollBeginDrag}
-      onScrollEndDrag={onScrollEndDrag}
-      initialNumToRender={20}
-      windowSize={5}
-      maxToRenderPerBatch={12}
-      updateCellsBatchingPeriod={100}
-      getItemLayout={getItemLayout}
-      extraData={line}
-      removeClippedSubviews={true}
-      onScrollToIndexFailed={handleScrollToIndexFailed}
-      {...panResponder.panHandlers}
-    />
+    <View style={{ flex: 1, width: '100%' }} onLayout={handlePageLayout} collapsable={false}>
+      <FlatList
+        data={lyricLines}
+        renderItem={renderItem}
+        keyExtractor={getkey}
+        style={{ height: pageHeight, width: '100%' }}
+        // 歌词整体居中且占满全屏：内容不足时垂直居中（无“下方大片空白”），
+        // 内容超长时自动撑满并正常滚动，当前行由 scrollToIndex 定位到 42%。
+        contentContainerStyle={{
+          flexGrow: 1,
+          justifyContent: 'center',
+          paddingHorizontal: isSmallWindow ? 12 : 20,
+        }}
+        ref={flatListRef}
+        showsVerticalScrollIndicator={false}
+        onScrollBeginDrag={handleScrollBeginDrag}
+        onScrollEndDrag={onScrollEndDrag}
+        initialNumToRender={20}
+        windowSize={5}
+        maxToRenderPerBatch={12}
+        updateCellsBatchingPeriod={100}
+        getItemLayout={getItemLayout}
+        extraData={line}
+        removeClippedSubviews={true}
+        onScrollToIndexFailed={handleScrollToIndexFailed}
+        {...panResponder.panHandlers}
+      />
+    </View>
   )
 }
 

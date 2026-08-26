@@ -20,13 +20,12 @@ import { scaleSizeW } from '@/utils/pixelRatio'
 
 const LyricPage = ({ activeIndex }: { activeIndex: number }) => {
   const initedRef = useRef(false)
-  const lyric = useMemo(() => <Lyric />, [])
   switch (activeIndex) {
     case 1:
       if (!initedRef.current) initedRef.current = true
-      return lyric
+      return <Lyric key="lyric" active={true} />
     default:
-      return initedRef.current ? lyric : null
+      return initedRef.current ? <Lyric key="lyric" active={false} /> : null
   }
 }
 
@@ -227,7 +226,7 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
               </View>
             </Animated.View>
           </View>
-          <View collapsable={false}>
+          <View collapsable={false} style={{ flex: 1 }}>
             <LyricPage activeIndex={pageIndex} />
           </View>
         </PagerView>

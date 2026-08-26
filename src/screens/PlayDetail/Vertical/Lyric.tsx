@@ -4,8 +4,7 @@ import {
   FlatList,
   type FlatListProps,
   type LayoutChangeEvent,
-  type NativeSyntheticEvent,
-  type NativeScrollEvent, TouchableOpacity,
+  TouchableOpacity,
   PanResponder,
 } from 'react-native'
 // import { useLayout } from '@/utils/hooks'
@@ -18,7 +17,6 @@ import { AnimatedColorText } from '@/components/common/Text'
 import { setSpText } from '@/utils/pixelRatio'
 import settingState from '@/store/setting/state'
 import playerState from '@/store/player/state'
-import { scrollTo } from '@/utils/scroll'
 import { useWindowSize } from '@/utils/hooks'
 // import { screenkeepAwake } from '@/utils/nativeModules/utils'
 // import { log } from '@/utils/log'
@@ -147,7 +145,7 @@ const LrcLine = memo(
 )
 const wait = async () => new Promise((resolve) => setTimeout(resolve, 100))
 
-export default () => {
+export default ({ active = true }: { active?: boolean }) => {
   const lyricLines = useLrcSet()
   const { line } = useLrcPlay()
   const { height: winHeight } = useWindowSize()
@@ -158,7 +156,6 @@ export default () => {
   const delayScrollTimeout = useRef<NodeJS.Timeout | null>(null)
   const lineRef = useRef({ line: 0, prevLine: 0 })
   const isFirstSetLrc = useRef(true)
-  const scrollInfoRef = useRef<NativeSyntheticEvent<NativeScrollEvent>['nativeEvent'] | null>(null)
   const listLayoutInfoRef = useRef<{ spaceHeight: number; lineHeights: number[] }>({
     spaceHeight: 0,
     lineHeights: [],
@@ -219,48 +216,18 @@ export default () => {
   const handleScrollToActive = (index = lineRef.current.line) => {
     if (index < 0) return
     if (flatListRef.current) {
-      if (scrollInfoRef.current && lineRef.current.line - lineRef.current.prevLine == 1) {
-        let offset = listLayoutInfoRef.current.spaceHeight
-        for (let line = 0; line < index; line++) {
-          offset += listLayoutInfoRef.current.lineHeights[line]
-        }
-        offset += (listLayoutInfoRef.current.lineHeights[line] ?? 0) / 2
-        const targetOffset = offset - scrollInfoRef.current.layoutMeasurement.height * 0.42
-        // 根据滚动距离动态计算动画时长：距离越远时间越长
-        const distance = Math.abs(targetOffset - scrollInfoRef.current.contentOffset.y)
-        const duration = Math.min(Math.max(distance * 0.5, 120), 300)
-        try {
-          scrollCancelRef.current = scrollTo(
-            flatListRef.current,
-            scrollInfoRef.current,
-            targetOffset,
-            duration,
-            () => {
-              scrollCancelRef.current = null
-            }
-          )
-        } catch { }
-      } else {
-        if (scrollCancelRef.current) {
-          scrollCancelRef.current()
-          scrollCancelRef.current = null
-        }
-        try {
-          flatListRef.current.scrollToIndex({
-            index,
-            animated: true,
-            viewPosition: 0.42,
-          })
-        } catch { }
+      if (scrollCancelRef.current) {
+        scrollCancelRef.current()
+        scrollCancelRef.current = null
       }
+      try {
+        flatListRef.current.scrollToIndex({
+          index,
+          animated: true,
+          viewPosition: 0.42,
+        })
+      } catch { }
     }
-  }
-
-  const handleScroll = ({ nativeEvent }: NativeSyntheticEvent<NativeScrollEvent>) => {
-    scrollInfoRef.current = nativeEvent
-    // if (isPauseScrollRef.current) {
-    //   playLineRef.current?.updateScrollInfo(nativeEvent)
-    // }
   }
   const handleScrollBeginDrag = () => {
     isPauseScrollRef.current = true
@@ -338,13 +305,17 @@ export default () => {
     lineRef.current.line = line
     if (!flatListRef.current || isPauseScrollRef.current) return
 
-    if (line - lineRef.current.prevLine != 1) {
-      handleScrollToActive()
-      return
-    }
+    // 非歌词页（封面页）时，歌词时钟仍在推进，但不在后台驱动 FlatList 滚动，
+    // 避免 PagerView 横向滑页时与歌词的逐秒 scrollToIndex 抢帧导致卡顿。
+    if (!active) return
 
     handleScrollToActive()
-  }, [line])
+  }, [line, active])
+
+  // 从封面页切回歌词页时，立即把当前行定位到 42% 位置
+  useEffect(() => {
+    if (active) handleScrollToActive()
+  }, [active])
 
   // useEffect(() => {
   //   requestAnimationFrame(() => {
@@ -363,16 +334,6 @@ export default () => {
     listLayoutInfoRef.current.lineHeights[lineNum] = height
     // playLineRef.current?.updateLayoutInfo(listLayoutInfoRef.current)
   }, [])
-
-  const handleSpaceLayout = useCallback(({ nativeEvent }: LayoutChangeEvent) => {
-    listLayoutInfoRef.current.spaceHeight = nativeEvent.layout.height
-    // playLineRef.current?.updateLayoutInfo(listLayoutInfoRef.current)
-  }, [])
-
-  // const handlePlayLine = useCallback((time: number) => {
-  //   playLineRef.current?.setVisible(false)
-  //   global.app_event.setProgress(time)
-  // }, [])
 
   const handleLinePress = useCallback((index: number) => {
     if (!isShowLyricProgressSetting) return;
@@ -400,11 +361,6 @@ export default () => {
   };
   const getkey: FlatListType['keyExtractor'] = (item, index) => `${index}${item.text}`
 
-  const spaceComponent = useMemo(
-    () => <View style={[styles.space, isSmallWindow && { paddingTop: '30%' }]} onLayout={handleSpaceLayout}></View>,
-    [handleSpaceLayout, isSmallWindow]
-  )
-
   return (
     <View style={[styles.container, isSmallWindow && { paddingLeft: 12, paddingRight: 12 }]} {...panResponder.panHandlers}>
       <FlatList
@@ -412,17 +368,18 @@ export default () => {
         renderItem={renderItem}
         keyExtractor={getkey}
         style={{ flex: 1 }}
-        contentContainerStyle={isSmallWindow ? { paddingBottom: 160 } : undefined}
+        // 歌词整体居中且占满全屏：内容不足时垂直居中（无“下方大片空白”），
+        // 内容超长时自动撑满并正常滚动，当前行由 scrollToIndex 定位到 42%。
+        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
         ref={flatListRef}
         showsVerticalScrollIndicator={false}
-        ListHeaderComponent={spaceComponent}
-        ListFooterComponent={spaceComponent}
         onScrollBeginDrag={handleScrollBeginDrag}
         onScrollEndDrag={onScrollEndDrag}
-        fadingEdgeLength={100}
-        initialNumToRender={Math.max(line + 10, 10)}
+        initialNumToRender={20}
+        windowSize={5}
+        maxToRenderPerBatch={12}
+        updateCellsBatchingPeriod={100}
         onScrollToIndexFailed={handleScrollToIndexFailed}
-        onScroll={handleScroll}
       />
     </View>
   )
@@ -433,9 +390,6 @@ const styles = createStyle({
     flex: 1,
     paddingLeft: 20,
     paddingRight: 20,
-  },
-  space: {
-    paddingTop: '100%',
   },
   line: {
     paddingTop: 10,

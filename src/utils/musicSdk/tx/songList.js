@@ -6,8 +6,6 @@ import { zzcSign } from './utils/crypto'
 import dailyRec from './dailyRec'
 import { log } from '@/utils/log'
 import settingState from '@/store/setting/state'
-import musicSearchApi from './musicSearch'
-import { log as txLog } from '@/utils/txLog'
 
 export default {
   _requestObj_tags: null,
@@ -577,59 +575,12 @@ export default {
     })
   },
 
+  // 企鹅音乐歌单搜索：直接走 client_music_search_songlist 接口（searchOld）。
+  // 与上游 lx-music-mobile 实现一致；经验证该接口可稳定返回 body.data.list，
+  // 由 handleSearchResult 映射 dissid/dissname/creator.name/imgurl/listennum/song_count/introduction。
+  // 注意：SearchCgiService（search_type=3）返回结构与歌单不一致，不能作为歌单搜索来源。
   search(text, page, limit = 20, retryNum = 0) {
     if (retryNum > 5) throw new Error('max retry')
-    // 歌单搜索改用与歌曲/歌手/专辑统一的 SearchCgiService 接口（search_type=3），
-    // 旧的 soso 歌单搜索接口已频繁返回失败。
-    // musicSearch 返回的是 data 对象本身（不是 { body, meta }），需兼容多种可能的字段路径。
-    return musicSearchApi.musicSearch(text, page, limit, 3).then((data) => {
-      txLog.info('[TX SongList] search musicSearch 返回', {
-        query: text,
-        page,
-        dataKeys: data ? Object.keys(data) : [],
-        itemSonglistLength: data?.item_songlist?.length ?? 0,
-        itemPlaylistLength: data?.item_playlist?.length ?? 0,
-        bodySonglistLength: data?.body?.songlist?.list?.length ?? 0,
-        meta: data?.meta,
-      })
-      const rawList = data?.item_songlist || data?.item_playlist || data?.playlist ||
-        data?.body?.songlist?.list || data?.body?.playlist?.list || []
-      const list = this.handleSearchResult(rawList)
-      return {
-        list,
-        limit,
-        total: data?.meta?.estimate_sum ?? data?.meta?.sum ?? list.length,
-        source: 'tx',
-      }
-    }).catch((err) => {
-      txLog.warn('[TX SongList] search musicSearch 失败，降级桌面端接口', { error: err.message, retryNum: retryNum + 1 })
-      return this.searchDesktop(text, page, limit, retryNum)
-    })
-  },
-
-  searchDesktop(text, page, limit = 20, retryNum = 0) {
-    if (retryNum > 5) throw new Error('max retry')
-    return musicSearchApi.musicSearchDesktop(text, page, limit, 3).then((data) => {
-      txLog.info('[TX SongList] searchDesktop 返回', {
-        query: text,
-        page,
-        dataKeys: data ? Object.keys(data) : [],
-        bodySonglistLength: data?.body?.songlist?.list?.length ?? 0,
-        bodyPlaylistLength: data?.body?.playlist?.list?.length ?? 0,
-        meta: data?.meta,
-      })
-      const rawList = data?.body?.songlist?.list || data?.body?.playlist?.list ||
-        data?.item_songlist || data?.item_playlist || data?.playlist || []
-      const list = this.handleSearchResult(rawList)
-      return {
-        list,
-        limit,
-        total: data?.meta?.estimate_sum ?? data?.meta?.sum ?? list.length,
-        source: 'tx',
-      }
-    }).catch((err) => {
-      txLog.warn('[TX SongList] searchDesktop 失败，降级旧接口', { error: err.message, retryNum: retryNum + 1 })
-      return this.searchOld(text, page, limit, retryNum)
-    })
+    return this.searchOld(text, page, limit, retryNum)
   },
 }

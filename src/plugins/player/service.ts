@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-misused-promises */
-import TrackPlayer, { Event as TPEvent, State } from 'react-native-track-player'
-import { Platform } from 'react-native'
+import TrackPlayer, { Event as TPEvent } from 'react-native-track-player'
 import { pause, play, playNext, playPrev } from '@/core/player/player'
 import { markTimeoutExitInteraction } from '@/core/player/timeoutExit'
 import { initUnifiedPlayerController } from './controller'
@@ -10,23 +9,6 @@ import settingState from '@/store/setting/state'
 
 let isInitialized = false
 let shouldResumeAfterDuck = false
-let duckRecoveryTimeouts: Array<ReturnType<typeof setTimeout>> = []
-
-const clearDuckRecoveryTimeouts = () => {
-  for (const timeout of duckRecoveryTimeouts) clearTimeout(timeout)
-  duckRecoveryTimeouts = []
-}
-
-const restoreConfiguredVolume = () => {
-  clearDuckRecoveryTimeouts()
-
-  const applyVolume = () => {
-    void TrackPlayer.setVolume(settingState.setting['player.volume']).catch(() => {})
-  }
-
-  applyVolume()
-  duckRecoveryTimeouts = [250, 1000].map(delay => setTimeout(applyVolume, delay))
-}
 
 const registerPlaybackService = async() => {
   if (isInitialized) return
@@ -67,36 +49,37 @@ const registerPlaybackService = async() => {
     exitApp('Remote Stop')
   })
 
-  TrackPlayer.addEventListener(TPEvent.RemoteDuck, async ({ permanent, paused, ducking }) => {
-    // 设置关闭时，完全不理会音频焦点事件：既不暂停也不自动恢复。
-    // iOS 侧已通过 iosCategoryOptions: ['mixWithOthers'] 避免系统强制中断。
-    if (!settingState.setting['player.isHandleAudioFocus']) return
+  TrackPlayer.addEventListener(TPEvent.RemoteDuck, ({ permanent, paused }) => {
+    const handleAudioFocus = settingState.setting['player.isHandleAudioFocus']
 
-    // permanent 中断：系统明确告知中断结束后不应自动恢复（Android / iOS）。
+    // 设置关闭：不希望被其他 App 打断。
+    // 首选由 iOS 的 mixWithOthers 避免系统中断；若仍收到中断事件（兜底），
+    // 立即恢复播放，使“其他 App 出声不打断音乐”的效果成立。
+    if (!handleAudioFocus) {
+      if (paused) void play()
+      return
+    }
+
+    // 系统明确告知中断结束后不应恢复（如来电打断）。
     if (permanent) {
       shouldResumeAfterDuck = false
-      clearDuckRecoveryTimeouts()
       if (paused) void pause()
       return
     }
 
-    // 中断开始：iOS 发送 { paused: true }，Android 可能发送 { ducking: true }。
-    // 以 TrackPlayer 当前真实状态为准，避免 playerState.isPlay 因并发状态更新
-    // 已被提前置为 false，导致中断结束后无法自动恢复。
-    if (paused || ducking) {
-      clearDuckRecoveryTimeouts()
-      const state = await TrackPlayer.getState().catch(() => null)
-      if (state == State.Playing) shouldResumeAfterDuck = true
-      if (paused) void pause()
+    // 中断开始（原生仅发 { paused: true }）：iOS 此刻已将播放器暂停，
+    // 因此不能用 getState() 判断“是否在播放”——只要收到 began 中断，
+    // 必然是播放中被打断，故标记结束时要恢复。
+    if (paused) {
+      shouldResumeAfterDuck = true
+      void pause()
       return
     }
 
-    // 中断结束 / ducking 结束：恢复音量，并根据恢复意图继续播放。
-    if (Platform.OS == 'ios' || ducking === false) restoreConfiguredVolume()
-
+    // 中断结束（原生发 { paused: false } 且带 shouldResume）：按标记恢复播放。
     if (shouldResumeAfterDuck) {
       shouldResumeAfterDuck = false
-      play()
+      void play()
     }
   })
 

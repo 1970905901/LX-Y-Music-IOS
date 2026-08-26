@@ -226,7 +226,7 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
               </View>
             </Animated.View>
           </View>
-          <View collapsable={false} style={{ flex: 1 }}>
+          <View collapsable={false} style={{ flex: 1, width: '100%', height: '100%' }}>
             <LyricPage activeIndex={pageIndex} />
           </View>
         </PagerView>

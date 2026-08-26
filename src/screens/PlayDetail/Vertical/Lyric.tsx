@@ -156,8 +156,7 @@ export default ({ active = true }: { active?: boolean }) => {
   const delayScrollTimeout = useRef<NodeJS.Timeout | null>(null)
   const lineRef = useRef({ line: 0, prevLine: 0 })
   const isFirstSetLrc = useRef(true)
-  const listLayoutInfoRef = useRef<{ spaceHeight: number; lineHeights: number[] }>({
-    spaceHeight: 0,
+  const listLayoutInfoRef = useRef<{ lineHeights: number[] }>({
     lineHeights: [],
   })
   const scrollCancelRef = useRef<(() => void) | null>(null)
@@ -335,6 +334,19 @@ export default ({ active = true }: { active?: boolean }) => {
     // playLineRef.current?.updateLayoutInfo(listLayoutInfoRef.current)
   }, [])
 
+  const getItemLayout = useCallback<NonNullable<FlatListType['getItemLayout']>>((data, index) => {
+    const height = listLayoutInfoRef.current.lineHeights[index]
+    if (height == null) {
+      // 尚未测量到高度时给估算值，避免 scrollToIndex 失败/抖动
+      return { length: isSmallWindow ? 40 : 54, offset: (isSmallWindow ? 40 : 54) * index, index }
+    }
+    let offset = 0
+    for (let i = 0; i < index; i++) {
+      offset += listLayoutInfoRef.current.lineHeights[i] ?? (isSmallWindow ? 40 : 54)
+    }
+    return { length: height, offset, index }
+  }, [isSmallWindow])
+
   const handleLinePress = useCallback((index: number) => {
     if (!isShowLyricProgressSetting) return;
     if (scrollTimoutRef.current) {
@@ -362,35 +374,36 @@ export default ({ active = true }: { active?: boolean }) => {
   const getkey: FlatListType['keyExtractor'] = (item, index) => `${index}${item.text}`
 
   return (
-    <View style={[styles.container, isSmallWindow && { paddingLeft: 12, paddingRight: 12 }]} {...panResponder.panHandlers}>
-      <FlatList
-        data={lyricLines}
-        renderItem={renderItem}
-        keyExtractor={getkey}
-        style={{ flex: 1 }}
-        // 歌词整体居中且占满全屏：内容不足时垂直居中（无“下方大片空白”），
-        // 内容超长时自动撑满并正常滚动，当前行由 scrollToIndex 定位到 42%。
-        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
-        ref={flatListRef}
-        showsVerticalScrollIndicator={false}
-        onScrollBeginDrag={handleScrollBeginDrag}
-        onScrollEndDrag={onScrollEndDrag}
-        initialNumToRender={20}
-        windowSize={5}
-        maxToRenderPerBatch={12}
-        updateCellsBatchingPeriod={100}
-        onScrollToIndexFailed={handleScrollToIndexFailed}
-      />
-    </View>
+    <FlatList
+      data={lyricLines}
+      renderItem={renderItem}
+      keyExtractor={getkey}
+      style={{ flex: 1, width: '100%' }}
+      // 歌词整体居中且占满全屏：内容不足时垂直居中（无“下方大片空白”），
+      // 内容超长时自动撑满并正常滚动，当前行由 scrollToIndex 定位到 42%。
+      contentContainerStyle={{
+        flexGrow: 1,
+        justifyContent: 'center',
+        paddingHorizontal: isSmallWindow ? 12 : 20,
+      }}
+      ref={flatListRef}
+      showsVerticalScrollIndicator={false}
+      onScrollBeginDrag={handleScrollBeginDrag}
+      onScrollEndDrag={onScrollEndDrag}
+      initialNumToRender={20}
+      windowSize={5}
+      maxToRenderPerBatch={12}
+      updateCellsBatchingPeriod={100}
+      getItemLayout={getItemLayout}
+      extraData={line}
+      removeClippedSubviews={true}
+      onScrollToIndexFailed={handleScrollToIndexFailed}
+      {...panResponder.panHandlers}
+    />
   )
 }
 
 const styles = createStyle({
-  container: {
-    flex: 1,
-    paddingLeft: 20,
-    paddingRight: 20,
-  },
   line: {
     paddingTop: 10,
     paddingBottom: 10,

@@ -32,10 +32,13 @@ const AnimatedIndicatorDot = ({ isActive }: { isActive: boolean }) => {
         tension: 50,
         friction: 7,
       }),
-      // opacity 原生驱动支持，保留以释放 JS 线程
+      // 同视图内不能混用原生/JS 驱动：只要有一个值用原生驱动，整个 style
+      // 都会按原生校验，width 仍会抛 "not supported by native animated module"。
+      // 因此 opacity 也必须用 JS 驱动（useNativeDriver: false）。
+      // 圆点动画仅切页瞬间触发、开销极小，全 JS 驱动无性能问题。
       Animated.spring(animatedOpacity, {
         toValue: isActive ? 1 : 0.7,
-        useNativeDriver: true,
+        useNativeDriver: false,
         tension: 50,
         friction: 7,
       }),

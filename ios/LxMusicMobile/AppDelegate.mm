@@ -499,6 +499,7 @@ static MPNowPlayingPlaybackState LXNowPlayingState = MPNowPlayingPlaybackStateSt
 static BOOL LXIsReceivingRemoteControlEvents = NO;
 static NSString * const LXTrackPlayerLifecycleNotificationName = @"LXTrackPlayerLifecycle";
 static id LXTrackPlayerLifecycleObserver = nil;
+static id LXNowPlayingApplicationObserver = nil;
 static NSString * const LXRemoteCommandNotificationName = @"LXRemoteCommand";
 static BOOL LXRemoteCommandHandlersInstalled = NO;
 
@@ -685,6 +686,15 @@ static NSNumber *LXNowPlayingDefaultPlaybackRateValue(void) {
 static void LXSetNowPlayingPlaybackState(MPNowPlayingPlaybackState state, NSDictionary *options) {
   LXNowPlayingState = state;
 
+  // 播放事件可能早于歌曲元数据到达。不要把只有 playbackRate、没有标题的
+  // 空字典发布给 MPNowPlayingInfoCenter：iOS 27 Beta 7 会把它识别成“未在播放”，
+  // 且后续补写元数据不一定重新显示控制中心媒体卡片。先缓存状态，等
+  // LXSetNowPlayingInfo 写入有效标题后再统一发布。
+  NSString *existingTitle = [LXNowPlayingInfoCache[MPMediaItemPropertyTitle] isKindOfClass:[NSString class]]
+    ? LXNowPlayingInfoCache[MPMediaItemPropertyTitle]
+    : nil;
+  if (existingTitle.length == 0) return;
+
   NSMutableDictionary *info = LXNowPlayingMutableInfo();
   NSDictionary *stateOptions = options ?: @{};
   NSNumber *elapsedTime = [stateOptions[@"elapsedTime"] isKindOfClass:[NSNumber class]] ? stateOptions[@"elapsedTime"] : nil;
@@ -729,10 +739,20 @@ static void LXHandleTrackPlayerLifecycleNotification(NSNotification *notificatio
 }
 
 static void LXRegisterTrackPlayerLifecycleObserver(void) {
-  if (LXTrackPlayerLifecycleObserver != nil) return;
-  LXTrackPlayerLifecycleObserver = [[NSNotificationCenter defaultCenter] addObserverForName:LXTrackPlayerLifecycleNotificationName object:nil queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification * _Nonnull note) {
-    LXHandleTrackPlayerLifecycleNotification(note);
-  }];
+  if (LXTrackPlayerLifecycleObserver == nil) {
+    LXTrackPlayerLifecycleObserver = [[NSNotificationCenter defaultCenter] addObserverForName:LXTrackPlayerLifecycleNotificationName object:nil queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification * _Nonnull note) {
+      LXHandleTrackPlayerLifecycleNotification(note);
+    }];
+  }
+
+  if (LXNowPlayingApplicationObserver == nil) {
+    LXNowPlayingApplicationObserver = [[NSNotificationCenter defaultCenter] addObserverForName:UIApplicationDidBecomeActiveNotification object:nil queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification * _Nonnull note) {
+      if (LXNowPlayingInfoCache.count == 0) return;
+      // iOS 27 Beta 7 可能在应用切换/控制中心展开后丢弃当前媒体会话；
+      // 重新提交缓存并同步状态可让控制中心恢复歌曲信息和播放按钮。
+      LXApplyNowPlayingInfo();
+    }];
+  }
 }
 
 static void LXSetNowPlayingInfo(NSDictionary *metadata) {
@@ -4535,6 +4555,9 @@ RCT_REMAP_METHOD(updateNowPlayingInfo, updateNowPlayingInfo:(NSDictionary *)meta
 
 RCT_REMAP_METHOD(playNowPlaying, playNowPlaying:(NSDictionary *)options resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
   dispatch_async(dispatch_get_main_queue(), ^{
+    // 先激活音频会话再发布 Now Playing。iOS 27 Beta 7 对未激活会话的
+    // 媒体信息更容易判定为“未在播放”，尤其是首次播放和从后台恢复时。
+    [[AVAudioSession sharedInstance] setActive:YES error:nil];
     LXSetNowPlayingPlaybackState(MPNowPlayingPlaybackStatePlaying, options);
     resolve(nil);
   });

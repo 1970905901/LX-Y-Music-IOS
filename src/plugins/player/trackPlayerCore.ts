@@ -35,8 +35,12 @@ const formatIOSNowPlayingMetadata = (metadata: {
   lyric?: string
 }) => {
   return {
-    title: formatNowPlayingTitleLine(metadata.title, metadata.artist),
-    artist: metadata.lyric ?? '',
+    // 调用方已经分别提供标准 title/artist 字段；不要再次拼接，避免切歌或
+    // 歌词更新时出现“歌名 - 歌手 - 歌手/歌词”的重复内容。
+    title: metadata.title ?? 'Unknow',
+    // 没有歌词时保留歌手名，避免 iOS 27 Beta 将缺少有效副标题的媒体项
+    // 当成空 Now Playing 会话；启用蓝牙歌词时仍以当前歌词覆盖 artist。
+    artist: metadata.lyric ?? metadata.artist ?? '',
     album: '',
     artwork: metadata.artwork ?? '',
     duration: metadata.duration,

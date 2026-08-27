@@ -26,8 +26,9 @@ const updateRemoteLyric = async (lrc?: string) => {
   if (Platform.OS == 'ios') {
     // iOS 无 track-player 的 updateNowPlayingTitles。逐行歌词直接写入 now playing 的
     // artist 字段（与 updateMetaInfo 的 iOS 布局一致：title="歌名 - 歌手"、artist=歌词），
-    // 蓝牙设备即可实时显示歌词。仅更新 artist，保留 title/album 等信息。
-    void updateNowPlayingInfo({ artist: lrc ?? '' }).catch(() => {})
+    // 蓝牙设备即可实时显示歌词。没有当前歌词时保留歌手名，避免 iOS 27 Beta
+    // 把缺少有效副标题的媒体项降级成“未在播放”。仅更新 artist，保留 title/album。
+    void updateNowPlayingInfo({ artist: lrc ?? playerState.musicInfo.singer ?? '' }).catch(() => {})
     return
   }
   if (lrc == null) {

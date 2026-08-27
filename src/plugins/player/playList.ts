@@ -102,7 +102,9 @@ const updateMetaInfo = async(mInfo: LX.Player.MusicInfo, lyric?: string, isPlayi
   let album: string | undefined
   if (Platform.OS == 'ios') {
     name = formatNowPlayingTitleLine(mInfo.name ?? 'Unknow', mInfo.singer ?? '')
-    singer = lyric ?? ''
+    // 控制中心的标准副标题始终保留歌手；启用蓝牙歌词时，逐行更新会
+    // 临时覆盖 artist 字段为歌词，未启用/无当前歌词时不能把它写成空值。
+    singer = lyric ?? mInfo.singer ?? ''
     album = ''
   } else if (!state.isPlaying || lyric == null) {
     name = mInfo.name ?? 'Unknow'

@@ -44,7 +44,6 @@ const registerPlaybackService = async() => {
   TrackPlayer.addEventListener(TPEvent.RemoteStop, () => {
     // console.log('remote-stop')
     shouldResumeAfterDuck = false
-    clearDuckRecoveryTimeouts()
     global.lx.isPlayedStop = false
     exitApp('Remote Stop')
   })

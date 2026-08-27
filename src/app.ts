@@ -1,6 +1,5 @@
 import '@/utils/errorHandle'
 import { init as initLog } from '@/utils/log'
-import { proLog } from '@/utils/pro-log'
 import { bootLog, getBootLog } from '@/utils/bootLog'
 import '@/config/globalData'
 import { getFontSize } from '@/utils/data'

@@ -353,6 +353,7 @@ export default memo(() => {
     searchedSong: string
   }> => {
     const totalStartTime = Date.now()
+    let songDisplay = ''
     sourceTestLog.info(`========== [${source.name}] 开始测试 ==========`)
     sourceTestLog.info(`搜索关键词: "${keyword}"`)
 
@@ -389,7 +390,7 @@ export default memo(() => {
         throw new Error('无法解析歌曲信息')
       }
 
-      const songDisplay = `${songName} - ${songSinger}`
+      songDisplay = `${songName} - ${songSinger}`
       sourceTestLog.info(`[${source.name}] 找到歌曲: ${songDisplay}`)
 
       if (!sdk.getMusicUrl) {
@@ -783,7 +784,6 @@ export default memo(() => {
           if (isQualityMatch) {
             qualityResults[quality] = { success: true, url: url, time: qualityTime, actualFormat: urlExt }
             maxQuality = quality
-            highestPriority = qualityPriority[quality] || 0
             sourceTestLog.info(`[${source.name}]   [OK] ${quality}: 匹配`)
             break
           } else {

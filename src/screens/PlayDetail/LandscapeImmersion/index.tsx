@@ -15,7 +15,8 @@ import settingState from '@/store/setting/state'
 import Pic from './Pic'
 import Lyric from './Lyric'
 import Player from './Player'
-import { downloadFile, appendFile, DownloadDirectoryPath } from '@/utils/fs'
+import { downloadFile, appendFile } from '@/utils/fs'
+import { DownloadDirectoryPath } from 'react-native-fs'
 
 export default memo(({ componentId }: { componentId: string }) => {
   const lastBackTime = useRef(0)

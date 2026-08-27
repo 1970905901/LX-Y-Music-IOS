@@ -74,6 +74,21 @@ export const formatPlayTime2 = (time: number) => {
   return numFix(m) + ':' + numFix(s)
 }
 
+/**
+ * 将歌曲时长（秒数或 'm:ss' / 'mm:ss' 字符串）解析为秒数。
+ * 无效输入返回 0。
+ */
+export const parsePlayTime = (time: number | string | null | undefined): number => {
+  if (typeof time == 'number') return Number.isFinite(time) ? time : 0
+  if (typeof time != 'string' || !time) return 0
+  const parts = time.split(':').map(p => Number(p))
+  if (parts.length == 0 || parts.some(n => !Number.isFinite(n))) return 0
+  if (parts.length == 1) return parts[0]
+  if (parts.length == 2) return parts[0] * 60 + parts[1]
+  if (parts.length == 3) return parts[0] * 3600 + parts[1] * 60 + parts[2]
+  return 0
+}
+
 export const isUrl = (path: string) => /https?:\/\//.test(path)
 
 export const parseUrlParams = (str: string): Record<string, string> => {

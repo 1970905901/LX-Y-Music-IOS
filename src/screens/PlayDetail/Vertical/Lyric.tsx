@@ -258,8 +258,8 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
     }
     const listHeight = pageHeight > 0 ? pageHeight : pagerHeight
     if (listHeight <= 0) return
-    // 上下留白收紧为约 18% 列表高：正常播放时高亮行仍严格居中；仅最开头第 1 行（起播一瞬）会略偏上，到第 2 行起整首歌死死居中。
-    const paddingV = pageHeight > 0 ? pageHeight * 0.18 : 0
+    // 上下留白收紧为约 12% 列表高：正常播放时高亮行仍严格居中；仅最开头第 1 行（起播一瞬）会略偏上，到第 2 行起整首歌死死居中。
+    const paddingV = pageHeight > 0 ? pageHeight * 0.12 : 0
     const { offset: itemTop, length: itemHeight } = getItemLayout(lyricLines, index)
     // 等效 viewPosition:0.5：让高亮行落在歌词界面【正中央】（第 5 条同步要求：高亮行居中）。
     // 第 7 条“高亮行上移一行”已取消，故不再额外偏移一个 itemHeight。
@@ -502,9 +502,9 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
         // 上下露出大片空白（即用户反馈的“被空白遮住 / 下面空白”）。
         contentContainerStyle={{
           paddingHorizontal: isSmallWindow ? 12 : 20,
-          // 上下留白收紧为约 35% 列表高：正常播放高亮行居中，仅首/尾极少数行略偏
-          paddingTop: pageHeight > 0 ? pageHeight * 0.18 : 0,
-          paddingBottom: pageHeight > 0 ? pageHeight * 0.18 : 0,
+          // 上下留白收紧为约 12% 列表高：正常播放高亮行居中，仅首行（起播一瞬）略偏上
+          paddingTop: pageHeight > 0 ? pageHeight * 0.12 : 0,
+          paddingBottom: pageHeight > 0 ? pageHeight * 0.12 : 0,
         }}
         ref={flatListRef}
         showsVerticalScrollIndicator={false}

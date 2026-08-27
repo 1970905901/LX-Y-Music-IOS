@@ -155,14 +155,15 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
   // 控制区高，导致 FlatList 被撑得比歌词页还大，下方被 PagerView 裁剪或顶上去。
   const [pageHeight, setPageHeight] = useState(winHeight > 0 ? Math.max(0, winHeight - 180) : 0)
   const flatListRef = useRef<FlatList>(null)
-  const isPauseScrollRef = useRef(true)
+  // active 页面首次挂载时即可自动定位；只有用户手动拖动歌词时才暂时暂停。
+  const isPauseScrollRef = useRef(false)
   const scrollTimoutRef = useRef<NodeJS.Timeout | null>(null)
   const delayScrollTimeout = useRef<NodeJS.Timeout | null>(null)
-  const lineRef = useRef({ line: 0, prevLine: 0 })
+  // 歌词页是从封面页切换时才挂载；初始值直接取引擎当前行，避免新页面先回到第 0 行。
+  const lineRef = useRef({ line: line >= 0 ? line : 0, prevLine: line >= 0 ? line : 0 })
   // 记录上一帧的 active，用于检测“从封面页切回歌词页”的上升沿，
   // 上升沿这一次强制走 force 路径，避免被 [line, active] effect 的“舒适区动画滚动”抢先。
   const activeRef = useRef(active)
-  const isFirstSetLrc = useRef(true)
   const listLayoutInfoRef = useRef<{ lineHeights: number[] }>({
     lineHeights: [],
   })
@@ -244,6 +245,14 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
   // }, [playMusicInfo])
 
   // const imgWidth = useMemo(() => layout.width * 0.75, [layout.width])
+  const getLineIndexForTime = useCallback((time: number) => {
+    if (!lyricLines.length) return -1
+    for (let i = 0; i < lyricLines.length; i++) {
+      if (time <= lyricLines[i].time) return i === 0 ? 0 : i - 1
+    }
+    return lyricLines.length - 1
+  }, [lyricLines])
+
   // 歌词高亮行定位：让当前行落在歌词界面【正中央】（等效 viewPosition≈0.5），满足第 5 条同步要求。
   // 第 7 条“高亮行上移一行”已按用户要求取消，故不再额外偏移一个 itemHeight，仅居中。
   // 跨行切换时无条件滚动到该位置，确保播放中高亮行与音频同步且位置一致。
@@ -346,33 +355,21 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
   }, [setForceScroll])
 
   useEffect(() => {
-    // linesRef.current = lyricLines
     listLayoutInfoRef.current.lineHeights = []
-    lineRef.current.prevLine = 0
-    lineRef.current.line = 0
+    lastScrolledLineRef.current = -1
     if (!flatListRef.current) return
-    flatListRef.current.scrollToOffset({
-      offset: 0,
-      animated: false,
-    })
+    flatListRef.current.scrollToOffset({ offset: 0, animated: false })
     scrollYRef.current = 0
     if (!lyricLines.length) return
-    // playLineRef.current?.updateLyricLines(lyricLines)
+
+    // 歌词内容更新后不再固定延迟 100ms；布局完成的下一帧直接按当前引擎行定位。
+    // 这覆盖切歌后异步歌词到达、从封面切回歌词页等场景。
     requestAnimationFrame(() => {
-      if (isFirstSetLrc.current) {
-        isFirstSetLrc.current = false
-        setTimeout(() => {
-          isPauseScrollRef.current = false
-          handleScrollToActive(0, true)
-        }, 100)
-      } else {
-        if (delayScrollTimeout.current) clearTimeout(delayScrollTimeout.current)
-        delayScrollTimeout.current = setTimeout(() => {
-          handleScrollToActive(0, true)
-        }, 100)
-      }
+      if (!active) return
+      isPauseScrollRef.current = false
+      handleScrollToActive(lineRef.current.line, true)
     })
-  }, [lyricLines])
+  }, [lyricLines, active])
 
   useEffect(() => {
     if (line < 0) return
@@ -403,25 +400,36 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
   // 从封面页切回歌词页时，立即把歌词时钟重锚到真实音频位置，并强制把当前行定位到 42% 位置，
   // 避免“长暂停后再播放 / 重开后”高亮行姗姗来迟、与音频不同步。
   useEffect(() => {
-    if (active) {
-      setForceScroll(true)
-      // 等 FlatList 完成本次布局（pageHeight / 行高就绪）后再立即无动画定位，
-      // 避免切页瞬间高度未就绪导致定位偏差或延时。
+    if (!active) return
+
+    // 先用同步的播放进度做一次立即重锚，再按歌词引擎当前行定位；不等待
+    // 原生 getPosition Promise，保证切页首个布局帧就显示接近真实位置的高亮行。
+    isPauseScrollRef.current = false
+    const cachedPosition = playerState.progress.nowPlayTime
+    let immediateLine = lineRef.current.line
+    if (Number.isFinite(cachedPosition) && cachedPosition >= 0) {
+      immediateLine = getLineIndexForTime(cachedPosition * 1000)
+      if (immediateLine >= 0) {
+        lineRef.current.prevLine = lineRef.current.line
+        lineRef.current.line = immediateLine
+        try { lrcSyncToTime(cachedPosition * 1000, playerState.isPlay) } catch {}
+      }
+    }
+    setForceScroll(true)
+    handleScrollToActive(immediateLine, true)
+    requestAnimationFrame(() => {
+      handleScrollToActive(lineRef.current.line, true)
+    })
+
+    // 再用音频引擎真实位置校正一次，纠正切歌/恢复播放时 store 进度尚未更新的情况。
+    void getPosition().then((p) => {
+      if (p == null || !playerState.musicInfo.id) return
+      try { lrcSyncToTime(p * 1000, playerState.isPlay) } catch {}
       requestAnimationFrame(() => {
+        setForceScroll(true)
         handleScrollToActive(lineRef.current.line, true)
       })
-      void getPosition().then((p) => {
-        if (p != null) {
-          try { lrcSyncToTime(p * 1000, playerState.isPlay) } catch {}
-          // 重锚后 line 会在下一 tick 更新并走上面的 force 路径；再补一次 rAF 立即定位，
-          // 确保重锚后的正确行第一时间出现在视口，不被舒适区动画拖慢。
-          requestAnimationFrame(() => {
-            setForceScroll(true)
-            handleScrollToActive(lineRef.current.line, true)
-          })
-        }
-      })
-    }
+    })
   }, [active])
 
   // useEffect(() => {
@@ -438,8 +446,12 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
 
   const handleLineLayout = useCallback<LineProps['onLayout']>((lineNum, height) => {
     listLayoutInfoRef.current.lineHeights[lineNum] = height
+    // 当前行完成首次真实测量后立即重算目标偏移，避免先用估算高度滚动造成视觉滞后。
+    if (lineNum === lineRef.current.line && active && !isPauseScrollRef.current) {
+      requestAnimationFrame(() => handleScrollToActive(lineRef.current.line, true))
+    }
     // playLineRef.current?.updateLayoutInfo(listLayoutInfoRef.current)
-  }, [])
+  }, [active, handleScrollToActive])
 
   const getItemLayout = useCallback<NonNullable<FlatListType['getItemLayout']>>((data, index) => {
     const height = listLayoutInfoRef.current.lineHeights[index]
@@ -509,7 +521,8 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
         ref={flatListRef}
         showsVerticalScrollIndicator={false}
         onScroll={handleScroll}
-        scrollEventThrottle={400}
+        // 仅记录偏移，不触发重渲染；80ms 让手动滚动结束后的重锚更及时。
+        scrollEventThrottle={80}
         onScrollBeginDrag={handleScrollBeginDrag}
         onScrollEndDrag={onScrollEndDrag}
         initialNumToRender={20}

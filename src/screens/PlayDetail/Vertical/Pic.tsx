@@ -1,12 +1,12 @@
-import { memo, useEffect, useMemo, useRef, useCallback, useState } from 'react';
-import { View, Animated, Easing, TouchableWithoutFeedback, Platform, Text } from 'react-native';
-import { useIsPlay, usePlayMusicInfo, usePlayerMusicInfo } from '@/store/player/hook';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { View, Animated, Easing, TouchableWithoutFeedback, Text, type TextStyle } from 'react-native';
+import { useIsPlay, usePlayerMusicInfo, usePlayMusicInfo } from '@/store/player/hook';
 import { useWindowSize } from '@/utils/hooks';
-import { NAV_SHEAR_NATIVE_IDS } from '@/config/constant';
-import { HEADER_HEIGHT } from './components/Header';
-import Image from '@/components/common/Image';
-import { useStatusbarHeight } from '@/store/common/hook';
 import { useSettingValue } from '@/store/setting/hook';
+import Image from '@/components/common/Image';
+import { NAV_SHEAR_NATIVE_IDS } from '@/config/constant';
+import { useStatusbarHeight } from '@/store/common/hook';
+import { HEADER_HEIGHT } from './components/Header';
 import { createStyle, toast, requestStoragePermission } from '@/utils/tools';
 import Menu, { type MenuType, type Menus } from '@/components/common/Menu';
 import { addTask } from '@/core/download';
@@ -15,146 +15,75 @@ import { getPicUrl } from '@/core/music/online';
 import { getFileExtensionFromUrl } from '@/screens/Home/Views/Mylist/MusicList/download/utils';
 import settingState from '@/store/setting/state';
 
-export default memo(({ componentId, maxCoverHeight }: { componentId: string, maxCoverHeight?: number }) => {
-  const musicInfo = usePlayMusicInfo();
+/**
+ * 竖屏播放页封面 —— 完全重写（用户要求"自己做一个"）。
+ * - 封面来源：直接取当前播放歌曲 playerMusicInfo.pic（playInfo.ts 已兼容在线 + 下载两来源），
+ *   切歌时随歌曲自动更新。
+ * - 旋转动画：自己实现无限循环（Animated.loop + useNativeDriver:true），不依赖旧动画逻辑。
+ * - 圆形：容器 borderRadius = size/2。
+ * - 保留 nativeID（playDetail_pic）与 navigation 的 sharedElementTransitions 配套（与 e58d1ab1 一致）。
+ * - 尺寸：min(屏宽 * 0.65, 可用高 * 0.5)，居中。
+ */
+export default memo(({ componentId }: { componentId: string }) => {
   const playerMusicInfo = usePlayerMusicInfo();
-  // 封面数据源：与横屏 / PlayerBar（用户实测正常）完全一致，用 playerMusicInfo.pic。
-  // playInfo.ts 的 setPlayerMusicInfo 已把 playerMusicInfo.pic 兼容在线 + 下载两来源
-  // （在线取 meta.picUrl，下载取 metadata.musicInfo.meta.picUrl）。
-  // 此前竖屏用 musicInfo.musicInfo.meta.picUrl，仅在线歌曲有值；
-  // 播放下载/本地歌曲时 ListItem 无 meta 字段 → undefined → 封面空白（真因）。
-  // 叠加 meta.picUrl 兜底，避免切歌瞬间 playerMusicInfo 被 reset（pic:null）时的闪烁。
-  const coverUrl = playerMusicInfo.pic
-    || (musicInfo.musicInfo as LX.Music.MusicInfo)?.meta?.picUrl
-    || '';
+  const playMusicInfo = usePlayMusicInfo();
   const { width: winWidth, height: winHeight } = useWindowSize();
   const statusBarHeight = useStatusbarHeight();
   const isPlay = useIsPlay();
   const isCoverSpin = useSettingValue('playDetail.isCoverSpin');
-  const coverSizeRaw = useSettingValue('playDetail.style.coverSize');
-  // coverSize 兜底：≤0 视为无效回退 100（0 会让 imgWidth=0、封面缩成一小段）
-  const coverSize = typeof coverSizeRaw === 'number' && !isNaN(coverSizeRaw) && coverSizeRaw > 0 ? coverSizeRaw : 100;
-  // 与用户实测正常的 v20260826（e58d1ab1）VerticalOld 封面实现完全一致：
-  // isNewUI=false → container 居中布局 + 50% 高/85% 宽 封面尺寸计算。
-  // 不依赖 playDetail.style.newUI 设置键（用户明确不需要该设置）。
-  const isNewUI = false;
+
+  // 封面 URL：当前播放歌曲（兼容在线 + 下载）
+  const coverUrl = useMemo(
+    () => playerMusicInfo.pic || (playMusicInfo.musicInfo as LX.Music.MusicInfo)?.meta?.picUrl || '',
+    [playerMusicInfo.pic, playMusicInfo.musicInfo],
+  );
+
+  // 圆形封面尺寸
+  const size = useMemo(() => {
+    const availableHeight = winHeight - statusBarHeight - HEADER_HEIGHT;
+    return Math.min(winWidth * 0.65, availableHeight * 0.5);
+  }, [winWidth, winHeight, statusBarHeight]);
+
+  // ---- 旋转动画：自己实现无限循环 ----
   const spinValue = useRef(new Animated.Value(0)).current;
-  const animationRef = useRef<Animated.CompositeAnimation | null>(null);
-  const isAnimating = useRef(false);
-  const menuRef = useRef<MenuType>(null);
-  const coverRef = useRef<View>(null);
-  const [menuVisible, setMenuVisible] = useState(false);
-  const shouldForceLayerComposition = Platform.OS === 'android' && global.lx.isCarMode && isCoverSpin;
-  const isUnmounted = useRef(false);
-
-  const createAnimation = useCallback((value: number) => {
-    return Animated.timing(spinValue, {
-      toValue: 1,
-      duration: 25000 * (1 - value),
-      easing: Easing.linear,
-      useNativeDriver: true,
-    });
-  }, [spinValue]);
-
-  const startAnimation = useCallback(() => {
-    if (isAnimating.current || !isCoverSpin || isUnmounted.current) return;
-    isAnimating.current = true;
-    spinValue.stopAnimation(value => {
-      if (isUnmounted.current) return;
-      animationRef.current = createAnimation(value);
-      animationRef.current.start(({ finished }) => {
-        if (finished && isAnimating.current && !isUnmounted.current) {
-          spinValue.setValue(0);
-          isAnimating.current = false;
-          startAnimation();
-        }
-      });
-    });
-  }, [spinValue, createAnimation, isCoverSpin]);
-
-  const stopAnimation = useCallback(() => {
-    if (!isAnimating.current) return;
-    isAnimating.current = false;
-    animationRef.current?.stop();
-    animationRef.current = null;
-    spinValue.stopAnimation();
-  }, [spinValue]);
+  const animRef = useRef<Animated.CompositeAnimation | null>(null);
 
   useEffect(() => {
-    if (isPlay && isCoverSpin) {
-      startAnimation();
-    } else {
-      stopAnimation();
-      if (!isCoverSpin) {
-        spinValue.setValue(0);
-      }
-    }
-  }, [isPlay, isCoverSpin, startAnimation, stopAnimation, spinValue]);
-
-  useEffect(() => {
-    stopAnimation();
+    animRef.current?.stop();
     spinValue.setValue(0);
     if (isPlay && isCoverSpin) {
-      startAnimation();
+      const anim = Animated.loop(
+        Animated.timing(spinValue, {
+          toValue: 1,
+          duration: 25000,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        }),
+      );
+      animRef.current = anim;
+      anim.start();
     }
-  }, [musicInfo.musicInfo?.id, isCoverSpin, startAnimation, stopAnimation, spinValue]);
-
-  useEffect(() => {
     return () => {
-      isUnmounted.current = true;
-      stopAnimation();
+      animRef.current?.stop();
+      animRef.current = null;
     };
-  }, [stopAnimation]);
+  }, [isPlay, isCoverSpin, spinValue]);
+
+  // 切歌时重置旋转
+  useEffect(() => {
+    spinValue.setValue(0);
+  }, [playerMusicInfo.id, spinValue]);
 
   const spin = spinValue.interpolate({
     inputRange: [0, 1],
     outputRange: ['0deg', '360deg'],
   });
 
-  const imageContainerStyle = useMemo(() => {
-    const isSmallWindow = winHeight < 700
-    const availableHeight = winHeight - statusBarHeight - HEADER_HEIGHT
-    let heightLimit: number
-    if (maxCoverHeight != null) {
-      heightLimit = maxCoverHeight
-    } else if (isNewUI) {
-      heightLimit = availableHeight * (isSmallWindow ? 0.3 : 0.45)
-    } else {
-      heightLimit = availableHeight * 0.5
-    }
-    const widthLimit = isNewUI
-      ? winWidth * (isSmallWindow ? 0.55 : 0.65)
-      : winWidth * 0.85
-    const baseWidth = Math.min(widthLimit, heightLimit)
-    const imgWidth = baseWidth * (coverSize / 100);
-    const radius = isCoverSpin ? imgWidth / 2 : 4;
-    return {
-      width: imgWidth,
-      height: imgWidth,
-      borderRadius: radius,
-      elevation: 3,
-      opacity: 1,
-      backgroundColor: 'transparent',
-      overflow: 'hidden',
-    };
-  }, [statusBarHeight, winHeight, winWidth, isCoverSpin, coverSize, isNewUI, maxCoverHeight]);
-
-  const imageStyle = useMemo(() => ({
-    width: '100%',
-    height: '100%',
-    borderRadius: imageContainerStyle.borderRadius,
-  } as any), [imageContainerStyle.borderRadius]);
-
-  const animatedCoverStyle = useMemo(() => ({
-    position: 'absolute' as const,
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backfaceVisibility: 'hidden' as const,
-    transform: [{ rotate: spin }],
-    borderRadius: imageContainerStyle.borderRadius,
-  } as any), [spin, imageContainerStyle.borderRadius]);
+  // ---- 长按菜单：下载歌曲 / 下载封面（保留原功能）----
+  const musicInfo = playMusicInfo;
+  const menuRef = useRef<MenuType>(null);
+  const coverRef = useRef<View>(null);
+  const [menuVisible, setMenuVisible] = useState(false);
 
   const menus = useMemo((): Menus => [
     { action: 'download_song', label: '下载歌曲' },
@@ -188,7 +117,6 @@ export default memo(({ componentId, maxCoverHeight }: { componentId: string, max
                 toast('没有存储权限，无法下载', 'short');
                 return;
               }
-
               toast('正在下载封面...', 'short');
               const picUrl = await getPicUrl({ musicInfo: musicInfo.musicInfo as LX.Music.MusicInfoOnline, isRefresh: true });
               const extension = getFileExtensionFromUrl(picUrl);
@@ -206,9 +134,7 @@ export default memo(({ componentId, maxCoverHeight }: { componentId: string, max
                   console.warn('mkdir failed');
                 }
               }
-
               const targetPath = (await RNFetchBlob.fs.exists(downloadDir)) ? filePath : `${picBaseDir}/${fileName}`;
-
               await RNFetchBlob.config({ path: targetPath }).fetch('GET', picUrl);
               await RNFetchBlob.fs.scanFile([{ path: targetPath }]);
               toast(`封面已保存到: ${targetPath}`, 'long');
@@ -221,51 +147,36 @@ export default memo(({ componentId, maxCoverHeight }: { componentId: string, max
     }
   };
 
-  const containerStyle = useMemo(() => {
-    const baseStyle = isNewUI ? styles.containerNew : styles.container
-    if (maxCoverHeight != null) {
-      return { ...baseStyle, maxHeight: maxCoverHeight }
-    }
-    return baseStyle
-  }, [isNewUI, maxCoverHeight])
+  const radius = size / 2;
+  const imageStyle = useMemo(() => ({ width: '100%', height: '100%', borderRadius: radius } as any), [radius]);
 
-  const clampedImageStyle = useMemo(() => {
-    if (maxCoverHeight != null) {
-      return {
-        ...imageContainerStyle,
-        maxWidth: maxCoverHeight,
-        maxHeight: maxCoverHeight,
-      }
-    }
-    return imageContainerStyle
-  }, [imageContainerStyle, maxCoverHeight])
+  const diagTextStyle = useMemo((): TextStyle => ({
+    position: 'absolute',
+    bottom: 2,
+    left: 8,
+    right: 8,
+    fontSize: 9,
+    color: '#ffcc00',
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    padding: 2,
+  }), []);
 
   return (
-    <View style={containerStyle}>
+    <View style={styles.container}>
       <TouchableWithoutFeedback onLongPress={handleLongPress}>
         <View
           ref={coverRef}
           collapsable={false}
-          style={[styles.content, clampedImageStyle, { overflow: 'hidden' }]}
-          renderToHardwareTextureAndroid={shouldForceLayerComposition}
-          needsOffscreenAlphaCompositing={shouldForceLayerComposition}
+          style={{ width: size, height: size, borderRadius: radius, overflow: 'hidden' }}
         >
-          <Animated.View
-            style={animatedCoverStyle}
-            renderToHardwareTextureAndroid={shouldForceLayerComposition}
-            needsOffscreenAlphaCompositing={shouldForceLayerComposition}
-          >
-            <Image
-              url={coverUrl}
-              nativeID={NAV_SHEAR_NATIVE_IDS.playDetail_pic}
-              style={imageStyle}
-            />
+          <Animated.View style={{ width: '100%', height: '100%', borderRadius: radius, transform: [{ rotate: spin }] }}>
+            <Image url={coverUrl} nativeID={NAV_SHEAR_NATIVE_IDS.playDetail_pic} style={imageStyle} />
           </Animated.View>
         </View>
       </TouchableWithoutFeedback>
-      {/* 临时文字诊断（下版移除）：显示封面 URL 前缀与关键尺寸，便于真机直接读字定位 */}
-      <Text style={{ position: 'absolute', bottom: 2, left: 8, right: 8, fontSize: 9, color: '#ffcc00', backgroundColor: 'rgba(0,0,0,0.55)', padding: 2 }}>
-        {`url=${String(coverUrl ?? '').slice(0, 40)} | size=${Math.round(imageContainerStyle.width)} | newUI=${String(isNewUI)} | spin=${String(isCoverSpin)}`}
+      {/* 临时文字诊断（下版移除） */}
+      <Text style={diagTextStyle}>
+        {`url=${String(coverUrl).slice(0, 40)} | size=${Math.round(size)} | spin=${String(isCoverSpin)}`}
       </Text>
       {menuVisible && <Menu ref={menuRef} menus={menus} onPress={handleMenuPress} onHide={() => setMenuVisible(false)} />}
     </View>
@@ -275,18 +186,7 @@ export default memo(({ componentId, maxCoverHeight }: { componentId: string, max
 const styles = createStyle({
   container: {
     flexGrow: 1,
-    flexShrink: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingBottom: '3%',
-  },
-  containerNew: {
-    flexGrow: 0,
-    flexShrink: 0,
-    marginTop: 30,
-    paddingBottom: 5,
-  },
-  content: {
-    backgroundColor: 'rgba(0,0,0,0)',
   },
 });

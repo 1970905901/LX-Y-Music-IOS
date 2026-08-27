@@ -151,6 +151,7 @@ export default memo(({ componentId, maxCoverHeight }: { componentId: string, max
     left: 0,
     right: 0,
     bottom: 0,
+    backfaceVisibility: 'hidden' as const,
     transform: [{ rotate: spin }],
     borderRadius: imageContainerStyle.borderRadius,
   } as any), [spin, imageContainerStyle.borderRadius]);

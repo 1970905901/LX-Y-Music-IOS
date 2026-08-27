@@ -210,7 +210,7 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
 
   return (
     <>
-      <Header isNewUI={true} pageIndex={pageIndex} />
+      <Header pageIndex={pageIndex} />
       <View style={styles.container}>
         <PagerView
           onPageSelected={onPageSelected}
@@ -250,7 +250,7 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
             歌词页占位（之前 opacity:0 仅变透明但仍占位，导致歌词页下方出现一条
             隐形控制条高度的空白带）。封面页(pageIndex===0)正常显示控制条。 */}
         <View style={{ overflow: 'hidden', height: pageIndex === 0 ? undefined : 0 }}>
-          <Player componentId={componentId} isNewUI={true} />
+          <Player componentId={componentId} />
         </View>
       </View>
       <PlayerPlaylist ref={playlistRef} />

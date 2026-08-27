@@ -24,7 +24,7 @@ const PlayerNew = memo(({ componentId }: { componentId: string }) => {
     >
       <FeatureBtns componentId={componentId} />
       <PlayInfo />
-      <ControlBtn isNewUI={true} />
+      <ControlBtn />
     </View>
   )
 })

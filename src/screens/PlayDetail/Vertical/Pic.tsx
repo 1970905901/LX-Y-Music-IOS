@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useRef, useCallback, useState } from 'react';
-import { View, Animated, Easing, TouchableWithoutFeedback, Platform, Text } from 'react-native';
+import { View, Animated, Easing, TouchableWithoutFeedback, Platform } from 'react-native';
 import { useIsPlay, usePlayMusicInfo, usePlayerMusicInfo } from '@/store/player/hook';
 import { useWindowSize } from '@/utils/hooks';
 import { NAV_SHEAR_NATIVE_IDS } from '@/config/constant';
@@ -30,14 +30,13 @@ export default memo(({ componentId, maxCoverHeight }: { componentId: string, max
       || '';
     return typeof url === 'string' ? url.trim() : '';
   }, [rawMusicInfo, playerMusicInfo.pic]);
-  const hasCoverUrl = !!coverUrl;
 
   const { width: winWidth, height: winHeight } = useWindowSize();
   const statusBarHeight = useStatusbarHeight();
   const isPlay = useIsPlay();
   const isCoverSpin = useSettingValue('playDetail.isCoverSpin');
   const coverSizeRaw = useSettingValue('playDetail.style.coverSize');
-  const coverSize = typeof coverSizeRaw === 'number' && !isNaN(coverSizeRaw) ? coverSizeRaw : 100;
+  const coverSize = typeof coverSizeRaw === 'number' && !isNaN(coverSizeRaw) && coverSizeRaw > 0 ? coverSizeRaw : 100;
   const isNewUI = useSettingValue('list.isNewListUI');
   const spinValue = useRef(new Animated.Value(0)).current;
   const animationRef = useRef<Animated.CompositeAnimation | null>(null);
@@ -251,20 +250,10 @@ export default memo(({ componentId, maxCoverHeight }: { componentId: string, max
         <View
           ref={coverRef}
           collapsable={false}
-          style={[styles.content, clampedImageStyle, { overflow: 'hidden', borderWidth: 4, borderColor: 'red' }]}
+          style={[styles.content, clampedImageStyle, { overflow: 'hidden' }]}
           renderToHardwareTextureAndroid={shouldForceLayerComposition}
           needsOffscreenAlphaCompositing={shouldForceLayerComposition}
         >
-          {/* 静态对照：不带动画、无 nativeID，确认 Image 组件本身与 URL 是否正常 */}
-          {hasCoverUrl && (
-            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1 }}>
-              <Image
-                url={coverUrl}
-                style={imageStyle}
-                resizeMode="cover"
-              />
-            </View>
-          )}
           <Animated.View
             style={animatedCoverStyle}
             renderToHardwareTextureAndroid={shouldForceLayerComposition}
@@ -276,21 +265,6 @@ export default memo(({ componentId, maxCoverHeight }: { componentId: string, max
               style={imageStyle}
             />
           </Animated.View>
-          {/* 诊断标签：放在 Animated.View 外，避免被动画层吞掉；字号加大确保可见 */}
-          <View style={{
-            position: 'absolute',
-            top: 4,
-            right: 4,
-            paddingHorizontal: 6,
-            paddingVertical: 3,
-            borderRadius: 4,
-            backgroundColor: hasCoverUrl ? 'rgba(0,128,0,0.85)' : 'rgba(255,0,0,0.85)',
-            zIndex: 9999,
-          }}>
-            <Text style={{ color: 'white', fontSize: 11, fontWeight: 'bold' }}>
-              {hasCoverUrl ? `PIC_OK ${coverUrl.slice(0, 12)}` : 'PIC_EMPTY'}
-            </Text>
-          </View>
         </View>
       </TouchableWithoutFeedback>
       {menuVisible && <Menu ref={menuRef} menus={menus} onPress={handleMenuPress} onHide={() => setMenuVisible(false)} />}

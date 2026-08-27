@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useRef, useCallback, useState } from 'react';
 import { View, Animated, Easing, TouchableWithoutFeedback, Platform } from 'react-native';
-import { useIsPlay, usePlayMusicInfo, usePlayerMusicInfo } from '@/store/player/hook';
+import { useIsPlay, usePlayMusicInfo } from '@/store/player/hook';
 import { useWindowSize } from '@/utils/hooks';
 import { NAV_SHEAR_NATIVE_IDS } from '@/config/constant';
 import { HEADER_HEIGHT } from './components/Header';
@@ -18,11 +18,9 @@ import settingState from '@/store/setting/state';
 
 export default memo(({ componentId, maxCoverHeight }: { componentId: string, maxCoverHeight?: number }) => {
   const musicInfo = usePlayMusicInfo();
-  const playerMusicInfo = usePlayerMusicInfo();
-  // 封面来源直接采用 playerMusicInfo.pic（与 PlayerBar / Horizontal Pic 完全一致）。
-  // 经验证：早期为“修复空白”引入的 coverPic 回退链 + onError(setPicLoadError) 反而是回归——
-  // FastImage 在旋转 absolute 父级里偶发的 onError 被误判为加载失败并永久回退到空，导致封面空白。
-  // 4c181273（正常版本）与横屏均直接用 playerMusicInfo.pic 且无 onError，故恢复之。
+  // 封面来源：与可工作的参考构建 93604d3e（v20260826，封面正常）保持一致，
+  // 直接取 musicInfo.musicInfo.meta.picUrl。之前改为 playerMusicInfo.pic 反而导致竖屏封面空白，
+  // 故回退到此数据源。
 
   const { width: winWidth, height: winHeight } = useWindowSize();
   const statusBarHeight = useStatusbarHeight();
@@ -90,7 +88,7 @@ export default memo(({ componentId, maxCoverHeight }: { componentId: string, max
     if (isPlay && isCoverSpin) {
       startAnimation();
     }
-  }, [playerMusicInfo.id, isCoverSpin, startAnimation, stopAnimation, spinValue]);
+  }, [musicInfo.musicInfo?.id, isCoverSpin, startAnimation, stopAnimation, spinValue]);
 
   useEffect(() => {
     return () => {
@@ -144,6 +142,7 @@ export default memo(({ componentId, maxCoverHeight }: { componentId: string, max
     left: 0,
     right: 0,
     bottom: 0,
+    backfaceVisibility: 'hidden' as const,
     transform: [{ rotate: spin }],
     borderRadius: imageContainerStyle.borderRadius,
   } as any), [spin, imageContainerStyle.borderRadius]);
@@ -253,7 +252,7 @@ export default memo(({ componentId, maxCoverHeight }: { componentId: string, max
             needsOffscreenAlphaCompositing={shouldForceLayerComposition}
           >
             <Image
-              url={playerMusicInfo.pic}
+              url={(musicInfo.musicInfo as LX.Music.MusicInfo)?.meta?.picUrl}
               nativeID={NAV_SHEAR_NATIVE_IDS.playDetail_pic}
               style={imageStyle}
             />

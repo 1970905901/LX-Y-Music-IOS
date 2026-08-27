@@ -516,7 +516,9 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
         windowSize={10}
         maxToRenderPerBatch={12}
         updateCellsBatchingPeriod={100}
-        getItemLayout={getItemLayout}
+        // 不向 FlatList 注册 getItemLayout：改用动态测量，避免“虚拟行 + 变高行 + 估算高度”
+        // 在滚动时造成的歌词行定位错乱 / 空白缺失（即用户反馈的“滑动时歌词不全载”）。
+        // getItemLayout 函数本体会保留，供 handleScrollToActive 计算高亮行滚动目标偏移。
         extraData={line}
         // 禁用 removeClippedSubviews：iOS FlatList 在动态行高下回收屏幕外行后，
         // 配合 getItemLayout 估算高度常导致歌词行重绘失败 / 出现空白缺失。

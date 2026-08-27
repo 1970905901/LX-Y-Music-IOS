@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useRef, useCallback, useState } from 'react';
 import { View, Animated, Easing, TouchableWithoutFeedback, Platform } from 'react-native';
-import { useIsPlay, usePlayMusicInfo } from '@/store/player/hook';
+import { useIsPlay, usePlayMusicInfo, usePlayerMusicInfo } from '@/store/player/hook';
 import { useWindowSize } from '@/utils/hooks';
 import { NAV_SHEAR_NATIVE_IDS } from '@/config/constant';
 import { HEADER_HEIGHT } from './components/Header';
@@ -18,6 +18,7 @@ import settingState from '@/store/setting/state';
 
 export default memo(({ componentId, maxCoverHeight }: { componentId: string, maxCoverHeight?: number }) => {
   const musicInfo = usePlayMusicInfo();
+  const playerMusicInfo = usePlayerMusicInfo();
   const { width: winWidth, height: winHeight } = useWindowSize();
   const statusBarHeight = useStatusbarHeight();
   const isPlay = useIsPlay();
@@ -84,7 +85,7 @@ export default memo(({ componentId, maxCoverHeight }: { componentId: string, max
     if (isPlay && isCoverSpin) {
       startAnimation();
     }
-  }, [musicInfo.musicInfo?.id, isCoverSpin, startAnimation, stopAnimation, spinValue]);
+  }, [playerMusicInfo.id, isCoverSpin, startAnimation, stopAnimation, spinValue]);
 
   useEffect(() => {
     return () => {
@@ -248,7 +249,7 @@ export default memo(({ componentId, maxCoverHeight }: { componentId: string, max
             needsOffscreenAlphaCompositing={shouldForceLayerComposition}
           >
             <Image
-              url={(musicInfo.musicInfo as LX.Music.MusicInfo)?.meta?.picUrl}
+              url={playerMusicInfo.pic}
               nativeID={NAV_SHEAR_NATIVE_IDS.playDetail_pic}
               style={imageStyle}
             />

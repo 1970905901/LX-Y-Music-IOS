@@ -19,42 +19,11 @@ import settingState from '@/store/setting/state';
 export default memo(({ componentId, maxCoverHeight }: { componentId: string, maxCoverHeight?: number }) => {
   const musicInfo = usePlayMusicInfo();
   const playerMusicInfo = usePlayerMusicInfo();
-  // 封面来源：与 PlayerBar、Horizontal Pic 保持一致，优先使用 playerMusicInfo.pic。
-  // 该字段是应用实际在用的已解析封面（视频证实 PlayerBar 用它能正常显示），
-  // 因此作为主源；仅当它为空白或加载失败时，才回退到原始 musicInfo.musicInfo 的
-  // metadata/meta.picUrl，并启用异步 getPicUrl 兜底，兼容已下载歌曲等场景。
-  const [resolvedPic, setResolvedPic] = useState('')
-  const [picLoadError, setPicLoadError] = useState(false)
-  const staticFallbackPic = useMemo(() => {
-    const raw = musicInfo.musicInfo as any
-    if (!raw) return ''
-    return raw.metadata?.musicInfo?.meta?.picUrl || raw.meta?.picUrl || ''
-  }, [musicInfo.musicInfo])
-  const coverPic = useMemo(() => {
-    if (playerMusicInfo.pic && !picLoadError) return playerMusicInfo.pic
-    return staticFallbackPic || resolvedPic
-  }, [playerMusicInfo.pic, picLoadError, staticFallbackPic, resolvedPic]);
+  // 封面来源直接采用 playerMusicInfo.pic（与 PlayerBar / Horizontal Pic 完全一致）。
+  // 经验证：早期为“修复空白”引入的 coverPic 回退链 + onError(setPicLoadError) 反而是回归——
+  // FastImage 在旋转 absolute 父级里偶发的 onError 被误判为加载失败并永久回退到空，导致封面空白。
+  // 4c181273（正常版本）与横屏均直接用 playerMusicInfo.pic 且无 onError，故恢复之。
 
-  // 切歌重置错误状态与异步解析结果，避免旧封面/错误态残留。
-  useEffect(() => {
-    setPicLoadError(false)
-    setResolvedPic('')
-  }, [musicInfo.musicInfo?.id])
-
-  // 异步兜底：playerMusicInfo.pic 与静态 fallback 都为空时，向音源解析封面
-  // （与“下载封面”菜单同款 getPicUrl）。
-  useEffect(() => {
-    const raw = musicInfo.musicInfo as any
-    if (!raw) return
-    if (playerMusicInfo.pic || staticFallbackPic) return
-    const online = ('progress' in raw ? raw.metadata?.musicInfo : raw) as LX.Music.MusicInfoOnline | undefined
-    if (!online || !('meta' in online) || !(online as any).meta) return
-    let cancelled = false
-    void getPicUrl({ musicInfo: online, isRefresh: false })
-      .then((url) => { if (!cancelled && url) setResolvedPic(url) })
-      .catch(() => {})
-    return () => { cancelled = true }
-  }, [musicInfo.musicInfo?.id, playerMusicInfo.pic, staticFallbackPic])
   const { width: winWidth, height: winHeight } = useWindowSize();
   const statusBarHeight = useStatusbarHeight();
   const isPlay = useIsPlay();
@@ -76,7 +45,7 @@ export default memo(({ componentId, maxCoverHeight }: { componentId: string, max
       toValue: 1,
       duration: 25000 * (1 - value),
       easing: Easing.linear,
-      useNativeDriver: false,
+      useNativeDriver: true,
     });
   }, [spinValue]);
 
@@ -284,13 +253,9 @@ export default memo(({ componentId, maxCoverHeight }: { componentId: string, max
             needsOffscreenAlphaCompositing={shouldForceLayerComposition}
           >
             <Image
-              url={coverPic}
+              url={playerMusicInfo.pic}
               nativeID={NAV_SHEAR_NATIVE_IDS.playDetail_pic}
               style={imageStyle}
-              onError={() => {
-                // 主源 playerMusicInfo.pic 加载失败时，触发 fallback 链。
-                if (playerMusicInfo.pic && !picLoadError) setPicLoadError(true)
-              }}
             />
           </Animated.View>
         </View>

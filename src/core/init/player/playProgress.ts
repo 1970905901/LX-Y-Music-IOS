@@ -137,22 +137,26 @@ export default () => {
     }
   }
 
-  // bug③: 拖动进度条期间接管歌词时钟，使其高亮行跟随手指位置；
-  // 同时实时 seek 音频，让音频与高亮歌词一起跟手指走，达到「播放时拖动进度条音频与歌词绝对同步」。
+  // bug③/⑪: 拖动进度条期间接管歌词时钟，使其高亮行跟随手指位置；
+  // 同时实时 seek 音频，让音频与高亮歌词一起跟手指走，达到「播放/暂停态拖动进度条音频与歌词实时同步」。
+  // 无论播放还是暂停，向左/向右拖动进度条，歌词高亮行都必须与手指实时同步（第⑪条验收）。
   let lastPreviewTime = 0
   const handleProgressDragPreview = (time: number) => {
     if (!playerState.musicInfo.id) return
     // 拖动预览歌词：用真实音频位置纯镜像重锚（time 已是毫秒），
-    // 歌词高亮行跟随手指位置，与实时 seek 的音频绝对同步（不启动 ticker）。
+    // 歌词高亮行跟随手指位置；播放/暂停态一致，左右拖动均与歌词实时同步（不启动 ticker）。
     try {
       lrcSyncToTime(time, playerState.isPlay)
     } catch {}
     // 拖动过程中同步 seek 音频（秒），避免歌词跳到手指位置而音频仍停在原处导致的不同步。
-    // 仅在时间变化时 seek，减少重复 seek 开销。
+    // 仅在时间变化时 seek，减少重复 seek 开销（播放/暂停态都 seek，松手后音频停在手指处）。
     if (time !== lastPreviewTime) {
       lastPreviewTime = time
       void setCurrentTime(time / 1000)
     }
+    // 同步更新 store 进度，使进度条 UI 与歌词在拖动全程（含暂停态）都实时一致：
+    // 渲染层进度条与歌词高亮行永远指向同一手指位置（第⑪条：向左/向右拖动均与歌词实时同步）。
+    setNowPlayTime(time / 1000)
   }
   const handleProgressDragState = (drag: boolean) => {
     isDragging = drag

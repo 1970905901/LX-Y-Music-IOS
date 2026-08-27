@@ -48,8 +48,10 @@ const artistApi = {
       // 以 total、当前 offset 和实际返回条数综合判断，避免歌曲还没加载完
       // 就提前显示“到底啦”。
       const nextOffset = offset + limit;
+      const moreValue = body.more;
+      const serverHasMore = moreValue === true || moreValue === 1 || moreValue === '1' || moreValue === 'true';
       const hasMore = rawSongs.length > 0 && (
-        Boolean(body.more) ||
+        serverHasMore ||
         (total > 0 && nextOffset < total) ||
         rawSongs.length >= limit
       );

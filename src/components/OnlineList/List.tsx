@@ -236,7 +236,9 @@ const List = forwardRef<ListType, ListProps>(
     )
     const getkey: FlatListType['keyExtractor'] = (item) => (item as any).playHistoryId ?? item.id
     const getItemLayout: FlatListType['getItemLayout'] = (data, index) => {
-      return { length: ITEM_HEIGHT, offset: ITEM_HEIGHT * index, index }
+      const numColumns = rowInfo.current.rowNum ?? 1
+      const rowIndex = Math.floor(index / numColumns)
+      return { length: ITEM_HEIGHT, offset: ITEM_HEIGHT * rowIndex, index }
     }
 
     const refreshControl = useMemo(
@@ -292,7 +294,7 @@ const List = forwardRef<ListType, ListProps>(
         maxToRenderPerBatch={6}
         // updateCellsBatchingPeriod={80}
         windowSize={10}
-        removeClippedSubviews={true}
+        removeClippedSubviews={false}
         initialNumToRender={12}
         renderItem={renderItem}
         keyExtractor={getkey}

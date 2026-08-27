@@ -193,6 +193,9 @@ export function pushPlayDetailScreen(componentId: string, skipAnimation = false)
       : hasPic
         ? {
             push: {
+              sharedElementTransitions: [
+                { fromId: NAV_SHEAR_NATIVE_IDS.playDetail_pic, toId: NAV_SHEAR_NATIVE_IDS.playDetail_pic, interpolation: { type: 'spring' } },
+              ],
               elementTransitions: [
                 { id: NAV_SHEAR_NATIVE_IDS.playDetail_header, alpha: { from: 0, duration: 300 }, translationY: { from: -32, duration: 300 } },
                 { id: NAV_SHEAR_NATIVE_IDS.playDetail_player, alpha: { from: 0, duration: 300 }, translationY: { from: 32, duration: 300 } },

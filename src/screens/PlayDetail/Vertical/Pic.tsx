@@ -19,6 +19,36 @@ import settingState from '@/store/setting/state';
 export default memo(({ componentId, maxCoverHeight }: { componentId: string, maxCoverHeight?: number }) => {
   const musicInfo = usePlayMusicInfo();
   const playerMusicInfo = usePlayerMusicInfo();
+  // 封面来源：优先 playerMusicInfo.pic（playInfo 已统一提取）；若该字段缺失（例如
+  // setPlayerMusicInfo 拿到的是精简对象、或歌曲 meta.picUrl 未回填），依次回退到
+  // 原始 musicInfo.musicInfo 的 metadata/meta.picUrl；仍为空时异步向音源解析
+  // （getPicUrl），兼容在线与已下载两种来源，彻底避免封面空白、旋转无从显示。
+  const [resolvedPic, setResolvedPic] = useState('')
+  const coverPic = useMemo(() => {
+    if (playerMusicInfo.pic) return playerMusicInfo.pic
+    const raw = musicInfo.musicInfo as any
+    if (!raw) return resolvedPic
+    if (raw.metadata?.musicInfo?.meta?.picUrl) return raw.metadata.musicInfo.meta.picUrl
+    if (raw.meta?.picUrl) return raw.meta.picUrl
+    return resolvedPic
+  }, [playerMusicInfo.pic, musicInfo.musicInfo, resolvedPic]);
+
+  // 同步回退仍为空时，异步解析封面（兜底）：在线歌曲交给 getPicUrl 向音源拉取，
+  // 已下载歌曲的 metadata.musicInfo.meta.picUrl 已被上面的同步链覆盖、不会走到这里。
+  // 切歌先清空 resolvedPic 避免旧封面闪现；用 cancelled 标记防止请求竞态。
+  useEffect(() => {
+    const raw = musicInfo.musicInfo as any
+    const syncPic = raw?.metadata?.musicInfo?.meta?.picUrl || raw?.meta?.picUrl || playerMusicInfo.pic
+    setResolvedPic('')
+    if (syncPic || !raw) return
+    const online = ('progress' in raw ? raw.metadata?.musicInfo : raw) as LX.Music.MusicInfoOnline | undefined
+    if (!online || !('meta' in online) || !(online as any).meta) return
+    let cancelled = false
+    void getPicUrl({ musicInfo: online, isRefresh: false })
+      .then((url) => { if (!cancelled && url) setResolvedPic(url) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [musicInfo.musicInfo?.id])
   const { width: winWidth, height: winHeight } = useWindowSize();
   const statusBarHeight = useStatusbarHeight();
   const isPlay = useIsPlay();
@@ -249,7 +279,7 @@ export default memo(({ componentId, maxCoverHeight }: { componentId: string, max
             needsOffscreenAlphaCompositing={shouldForceLayerComposition}
           >
             <Image
-              url={playerMusicInfo.pic}
+              url={coverPic}
               nativeID={NAV_SHEAR_NATIVE_IDS.playDetail_pic}
               style={imageStyle}
             />

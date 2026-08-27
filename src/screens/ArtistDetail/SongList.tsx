@@ -1,4 +1,4 @@
-import {forwardRef, memo, useCallback, useEffect, useImperativeHandle, useRef} from 'react'
+import {forwardRef, memo, useCallback, useEffect, useImperativeHandle, useRef, useState} from 'react'
 import { View, TouchableOpacity } from 'react-native'
 import OnlineList from '@/components/OnlineList'
 import AlbumList from './AlbumList'
@@ -45,6 +45,10 @@ const SongList = forwardRef<SongListRef, SongListProps>(({
   const theme = useTheme()
   const songListRef = useRef<OnlineListType>(null)
   const pagerViewRef = useRef<PagerView>(null)
+  // PagerView 在 iOS 上常把内部页面高度量错（拿 0 或整屏高），导致内部 FlatList
+  // 可滚动区域错位、下滑空白。这里实测其可用高度并显式钉死，对齐 PlayDetail 歌词页
+  // 的修复方案（commit 654b94f6）。
+  const [pagerHeight, setPagerHeight] = useState(0)
 
   useImperativeHandle(ref, () => ({
     scrollToInfo: (info) => {
@@ -138,36 +142,44 @@ const SongList = forwardRef<SongListRef, SongListProps>(({
   return (
     <View style={{ flex: 1 }}>
       <Header />
-      <PagerView
-        ref={pagerViewRef}
+      <View
         style={{ flex: 1 }}
-        initialPage={0}
-        onPageSelected={onPageSelected}
+        onLayout={({ nativeEvent }) => {
+          const h = Math.round(nativeEvent.layout.height)
+          if (h > 0 && h !== pagerHeight) setPagerHeight(h)
+        }}
       >
-        <View key="1" style={{ flex: 1 }}>
-          <OnlineList
-            ref={songListRef}
-            listId="search"
-            forcePlayList={true}
-            onPlayList={onPlayList}
-            onRefresh={onRefresh}
-            onLoadMore={onLoadMoreSongs}
-            onListUpdate={onSongListUpdate}
-            playingId={playingId}
-          />
-        </View>
-        <View key="2" style={{ flex: 1 }}>
-          <AlbumList
-            componentId={componentId}
-            albums={albums.list}
-            loading={albums.loading}
-            hasMore={albums.hasMore}
-            onRefresh={onRefresh}
-            viewMode={albumViewMode}
-            onLoadMore={onLoadMoreAlbums}
-          />
-        </View>
-      </PagerView>
+        <PagerView
+          ref={pagerViewRef}
+          style={pagerHeight > 0 ? { height: pagerHeight } : { flex: 1 }}
+          initialPage={0}
+          onPageSelected={onPageSelected}
+        >
+          <View key="1" style={{ flex: 1 }}>
+            <OnlineList
+              ref={songListRef}
+              listId="search"
+              forcePlayList={true}
+              onPlayList={onPlayList}
+              onRefresh={onRefresh}
+              onLoadMore={onLoadMoreSongs}
+              onListUpdate={onSongListUpdate}
+              playingId={playingId}
+            />
+          </View>
+          <View key="2" style={{ flex: 1 }}>
+            <AlbumList
+              componentId={componentId}
+              albums={albums.list}
+              loading={albums.loading}
+              hasMore={albums.hasMore}
+              onRefresh={onRefresh}
+              viewMode={albumViewMode}
+              onLoadMore={onLoadMoreAlbums}
+            />
+          </View>
+        </PagerView>
+      </View>
     </View>
   )
 })

@@ -334,8 +334,7 @@ const styles = createStyle({
     flex: 1,
   },
   list: {
-    flexGrow: 1,
-    flexShrink: 1,
+    flex: 1,
   },
   footer: {
     textAlign: 'center',

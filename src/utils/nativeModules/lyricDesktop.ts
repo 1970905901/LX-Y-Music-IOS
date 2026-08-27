@@ -1,4 +1,5 @@
 import { NativeModules, NativeEventEmitter, Platform } from 'react-native'
+import { addPlayHook, removePlayHook } from '@/plugins/lyric'
 
 const { LyricModule } = NativeModules
 const isIOS = Platform.OS === 'ios'
@@ -251,7 +252,15 @@ export const onPositionChange = (
 export const onLyricLinePlay = (
   handler: (lineInfo: { text: string; extendedLyrics: string[] }) => void
 ): (() => void) => {
-  if (isIOS || !LyricModule) return () => {}
+  if (isIOS || !LyricModule) {
+    // iOS 无原生 LyricModule（桌面歌词为安卓悬浮窗特性）。改用 JS 歌词引擎的逐行
+    // play hook 驱动蓝牙歌词 / 网络歌词，使其在 iOS 上同样可用。
+    const hook = (line: number, text: string) => handler({ text, extendedLyrics: [] })
+    addPlayHook(hook)
+    return () => {
+      removePlayHook(hook)
+    }
+  }
   const eventEmitter = new NativeEventEmitter(LyricModule)
   const eventListener = eventEmitter.addListener('lyric-line-play', (event) => {
     handler(event as { text: string; extendedLyrics: string[] })

@@ -157,6 +157,10 @@ export const syncToTime = (time: number, isPlaying: boolean) => {
   setPlayTime(time)
 }
 
+// 逐行歌词 play hook：iOS 无原生 LyricModule，蓝牙歌词 / 网络歌词改用此 JS 引擎钩子驱动。
+export const addPlayHook = (hook: PlayHook) => lrcTools.addPlayHook(hook)
+export const removePlayHook = (hook: PlayHook) => lrcTools.removePlayHook(hook)
+
 // on lyric play hook
 export const useLrcPlay = (autoUpdate = true) => {
   // 注意：初值必须是 currentLineData 的【副本】，绝不能直接引用这个可变对象。

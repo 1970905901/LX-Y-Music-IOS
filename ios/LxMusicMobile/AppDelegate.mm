@@ -744,7 +744,6 @@ static void LXSetNowPlayingInfo(NSDictionary *metadata) {
   NSNumber *duration = [metadata[@"duration"] isKindOfClass:[NSNumber class]] ? metadata[@"duration"] : nil;
   NSNumber *elapsedTime = [metadata[@"elapsedTime"] isKindOfClass:[NSNumber class]] ? metadata[@"elapsedTime"] : nil;
   NSNumber *playbackRate = [metadata[@"playbackRate"] isKindOfClass:[NSNumber class]] ? metadata[@"playbackRate"] : nil;
-  NSString *artworkPath = [metadata[@"artwork"] isKindOfClass:[NSString class]] ? metadata[@"artwork"] : @"";
 
   if (title != nil) info[MPMediaItemPropertyTitle] = title;
   if (artist != nil) info[MPMediaItemPropertyArtist] = artist;
@@ -754,8 +753,15 @@ static void LXSetNowPlayingInfo(NSDictionary *metadata) {
   info[MPNowPlayingInfoPropertyPlaybackRate] = playbackRate ?: info[MPNowPlayingInfoPropertyPlaybackRate] ?: LXDefaultNowPlayingRate();
   info[MPNowPlayingInfoPropertyDefaultPlaybackRate] = info[MPNowPlayingInfoPropertyDefaultPlaybackRate] ?: LXNowPlayingDefaultPlaybackRateValue();
 
-  LXApplyNowPlayingInfo();
-  LXSetNowPlayingArtwork(artworkPath);
+  // 仅当调用方显式携带 artwork 字段时才更新封面。蓝牙歌词 / 逐行歌词更新只传
+  // { artist: 歌词 }（不含 artwork 键），若仍触发 LXSetNowPlayingArtwork(@"") 会把
+  // 控制中心 / 锁屏封面擦除，表现为“播放中封面闪烁/消失”。不携带时仅重应用信息即可。
+  if (metadata[@"artwork"] != nil) {
+    NSString *artworkPath = [metadata[@"artwork"] isKindOfClass:[NSString class]] ? metadata[@"artwork"] : @"";
+    LXSetNowPlayingArtwork(artworkPath);
+  } else {
+    LXApplyNowPlayingInfo();
+  }
 }
 
 static UIViewController *LXTopViewController(void) {

@@ -38,7 +38,7 @@ const formatIOSNowPlayingMetadata = (metadata: {
     title: formatNowPlayingTitleLine(metadata.title, metadata.artist),
     artist: metadata.lyric ?? '',
     album: '',
-    artwork: metadata.artwork,
+    artwork: metadata.artwork ?? '',
     duration: metadata.duration,
     elapsedTime: metadata.elapsedTime,
     playbackRate: metadata.playbackRate,
@@ -133,20 +133,26 @@ export const updateCurrentTrackMetadata = async(metadata: {
   elapsedTime?: number
   playbackRate?: number
 }) => {
-  const currentTrackIndex = await TrackPlayer.getCurrentTrack().catch(() => null)
-  if (currentTrackIndex != null && currentTrackIndex > -1) {
-    await TrackPlayer.updateMetadataForTrack(currentTrackIndex, metadata).catch(() => {})
-  }
   if (Platform.OS == 'ios') {
+    // iOS 上由自定义 NowPlayingModule 独占写入 MPNowPlayingInfoCenter。
+    // 不再依赖 react-native-track-player：在 iOS 27 beta 等环境下其 getCurrentTrack /
+    // updateMetadataForTrack 可能卡死或异常，会阻断自定义模块执行，导致控制中心
+    // 无音乐信息、且播放/暂停等命令被禁用（LXSyncRemoteCommandAvailability 在
+    // 缓存为空时会禁用全部命令）。解耦后元数据更新独立可靠，且避免两套系统
+    // 争抢同一个 nowPlayingInfo 造成信息被覆盖。
     const nowPlayingMetadata: Parameters<typeof updateNowPlayingInfo>[0] = {
       ...metadata,
       artwork: metadata.artwork ?? '',
     }
     if (metadata.playbackRate !== undefined) nowPlayingMetadata.playbackRate = metadata.playbackRate
     await updateNowPlayingInfo(nowPlayingMetadata).catch(() => {})
-  } else {
-    await TrackPlayer.updateNowPlayingMetadata(metadata, trackPlayerState.isPlaying).catch(() => {})
+    return
   }
+  const currentTrackIndex = await TrackPlayer.getCurrentTrack().catch(() => null)
+  if (currentTrackIndex != null && currentTrackIndex > -1) {
+    await TrackPlayer.updateMetadataForTrack(currentTrackIndex, metadata).catch(() => {})
+  }
+  await TrackPlayer.updateNowPlayingMetadata(metadata, trackPlayerState.isPlaying).catch(() => {})
 }
 
 export const ensureCurrentTrackMetadata = (metadata: {

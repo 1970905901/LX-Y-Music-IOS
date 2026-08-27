@@ -1,9 +1,9 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Animated, Easing, TouchableWithoutFeedback } from 'react-native';
+import { View, Animated, Easing, TouchableWithoutFeedback, Image as RNImage } from 'react-native';
 import { useIsPlay, usePlayerMusicInfo, usePlayMusicInfo } from '@/store/player/hook';
 import { useWindowSize } from '@/utils/hooks';
 import { useSettingValue } from '@/store/setting/hook';
-import Image from '@/components/common/Image';
+import Image, { defaultHeaders } from '@/components/common/Image';
 import { useStatusbarHeight } from '@/store/common/hook';
 import { HEADER_HEIGHT } from './components/Header';
 import { createStyle, toast, requestStoragePermission } from '@/utils/tools';
@@ -14,11 +14,16 @@ import { getPicUrl } from '@/core/music/online';
 import { getFileExtensionFromUrl } from '@/screens/Home/Views/Mylist/MusicList/download/utils';
 import settingState from '@/store/setting/state';
 
+const AnimatedCover = Animated.createAnimatedComponent(RNImage);
+
 /**
  * 竖屏播放页封面 —— 完全重写（用户要求"自己做一个"）。
- * - 封面来源：与参考版 e58d1ab1 一致，直接取当前播放歌曲 playMusicInfo.musicInfo.meta.picUrl。
- *   播放过程中 player.ts 会异步调用 setMusicInfo({pic}) 把封面 URL 写回该字段。
+ * - 封面来源：playerMusicInfo.pic 已兼容在线 + 下载两种来源（playInfo.ts setPlayerMusicInfo）。
+ *   同时兜底 playMusicInfo.musicInfo.meta.picUrl，保证和参考版 e58d1ab1 的数据入口一致。
  * - 旋转动画：自己实现无限循环（Animated.loop + useNativeDriver:true），不依赖旧动画逻辑。
+ * - 渲染组件：使用 React Native 原生 Animated.Image 直接承载封面并做旋转。
+ *   FastImage 被包在 Animated.View 里做 rotate 动画时，在 iOS 上会白屏/不渲染，
+ *   故封面这里绕过 FastImage，改用 RN Image。
  * - 圆形：容器 borderRadius = size/2，overflow:hidden 裁剪旋转方图。
  * - 不使用 RNN sharedElementTransitions：iOS 上会被原生层劫持成错位大图；封面与导航转场解耦。
  * - 尺寸：min(屏宽 * 0.65, 可用高 * 0.5)，居中。
@@ -157,21 +162,16 @@ export default memo(({ componentId }: { componentId: string }) => {
     backgroundColor: 'transparent' as const,
   }), [size, radius]);
 
-  // 内层旋转层：绝对定位填满容器，并加 backfaceVisibility:'hidden'。
-  // FastImage 在 iOS 上做 rotate 动画时，非 absolute 布局容易白屏；
-  // 参考版 e58d1ab1 也是这种 absolute + backfaceVisibility 结构。
+  // 封面图样式：固定尺寸 + 圆形 + 旋转动画
   const animatedCoverStyle = useMemo(() => ({
-    position: 'absolute' as const,
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backfaceVisibility: 'hidden' as const,
-    transform: [{ rotate: spin }],
+    width: size,
+    height: size,
     borderRadius: radius,
-  } as any), [spin, radius]);
+    transform: [{ rotate: spin }],
+  } as any), [size, radius, spin]);
 
-  const imageStyle = useMemo(() => ({
+  // 无封面 URL 时回退到通用 Image 组件（显示 EmptyPic 占位）
+  const emptyImageStyle = useMemo(() => ({
     width: '100%',
     height: '100%',
     borderRadius: radius,
@@ -185,9 +185,15 @@ export default memo(({ componentId }: { componentId: string }) => {
           collapsable={false}
           style={coverContainerStyle}
         >
-          <Animated.View style={animatedCoverStyle}>
-            <Image url={coverUrl} style={imageStyle} />
-          </Animated.View>
+          {coverUrl ? (
+            <AnimatedCover
+              source={{ uri: coverUrl, headers: defaultHeaders }}
+              style={animatedCoverStyle}
+              resizeMode="cover"
+            />
+          ) : (
+            <Image url={coverUrl} style={emptyImageStyle} />
+          )}
         </View>
       </TouchableWithoutFeedback>
       {menuVisible && <Menu ref={menuRef} menus={menus} onPress={handleMenuPress} onHide={() => setMenuVisible(false)} />}

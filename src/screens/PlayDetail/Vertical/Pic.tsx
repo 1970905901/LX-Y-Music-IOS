@@ -22,8 +22,12 @@ export default memo(({ componentId, maxCoverHeight }: { componentId: string, max
   const isPlay = useIsPlay();
   const isCoverSpin = useSettingValue('playDetail.isCoverSpin');
   const coverSizeRaw = useSettingValue('playDetail.style.coverSize');
-  const coverSize = typeof coverSizeRaw === 'number' && !isNaN(coverSizeRaw) ? coverSizeRaw : 100;
-  const isNewUI = useSettingValue('playDetail.style.newUI');
+  // coverSize 兜底：≤0 视为无效回退 100（0 会让 imgWidth=0、封面缩成一小段）
+  const coverSize = typeof coverSizeRaw === 'number' && !isNaN(coverSizeRaw) && coverSizeRaw > 0 ? coverSizeRaw : 100;
+  // 固定走“旧 UI”封面尺寸分支（用户实测参考版 93604d3e 封面正常的路径）：
+  // 不依赖 playDetail.style.newUI 设置键（用户明确不需要该设置），
+  // 始终使用 container 居中布局 + 50% 高 / 85% 宽 的封面尺寸计算。
+  const isNewUI = false;
   const spinValue = useRef(new Animated.Value(0)).current;
   const animationRef = useRef<Animated.CompositeAnimation | null>(null);
   const isAnimating = useRef(false);

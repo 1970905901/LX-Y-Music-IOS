@@ -1,4 +1,4 @@
-import {forwardRef, memo, useCallback, useEffect, useImperativeHandle, useRef, useState} from 'react'
+import {forwardRef, memo, useCallback, useEffect, useImperativeHandle, useRef} from 'react'
 import { View, TouchableOpacity } from 'react-native'
 import OnlineList from '@/components/OnlineList'
 import AlbumList from './AlbumList'
@@ -8,7 +8,6 @@ import { createStyle } from '@/utils/tools'
 import { playOnlineList } from '@/core/list'
 import { BorderWidths } from '@/theme'
 import { Icon } from '@/components/common/Icon.tsx'
-import PagerView, { type PagerViewOnPageSelectedEvent } from 'react-native-pager-view'
 import { type OnlineListType } from '@/components/OnlineList'
 
 interface SongListProps {
@@ -44,11 +43,6 @@ const SongList = forwardRef<SongListRef, SongListProps>(({
                                                          }, ref) => {
   const theme = useTheme()
   const songListRef = useRef<OnlineListType>(null)
-  const pagerViewRef = useRef<PagerView>(null)
-  // PagerView 在 iOS 上常把内部页面高度量错（拿 0 或整屏高），导致内部 FlatList
-  // 可滚动区域错位、下滑空白。这里实测其可用高度并显式钉死，对齐 PlayDetail 歌词页
-  // 的修复方案（commit 654b94f6）。
-  const [pagerHeight, setPagerHeight] = useState(0)
 
   useImperativeHandle(ref, () => ({
     scrollToInfo: (info) => {
@@ -61,19 +55,6 @@ const SongList = forwardRef<SongListRef, SongListProps>(({
     const listId = `artist_detail_${artistId}`
     void playOnlineList(listId, songs.list, index)
   }, [songs.list, artistId])
-
-  useEffect(() => {
-    const pageIndex = activeTab === 'songs' ? 0 : 1
-    pagerViewRef.current?.setPage(pageIndex)
-  }, [activeTab])
-
-  const onPageSelected = useCallback((event: PagerViewOnPageSelectedEvent) => {
-    const newTab = event.nativeEvent.position === 0 ? 'songs' : 'albums'
-    if (newTab !== activeTab) {
-      onTabChange(newTab)
-    }
-  }, [activeTab, onTabChange])
-
 
   useEffect(() => {
     if (activeTab === 'songs') {
@@ -143,43 +124,31 @@ const SongList = forwardRef<SongListRef, SongListProps>(({
   return (
     <View style={{ flex: 1 }}>
       <Header />
-      <View
-        style={{ flex: 1 }}
-        onLayout={({ nativeEvent }) => {
-          const h = Math.round(nativeEvent.layout.height)
-          if (h > 0 && h !== pagerHeight) setPagerHeight(h)
-        }}
-      >
-        <PagerView
-          ref={pagerViewRef}
-          style={pagerHeight > 0 ? { height: pagerHeight } : { flex: 1 }}
-          initialPage={0}
-          onPageSelected={onPageSelected}
-        >
-          <View key="1" style={{ flex: 1 }}>
-            <OnlineList
-              ref={songListRef}
-              listId="search"
-              forcePlayList={true}
-              onPlayList={onPlayList}
-              onRefresh={onRefresh}
-              onLoadMore={onLoadMoreSongs}
-              onListUpdate={onSongListUpdate}
-              playingId={playingId}
-            />
-          </View>
-          <View key="2" style={{ flex: 1 }}>
-            <AlbumList
-              componentId={componentId}
-              albums={albums.list}
-              loading={albums.loading}
-              hasMore={albums.hasMore}
-              onRefresh={onRefresh}
-              viewMode={albumViewMode}
-              onLoadMore={onLoadMoreAlbums}
-            />
-          </View>
-        </PagerView>
+      <View style={{ flex: 1 }}>
+        {activeTab === 'songs' ? (
+          <OnlineList
+            key="artist-songs"
+            ref={songListRef}
+            listId="artist_detail"
+            forcePlayList={true}
+            onPlayList={onPlayList}
+            onRefresh={onRefresh}
+            onLoadMore={onLoadMoreSongs}
+            onListUpdate={onSongListUpdate}
+            playingId={playingId}
+          />
+        ) : (
+          <AlbumList
+            key="artist-albums"
+            componentId={componentId}
+            albums={albums.list}
+            loading={albums.loading}
+            hasMore={albums.hasMore}
+            onRefresh={onRefresh}
+            viewMode={albumViewMode}
+            onLoadMore={onLoadMoreAlbums}
+          />
+        )}
       </View>
     </View>
   )

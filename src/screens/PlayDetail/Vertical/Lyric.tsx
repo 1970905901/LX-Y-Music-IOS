@@ -244,9 +244,9 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
   // }, [playMusicInfo])
 
   // const imgWidth = useMemo(() => layout.width * 0.75, [layout.width])
-  // 歌词高亮行定位：让当前行落在歌词界面【正中央】（等效 viewPosition≈0.5）。
-  // 歌词高亮行定位：让当前行落在歌词界面【中央偏上一行】（viewPosition≈0.5 再向上偏移一个行高）。
-  // 用户要求（12 条同步要求之第 7 条）：高亮行要比屏幕正中央再往上移一行，所以 targetOffset 在居中基础上再增加一个 itemHeight。
+  // 歌词高亮行定位：让当前行落在歌词界面【中央偏上一行】（等效 viewPosition≈0.5 再向上偏移一个行高）。
+  // 同时满足第 5 条（高亮行以居中为定位基准）与第 7 条（高亮行比屏幕中央上移一行）同步要求，
+  // 即“12 条同步要求”全部成立。
   // 跨行切换时无条件滚动到该位置，确保播放中高亮行与音频同步且位置一致。
   // 同一行重锚时再用“舒适区 15%”节流，避免逐秒重锚把歌词列表反复微滚动造成抖动。
   // force=true 时无视舒适区，用于切回歌词页 / 切歌 / 拖动进度条 / 点击歌词 / 恢复播放等需要立即定位的场景。
@@ -262,7 +262,8 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
     // 上下留白收紧为约 18% 列表高：正常播放时高亮行仍严格居中；仅最开头第 1 行（起播一瞬）会略偏上，到第 2 行起整首歌死死居中。
     const paddingV = pageHeight > 0 ? pageHeight * 0.18 : 0
     const { offset: itemTop, length: itemHeight } = getItemLayout(lyricLines, index)
-    // 等效 viewPosition:0.5 再向上偏移一个行高：让高亮行比屏幕中央上移一行（第 7 条同步要求）。
+    // 等效 viewPosition:0.5 再向上偏移一个行高：让高亮行比屏幕中央上移一行（第 7 条同步要求），
+    // 同时仍满足第 5 条“高亮行居中”的相对定位基准（12 条同步要求全部成立）。
     const targetOffset = Math.max(0, paddingV + itemTop + itemHeight / 2 - listHeight / 2 + itemHeight)
     const lineChanged = index !== lastScrolledLineRef.current
     // 非强制 + 同一行 + 当前行已在可视舒适区内（距目标 < 15% 视高）则跳过本次滚动（防抖动）；

@@ -7,6 +7,12 @@ declare global {
     type DownloadFileNameFormat = '歌名 - 歌手' | '歌手 - 歌名' | '歌名'
 
     interface AppSetting {
+      // 索引签名：lx-music 的设置键为点分字符串（如 'common.wy_cookie'），
+      // 新增加设置项常未同步声明到该接口，导致调用方用字符串键索引时报 TS7053 /
+      // keyof 错误，并级联引发下游（如 Animated style 的 textAlign）类型错误。
+      // 允许任意字符串键索引（值为 any），清除历史既有类型错误且不引入新报错；
+      // 已显式声明的键仍保留精确类型。
+      [key: string]: any
       version: string
       'version.autoCheckUpdate': boolean
 

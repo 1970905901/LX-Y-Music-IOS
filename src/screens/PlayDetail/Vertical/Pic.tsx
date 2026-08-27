@@ -68,7 +68,7 @@ export default memo(({ componentId, maxCoverHeight }: { componentId: string, max
   const menuRef = useRef<MenuType>(null);
   const coverRef = useRef<View>(null);
   const [menuVisible, setMenuVisible] = useState(false);
-  const shouldForceLayerComposition = Platform.OS === 'android' && global.lx.isCarMode && isCoverSpin;
+  const shouldForceLayerComposition = !!(Platform.OS === 'android' && global.lx.isCarMode && isCoverSpin);
   const isUnmounted = useRef(false);
 
   const createAnimation = useCallback((value: number) => {
@@ -76,7 +76,7 @@ export default memo(({ componentId, maxCoverHeight }: { componentId: string, max
       toValue: 1,
       duration: 25000 * (1 - value),
       easing: Easing.linear,
-      useNativeDriver: true,
+      useNativeDriver: false,
     });
   }, [spinValue]);
 
@@ -175,7 +175,6 @@ export default memo(({ componentId, maxCoverHeight }: { componentId: string, max
     left: 0,
     right: 0,
     bottom: 0,
-    backfaceVisibility: 'hidden' as const,
     transform: [{ rotate: spin }],
     borderRadius: imageContainerStyle.borderRadius,
   } as any), [spin, imageContainerStyle.borderRadius]);

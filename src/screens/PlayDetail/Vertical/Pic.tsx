@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useRef, useCallback, useState } from 'react';
-import { View, Animated, Easing, TouchableWithoutFeedback, Platform } from 'react-native';
-import { useIsPlay, usePlayMusicInfo, usePlayerMusicInfo } from '@/store/player/hook';
+import { View, Animated, Easing, TouchableWithoutFeedback, Platform, Text } from 'react-native';
+import { useIsPlay, usePlayMusicInfo } from '@/store/player/hook';
 import { useWindowSize } from '@/utils/hooks';
 import { NAV_SHEAR_NATIVE_IDS } from '@/config/constant';
 import { HEADER_HEIGHT } from './components/Header';
@@ -9,7 +9,6 @@ import { useStatusbarHeight } from '@/store/common/hook';
 import { useSettingValue } from '@/store/setting/hook';
 import { createStyle, toast, requestStoragePermission } from '@/utils/tools';
 import Menu, { type MenuType, type Menus } from '@/components/common/Menu';
-import SourceQualityBadge from '../components/SourceQualityBadge';
 import { addTask } from '@/core/download';
 import RNFetchBlob from '@/utils/rnFetchBlob';
 import { getPicUrl } from '@/core/music/online';
@@ -18,33 +17,20 @@ import settingState from '@/store/setting/state';
 
 export default memo(({ componentId, maxCoverHeight }: { componentId: string, maxCoverHeight?: number }) => {
   const musicInfo = usePlayMusicInfo();
-  const playerMusicInfo = usePlayerMusicInfo();
-  // 诊断/修复：封面 URL 综合来源（过滤空字符串）。
-  // 在线歌曲优先 meta.picUrl（与参考构建 93604d3e 一致），下载歌曲用 metadata.musicInfo.meta.picUrl，
-  // 最后 fallback playerMusicInfo.pic。空字符串视为无效，避免 ?? 把 '' 当成有效 URL。
-  const rawMusicInfo = musicInfo.musicInfo as any;
-  const coverUrl = useMemo(() => {
-    const url = rawMusicInfo?.metadata?.musicInfo?.meta?.picUrl
-      || rawMusicInfo?.meta?.picUrl
-      || playerMusicInfo.pic
-      || '';
-    return typeof url === 'string' ? url.trim() : '';
-  }, [rawMusicInfo, playerMusicInfo.pic]);
-
   const { width: winWidth, height: winHeight } = useWindowSize();
   const statusBarHeight = useStatusbarHeight();
   const isPlay = useIsPlay();
   const isCoverSpin = useSettingValue('playDetail.isCoverSpin');
   const coverSizeRaw = useSettingValue('playDetail.style.coverSize');
-  const coverSize = typeof coverSizeRaw === 'number' && !isNaN(coverSizeRaw) && coverSizeRaw > 0 ? coverSizeRaw : 100;
-  const isNewUI = useSettingValue('list.isNewListUI');
+  const coverSize = typeof coverSizeRaw === 'number' && !isNaN(coverSizeRaw) ? coverSizeRaw : 100;
+  const isNewUI = useSettingValue('playDetail.style.newUI');
   const spinValue = useRef(new Animated.Value(0)).current;
   const animationRef = useRef<Animated.CompositeAnimation | null>(null);
   const isAnimating = useRef(false);
   const menuRef = useRef<MenuType>(null);
   const coverRef = useRef<View>(null);
   const [menuVisible, setMenuVisible] = useState(false);
-  const shouldForceLayerComposition = !!(Platform.OS === 'android' && global.lx.isCarMode && isCoverSpin);
+  const shouldForceLayerComposition = Platform.OS === 'android' && global.lx.isCarMode && isCoverSpin;
   const isUnmounted = useRef(false);
 
   const createAnimation = useCallback((value: number) => {
@@ -242,11 +228,6 @@ export default memo(({ componentId, maxCoverHeight }: { componentId: string, max
 
   return (
     <View style={containerStyle}>
-      {!isNewUI && (
-        <View style={styles.badgeContainer}>
-          <SourceQualityBadge />
-        </View>
-      )}
       <TouchableWithoutFeedback onLongPress={handleLongPress}>
         <View
           ref={coverRef}
@@ -261,13 +242,17 @@ export default memo(({ componentId, maxCoverHeight }: { componentId: string, max
             needsOffscreenAlphaCompositing={shouldForceLayerComposition}
           >
             <Image
-              url={coverUrl}
+              url={(musicInfo.musicInfo as LX.Music.MusicInfo)?.meta?.picUrl}
               nativeID={NAV_SHEAR_NATIVE_IDS.playDetail_pic}
               style={imageStyle}
             />
           </Animated.View>
         </View>
       </TouchableWithoutFeedback>
+      {/* 临时文字诊断（下版移除）：显示封面 URL 前缀与关键尺寸，便于真机直接读字定位 */}
+      <Text style={{ position: 'absolute', bottom: 2, left: 8, right: 8, fontSize: 9, color: '#ffcc00', backgroundColor: 'rgba(0,0,0,0.55)', padding: 2 }}>
+        {`url=${String((musicInfo.musicInfo as LX.Music.MusicInfo)?.meta?.picUrl ?? '').slice(0, 40)} | size=${Math.round(imageContainerStyle.width)} | newUI=${String(isNewUI)} | spin=${String(isCoverSpin)}`}
+      </Text>
       {menuVisible && <Menu ref={menuRef} menus={menus} onPress={handleMenuPress} onHide={() => setMenuVisible(false)} />}
     </View>
   );
@@ -286,12 +271,6 @@ const styles = createStyle({
     flexShrink: 0,
     marginTop: 30,
     paddingBottom: 5,
-  },
-  badgeContainer: {
-    alignSelf: 'stretch',
-    alignItems: 'flex-start',
-    paddingHorizontal: 20,
-    paddingBottom: 8,
   },
   content: {
     backgroundColor: 'rgba(0,0,0,0)',

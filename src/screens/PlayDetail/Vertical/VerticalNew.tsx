@@ -44,11 +44,6 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
   const isEnableSlideSwitchSong = useSettingValue('player.isEnableSlideSwitchSong')
   const miniLyricAlign = useSettingValue('playDetail.style.miniLyricAlign')
 
-  const maxCoverHeight = useMemo(() => {
-    const availableHeight = winHeight - HEADER_HEIGHT
-    return Math.round(availableHeight * 0.38)
-  }, [winHeight])
-
   const slideOffset = useRef(new Animated.Value(0)).current;
   const maxSlide = winHeight * 0.5;
   const slideThreshold = winHeight * 0.12;
@@ -226,13 +221,17 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
           <View collapsable={false} style={styles.pageContainer}>
             <Animated.View collapsable={false} {...panResponder.panHandlers} style={[styles.picPageContainerNew, slideStyle, { paddingTop: containerPaddingH }]}>
               <View style={styles.picContainer}>
-                <Pic componentId={componentId} maxCoverHeight={maxCoverHeight} />
+                {/* 移植旧 UI（VerticalOld，参考版 93604d3e 封面正常）的 Pic 用法：
+                    不传 maxCoverHeight，让 Pic 内部按 isNewUI（playDetail.style.newUI）自行计算
+                    封面尺寸。此前传 maxCoverHeight 导致 Pic 走 maxCoverHeight 分支，
+                    实测封面空白。 */}
+                <Pic componentId={componentId} />
               </View>
               <View style={[styles.infoContainer, { paddingHorizontal: containerPaddingH, marginTop: containerPaddingH }]}>
                 <SongInfo />
                 <MiniLyric
                   onPress={handleSwitchToLyricPage}
-                  style={[styles.miniLyricContainerNew, miniLyricAlignStyles[miniLyricAlign]]}
+                  style={[styles.miniLyricContainerNew, miniLyricAlignStyles[miniLyricAlign as keyof typeof miniLyricAlignStyles]]}
                 />
               </View>
             </Animated.View>

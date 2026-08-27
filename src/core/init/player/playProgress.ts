@@ -40,26 +40,46 @@ export default () => {
   // 否则每拍都会把预览高亮拽回音频旧位置，表现为“拖动时进度条与歌词高亮行不同步”。
   let isDragging = false
   // 最近一次 seek/点击跳转的时间戳。每拍重锚歌词时钟前需判断是否在 seek 沉降窗口内，
-  // 避免把刚跳转的高亮行又拽回 seek 前的旧位置（iOS 一次 seek 约需 ~180ms 才生效）。
+  // 避免把刚跳转的高亮行又拽回 seek 前的旧位置（iOS 一次 seek 约需 ~80-150ms 才生效）。
   let lastSeekTime = 0
+  // 最近一次 seek 的目标位置（毫秒），-1 表示当前不在 seek 沉降窗口内。
+  // 改用“位置收敛”判定替代固定 120ms：iOS seek 实际生效时间 80~150ms 且不稳定，
+  // 固定窗口早于生效即放开轮询会把进度条/歌词拽回旧位置造成回跳；收敛判定则一直
+  // 按住目标值直到 getPosition() 真正到达目标附近，再无缝交还轮询，最大化实时同步。
+  let seekTargetMs = -1
+  const SEEK_SETTLE_MAX_MS = 500 // 沉降窗口硬上限：seek 失败/接近末尾时也不无限期抑制
+  const SEEK_CONVERGE_MS = 300 // 收敛容差（ms）：引擎位置落入目标±该值即判定 seek 已生效
+
+  // seek 沉降窗口判定：返回 true 表示当前仍在 seek 沉降中，轮询应“按住”进度条与歌词、
+  // 不读取尚未生效的 getPosition() 旧值。positionMs 为本次轮询取到的引擎位置（ms）。
+  const inSeekSettle = (positionMs: number): boolean => {
+    if (seekTargetMs < 0) return false
+    if (Date.now() - lastSeekTime > SEEK_SETTLE_MAX_MS) {
+      seekTargetMs = -1
+      return false
+    }
+    if (!Number.isNaN(positionMs) && Math.abs(positionMs - seekTargetMs) <= SEEK_CONVERGE_MS) {
+      seekTargetMs = -1
+      return false
+    }
+    return true
+  }
 
   const getCurrentTime = () => {
     let id = playerState.musicInfo.id
     void getPosition().then((position) => {
       // 仅以 position == null（未取到位置）为跳过条件，允许 position 为 0（歌曲起始瞬间）。
       if (position == null || id != playerState.musicInfo.id) return
-      setNowPlayTime(position)
-
-      // 歌词同步：无论播放还是暂停，只要没在拖动/seek 沉降窗口内，就用真实音频位置重锚。
-      // syncToTime 是【纯镜像】：歌词行永远由当前音频位置推导，不启动任何独立 ticker，
-      // 因此歌词时钟不可能脱离音频自行走字（缓冲/卡顿/JS 线程繁忙时也不会跑在音频前面）。
-      // 覆盖“暂停 seek / 后台重开 / 封面页歌词 / 倍速”等全部场景（⑩ 实时同步）。
-      // 拖动进度条期间由 progressDragPreview 事件接管，这里跳过，避免把预览高亮拽回旧位置。
-      // seek/点击后的 ~120ms 内跳过，避免把刚跳转的高亮行又拽回 seek 前的旧位置
-      // （iOS 一次 seek 约需 ~80-150ms 才生效，120ms 已能覆盖大部分场景，同时把滞后窗口降到最低）。
-      if (!isDragging && Date.now() - lastSeekTime > 120) {
+      // seek 沉降窗口内（拖动中 / 刚 seek 后引擎位置尚未收敛到目标）：进度条与歌词均保持
+      // 在 setProgress / progressDragPreview 写入的目标值，不读取尚未生效的 getPosition() 旧值，
+      // 避免把刚跳转的高亮行又拽回旧位置（iOS 一次 seek 约需 80~150ms 才生效，固定 120ms
+      // 窗口会早于生效放开导致回跳）。位置收敛到目标附近或超硬上限后，inSeekSettle 返回
+      // false，下方正常重锚无缝接管，最大化音频与歌词实时同步。
+      const suppressReanchor = isDragging || (!isDragging && inSeekSettle(position * 1000))
+      if (!suppressReanchor) {
+        setNowPlayTime(position)
         try {
-          // 无论播放/暂停，都用【真实音频位置】做纯镜像重锚（不启动 ticker），
+          // 无论播放/暂停，用【真实音频位置】做纯镜像重锚（不启动 ticker），
           // 歌词行永远等于音频真实位置 → 音频与歌词实时同步（覆盖所有场景，含 ⑩）。
           lrcSyncToTime(position * 1000, playerState.isPlay)
         } catch {}
@@ -127,6 +147,7 @@ export default () => {
   const setProgress = (time: number, maxTime?: number) => {
     if (!playerState.musicInfo.id) return
     lastSeekTime = Date.now()
+    seekTargetMs = time * 1000 // 记录 seek 目标，开启“位置收敛”沉降窗口，按住 UI 直到引擎真正到位
     setNowPlayTime(time)
     if (playerState.isPlay) updateScrobblePlayTime(time)
     void setCurrentTime(time)
@@ -145,6 +166,7 @@ export default () => {
   // 同时实时 seek 音频，让音频与高亮歌词一起跟手指走，达到「播放/暂停态拖动进度条音频与歌词实时同步」。
   // 无论播放还是暂停，向左/向右拖动进度条，歌词高亮行都必须与手指实时同步（第⑪条验收）。
   let lastPreviewTime = 0
+  let lastDragSeekTime = 0
   const handleProgressDragPreview = (time: number) => {
     if (!playerState.musicInfo.id) return
     // 拖动预览歌词：用真实音频位置纯镜像重锚（time 已是毫秒），
@@ -152,15 +174,19 @@ export default () => {
     try {
       lrcSyncToTime(time, playerState.isPlay)
     } catch {}
-    // 拖动过程中同步 seek 音频（秒），避免歌词跳到手指位置而音频仍停在原处导致的不同步。
-    // 仅在时间变化时 seek，减少重复 seek 开销（播放/暂停态都 seek，松手后音频停在手指处）。
-    if (time !== lastPreviewTime) {
-      lastPreviewTime = time
-      void setCurrentTime(time / 1000)
-    }
     // 同步更新 store 进度，使进度条 UI 与歌词在拖动全程（含暂停态）都实时一致：
     // 渲染层进度条与歌词高亮行永远指向同一手指位置（第⑪条：向左/向右拖动均与歌词实时同步）。
     setNowPlayTime(time / 1000)
+    const now = Date.now()
+    // 节流音频 seek：每 ~120ms 最多一次，避免连续拖动产生大量 seek 在 iOS 上堆积
+    // （每次约 80~150ms 才生效），导致音频滞后于手指、与即时更新的歌词/进度条不同步。
+    // 仅在时间变化且距上次 seek 已满节流窗口时下发；松手时 setProgress 会做一次权威
+    // seek 兜底到精确位置，确保松手后音频停在手指处（第⑪条验收）。
+    if (time !== lastPreviewTime && now - lastDragSeekTime >= 120) {
+      lastPreviewTime = time
+      lastDragSeekTime = now
+      void setCurrentTime(time / 1000)
+    }
   }
   const handleProgressDragState = (drag: boolean) => {
     isDragging = drag

@@ -19,28 +19,29 @@ import settingState from '@/store/setting/state';
 export default memo(({ componentId, maxCoverHeight }: { componentId: string, maxCoverHeight?: number }) => {
   const musicInfo = usePlayMusicInfo();
   const playerMusicInfo = usePlayerMusicInfo();
-  // 封面来源：优先 playerMusicInfo.pic（playInfo 已统一提取）；若该字段缺失（例如
-  // setPlayerMusicInfo 拿到的是精简对象、或歌曲 meta.picUrl 未回填），依次回退到
-  // 原始 musicInfo.musicInfo 的 metadata/meta.picUrl；仍为空时异步向音源解析
-  // （getPicUrl），兼容在线与已下载两种来源，彻底避免封面空白、旋转无从显示。
+  // 封面来源：优先使用播放曲目的【权威封面源】（与历史可显示版本一致）：
+  //   已下载 -> musicInfo.musicInfo.metadata.musicInfo.meta.picUrl
+  //   在线   -> musicInfo.musicInfo.meta.picUrl
+  // 仅当权威源为空时才回退到 playerMusicInfo.pic——避免该字段若为非空但不可加载的值时
+  // 短路、导致封面空白，也不让 pic 抢占真正可用的源。
   const [resolvedPic, setResolvedPic] = useState('')
   const coverPic = useMemo(() => {
-    if (playerMusicInfo.pic) return playerMusicInfo.pic
     const raw = musicInfo.musicInfo as any
     if (!raw) return resolvedPic
     if (raw.metadata?.musicInfo?.meta?.picUrl) return raw.metadata.musicInfo.meta.picUrl
     if (raw.meta?.picUrl) return raw.meta.picUrl
+    if (playerMusicInfo.pic) return playerMusicInfo.pic
     return resolvedPic
-  }, [playerMusicInfo.pic, musicInfo.musicInfo, resolvedPic]);
+  }, [musicInfo.musicInfo, playerMusicInfo.pic, resolvedPic]);
 
-  // 同步回退仍为空时，异步解析封面（兜底）：在线歌曲交给 getPicUrl 向音源拉取，
-  // 已下载歌曲的 metadata.musicInfo.meta.picUrl 已被上面的同步链覆盖、不会走到这里。
+  // 异步兜底：仅当【权威静态源】为空时才向音源解析封面（与“下载封面”菜单同款 getPicUrl），
+  // 且不被 playerMusicInfo.pic 的非空值短路，确保能拿到真正可加载的封面。
   // 切歌先清空 resolvedPic 避免旧封面闪现；用 cancelled 标记防止请求竞态。
   useEffect(() => {
     const raw = musicInfo.musicInfo as any
-    const syncPic = raw?.metadata?.musicInfo?.meta?.picUrl || raw?.meta?.picUrl || playerMusicInfo.pic
+    const staticPic = raw?.metadata?.musicInfo?.meta?.picUrl || raw?.meta?.picUrl
     setResolvedPic('')
-    if (syncPic || !raw) return
+    if (staticPic || !raw) return
     const online = ('progress' in raw ? raw.metadata?.musicInfo : raw) as LX.Music.MusicInfoOnline | undefined
     if (!online || !('meta' in online) || !(online as any).meta) return
     let cancelled = false

@@ -16,8 +16,8 @@ import settingState from '@/store/setting/state';
 
 /**
  * 竖屏播放页封面 —— 完全重写（用户要求"自己做一个"）。
- * - 封面来源：直接取当前播放歌曲 playerMusicInfo.pic（playInfo.ts 已兼容在线 + 下载两来源），
- *   切歌时随歌曲自动更新。
+ * - 封面来源：与参考版 e58d1ab1 一致，直接取当前播放歌曲 playMusicInfo.musicInfo.meta.picUrl。
+ *   播放过程中 player.ts 会异步调用 setMusicInfo({pic}) 把封面 URL 写回该字段。
  * - 旋转动画：自己实现无限循环（Animated.loop + useNativeDriver:true），不依赖旧动画逻辑。
  * - 圆形：容器 borderRadius = size/2，overflow:hidden 裁剪旋转方图。
  * - 不使用 RNN sharedElementTransitions：iOS 上会被原生层劫持成错位大图；封面与导航转场解耦。
@@ -31,11 +31,12 @@ export default memo(({ componentId }: { componentId: string }) => {
   const isPlay = useIsPlay();
   const isCoverSpin = useSettingValue('playDetail.isCoverSpin');
 
-  // 封面 URL：当前播放歌曲（兼容在线 + 下载）
-  const coverUrl = useMemo(
-    () => playerMusicInfo.pic || (playMusicInfo.musicInfo as LX.Music.MusicInfo)?.meta?.picUrl || '',
-    [playerMusicInfo.pic, playMusicInfo.musicInfo],
-  );
+  // 封面 URL：playerMusicInfo.pic 已兼容在线 + 下载两种来源（playInfo.ts setPlayerMusicInfo）。
+  // 同时兜底 playMusicInfo.musicInfo.meta.picUrl，保证和参考版 e58d1ab1 的数据入口一致。
+  const coverUrl = playerMusicInfo.pic || (playMusicInfo.musicInfo as LX.Music.MusicInfo)?.meta?.picUrl || '';
+
+  // 当前歌曲 id，用于切歌时重置旋转角度
+  const musicId = playerMusicInfo.id;
 
   // 圆形封面尺寸
   const size = useMemo(() => {
@@ -71,7 +72,7 @@ export default memo(({ componentId }: { componentId: string }) => {
   // 切歌时重置旋转
   useEffect(() => {
     spinValue.setValue(0);
-  }, [playerMusicInfo.id, spinValue]);
+  }, [musicId, spinValue]);
 
   const spin = spinValue.interpolate({
     inputRange: [0, 1],
@@ -79,7 +80,6 @@ export default memo(({ componentId }: { componentId: string }) => {
   });
 
   // ---- 长按菜单：下载歌曲 / 下载封面（保留原功能）----
-  const musicInfo = playMusicInfo;
   const menuRef = useRef<MenuType>(null);
   const coverRef = useRef<View>(null);
   const [menuVisible, setMenuVisible] = useState(false);
@@ -99,16 +99,17 @@ export default memo(({ componentId }: { componentId: string }) => {
     });
   };
 
+  const menuMusicInfo = playMusicInfo.musicInfo;
   const handleMenuPress = ({ action }: typeof menus[number]) => {
     switch (action) {
       case 'download_song':
-        if (musicInfo.musicInfo) {
+        if (menuMusicInfo) {
           const quality = settingState.setting['player.playQuality'];
-          addTask(musicInfo.musicInfo as LX.Music.MusicInfo, quality);
+          addTask(menuMusicInfo as LX.Music.MusicInfo, quality);
         }
         break;
       case 'download_pic':
-        if (musicInfo.musicInfo) {
+        if (menuMusicInfo) {
           void (async () => {
             try {
               const isGranted = await requestStoragePermission();
@@ -117,11 +118,11 @@ export default memo(({ componentId }: { componentId: string }) => {
                 return;
               }
               toast('正在下载封面...', 'short');
-              const picUrl = await getPicUrl({ musicInfo: musicInfo.musicInfo as LX.Music.MusicInfoOnline, isRefresh: true });
+              const picUrl = await getPicUrl({ musicInfo: menuMusicInfo as LX.Music.MusicInfoOnline, isRefresh: true });
               const extension = getFileExtensionFromUrl(picUrl);
               const picBaseDir = RNFetchBlob.fs.dirs.PictureDir || RNFetchBlob.fs.dirs.DownloadDir;
               const downloadDir = `${picBaseDir}/LX-N-Music`;
-              const mInfo = musicInfo.musicInfo as LX.Music.MusicInfo;
+              const mInfo = menuMusicInfo as LX.Music.MusicInfo;
               const fileName = `${mInfo.name}_${mInfo.singer}.${extension}`.replace(/[\\/:*?"<>|]/g, '_');
               const filePath = `${downloadDir}/${fileName}`;
 
@@ -147,7 +148,34 @@ export default memo(({ componentId }: { componentId: string }) => {
   };
 
   const radius = size / 2;
-  const imageStyle = useMemo(() => ({ width: '100%', height: '100%', borderRadius: radius } as any), [radius]);
+  // 外层圆形容器：固定尺寸 + 圆形裁切
+  const coverContainerStyle = useMemo(() => ({
+    width: size,
+    height: size,
+    borderRadius: radius,
+    overflow: 'hidden' as const,
+    backgroundColor: 'transparent' as const,
+  }), [size, radius]);
+
+  // 内层旋转层：绝对定位填满容器，并加 backfaceVisibility:'hidden'。
+  // FastImage 在 iOS 上做 rotate 动画时，非 absolute 布局容易白屏；
+  // 参考版 e58d1ab1 也是这种 absolute + backfaceVisibility 结构。
+  const animatedCoverStyle = useMemo(() => ({
+    position: 'absolute' as const,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backfaceVisibility: 'hidden' as const,
+    transform: [{ rotate: spin }],
+    borderRadius: radius,
+  } as any), [spin, radius]);
+
+  const imageStyle = useMemo(() => ({
+    width: '100%',
+    height: '100%',
+    borderRadius: radius,
+  } as any), [radius]);
 
   return (
     <View style={styles.container}>
@@ -155,9 +183,9 @@ export default memo(({ componentId }: { componentId: string }) => {
         <View
           ref={coverRef}
           collapsable={false}
-          style={{ width: size, height: size, borderRadius: radius, overflow: 'hidden' }}
+          style={coverContainerStyle}
         >
-          <Animated.View style={{ width: '100%', height: '100%', borderRadius: radius, transform: [{ rotate: spin }] }}>
+          <Animated.View style={animatedCoverStyle}>
             <Image url={coverUrl} style={imageStyle} />
           </Animated.View>
         </View>
@@ -169,7 +197,7 @@ export default memo(({ componentId }: { componentId: string }) => {
 
 const styles = createStyle({
   container: {
-    flexGrow: 1,
+    flexShrink: 0,
     justifyContent: 'center',
     alignItems: 'center',
   },

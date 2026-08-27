@@ -68,28 +68,27 @@ export const init = async() => {
 }
 
 export const setLyric = (lyric: string, translation?: string, romalrc?: string) => {
-  // 记录重设歌词前是否处于播放态；歌词就绪后立即用【引擎实时位置】重锚时钟，
-  // 避免“进度条已跳到记忆位置、歌词却停在顶部/第 0 行”的错位
-  // （尤其“杀死后台再点击播放”的记忆恢复场景：歌词异步加载后才就绪）。
+  // 歌词就绪后立即用【引擎实时位置】重锚时钟，避免“进度条已跳到记忆位置、
+  // 歌词却停在顶部/第 0 行”的错位（尤其“杀死后台再点击播放”的记忆恢复场景：
+  // 歌词异步加载后才就绪）。
   // 必须用 getPosition() 实时值，绝不能改用 store 的 nowPlayTime——后者在切歌/恢复瞬间
   // 常残留上一首或旧进度，会把歌词锚到错误位置（高亮行整体错位，回归 bug）。
+  // 无论暂停还是播放都重锚：暂停态下用户也可能刚切歌/seek，歌词仍需立即对齐。
   const wasPlaying = lrcTools.isPlay
   lrcTools.isPlay = false
   lrcTools.lyricText = lyric
   lrcTools.translationText = translation
   lrcTools.romaText = romalrc
   lrcTools.setLyric()
-  if (wasPlaying) {
-    void getPosition()
-      .then((position) => {
-        // 切歌/恢复瞬间用【引擎实时位置】纯镜像重锚（不启动 ticker），
-        // 避免歌词时钟先于音频自行走字导致高亮行错位。
-        try { syncToTime((position || 0) * 1000, true) } catch {}
-      })
-      .catch(() => {
-        lrcTools.isPlay = true
-      })
-  }
+  void getPosition()
+    .then((position) => {
+      // 切歌/恢复瞬间用【引擎实时位置】纯镜像重锚（不启动 ticker），
+      // 避免歌词时钟先于音频自行走字导致高亮行错位。
+      try { syncToTime((position || 0) * 1000, wasPlaying) } catch {}
+    })
+    .catch(() => {
+      lrcTools.isPlay = wasPlaying
+    })
 }
 export const setPlaybackRate = (playbackRate: number) => {
   lrcTools.lrc!.setPlaybackRate(playbackRate)

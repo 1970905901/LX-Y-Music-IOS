@@ -43,6 +43,8 @@ export default memo(({ componentId, artistInfo }: { componentId: string, artistI
   const albumViewMode = useSettingValue('artistDetail.albumViewMode')
   const componentIdRef = useRef(componentId)
   const songListRef = useRef<any>(null)
+  const songsLoadingRef = useRef(false)
+  const songsRequestIdRef = useRef(0)
   const pendingScrollInfoRef = useRef<LX.Music.MusicInfoOnline | null>(null)
   const isFirstSortEffect = useRef(true)
   const playerMusicInfo = usePlayerMusicInfo()
@@ -123,46 +125,66 @@ export default memo(({ componentId, artistInfo }: { componentId: string, artistI
   }, [componentId, artistInfo.id, artistInfo.source]);
 
   const loadSongs = useCallback((sort: string, page: number, isRefresh = false) => {
+    // FlatList 的 onEndReached 在 iOS 上可能连续触发多次。用 ref 做同步锁，
+    // 不能只依赖 React state（同一帧内连续回调看到的 loading 仍可能是 false），
+    // 否则多个分页请求会并发返回并互相覆盖歌曲列表。
+    if (songsLoadingRef.current && !isRefresh) return
+    const requestId = ++songsRequestIdRef.current
+    songsLoadingRef.current = true
+
     const currentApi = getApi(artistInfo.source)
     const currentArtistParam = getArtistParam(artistInfo)
-    const cacheKey = `${currentArtistParam}_songs_${sort}_${page}`;
+    // v2 绕过上一版错误分页逻辑留下的 hasMore=false 旧缓存，避免修复后仍只显示第一页。
+    const cacheKey = `${currentArtistParam}_songs_v2_${sort}_${page}`
+    const offset = (page - 1) * SONG_LIMIT
 
-    const cachedData = getArtistCache(cacheKey);
-    if (!isRefresh && cachedData) {
-      setSongs(p => ({
-        ...p,
-        list: page === 1 ? cachedData.list : [...p.list, ...cachedData.list],
-        hasMore: cachedData.hasMore,
+    setSongs(prev => ({
+      ...prev,
+      ...(isRefresh || page === 1 ? { list: [], hasMore: true, page: 1 } : {}),
+      loading: true,
+      sort,
+    }))
+
+    const applyResult = (data: any) => {
+      // 排序/刷新触发新请求后，旧请求结果不得覆盖新列表。
+      if (requestId !== songsRequestIdRef.current) return
+      const nextList = Array.isArray(data?.list) ? data.list : []
+      const hasMore = Boolean(data?.hasMore)
+      setSongs(prev => ({
+        ...prev,
+        list: page === 1 || isRefresh ? nextList : [...prev.list, ...nextList],
+        hasMore,
         page: page + 1,
         loading: false,
         sort,
-      }));
-      return;
+      }))
+      songsLoadingRef.current = false
     }
 
-    setSongs(prev => {
-      if (!isRefresh && (prev.loading || !prev.hasMore)) {
-        return prev;
-      }
-      const offset = (page - 1) * SONG_LIMIT;
-      currentApi.getSongs(currentArtistParam, sort, SONG_LIMIT, offset).then((data: any) => {
-        setArtistCache(cacheKey, { list: data.list, hasMore: data.hasMore });
+    const applyError = () => {
+      if (requestId !== songsRequestIdRef.current) return
+      toast('获取歌曲失败')
+      setSongs(prev => ({ ...prev, loading: false }))
+      songsLoadingRef.current = false
+    }
 
-        setSongs(p => ({
-          ...p,
-          list: page === 1 ? data.list : [...p.list, ...data.list],
-          hasMore: data.hasMore,
-          page: page + 1,
-          loading: false,
-          sort,
-        }));
-      }).catch((err: any) => {
-        toast('获取歌曲失败');
-        setSongs(p => ({ ...p, loading: false }));
-      });
-      return { ...prev, loading: true };
-    });
-  }, [artistInfo.id, artistInfo.source]);
+    const cachedData = getArtistCache(cacheKey)
+    if (!isRefresh && cachedData) {
+      applyResult(cachedData)
+      return
+    }
+
+    currentApi.getSongs(currentArtistParam, sort, SONG_LIMIT, offset)
+      .then((data: any) => {
+        if (requestId !== songsRequestIdRef.current) return
+        setArtistCache(cacheKey, {
+          list: Array.isArray(data?.list) ? data.list : [],
+          hasMore: Boolean(data?.hasMore),
+        })
+        applyResult(data)
+      })
+      .catch(applyError)
+  }, [artistInfo.id, artistInfo.source])
 
   const loadAlbums = useCallback((page: number, isRefresh = false) => {
     const currentApi = getApi(artistInfo.source)

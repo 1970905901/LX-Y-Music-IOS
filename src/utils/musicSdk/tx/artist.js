@@ -242,20 +242,29 @@ const artistApi = {
       }
 
       const data = body.req.data
-      const list = this.handleSongResult(data.songList || data.list || [])
-      const total = data.totalNum || data.total_num || 0
+      const rawList = Array.isArray(data.songList) ? data.songList : (Array.isArray(data.list) ? data.list : [])
+      const list = this.handleSongResult(rawList)
+      const total = Number(data.totalNum || data.total_num || 0)
+      // begin/num 是服务端分页参数；以实际原始条数和 total 双重判断，
+      // 避免接口 total 缺失或返回条数不足时提前结束分页。
+      const nextOffset = offset + limit
+      const hasMore = rawList.length > 0 && (
+        (total > 0 && nextOffset < total) ||
+        rawList.length >= limit
+      )
 
       txLog.info('=== txApi.getSongs 获取成功 ===', {
         artistMid,
         songCount: list.length,
+        rawSongCount: rawList.length,
         total,
-        hasMore: offset + limit < total,
+        hasMore,
       })
 
       return {
         list,
         total,
-        hasMore: offset + limit < total,
+        hasMore,
       }
     } catch (error) {
       txLog.error('=== txApi.getSongs 出错 ===', {

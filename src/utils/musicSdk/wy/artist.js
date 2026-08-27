@@ -41,11 +41,22 @@ const artistApi = {
     try {
       const { body } = await requestObj.promise;
       if (body.code !== 200) throw new Error('获取歌手歌曲失败');
-      const list = await musicDetailApi.filterList({ songs: body.songs, privileges: [] });
+      const rawSongs = Array.isArray(body.songs) ? body.songs : [];
+      const list = await musicDetailApi.filterList({ songs: rawSongs, privileges: [] });
+      const total = Number(body.total) || 0;
+      // 网易云部分接口返回的 more 字段在大歌手/分页请求中不稳定；
+      // 以 total、当前 offset 和实际返回条数综合判断，避免歌曲还没加载完
+      // 就提前显示“到底啦”。
+      const nextOffset = offset + limit;
+      const hasMore = rawSongs.length > 0 && (
+        Boolean(body.more) ||
+        (total > 0 && nextOffset < total) ||
+        rawSongs.length >= limit
+      );
       return {
         list,
-        total: body.total,
-        hasMore: body.more,
+        total,
+        hasMore,
       };
     } catch (error) {
       return artistApi.getSongs(id, order, limit, offset, retryNum + 1);

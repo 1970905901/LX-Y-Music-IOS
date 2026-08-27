@@ -47,9 +47,14 @@ const artistApi = {
     let { body, statusCode } = await requestObj.promise
     if (statusCode !== 200) throw new Error('获取歌手歌曲列表失败')
     
-    let listData = await getMusicInfosByList(body.data.info || [])
-    const total = body.data.total || 0
-    const hasMore = (offset + limit) < total
+    const rawList = Array.isArray(body.data?.info) ? body.data.info : []
+    let listData = await getMusicInfosByList(rawList)
+    const total = Number(body.data?.total) || 0
+    const nextOffset = offset + limit
+    const hasMore = rawList.length > 0 && (
+      (total > 0 && nextOffset < total) ||
+      rawList.length >= limit
+    )
     
     return {
       list: listData,

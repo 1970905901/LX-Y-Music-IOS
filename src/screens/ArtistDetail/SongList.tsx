@@ -77,12 +77,13 @@ const SongList = forwardRef<SongListRef, SongListProps>(({
 
   useEffect(() => {
     if (activeTab === 'songs') {
-      if (songs.loading && songs.list.length === 0) {
-        songListRef.current?.setStatus('loading')
-      } else {
-        songListRef.current?.setStatus(songs.hasMore ? 'idle' : 'end')
-      }
-      songListRef.current?.setList(songs.list, songs.page > 1, false)
+      // 下一页加载期间也必须保持 loading，避免 iOS FlatList 的 onEndReached
+      // 连续触发多个分页请求；之前只有“首屏为空”时才设 loading，导致滚动
+      // 到底部时状态立刻回到 idle，分页请求互相覆盖/丢页。
+      songListRef.current?.setStatus(songs.loading ? 'loading' : songs.hasMore ? 'idle' : 'end')
+      // page 表示“下一次要请求的页码”：首屏返回后 page=2，但列表仍应替换；
+      // 从第二页返回后 page=3，才是追加已有列表。
+      songListRef.current?.setList(songs.list, songs.page > 2, false)
     }
   }, [songs.list, songs.loading, songs.hasMore, songs.page, activeTab])
 

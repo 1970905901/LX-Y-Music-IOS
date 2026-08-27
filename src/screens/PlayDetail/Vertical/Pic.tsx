@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useRef, useCallback, useState } from 'react';
 import { View, Animated, Easing, TouchableWithoutFeedback, Platform, Text } from 'react-native';
-import { useIsPlay, usePlayMusicInfo } from '@/store/player/hook';
+import { useIsPlay, usePlayMusicInfo, usePlayerMusicInfo } from '@/store/player/hook';
 import { useWindowSize } from '@/utils/hooks';
 import { NAV_SHEAR_NATIVE_IDS } from '@/config/constant';
 import { HEADER_HEIGHT } from './components/Header';
@@ -17,6 +17,16 @@ import settingState from '@/store/setting/state';
 
 export default memo(({ componentId, maxCoverHeight }: { componentId: string, maxCoverHeight?: number }) => {
   const musicInfo = usePlayMusicInfo();
+  const playerMusicInfo = usePlayerMusicInfo();
+  // 封面数据源：与横屏 / PlayerBar（用户实测正常）完全一致，用 playerMusicInfo.pic。
+  // playInfo.ts 的 setPlayerMusicInfo 已把 playerMusicInfo.pic 兼容在线 + 下载两来源
+  // （在线取 meta.picUrl，下载取 metadata.musicInfo.meta.picUrl）。
+  // 此前竖屏用 musicInfo.musicInfo.meta.picUrl，仅在线歌曲有值；
+  // 播放下载/本地歌曲时 ListItem 无 meta 字段 → undefined → 封面空白（真因）。
+  // 叠加 meta.picUrl 兜底，避免切歌瞬间 playerMusicInfo 被 reset（pic:null）时的闪烁。
+  const coverUrl = playerMusicInfo.pic
+    || (musicInfo.musicInfo as LX.Music.MusicInfo)?.meta?.picUrl
+    || '';
   const { width: winWidth, height: winHeight } = useWindowSize();
   const statusBarHeight = useStatusbarHeight();
   const isPlay = useIsPlay();
@@ -246,7 +256,7 @@ export default memo(({ componentId, maxCoverHeight }: { componentId: string, max
             needsOffscreenAlphaCompositing={shouldForceLayerComposition}
           >
             <Image
-              url={(musicInfo.musicInfo as LX.Music.MusicInfo)?.meta?.picUrl}
+              url={coverUrl}
               nativeID={NAV_SHEAR_NATIVE_IDS.playDetail_pic}
               style={imageStyle}
             />
@@ -255,7 +265,7 @@ export default memo(({ componentId, maxCoverHeight }: { componentId: string, max
       </TouchableWithoutFeedback>
       {/* 临时文字诊断（下版移除）：显示封面 URL 前缀与关键尺寸，便于真机直接读字定位 */}
       <Text style={{ position: 'absolute', bottom: 2, left: 8, right: 8, fontSize: 9, color: '#ffcc00', backgroundColor: 'rgba(0,0,0,0.55)', padding: 2 }}>
-        {`url=${String((musicInfo.musicInfo as LX.Music.MusicInfo)?.meta?.picUrl ?? '').slice(0, 40)} | size=${Math.round(imageContainerStyle.width)} | newUI=${String(isNewUI)} | spin=${String(isCoverSpin)}`}
+        {`url=${String(coverUrl ?? '').slice(0, 40)} | size=${Math.round(imageContainerStyle.width)} | newUI=${String(isNewUI)} | spin=${String(isCoverSpin)}`}
       </Text>
       {menuVisible && <Menu ref={menuRef} menus={menus} onPress={handleMenuPress} onHide={() => setMenuVisible(false)} />}
     </View>

@@ -20,7 +20,7 @@ import { toNewMusicInfo } from '@/utils'
 import settingState from '@/store/setting/state'
 import { btoa } from 'react-native-quick-base64'
 import playerState from '@/store/player/state'
-import appEvent from '@/event/appEvent'
+const appEvent = global.app_event
 
 let webDAVModule: typeof import('@/core/webdavMusic/drive') | null = null
 let webDAVLog: {
@@ -135,7 +135,7 @@ const getOtherSourceByLocal = async <T>(
   if (fuzzyResults.length > 0) {
     const allOnlineResults: LX.Music.MusicInfoOnline[] = []
     for (const source of fuzzyResults) {
-      allOnlineResults.push(...source.list.map(s => toNewMusicInfo(s) as LX.Music.MusicInfoOnline))
+      allOnlineResults.push(...source.list.map((s: any) => toNewMusicInfo(s) as LX.Music.MusicInfoOnline))
     }
     
     const sortedResults = allOnlineResults.sort((a, b) => {
@@ -228,7 +228,7 @@ const downloadWebDAVMusic = async (musicInfo: LX.WebDAV.MusicInfo): Promise<stri
 
       if (playerState.playMusicInfo.musicInfo?.id === musicInfo.id) {
         const playerAction = await import('@/store/player/action')
-        const updatedMusicInfo = { ...playerState.playMusicInfo.musicInfo }
+        const updatedMusicInfo: any = { ...playerState.playMusicInfo.musicInfo }
         if (updatedMusicInfo && updatedMusicInfo.meta) {
           updatedMusicInfo.meta.filePath = filePath
         }
@@ -344,7 +344,7 @@ export const getPicUrl = async ({
     if (isWebDAVMusic) {
       const { picCachePath, readPic: extractPic } = await import('@/utils/localMediaMetadata')
       
-      const audioFileName = musicInfo.meta.fileName?.replace(/\.[^/.]+$/, '') || musicInfo.name
+      const audioFileName = (musicInfo.meta as any).fileName?.replace(/\.[^/.]+$/, '') || musicInfo.name
       const coverExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp']
       let foundPicUrl = ''
       
@@ -382,10 +382,10 @@ export const getPicUrl = async ({
       if (audioFilePath) {
         const audioExists = await existsFile(audioFilePath).catch(() => false)
         if (!audioExists) {
-          targetFilePath = `${downloadDir}/${musicInfo.meta.fileName}`
+          targetFilePath = `${downloadDir}/${(musicInfo.meta as any).fileName}`
         }
       } else {
-        targetFilePath = `${downloadDir}/${musicInfo.meta.fileName}`
+        targetFilePath = `${downloadDir}/${(musicInfo.meta as any).fileName}`
       }
       
       const targetExists = await existsFile(targetFilePath).catch(() => false)
@@ -509,10 +509,10 @@ export const getLyricInfo = async ({
       if (audioFilePath) {
         const audioExists = await existsFile(audioFilePath).catch(() => false)
         if (!audioExists) {
-          targetFilePath = `${downloadDir}/${musicInfo.meta.fileName}`
+          targetFilePath = `${downloadDir}/${(musicInfo.meta as any).fileName}`
         }
       } else {
-        targetFilePath = `${downloadDir}/${musicInfo.meta.fileName}`
+        targetFilePath = `${downloadDir}/${(musicInfo.meta as any).fileName}`
       }
 
       const targetExists = await existsFile(targetFilePath).catch(() => false)

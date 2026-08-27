@@ -97,7 +97,7 @@ export default forwardRef<SimilarArtistsModalType, { componentId: string }>(({ c
 
     const source = artist.source || 'wy'
     setCurrentSource(source)
-    const api = musicSdk[source]?.artist
+    const api = (musicSdk as any)[source]?.artist
 
     if (!api?.getSimilar) {
       toast('暂不支持该音源获取相似歌手')

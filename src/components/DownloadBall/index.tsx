@@ -100,13 +100,13 @@ export default memo(() => {
           size={50}
           progress={totalProgress}
           showsText={false}
-          color={isCompleted ? theme['c-success'] : theme['c-primary']}
+          color={isCompleted ? (theme as unknown as Record<string, string>)['c-success'] : theme['c-primary']}
           unfilledColor="rgba(0,0,0,0.2)"
           borderWidth={0}
           thickness={3}
         />
         <View style={styles.iconContainer}>
-          <Icon name={isCompleted ? "checkbox-marked" : "download-2"} size={22} color={isCompleted ? theme['c-success'] : theme['c-primary-font-active']} />
+          <Icon name={isCompleted ? "checkbox-marked" : "download-2"} size={22} color={isCompleted ? (theme as unknown as Record<string, string>)['c-success'] : theme['c-primary-font-active']} />
         </View>
       </TouchableOpacity>
     </Animated.View>

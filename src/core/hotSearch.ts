@@ -11,7 +11,7 @@ export const getList = async (source: Source): Promise<string[]> => {
         hotSearchState.sourceList[source]?.length
           ? Promise.resolve({ source, list: hotSearchState.sourceList[source]! })
           : (
-              (musicSdk[source]?.hotSearch.getList() as Promise<Lists[number]>) ??
+              ((musicSdk[source] as any)?.hotSearch.getList() as Promise<Lists[number]>) ??
               Promise.reject(new Error('source not found: ' + source))
             ).catch((err: any) => {
               console.log(err)
@@ -24,16 +24,16 @@ export const getList = async (source: Source): Promise<string[]> => {
     })
   } else {
     if (hotSearchState.sourceList[source]?.length) return hotSearchState.sourceList[source]!
-    if (!musicSdk[source]?.hotSearch) {
+    if (!(musicSdk[source] as any)?.hotSearch) {
       hotSearchActions.setList(source, [])
       return []
     }
-    return musicSdk[source]?.hotSearch
+    return (musicSdk[source] as any)?.hotSearch
       .getList()
       .catch((err: any) => {
         console.log(err)
         return { source, list: [] }
       })
-      .then((data) => hotSearchActions.setList(source, data.list))
+      .then((data: any) => hotSearchActions.setList(source, data.list))
   }
 }

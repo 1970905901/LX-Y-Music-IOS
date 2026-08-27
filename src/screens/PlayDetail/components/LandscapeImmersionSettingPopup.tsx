@@ -108,7 +108,7 @@ const lrcAlignKey = 'playDetail.landscapeImmersion.style.lrcAlign'
                 key={id}
                 check={lrcAlign == id}
                 label={name}
-                onChange={() => { setLrcAlign(id) }}
+                onChange={() => { setLrcAlign({ id, name }) }}
               />
             ))}
           </View>

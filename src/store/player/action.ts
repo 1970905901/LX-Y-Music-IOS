@@ -99,12 +99,12 @@ export default {
     if (topList.length)
       arrUnshift(
         state.tempPlayList,
-        topList.map(({ musicInfo, listId }) => ({ musicInfo, listId, isTempPlay: true }))
+        topList.map(({ musicInfo, listId }) => ({ musicInfo, listId, isTempPlay: true })) as any
       )
     if (bottomList.length)
       arrPush(
         state.tempPlayList,
-        bottomList.map(({ musicInfo, listId }) => ({ musicInfo, listId, isTempPlay: true }))
+        bottomList.map(({ musicInfo, listId }) => ({ musicInfo, listId, isTempPlay: true })) as any
       )
 
     global.state_event.playTempPlayListChanged({ ...state.tempPlayList })

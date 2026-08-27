@@ -28,14 +28,14 @@ export default memo(({ componentId, similarSongs: initialSimilarSongs }: { compo
         listRef.current?.scrollToInfo(musicInfo as LX.Music.MusicInfoOnline);
       }
     };
-    global.app_event.on('jumpListPosition', handleJumpPosition);
+    global.app_event.on('jumpListPosition', handleJumpPosition as () => Promise<void>);
     return () => {
-      global.app_event.off('jumpListPosition', handleJumpPosition);
+      global.app_event.off('jumpListPosition', handleJumpPosition as () => Promise<void>);
     };
   }, [])
 
   useEffect(() => {
-    setComponentId('SIMILAR_SONGS_SCREEN', componentId);
+    setComponentId('SIMILAR_SONGS_SCREEN' as any, componentId);
     if (similarSongs && similarSongs.length) {
       listRef.current?.setList(similarSongs);
       listRef.current?.setStatus('end');
@@ -70,7 +70,7 @@ export default memo(({ componentId, similarSongs: initialSimilarSongs }: { compo
           onRefresh={() => {}}
           onListUpdate={handleListUpdate}
         />
-        <PlayerBar componentId={componentId} />
+        <PlayerBar />
       </View>
     </PageContent>
   );

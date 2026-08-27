@@ -192,14 +192,14 @@ export default memo(() => {
   const isEnableAutoToggleSource = useSettingValue('player.enableAutoToggleSource')
   const subContainerOpacity = useSettingValue('theme.subContainerOpacity')
 
-  const strategyList = useMemo(() => {
+  const strategyList = useMemo((): Array<{ key: string; label: string }> => {
     const labelMap: Record<string, string> = {
       togglePlatform: t('setting_play_failure_toggle_platform') || '切换平台',
       lowerQuality: t('setting_play_failure_lower_quality') || '降低音质',
       toggleSource: t('setting_play_failure_toggle_source') || '自动切换音源',
       playNext: t('setting_play_failure_play_next') || '播放下一首',
     }
-    return (failureStrategy || DEFAULT_STRATEGY).map((key) => ({
+    return (failureStrategy || DEFAULT_STRATEGY).map((key: string) => ({
       key,
       label: labelMap[key] || key,
     }))

@@ -145,7 +145,7 @@ export default forwardRef<HeaderType, HeaderProps>(
             </View>
           </View>
         </View>
-        <ButtonBar />
+        <ButtonBar onBack={() => {}} />
         {/* <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <View style={{ flexGrow: 0, flexShrink: 1, paddingTop: 5, paddingRight: 5 }}>
               <Text style={{ fontSize: 12, color: AppColors.normal20 }} numberOfLines={ 1 }>{playCount || '-'}</Text>

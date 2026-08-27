@@ -38,7 +38,7 @@ const readListData = async (path: string) => {
   switch (configData.type) {
     case 'playListPart':
       listData = configData.data
-      listData.list = filterMusicList(listData.list.map((m) => toNewMusicInfo(m)))
+      listData.list = filterMusicList(listData.list.map((m) => toNewMusicInfo(m)) as LX.Music.MusicInfo[])
       break
     case 'playListPart_v2':
       listData = configData.data
@@ -191,7 +191,7 @@ const createLocalMusicInfos = async (
           return { path, info, picPath, error: null }
         } catch (err) {
           console.error(`[本地导入] 读取元数据失败: ${path}`, err)
-          return { path, info: null, picPath: null, error: err.message || '未知错误' }
+          return { path, info: null, picPath: null, error: (err as any).message || '未知错误' }
         }
       }),
     ).then((res) => {
@@ -324,8 +324,8 @@ export const handleImportMediaFile = async (listInfo: LX.List.MyListInfo, path: 
     }
   } catch (error) {
     console.error(`[本地导入] 导入失败:`, error)
-    importError = error.message || '未知错误'
-    toast(`导入失败: ${error.message}`, 'long')
+    importError = (error as any).message || '未知错误'
+    toast(`导入失败: ${(error as any).message}`, 'long')
   } finally {
     setFetchingListStatus(listInfo.id, false)
     console.log(`[本地导入] ========== 导入完成 ==========`)

@@ -8,7 +8,7 @@ import { setMusicUrl, stop } from '@/core/player/player'
 import { log } from '@/utils/log'
 
 import { addListMusics, removeListMusics, updateListMusicPosition, updateListMusics } from '@/core/list'
-import { playList, playListById, playNext } from '@/core/player/player'
+import { playList, playNext } from '@/core/player/player'
 import { addTempPlayList } from '@/core/player/tempPlayList'
 
 import { filterFileName, similar, sortInsert, toOldMusicInfo } from '@/utils'
@@ -208,7 +208,7 @@ export const handleToggleSource = async(listId: string, musicInfo: LX.Music.Musi
   const removeIds = [oldId]
   if (index > -1) {
     if (!await confirmDialog({
-      message: global.i18n.t('music_toggle__duplicate_tip'),
+      message: global.i18n.t('music_toggle__duplicate_tip' as any),
       cancelButtonText: global.i18n.t('dialog_cancel'),
       confirmButtonText: global.i18n.t('dialog_confirm'),
     })) return false
@@ -219,7 +219,7 @@ export const handleToggleSource = async(listId: string, musicInfo: LX.Music.Musi
     if (index != -1 && index < oldIdx) oldIdx--
     await updateListMusicPosition(listId, oldIdx, [id])
     if (playerState.playMusicInfo.listId == listId && playerState.playMusicInfo.musicInfo?.id == oldId) {
-      void playListById(listId, toggleMusicInfo.id)
+      void (playerActions as any).playListById(listId, toggleMusicInfo.id)
     }
   })
   return true
@@ -230,8 +230,7 @@ export const handleDownload = async (musicInfo: LX.Music.MusicInfo, quality: LX.
     await requestStoragePermission()
     try {
       let url = await getMusicUrl({
-        // @ts-ignore
-        musicInfo,
+        musicInfo: musicInfo as LX.Music.MusicInfoOnline,
         quality,
         isRefresh: true,
       })
@@ -334,8 +333,8 @@ export const handleDownload = async (musicInfo: LX.Music.MusicInfo, quality: LX.
       if (Platform.OS === 'android' && settingState.setting['download.writePicture']) {
         try {
           const picUrl = await getPicUrl({
-            // @ts-ignore
-            musicInfo: musicInfo,
+            musicInfo: musicInfo as LX.Music.MusicInfoOnline,
+            isRefresh: false,
           })
           // console.log(picUrl)
           const extension = getFileExtensionFromUrl(picUrl)
@@ -428,7 +427,7 @@ export const handleClearMusicCache = async (musicInfo: LX.Music.MusicInfo) => {
         
       } catch (reloadError) {
         log.error(`[清除缓存] 步骤3失败: 重新加载异常 - 歌曲名: ${musicName}`, reloadError)
-        log.error(`[清除缓存] 错误类型: ${typeof reloadError}, 消息: ${reloadError?.message}, 堆栈: ${reloadError?.stack}`)
+        log.error(`[清除缓存] 错误类型: ${typeof reloadError}, 消息: ${(reloadError as any)?.message}, 堆栈: ${(reloadError as any)?.stack}`)
         toast('清除缓存成功，但重新加载失败')
       }
       

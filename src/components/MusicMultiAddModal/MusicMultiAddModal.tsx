@@ -13,7 +13,8 @@ import wyApi from '@/utils/musicSdk/wy/user'
 import txApi from '@/utils/musicSdk/tx/user'
 import {addWyLikedSong, removeWyLikedSong, updateWySubscribedPlaylistTrackCount, addTxLikedSong, removeTxLikedSong} from '@/store/user/action'
 import { clearListDetailCache } from '@/core/songlist'
-import {Text, View} from "react-native";
+import {View} from "react-native";
+import Text from '@/components/common/Text'
 import {useWySubscribedPlaylists} from "@/store/user/hook.ts";
 import { log } from '@/utils/log'
 
@@ -46,7 +47,7 @@ export default forwardRef<MusicMultiAddModalType, MusicMultiAddModalProps>(({ on
   const subscribedPlaylists = useWySubscribedPlaylists()
 
   useEffect(() => {
-    getPlaylistType().then(setPlaylistType);
+    getPlaylistType().then((type) => setPlaylistType(type as 'local' | 'wy' | 'tx'));
   }, []);
 
   const handlePlaylistTypeChange = (type: 'local' | 'wy' | 'tx') => {
@@ -128,7 +129,7 @@ export default forwardRef<MusicMultiAddModalType, MusicMultiAddModalProps>(({ on
 
       if (isMove) {
         wyApi.manipulatePlaylistTracks('add', toListId, songIds).then(() => {
-          if (listInfo.name === listInfo.creator.nickname + '喜欢的音乐') {
+          if (listInfo.name === (listInfo as any).creator.nickname + '喜欢的音乐') {
             for (const songId of songIds) {
               addWyLikedSong(songId);
             }
@@ -138,7 +139,7 @@ export default forwardRef<MusicMultiAddModalType, MusicMultiAddModalProps>(({ on
           global.app_event.playlist_updated({ source: 'wy', listId: toListId })
           return wyApi.manipulatePlaylistTracks('del', sourcePlaylistId, songIds)
         }).then(() => {
-          if (sourcePlaylist?.name === sourcePlaylist?.creator?.nickname + '喜欢的音乐') {
+          if (sourcePlaylist?.name === (sourcePlaylist as any)?.creator?.nickname + '喜欢的音乐') {
             for (const songId of songIds) {
               removeWyLikedSong(songId)
             }
@@ -151,7 +152,7 @@ export default forwardRef<MusicMultiAddModalType, MusicMultiAddModalProps>(({ on
           clearListDetailCache('wy', sourcePlaylistId)
           global.app_event.playlist_updated({ source: 'wy', listId: sourcePlaylistId })
           log.info('[MusicMultiAddModal] 网易歌单移动成功', { toListId, songCount: songIds.length })
-        }).catch((err) => {
+        }).catch((err: any) => {
           log.error('[MusicMultiAddModal] 网易歌单移动失败', {
             error: err.message || err,
             toListId,
@@ -162,7 +163,7 @@ export default forwardRef<MusicMultiAddModalType, MusicMultiAddModalProps>(({ on
         })
       } else {
         wyApi.manipulatePlaylistTracks('add', toListId, songIds).then(() => {
-          if (listInfo.name === listInfo.creator.nickname + '喜欢的音乐') {
+          if (listInfo.name === (listInfo as any).creator.nickname + '喜欢的音乐') {
             for (const songId of songIds) {
               addWyLikedSong(songId);
             }
@@ -173,7 +174,7 @@ export default forwardRef<MusicMultiAddModalType, MusicMultiAddModalProps>(({ on
           clearListDetailCache('wy', toListId)
           global.app_event.playlist_updated({ source: 'wy', listId: toListId })
           log.info('[MusicMultiAddModal] 网易歌单添加成功', { toListId, songCount: songIds.length })
-        }).catch((err) => {
+        }).catch((err: any) => {
           log.error('[MusicMultiAddModal] 网易歌单添加失败', {
             error: err.message || err,
             toListId,
@@ -205,7 +206,7 @@ export default forwardRef<MusicMultiAddModalType, MusicMultiAddModalProps>(({ on
         return;
       }
       
-      const invalidSongs = selectedList.filter(m => !m.meta.mid && !m.meta.songId);
+      const invalidSongs = selectedList.filter(m => !(m.meta as any).mid && !m.meta.songId);
       if (invalidSongs.length > 0) {
         log.error('[MusicMultiAddModal] QQ歌单添加失败: 部分歌曲 mid 为空', {
           invalidCount: invalidSongs.length,
@@ -230,7 +231,7 @@ export default forwardRef<MusicMultiAddModalType, MusicMultiAddModalProps>(({ on
         return
       }
       
-      const songMids = selectedList.map(m => String(m.meta.mid || m.meta.songId))
+      const songMids = selectedList.map(m => String((m.meta as any).mid || m.meta.songId))
       
       log.info('[MusicMultiAddModal] QQ歌单添加开始', {
         toListId,
@@ -240,18 +241,18 @@ export default forwardRef<MusicMultiAddModalType, MusicMultiAddModalProps>(({ on
       })
       
       txApi.addSongToPlaylist(toListId, songMids).then(() => {
-        if (listInfo.dirid === 201) {
+        if ((listInfo as any).dirid === 201) {
           for (const music of selectedList) {
             const txSongId = (music.meta as any).id
             const isNumericId = txSongId && /^\d+$/.test(String(txSongId))
-            const likeKey = isNumericId ? String(txSongId) : String(music.meta.mid || music.meta.songId)
+            const likeKey = isNumericId ? String(txSongId) : String((music.meta as any).mid || music.meta.songId)
             addTxLikedSong(likeKey)
           }
         }
         onAdded?.()
         toast(t('list_edit_action_tip_add_success'))
         global.app_event.playlist_updated({ source: 'tx', listId: toListId })
-        log.info('[MusicMultiAddModal] QQ歌单添加成功', { toListId, songCount: songMids.length, dirid: listInfo.dirid })
+        log.info('[MusicMultiAddModal] QQ歌单添加成功', { toListId, songCount: songMids.length, dirid: (listInfo as any).dirid })
       }).catch((err) => {
         log.error('[MusicMultiAddModal] QQ歌单添加失败', {
           error: err.message || err,

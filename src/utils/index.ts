@@ -79,7 +79,7 @@ export const toNewMusicInfo = (oldMusicInfo: any): LX.Music.MusicInfo | null => 
         meta._qualitys.hires = meta._qualitys.flac24bit
         delete meta._qualitys.flac24bit
 
-        meta.qualitys = meta.qualitys.map((quality) => {
+        meta.qualitys = meta.qualitys.map((quality: any) => {
           if (quality.type == 'flac24bit') quality.type = 'hires'
           return quality
         })
@@ -89,7 +89,7 @@ export const toNewMusicInfo = (oldMusicInfo: any): LX.Music.MusicInfo | null => 
         meta._qualitys.atmos = meta._qualitys.effect
         delete meta._qualitys.effect
 
-        meta.qualitys = meta.qualitys.map((quality) => {
+        meta.qualitys = meta.qualitys.map((quality: any) => {
           if (quality.type == 'effect') quality.type = 'atmos'
           return quality
         })
@@ -99,7 +99,7 @@ export const toNewMusicInfo = (oldMusicInfo: any): LX.Music.MusicInfo | null => 
         meta._qualitys.atmos_plus = meta._qualitys.effect_plus
         delete meta._qualitys.effect_plus
 
-        meta.qualitys = meta.qualitys.map((quality) => {
+        meta.qualitys = meta.qualitys.map((quality: any) => {
           if (quality.type == 'effect_plus') quality.type = 'atmos_plus'
           return quality
         })
@@ -138,7 +138,7 @@ export const toOldMusicInfo = (minfo: LX.Music.MusicInfo): any => {
     name: minfo.name,
     singer: minfo.singer,
     source: minfo.source,
-    songmid: minfo.meta.songmid || minfo.meta.songId || minfo.meta.id || minfo.id,
+    songmid: (minfo.meta as any).songmid || minfo.meta.songId || (minfo.meta as any).id || minfo.id,
     interval: minfo.interval,
     albumName: minfo.meta.albumName,
     img: minfo.meta.picUrl ?? '',
@@ -162,7 +162,7 @@ export const toOldMusicInfo = (minfo: LX.Music.MusicInfo): any => {
         break
       case 'tx':
         oInfo.strMediaMid = minfo.meta.strMediaMid || ''
-        oInfo.songmid = minfo.meta.songmid || minfo.songmid || minfo.meta.songId || minfo.meta.id || minfo.id || minfo.meta.strMediaMid || ''
+        oInfo.songmid = minfo.meta.songmid || (minfo as any).songmid || minfo.meta.songId || minfo.meta.id || minfo.id || minfo.meta.strMediaMid || ''
         oInfo.albumMid = minfo.meta.albumMid || ''
         oInfo.songId = minfo.meta.id || minfo.id || ''
         oInfo.vid = minfo.meta.vid || ''
@@ -173,8 +173,8 @@ export const toOldMusicInfo = (minfo: LX.Music.MusicInfo): any => {
         oInfo.mrcUrl = minfo.meta.mrcUrl
         oInfo.trcUrl = minfo.meta.trcUrl
         break
-      case 'bilibili':
-        oInfo._bilibiliData = minfo.meta._bilibiliData
+      case 'bilibili' as any:
+        oInfo._bilibiliData = (minfo.meta as any)._bilibiliData
         break
     }
   }
@@ -203,15 +203,11 @@ export const fixNewMusicInfoQuality = (musicInfo: LX.Music.MusicInfo) => {
     })
   }
 
-  // @ts-expect-error
   if (musicInfo.meta?._qualitys?.flac24bit && !musicInfo.meta?._qualitys?.hires) {
-    // @ts-expect-error
     musicInfo.meta._qualitys.hires = musicInfo.meta._qualitys.flac24bit
-    // @ts-expect-error
     delete musicInfo.meta._qualitys.flac24bit
 
     musicInfo.meta.qualitys = musicInfo.meta.qualitys.map((quality) => {
-      // @ts-expect-error
       if (quality.type == 'flac24bit') quality.type = 'hires'
       return quality
     })

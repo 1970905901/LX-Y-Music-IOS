@@ -84,7 +84,7 @@ export default () => {
       void getCurrentTrack()
         .then((track: any) => {
           if (track?.url) triedUrls!.add(track.url)
-          return executeFailureStrategy(currentMusicInfo, true, new Error('Playback failed'), triedUrls, strategyStartIndex)
+          return executeFailureStrategy(currentMusicInfo, true, new Error('Playback failed'), triedUrls ?? undefined, strategyStartIndex)
         })
         .then((result) => {
           if (result) {

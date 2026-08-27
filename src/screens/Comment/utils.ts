@@ -31,7 +31,7 @@ export const getNewComment = async (
 ): Promise<CommentInfo> => {
   let resp
   try {
-    resp = await (music[musicInfo.source].comment.getComment(
+    resp = await ((music[musicInfo.source] as any).comment.getComment(
       toOldMusicInfo(musicInfo),
       page,
       limit
@@ -52,7 +52,7 @@ export const getHotComment = async (
 ): Promise<CommentInfo> => {
   let resp
   try {
-    resp = await (music[musicInfo.source].comment.getHotComment(
+    resp = await ((music[musicInfo.source] as any).comment.getHotComment(
       toOldMusicInfo(musicInfo),
       page,
       limit

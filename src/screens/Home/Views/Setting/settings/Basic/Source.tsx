@@ -247,7 +247,6 @@ export default memo(() => {
   const list = useMemo(
     () =>
       apiSourceList.map((s) => ({
-        // @ts-expect-error
         name: t(`setting_basic_source_${s.id}`) || s.name,
         id: s.id,
       })),

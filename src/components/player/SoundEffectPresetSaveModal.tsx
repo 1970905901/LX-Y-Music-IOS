@@ -52,7 +52,7 @@ export default forwardRef<SoundEffectPresetSaveModalType, {}>((props, ref) => {
   const [visible, setVisible] = useState(false)
   const [title, setTitle] = useState('')
   const saveHandlerRef = useRef<((name: string) => Promise<void> | void) | null>(null)
-  const t = useI18n()
+  const t = useI18n() as (key: string, val?: Record<string, string | number | boolean>) => string
 
   useImperativeHandle(ref, () => ({
     show({ title, onSave, defaultName = '' }) {

@@ -44,12 +44,12 @@ const importOldListData = async (lists: any[]) => {
     try {
       const targetList = allLists.find((l) => l.id == list.id)
       if (targetList) {
-        targetList.list = filterMusicList((list.list as any[]).map((m) => toNewMusicInfo(m)))
+        targetList.list = filterMusicList((list.list as any[]).map((m) => toNewMusicInfo(m)) as LX.Music.MusicInfo[])
       } else {
         const listInfo = {
           name: list.name,
           id: list.id,
-          list: filterMusicList((list.list as any[]).map((m) => toNewMusicInfo(m))),
+          list: filterMusicList((list.list as any[]).map((m) => toNewMusicInfo(m)) as LX.Music.MusicInfo[]),
           source: list.source,
           sourceListId: list.sourceListId,
           locationUpdateTime: list.locationUpdateTime ?? null,
@@ -204,7 +204,7 @@ const importPlayList = async (path: string) => {
       await overwriteListMusics(
         LIST_IDS.DEFAULT,
         filterMusicList(
-          (configData.data as LX.List.MyDefaultListInfoFull).list.map((m) => toNewMusicInfo(m))
+          (configData.data as LX.List.MyDefaultListInfoFull).list.map((m) => toNewMusicInfo(m)) as LX.Music.MusicInfo[]
         )
       )
       break
@@ -224,7 +224,7 @@ const importPlayList = async (path: string) => {
           filterMusicList(
             (configData.defaultList as LX.List.MyDefaultListInfoFull).list.map((m) =>
               toNewMusicInfo(m)
-            )
+            ) as LX.Music.MusicInfo[]
           )
         )
       else await importOldListData(configData.playList)
@@ -237,7 +237,7 @@ const importPlayList = async (path: string) => {
       return importBackupData(configData.data as LX.ConfigFile.AllDataV3['data'])
     case 'playListPart':
       configData.data.list = filterMusicList(
-        (configData.data as LX.ConfigFile.MyListInfoPart['data']).list.map((m) => toNewMusicInfo(m))
+        (configData.data as LX.ConfigFile.MyListInfoPart['data']).list.map((m) => toNewMusicInfo(m)) as LX.Music.MusicInfo[]
       )
 
       void handleImportListPart(configData.data)

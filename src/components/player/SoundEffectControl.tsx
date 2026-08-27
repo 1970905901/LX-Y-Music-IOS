@@ -40,6 +40,9 @@ const defaultSurroundSpeed = 25
 const defaultSurroundDistance = 5
 const maxUserPresetCount = 31
 
+type TranslateValues = Record<string, string | number | boolean>
+type TranslateFn = (key: string, val?: TranslateValues) => string
+
 type PreviewGains = Record<typeof equalizerFrequencies[number], number>
 type LayoutMode = 'split' | 'stacked'
 
@@ -169,7 +172,7 @@ const EqualizerSection = memo(({
   onSlidingComplete: (frequency: typeof equalizerFrequencies[number], value: number) => void
   layoutMode: LayoutMode
 }) => {
-  const t = useI18n()
+  const t = useI18n() as TranslateFn
   const theme = useTheme()
   const dividerColor = theme['c-primary-alpha-500']
 
@@ -319,7 +322,7 @@ const EnvironmentSection = memo(({
   onUserPresetPress: (preset: LX.SoundEffect.ConvolutionPreset) => void
   onUserPresetLongPress: (preset: LX.SoundEffect.ConvolutionPreset) => void
 }) => {
-  const t = useI18n()
+  const t = useI18n() as TranslateFn
   const theme = useTheme()
   const disabledConvolution = !selectedSource
 
@@ -402,7 +405,7 @@ const PitchSection = memo(({
   onValueChange: (value: number) => void
   onShowTip: () => void
 }) => {
-  const t = useI18n()
+  const t = useI18n() as TranslateFn
   const theme = useTheme()
 
   return (
@@ -448,7 +451,7 @@ const SurroundSection = memo(({
   onSpeedChange: (value: number) => void
   onDistanceChange: (value: number) => void
 }) => {
-  const t = useI18n()
+  const t = useI18n() as TranslateFn
   const theme = useTheme()
 
   return (
@@ -491,7 +494,7 @@ export default memo(({ showTip = true, layoutMode = 'split' }: {
   showTip?: boolean
   layoutMode?: LayoutMode
 }) => {
-  const t = useI18n()
+  const t = useI18n() as TranslateFn
   const theme = useTheme()
   const dividerColor = theme['c-primary-alpha-500']
   const setting = useSetting()

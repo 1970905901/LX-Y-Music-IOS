@@ -208,7 +208,7 @@ export default () => {
   const handleSourceChange: HeaderBarProps['onSourceChange'] = (source) => {
     setSelectedList(null)
     searchInfo.current.source = source
-    void saveSearchSetting({ source })
+    void saveSearchSetting({ source: source as LX.OnlineSource })
     if (searchState.searchText) {
       listRef.current?.loadList(searchState.searchText, source, searchInfo.current.searchType)
     }
@@ -253,8 +253,7 @@ export default () => {
       <View style={styles.content} onLayout={handleLayout}>
         { selectedList
           ? <SonglistDetail
-            componentId={commonState.componentIds.find(c => c.name === COMPONENT_IDS.home)?.id}
-            info={selectedList} onBack={() => setSelectedList(null)}
+            info={selectedList} onBack={() => setSelectedList(null)} initialScrollToInfo={null}
           />
           : (
             <>

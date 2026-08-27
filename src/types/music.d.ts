@@ -34,6 +34,9 @@ declare namespace LX {
       albumName: string
       picUrl?: string | null
       toggleMusicInfo?: MusicInfoOnline | null
+      fileName?: string
+      filePath?: string
+      _qualitys?: _MusicQualityType
     }
 
     interface MusicInfoMeta_online extends MusicInfoMetaBase {
@@ -66,6 +69,14 @@ declare namespace LX {
       source: S
       interval: string | null
       releaseDate?: string | null
+      // 运行时各 sdk 返回的 MusicInfo 为扁平结构，以下字段在 meta 与顶层均可能存在
+      albumId?: string | number
+      albumName?: string
+      albumMid?: string
+      mixSongId?: string
+      songmid?: string
+      pic?: string
+      _types?: Record<string, { size?: string | null }>
       meta: MusicInfoMetaBase
     }
 
@@ -77,10 +88,15 @@ declare namespace LX {
       meta: MusicInfoMeta_online
     }
 
+    interface MusicInfo_bilibili extends MusicInfoBase<'bilibili'> {
+      meta: MusicInfoMeta_online
+    }
+
     interface MusicInfoMeta_kg extends MusicInfoMeta_online {
       qualitys: MusicQualityTypeKg[]
       _qualitys: _MusicQualityTypeKg
       hash: string
+      mixSongId?: string
     }
     interface MusicInfo_kg extends MusicInfoBase<'kg'> {
       meta: MusicInfoMeta_kg
@@ -107,7 +123,7 @@ declare namespace LX {
       meta: MusicInfoMeta_mg
     }
 
-    type MusicInfoOnline = MusicInfo_online_common | MusicInfo_kg | MusicInfo_tx | MusicInfo_mg
+    type MusicInfoOnline = MusicInfo_online_common | MusicInfo_kg | MusicInfo_tx | MusicInfo_mg | MusicInfo_bilibili
     type MusicInfo = MusicInfoOnline | MusicInfoLocal
 
     interface LyricInfo {

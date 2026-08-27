@@ -16,8 +16,8 @@ const COMMAND_VOLUME_DOWN = 'volume_down';
 let targetIp: string | null = null;
 let ipClearTimeout: NodeJS.Timeout | null = null;
 
-let lyricSocket: dgram.Socket | null = null;
-let commandSocket: dgram.Socket | null = null;
+let lyricSocket: InstanceType<typeof dgram.Socket> | null = null;
+let commandSocket: InstanceType<typeof dgram.Socket> | null = null;
 
 let isLyricListenerActive = false;
 let unsubscribeLyricListener: (() => void) | null = null;
@@ -29,7 +29,7 @@ const adjustMediaVolume = (direction: 'up' | 'down') => {
 const startLyricSocket = () => {
   if (lyricSocket) return;
   try {
-    lyricSocket = dgram.createSocket('udp4');
+    lyricSocket = dgram.createSocket({ type: 'udp4' });
     lyricSocket.on('message', (msg, rinfo) => {
       if (msg.toString() === 'LX_LYRIC_CLIENT_HERE') {
         targetIp = rinfo.address;
@@ -63,7 +63,7 @@ const startLyricSocket = () => {
 const startCommandListener = () => {
   if (commandSocket) return;
   try {
-    commandSocket = dgram.createSocket('udp4');
+    commandSocket = dgram.createSocket('udp4' as any);
     commandSocket.on('message', (msg) => {
       switch (msg.toString()) {
         case COMMAND_NEXT:

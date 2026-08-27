@@ -67,7 +67,7 @@ export const getMusicUrl = async ({
   if (!silent) console.log("播放：currentMusicInfo:", currentMusicInfo);
 
   if (isWySource && !hasFullDetails) {
-    const availableQualities = Object.keys(currentMusicInfo.meta._qualitys);
+    const availableQualities = Object.keys(currentMusicInfo.meta._qualitys) as LX.Quality[];
     const preferredQualityIndex = QUALITY_RANK.indexOf(preferredQuality);
     const maxAvailableQualityIndex = Math.min(...availableQualities.map(q => QUALITY_RANK.indexOf(q)));
 

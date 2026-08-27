@@ -30,7 +30,7 @@ const handleSearch = async (params: Record<string, any>) => {
     if (!validSources.includes(source)) {
       throw new Error(`Unknown platform: ${platform}`)
     }
-    await saveSearchSetting({ source })
+    await saveSearchSetting({ source: source as LX.OnlineSource })
   }
 
   let searchType = ''

@@ -14,7 +14,7 @@ export default memo(() => {
     (text: string) => {
       updateSetting({ 'common.kg_cookie': text });
       if (text && text.length > 50) {
-        toast(t('setting_basic_kg_cookie') + ' ' + t('saved'));
+        toast(t('setting_basic_kg_cookie') + ' ' + t('saved' as any));
       }
     },
     [t],
@@ -25,9 +25,9 @@ export default memo(() => {
       updateSetting({ 'common.kg_cookie': cookie });
     };
 
-    global.app_event.on('kg-cookie-set', handleCookieSet);
+    (global.app_event as any).on('kg-cookie-set', handleCookieSet);
     return () => {
-      global.app_event.off('kg-cookie-set', handleCookieSet);
+      (global.app_event as any).off('kg-cookie-set', handleCookieSet);
     };
   }, []);
 

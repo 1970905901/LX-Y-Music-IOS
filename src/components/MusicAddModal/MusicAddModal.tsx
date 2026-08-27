@@ -12,7 +12,8 @@ import { addListMusics, moveListMusics } from '@/core/list'
 import settingState from '@/store/setting/state'
 import {useTheme} from "@/store/theme/hook"
 import {getPlaylistType, savePlaylistType} from "@/utils/data"
-import {Text, View} from "react-native"
+import {View} from "react-native"
+import Text from '@/components/common/Text'
 import {addWyLikedSong, removeWyLikedSong, updateWySubscribedPlaylistTrackCount, addTxLikedSong, removeTxLikedSong} from "@/store/user/action.ts";
 import {clearListDetailCache} from "@/core/songlist.ts";
 import {useWySubscribedPlaylists} from "@/store/user/hook.ts";
@@ -45,12 +46,12 @@ export default forwardRef<MusicAddModalType, MusicAddModalProps>(({ onAdded }, r
   const kgCookie = useSettingValue('common.kg_cookie')
 
   useEffect(() => {
-    getPlaylistType().then(setPlaylistType)
+    getPlaylistType().then((type) => setPlaylistType(type as 'local' | 'wy' | 'tx'))
   }, [])
 
   const handlePlaylistTypeChange = (type: 'local' | 'wy' | 'tx' | 'kg') => {
     setPlaylistType(type)
-    void savePlaylistType(type)
+    void savePlaylistType(type as 'local' | 'wy' | 'tx')
   }
 
 
@@ -119,7 +120,7 @@ export default forwardRef<MusicAddModalType, MusicAddModalProps>(({ onAdded }, r
 
       if (isMove) {
         wyApi.manipulatePlaylistTracks('add', toListId, [songId]).then(() => {
-          if (listInfo.name === listInfo.creator.nickname + '喜欢的音乐') {
+          if (listInfo.name === (listInfo as any).creator.nickname + '喜欢的音乐') {
             addWyLikedSong(songId)
           }
           const sourcePlaylistId = fromListId.replace('wy__', '');
@@ -127,7 +128,7 @@ export default forwardRef<MusicAddModalType, MusicAddModalProps>(({ onAdded }, r
           global.app_event.playlist_updated({ source: 'wy', listId: toListId })
           return wyApi.manipulatePlaylistTracks('del', sourcePlaylistId, [songId]);
         }).then(() => {
-          if (sourcePlaylist?.name === sourcePlaylist?.creator?.nickname + '喜欢的音乐') {
+          if (sourcePlaylist?.name === (sourcePlaylist as any)?.creator?.nickname + '喜欢的音乐') {
             removeWyLikedSong(songId)
           }
           onAdded?.()
@@ -138,7 +139,7 @@ export default forwardRef<MusicAddModalType, MusicAddModalProps>(({ onAdded }, r
           clearListDetailCache('wy', sourcePlaylistId)
           global.app_event.playlist_updated({ source: 'wy', listId: sourcePlaylistId })
           log.info('[MusicAddModal] 网易歌单移动成功', { toListId, songId })
-        }).catch((err) => {
+        }).catch((err: any) => {
           log.error('[MusicAddModal] 网易歌单移动失败', {
             error: err.message || err,
             toListId,
@@ -149,7 +150,7 @@ export default forwardRef<MusicAddModalType, MusicAddModalProps>(({ onAdded }, r
         });
       } else {
         wyApi.manipulatePlaylistTracks('add', toListId, [songId]).then(() => {
-          if (listInfo.name === listInfo.creator.nickname + '喜欢的音乐') {
+          if (listInfo.name === (listInfo as any).creator.nickname + '喜欢的音乐') {
             addWyLikedSong(songId)
           }
           onAdded?.()
@@ -158,7 +159,7 @@ export default forwardRef<MusicAddModalType, MusicAddModalProps>(({ onAdded }, r
           clearListDetailCache('wy', toListId)
           global.app_event.playlist_updated({ source: 'wy', listId: toListId })
           log.info('[MusicAddModal] 网易歌单添加成功', { toListId, songId })
-        }).catch((err) => {
+        }).catch((err: any) => {
           log.error('[MusicAddModal] 网易歌单添加失败', {
             error: err.message || err,
             toListId,
@@ -186,7 +187,7 @@ export default forwardRef<MusicAddModalType, MusicAddModalProps>(({ onAdded }, r
         return;
       }
       
-      const songMid = musicInfo.meta.mid || musicInfo.meta.songId;
+      const songMid = (musicInfo.meta as any).mid || musicInfo.meta.songId;
       if (!songMid) {
         log.error('[MusicAddModal] QQ歌单添加失败: 歌曲 mid 为空', {
           musicInfo,
@@ -217,7 +218,7 @@ export default forwardRef<MusicAddModalType, MusicAddModalProps>(({ onAdded }, r
       if (isMove) {
         const sourcePlaylistId = fromListId.replace('tx__', '')
         txApi.addSongToPlaylist(toListId, [String(songMid)]).then(() => {
-          if (listInfo.dirid === 201) {
+          if ((listInfo as any).dirid === 201) {
             const txSongId = (musicInfo.meta as any).id
             const isNumericId = txSongId && /^\d+$/.test(String(txSongId))
             const likeKey = isNumericId ? String(txSongId) : songMid
@@ -243,7 +244,7 @@ export default forwardRef<MusicAddModalType, MusicAddModalProps>(({ onAdded }, r
         });
       } else {
         txApi.addSongToPlaylist(toListId, [String(songMid)]).then(() => {
-          if (listInfo.dirid === 201) {
+          if ((listInfo as any).dirid === 201) {
             const txSongId = (musicInfo.meta as any).id
             const isNumericId = txSongId && /^\d+$/.test(String(txSongId))
             const likeKey = isNumericId ? String(txSongId) : songMid
@@ -252,7 +253,7 @@ export default forwardRef<MusicAddModalType, MusicAddModalProps>(({ onAdded }, r
           onAdded?.()
           toast(t('list_edit_action_tip_add_success'))
           global.app_event.playlist_updated({ source: 'tx', listId: toListId })
-          log.info('[MusicAddModal] QQ歌单添加成功', { toListId, songMid, dirid: listInfo.dirid })
+          log.info('[MusicAddModal] QQ歌单添加成功', { toListId, songMid, dirid: (listInfo as any).dirid })
         }).catch((err) => {
           log.error('[MusicAddModal] QQ歌单添加失败', {
             error: err.message || err,
@@ -340,8 +341,8 @@ export default forwardRef<MusicAddModalType, MusicAddModalProps>(({ onAdded }, r
             log.info('[MusicAddModal] 酷狗歌单添加成功', { toListId, songName })
             const globalCollectionId = String(listInfo.id).replace('kg__', '')
             clearListDetailCache('kg', globalCollectionId)
-            const newCover = result.song?.cover ? result.song.cover.replace('{size}', '400') : undefined
-            global.app_event.playlist_updated({ source: 'kg', listId: globalCollectionId, addedSong: result.song, newCover })
+            const newCover = (result as any).song?.cover ? (result as any).song.cover.replace('{size}', '400') : undefined
+            global.app_event.playlist_updated({ source: 'kg', listId: globalCollectionId, addedSong: (result as any).song, newCover } as { source: string, listId: string })
           } else {
             log.error('[MusicAddModal] 酷狗歌单添加失败', { error: result.message })
             toast(result.message || t('list_edit_action_tip_add_failed'))

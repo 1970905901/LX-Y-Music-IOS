@@ -128,7 +128,7 @@ export default memo(({ type, onOpenDetail }: Props) => {
 
   const handlePlaylistPress = (item: { id: string; name: string; cover: string; playCount: number }) => {
     if (onOpenDetail) {
-      const listInfo: ListInfoItem = {
+      const listInfo = {
         id: item.id,
         name: item.name,
         img: item.cover,
@@ -136,7 +136,7 @@ export default memo(({ type, onOpenDetail }: Props) => {
         playCount: item.playCount,
         source: 'tx',
         author: '',
-      }
+      } as ListInfoItem
       onOpenDetail(listInfo)
     }
   }

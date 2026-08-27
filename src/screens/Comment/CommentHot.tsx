@@ -87,7 +87,7 @@ export default ({
   }
 
   const handleShowComment = (musicInfo: LX.Music.MusicInfoOnline) => {
-    if (!musicInfo.id || !music[musicInfo.source].comment) return
+    if (!musicInfo.id || !(music[musicInfo.source] as any)?.comment) return
     listInfo.current.page = 1
     listInfo.current.total = 0
     listInfo.current.maxPage = 1

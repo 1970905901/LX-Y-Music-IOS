@@ -16,6 +16,7 @@ global.lx = {
     isInitialized: false,
     isRegisteredService: false,
     isIniting: false,
+    ignoreTrackPlayerLifecycle: false,
   },
   isCarMode: false,
 
@@ -47,7 +48,7 @@ global.lx = {
   homePagerIdle: true,
 }
 
-global.app_event = createAppEventHub()
+global.app_event = createAppEventHub() as typeof globalThis.app_event
 global.list_event = createListEventHub()
 global.dislike_event = createDislikeEventHub()
 global.state_event = createStateEventHub()

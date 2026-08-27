@@ -41,7 +41,7 @@ export default memo(() => {
   const playlistEditModalRef = useRef<PlaylistEditModalType>(null)
 
   useEffect(() => {
-    const handleJumpPosition = () => {
+    const handleJumpPosition = async () => {
       let listId = playerState.playMusicInfo.listId
       if (listId === LIST_IDS.TEMP) listId = listState.tempListMeta.id
       if (!listId?.startsWith('wy__')) return
@@ -53,17 +53,18 @@ export default memo(() => {
         const playlistInfo: ListInfoItem = {
           id: String(targetPlaylist.id),
           name: targetPlaylist.name,
-          author: targetPlaylist.creator?.nickname,
+          author: (targetPlaylist as any).creator?.nickname,
           img: targetPlaylist.coverImgUrl,
-          play_count: targetPlaylist.playCount,
+          play_count: (targetPlaylist as any).playCount,
           desc: targetPlaylist.description,
           source: 'wy',
           userId: targetPlaylist.userId,
           total: targetPlaylist.trackCount,
         }
-        const musicInfo = 'progress' in playerState.playMusicInfo.musicInfo
-          ? playerState.playMusicInfo.musicInfo.metadata.musicInfo
-          : playerState.playMusicInfo.musicInfo
+        const playingMusicInfo = playerState.playMusicInfo.musicInfo
+        const musicInfo = playingMusicInfo && 'progress' in playingMusicInfo
+          ? playingMusicInfo.metadata.musicInfo
+          : playingMusicInfo
         if (musicInfo) setScrollToMusicInfo(musicInfo as MusicInfoOnline)
         setSelectedPlaylist(playlistInfo)
       }
@@ -87,10 +88,10 @@ export default memo(() => {
     }
     setLoading(true)
     wyApi.getUserPlaylists(uid, cookie)
-      .then(playlists => {
+      .then((playlists: any[]) => {
         setWySubscribedPlaylists(playlists)
       })
-      .catch(err => {
+      .catch((err: any) => {
         toast(`获取歌单失败: ${err.message}`)
       })
       .finally(() => {
@@ -106,10 +107,10 @@ export default memo(() => {
     }
     setLoading(true)
     wyApi.getUserPlaylists(uid, cookie)
-      .then(playlists => {
+      .then((playlists: any[]) => {
         setWySubscribedPlaylists(playlists)
       })
-      .catch(err => {
+      .catch((err: any) => {
         toast(`刷新歌单失败: ${err.message}`)
       })
       .finally(() => {

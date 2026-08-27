@@ -19,7 +19,7 @@ const state: InitState = {
 }
 
 for (const source of musicSdk.sources) {
-  if (!musicSdk[source.id as LX.OnlineSource]?.hotSearch) continue
+  if (!(musicSdk[source.id as LX.OnlineSource] as any)?.hotSearch) continue
   state.sources.push(source.id as LX.OnlineSource)
   state.sourceList[source.id as LX.OnlineSource] = []
 }

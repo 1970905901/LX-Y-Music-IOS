@@ -384,6 +384,17 @@ export default memo(() => {
     return () => subscription.remove()
   }, [refreshListInfo])
 
+  const resetAllAnims = useCallback(() => {
+    for (const anim of animsRef.current) {
+      anim.translateY.stopAnimation()
+      anim.scale.stopAnimation()
+      anim.opacity.stopAnimation()
+      anim.translateY.setValue(0)
+      anim.scale.setValue(1)
+      anim.opacity.setValue(1)
+    }
+  }, [])
+
   useEffect(() => {
     resetAllAnims()
   }, [resetAllAnims])
@@ -425,17 +436,6 @@ export default memo(() => {
 
   const handleLayoutHeight = useCallback((index: number, height: number) => {
     heightsRef.current[index] = height
-  }, [])
-
-  const resetAllAnims = useCallback(() => {
-    for (const anim of animsRef.current) {
-      anim.translateY.stopAnimation()
-      anim.scale.stopAnimation()
-      anim.opacity.stopAnimation()
-      anim.translateY.setValue(0)
-      anim.scale.setValue(1)
-      anim.opacity.setValue(1)
-    }
   }, [])
 
   const handleLongPressStart = useCallback((index: number) => {
@@ -574,7 +574,7 @@ export default memo(() => {
     return (
       <View style={styles.errorContainer}>
         <Text size={16} color={theme['c-font']} style={styles.errorText}>加载失败</Text>
-        <TouchableOpacity onPress={refreshListInfo} style={styles.retryButton}>
+        <TouchableOpacity onPress={() => void refreshListInfo()} style={styles.retryButton}>
           <Text size={14} color={theme['c-primary-font']}>点击尝试重新加载</Text>
         </TouchableOpacity>
       </View>

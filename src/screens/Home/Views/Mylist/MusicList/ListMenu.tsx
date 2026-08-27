@@ -15,7 +15,7 @@ export interface SelectInfo {
 const initSelectInfo = {}
 
 export interface ListMenuProps {
-  // onPlay: (selectInfo: SelectInfo) => void
+  onPlay: (selectInfo: SelectInfo) => void
   onPlayLater: (selectInfo: SelectInfo) => void
   onAdd: (selectInfo: SelectInfo) => void
   onMove: (selectInfo: SelectInfo) => void

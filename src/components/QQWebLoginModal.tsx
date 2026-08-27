@@ -24,10 +24,10 @@ const Header = ({ onClose, onLogout }: { onClose: () => void; onLogout: () => vo
       <TouchableOpacity onPress={onClose} style={styles.backButton} activeOpacity={0.7}>
         <Icon name="chevron-left" size={26} color={theme['c-font']} />
       </TouchableOpacity>
-      <Text size={18} weight="600">QQ音乐登录</Text>
+      <Text size={18}>QQ音乐登录</Text>
       <TouchableOpacity onPress={onLogout} style={styles.logoutButton} activeOpacity={0.8}>
         <Icon name="exit" size={14} color="#ffffff" />
-        <Text size={14} color="#ffffff" weight="500">退出登录</Text>
+        <Text size={14} color="#ffffff">退出登录</Text>
       </TouchableOpacity>
     </View>
   );
@@ -58,7 +58,7 @@ const LoadingSpinner = () => {
 
 const QQWebLoginModal = forwardRef<QQWebLoginModalType, object>((props, ref) => {
   const modalRef = useRef<ModalType>(null);
-  const webViewRef = useRef<WebView>(null);
+  const webViewRef = useRef<any>(null);
   const theme = useTheme();
   const [isLoading, setIsLoading] = useState(true);
 
@@ -102,7 +102,7 @@ const QQWebLoginModal = forwardRef<QQWebLoginModalType, object>((props, ref) => 
         return;
       }
 
-      global.app_event.emit('tx-cookie-set', cookieString);
+      (global.app_event as any).emit('tx-cookie-set', cookieString);
       toast('Cookie获取成功！');
       handleClose();
     } catch (err) {
@@ -115,7 +115,7 @@ const QQWebLoginModal = forwardRef<QQWebLoginModalType, object>((props, ref) => 
     console.log('QQ登录: 用户点击退出登录');
     try {
       await CookieManager.clearAll();
-      global.app_event.emit('tx-cookie-set', '');
+      (global.app_event as any).emit('tx-cookie-set', '');
       toast('已退出登录');
       if (webViewRef.current) {
         webViewRef.current.reload();
@@ -147,7 +147,7 @@ const QQWebLoginModal = forwardRef<QQWebLoginModalType, object>((props, ref) => 
             </View>
           )}
         </View>
-        <View style={[styles.footer, { backgroundColor: theme['c-content-background'], borderTopColor: theme['c-border'] }]}>
+        <View style={[styles.footer, { backgroundColor: theme['c-content-background'], borderTopColor: (theme as any)['c-border'] }]}>
           <View style={[styles.footerCard, { backgroundColor: '#fff5f5', borderColor: '#ffd6d6' }]}>
             <Icon name="help" size={14} color="#ff6b6b" />
             <Text style={[styles.tip, { color: '#ff6b6b' }]} size={13}>请等待登录完全完成后再获取Cookie，否则会获取错误（约等待3秒）</Text>
@@ -157,7 +157,7 @@ const QQWebLoginModal = forwardRef<QQWebLoginModalType, object>((props, ref) => 
             style={[styles.getCookieBtn, { backgroundColor: '#1677ff' }]}
             activeOpacity={0.8}
           >
-            <Text size={16} color="#ffffff" weight="600">获取Cookie</Text>
+            <Text size={16} color="#ffffff">获取Cookie</Text>
           </TouchableOpacity>
         </View>
       </View>

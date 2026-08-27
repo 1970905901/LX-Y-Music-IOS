@@ -138,7 +138,7 @@ export default ({ onBack }: MusicListProps) => {
         toast(err.message || '获取MV失败');
       });
     } else if (info.musicInfo.source === 'kg') {
-      const mixSongId = info.musicInfo.meta.mixSongId || info.musicInfo.mixSongId || info.musicInfo.meta.songId;
+      const mixSongId = (info.musicInfo.meta as any).mixSongId || (info.musicInfo as any).mixSongId || info.musicInfo.meta.songId;
       const songName = info.musicInfo.name;
       const singerName = info.musicInfo.singer;
       if (!mixSongId) {
@@ -147,7 +147,7 @@ export default ({ onBack }: MusicListProps) => {
         return
       }
       console.log('[MV] 酷狗: 开始获取MV, mixSongId:', mixSongId, 'songName:', songName, 'singerName:', singerName)
-      getKgMvUrl(String(mixSongId), songName, singerName).then(data => {
+      getKgMvUrl(String(mixSongId), songName, singerName).then((data: any) => {
         console.log('[MV] 酷狗: 获取MV URL成功:', data)
         if (data && data.url) {
           global.app_event.showVideoPlayer(data.url);

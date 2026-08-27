@@ -27,6 +27,7 @@ interface GlobalData {
     isInitialized: boolean
     isRegisteredService: boolean
     isIniting: boolean
+    ignoreTrackPlayerLifecycle: boolean
   }
   restorePlayInfo: LX.Player.SavedPlayInfo | null
   isScreenKeepAwake: boolean
@@ -71,6 +72,8 @@ declare global {
   var lx: GlobalData
   var i18n: I18n
   var app_event: AppEventTypes & {
+    emit: (eventName: string, ...args: any[]) => void;
+    changeHomePageScrollEnabled: (enabled: boolean) => void;
     showArtistSelector: (artists: Artist[], onSelect: (artist: Artist) => void) => void;
     triggerSearch: (text: string) => void;
     'wy-cookie-set': (cookie: string) => void

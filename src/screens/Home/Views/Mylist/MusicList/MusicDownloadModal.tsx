@@ -66,10 +66,10 @@ export default forwardRef<MusicDownloadModalType, MusicDownloadModalProps>(
       if (!visible || !playQualityList.length) return
 
       const applyLastQuality = async() => {
-          if (selectedInfo.current.source === 'bilibili') {
-          const quality192k = playQualityList.find(q => q.id === '192k')
+          if (selectedInfo.current.source === ('bilibili' as any)) {
+          const quality192k = playQualityList.find(q => (q.id as string) === '192k')
           if (quality192k) {
-            setSelectedQuality('192k')
+            setSelectedQuality('192k' as any)
             return
           }
         }
@@ -98,8 +98,7 @@ export default forwardRef<MusicDownloadModalType, MusicDownloadModalProps>(
       map.set('atmos_plus', global.i18n.t('atmos_plus'))
       map.set('master', global.i18n.t('master'))
 
-      // @ts-ignore
-      const qualitys = musicInfo.meta.qualitys
+      const qualitys = (musicInfo.meta as any).qualitys
 
       const qualityMap: QualityMap = {}
       for (const element of qualitys) {
@@ -148,7 +147,7 @@ export default forwardRef<MusicDownloadModalType, MusicDownloadModalProps>(
       alertRef.current?.setVisible(false)
       addDownloadTask(selectedInfo.current, selectedQuality);
       setTimeout(() => {
-        setSelectedQuality(selectedInfo.current.source === 'bilibili' ? '192k' : '128k');
+        setSelectedQuality(selectedInfo.current.source === ('bilibili' as any) ? ('192k' as any) : '128k');
       }, 300)
     }
 

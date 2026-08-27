@@ -31,10 +31,10 @@ export default memo(({ onOpenDetail }: { onOpenDetail: (info: any) => void }) =>
     }
 
     setLoading(true)
-    wyApi.getRecPlaylists(cookie).then(async list => {
+    wyApi.getRecPlaylists(cookie).then(async (list: any) => {
       const adaptedList =  list
         // .filter(item => !item.name.includes('雷达'))
-        .map(item => ({
+        .map((item: any) => ({
           id: item.id,
           name: item.name,
           trackCount: item.trackCount,
@@ -63,7 +63,7 @@ export default memo(({ onOpenDetail }: { onOpenDetail: (info: any) => void }) =>
 
       setPlaylists(adaptedList)
       setDailyRecPlaylistsCache(adaptedList)
-    }).catch(err => {
+    }).catch((err: any) => {
       toast(`获取推荐歌单失败: ${err.message}`)
     }).finally(() => {
       setLoading(false)

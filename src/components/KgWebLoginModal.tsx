@@ -109,7 +109,7 @@ const KgWebLoginModal = forwardRef<KgWebLoginModalType, object>((_, ref) => {
     if (!pendingData) return; setShowMultiAccount(false); setLogging(true)
     try {
       const r = await loginByPhone(pendingData.mobile, pendingData.code, () => {}, userId)
-      if (r.success && r.data) { global.app_event.emit('kg-cookie-set', buildCookieString(r.data)); toast('登录成功！'); handleClose() }
+      if (r.success && r.data) { (global.app_event as any).emit('kg-cookie-set', buildCookieString(r.data)); toast('登录成功！'); handleClose() }
       else toast(r.message || '登录失败')
     } catch { toast('登录失败') } finally { setLogging(false); setPendingData(null) }
   }, [pendingData, handleClose])
@@ -120,7 +120,7 @@ const KgWebLoginModal = forwardRef<KgWebLoginModalType, object>((_, ref) => {
     setLogging(true)
     try {
       const r = await loginByPhone(phone, code, () => {})
-      if (r.success && r.data) { global.app_event.emit('kg-cookie-set', buildCookieString(r.data)); toast('登录成功！'); handleClose() }
+      if (r.success && r.data) { (global.app_event as any).emit('kg-cookie-set', buildCookieString(r.data)); toast('登录成功！'); handleClose() }
       else if (r.message?.includes('34175')) { setPendingData({ mobile: phone, code }); setShowMultiAccount(true) }
       else toast(r.message || '登录失败')
     } catch { toast('登录失败') } finally { setLogging(false) }
@@ -131,24 +131,24 @@ const KgWebLoginModal = forwardRef<KgWebLoginModalType, object>((_, ref) => {
       <View style={styles.container}>
         <View style={[styles.header, { height: 56 + useStatusbarHeight(), paddingTop: useStatusbarHeight(), backgroundColor: theme['c-content-background'] }]}>
           <TouchableOpacity onPress={handleClose} style={styles.backBtn}><Icon name="chevron-left" size={26} color={theme['c-font']} /></TouchableOpacity>
-          <Text size={18} weight="600">登录</Text>
+          <Text size={18}>登录</Text>
           <View style={{ width: 44 }} />
         </View>
         <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled">
           <Text size={15} style={[styles.smsTitle, { color: theme['c-font'] }]}>使用手机短信验证码登录</Text>
-          <View style={[styles.inputRow, { borderBottomColor: theme['c-border'] }]}>
+          <View style={[styles.inputRow, { borderBottomColor: (theme as any)['c-border'] }]}>
             <Text size={15} color={theme['c-font']}>+86  |  </Text>
             <TextInput style={[styles.input, { color: theme['c-font'] }]} placeholder="手机号" placeholderTextColor={theme['c-font-label']} keyboardType="phone-pad" value={phone} onChangeText={setPhone} maxLength={11} editable={!logging} />
             {phone.length > 0 && <TouchableOpacity onPress={() => setPhone('')}><Icon name="close" size={18} color={theme['c-font-label']} /></TouchableOpacity>}
           </View>
-          <View style={[styles.inputRow, { borderBottomColor: theme['c-border'] }]}>
+          <View style={[styles.inputRow, { borderBottomColor: (theme as any)['c-border'] }]}>
             <TextInput style={[styles.input, { color: theme['c-font'] }]} placeholder="验证码" placeholderTextColor={theme['c-font-label']} keyboardType="number-pad" value={code} onChangeText={setCode} maxLength={6} editable={!logging} />
             <TouchableOpacity onPress={handleSendCode} disabled={countdown > 0 || sending || cooldown > 0 || logging}>
               <Text size={14} color={countdown > 0 || cooldown > 0 ? theme['c-font-label'] : '#1677ff'}>{countdown > 0 ? `${countdown}s` : sending ? '发送中...' : cooldown > 0 ? '请稍候' : '获取验证码'}</Text>
             </TouchableOpacity>
           </View>
-          <TouchableOpacity style={[styles.loginBtn, { backgroundColor: logging ? theme['c-border'] : '#1677ff' }]} onPress={handleLogin} disabled={logging}>
-            <Text size={16} color="#fff" weight="600">{logging ? '登录中...' : '登录'}</Text>
+          <TouchableOpacity style={[styles.loginBtn, { backgroundColor: logging ? (theme as any)['c-border'] : '#1677ff' }]} onPress={handleLogin} disabled={logging}>
+            <Text size={16} color="#fff">{logging ? '登录中...' : '登录'}</Text>
           </TouchableOpacity>
           <Text size={12} color={theme['c-font-label']} style={styles.smsTip}>手机号仅用于酷狗音乐官方发送验证码与登录接口，不予保存；{'\n'}本地仅存储登录凭证。</Text>
         </ScrollView>
@@ -164,15 +164,15 @@ const KgWebLoginModal = forwardRef<KgWebLoginModalType, object>((_, ref) => {
         <RNModal visible={showMultiAccount} transparent animationType="fade" onRequestClose={() => setShowMultiAccount(false)}>
           <View style={styles.modalOverlay}>
             <View style={[styles.modalBox, { backgroundColor: '#fff' }]}>
-              <Text size={16} weight="500" style={{ textAlign: 'center', marginBottom: 16, color: theme['c-font'] }}>该手机号绑定了多个账号</Text>
-              <View style={[styles.idInput, { borderBottomColor: theme['c-border'] }]}>
+              <Text size={16} style={{ textAlign: 'center', marginBottom: 16, color: theme['c-font'] }}>该手机号绑定了多个账号</Text>
+              <View style={[styles.idInput, { borderBottomColor: (theme as any)['c-border'] }]}>
                 <TextInput style={[styles.idInputText, { color: theme['c-font'] }]} placeholder="请输入您要登录的酷狗ID" placeholderTextColor={theme['c-font-label']} value={selectedId} onChangeText={setSelectedId} keyboardType="number-pad" autoFocus />
               </View>
               <TouchableOpacity style={[styles.modalBtn, { backgroundColor: '#1677ff', marginTop: 20 }]} onPress={() => handleMultiLogin(selectedId)} disabled={!selectedId.trim()} activeOpacity={0.8}>
-                <Text size={16} weight="600" color="#fff">确定登录</Text>
+                <Text size={16} color="#fff">确定登录</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalBtn, { backgroundColor: theme['c-border'], marginTop: 10 }]} onPress={() => { setShowMultiAccount(false); setPendingData(null); setSelectedId('') }} activeOpacity={0.8}>
-                <Text size={16} weight="500" color="#fff">取消</Text>
+              <TouchableOpacity style={[styles.modalBtn, { backgroundColor: (theme as any)['c-border'], marginTop: 10 }]} onPress={() => { setShowMultiAccount(false); setPendingData(null); setSelectedId('') }} activeOpacity={0.8}>
+                <Text size={16} color="#fff">取消</Text>
               </TouchableOpacity>
             </View>
           </View>

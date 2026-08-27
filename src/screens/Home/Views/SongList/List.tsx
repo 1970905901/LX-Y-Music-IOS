@@ -28,6 +28,7 @@ export default forwardRef<ListType, { onOpenDetail: (item: ListInfoItem) => void
   useImperativeHandle(
     ref,
     () => ({
+      onOpenDetail,
       async loadList(source, sortId, tagId) {
         const currentLoadId = ++loadIdRef.current
         const listInfo = songlistState.listInfo

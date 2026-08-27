@@ -12,9 +12,9 @@
  */
 import {
   DocumentDirectoryPath,
-  PictureDirectoryPath,
+  PicturesDirectoryPath,
   DownloadDirectoryPath,
-  CacheDirectoryPath,
+  CachesDirectoryPath,
   exists as fsExists,
   mkdir as fsMkdir,
   moveFile,
@@ -42,9 +42,9 @@ const fs = {
   dirs: {
     DocumentDir: DocumentDirectoryPath,
     MusicDir: DocumentDirectoryPath, // iOS 无独立 Music 目录，落到 Document
-    PictureDir: PictureDirectoryPath,
+    PictureDir: PicturesDirectoryPath,
     DownloadDir: DownloadDirectoryPath,
-    CacheDir: CacheDirectoryPath,
+    CacheDir: CachesDirectoryPath,
   },
   exists: (p: string) => fsExists(p),
   mkdir: (p: string) => fsMkdir(p),

@@ -399,17 +399,16 @@ const getMusicPlayUrl = async (
           allowToggleSource: false,
         })
       : Promise.reject(new Error('not found'))
-  )
-    .catch(async () => {
-      return getMusicUrl({
-        musicInfo,
-        isRefresh,
-        onToggleSource(mInfo) {
-          if (diffCurrentMusicInfo(musicInfo)) return
-          setStatusText(global.i18n.t('toggle_source_try'))
-        },
-      })
+  ).catch(async () => {
+    return getMusicUrl({
+      musicInfo,
+      isRefresh,
+      onToggleSource(mInfo) {
+        if (diffCurrentMusicInfo(musicInfo)) return
+        setStatusText(global.i18n.t('toggle_source_try'))
+      },
     })
+  })
     .then((url) => {
       if (global.lx.isPlayedStop || diffCurrentMusicInfo(musicInfo)) return null
 
@@ -426,7 +425,7 @@ const getMusicPlayUrl = async (
       if (err.message == requestMsg.tooManyRequests) return delayRetry(musicInfo, isRefresh)
 
       return executeFailureStrategy(musicInfo, isRefresh, err)
-    })
+    }) as unknown as Promise<string | null>
 }
 
 export const setMusicUrl = (
@@ -446,7 +445,7 @@ export const setMusicUrl = (
         clearLoadTimeout()
         setStatusText('')
         
-        const isWebDAVMusic = 'webdav' in currentMusicInfo.meta && (currentMusicInfo.meta as any).webdav === true
+        const isWebDAVMusic = 'webdav' in (currentMusicInfo as any).meta && ((currentMusicInfo as any).meta as any).webdav === true
         if (isWebDAVMusic) {
           void setStop().then(() => {
             setResource(currentMusicInfo, url, playerState.progress.nowPlayTime)
@@ -750,7 +749,7 @@ export const playNext = async (isAutoToggle = false): Promise<void> => {
     return
   }
 
-  if (playerState.playMusicInfo.musicInfo == null) return null
+  if (playerState.playMusicInfo.musicInfo == null) return
 
   if (randomNextMusicInfo.info) {
     const randomInfo = randomNextMusicInfo.info
@@ -773,7 +772,7 @@ export const playNext = async (isAutoToggle = false): Promise<void> => {
       const musicInfo = currentList[playInfo.playerPlayIndex]
       if (musicInfo) currentId = musicInfo.id
     } else {
-      currentId = playMusicInfo.musicInfo.id
+      currentId = playMusicInfo.musicInfo!.id
     }
     let index
     for (
@@ -877,7 +876,7 @@ export const playPrev = async (isAutoToggle = false): Promise<void> => {
       const musicInfo = currentList[playInfo.playerPlayIndex]
       if (musicInfo) currentId = musicInfo.id
     } else {
-      currentId = playMusicInfo.musicInfo.id
+      currentId = playMusicInfo.musicInfo!.id
     }
     let index
     for (

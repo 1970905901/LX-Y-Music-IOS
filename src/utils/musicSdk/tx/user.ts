@@ -84,7 +84,7 @@ export default {
         body: bodyData,
       });
 
-      const { body, statusCode } = await requestObj.promise;
+      const { body, statusCode } = (await requestObj.promise) as any;
 
       if (statusCode !== 200) {
         throw new Error('获取用户信息失败');
@@ -149,7 +149,7 @@ export default {
         body: bodyData,
       });
 
-      const { body } = await requestObj.promise;
+      const { body } = (await requestObj.promise) as any;
 
       txLog.debug('自建歌单响应:', JSON.stringify(body).substring(0, 500));
 
@@ -237,7 +237,7 @@ export default {
         body: bodyData,
       });
 
-      const { body } = await requestObj.promise;
+      const { body } = (await requestObj.promise) as any;
 
       txLog.debug('歌单详情响应:', JSON.stringify(body).substring(0, 500));
 
@@ -445,7 +445,7 @@ export default {
         },
       )
 
-      const { body, statusCode } = await requestObj.promise
+      const { body, statusCode } = (await requestObj.promise) as any
 
       txLog.info('API响应', {
         statusCode,
@@ -606,7 +606,7 @@ export default {
       },
     )
 
-    const { body, statusCode } = await requestObj.promise
+    const { body, statusCode } = (await requestObj.promise) as any
 
     if (statusCode !== 200) {
       throw new Error(`HTTP请求失败，状态码: ${statusCode}`)

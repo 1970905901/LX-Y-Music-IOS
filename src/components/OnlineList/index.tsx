@@ -38,6 +38,7 @@ import {removeWyLikedSong, updateWySubscribedPlaylistTrackCount} from "@/store/u
 import {clearListDetailCache} from "@/core/songlist.ts"
 import commonState from '@/store/common/state'
 import {useWySubscribedPlaylists} from "@/store/user/hook.ts";
+import type { SubscribedPlaylistInfo } from "@/store/user/state"
 import {useSettingValue} from "@/store/setting/hook.ts";
 import SimilarSongsModal, { type SimilarSongsModalType } from '@/components/SimilarSongsModal'
 
@@ -200,7 +201,7 @@ export default forwardRef<OnlineListType, OnlineListProps>(
           toast(err.message || '获取MV失败')
         })
       } else if (info.musicInfo.source === 'kg') {
-        const mixSongId = info.musicInfo.meta.mixSongId || info.musicInfo.mixSongId || info.musicInfo.meta.songId
+        const mixSongId = (info.musicInfo.meta as { mixSongId?: string | number }).mixSongId || (info.musicInfo as { mixSongId?: string | number }).mixSongId || info.musicInfo.meta.songId
         const songName = info.musicInfo.name
         const singerName = info.musicInfo.singer
         if (!mixSongId) {
@@ -209,7 +210,7 @@ export default forwardRef<OnlineListType, OnlineListProps>(
           return
         }
         console.log('[MV] 酷狗: 开始获取MV, mixSongId:', mixSongId, 'songName:', songName, 'singerName:', singerName)
-        getKgMvUrl(String(mixSongId), songName, singerName).then(data => {
+        getKgMvUrl(String(mixSongId), songName, singerName).then((data: { url?: string }) => {
           console.log('[MV] 酷狗: 获取MV URL成功:', data)
           if (data && data.url) {
             global.app_event.showVideoPlayer(data.url)
@@ -238,7 +239,7 @@ export default forwardRef<OnlineListType, OnlineListProps>(
       
       if (listId.startsWith('wy__')) {
         const playlistId = listId.replace('wy__', '')
-        const sourcePlaylist = subscribedPlaylists.find(p => String(p.id) === playlistId)
+        const sourcePlaylist = subscribedPlaylists.find(p => String(p.id) === playlistId) as (SubscribedPlaylistInfo & { creator?: { nickname?: string } }) | undefined
         const songIds = musicInfos.map(m => m.meta.songId)
         wyApi.manipulatePlaylistTracks('del', playlistId, songIds).then(() => {
           if (sourcePlaylist?.name === sourcePlaylist?.creator?.nickname + '喜欢的音乐') {
@@ -249,12 +250,12 @@ export default forwardRef<OnlineListType, OnlineListProps>(
           clearListDetailCache('wy', playlistId)
           global.app_event.playlist_updated({ source: 'wy', listId: playlistId })
           hancelExitSelect()
-        }).catch(err => {
+        }).catch((err: Error) => {
           toast('移除失败: ' + err.message)
         })
       } else if (listId.startsWith('tx__')) {
         const playlistId = listId.replace('tx__', '')
-        const songMids = musicInfos.map(m => m.meta.songId || m.id)
+        const songMids = musicInfos.map(m => String(m.meta.songId || m.id))
         txUserApi.removeSongFromPlaylist(playlistId, songMids).then(() => {
           toast(t('list_edit_action_tip_remove_success'))
           clearListDetailCache('tx', playlistId)

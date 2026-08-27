@@ -34,7 +34,7 @@ const Header = ({ onClose }: { onClose: () => void }) => {
 };
 export default forwardRef<WebLoginModalType, {}>((props, ref) => {
   const modalRef = useRef<ModalType>(null);
-  const webViewRef = useRef<WebView>(null);
+  const webViewRef = useRef<any>(null);
   const loggedInRef = useRef(false);
   const isCheckingRef = useRef(false);
   const theme = useTheme();
@@ -85,7 +85,7 @@ export default forwardRef<WebLoginModalType, {}>((props, ref) => {
       await wyApi.getUid(cookie);
 
       loggedInRef.current = true;
-      global.app_event.emit('wy-cookie-set', cookie);
+      (global.app_event as any).emit('wy-cookie-set', cookie);
       toast('登录成功，已自动获取Cookie！');
       handleClose();
     } catch (error) {

@@ -6,7 +6,7 @@ export default ({ componentId }: { componentId: string }) => {
   return (
     <>
       <Content />
-      <PlayerBar componentId={componentId} componentId={commonState.componentIds[commonState.componentIds.length - 1]?.id!} isHome />
+      <PlayerBar componentId={commonState.componentIds[commonState.componentIds.length - 1]?.id!} isHome />
     </>
   )
 }

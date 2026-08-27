@@ -11,7 +11,18 @@ import { createStyle } from '@/utils/tools'
 const MIN_WIDTH = scaleSizeW(120);
 const HORIZONTAL_SPACING = 24;
 
-export default memo(({ componentId,  albums, loading, hasMore, onLoadMore, onRefresh, ListHeaderComponent, viewMode }) => {
+interface AlbumListProps {
+  componentId: string
+  albums: any[]
+  loading: boolean
+  hasMore: boolean
+  onLoadMore: () => void
+  onRefresh: () => void
+  ListHeaderComponent?: React.ComponentType<any> | React.ReactElement | null
+  viewMode: 'grid' | 'list'
+}
+
+export default memo(({ componentId, albums, loading, hasMore, onLoadMore, onRefresh, ListHeaderComponent, viewMode }: AlbumListProps) => {
   const { onLayout, width } = useLayout()
   const theme = useTheme()
   const t = useI18n()

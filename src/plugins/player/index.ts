@@ -44,7 +44,7 @@ const initial = async({ volume, playRate, cacheSize, isHandleAudioFocus, isEnabl
     // 开启时使用标准 Playback 分类，其他 App 出声时系统会发起中断。
     iosCategory: 'playback',
     iosCategoryOptions: isHandleAudioFocus ? [] : ['mixWithOthers'],
-  })
+  } as any)
   global.lx.playerStatus.isInitialized = true
   global.lx.playerStatus.isIniting = false
   await updateOptions()

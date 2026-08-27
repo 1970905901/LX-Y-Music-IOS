@@ -59,11 +59,9 @@ export const buildActiveThemeColors = (theme: LX.Theme): LX.ActiveTheme => {
 
   theme.config.extInfo = { ...theme.config.extInfo }
 
-  for (const [k, v] of Object.entries(theme.config.extInfo) as Array<
-    [ExtInfoKey, LX.Theme['config']['extInfo'][ExtInfoKey]]
-  >) {
+  for (const [k, v] of Object.entries(theme.config.extInfo) as Array<[string, string]>) {
     if (!v.startsWith('var(')) continue
-    theme.config.extInfo[k] = theme.config.themeColors[v.replace(varColorRxp, '$1') as ColorsKey]
+    (theme.config.extInfo as any)[k] = theme.config.themeColors[v.replace(varColorRxp, '$1') as ColorsKey]
   }
 
   const activeTheme: LX.ActiveTheme = {
@@ -98,7 +96,7 @@ export const buildActiveThemeColors = (theme: LX.Theme): LX.ActiveTheme => {
     activeTheme['c-primary-font-active'] = activeTheme['c-000'];
   }
 
-  return activeTheme as const;
+  return activeTheme
 }
 
 // const copyTheme = (theme: LX.Theme): LX.Theme => {

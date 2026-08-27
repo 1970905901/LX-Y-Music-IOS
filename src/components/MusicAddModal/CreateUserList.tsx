@@ -34,7 +34,7 @@ export default ({ isEdit, onHide, playlistType }: { isEdit: boolean; onHide: () 
         toast('请先登录网易云音乐，Cookie可能已失效')
         return
       }
-      wyApi.createPlaylist(name).then(playlist => {
+      wyApi.createPlaylist(name).then((playlist: any) => {
         toast('创建成功')
         addWySubscribedPlaylist({
           id: playlist.id,
@@ -43,7 +43,7 @@ export default ({ isEdit, onHide, playlistType }: { isEdit: boolean; onHide: () 
           coverImgUrl: playlist.coverImgUrl,
           trackCount: playlist.trackCount,
         })
-      }).catch(err => {
+      }).catch((err: any) => {
         toast(`创建失败: ${err.message}`)
       })
     } else {

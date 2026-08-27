@@ -272,7 +272,7 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
         toast(err.message || '获取MV失败')
       })
     } else if (musicInfo.source === 'kg') {
-      const mixSongId = musicInfo.meta.mixSongId || musicInfo.mixSongId
+      const mixSongId = (musicInfo.meta as { mixSongId?: string | number }).mixSongId || (musicInfo as { mixSongId?: string | number }).mixSongId
       const songName = musicInfo.name
       const singerName = musicInfo.singer
       if (!mixSongId) {
@@ -283,7 +283,7 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
 
       console.log('[MV] 酷狗: 开始获取MV, mixSongId:', mixSongId, 'songName:', songName, 'singerName:', singerName)
       panelRef.current?.setVisible(false)
-      getKgMvUrl(String(mixSongId), songName, singerName).then(data => {
+      getKgMvUrl(String(mixSongId), songName, singerName).then((data: { url?: string }) => {
         console.log('[MV] 酷狗: 获取MV URL成功:', data)
         if (data && data.url) {
           global.app_event.showVideoPlayer(data.url)
@@ -337,9 +337,9 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
         onPlayLater={onPlayLater}
         onAdd={onAdd}
         onDownload={onDownload}
-        onCopyName={handleShare}
+        onCopyName={selectInfo => { handleShare(selectInfo.musicInfo) }}
         onMusicSourceDetail={onMusicSourceDetail}
-        onDislikeMusic={handleDislikeMusic}
+        onDislikeMusic={selectInfo => { void handleDislikeMusic(selectInfo.musicInfo) }}
         onArtistDetail={onArtistDetail}
         onAlbumDetail={onAlbumDetail}
         onSimilarSongs={onSimilarSongs}

@@ -24,7 +24,7 @@ interface PlaylistInfo {
   name: string
   cover: string
   songCount: number
-  desc: string
+  desc?: string
   isFavorites?: boolean
   isCollected?: boolean
   dirid?: number
@@ -118,7 +118,7 @@ export default memo(() => {
     fetchPlaylists()
   }, [fetchPlaylists])
 
-  const handleJumpPosition = useCallback(() => {
+  const handleJumpPosition = useCallback(async () => {
     let listId = playerState.playMusicInfo.listId
     // 当 listId 为 temp 时，从临时列表元数据中获取真实 listId
     if (listId === LIST_IDS.TEMP) {
@@ -135,7 +135,7 @@ export default memo(() => {
         handleItemPress(targetPlaylist)
       })
     }
-  }, [createdPlaylists, collectedPlaylists, handleItemPress])
+  }, [createdPlaylists, collectedPlaylists])
 
   useEffect(() => {
     if (global.lx.jumpTxPlaylistPosition) {
@@ -307,7 +307,7 @@ export default memo(() => {
       </View>
       {selectedPlaylist && (
         <View style={[StyleSheet.absoluteFill]}>
-          <SonglistDetail info={selectedPlaylist} onBack={handleBack} />
+          <SonglistDetail info={selectedPlaylist} onBack={handleBack} initialScrollToInfo={null} />
         </View>
       )}
       {menuVisible && (

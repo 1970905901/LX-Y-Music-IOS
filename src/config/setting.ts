@@ -57,7 +57,6 @@ const mergeSetting = (
       if (!shouldSkip) {
         updatedSettingKeys.push(key)
         updatedSetting[key] = targetValue
-        // @ts-expect-error
         originSettingCopy[key] = targetValue
       }
     }
@@ -135,7 +134,6 @@ export const initSetting = async () => {
     // 空数组保持为空，让运行时 getEffectiveFlatOrder 回退到 navOrder / NAV_MENUS，
     // 避免把从未自定义过扁平顺序的老用户的 flat 顺序强制覆盖成默认顺序。
     if (order.length === 0 && key === 'common.navFlatOrder') return
-    // @ts-expect-error 补全缺失的导航项（运行时为字符串数组，类型受 NAV_ID_Type 约束）
     updatedSetting.setting[key] = [...order, ...missing]
   }
   patchOrder('common.navOrder')
@@ -148,7 +146,6 @@ export const initSetting = async () => {
     const flatSet = new Set(navFlatOrder)
     const missing = navOrder.filter(id => !flatSet.has(id) && NAV_MENUS.some(m => m.id === id))
     if (missing.length) {
-      // @ts-expect-error
       updatedSetting.setting['common.navFlatOrder'] = [...navFlatOrder, ...missing]
     }
   }

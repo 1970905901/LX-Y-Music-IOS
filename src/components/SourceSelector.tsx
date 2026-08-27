@@ -26,7 +26,7 @@ export const useSourceListI18n = (list: Sources) => {
   const sourceNameType = useSettingValue('common.sourceNameType')
   const t = useI18n()
   return useMemo(() => {
-    return list.map((s) => ({ label: t(`source_${sourceNameType}_${s}`), action: s }))
+    return list.map((s) => ({ label: t(`source_${sourceNameType}_${s}` as any), action: s }))
   }, [list, sourceNameType, t])
 }
 
@@ -69,7 +69,7 @@ const Component = <S extends Sources>(
     >
       <View style={styles.sourceMenu}>
         <Text style={{ textAlign: center ? 'center' : 'left' }} numberOfLines={1} size={fontSize}>
-          {t(`source_${sourceNameType}_${source}`)}
+          {t(`source_${sourceNameType}_${source}` as any)}
         </Text>
       </View>
     </DorpDownMenu>

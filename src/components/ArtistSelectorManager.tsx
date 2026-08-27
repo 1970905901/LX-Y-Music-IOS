@@ -17,11 +17,9 @@ export default () => {
       }
     }
 
-    // @ts-expect-error
     global.app_event.on('showArtistSelector', handleShow)
 
     return () => {
-      // @ts-expect-error
       global.app_event.off('showArtistSelector', handleShow)
     }
   }, [visible])

@@ -285,17 +285,17 @@ const buildLocalMusicInfo = (
   const { nameWithoutExt, fileName } = parsePathForName(filePath)
   return {
     id: `local_${filePath}`,
-    name: metadata.name || nameWithoutExt,
-    singer: metadata.singer || '',
-    albumName: metadata.albumName || '',
-    interval: metadata.duration ? `${metadata.duration}s` : '',
+    name: metadata?.name || nameWithoutExt,
+    singer: metadata?.singer || '',
+    albumName: metadata?.albumName || '',
+    interval: metadata?.interval ? `${metadata.interval}s` : '',
     source: 'local' as const,
     meta: {
       picUrl: picPath ? (picPath.startsWith('/') ? `file://${picPath}` : picPath) : '',
       filePath,
       fileName,
     },
-  } as LX.Music.MusicInfoLocal
+  } as unknown as LX.Music.MusicInfoLocal
 }
 
 const buildLocalMusicInfoByFilePath = (filePath: string): LX.Music.MusicInfoLocal => {
@@ -311,7 +311,7 @@ const buildLocalMusicInfoByFilePath = (filePath: string): LX.Music.MusicInfoLoca
       picUrl: '',
       fileName,
     },
-  } as LX.Music.MusicInfoLocal
+  } as unknown as LX.Music.MusicInfoLocal
 }
 
 /**

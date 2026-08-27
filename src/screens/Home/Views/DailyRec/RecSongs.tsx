@@ -47,7 +47,7 @@ export default memo(({ isStylized, stylizedSelection }: RecSongsProps) => {
   const [isAllSimilarSongsFetched, setIsAllSimilarSongsFetched] = useState(false)
 
   useEffect(() => {
-    const handleJumpPosition = () => {
+    const handleJumpPosition = async () => {
       const listId = playerState.playMusicInfo.listId === LIST_IDS.TEMP
         ? listState.tempListMeta.id
         : playerState.playMusicInfo.listId
@@ -106,7 +106,7 @@ export default memo(({ isStylized, stylizedSelection }: RecSongsProps) => {
     } else {
       setIsLoading(true)
       listRef.current?.setStatus('loading')
-      wyApi.dailyRec.getList(cookie).then(async result => {
+      wyApi.dailyRec.getList(cookie).then(async (result: any) => {
         listRef.current?.setList(result.list, false)
         listRef.current?.setStatus('idle')
         setDailyRecSongsCache(result.list)
@@ -134,7 +134,7 @@ export default memo(({ isStylized, stylizedSelection }: RecSongsProps) => {
           await clearDailyRecCache()
           cache = {
             dailyRecId: currentDailyRecId,
-            items: result.list.map(song => ({
+            items: result.list.map((song: any) => ({
               dailySong: song,
               similarSongs: [],
               fetchStatus: 'pending',
@@ -155,7 +155,7 @@ export default memo(({ isStylized, stylizedSelection }: RecSongsProps) => {
 
         console.log(`发现 ${songsToFetch.length} 首歌曲的相似推荐未获取，开始后台任务...`)
         setIsAllSimilarSongsFetched(false)
-        const allDailySongIds = new Set(result.list.map(s => s.id))
+        const allDailySongIds = new Set(result.list.map((s: any) => s.id))
 
         const processQueue = async () => {
           const batch = songsToFetch.splice(0, BATCH_SIZE)
@@ -186,8 +186,8 @@ export default memo(({ isStylized, stylizedSelection }: RecSongsProps) => {
             if (!cacheItem) continue
 
             if (similarSongsRaw.length > 0) {
-              const uniqueSimilarSongs = similarSongsRaw.filter(s => !allDailySongIds.has(s.id))
-              uniqueSimilarSongs.forEach(ns => allDailySongIds.add(ns.id))
+              const uniqueSimilarSongs = similarSongsRaw.filter((s: any) => !allDailySongIds.has(s.id))
+              uniqueSimilarSongs.forEach((ns: any) => allDailySongIds.add(ns.id))
               if (uniqueSimilarSongs.length > 0) {
                 const detailedSongs = await musicDetailApi.filterList({ songs: uniqueSimilarSongs, privileges: [] })
                 const existingSimilarIds = new Set(cacheItem.similarSongs.map(s => s.id))
@@ -212,7 +212,7 @@ export default memo(({ isStylized, stylizedSelection }: RecSongsProps) => {
         }
 
         await processQueue()
-      }).catch(err => {
+      }).catch((err: any) => {
         console.error(err)
         toast(t('load_failed'), 'long')
         listRef.current?.setStatus('error')
@@ -268,13 +268,13 @@ export default memo(({ isStylized, stylizedSelection }: RecSongsProps) => {
     }
 
     clearDailyRecSongsCache()
-    wyApi.dailyRec.getList(cookie).then(result => {
+    wyApi.dailyRec.getList(cookie).then((result: any) => {
       listRef.current?.setList(result.list, false)
       setDailyRecSongsCache(result.list)
       if (result.list && result.list.length > 0) {
         void autoSaveDailyPlaylist(result.list)
       }
-    }).catch(err => {
+    }).catch((err: any) => {
       console.error(err)
       toast(t('load_failed'), 'long')
       listRef.current?.setStatus('error')

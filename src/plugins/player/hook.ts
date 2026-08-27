@@ -123,7 +123,7 @@ export function useBufferProgress() {
 
     const clearItv = () => {
       if (!interval) return
-      clearInterval(interval)
+      clearInterval(interval as any)
       interval = null
     }
     const updateBuffer = async () => {

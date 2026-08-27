@@ -90,7 +90,6 @@ export default memo(() => {
           <Text
             numberOfLines={1}
             size={28}
-            bold
             color={theme['c-font']}
             style={styles.songName}
           >
@@ -111,7 +110,7 @@ export default memo(() => {
           <View style={styles.artistRow}>
             {artists.map((artist, index) => (
               <TouchableOpacity key={artist.id || index} onPress={() => { handleArtistPress(artist) }}>
-                <Text numberOfLines={1} size={16} color={theme['c-font-secondary']}>
+                <Text numberOfLines={1} size={16} color={(theme as unknown as Record<string, string>)['c-font-secondary']}>
                   {artist.name}
                   {index < artists.length - 1 ? '、' : ''}
                 </Text>
@@ -119,8 +118,8 @@ export default memo(() => {
             ))}
           </View>
         ) : (
-          <TouchableOpacity onPress={async() => handleShowArtistDetail(commonState.componentIds[commonState.componentIds.length - 1]?.id, musicInfo)}>
-            <Text numberOfLines={1} size={16} color={theme['c-font-secondary']}>
+          <TouchableOpacity onPress={async() => handleShowArtistDetail(commonState.componentIds[commonState.componentIds.length - 1]?.id, musicInfo as LX.Music.MusicInfoOnline)}>
+            <Text numberOfLines={1} size={16} color={(theme as unknown as Record<string, string>)['c-font-secondary']}>
               {artistText}
             </Text>
           </TouchableOpacity>
@@ -129,7 +128,7 @@ export default memo(() => {
 
       {albumName ? (
         <TouchableOpacity onPress={handleAlbumPress} disabled={musicInfo?.source !== 'wy' && musicInfo?.source !== 'tx' && musicInfo?.source !== 'kg'}>
-          <Text numberOfLines={1} size={14} color={theme['c-font-secondary']}>
+          <Text numberOfLines={1} size={14} color={(theme as unknown as Record<string, string>)['c-font-secondary']}>
             {albumName}
           </Text>
         </TouchableOpacity>

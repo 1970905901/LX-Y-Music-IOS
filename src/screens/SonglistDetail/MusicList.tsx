@@ -35,7 +35,7 @@ export default forwardRef<MusicListType, MusicListProps>(({componentId, isCreato
   const [kgIsUserCreated, setKgIsUserCreated] = useState(false)
   const fullListRef = useRef<LX.Music.MusicInfoOnline[]>([])
 
-  const filterList = useCallback((list: LX.Music.MusicInfoOnline[], keyword: string, fuzzy: boolean) => {
+  const filterList = useCallback((list: LX.Music.MusicInfoOnline[], keyword: string, fuzzy = false) => {
     if (!keyword.trim()) return list
     const textLower = keyword.trim().toLowerCase()
     if (!fuzzy) {
@@ -121,9 +121,9 @@ export default forwardRef<MusicListType, MusicListProps>(({componentId, isCreato
       }
     }
 
-    global.app_event.on('jumpListPosition', handleJumpPosition)
+    global.app_event.on('jumpListPosition', handleJumpPosition as () => Promise<void>)
     return () => {
-      global.app_event.off('jumpListPosition', handleJumpPosition)
+      global.app_event.off('jumpListPosition', handleJumpPosition as () => Promise<void>)
     }
   }, [info.id, info.source])
 

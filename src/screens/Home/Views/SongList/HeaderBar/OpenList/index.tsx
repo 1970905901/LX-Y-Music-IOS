@@ -38,9 +38,9 @@ export default forwardRef<OpenListType, OpenListProps>(({ onOpenDetail }, ref) =
       songlistInfoRef.current.source = source
       modalRef.current?.show(source)
     }
-    global.app_event.on('_openSonglistModal', handleOpenModal)
+    (global.app_event as any).on('_openSonglistModal', handleOpenModal)
     return () => {
-      global.app_event.off('_openSonglistModal', handleOpenModal)
+      (global.app_event as any).off('_openSonglistModal', handleOpenModal)
     }
   }, [])
 

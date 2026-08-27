@@ -16,8 +16,8 @@ export declare interface I18n {
   message: Message
   setLanguage: (locale: Langs) => void
   fillMessage: (message: string, val: TranslateValues) => string
-  getMessage: (key: keyof Message, val?: TranslateValues) => string
-  t: (key: keyof Message, val?: TranslateValues) => string
+  getMessage: (key: string, val?: TranslateValues) => string
+  t: (key: string, val?: TranslateValues) => string
 }
 
 let locale: Langs = 'zh_cn'
@@ -51,7 +51,7 @@ const useI18n = () => {
   }, [])
 
   return useCallback(
-    (key: keyof Message, val?: TranslateValues): string => {
+    (key: string, val?: TranslateValues): string => {
       return i18n?.getMessage(key, val) ?? ''
     },
     [locale]
@@ -82,11 +82,13 @@ const createI18n = (_locale: Langs = locale): I18n => {
       }
       return message
     },
-    getMessage(key: keyof Message, val?: TranslateValues): string {
-      let targetMessage = this.message?.[key] ?? this.messages[this.fallbackLocale]?.[key] ?? ''
+    getMessage(key: string, val?: TranslateValues): string {
+      const msg = (this.message ?? {}) as Record<string, string | undefined>
+      const fallback = (this.messages[this.fallbackLocale] ?? {}) as Record<string, string | undefined>
+      let targetMessage = msg[key] ?? fallback[key] ?? ''
       return val ? this.fillMessage(targetMessage, val) : targetMessage
     },
-    t(key: keyof Message, val?: TranslateValues): string {
+    t(key: string, val?: TranslateValues): string {
       return this.getMessage(key, val)
     },
   })

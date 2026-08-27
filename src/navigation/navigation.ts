@@ -38,10 +38,11 @@ const startPush = (id: COMPONENT_IDS, allowSameTop = false) => {
   return true
 }
 const endPush = (id: COMPONENT_IDS) => { pendingPushes.delete(id) }
-const guardPush = (promise: Promise<string> | undefined, id: COMPONENT_IDS): Promise<void> => {
-  return Promise.resolve(promise)
-    .catch(() => {})
-    .finally(() => { endPush(id) })
+const guardPush = async (promise: Promise<string> | undefined, id: COMPONENT_IDS): Promise<void> => {
+  try {
+    await promise
+  } catch {}
+  endPush(id)
 }
 
 
@@ -51,6 +52,7 @@ export async function pushHomeScreen() {
   // StatusBar.currentHeight 为 0 导致 Header 被刘海遮挡。
   Navigation.setDefaultOptions({
     layout: {
+      // @ts-expect-error RNN 运行期支持的安全区选项，当前类型未声明
       safeAreaInsets: {
         top: 'always',
         bottom: 'always',
@@ -130,6 +132,7 @@ export async function pushHomeScreen() {
                 layout: {
                   componentBackgroundColor: theme['c-content-background'],
                   fitSystemWindows: false,
+                  // @ts-expect-error RNN 运行期支持的安全区选项，当前类型未声明
                   safeAreaInsets: {
                     top: 'always',
                     bottom: 'always',
@@ -214,6 +217,7 @@ export function pushPlayDetailScreen(componentId: string, skipAnimation = false)
           layout: {
             componentBackgroundColor: theme['c-content-background'],
                   fitSystemWindows: false,
+                  // @ts-expect-error RNN 运行期支持的安全区选项，当前类型未声明
                   safeAreaInsets: {
                     top: 'always',
                     bottom: 'always',
@@ -257,6 +261,7 @@ export function pushSonglistDetailScreen(componentId: string, info: ListInfoItem
           layout: {
             componentBackgroundColor: theme['c-content-background'],
                   fitSystemWindows: false,
+                  // @ts-expect-error RNN 运行期支持的安全区选项，当前类型未声明
                   safeAreaInsets: {
                     top: 'always',
                     bottom: 'always',
@@ -397,6 +402,7 @@ export function pushCommentScreen(componentId: string) {
           layout: {
             componentBackgroundColor: theme['c-content-background'],
                   fitSystemWindows: false,
+                  // @ts-expect-error RNN 运行期支持的安全区选项，当前类型未声明
                   safeAreaInsets: {
                     top: 'always',
                     bottom: 'always',

@@ -59,7 +59,7 @@ export default memo(({ item, showSubscribeButton = false }: { item: any, showSub
     })
   }
 
-  const toggleSubscribe = useCallback((event) => {
+  const toggleSubscribe = useCallback((event: any) => {
     event.stopPropagation()
     const newSubState = !isSubscribed
     wyApi.subAlbum(String(item.id), newSubState).then(() => {
@@ -77,7 +77,7 @@ export default memo(({ item, showSubscribeButton = false }: { item: any, showSub
       } else {
         removeWySubscribedAlbum(item.id)
       }
-    }).catch(err => {
+    }).catch((err: any) => {
       toast(`操作失败: ${err.message}，可能是Cookie已失效，请重新登录`)
     })
   }, [isSubscribed, item])

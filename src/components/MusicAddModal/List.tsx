@@ -193,7 +193,7 @@ export default ({
         {allList.map((info) => (
           <ListItem
             key={info.id}
-            listInfo={info}
+            listInfo={info as LX.List.MyListInfo}
             musicInfo={musicInfo}
             onPress={onPress}
             width={itemWidth}

@@ -32,7 +32,7 @@ const convertMusicInfo = (item: any): LX.Music.MusicInfoOnline | null => {
   try {
     return toNewMusicInfo(item) as LX.Music.MusicInfoOnline
   } catch (error) {
-    log.warn('[Search Music] 转换音乐信息失败:', error.message)
+    log.warn('[Search Music] 转换音乐信息失败:', (error as Error).message)
     return null
   }
 }

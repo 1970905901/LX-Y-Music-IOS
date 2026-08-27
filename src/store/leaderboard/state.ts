@@ -46,7 +46,7 @@ const state: InitState = {
 }
 
 for (const source of music.sources) {
-  if (!music[source.id as LX.OnlineSource]?.leaderboard?.getBoards) continue
+  if (!(music[source.id as LX.OnlineSource] as any)?.leaderboard?.getBoards) continue
   state.sources.push(source.id as LX.OnlineSource)
 }
 

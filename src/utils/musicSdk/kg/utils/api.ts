@@ -688,7 +688,7 @@ export async function getUserPlaylists(
         }
       }
       log(`获取成功: 自建${createdList.length}个, 收藏${collectedList.length}个`)
-      return { success: true, data: { createdList, collectedList, total: result.data.list_count || allList.length } }
+      return { success: true, message: '获取成功', data: { createdList, collectedList, total: result.data.list_count || allList.length } }
     } else {
       log(`获取失败: error_code=${result.error_code}`)
       return { success: false, message: `获取失败(${result.error_code})` }
@@ -997,7 +997,7 @@ export async function addSongToPlaylist(
   listid: number,
   songInfo: { name: string; hash: string; album_id?: number; mixsongid?: number },
   onLog?: LogCallback
-): Promise<{ success: boolean; message: string }> {
+): Promise<{ success: boolean; message: string; song?: any }> {
   const log = (msg: string) => {
     if (global.lx.isEnableLog) console.log(`[KuGou] ${msg}`);
     onLog?.(msg);
@@ -1170,7 +1170,7 @@ export async function getPlaylistSongs(
         mixSongId: item.mixsongid || 0,
       }))
       log(`获取成功: ${list.length} 首歌曲`)
-      return { success: true, data: { list, total: result.data.total || list.length } }
+      return { success: true, message: '获取成功', data: { list, total: result.data.total || list.length } }
     } else {
       return { success: false, message: `获取失败(${result.error_code})` }
     }

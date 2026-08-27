@@ -17,9 +17,9 @@ export default () => {
       }
     };
 
-    global.app_event.on('showWebLogin', handleShow);
+    global.app_event.on('showWebLogin' as any, handleShow);
     return () => {
-      global.app_event.off('showWebLogin', handleShow);
+      global.app_event.off('showWebLogin' as any, handleShow);
     };
   }, [visible]);
 

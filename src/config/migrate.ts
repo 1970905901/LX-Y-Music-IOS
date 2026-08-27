@@ -23,15 +23,15 @@ interface OldUserListInfo {
   }
   let isRequiredSave = false
   if (playList) {
-    if (playList.defaultList) listDataAll.defaultList = filterMusicList(playList.defaultList.list.map(m => toNewMusicInfo(m)))
-    if (playList.loveList) listDataAll.loveList = filterMusicList(playList.loveList.list.map(m => toNewMusicInfo(m)))
-    if (playList.tempList) listDataAll.tempList = filterMusicList(playList.tempList.list.map(m => toNewMusicInfo(m)))
+    if (playList.defaultList) listDataAll.defaultList = filterMusicList(playList.defaultList.list.map(m => toNewMusicInfo(m) as LX.Music.MusicInfo))
+    if (playList.loveList) listDataAll.loveList = filterMusicList(playList.loveList.list.map(m => toNewMusicInfo(m) as LX.Music.MusicInfo))
+    if (playList.tempList) listDataAll.tempList = filterMusicList(playList.tempList.list.map(m => toNewMusicInfo(m) as LX.Music.MusicInfo))
     if (playList.userList) {
       listDataAll.userList = playList.userList.map(l => {
         return {
           ...l,
           locationUpdateTime: l.locationUpdateTime ?? null,
-          list: filterMusicList(l.list.map(m => toNewMusicInfo(m))),
+          list: filterMusicList(l.list.map(m => toNewMusicInfo(m) as LX.Music.MusicInfo)),
         }
       })
     }
@@ -40,8 +40,8 @@ interface OldUserListInfo {
     const config = await parseDataFile<{ list?: { defaultList?: any[], loveList?: any[] } }>('config.json')
     if (config?.list) {
       const list = config.list
-      if (list.defaultList) listDataAll.defaultList = filterMusicList(list.defaultList.map(m => toNewMusicInfo(m)))
-      if (list.loveList) listDataAll.loveList = filterMusicList(list.loveList.map(m => toNewMusicInfo(m)))
+      if (list.defaultList) listDataAll.defaultList = filterMusicList(list.defaultList.map(m => toNewMusicInfo(m) as LX.Music.MusicInfo))
+      if (list.loveList) listDataAll.loveList = filterMusicList(list.loveList.map(m => toNewMusicInfo(m) as LX.Music.MusicInfo))
       isRequiredSave = true
     }
   }
@@ -122,16 +122,16 @@ export const migrateListData = async () => {
   }
   if (playList.defaultList)
     listDataAll.defaultList = filterMusicList(
-      playList.defaultList.list.map((m) => toNewMusicInfo(m))
+      playList.defaultList.list.map((m) => toNewMusicInfo(m) as LX.Music.MusicInfo)
     )
   if (playList.loveList)
-    listDataAll.loveList = filterMusicList(playList.loveList.list.map((m) => toNewMusicInfo(m)))
+    listDataAll.loveList = filterMusicList(playList.loveList.list.map((m) => toNewMusicInfo(m) as LX.Music.MusicInfo))
   if (playList.userList) {
     listDataAll.userList = playList.userList.map((l) => {
       return {
         ...l,
         locationUpdateTime: l.locationUpdateTime ?? null,
-        list: filterMusicList(l.list.map((m) => toNewMusicInfo(m))),
+        list: filterMusicList(l.list.map((m) => toNewMusicInfo(m) as LX.Music.MusicInfo)),
       }
     })
   }

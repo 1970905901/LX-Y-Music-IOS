@@ -32,7 +32,7 @@ const timeoutTools = {
   clearTimeout() {
     if (!this.bgTimeout) return
     BackgroundTimer.clearTimeout(this.bgTimeout)
-    clearInterval(this.timeout!)
+    clearInterval(this.timeout! as any)
     this.bgTimeout = null
     this.timeout = null
     this.time = -1

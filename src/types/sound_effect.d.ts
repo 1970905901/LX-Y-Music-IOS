@@ -1,4 +1,22 @@
 declare namespace LX {
+  type SoundEffectPresetId =
+    | 'none'
+    | 'pop'
+    | 'dance'
+    | 'rock'
+    | 'classical'
+    | 'vocal'
+    | 'slow'
+    | 'electronic'
+    | 'subwoofer'
+    | 'soft'
+    | 'custom'
+    | 'loudness'
+    | 'slowSong'
+    | 'bass'
+    | 'speech'
+    | 'deep'
+
   namespace SoundEffect {
     interface EQPreset {
       id: string

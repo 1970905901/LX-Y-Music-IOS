@@ -70,7 +70,7 @@ const LrcLine = memo(({ line, lineNum, activeLine, onPress }: LineProps) => {
 
 export default memo(() => {
   const lyricLines = useLrcSet()
-  const { line, playedLines } = useLrcPlay()
+  const { line } = useLrcPlay()
   const flatListRef = useRef<FlatList<Line>>(null)
   const isPauseScrollRef = useRef(false)
   const scrollTimoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -114,7 +114,7 @@ export default memo(() => {
     lineRef.current.line = line
     if (!flatListRef.current || isPauseScrollRef.current) return
     handleScrollToActive()
-  }, [line, playedLines, handleScrollToActive])
+  }, [line, handleScrollToActive])
 
   const handleScrollBeginDrag = useCallback(() => {
     isPauseScrollRef.current = true

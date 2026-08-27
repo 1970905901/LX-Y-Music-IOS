@@ -203,7 +203,7 @@ export const openUrl = async (url: string): Promise<void> =>
   Linking.canOpenURL(url).then(async () => Linking.openURL(url))
 
 export const assertApiSupport = (source: LX.Source): boolean => {
-  return source == 'local' || source == 'bilibili' || global.lx.qualityList[source] != null
+  return source == 'local' || (source as string) == 'bilibili' || global.lx.qualityList[source] != null
 }
 
 // const handleRemoveDataMultiple = async keys => {
@@ -254,7 +254,7 @@ export const confirmDialog = async ({
   confirmButtonText = global.i18n.t('dialog_confirm'),
   bgClose = true,
 }): Promise<boolean | null> => {
-  return new Promise<boolean>((resolve) => {
+  return new Promise<boolean | null>((resolve) => {
     Alert.alert(
       title,
       message,

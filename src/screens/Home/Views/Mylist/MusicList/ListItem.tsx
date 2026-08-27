@@ -54,7 +54,7 @@ const useQualityTag = (musicInfo: LX.Music.MusicInfo) => {
     } else if (qualitys['320k']) {
       info.type = 'hq'
       info.text = t('quality_high_quality')
-    } else if (qualitys['192k']) {
+    } else if ((qualitys as any)['192k']) {
       info.type = 'hq'
       info.text = '192k'
     }
@@ -92,6 +92,7 @@ export default memo(
     isShowAlbumName: boolean
     isShowInterval: boolean
     showCover: boolean
+    onScrollBeginDrag?: () => void
   }) => {
     const theme = useTheme()
     const isSelected = selectedList.includes(item)

@@ -58,7 +58,7 @@ const startDownload = async (task: DownloadTask) => {
     const highQualityLevels: LX.Quality[] = ['flac', 'hires', 'master', 'atmos', 'atmos_plus'];
     console.log(`[Batch Download] Forcing cookie for ${task.musicInfo.name}`);
     try {
-      const result = await wySdk.cookie.getMusicUrl(task.musicInfo, task.quality).promise;
+      const result: any = await (wySdk.cookie.getMusicUrl(task.musicInfo, task.quality) as any).promise;
       if (!result.url) throw new Error('Cookie 未能获取到URL');
       if (result.level === 'exhigh' && highQualityLevels.includes(task.quality)) {
         throw new Error(`请求的音质 ${task.quality} 不可用`);
@@ -73,7 +73,7 @@ const startDownload = async (task: DownloadTask) => {
     if (task.musicInfo.source === 'bilibili') {
       console.log(`[Download] 处理 bilibili 源`);
       try {
-        const result = await bilibiliSdk.getMusicUrl(task.musicInfo, task.quality).promise;
+        const result: any = await (bilibiliSdk.getMusicUrl(task.musicInfo, task.quality) as any).promise;
         url = result.url;
         if (result.headers) {
           headers = result.headers;
@@ -214,7 +214,7 @@ const handleMetadata = async (task: DownloadTask, filePath: string) => {
   const downloadDir = settingState.setting['download.path'] || getDefaultDownloadPath()
   if (settingState.setting['download.writePicture']) {
     try {
-      const picUrl = await getPicUrl({ musicInfo: task.musicInfo });
+      const picUrl = await getPicUrl({ musicInfo: task.musicInfo as LX.Music.MusicInfoOnline } as any);
       const extension = getFileExtensionFromUrl(picUrl) || 'jpg'
       const picPath = `${downloadDir}/temp.${extension}`
       console.log(`[Metadata] 下载封面: ${picUrl} -> ${picPath}`);
@@ -305,7 +305,7 @@ export const retryMetadata = async (taskId: string) => {
 
   if (metadataStatus.cover === 'fail' && settingState.setting['download.writePicture']) {
     try {
-      const picUrl = await getPicUrl({ musicInfo: task.musicInfo as LX.Music.MusicInfoOnline });
+      const picUrl = await getPicUrl({ musicInfo: task.musicInfo as LX.Music.MusicInfoOnline } as any);
       const extension = getFileExtensionFromUrl(picUrl) || 'jpg';
       const picPath = `${RNFetchBlob.fs.dirs.CacheDir}/lx_temp_pic_${task.id}.${extension}`;
 

@@ -77,17 +77,17 @@ const PreassBar = memo(
           // 拖动进度条期间同步禁用 PagerView 原生横滑（直接 setNativeProps，绕过 state 异步），
           // 避免原生分页控件在左拖时抢占横向手势导致卡顿 / 误切歌词页
           setPagerScrollEnabled(false)
-          try { global.app_event.emit('progressDragState', true) } catch {}
+          try { (global.app_event as unknown as { emit: (type: string, ...args: any[]) => void }).emit('progressDragState', true) } catch {}
           onDragStart(gestureState.dx, evt.nativeEvent.locationX)
         },
         onPanResponderRelease: () => {
           setPagerScrollEnabled(true)
-          try { global.app_event.emit('progressDragState', false) } catch {}
+          try { (global.app_event as unknown as { emit: (type: string, ...args: any[]) => void }).emit('progressDragState', false) } catch {}
           onDragEnd()
         },
         onPanResponderTerminate: () => {
           setPagerScrollEnabled(true)
-          try { global.app_event.emit('progressDragState', false) } catch {}
+          try { (global.app_event as unknown as { emit: (type: string, ...args: any[]) => void }).emit('progressDragState', false) } catch {}
           onDragEnd()
         },
         // 关键修复：拒绝被父级（播放页纵向滑动切歌）手势抢占。

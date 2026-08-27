@@ -17,9 +17,9 @@ export default () => {
       }
     };
 
-    global.app_event.on('showYouTubeLogin', handleShow);
+    global.app_event.on('showYouTubeLogin' as any, handleShow);
     return () => {
-      global.app_event.off('showYouTubeLogin', handleShow);
+      global.app_event.off('showYouTubeLogin' as any, handleShow);
     };
   }, [visible]);
 

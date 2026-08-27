@@ -64,7 +64,7 @@ export default memo(({ onOpenDetail }: Props) => {
   }, [loadPlaylists])
 
   const handleItemPress = (playlistInfo: PlaylistInfo) => {
-    const listInfo: ListInfoItem = {
+    const listInfo = {
       id: String(playlistInfo.id),
       name: playlistInfo.title,
       img: playlistInfo.picurl,
@@ -72,7 +72,7 @@ export default memo(({ onOpenDetail }: Props) => {
       playCount: playlistInfo.listennum,
       source: 'tx',
       author: playlistInfo.creator_nick,
-    }
+    } as ListInfoItem
     onOpenDetail(listInfo)
   }
 

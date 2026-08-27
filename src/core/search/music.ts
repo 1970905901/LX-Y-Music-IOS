@@ -42,7 +42,7 @@ const supplementQuality = async (list: LX.Music.MusicInfoOnline[], source: strin
       })
 
       const results = await Promise.all(promises)
-      results.forEach((info, idx) => {
+      results.forEach((info: any, idx: number) => {
         if (!info) return
         const item = needsSupplement[idx]
         const meta = item.meta as any
@@ -69,7 +69,7 @@ const supplementQuality = async (list: LX.Music.MusicInfoOnline[], source: strin
 
       list.forEach(item => {
         const songId = item.meta?.songId || (item.meta as any)?.id || (item.meta as any)?.songmid
-        const info = qualityMap[songId]
+        const info = (qualityMap as any)[songId]
         if (!info) return
 
         const meta = item.meta as any

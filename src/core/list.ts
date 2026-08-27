@@ -22,10 +22,10 @@ export const playOnlineList = async (listId: string, list: LX.Music.MusicInfoOnl
       musicId: targetMusic.id,
       musicName: targetMusic.name,
       musicSource: targetMusic.source,
-      musicSongmid: targetMusic.songmid,
-      metaSongmid: targetMusic.meta?.songmid,
+      musicSongmid: (targetMusic as any).songmid,
+      metaSongmid: (targetMusic.meta as any)?.songmid,
       metaSongId: targetMusic.meta?.songId,
-      metaId: targetMusic.meta?.id,
+      metaId: (targetMusic.meta as any)?.id,
       metaKeys: targetMusic.meta ? Object.keys(targetMusic.meta) : [],
     });
   }

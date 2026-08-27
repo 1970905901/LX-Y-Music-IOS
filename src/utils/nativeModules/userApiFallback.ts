@@ -38,11 +38,11 @@ const EVENT_NAMES = {
 
 const allSources = ['kw', 'kg', 'tx', 'wy', 'mg', 'local'] as const
 const supportQualitys: Record<string, LX.Quality[]> = {
-  kw: ['128k', '320k', 'flac', 'flac24bit'],
-  kg: ['128k', '320k', 'flac', 'flac24bit'],
-  tx: ['128k', '320k', 'flac', 'flac24bit'],
-  wy: ['128k', '320k', 'flac', 'flac24bit'],
-  mg: ['128k', '320k', 'flac', 'flac24bit'],
+  kw: ['128k', '320k', 'flac', 'flac24bit'] as LX.Quality[],
+  kg: ['128k', '320k', 'flac', 'flac24bit'] as LX.Quality[],
+  tx: ['128k', '320k', 'flac', 'flac24bit'] as LX.Quality[],
+  wy: ['128k', '320k', 'flac', 'flac24bit'] as LX.Quality[],
+  mg: ['128k', '320k', 'flac', 'flac24bit'] as LX.Quality[],
   local: [],
 }
 const supportActions: Record<string, LX.UserApi.UserApiSourceInfoActions[]> = {

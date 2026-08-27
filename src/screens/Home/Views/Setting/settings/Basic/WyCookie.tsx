@@ -55,9 +55,9 @@ export default memo(() => {
       setCookie(cookie);
     };
 
-    global.app_event.on('wy-cookie-set', handleCookieSet);
+    (global.app_event as any).on('wy-cookie-set', handleCookieSet);
     return () => {
-      global.app_event.off('wy-cookie-set', handleCookieSet);
+      (global.app_event as any).off('wy-cookie-set', handleCookieSet);
     };
   }, []);
 

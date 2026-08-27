@@ -36,7 +36,7 @@ const LIST_LOAD_LIMIT = 30
 export const getBoardsList = async (source: LX.OnlineSource) => {
   // const source = (await getLeaderboardSetting()).source as LX.OnlineSource
   if (leaderboardState.boards[source]) return leaderboardState.boards[source]!.list
-  const board = await (musicSdk[source]?.leaderboard.getBoards() as Promise<Board>)
+  const board = await ((musicSdk[source] as any)?.leaderboard.getBoards() as Promise<Board>)
   setBoard(board, source)
   return leaderboardState.boards[source]!.list
 }
@@ -67,7 +67,7 @@ const getListLimit = async (
   }
 
   return (
-    musicSdk[source]?.leaderboard.getList(bangId, sourcePage + 1).then((result: ListDetailInfo) => {
+    (musicSdk[source] as any)?.leaderboard.getList(bangId, sourcePage + 1).then((result: ListDetailInfo) => {
       if (listCache !== cache.get(listKey)) return
       result.list = deduplicationList(
         result.list.map((m) => toNewMusicInfo(m)).filter(Boolean) as LX.Music.MusicInfoOnline[]

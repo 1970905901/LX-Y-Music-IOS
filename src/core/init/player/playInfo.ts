@@ -10,7 +10,7 @@ export default async (setting: LX.AppSetting) => {
   if (!info?.listId || info.index < 0) return
 
   if (info.listId === LIST_IDS.TEMP && info.tempMeta) {
-    listAction.setTempListMeta(info.tempMeta)
+    listAction.setTempListMeta(info.tempMeta as any)
   }
   const list = await getListMusics(info.listId)
   if (!list[info.index]) return

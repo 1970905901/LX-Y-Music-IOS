@@ -25,7 +25,7 @@ const Header = ({ onClose }: { onClose: () => void }) => {
       <TouchableOpacity onPress={onClose} style={styles.backButton} activeOpacity={0.7}>
         <Icon name="chevron-left" size={26} color="#333" />
       </TouchableOpacity>
-      <Text size={18} weight="600" color="#333">验证</Text>
+      <Text size={18} color="#333">验证</Text>
       <View style={styles.placeholder} />
     </View>
   );

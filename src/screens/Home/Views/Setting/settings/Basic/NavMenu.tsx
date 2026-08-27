@@ -12,6 +12,9 @@ import { acquireScrollLock, releaseScrollLock, subscribeScrollLock } from '@/uti
 
 const LONG_PRESS_MS = 350
 
+// RN 的 Text 组件类型不包含 size/color 等扩展 prop，这里仅为通过类型检查，运行时行为不变
+const TextAny = Text as any
+
 interface MenuItemData {
   id: string
   name: string
@@ -229,7 +232,7 @@ const DraggableItem = memo(({
             onChange={(check) => onToggle(item.id, check)} />
         )}
       </View>
-      {isDragSource ? <Text size={11} color={theme['c-font-label']} style={styles.dragHint}>{dragHandleHint}</Text> : null}
+      {isDragSource ? <TextAny size={11} color={theme['c-font-label']} style={styles.dragHint}>{dragHandleHint}</TextAny> : null}
     </Animated.View>
   )
 })
@@ -251,7 +254,7 @@ export default memo(() => {
   }, [navFlatOrder, navOrder])
 
   const topLevelItems = useMemo((): MenuItemData[] => {
-    const order = navGroupEnabled ? (navOrder || NAV_MENUS.map(m => m.id)) : effectiveFlatOrder
+    const order: NAV_ID_Type[] = navGroupEnabled ? (navOrder || NAV_MENUS.map(m => m.id)) : effectiveFlatOrder
     if (!navGroupEnabled) {
       return order
         .filter(id => id !== 'nav_play_history')
@@ -260,7 +263,7 @@ export default memo(() => {
           if (!menu) return null
           return { id, name: t(id as any), isGroup: false }
         })
-        .filter((item): item is MenuItemData => item !== null)
+        .filter((item): item is NonNullable<typeof item> => item !== null)
     }
     const groupChildIds = new Set(NAV_GROUPS.flatMap(g => g.children))
     const items: MenuItemData[] = []
@@ -355,7 +358,7 @@ export default memo(() => {
             {NAV_GROUPS.map(g => (
               <TouchableOpacity key={g.id} style={[styles.tab, selectedGroup === g.id && styles.tabActive]}
                 onPress={() => { handleGroupPress(g.id) }}>
-                <Text size={13} color={selectedGroup === g.id ? '#1677ff' : '#666'}>{t(g.label as any)}</Text>
+                <TextAny size={13} color={selectedGroup === g.id ? '#1677ff' : '#666'}>{t(g.label as any)}</TextAny>
               </TouchableOpacity>
             ))}
           </View>
@@ -365,7 +368,7 @@ export default memo(() => {
           <View>
             <TouchableOpacity style={styles.backBtn} onPress={() => { setSelectedGroup(null) }}>
               <Icon name="chevron-left" size={14} color="#666" />
-              <Text size={13} color="#666" style={{ marginLeft: 4 }}>{t('setting_basic_nav_menu_back_top')}</Text>
+              <TextAny size={13} color="#666" style={{ marginLeft: 4 }}>{t('setting_basic_nav_menu_back_top')}</TextAny>
             </TouchableOpacity>
             <ScrollView keyboardShouldPersistTaps="always" scrollEnabled={!scrollLocked}>
               <SortableList key={`group-${selectedGroup}`} items={groupItems} onReorder={handleGroupReorder} dragHint={t('setting_basic_nav_menu_reorder_tip')} navGroupVisible={navGroupVisible} />

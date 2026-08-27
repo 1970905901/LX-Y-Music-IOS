@@ -190,12 +190,12 @@ const List = forwardRef<ListType, ListProps>(
 
       global.state_event.on('mylistToggled', updateList)
       global.app_event.on('myListMusicUpdate', handleChange)
-      global.app_event.on('jumpListPosition', handleJumpPosition)
+      global.app_event.on('jumpListPosition', handleJumpPosition as any)
 
       return () => {
         global.state_event.off('mylistToggled', updateList)
         global.app_event.off('myListMusicUpdate', handleChange)
-        global.app_event.off('jumpListPosition', handleJumpPosition)
+        global.app_event.off('jumpListPosition', handleJumpPosition as any)
       }
     }, [])
 

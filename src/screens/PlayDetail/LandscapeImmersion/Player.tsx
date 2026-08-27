@@ -15,13 +15,13 @@ const ControlBtn = memo(() => {
 
   return (
     <View style={styles.controlBtn}>
-      <TouchableOpacity onPress={playPrev} style={styles.btn}>
+      <TouchableOpacity onPress={() => { void playPrev() }} style={styles.btn}>
         <Icon name="prevMusic" size={24} color={theme['c-primary-font-active']} />
       </TouchableOpacity>
       <TouchableOpacity onPress={togglePlay} style={[styles.btn, styles.playBtn]}>
         <Icon name={isPlay ? 'pause' : 'play'} size={30} color={theme['c-primary-font-active']} />
       </TouchableOpacity>
-      <TouchableOpacity onPress={playNext} style={styles.btn}>
+      <TouchableOpacity onPress={() => { void playNext() }} style={styles.btn}>
         <Icon name="nextMusic" size={24} color={theme['c-primary-font-active']} />
       </TouchableOpacity>
     </View>

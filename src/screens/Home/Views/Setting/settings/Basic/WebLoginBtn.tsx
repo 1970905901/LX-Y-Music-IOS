@@ -5,15 +5,15 @@ import Button from '../../components/Button';
 
 export default memo(() => {
   const handleShowWyLoginModal = () => {
-    global.app_event.emit('showWebLogin');
+    global.app_event.showWebLogin();
   };
 
   const handleShowTxLoginModal = () => {
-    global.app_event.emit('showTxWebLogin');
+    global.app_event.showTxWebLogin();
   };
 
   const handleShowKgLoginModal = () => {
-    global.app_event.emit('showKgWebLogin');
+    (global.app_event as any).showKgWebLogin();
   };
 
   return (

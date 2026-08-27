@@ -17,9 +17,9 @@ export default () => {
       }
     };
 
-    global.app_event.on('showKgWebLogin', handleShow);
+    global.app_event.on('showKgWebLogin' as any, handleShow);
     return () => {
-      global.app_event.off('showKgWebLogin', handleShow);
+      global.app_event.off('showKgWebLogin' as any, handleShow);
     };
   }, [visible]);
 

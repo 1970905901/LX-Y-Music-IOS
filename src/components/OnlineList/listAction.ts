@@ -95,8 +95,9 @@ export const handleShowArtistDetail = async (componentId: string, musicInfo: LX.
             `https://songsearch.kugou.com/song_search_v2?keyword=${encodeURIComponent(musicInfo.name)}&page=1&pagesize=10&userid=0&platform=WebFilter&filter=2&iscorrection=1&area_code=1`
           )
           const { body } = await response.promise
-          if (body?.data?.lists?.length) {
-            for (const song of body.data.lists) {
+          const bodyData = body as { data?: { lists?: Array<{ SongName?: string, Singers?: Array<{ id?: string | number, name?: string }> }> } }
+          if (bodyData?.data?.lists?.length) {
+            for (const song of bodyData.data.lists) {
               const songName = (song.SongName || '').toLowerCase()
               const targetName = musicInfo.name.toLowerCase()
               if (songName.includes(targetName) || targetName.includes(songName)) {
@@ -144,14 +145,14 @@ export const handleShowArtistDetail = async (componentId: string, musicInfo: LX.
     return
   }
 
-  const onSelect = (artist: { id: string | number, mid?: string, name: string }) => {
+  const onSelect = (artist: { id: string | number, mid?: string, name: string, picUrl?: string }) => {
     log.info('[handleShowArtistDetail] 选中歌手，跳转歌手详情页', {
       artistId: artist.id,
       artistMid: artist.mid,
       artistName: artist.name,
       source: musicInfo.source,
     })
-    navigations.pushArtistDetailScreen(componentId, { id: String(artist.id), mid: artist.mid, name: artist.name, picUrl: artist.picUrl, source: musicInfo.source })
+    navigations.pushArtistDetailScreen(componentId, { id: String(artist.id), mid: artist.mid, name: artist.name, picUrl: artist.picUrl ?? '', source: musicInfo.source })
   }
 
   if (artists.length > 1) {
@@ -392,8 +393,10 @@ export const handleDislikeMusic = async(musicInfo: LX.Music.MusicInfoOnline, lis
         }),
       }).promise;
 
-      if (statusCode == 200 && body.code === 200) {
-        const newMusicResult = await musicDetailApi.filterList({ songs: [body.data], privileges: [] })
+      const bodyData = body as { code?: number, data?: any }
+
+      if (statusCode == 200 && bodyData.code === 200) {
+        const newMusicResult = await musicDetailApi.filterList({ songs: [bodyData.data], privileges: [] })
         if (newMusicResult.length) {
           const newMusicInfo = newMusicResult[0]
           global.list_event.daily_rec_music_replace(musicInfo.id, newMusicInfo as LX.Music.MusicInfoOnline)

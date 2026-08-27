@@ -31,8 +31,9 @@ const Header = ({ onClose }: { onClose: () => void }) => {
 };
 
 export default forwardRef<YouTubeLoginModalType, {}>((props, ref) => {
+  const theme = useTheme();
   const modalRef = useRef<ModalType>(null);
-  const webViewRef = useRef<WebView>(null);
+  const webViewRef = useRef<any>(null);
   const loggedInRef = useRef(false);
 
   useImperativeHandle(ref, () => ({
@@ -62,7 +63,7 @@ export default forwardRef<YouTubeLoginModalType, {}>((props, ref) => {
     if (!cookie || !cookie.includes('SAPISID=')) return;
 
     loggedInRef.current = true;
-    global.app_event.emit('yt-cookie-set', cookie);
+    (global.app_event as any).emit('yt-cookie-set', cookie);
     toast('登录成功，已自动获取Cookie！');
     handleClose();
   };

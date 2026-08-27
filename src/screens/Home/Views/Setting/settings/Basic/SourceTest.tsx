@@ -28,7 +28,7 @@ const sources = [
 
 
 
-const qualityLevels = ['master', 'atmos_plus', 'atmos', 'hires', 'flac', '320k', '128k']
+const qualityLevels: LX.Quality[] = ['master', 'atmos_plus', 'atmos', 'hires', 'flac', '320k', '128k']
 
 const qualityPriority: Record<string, number> = {
   master: 7,
@@ -170,12 +170,12 @@ export default memo(() => {
   
   // 当API状态变化时，重新计算支持的平台
   const [supportedSourcesText, setSupportedSourcesText] = useState(() => {
-    return sources.filter(s => global.lx.qualityList[s.id]?.length > 0).map(s => s.name).join('、') || '无'
+    return sources.filter(s => (global.lx.qualityList[s.id as LX.Source]?.length ?? 0) > 0).map(s => s.name).join('、') || '无'
   })
   
   useEffect(() => {
     setSupportedSourcesText(
-      sources.filter(s => global.lx.qualityList[s.id]?.length > 0).map(s => s.name).join('、') || '无'
+      sources.filter(s => (global.lx.qualityList[s.id as LX.Source]?.length ?? 0) > 0).map(s => s.name).join('、') || '无'
     )
   }, [apiStatus])
   const [results, setResults] = useState<TestResult[]>([])
@@ -351,6 +351,11 @@ export default memo(() => {
     message: string
     success: boolean
     searchedSong: string
+    warnings?: string[]
+    encryptedWarnings?: string[]
+    pluginBugIssues?: string[]
+    typeDowngradeWarnings?: string[]
+    permissionWarnings?: string[]
   }> => {
     const totalStartTime = Date.now()
     let songDisplay = ''
@@ -358,7 +363,7 @@ export default memo(() => {
     sourceTestLog.info(`搜索关键词: "${keyword}"`)
 
     try {
-      const sdk = musicSdk[source.id]
+      const sdk = musicSdk[source.id as keyof typeof musicSdk] as any
       if (!sdk) {
         log.error(`[${source.name}] 错误: 未找到平台SDK`)
         throw new Error(`平台 ${source.name} SDK不存在`)
@@ -453,8 +458,8 @@ export default memo(() => {
         try {
           const qualityInfo = getMusicQualityInfo(songId)
           const result = await qualityInfo.requestObj.promise
-          if (result && Object.keys(result._types).length > 0) {
-            for (const [q, info] of Object.entries(result._types)) {
+          if (result && Object.keys((result as any)._types).length > 0) {
+            for (const [q, info] of Object.entries((result as any)._types)) {
               oldMusicInfo._types[q] = info
               oldMusicInfo.meta._qualitys[q] = info
               if (!oldMusicInfo.types.some((t: any) => t.type === q)) {
@@ -476,7 +481,20 @@ export default memo(() => {
       sourceTestLog.info(`[${source.name}] ========== 开始测试音质 ==========`)
 
       let maxQuality: string | null = null
-      const qualityResults: Record<string, { success: boolean; url?: string; error?: string; time: number; actualFormat?: string }> = {}
+      interface QualityResult {
+        success: boolean
+        url?: string
+        error?: string
+        time: number
+        actualFormat?: string
+        suspected?: string
+        actualSize?: number
+        expectedSize?: number
+        encrypted?: boolean
+        encryptedExt?: string
+        actualQuality?: string
+      }
+      const qualityResults: Record<string, QualityResult> = {}
       const detectedQualities: Record<string, { url: string; time: number }> = {}
       const encryptedWarnings: string[] = []
       const permissionWarnings: string[] = []
@@ -546,7 +564,7 @@ export default memo(() => {
             continue
           }
           
-          let actualQualityFromUrl = quality
+          let actualQualityFromUrl: string = quality
           let actualSizeRounded: number | null = null
           const qualitySizesNum: Record<string, number> = {}
           for (const [q, info] of Object.entries(oldMusicInfo._types || {})) {
@@ -1136,7 +1154,7 @@ export default memo(() => {
 
         const result = await Promise.race([testPromise, timeoutPromise])
 
-        if (!('success' in result) || isTimeout) {
+        if (!('delay' in result) || isTimeout) {
           sourceTestLog.info(`[${source.name}] 测试超时已跳过`)
           setResults(prev => prev.map(r =>
             r.source === source.id ? {
@@ -1258,7 +1276,7 @@ export default memo(() => {
 
     const result = await Promise.race([testPromise, timeoutPromise])
 
-    if (!('success' in result) || isTimeout) {
+    if (!('delay' in result) || isTimeout) {
       sourceTestLog.info(`[${source.name}] 测试超时已跳过`)
       setResults(prev => prev.map(r =>
         r.source === source.id ? {
@@ -1322,9 +1340,9 @@ export default memo(() => {
 
   const statusColorMap: Record<TestResult['status'], string> = {
     pending: theme['c-font-label'],
-    testing: theme['c-warning'],
-    success: theme['c-success'],
-    failed: theme['c-error'],
+    testing: (theme as any)['c-warning'],
+    success: (theme as any)['c-success'],
+    failed: (theme as any)['c-error'],
   }
 
   const statusTextMap: Record<TestResult['status'], string> = {
@@ -1377,7 +1395,7 @@ export default memo(() => {
             </Text>
             <View style={styles.keywordContainer}>
               <TextInput
-                style={[styles.keywordInput, { color: theme['c-font'], backgroundColor: theme['c-background'] }]}
+                style={[styles.keywordInput, { color: theme['c-font'], backgroundColor: (theme as any)['c-background'] }]}
                 placeholder={`输入${source.name}搜索词`}
                 placeholderTextColor={theme['c-font-label']}
                 value={keywords[source.id as keyof SourceKeywords]}
@@ -1435,7 +1453,7 @@ export default memo(() => {
           测试超时(秒):
         </Text>
         <TextInput
-          style={[styles.settingsInput, { color: theme['c-font'], backgroundColor: theme['c-background'] }]}
+          style={[styles.settingsInput, { color: theme['c-font'], backgroundColor: (theme as any)['c-background'] }]}
           placeholder="20"
           placeholderTextColor={theme['c-font-label']}
           value={testTimeoutSeconds}
@@ -1451,7 +1469,7 @@ export default memo(() => {
           音质测试超时(秒):
         </Text>
         <TextInput
-          style={[styles.settingsInput, { color: theme['c-font'], backgroundColor: theme['c-background'] }]}
+          style={[styles.settingsInput, { color: theme['c-font'], backgroundColor: (theme as any)['c-background'] }]}
           placeholder="5"
           placeholderTextColor={theme['c-font-label']}
           value={qualityTimeoutSeconds}
@@ -1467,7 +1485,7 @@ export default memo(() => {
           平台测试间隔(秒):
         </Text>
         <TextInput
-          style={[styles.settingsInput, { color: theme['c-font'], backgroundColor: theme['c-background'] }]}
+          style={[styles.settingsInput, { color: theme['c-font'], backgroundColor: (theme as any)['c-background'] }]}
           placeholder="0"
           placeholderTextColor={theme['c-font-label']}
           value={intervalSeconds}
@@ -1483,7 +1501,7 @@ export default memo(() => {
           音质测试间隔(秒):
         </Text>
         <TextInput
-          style={[styles.settingsInput, { color: theme['c-font'], backgroundColor: theme['c-background'] }]}
+          style={[styles.settingsInput, { color: theme['c-font'], backgroundColor: (theme as any)['c-background'] }]}
           placeholder="0"
           placeholderTextColor={theme['c-font-label']}
           value={qualityIntervalSeconds}
@@ -1549,7 +1567,7 @@ export default memo(() => {
                 </View>
                 {result.status === 'testing' && (
                   <View style={styles.testingContainer}>
-                    <Text style={[styles.testingText, { color: theme['c-warning'] }]}>
+                    <Text style={[styles.testingText, { color: (theme as any)['c-warning'] }]}>
                       {result.progress || `正在测试 ${result.name}...`}
                     </Text>
                   </View>
@@ -1938,7 +1956,6 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   qualityBadge: {
-    display: 'inline-block',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 6,

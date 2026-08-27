@@ -51,7 +51,7 @@ export default forwardRef<PlaylistEditModalType, {}>((props, ref) => {
       return
     }
 
-    wyApi.updatePlaylist(playlistInfo.id, finalName, desc).then((result) => {
+    wyApi.updatePlaylist(playlistInfo.id, finalName, desc).then((result: any) => {
       const nameResult = result['/api/playlist/update/name']
       const descResult = result['/api/playlist/desc/update']
 
@@ -76,7 +76,7 @@ export default forwardRef<PlaylistEditModalType, {}>((props, ref) => {
           toast(`描述更新失败: ${descResult?.message || '未知错误'}`)
         }
       }
-    }).catch(err => {
+    }).catch((err: any) => {
       toast(`编辑失败: ${err.message}`)
     })
   }, [playlistInfo, name, desc])

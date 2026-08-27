@@ -8,10 +8,11 @@ import { useDownloadTasks } from '@/store/download/hook';
 import { createStyle } from '@/utils/tools';
 import { setComponentId } from '@/core/common';
 import { removeTask } from '@/core/download';
+import { COMPONENT_IDS } from '@/config/constant';
 
 export default memo(({ componentId }: { componentId: string }) => {
   useEffect(() => {
-    setComponentId('DOWNLOAD_MANAGER', componentId);
+    setComponentId(COMPONENT_IDS.DOWNLOAD_MANAGER, componentId);
   }, [componentId]);
 
   const tasks = useDownloadTasks();

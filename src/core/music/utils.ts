@@ -24,6 +24,11 @@ const userApiLog = {
     if (!isEnableUserApiLog()) return
     log.info(...msgs)
   },
+  warn: (...msgs: any[]) => {
+    if (!global.lx.isEnableLog) return
+    if (!isEnableUserApiLog()) return
+    log.warn(...msgs)
+  },
   error: (...msgs: any[]) => {
     if (!global.lx.isEnableLog) return
     if (!isEnableUserApiLog()) return
@@ -270,8 +275,8 @@ export const getCachedLyricInfo = async (
     //   }
     // } else
     if (lrcInfo.rlyric == null) {
-      if (!['wy', 'kg'].includes(musicInfo.source)) return lrcInfo
-    } else return lrcInfo
+      if (!['wy', 'kg'].includes(musicInfo.source)) return lrcInfo as LX.Player.LyricInfo
+    } else return lrcInfo as LX.Player.LyricInfo
   }
   return null
 }
@@ -356,7 +361,7 @@ export const getOnlineOtherSourceLyricByLocal = async (
     userApiLog.info(`[在线匹配歌词] 歌词长度: ${lyricInfo?.lyric?.length || 0}`)
     userApiLog.info(`[在线匹配歌词] 歌词预览: ${lyricInfo?.lyric?.substring(0, 100) || ''}...`)
     return { lyricInfo, isFromCache: false }
-  }).catch((err) => {
+  }).catch((err: any) => {
     userApiLog.error(`[在线匹配歌词] 匹配失败 ==========`)
     userApiLog.error(`[在线匹配歌词] 错误信息: ${err?.message || err}`)
     throw err
@@ -403,7 +408,7 @@ export const getOnlineOtherSourcePicByLocal = async (
     const hasUrl = !!url && url.length > 0
     userApiLog.info(`[在线匹配封面] 匹配完成 - 歌曲: ${musicInfo.name} - 是否成功: ${hasUrl} - URL: ${url || '空'}`)
     return { url }
-  }).catch((err) => {
+  }).catch((err: any) => {
     userApiLog.error(`[在线匹配封面] 匹配失败 - 歌曲: ${musicInfo.name} - 错误: ${err?.message || err}`)
     throw err
   })
@@ -757,11 +762,11 @@ export const handleGetOnlineMusicUrl = async ({
   
   if (musicInfo.source === 'tx') {
     if (!musicInfo.meta.songmid || musicInfo.meta.songmid === undefined) {
-      const fallbackSongmid = musicInfo.songmid || musicInfo.meta.songId || musicInfo.meta.id || musicInfo.id
+      const fallbackSongmid = (musicInfo as any).songmid || musicInfo.meta.songId || musicInfo.meta.id || musicInfo.id
       userApiLog.info(`[在线播放] === 修复 TX songmid ===`, {
         currentSongmid: musicInfo.meta.songmid,
         fallbackSongmid,
-        musicInfoSongmid: musicInfo.songmid,
+        musicInfoSongmid: (musicInfo as any).songmid,
         metaSongId: musicInfo.meta.songId,
         metaId: musicInfo.meta.id,
         musicId: musicInfo.id,
@@ -772,13 +777,13 @@ export const handleGetOnlineMusicUrl = async ({
 
   userApiLog.info(`[在线播放] === 音乐元信息诊断 ===`)
   userApiLog.info(`[在线播放]   songId: ${musicInfo.meta.songId}`)
-  userApiLog.info(`[在线播放]   songmid: ${musicInfo.meta.songmid}`)
-  userApiLog.info(`[在线播放]   meta.mid: ${musicInfo.meta.mid}`)
+  userApiLog.info(`[在线播放]   songmid: ${(musicInfo.meta as any).songmid}`)
+  userApiLog.info(`[在线播放]   meta.mid: ${(musicInfo.meta as any).mid}`)
   userApiLog.info(`[在线播放]   meta 完整 keys: ${JSON.stringify(Object.keys(musicInfo.meta ?? {}))}`)
-  userApiLog.info(`[在线播放]   strMediaMid: ${musicInfo.meta.strMediaMid}`)
+  userApiLog.info(`[在线播放]   strMediaMid: ${(musicInfo.meta as any).strMediaMid}`)
   userApiLog.info(`[在线播放]   albumId: ${musicInfo.meta.albumId}`)
-  userApiLog.info(`[在线播放]   albumMid: ${musicInfo.meta.albumMid}`)
-  userApiLog.info(`[在线播放]   vid: ${musicInfo.meta.vid || '(空)'}`)
+  userApiLog.info(`[在线播放]   albumMid: ${(musicInfo.meta as any).albumMid}`)
+  userApiLog.info(`[在线播放]   vid: ${(musicInfo.meta as any).vid || '(空)'}`)
   userApiLog.info(`[在线播放]   支持音质列表: ${JSON.stringify(Object.keys(musicInfo.meta._qualitys ?? {}))}`)
 
   const preferredQuality = quality ?? settingState.setting['player.playQuality']
@@ -926,7 +931,7 @@ export const getOnlineOtherSourcePicUrl = async ({
 
   let reqPromise
   try {
-    reqPromise = musicSdk[musicInfo.source].getPic(toOldMusicInfo(musicInfo))
+    reqPromise = musicSdk[musicInfo.source].getPic(toOldMusicInfo(musicInfo)) as Promise<string>
   } catch (err: any) {
     reqPromise = Promise.reject(err)
   }
@@ -962,7 +967,7 @@ export const handleGetOnlinePicUrl = async ({
   // console.log(musicInfo.source)
   let reqPromise
   try {
-    reqPromise = musicSdk[musicInfo.source].getPic(toOldMusicInfo(musicInfo))
+    reqPromise = musicSdk[musicInfo.source].getPic(toOldMusicInfo(musicInfo)) as Promise<string>
   } catch (err) {
     reqPromise = Promise.reject(err)
   }

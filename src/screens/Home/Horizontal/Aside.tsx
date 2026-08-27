@@ -219,9 +219,9 @@ export default memo(() => {
     );
 
     return order
-      .filter(id => id !== 'nav_play_history')
-      .map(id => NAV_MENUS.find(menu => menu.id === id))
-      .filter((menu): menu is typeof NAV_MENUS[number] => menu !== undefined && (menu.id === 'nav_setting' || (navStatus[menu.id] ?? true)));
+      .filter((id: string) => id !== 'nav_play_history')
+      .map((id: string) => NAV_MENUS.find(menu => menu.id === id))
+      .filter((menu: typeof NAV_MENUS[number] | undefined): menu is typeof NAV_MENUS[number] => menu !== undefined && (menu.id === 'nav_setting' || (navStatus[menu.id] ?? true)));
   }, [navStatus, navOrder, navFlatOrder, navGroupEnabled]);
 
   const isLandscapeStretch = useSettingValue('theme.isLandscapeStretch')
@@ -262,7 +262,7 @@ export default memo(() => {
       <Header />
       <ScrollView style={styles.menus}>
         <View style={styles.list}>
-          {filteredNavMenus.map((menu) => (
+          {filteredNavMenus.map((menu: typeof NAV_MENUS[number]) => (
             <MenuItem key={menu.id} id={menu.id} icon={menu.icon} onPress={handlePress} />
           ))}
           <View style={styles.divider} />

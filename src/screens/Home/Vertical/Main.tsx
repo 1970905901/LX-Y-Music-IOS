@@ -639,7 +639,7 @@ const Main = () => {
   }, [navGroupEnabled, navFlatOrder, navOrder]);
 
   const visibleNavs = useMemo(() => {
-    return effectiveOrder.filter(id => isMenuVisible(id, navStatus)).map(id => {
+    return effectiveOrder.filter((id: NAV_ID_Type) => isMenuVisible(id, navStatus)).map((id: NAV_ID_Type) => {
       const menuInfo = NAV_MENUS.find(menu => menu.id === id);
       return menuInfo || { id, icon: 'unknown' };
     });
@@ -648,7 +648,7 @@ const Main = () => {
   const { viewMap, indexMap } = useMemo(() => {
     const viewMap: Partial<Record<NAV_ID_Type, number>> = {};
     const indexMap: NAV_ID_Type[] = [];
-    visibleNavs.forEach((nav, index) => {
+    visibleNavs.forEach((nav: { id: NAV_ID_Type }, index: number) => {
       viewMap[nav.id] = index;
       indexMap.push(nav.id);
     });
@@ -771,7 +771,7 @@ const Main = () => {
       nav_setting: <SettingPage />,
     };
 
-    return visibleNavs.map(nav => (
+    return visibleNavs.map((nav: { id: NAV_ID_Type }) => (
       <View collapsable={false} key={nav.id} style={styles.pageStyle}>
         {pageComponents[nav.id] ?? null}
       </View>

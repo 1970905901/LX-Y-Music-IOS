@@ -50,7 +50,7 @@ const Title = () => {
     if (!musicInfo.artists?.length || musicInfo.source == 'local') {
       return (
         <View style={styles.singerContainer}>
-          <TouchableOpacity onPress={() => handleShowArtistDetail(commonState.componentIds[commonState.componentIds.length - 1]?.id!, musicInfo)}>
+          <TouchableOpacity onPress={() => handleShowArtistDetail(commonState.componentIds[commonState.componentIds.length - 1]?.id!, musicInfo as LX.Music.MusicInfoOnline)}>
             <Text numberOfLines={1} size={12} color={theme['c-font-label']}>
               {musicInfo.singer}
             </Text>

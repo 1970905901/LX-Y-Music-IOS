@@ -88,15 +88,16 @@ export default () => {
         play_count: '',
       }
 
-      const musicInfo = 'progress' in playerState.playMusicInfo.musicInfo
-        ? playerState.playMusicInfo.musicInfo.metadata.musicInfo
-        : playerState.playMusicInfo.musicInfo
+      const playingMusicInfo = playerState.playMusicInfo.musicInfo
+      const musicInfo = playingMusicInfo && 'progress' in playingMusicInfo
+        ? playingMusicInfo.metadata.musicInfo
+        : playingMusicInfo
       if (musicInfo) setScrollToMusicInfo(musicInfo as MusicInfoOnline)
       setSelectedList(targetListInfo)
     }
-    global.app_event.on('jumpListPosition', handleJumpPosition)
+    global.app_event.on('jumpListPosition', handleJumpPosition as () => Promise<void>)
     return () => {
-      global.app_event.off('jumpListPosition', handleJumpPosition)
+      global.app_event.off('jumpListPosition', handleJumpPosition as () => Promise<void>)
     }
   }, [subscribedPlaylists])
 
@@ -142,13 +143,13 @@ export default () => {
 
   useEffect(() => {
     const handleOpenImport = () => {
-      headerBarRef.current?.setSource(
+      (headerBarRef.current as any)?.setSource(
         songlistInfo.current.source,
         songlistInfo.current.sortId,
         '',
         songlistInfo.current.tagId
       )
-      global.app_event.emit('_openSonglistModal', songlistInfo.current.source)
+      (global.app_event as any).emit('_openSonglistModal', songlistInfo.current.source)
     }
     global.app_event.on('openSonglistImport', handleOpenImport)
 

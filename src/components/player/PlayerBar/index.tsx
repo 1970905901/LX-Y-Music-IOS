@@ -18,7 +18,7 @@ import MiniProgressBar from "@/components/player/PlayerBar/components/MiniProgre
 import playerState from '@/store/player/state'
 import { LIST_IDS } from '@/config/constant'
 
-export default memo(({ componentId, isHome = false }: { isHome?: boolean }) => {
+export default memo(({ componentId, isHome = false }: { componentId?: string, isHome?: boolean }) => {
   const { keyboardShown } = useKeyboard()
   const theme = useTheme()
   const musicInfo = usePlayerMusicInfo()
@@ -46,7 +46,7 @@ export default memo(({ componentId, isHome = false }: { isHome?: boolean }) => {
     if (navigatingRef.current) return
     const ids = commonState.componentIds
     // 若顶层已是播放详情页，不再重复 push。
-    if (ids.length && ids[ids.length - 1]?.name === PLAY_DETAIL_SCREEN) return
+    if (ids.length && String(ids[ids.length - 1]?.name) === PLAY_DETAIL_SCREEN) return
     navigatingRef.current = true
     const currentComponentId = ids[ids.length - 1]?.id!
     navigations.pushPlayDetailScreen(currentComponentId)

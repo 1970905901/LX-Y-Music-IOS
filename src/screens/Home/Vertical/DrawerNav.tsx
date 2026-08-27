@@ -6,7 +6,7 @@ import { useTheme } from '@/store/theme/hook'
 import { Icon } from '@/components/common/Icon'
 import { SvgIcon } from '@/components/common/SvgIcon'
 import { confirmDialog, createStyle, exitApp as backHome } from '@/utils/tools'
-import { NAV_MENUS, NAV_GROUPS, type NavGroup, getEffectiveFlatOrder, getEffectiveGroupChildren } from '@/config/constant'
+import { NAV_MENUS, NAV_GROUPS, type NavGroup, type NAV_ID_Type, getEffectiveFlatOrder, getEffectiveGroupChildren } from '@/config/constant'
 import type { InitState } from '@/store/common/state'
 import { exitApp, setNavActiveId } from '@/core/common'
 import Text from '@/components/common/Text'
@@ -340,8 +340,8 @@ export default memo(() => {
     setNavActiveId('nav_play_history');
   };
   const filteredNavMenus = useMemo(() => {
-    const order = navGroupEnabled
-      ? navOrder
+    const order: NAV_ID_Type[] = navGroupEnabled
+      ? (navOrder as NAV_ID_Type[])
       : getEffectiveFlatOrder(navFlatOrder, navOrder)
     if (!order?.length) return NAV_MENUS.filter(
       menu => menu.id !== 'nav_play_history' && (menu.id === 'nav_setting' || (navStatus[menu.id] ?? true))
@@ -380,7 +380,7 @@ export default memo(() => {
     }
     for (const group of visibleGroups) {
       if (!insertedGroupIds.has(group.id)) {
-        const order = navOrder || NAV_MENUS.map(m => m.id)
+        const order = (navOrder as NAV_ID_Type[]) || NAV_MENUS.map(m => m.id)
         const firstChildIdx = order.findIndex(id => group.children.includes(id as any))
         let insertIdx = items.length
         if (firstChildIdx >= 0) {

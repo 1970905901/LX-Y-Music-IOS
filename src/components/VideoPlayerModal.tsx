@@ -48,11 +48,11 @@ export default forwardRef<VideoPlayerModalType, {}>((props, ref) => {
             resizeMode="contain"
             onLoadStart={() => setLoading(true)}
             onLoad={() => setLoading(false)}
-            onPress={showControls ? toggleControls : undefined}
             onError={(e) => {
               console.error('Video Error:', e);
               handleClose();
             }}
+            {...({ onPress: showControls ? toggleControls : undefined } as object)}
           />
         ) : null}
 

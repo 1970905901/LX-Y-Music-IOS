@@ -66,7 +66,7 @@ const handleLinkAction = async (link: string) => {
         setTimeout(() => global.app_event.searchDeepLink(params.keyword || '', '', params.type || ''), 100)
       } else if (action === 'songlist' || params.target === 'songlist') {
         setPendingAction({ type: 'songlistImport' })
-        setNavActiveId('nav_songList')
+        setNavActiveId('nav_songlist')
         setTimeout(() => global.app_event.openSonglistImport(), 100)
       } else if (action === 'setting' || params.target === 'setting') {
         setNavActiveId('nav_setting')

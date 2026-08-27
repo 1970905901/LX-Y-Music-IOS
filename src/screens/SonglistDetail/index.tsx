@@ -54,12 +54,12 @@ const ListHeader = ({ detailInfo, info, onBack, showSearchBar, searchText, isFuz
           userId: detailInfo.userId as number,
           name: detailInfo.name,
           coverImgUrl: detailInfo.imgUrl || '',
-          trackCount: info.total || 0,
+          trackCount: (info.total || 0) as number,
         })
       } else {
         removeWySubscribedPlaylist(info.id)
       }
-    }).catch(err => {
+    }).catch((err: any) => {
       toast(`操作失败: ${err.message}，可能是Cookie已失效，请重新登录`)
     })
   }, [isSubscribed, info, detailInfo])
@@ -170,9 +170,9 @@ export default ({ info, onBack, initialScrollToInfo }: { info: ListInfoItem, onB
         musicListRef.current?.scrollToInfo(musicInfo as LX.Music.MusicInfoOnline)
       }
     }
-    global.app_event.on('jumpListPosition', handleJumpPosition)
+    global.app_event.on('jumpListPosition', handleJumpPosition as () => Promise<void>)
     return () => {
-      global.app_event.off('jumpListPosition', handleJumpPosition)
+      global.app_event.off('jumpListPosition', handleJumpPosition as () => Promise<void>)
     }
   }, [info.id, info.source])
 
@@ -210,7 +210,7 @@ export default ({ info, onBack, initialScrollToInfo }: { info: ListInfoItem, onB
         return false
       }
 
-      handleBack()
+      handleBack?.()
       return true
     }
     const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress)
@@ -236,7 +236,7 @@ export default ({ info, onBack, initialScrollToInfo }: { info: ListInfoItem, onB
   }, [playlists, handleBack, info.id, detailInfo.name, detailInfo.desc])
 
   useEffect(() => {
-    if (initialScrollToInfo && detailInfo.total > 0 && !initialScrollDoneRef.current) {
+    if (initialScrollToInfo && (detailInfo.total ?? 0) > 0 && !initialScrollDoneRef.current) {
       initialScrollDoneRef.current = true
       setTimeout(() => {
         musicListRef.current?.scrollToInfo(initialScrollToInfo)
@@ -266,7 +266,7 @@ export default ({ info, onBack, initialScrollToInfo }: { info: ListInfoItem, onB
   }, [])
 
   const ListHeaderComponent = useMemo(() => (
-    <ListHeader detailInfo={detailInfo} info={info} onBack={handleBack} showSearchBar={showSearchBar} searchText={searchText} isFuzzySearch={isFuzzySearch} onToggleSearch={handleToggleSearch} onSearchTextChanged={handleSearchTextChanged} onToggleSearchMode={handleToggleSearchMode} />
+    <ListHeader detailInfo={detailInfo} info={info} onBack={handleBack as () => void} showSearchBar={showSearchBar} searchText={searchText} isFuzzySearch={isFuzzySearch} onToggleSearch={handleToggleSearch} onSearchTextChanged={handleSearchTextChanged} onToggleSearchMode={handleToggleSearchMode} />
   ), [detailInfo, info, handleBack, showSearchBar, searchText, isFuzzySearch, handleToggleSearch, handleSearchTextChanged, handleToggleSearchMode])
 
   const handleListUpdate = useCallback((newList: LX.Music.MusicInfoOnline[]) => {

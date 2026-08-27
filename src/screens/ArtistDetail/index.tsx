@@ -23,23 +23,23 @@ import { log } from '@/utils/log'
 const SONG_LIMIT = 100;
 const ALBUM_LIMIT = 100;
 
-const getApi = (source) => {
+const getApi = (source?: string) => {
   if (source === 'tx') return txApi
   if (source === 'kg') return kgApi
   return wyApi
 }
 
-const getArtistParam = (artistInfo) => {
+const getArtistParam = (artistInfo: { id: string; mid?: string; source?: string }) => {
   if (artistInfo.source === 'tx') return artistInfo.mid || artistInfo.id
   if (artistInfo.source === 'kg') return artistInfo.id
   return artistInfo.id
 }
 
 export default memo(({ componentId, artistInfo }: { componentId: string, artistInfo: { id: string, mid?: string, name: string, source?: string } }) => {
-  const [artistDetail, setArtistDetail] = useState(null);
-  const [songs, setSongs] = useState({ list: [], hasMore: true, page: 1, loading: false, sort: 'hot' });
+  const [artistDetail, setArtistDetail] = useState<{ artist: any } | null>(null);
+  const [songs, setSongs] = useState<{ list: LX.Music.MusicInfoOnline[]; hasMore: boolean; page: number; loading: boolean; sort: string }>({ list: [], hasMore: true, page: 1, loading: false, sort: 'hot' });
   const [albums, setAlbums] = useState({ list: [], hasMore: true, page: 1, loading: false });
-  const [activeTab, setActiveTab] = useState('songs');
+  const [activeTab, setActiveTab] = useState<'songs' | 'albums'>('songs');
   const albumViewMode = useSettingValue('artistDetail.albumViewMode')
   const componentIdRef = useRef(componentId)
   const songListRef = useRef<any>(null)
@@ -72,9 +72,9 @@ export default memo(({ componentId, artistInfo }: { componentId: string, artistI
       }
     }
 
-    global.app_event.on('jumpListPosition', handleJumpPosition)
+    global.app_event.on('jumpListPosition', handleJumpPosition as () => Promise<void>)
     return () => {
-      global.app_event.off('jumpListPosition', handleJumpPosition)
+      global.app_event.off('jumpListPosition', handleJumpPosition as () => Promise<void>)
     }
   }, [artistInfo.id, songs.list])
   useEffect(() => {
@@ -89,7 +89,7 @@ export default memo(({ componentId, artistInfo }: { componentId: string, artistI
   }, [songs.list])
 
   useEffect(() => {
-    setComponentId('ARTIST_DETAIL', componentId);
+    setComponentId('ARTIST_DETAIL' as any, componentId);
     componentIdRef.current = componentId;
     const api = getApi(artistInfo.source)
     const artistParam = getArtistParam(artistInfo)
@@ -113,16 +113,16 @@ export default memo(({ componentId, artistInfo }: { componentId: string, artistI
         cached: false,
         api: artistInfo.source === 'tx' ? 'txApi' : 'wyApi',
       })
-      api.getDetail(artistParam).then(data => {
+      api.getDetail(artistParam).then((data: any) => {
         setArtistDetailCache(artistInfo.id, data);
         setArtistDetail(data);
-      }).catch((err) => {
+      }).catch((err: any) => {
         toast('获取歌手信息失败');
       });
     }
   }, [componentId, artistInfo.id, artistInfo.source]);
 
-  const loadSongs = useCallback((sort, page, isRefresh = false) => {
+  const loadSongs = useCallback((sort: string, page: number, isRefresh = false) => {
     const currentApi = getApi(artistInfo.source)
     const currentArtistParam = getArtistParam(artistInfo)
     const cacheKey = `${currentArtistParam}_songs_${sort}_${page}`;
@@ -145,7 +145,7 @@ export default memo(({ componentId, artistInfo }: { componentId: string, artistI
         return prev;
       }
       const offset = (page - 1) * SONG_LIMIT;
-      currentApi.getSongs(currentArtistParam, sort, SONG_LIMIT, offset).then(data => {
+      currentApi.getSongs(currentArtistParam, sort, SONG_LIMIT, offset).then((data: any) => {
         setArtistCache(cacheKey, { list: data.list, hasMore: data.hasMore });
 
         setSongs(p => ({
@@ -156,7 +156,7 @@ export default memo(({ componentId, artistInfo }: { componentId: string, artistI
           loading: false,
           sort,
         }));
-      }).catch((err) => {
+      }).catch((err: any) => {
         toast('获取歌曲失败');
         setSongs(p => ({ ...p, loading: false }));
       });
@@ -164,7 +164,7 @@ export default memo(({ componentId, artistInfo }: { componentId: string, artistI
     });
   }, [artistInfo.id, artistInfo.source]);
 
-  const loadAlbums = useCallback((page, isRefresh = false) => {
+  const loadAlbums = useCallback((page: number, isRefresh = false) => {
     const currentApi = getApi(artistInfo.source)
     const currentArtistParam = getArtistParam(artistInfo)
 
@@ -216,7 +216,7 @@ export default memo(({ componentId, artistInfo }: { componentId: string, artistI
         offset,
         limit: ALBUM_LIMIT,
       })
-      currentApi.getAlbums(currentArtistParam, ALBUM_LIMIT, offset).then(data => {
+      currentApi.getAlbums(currentArtistParam, ALBUM_LIMIT, offset).then((data: any) => {
         log.info('[ArtistDetail] 歌手专辑加载成功', { artistId: artistInfo.id, albumCount: data.hotAlbums.length, hasMore: data.hasMore })
         setArtistCache(cacheKey, { hotAlbums: data.hotAlbums, hasMore: data.hasMore });
 
@@ -227,7 +227,7 @@ export default memo(({ componentId, artistInfo }: { componentId: string, artistI
           page: page + 1,
           loading: false,
         }));
-      }).catch((err) => {
+      }).catch((err: any) => {
         log.error('[ArtistDetail] 歌手专辑加载失败', { artistId: artistInfo.id, error: err.message })
         toast('获取专辑失败');
         setAlbums(p => ({ ...p, loading: false }));
@@ -262,14 +262,14 @@ export default memo(({ componentId, artistInfo }: { componentId: string, artistI
     loadAlbums(albums.page);
   };
 
-  const handleSortChange = (newSort) => {
+  const handleSortChange = (newSort: string) => {
     if (songs.sort === newSort) return;
     const cacheKeyParam = artistInfo.source === 'tx' ? (artistInfo.mid || artistInfo.id) : artistInfo.id
     clearArtistCache(cacheKeyParam);
     setSongs(prev => ({ ...prev, sort: newSort, list: [], page: 1, hasMore: true }));
   };
 
-  const handleTabChange = (newTab) => {
+  const handleTabChange = (newTab: 'songs' | 'albums') => {
     if (activeTab === newTab) return;
     setActiveTab(newTab);
   };
@@ -280,7 +280,7 @@ export default memo(({ componentId, artistInfo }: { componentId: string, artistI
 
     clearArtistCache(refreshParam);
 
-    refreshApi.getDetail(refreshParam).then(data => {
+    refreshApi.getDetail(refreshParam).then((data: any) => {
       setArtistDetailCache(refreshParam, data);
       setArtistDetail(data);
     }).catch(() => toast('刷新歌手信息失败'));
@@ -337,7 +337,7 @@ export default memo(({ componentId, artistInfo }: { componentId: string, artistI
           onSongListUpdate={handleSongListUpdate}
           playingId={playerMusicInfo.id}
         />
-        <PlayerBar componentId={componentId} />
+        <PlayerBar />
       </View>
     </PageContent>
   );

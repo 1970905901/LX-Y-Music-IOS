@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useRef, useCallback, useState } from 'react';
-import { View, Animated, Easing, TouchableWithoutFeedback, Platform } from 'react-native';
+import { View, Animated, Easing, TouchableWithoutFeedback, Platform, Text } from 'react-native';
 import { useIsPlay, usePlayMusicInfo, usePlayerMusicInfo } from '@/store/player/hook';
 import { useWindowSize } from '@/utils/hooks';
 import { NAV_SHEAR_NATIVE_IDS } from '@/config/constant';
@@ -19,13 +19,18 @@ import settingState from '@/store/setting/state';
 export default memo(({ componentId, maxCoverHeight }: { componentId: string, maxCoverHeight?: number }) => {
   const musicInfo = usePlayMusicInfo();
   const playerMusicInfo = usePlayerMusicInfo();
-  // 封面来源：对齐横屏/沉浸态（正常工作）的取图方式，使用 playerMusicInfo.pic。
-  // 原因：state.playMusicInfo.musicInfo 可能是 LX.Music.MusicInfo（在线）或 LX.Download.ListItem（下载/本地）。
-  // 当播放下载/本地歌曲时，ListItem 没有 meta 字段 → musicInfo.musicInfo.meta.picUrl 为 undefined，封面必空白
-  // （这正是 44f61ae3 仅用 meta.picUrl 时实测仍空白的真因；参考构建 93604d3e 仅测了在线歌曲，所以“好”）。
-  // playInfo.ts 的 setPlayerMusicInfo 已把 playerMusicInfo.pic 做了两来源兼容
-  // （在线取 meta.picUrl，下载取 metadata.musicInfo.meta.picUrl），故竖屏直接用它与横屏一致即可。
-  // 叠加 meta.picUrl 作兜底，避免切歌瞬间 playerMusicInfo 被 reset（pic:null）时的闪烁。
+  // 诊断/修复：封面 URL 综合来源（过滤空字符串）。
+  // 在线歌曲优先 meta.picUrl（与参考构建 93604d3e 一致），下载歌曲用 metadata.musicInfo.meta.picUrl，
+  // 最后 fallback playerMusicInfo.pic。空字符串视为无效，避免 ?? 把 '' 当成有效 URL。
+  const rawMusicInfo = musicInfo.musicInfo as any;
+  const coverUrl = useMemo(() => {
+    const url = rawMusicInfo?.metadata?.musicInfo?.meta?.picUrl
+      || rawMusicInfo?.meta?.picUrl
+      || playerMusicInfo.pic
+      || '';
+    return typeof url === 'string' ? url.trim() : '';
+  }, [rawMusicInfo, playerMusicInfo.pic]);
+  const hasCoverUrl = !!coverUrl;
 
   const { width: winWidth, height: winHeight } = useWindowSize();
   const statusBarHeight = useStatusbarHeight();
@@ -147,7 +152,6 @@ export default memo(({ componentId, maxCoverHeight }: { componentId: string, max
     left: 0,
     right: 0,
     bottom: 0,
-    backfaceVisibility: 'hidden' as const,
     transform: [{ rotate: spin }],
     borderRadius: imageContainerStyle.borderRadius,
   } as any), [spin, imageContainerStyle.borderRadius]);
@@ -257,10 +261,24 @@ export default memo(({ componentId, maxCoverHeight }: { componentId: string, max
             needsOffscreenAlphaCompositing={shouldForceLayerComposition}
           >
             <Image
-              url={playerMusicInfo.pic ?? (musicInfo.musicInfo as LX.Music.MusicInfo)?.meta?.picUrl}
+              url={coverUrl}
               nativeID={NAV_SHEAR_NATIVE_IDS.playDetail_pic}
               style={imageStyle}
             />
+            {/* 临时诊断标记：下一版验证后移除。显示当前封面 URL 状态，帮助区分数据源问题与渲染问题。 */}
+            <View style={{
+              position: 'absolute',
+              right: 4,
+              bottom: 4,
+              paddingHorizontal: 4,
+              paddingVertical: 2,
+              borderRadius: 4,
+              backgroundColor: hasCoverUrl ? 'rgba(0,128,0,0.7)' : 'rgba(255,0,0,0.7)',
+            }}>
+              <Text style={{ color: 'white', fontSize: 8 }}>
+                {hasCoverUrl ? `PIC_OK ${coverUrl.slice(0, 12)}` : 'PIC_EMPTY'}
+              </Text>
+            </View>
           </Animated.View>
         </View>
       </TouchableWithoutFeedback>

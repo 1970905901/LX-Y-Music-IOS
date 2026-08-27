@@ -14,6 +14,11 @@ declare global {
        * 播放详情页-封面大小
        */
       'playDetail.style.coverSize': number
+
+      /**
+       * 歌词水平对齐方式
+       */
+      'playDetail.style.align': 'left' | 'center' | 'right'
       /**
        * 竖屏歌词字体大小
        */

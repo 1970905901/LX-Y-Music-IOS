@@ -44,12 +44,6 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
   const isEnableSlideSwitchSong = useSettingValue('player.isEnableSlideSwitchSong')
   const miniLyricAlign = useSettingValue('playDetail.style.miniLyricAlign')
 
-  // 与参考版 93604d3e（用户实测封面正常）完全一致：Pic 传 maxCoverHeight
-  const maxCoverHeight = useMemo(() => {
-    const availableHeight = winHeight - HEADER_HEIGHT
-    return Math.round(availableHeight * 0.38)
-  }, [winHeight])
-
   const slideOffset = useRef(new Animated.Value(0)).current;
   const maxSlide = winHeight * 0.5;
   const slideThreshold = winHeight * 0.12;
@@ -227,8 +221,10 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
           <View collapsable={false} style={styles.pageContainer}>
             <Animated.View collapsable={false} {...panResponder.panHandlers} style={[styles.picPageContainerNew, slideStyle, { paddingTop: containerPaddingH }]}>
               <View style={styles.picContainer}>
-                {/* 与参考版 93604d3e（用户实测封面正常）完全一致：传 maxCoverHeight */}
-                <Pic componentId={componentId} maxCoverHeight={maxCoverHeight} />
+                {/* 移植用户实测正常的 v20260826（e58d1ab1）VerticalOld 封面用法：
+                    不传 maxCoverHeight，让 Pic 内部按 isNewUI=false 计算封面尺寸
+                    （50% 高/85% 宽，container 居中布局）——这正是参考版封面正常的分支。 */}
+                <Pic componentId={componentId} />
               </View>
               <View style={[styles.infoContainer, { paddingHorizontal: containerPaddingH, marginTop: containerPaddingH }]}>
                 <SongInfo />

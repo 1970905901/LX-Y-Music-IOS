@@ -244,12 +244,11 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
         {/* Progress bar must live OUTSIDE the PagerView so its horizontal drag never
             enters the native pager gesture domain (otherwise left-drag stutters / is
             hijacked as a page swipe).
-            歌词页(pageIndex===1)时：把 Player 控制条从布局里真正“去了”——用
-            height:0 + overflow:hidden 折叠掉（保留挂载避免切页卸载/重挂掉帧）。
-            这样 PagerView 在歌词页直接占满整屏、歌词页真正全屏，且控制条不在
-            歌词页占位（之前 opacity:0 仅变透明但仍占位，导致歌词页下方出现一条
-            隐形控制条高度的空白带）。封面页(pageIndex===0)正常显示控制条。 */}
-        <View style={{ overflow: 'hidden', height: pageIndex === 0 ? undefined : 0 }}>
+            常驻控制条：Player 控制条始终挂载并可见——封面页(pageIndex===0)与
+            歌词页(pageIndex===1)底部都显示该控制条（不折叠、不透明隐藏）。
+            Player 本身是 memo + 稳定 props，pageIndex 变化不会引起其重渲染；
+            保留挂载避免切页卸载/重挂导致的掉帧。 */}
+        <View>
           <Player componentId={componentId} />
         </View>
       </View>

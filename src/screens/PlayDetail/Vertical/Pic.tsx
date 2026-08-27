@@ -24,7 +24,9 @@ const AnimatedCover = Animated.createAnimatedComponent(RNImage);
  * - 渲染组件：使用 React Native 原生 Animated.Image 直接承载封面并做旋转。
  *   FastImage 被包在 Animated.View 里做 rotate 动画时，在 iOS 上会白屏/不渲染，
  *   故封面这里绕过 FastImage，改用 RN Image。
- * - 圆形：容器 borderRadius = size/2，overflow:hidden 裁剪旋转方图。
+ * - 圆形：封面自身 borderRadius = size/2（圆形旋转视觉不变），
+ *   全链路不使用 overflow:'hidden' 裁切——iOS 上 clipsToBounds 祖先
+ *   会把带 transform 的后代剔除出渲染树，这是此前封面白屏的根因。
  * - 不使用 RNN sharedElementTransitions：iOS 上会被原生层劫持成错位大图；封面与导航转场解耦。
  * - 尺寸：min(屏宽 * 0.65, 可用高 * 0.5)，居中。
  */
@@ -153,16 +155,17 @@ export default memo(({ componentId }: { componentId: string }) => {
   };
 
   const radius = size / 2;
-  // 外层圆形容器：固定尺寸 + 圆形裁切
+  // 外层圆形容器：只负责固定尺寸与定位，**不做 overflow 裁切**。
+  // iOS 上 overflow:'hidden'(clipsToBounds) 的祖先 + 带 transform 的后代
+  // 会被错误剔除出渲染树（封面白屏的根因）。圆形效果完全由封面自身的
+  // borderRadius 实现——圆形旋转后仍是圆形，视觉与裁切完全一致。
   const coverContainerStyle = useMemo(() => ({
     width: size,
     height: size,
-    borderRadius: radius,
-    overflow: 'hidden' as const,
     backgroundColor: 'transparent' as const,
-  }), [size, radius]);
+  }), [size]);
 
-  // 封面图样式：固定尺寸 + 圆形 + 旋转动画
+  // 封面图样式：固定尺寸 + 圆形（borderRadius 自带，无需容器裁切）+ 旋转动画
   const animatedCoverStyle = useMemo(() => ({
     width: size,
     height: size,

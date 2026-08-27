@@ -275,7 +275,12 @@ const styles = createStyle({
     flexDirection: 'column',
     justifyContent: 'space-between',
     position: 'relative',
-    overflow: 'hidden',
+    // 注意：此处绝不能加 overflow: 'hidden'——该视图同时挂载 slideStyle 的
+    // transform/opacity（原生驱动动画）。iOS 上 clipsToBounds 与 transform
+    // 叠加在同一图层时，会把带 transform 的后代（旋转封面）剔除出渲染树，
+    // 导致封面空白（SongInfo 等无 transform 的子视图不受影响）。
+    // 旧 UI（v20260826 实测封面正常）的 picPageContainerOld 就没有 overflow。
+    // 滑动切歌动画的裁切由 PagerView 原生页面裁切兜底，无需在此裁剪。
   },
   picContainer: {
     alignItems: 'center',

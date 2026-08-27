@@ -2,6 +2,7 @@ import { updateListMusics } from '@/core/list'
 import { setMaxplayTime, setNowPlayTime } from '@/core/player/progress'
 import { play } from '@/core/player/player'
 import { setCurrentTime, getDuration, getPosition } from '@/plugins/player'
+import { onUnifiedPlayerEvent } from '@/plugins/player/engine'
 import { syncToTime as lrcSyncToTime } from '@/plugins/lyric'
 import { formatPlayTime2 } from '@/utils/common'
 import { savePlayInfo } from '@/utils/data'
@@ -43,10 +44,24 @@ export default () => {
   // 避免把刚跳转的高亮行又拽回 seek 前的旧位置（iOS 一次 seek 约需 ~180ms 才生效）。
   let lastSeekTime = 0
 
+  // 缓冲/加载态感知：订阅统一播放引擎状态。缓冲/加载时 native 上报位置常超前于实际播出声，
+  // 此时冻结歌词重锚与进度更新（详见 getCurrentTime），避免高亮行“超前跳行再回弹”。
+  let isBuffering = false
+  onUnifiedPlayerEvent((event) => {
+    if (event.type === 'state') {
+      isBuffering = event.state === 'buffering' || event.state === 'loading'
+    }
+  })
+
   const getCurrentTime = () => {
     let id = playerState.musicInfo.id
     void getPosition().then((position) => {
       if (!position || id != playerState.musicInfo.id) return
+      // 缓冲/加载中：音频实际停滞，native 上报位置常超前于真实播出声。
+      // 此时冻结进度与歌词重锚（保留上一帧位置），避免高亮行“超前跳行再回弹”、进度条跳变；
+      // 缓冲结束回到 playing 后，下一拍 250ms 轮询用真实位置重新对齐
+      // （与 12 条同步要求中的⑩“缓冲场景音频与歌词实时同步”一致：停滞即同停，恢复即同追）。
+      if (isBuffering) return
       setNowPlayTime(position)
 
       // 歌词同步：无论播放还是暂停，只要没在拖动/seek 沉降窗口内，就用真实音频位置重锚。

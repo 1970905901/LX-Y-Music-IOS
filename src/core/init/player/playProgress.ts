@@ -2,7 +2,6 @@ import { updateListMusics } from '@/core/list'
 import { setMaxplayTime, setNowPlayTime } from '@/core/player/progress'
 import { play } from '@/core/player/player'
 import { setCurrentTime, getDuration, getPosition } from '@/plugins/player'
-import { onUnifiedPlayerEvent } from '@/plugins/player/engine'
 import { syncToTime as lrcSyncToTime } from '@/plugins/lyric'
 import { formatPlayTime2 } from '@/utils/common'
 import { savePlayInfo } from '@/utils/data'
@@ -44,31 +43,11 @@ export default () => {
   // 避免把刚跳转的高亮行又拽回 seek 前的旧位置（iOS 一次 seek 约需 ~180ms 才生效）。
   let lastSeekTime = 0
 
-  // 缓冲/加载态感知：订阅统一播放引擎状态。缓冲/加载时 native 上报位置常超前于实际播出声，
-  // 此时冻结歌词重锚与进度更新（详见 getCurrentTime），避免高亮行“超前跳行再回弹”。
-  // 冻结设上限：超过 BUFFER_FREEZE_MS 即恢复更新，避免 isBuffering 卡在 true 时长期冻结、
-  // 缓冲结束瞬间一次性“跳行”多个行（用户实测“滞后/跳行”根因之一）。
-  let isBuffering = false
-  let bufferingSince = 0
-  const BUFFER_FREEZE_MS = 1200
-  onUnifiedPlayerEvent((event) => {
-    if (event.type === 'state') {
-      const buffering = event.state === 'buffering' || event.state === 'loading'
-      if (buffering && !isBuffering) bufferingSince = Date.now()
-      isBuffering = buffering
-    }
-  })
-
   const getCurrentTime = () => {
     let id = playerState.musicInfo.id
     void getPosition().then((position) => {
-      if (!position || id != playerState.musicInfo.id) return
-      // 缓冲/加载中：音频实际停滞，native 上报位置常超前于真实播出声。
-      // 此时冻结进度与歌词重锚（保留上一帧位置），避免高亮行“超前跳行再回弹”、进度条跳变；
-      // 但仅冻结 BUFFER_FREEZE_MS 以内：超时即恢复更新，杜绝长期冻结/卡死导致的“跳行”。
-      // 缓冲结束回到 playing 后，下一拍轮询用真实位置重新对齐
-      // （与 12 条同步要求中的⑩“缓冲场景音频与歌词实时同步”一致：停滞即同停，恢复即同追）。
-      if (isBuffering && Date.now() - bufferingSince < BUFFER_FREEZE_MS) return
+      // 仅以 position == null（未取到位置）为跳过条件，允许 position 为 0（歌曲起始瞬间）。
+      if (position == null || id != playerState.musicInfo.id) return
       setNowPlayTime(position)
 
       // 歌词同步：无论播放还是暂停，只要没在拖动/seek 沉降窗口内，就用真实音频位置重锚。
@@ -96,6 +75,9 @@ export default () => {
       ) {
         delaySavePlayInfo()
       }
+    }).catch(() => {
+      // getPosition() 在个别情况下可能 reject（如原生模块未就绪）；
+      // 绝不能让一次失败静默杀死整条轮询链，否则歌词将彻底停止跟随音频。
     })
   }
 

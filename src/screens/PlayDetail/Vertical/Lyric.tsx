@@ -512,12 +512,15 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
         onScrollBeginDrag={handleScrollBeginDrag}
         onScrollEndDrag={onScrollEndDrag}
         initialNumToRender={20}
-        windowSize={5}
+        windowSize={10}
         maxToRenderPerBatch={12}
         updateCellsBatchingPeriod={100}
         getItemLayout={getItemLayout}
         extraData={line}
-        removeClippedSubviews={true}
+        // 禁用 removeClippedSubviews：iOS FlatList 在动态行高下回收屏幕外行后，
+        // 配合 getItemLayout 估算高度常导致歌词行重绘失败 / 出现空白缺失。
+        // Horizontal/LandscapeImmersion 歌词页均未启用此属性，保持行为一致。
+        // removeClippedSubviews={true}
         {...panResponder.panHandlers}
       />
     </View>

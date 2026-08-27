@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useRef, useCallback, useState } from 'react';
 import { View, Animated, Easing, TouchableWithoutFeedback, Platform } from 'react-native';
-import { useIsPlay, usePlayMusicInfo } from '@/store/player/hook';
+import { useIsPlay, usePlayMusicInfo, usePlayerMusicInfo } from '@/store/player/hook';
 import { useWindowSize } from '@/utils/hooks';
 import { NAV_SHEAR_NATIVE_IDS } from '@/config/constant';
 import { HEADER_HEIGHT } from './components/Header';
@@ -18,9 +18,14 @@ import settingState from '@/store/setting/state';
 
 export default memo(({ componentId, maxCoverHeight }: { componentId: string, maxCoverHeight?: number }) => {
   const musicInfo = usePlayMusicInfo();
-  // 封面来源：与可工作的参考构建 93604d3e（v20260826，封面正常）保持一致，
-  // 直接取 musicInfo.musicInfo.meta.picUrl。之前改为 playerMusicInfo.pic 反而导致竖屏封面空白，
-  // 故回退到此数据源。
+  const playerMusicInfo = usePlayerMusicInfo();
+  // 封面来源：对齐横屏/沉浸态（正常工作）的取图方式，使用 playerMusicInfo.pic。
+  // 原因：state.playMusicInfo.musicInfo 可能是 LX.Music.MusicInfo（在线）或 LX.Download.ListItem（下载/本地）。
+  // 当播放下载/本地歌曲时，ListItem 没有 meta 字段 → musicInfo.musicInfo.meta.picUrl 为 undefined，封面必空白
+  // （这正是 44f61ae3 仅用 meta.picUrl 时实测仍空白的真因；参考构建 93604d3e 仅测了在线歌曲，所以“好”）。
+  // playInfo.ts 的 setPlayerMusicInfo 已把 playerMusicInfo.pic 做了两来源兼容
+  // （在线取 meta.picUrl，下载取 metadata.musicInfo.meta.picUrl），故竖屏直接用它与横屏一致即可。
+  // 叠加 meta.picUrl 作兜底，避免切歌瞬间 playerMusicInfo 被 reset（pic:null）时的闪烁。
 
   const { width: winWidth, height: winHeight } = useWindowSize();
   const statusBarHeight = useStatusbarHeight();
@@ -252,7 +257,7 @@ export default memo(({ componentId, maxCoverHeight }: { componentId: string, max
             needsOffscreenAlphaCompositing={shouldForceLayerComposition}
           >
             <Image
-              url={(musicInfo.musicInfo as LX.Music.MusicInfo)?.meta?.picUrl}
+              url={playerMusicInfo.pic ?? (musicInfo.musicInfo as LX.Music.MusicInfo)?.meta?.picUrl}
               nativeID={NAV_SHEAR_NATIVE_IDS.playDetail_pic}
               style={imageStyle}
             />

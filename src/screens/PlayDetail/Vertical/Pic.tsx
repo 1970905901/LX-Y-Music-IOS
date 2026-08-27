@@ -251,10 +251,20 @@ export default memo(({ componentId, maxCoverHeight }: { componentId: string, max
         <View
           ref={coverRef}
           collapsable={false}
-          style={[styles.content, clampedImageStyle, { overflow: 'hidden' }]}
+          style={[styles.content, clampedImageStyle, { overflow: 'hidden', borderWidth: 4, borderColor: 'red' }]}
           renderToHardwareTextureAndroid={shouldForceLayerComposition}
           needsOffscreenAlphaCompositing={shouldForceLayerComposition}
         >
+          {/* 静态对照：不带动画、无 nativeID，确认 Image 组件本身与 URL 是否正常 */}
+          {hasCoverUrl && (
+            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1 }}>
+              <Image
+                url={coverUrl}
+                style={imageStyle}
+                resizeMode="cover"
+              />
+            </View>
+          )}
           <Animated.View
             style={animatedCoverStyle}
             renderToHardwareTextureAndroid={shouldForceLayerComposition}
@@ -265,21 +275,22 @@ export default memo(({ componentId, maxCoverHeight }: { componentId: string, max
               nativeID={NAV_SHEAR_NATIVE_IDS.playDetail_pic}
               style={imageStyle}
             />
-            {/* 临时诊断标记：下一版验证后移除。显示当前封面 URL 状态，帮助区分数据源问题与渲染问题。 */}
-            <View style={{
-              position: 'absolute',
-              right: 4,
-              bottom: 4,
-              paddingHorizontal: 4,
-              paddingVertical: 2,
-              borderRadius: 4,
-              backgroundColor: hasCoverUrl ? 'rgba(0,128,0,0.7)' : 'rgba(255,0,0,0.7)',
-            }}>
-              <Text style={{ color: 'white', fontSize: 8 }}>
-                {hasCoverUrl ? `PIC_OK ${coverUrl.slice(0, 12)}` : 'PIC_EMPTY'}
-              </Text>
-            </View>
           </Animated.View>
+          {/* 诊断标签：放在 Animated.View 外，避免被动画层吞掉；字号加大确保可见 */}
+          <View style={{
+            position: 'absolute',
+            top: 4,
+            right: 4,
+            paddingHorizontal: 6,
+            paddingVertical: 3,
+            borderRadius: 4,
+            backgroundColor: hasCoverUrl ? 'rgba(0,128,0,0.85)' : 'rgba(255,0,0,0.85)',
+            zIndex: 9999,
+          }}>
+            <Text style={{ color: 'white', fontSize: 11, fontWeight: 'bold' }}>
+              {hasCoverUrl ? `PIC_OK ${coverUrl.slice(0, 12)}` : 'PIC_EMPTY'}
+            </Text>
+          </View>
         </View>
       </TouchableWithoutFeedback>
       {menuVisible && <Menu ref={menuRef} menus={menus} onPress={handleMenuPress} onHide={() => setMenuVisible(false)} />}

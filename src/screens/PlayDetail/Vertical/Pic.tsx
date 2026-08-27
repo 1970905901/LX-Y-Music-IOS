@@ -21,7 +21,10 @@ const AnimatedCover = Animated.createAnimatedComponent(FastImage);
  * 竖屏播放页封面。
  * - 封面来源：playerMusicInfo.pic 已兼容在线 + 下载两种来源（playInfo.ts setPlayerMusicInfo）。
  *   同时兜底 playMusicInfo.musicInfo.meta.picUrl（下载歌曲取 metadata.musicInfo.meta.picUrl）。
- * - 旋转动画：自己实现无限循环（Animated.loop + useNativeDriver:true），不依赖旧动画逻辑。
+ * - 旋转动画：采用与横屏/沉浸一致的 createAnimation/startAnimation/stopAnimation 手动循环模式
+ *   （参考版封面即此写法）。经验证 Animated.loop 在首屏挂载时常不启动（表现为进页面不转、
+ *   切歌才转），故这里改为 stopAnimation 取当前角度后重新 timing 的可靠循环：进页面（歌曲已
+ *   播放）即开始旋转，暂停时停止，切歌时重置角度重新旋转。
  * - 渲染组件：使用 Animated.createAnimatedComponent(FastImage) 直接承载封面并做旋转。
  *   旧代码把 FastImage 包在 Animated.View 里做 rotate 动画时，在 iOS 上会白屏/不渲染；
  *   直接对 FastImage 做 rotate 既保留 FastImage 的缓存/加载能力，又避免白屏。
@@ -67,35 +70,70 @@ export default memo(({ componentId }: { componentId: string }) => {
     return Math.min(winWidth * 0.65, availableHeight * 0.5);
   }, [winWidth, winHeight, statusBarHeight]);
 
-  // ---- 旋转动画：自己实现无限循环 ----
+  // ---- 旋转动画：采用与横屏/沉浸一致的 createAnimation/start/stop 模式 ----
+  // 原 Animated.loop 在首屏挂载时常不启动（进页面不转、切歌才转），
+  // 这里改为 stopAnimation -> 取当前角度 -> 重新 timing 的可靠循环方式，
+  // 进页面（歌曲已播放）即开始旋转，暂停时停止，切歌时重置角度重新旋转。
   const spinValue = useRef(new Animated.Value(0)).current;
-  const animRef = useRef<Animated.CompositeAnimation | null>(null);
+  const animationRef = useRef<Animated.CompositeAnimation | null>(null);
+  const isAnimating = useRef(false);
+  const isUnmounted = useRef(false);
+
+  const createAnimation = useCallback((value: number) => {
+    return Animated.timing(spinValue, {
+      toValue: 1,
+      duration: 25000 * (1 - value),
+      easing: Easing.linear,
+      useNativeDriver: true,
+    });
+  }, [spinValue]);
+
+  const startAnimation = useCallback(() => {
+    if (isAnimating.current || !isCoverSpin || isUnmounted.current) return;
+    isAnimating.current = true;
+    spinValue.stopAnimation((value) => {
+      if (isUnmounted.current) return;
+      animationRef.current = createAnimation(value);
+      animationRef.current.start(({ finished }) => {
+        if (finished && isAnimating.current && !isUnmounted.current) {
+          spinValue.setValue(0);
+          isAnimating.current = false;
+          startAnimation();
+        }
+      });
+    });
+  }, [spinValue, createAnimation, isCoverSpin]);
+
+  const stopAnimation = useCallback(() => {
+    if (!isAnimating.current) return;
+    isAnimating.current = false;
+    animationRef.current?.stop();
+    animationRef.current = null;
+    spinValue.stopAnimation();
+  }, [spinValue]);
 
   useEffect(() => {
-    animRef.current?.stop();
-    spinValue.setValue(0);
     if (isPlay && isCoverSpin) {
-      const anim = Animated.loop(
-        Animated.timing(spinValue, {
-          toValue: 1,
-          duration: 25000,
-          easing: Easing.linear,
-          useNativeDriver: true,
-        }),
-      );
-      animRef.current = anim;
-      anim.start();
+      startAnimation();
+    } else {
+      stopAnimation();
     }
-    return () => {
-      animRef.current?.stop();
-      animRef.current = null;
-    };
-  }, [isPlay, isCoverSpin, spinValue]);
+  }, [isPlay, isCoverSpin, startAnimation, stopAnimation]);
 
-  // 切歌时重置旋转
   useEffect(() => {
+    stopAnimation();
     spinValue.setValue(0);
-  }, [musicId, spinValue]);
+    if (isPlay && isCoverSpin && musicId) {
+      startAnimation();
+    }
+  }, [musicId, isCoverSpin, startAnimation, stopAnimation, spinValue]);
+
+  useEffect(() => {
+    return () => {
+      isUnmounted.current = true;
+      stopAnimation();
+    };
+  }, [stopAnimation]);
 
   const spin = spinValue.interpolate({
     inputRange: [0, 1],

@@ -2,7 +2,6 @@ import { memo, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Animated, Easing, View } from 'react-native';
 import { usePlayerMusicInfo, useIsPlay } from '@/store/player/hook';
 import { useWindowSize } from '@/utils/hooks';
-import { NAV_SHEAR_NATIVE_IDS } from '@/config/constant';
 import { createStyle } from '@/utils/tools';
 import { HEADER_HEIGHT } from './components/Header';
 import { BTN_WIDTH } from './MoreBtn/Btn';
@@ -119,7 +118,6 @@ export default memo(({ componentId }: { componentId: string }) => {
         <Animated.View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: imageContainerStyle.borderRadius, transform: [{ rotate: spin }] }}>
           <Image
             url={musicInfo.pic}
-            nativeID={NAV_SHEAR_NATIVE_IDS.playDetail_pic}
             style={imageStyle}
           />
         </Animated.View>

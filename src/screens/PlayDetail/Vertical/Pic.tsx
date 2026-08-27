@@ -1,10 +1,9 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Animated, Easing, TouchableWithoutFeedback, Text, type TextStyle } from 'react-native';
+import { View, Animated, Easing, TouchableWithoutFeedback } from 'react-native';
 import { useIsPlay, usePlayerMusicInfo, usePlayMusicInfo } from '@/store/player/hook';
 import { useWindowSize } from '@/utils/hooks';
 import { useSettingValue } from '@/store/setting/hook';
 import Image from '@/components/common/Image';
-import { NAV_SHEAR_NATIVE_IDS } from '@/config/constant';
 import { useStatusbarHeight } from '@/store/common/hook';
 import { HEADER_HEIGHT } from './components/Header';
 import { createStyle, toast, requestStoragePermission } from '@/utils/tools';
@@ -20,8 +19,8 @@ import settingState from '@/store/setting/state';
  * - 封面来源：直接取当前播放歌曲 playerMusicInfo.pic（playInfo.ts 已兼容在线 + 下载两来源），
  *   切歌时随歌曲自动更新。
  * - 旋转动画：自己实现无限循环（Animated.loop + useNativeDriver:true），不依赖旧动画逻辑。
- * - 圆形：容器 borderRadius = size/2。
- * - 保留 nativeID（playDetail_pic）与 navigation 的 sharedElementTransitions 配套（与 e58d1ab1 一致）。
+ * - 圆形：容器 borderRadius = size/2，overflow:hidden 裁剪旋转方图。
+ * - 不使用 RNN sharedElementTransitions：iOS 上会被原生层劫持成错位大图；封面与导航转场解耦。
  * - 尺寸：min(屏宽 * 0.65, 可用高 * 0.5)，居中。
  */
 export default memo(({ componentId }: { componentId: string }) => {
@@ -150,17 +149,6 @@ export default memo(({ componentId }: { componentId: string }) => {
   const radius = size / 2;
   const imageStyle = useMemo(() => ({ width: '100%', height: '100%', borderRadius: radius } as any), [radius]);
 
-  const diagTextStyle = useMemo((): TextStyle => ({
-    position: 'absolute',
-    bottom: 2,
-    left: 8,
-    right: 8,
-    fontSize: 9,
-    color: '#ffcc00',
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    padding: 2,
-  }), []);
-
   return (
     <View style={styles.container}>
       <TouchableWithoutFeedback onLongPress={handleLongPress}>
@@ -170,14 +158,10 @@ export default memo(({ componentId }: { componentId: string }) => {
           style={{ width: size, height: size, borderRadius: radius, overflow: 'hidden' }}
         >
           <Animated.View style={{ width: '100%', height: '100%', borderRadius: radius, transform: [{ rotate: spin }] }}>
-            <Image url={coverUrl} nativeID={NAV_SHEAR_NATIVE_IDS.playDetail_pic} style={imageStyle} />
+            <Image url={coverUrl} style={imageStyle} />
           </Animated.View>
         </View>
       </TouchableWithoutFeedback>
-      {/* 临时文字诊断（下版移除） */}
-      <Text style={diagTextStyle}>
-        {`url=${String(coverUrl).slice(0, 40)} | size=${Math.round(size)} | spin=${String(isCoverSpin)}`}
-      </Text>
       {menuVisible && <Menu ref={menuRef} menus={menus} onPress={handleMenuPress} onHide={() => setMenuVisible(false)} />}
     </View>
   );

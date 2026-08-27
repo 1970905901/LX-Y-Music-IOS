@@ -4,7 +4,7 @@ import { usePlayerMusicInfo } from '@/store/player/hook'
 import { scaleSizeH } from '@/utils/pixelRatio'
 import commonState from '@/store/common/state'
 import playerState from '@/store/player/state'
-import { LIST_IDS, NAV_SHEAR_NATIVE_IDS } from '@/config/constant'
+import { LIST_IDS } from '@/config/constant'
 import Image from '@/components/common/Image'
 import { useCallback, useRef } from 'react'
 import { setLoadErrorPicUrl, setMusicInfo } from '@/core/player/playInfo'
@@ -51,7 +51,6 @@ export default ({ isHome }: { isHome: boolean }) => {
     <TouchableOpacity onLongPress={handleLongPress} onPress={handlePress} activeOpacity={0.7}>
       <Image
         url={musicInfo.pic}
-        nativeID={NAV_SHEAR_NATIVE_IDS.playDetail_pic}
         style={styles.image}
         onError={handleError}
       />

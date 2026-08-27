@@ -52,14 +52,14 @@ export default () => {
       // 歌词同步：无论播放还是暂停，只要没在拖动/seek 沉降窗口内，就用真实音频位置重锚。
       // syncToTime 是【纯镜像】：歌词行永远由当前音频位置推导，不启动任何独立 ticker，
       // 因此歌词时钟不可能脱离音频自行走字（缓冲/卡顿/JS 线程繁忙时也不会跑在音频前面）。
-      // 覆盖“暂停 seek / 后台重开 / 封面页歌词 / 倍速”等全部场景（⑩ 绝对同步）。
+      // 覆盖“暂停 seek / 后台重开 / 封面页歌词 / 倍速”等全部场景（⑩ 实时同步）。
       // 拖动进度条期间由 progressDragPreview 事件接管，这里跳过，避免把预览高亮拽回旧位置。
       // seek/点击后的 ~250ms 内跳过，避免把刚跳转的高亮行又拽回 seek 前的旧位置
       // （iOS 一次 seek 约需 ~180ms 才生效，期间 getPosition 仍是旧位置；250ms 已留足余量）。
       if (!isDragging && Date.now() - lastSeekTime > 250) {
         try {
           // 无论播放/暂停，都用【真实音频位置】做纯镜像重锚（不启动 ticker），
-          // 歌词行永远等于音频真实位置 → 音频与歌词绝对同步（覆盖所有场景，含 ⑩）。
+          // 歌词行永远等于音频真实位置 → 音频与歌词实时同步（覆盖所有场景，含 ⑩）。
           lrcSyncToTime(position * 1000, playerState.isPlay)
         } catch {}
       }
@@ -127,7 +127,7 @@ export default () => {
     if (playerState.isPlay) updateScrobblePlayTime(time)
     void setCurrentTime(time)
     // 跳转进度时同步校正歌词：用真实音频位置纯镜像重锚（含点击歌词行 / 进度条 seek），
-    // 无论播放暂停都锚到该位置，歌词行与音频绝对同步（不启动 ticker）。
+    // 无论播放暂停都锚到该位置，歌词行与音频实时同步（不启动 ticker）。
     try {
       lrcSyncToTime(time * 1000, playerState.isPlay)
     } catch {}
@@ -231,10 +231,20 @@ export default () => {
   AppState.addEventListener('change', (state) => {
     if (state == 'active' && !isScreenOn) {
       handleScreenStateChanged('ON')
-      // 从后台切换回软件时，若开启开关且当前有歌曲但处于暂停状态，则自动恢复播放
-      if (settingState.setting['player.autoPlayOnReturn'] && !playerState.isPlay && playerState.musicInfo.id) {
-        play()
-      }
+    }
+    if (state == 'active' && playerState.musicInfo.id) {
+      // 从后台/挂起状态回到前台：立即用引擎实时位置纯镜像重锚歌词时钟，
+      // 不依赖 isScreenOn 是否已被清为 false，消除回前台瞬间高亮滞后窗口，
+      // 保证“播放时后台回前台”音频与歌词实时同步（第⑫条验收）。
+      void getPosition().then((position) => {
+        if (position != null && playerState.musicInfo.id) {
+          try { lrcSyncToTime(position * 1000, playerState.isPlay) } catch {}
+        }
+      })
+    }
+    // 从后台切换回软件时，若开启开关且当前有歌曲但处于暂停状态，则自动恢复播放
+    if (state == 'active' && settingState.setting['player.autoPlayOnReturn'] && !playerState.isPlay && playerState.musicInfo.id) {
+      play()
     }
   })
 

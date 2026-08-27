@@ -19,29 +19,34 @@ import settingState from '@/store/setting/state';
 export default memo(({ componentId, maxCoverHeight }: { componentId: string, maxCoverHeight?: number }) => {
   const musicInfo = usePlayMusicInfo();
   const playerMusicInfo = usePlayerMusicInfo();
-  // 封面来源：优先使用播放曲目的【权威封面源】（与历史可显示版本一致）：
-  //   已下载 -> musicInfo.musicInfo.metadata.musicInfo.meta.picUrl
-  //   在线   -> musicInfo.musicInfo.meta.picUrl
-  // 仅当权威源为空时才回退到 playerMusicInfo.pic——避免该字段若为非空但不可加载的值时
-  // 短路、导致封面空白，也不让 pic 抢占真正可用的源。
+  // 封面来源：与 PlayerBar、Horizontal Pic 保持一致，优先使用 playerMusicInfo.pic。
+  // 该字段是应用实际在用的已解析封面（视频证实 PlayerBar 用它能正常显示），
+  // 因此作为主源；仅当它为空白或加载失败时，才回退到原始 musicInfo.musicInfo 的
+  // metadata/meta.picUrl，并启用异步 getPicUrl 兜底，兼容已下载歌曲等场景。
   const [resolvedPic, setResolvedPic] = useState('')
-  const coverPic = useMemo(() => {
+  const [picLoadError, setPicLoadError] = useState(false)
+  const staticFallbackPic = useMemo(() => {
     const raw = musicInfo.musicInfo as any
-    if (!raw) return resolvedPic
-    if (raw.metadata?.musicInfo?.meta?.picUrl) return raw.metadata.musicInfo.meta.picUrl
-    if (raw.meta?.picUrl) return raw.meta.picUrl
-    if (playerMusicInfo.pic) return playerMusicInfo.pic
-    return resolvedPic
-  }, [musicInfo.musicInfo, playerMusicInfo.pic, resolvedPic]);
+    if (!raw) return ''
+    return raw.metadata?.musicInfo?.meta?.picUrl || raw.meta?.picUrl || ''
+  }, [musicInfo.musicInfo])
+  const coverPic = useMemo(() => {
+    if (playerMusicInfo.pic && !picLoadError) return playerMusicInfo.pic
+    return staticFallbackPic || resolvedPic
+  }, [playerMusicInfo.pic, picLoadError, staticFallbackPic, resolvedPic]);
 
-  // 异步兜底：仅当【权威静态源】为空时才向音源解析封面（与“下载封面”菜单同款 getPicUrl），
-  // 且不被 playerMusicInfo.pic 的非空值短路，确保能拿到真正可加载的封面。
-  // 切歌先清空 resolvedPic 避免旧封面闪现；用 cancelled 标记防止请求竞态。
+  // 切歌重置错误状态与异步解析结果，避免旧封面/错误态残留。
+  useEffect(() => {
+    setPicLoadError(false)
+    setResolvedPic('')
+  }, [musicInfo.musicInfo?.id])
+
+  // 异步兜底：playerMusicInfo.pic 与静态 fallback 都为空时，向音源解析封面
+  // （与“下载封面”菜单同款 getPicUrl）。
   useEffect(() => {
     const raw = musicInfo.musicInfo as any
-    const staticPic = raw?.metadata?.musicInfo?.meta?.picUrl || raw?.meta?.picUrl
-    setResolvedPic('')
-    if (staticPic || !raw) return
+    if (!raw) return
+    if (playerMusicInfo.pic || staticFallbackPic) return
     const online = ('progress' in raw ? raw.metadata?.musicInfo : raw) as LX.Music.MusicInfoOnline | undefined
     if (!online || !('meta' in online) || !(online as any).meta) return
     let cancelled = false
@@ -49,7 +54,7 @@ export default memo(({ componentId, maxCoverHeight }: { componentId: string, max
       .then((url) => { if (!cancelled && url) setResolvedPic(url) })
       .catch(() => {})
     return () => { cancelled = true }
-  }, [musicInfo.musicInfo?.id])
+  }, [musicInfo.musicInfo?.id, playerMusicInfo.pic, staticFallbackPic])
   const { width: winWidth, height: winHeight } = useWindowSize();
   const statusBarHeight = useStatusbarHeight();
   const isPlay = useIsPlay();
@@ -283,6 +288,10 @@ export default memo(({ componentId, maxCoverHeight }: { componentId: string, max
               url={coverPic}
               nativeID={NAV_SHEAR_NATIVE_IDS.playDetail_pic}
               style={imageStyle}
+              onError={() => {
+                // 主源 playerMusicInfo.pic 加载失败时，触发 fallback 链。
+                if (playerMusicInfo.pic && !picLoadError) setPicLoadError(true)
+              }}
             />
           </Animated.View>
         </View>

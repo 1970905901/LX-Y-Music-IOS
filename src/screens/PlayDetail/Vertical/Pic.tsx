@@ -1,5 +1,6 @@
-import { memo, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Animated, Easing, TouchableWithoutFeedback, Image as RNImage } from 'react-native';
+import { memo, useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { View, Animated, Easing, TouchableWithoutFeedback } from 'react-native';
+import FastImage from '@d11/react-native-fast-image';
 import { useIsPlay, usePlayerMusicInfo, usePlayMusicInfo } from '@/store/player/hook';
 import { useWindowSize } from '@/utils/hooks';
 import { useSettingValue } from '@/store/setting/hook';
@@ -14,19 +15,20 @@ import { getPicUrl } from '@/core/music/online';
 import { getFileExtensionFromUrl } from '@/screens/Home/Views/Mylist/MusicList/download/utils';
 import settingState from '@/store/setting/state';
 
-const AnimatedCover = Animated.createAnimatedComponent(RNImage);
+const AnimatedCover = Animated.createAnimatedComponent(FastImage);
 
 /**
- * 竖屏播放页封面 —— 完全重写（用户要求"自己做一个"）。
+ * 竖屏播放页封面。
  * - 封面来源：playerMusicInfo.pic 已兼容在线 + 下载两种来源（playInfo.ts setPlayerMusicInfo）。
- *   同时兜底 playMusicInfo.musicInfo.meta.picUrl，保证和参考版 e58d1ab1 的数据入口一致。
+ *   同时兜底 playMusicInfo.musicInfo.meta.picUrl（下载歌曲取 metadata.musicInfo.meta.picUrl）。
  * - 旋转动画：自己实现无限循环（Animated.loop + useNativeDriver:true），不依赖旧动画逻辑。
- * - 渲染组件：使用 React Native 原生 Animated.Image 直接承载封面并做旋转。
- *   FastImage 被包在 Animated.View 里做 rotate 动画时，在 iOS 上会白屏/不渲染，
- *   故封面这里绕过 FastImage，改用 RN Image。
+ * - 渲染组件：使用 Animated.createAnimatedComponent(FastImage) 直接承载封面并做旋转。
+ *   旧代码把 FastImage 包在 Animated.View 里做 rotate 动画时，在 iOS 上会白屏/不渲染；
+ *   直接对 FastImage 做 rotate 既保留 FastImage 的缓存/加载能力，又避免白屏。
+ * - 错误回退：FastImage 加载失败时显示通用 Image 占位图，避免 RN Image 失败后的完全空白。
  * - 圆形：封面自身 borderRadius = size/2（圆形旋转视觉不变），
  *   全链路不使用 overflow:'hidden' 裁切——iOS 上 clipsToBounds 祖先
- *   会把带 transform 的后代剔除出渲染树，这是此前封面白屏的根因。
+ *   会把带 transform 的后代剔除出渲染树。
  * - 不使用 RNN sharedElementTransitions：iOS 上会被原生层劫持成错位大图；封面与导航转场解耦。
  * - 尺寸：min(屏宽 * 0.65, 可用高 * 0.5)，居中。
  */
@@ -40,7 +42,21 @@ export default memo(({ componentId }: { componentId: string }) => {
 
   // 封面 URL：playerMusicInfo.pic 已兼容在线 + 下载两种来源（playInfo.ts setPlayerMusicInfo）。
   // 同时兜底 playMusicInfo.musicInfo.meta.picUrl，保证和参考版 e58d1ab1 的数据入口一致。
-  const coverUrl = playerMusicInfo.pic || (playMusicInfo.musicInfo as LX.Music.MusicInfo)?.meta?.picUrl || '';
+  const rawMusicInfo = playMusicInfo.musicInfo;
+  const coverUrl = playerMusicInfo.pic
+    || (rawMusicInfo && ('progress' in rawMusicInfo
+      ? (rawMusicInfo as LX.Download.ListItem).metadata.musicInfo.meta.picUrl
+      : (rawMusicInfo as LX.Music.MusicInfo).meta?.picUrl))
+    || '';
+
+  // FastImage 加载失败状态（RN Image 失败时完全空白，无占位；改用 FastImage 并自带错误回退）
+  const [isLoadError, setLoadError] = useState(false);
+  useEffect(() => {
+    setLoadError(false);
+  }, [coverUrl]);
+  const handleCoverError = useCallback(() => {
+    setLoadError(true);
+  }, []);
 
   // 当前歌曲 id，用于切歌时重置旋转角度
   const musicId = playerMusicInfo.id;
@@ -188,11 +204,17 @@ export default memo(({ componentId }: { componentId: string }) => {
           collapsable={false}
           style={coverContainerStyle}
         >
-          {coverUrl ? (
+          {coverUrl && !isLoadError ? (
             <AnimatedCover
-              source={{ uri: coverUrl, headers: defaultHeaders }}
+              source={{
+                uri: coverUrl,
+                headers: defaultHeaders,
+                priority: 'normal',
+                cache: 'immutable',
+              }}
               style={animatedCoverStyle}
-              resizeMode="cover"
+              resizeMode={FastImage.resizeMode.cover}
+              onError={handleCoverError}
             />
           ) : (
             <Image url={coverUrl} style={emptyImageStyle} />

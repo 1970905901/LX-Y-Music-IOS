@@ -62,7 +62,8 @@ const SongItem = memo(
       >
         <TouchableOpacity style={styles.rowLeft} onPress={() => onPress(item)}>
           <View style={styles.coverBox}>
-            <Icon name="music" size={22} color={isPlaying ? theme['c-primary-font'] : theme['c-500']} />
+            {/* IcoMoon 字体没有 "music" 字形，渲染成问号，这里用存在的 add-music 字形 */}
+            <Icon name="add-music" size={22} color={isPlaying ? theme['c-primary-font'] : theme['c-500']} />
           </View>
           <View style={styles.itemInfo}>
             <Text color={isPlaying ? theme['c-primary-font'] : theme['c-font']} numberOfLines={1}>

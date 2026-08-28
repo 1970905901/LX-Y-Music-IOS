@@ -329,17 +329,17 @@ export const handleDownload = async (musicInfo: LX.Music.MusicInfo, quality: LX.
         }
       }
 
-      // iOS 没有原生封面写入模块，直接跳过（避免误报「写入封面失败」）
-      if (Platform.OS === 'android' && settingState.setting['download.writePicture']) {
+      // iOS 已有原生封面写入模块（sidecar 伴随文件），与 Android 一样执行写入
+      if (settingState.setting['download.writePicture']) {
         try {
           const picUrl = await getPicUrl({
             musicInfo: musicInfo as LX.Music.MusicInfoOnline,
             isRefresh: false,
           })
           // console.log(picUrl)
-          const extension = getFileExtensionFromUrl(picUrl)
+          const extension = getFileExtensionFromUrl(picUrl) || 'jpg'
           const picPath = `${downloadDir}/temp.${extension}`
-          downloadFile(picUrl, picPath)
+          await downloadFile(picUrl, picPath).promise
           await writePic(filePath, picPath)
           await RNFetchBlob.fs.unlink(picPath)
           toast(`写入封面成功!`, 'short')

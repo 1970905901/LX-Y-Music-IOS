@@ -30,6 +30,16 @@ const extractPlaylistId = (input) => {
   }
 }
 
+// 抖音/汽水图片对象 → 完整 URL（url_cover/cover 等字段是 { url_list: [...] } 结构）
+const pickUrl = (value) => {
+  if (!value) return ''
+  if (typeof value === 'string') return value
+  if (Array.isArray(value)) return value[0] || ''
+  if (Array.isArray(value.url_list) && value.url_list.length > 0) return value.url_list[0]
+  if (Array.isArray(value.urls) && value.urls.length > 0) return `${value.urls[0] || ''}${value.uri || ''}`
+  return value.url || value.uri || ''
+}
+
 export default {
   regExps: {
     listDetailLink: /^.+\/(?:playlist|list)\/(\d+)(?:\?.*|&.*$|#.*$|$)/,
@@ -68,7 +78,7 @@ export default {
         source: 'qs',
         info: {
           name: playlist.title || playlist.name || '',
-          img: playlist.url_cover || playlist.cover || playlist.cover_url || '',
+          img: pickUrl(playlist.url_cover || playlist.cover || playlist.cover_url),
           desc: playlist.description || playlist.intro || '',
           author: '',
           play_count: '',
@@ -95,7 +105,7 @@ export default {
           .map((a) => a.name || a.simple_display_name || a.user_info?.nickname || '')
           .filter(Boolean)
           .join('、')
-        const cover = album.url_cover || album.cover_url || album.coverURL || ''
+        const cover = pickUrl(album.url_cover || album.cover_url || album.coverURL)
         const duration = track.duration ?? track.duration_ms ?? 0
 
         return {

@@ -1,4 +1,5 @@
 import { formatPlayTime } from '@/utils/common'
+import songList from './songList'
 
 const H5_UA = 'Luna/19.1.0 Android'
 const WEB_UA =
@@ -15,6 +16,8 @@ const pickUrl = (value) => {
   if (!value) return ''
   if (typeof value === 'string') return value
   if (Array.isArray(value)) return value[0] || ''
+  // 抖音图片对象标准结构：{ url_list: ['https://...', ...], uri, width, height }
+  if (Array.isArray(value.url_list) && value.url_list.length > 0) return value.url_list[0]
   if (Array.isArray(value.urls) && value.urls.length > 0) return `${value.urls[0] || ''}${value.uri || ''}`
   return value.url || value.uri || ''
 }
@@ -25,7 +28,8 @@ const fetchBoardSongIds = async (bangid) => {
     headers: { 'User-Agent': WEB_UA },
   }).then((r) => r.text())
   const ids = []
-  const re = /song%2F(\d+)/g
+  // SSR HTML 里歌曲链接可能被 URL 编码成 song%2F123 或保持 song/123，两种都匹配
+  const re = /song(?:%2F|\/)(\d+)/g
   let m
   while ((m = re.exec(html)) !== null) {
     if (!ids.includes(m[1])) ids.push(m[1])
@@ -73,27 +77,37 @@ export default {
   },
 
   async getList(bangid, page, retryNum = 0) {
+    // 汽水排行榜本质是官方歌单：优先用 Luna API（POST /luna/playlist/detail）
+    // 获取完整榜单，避免 SSR 只内嵌部分歌曲导致列表不全。
     try {
-      const ids = await fetchBoardSongIds(String(bangid))
-      const tracks = await Promise.all(ids.map((id) => fetchTrack(id).catch(() => null)))
-      const list = tracks.filter(Boolean)
-      return {
-        list,
-        page,
-        limit: list.length,
-        total: list.length,
-        source: 'qs',
-        info: {
-          name: BOARDS.find((b) => b.bangid == bangid)?.name || '音乐排行榜',
-          img: '',
-          desc: '',
-          author: '',
-          play_count: '',
-        },
-      }
+      const result = await songList.getListDetail(String(bangid), page)
+      // 榜单名以 BOARDS 配置为准（Luna API 返回的歌单名可能缺失）
+      result.info.name = BOARDS.find((b) => b.bangid == bangid)?.name || result.info.name || '音乐排行榜'
+      return result
     } catch (err) {
-      if (retryNum > 2) return Promise.reject(err)
-      return this.getList(bangid, page, ++retryNum)
+      // 回退：从抖音网页 SSR HTML 提取歌曲 ID（原方案，兼容 Luna API 失效的情况）
+      try {
+        const ids = await fetchBoardSongIds(String(bangid))
+        const tracks = await Promise.all(ids.map((id) => fetchTrack(id).catch(() => null)))
+        const list = tracks.filter(Boolean)
+        return {
+          list,
+          page,
+          limit: list.length,
+          total: list.length,
+          source: 'qs',
+          info: {
+            name: BOARDS.find((b) => b.bangid == bangid)?.name || '音乐排行榜',
+            img: '',
+            desc: '',
+            author: '',
+            play_count: '',
+          },
+        }
+      } catch (err2) {
+        if (retryNum > 2) return Promise.reject(err2)
+        return this.getList(bangid, page, ++retryNum)
+      }
     }
   },
 }

@@ -118,25 +118,27 @@ jobs:
 
       - name: Publish unsigned IPA to rolling "latest" release
         if: github.ref == 'refs/heads/master'
-        uses: softprops/action-gh-release@v2.2.0
-        with:
-          tag_name: latest
-          make_latest: false
-          prerelease: true
-          name: Latest Unsigned Build
-          body: |
-            Automated unsigned IPA build from master @ ${{ github.sha }}.
-            Built on ${{ github.run_id }} — do not use as a stable release.
-          files: build/LX-Y Music-v${{ env.PACKAGE_VERSION }}-ios-unsigned.ipa
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          IPA_NAME="LX-Y Music-v${PACKAGE_VERSION}-ios-unsigned.ipa"
+          NOTES="Automated unsigned IPA build from master @ ${{ github.sha }}. Built on ${{ github.run_id }} — do not use as a stable release."
+          # 用 gh CLI（原生二进制，不受 Node 24 运行时影响）更新 rolling "latest" release。
+          # 原先 softprops/action-gh-release 在 Node 24 强制环境下上传大文件会报
+          # "Request body length does not match content-length header"。
+          gh release upload latest "build/${IPA_NAME}" --clobber \
+            || gh release create latest "build/${IPA_NAME}" --title "Latest Unsigned Build" --prerelease --notes "$NOTES" || true
 
       - name: Release unsigned IPA
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2.2.0
-        with:
-          tag_name: v${{ env.PACKAGE_VERSION }}
-          prerelease: false
-          draft: false
-          files: build/LX-Y Music-v${{ env.PACKAGE_VERSION }}-ios-unsigned.ipa
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          IPA_NAME="LX-Y Music-v${PACKAGE_VERSION}-ios-unsigned.ipa"
+          gh release create "v${PACKAGE_VERSION}" "build/${IPA_NAME}" \
+            --title "v${PACKAGE_VERSION}" --prerelease=false || true
 
       - name: Install signing certificate
         if: ${{ env.IOS_P12_BASE64 != '' && env.IOS_P12_PASSWORD != '' && env.IOS_MOBILEPROVISION_BASE64 != '' && env.IOS_TEAM_ID != '' }}

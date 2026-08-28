@@ -5,6 +5,7 @@ import { webDAVLog } from './logger'
 import { btoa } from 'react-native-quick-base64'
 import { downloadFile, existsFile, mkdir, temporaryDirectoryPath } from '@/utils/fs'
 import { enforceCloudCacheLimit } from '@/utils/nativeModules/cache'
+import { stringMd5 } from 'react-native-quick-md5'
 
 const CONFIG_KEY = '@webdav_music_config'
 const audioExts = new Set([
@@ -340,7 +341,8 @@ export const fetchWebDAVPic = async (musicInfo: LX.WebDAV.MusicInfo): Promise<st
     const url = getWebDAVRemoteUrl(picPath)
     const coversDir = `${getWebDAVCacheDirectory()}/covers`
     const ext = picPath.split('.').pop()?.toLowerCase() || 'jpg'
-    const localPath = `${coversDir}/${encodeURIComponent(picPath)}.${ext}`
+    // 同音频缓存：用 md5 避免 encodeURIComponent 与 downloadFile 内部 decodeURIComponent 冲突
+    const localPath = `${coversDir}/${stringMd5(picPath)}.${ext}`
     if (await existsFile(localPath)) return `file://${localPath}`
     await mkdir(coversDir)
     await downloadFile(url, localPath, { headers: getWebDAVAuthHeaders() }).promise
@@ -375,7 +377,10 @@ export const downloadWebDAVMusic = async (musicInfo: LX.WebDAV.MusicInfo): Promi
   const remotePath = String(musicInfo.meta.remotePath || musicInfo.meta.songId || musicInfo.meta.filePath)
   const cacheDir = `${getWebDAVCacheDirectory()}/music`
   const ext = musicInfo.meta.ext || getExt(musicInfo.meta.fileName || remotePath)
-  const filePath = `${cacheDir}/${encodeURIComponent(remotePath)}.${ext}`
+  // 缓存文件名用 remotePath 的 md5：downloadFile 内部 normalizePath 会 decodeURIComponent，
+  // 若用 encodeURIComponent(remotePath) 生成文件名，下载实际写入的是“解码后”路径，而返回给
+  // 播放器的是“编码后”路径，两者不一致导致播放器找不到文件、无法播放。
+  const filePath = `${cacheDir}/${stringMd5(remotePath)}.${ext}`
 
   if (await existsFile(filePath)) return filePath
 

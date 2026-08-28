@@ -150,7 +150,7 @@ const Header = () => {
 const styles = createStyle({
   container: {
     // width: '100%',
-    paddingRight: 5,
+    paddingRight: 12,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
@@ -160,7 +160,7 @@ const styles = createStyle({
   left: {
     flex: 1,
     flexDirection: 'row',
-    paddingLeft: 5,
+    paddingLeft: 12,
     alignItems: 'center',
     height: '100%',
   },

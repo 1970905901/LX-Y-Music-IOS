@@ -143,8 +143,8 @@ export default memo(({ componentId, isHome = false }: { componentId?: string, is
 
 const styles = createStyle({
   wrapper: {
-    paddingHorizontal: 10,
-    paddingBottom: 12,
+    paddingHorizontal: 16,
+    paddingBottom: 18,
     paddingTop: 4,
   },
   container: {

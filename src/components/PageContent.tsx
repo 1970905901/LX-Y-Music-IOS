@@ -64,6 +64,8 @@ export default ({ children }: Props) => {
           style={{
             flex: 1,
             flexDirection: 'column',
+            // 全局左右内收：所有屏幕内容稍离屏幕边缘（背景图仍全屏不受影响）
+            paddingHorizontal: 6,
             backgroundColor: pic ? undefined : theme['c-main-background'],
           }}
         >

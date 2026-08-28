@@ -324,20 +324,6 @@ export default memo(({ componentId, artistInfo }: { componentId: string, artistI
   const apiHasPic = artistDetail?.artist && (artistDetail.artist.avatar || artistDetail.artist.cover || artistDetail.artist.picUrl || artistDetail.artist.singerPic)
   const displayArtist = apiHasPic ? artistDetail.artist : artistInfo
 
-  log.info('[ArtistDetail] === 界面渲染诊断 ===', {
-    artistId: artistInfo.id,
-    hasArtistDetail: !!artistDetail,
-    artistDetailKeys: artistDetail ? Object.keys(artistDetail) : [],
-    displayArtistName: displayArtist?.name,
-    displayArtistPicUrl: displayArtist?.picUrl ? '有封面' : '无封面',
-    songsListLength: songs.list.length,
-    songsHasMore: songs.hasMore,
-    songsLoading: songs.loading,
-    albumsListLength: albums.list.length,
-    albumsHasMore: albums.hasMore,
-
-  })
-
   return (
     <PageContent>
       <View style={styles.container}>

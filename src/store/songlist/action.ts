@@ -1,6 +1,11 @@
 import type { TagInfo, ListDetailInfo, ListInfo, Source } from './state'
 import state from './state'
 
+// 本地分页大小：界面按 30 条/页翻页，而源接口的分页大小（result.limit）各平台不一。
+// maxPage 必须用本地页单位计算，否则部分平台的歌单会提前判定"没有更多"，
+// 列表被截断。
+export const LIST_LOAD_LIMIT = 30
+
 export default {
   setTags(tagInfo: TagInfo, source: LX.OnlineSource) {
     state.tags[source] = tagInfo
@@ -19,7 +24,7 @@ export default {
     state.listInfo.source = result.source
     state.listInfo.tagId = tagId
     state.listInfo.sortId = sortId
-    state.listInfo.maxPage = Math.ceil(state.listInfo.total / result.limit)
+    state.listInfo.maxPage = Math.ceil(state.listInfo.total / LIST_LOAD_LIMIT)
 
     return state.listInfo
   },
@@ -44,7 +49,7 @@ export default {
     state.listDetailInfo.limit = result.limit
     state.listDetailInfo.page = page
     state.listDetailInfo.info = { ...result.info }
-    state.listDetailInfo.maxPage = Math.ceil(state.listDetailInfo.total / result.limit)
+    state.listDetailInfo.maxPage = Math.ceil(state.listDetailInfo.total / LIST_LOAD_LIMIT)
 
     return state.listDetailInfo
   },

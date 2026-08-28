@@ -1,5 +1,5 @@
 import leaderboardState, { type Board, type ListDetailInfo } from '@/store/leaderboard/state'
-import leaderboardActions from '@/store/leaderboard/action'
+import leaderboardActions, { LIST_LOAD_LIMIT } from '@/store/leaderboard/action'
 import { deduplicationList, toNewMusicInfo } from '@/utils'
 import musicSdk from '@/utils/musicSdk'
 
@@ -31,7 +31,15 @@ interface PageCache {
 type CacheValue = Map<string, PageCache | ListDetailInfo['list']>
 
 const cache = new Map<string, CacheValue>()
-const LIST_LOAD_LIMIT = 30
+
+// 并发治理：从榜单播放歌曲时 handlePlay 会调 getListDetailAll 后台加载全部分页，
+// 与界面滚动触发的"加载更多"并发调用 getListLimit。两次并发会对同一源页发起
+// 两次请求并互相覆盖缓存分块（tempList 被双重消费），导致歌曲重复/丢失、
+// 分页边界错乱。cache 是模块级持久缓存，一旦污染，之后所有浏览都加载不全。
+// 修复：同榜单同页的并发请求共享同一个 Promise（去重）；同榜单的不同页请求
+// 串行排队执行，避免读到过期的 sourcePage / tempList。
+const inflightPageRequests = new Map<string, Promise<ListDetailInfo>>()
+const listRequestQueues = new Map<string, Promise<unknown>>()
 
 export const getBoardsList = async (source: LX.OnlineSource) => {
   // const source = (await getLeaderboardSetting()).source as LX.OnlineSource
@@ -48,7 +56,7 @@ export const getBoardsList = async (source: LX.OnlineSource) => {
  * @param page Page number
  * @returns
  */
-const getListLimit = async (
+const doGetListLimit = async (
   source: LX.OnlineSource,
   bangId: string,
   page: number
@@ -110,6 +118,28 @@ const getListLimit = async (
       return (listCache.get(`${source}__${bangId}__${page}`) as PageCache).data
     }) ?? Promise.reject(new Error('source not found'))
   )
+}
+
+// 带并发治理的getListLimit：同页去重 + 同榜单串行（见上方注释）
+const getListLimit = (
+  source: LX.OnlineSource,
+  bangId: string,
+  page: number
+): Promise<ListDetailInfo> => {
+  const listKey = `${source}__${bangId}`
+  const reqKey = `${listKey}__${page}`
+  const inflight = inflightPageRequests.get(reqKey)
+  if (inflight) return inflight
+  const prev = listRequestQueues.get(listKey) ?? Promise.resolve()
+  const run = prev
+    .catch(() => {})
+    .then(() => doGetListLimit(source, bangId, page))
+    .finally(() => {
+      if (inflightPageRequests.get(reqKey) === run) inflightPageRequests.delete(reqKey)
+    })
+  inflightPageRequests.set(reqKey, run)
+  listRequestQueues.set(listKey, run.catch(() => {}))
+  return run
 }
 
 /**

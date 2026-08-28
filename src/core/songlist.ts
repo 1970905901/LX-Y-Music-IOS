@@ -3,7 +3,7 @@ import songlistState, {
   type ListDetailInfo,
   type ListInfo,
 } from '@/store/songlist/state'
-import songlistActions from '@/store/songlist/action'
+import songlistActions, { LIST_LOAD_LIMIT } from '@/store/songlist/action'
 import { deduplicationList, toNewMusicInfo } from '@/utils'
 import musicSdk from '@/utils/musicSdk'
 import { log } from '@/utils/log'
@@ -16,7 +16,15 @@ type LimitDetailCache = Map<string, DetailPageCache | ListDetailInfo['list']>
 type CacheValue = LimitDetailCache | ListInfo
 
 const cache = new Map<string, CacheValue>()
-const LIST_LOAD_LIMIT = 30
+
+// 并发治理：从歌单播放歌曲时的全量加载（getListDetailAll）会与界面滚动触发的
+// "加载更多"并发调用 getListDetailLimit，并发请求会互相覆盖缓存分块
+// （tempList 被双重消费），导致歌曲重复/丢失、分页边界错乱。
+// cache 是模块级持久缓存，一旦污染，之后所有浏览都加载不全。
+// 修复：同歌单同页的并发请求共享同一个 Promise（去重）；同歌单的不同页请求
+// 串行排队执行，避免读到过期的 sourcePage / tempList。
+const inflightDetailRequests = new Map<string, Promise<ListDetailInfo>>()
+const detailRequestQueues = new Map<string, Promise<unknown>>()
 
 /**
  * Get sort list
@@ -104,7 +112,7 @@ export const getList = async (
  * @param page Page number
  * @returns
  */
-const getListDetailLimit = async (
+const doGetListDetailLimit = async (
   source: LX.OnlineSource,
   id: string,
   page: number
@@ -167,6 +175,28 @@ const getListDetailLimit = async (
       return (listCache.get(`sdetail__${source}__${id}__${page}`) as DetailPageCache).data
     }) ?? Promise.reject(new Error('source not found'))
   )
+}
+
+// 带并发治理的 getListDetailLimit：同页去重 + 同歌单串行（见上方注释）
+const getListDetailLimit = (
+  source: LX.OnlineSource,
+  id: string,
+  page: number
+): Promise<ListDetailInfo> => {
+  const listKey = `sdetail__${source}__${id}`
+  const reqKey = `${listKey}__${page}`
+  const inflight = inflightDetailRequests.get(reqKey)
+  if (inflight) return inflight
+  const prev = detailRequestQueues.get(listKey) ?? Promise.resolve()
+  const run = prev
+    .catch(() => {})
+    .then(() => doGetListDetailLimit(source, id, page))
+    .finally(() => {
+      if (inflightDetailRequests.get(reqKey) === run) inflightDetailRequests.delete(reqKey)
+    })
+  inflightDetailRequests.set(reqKey, run)
+  detailRequestQueues.set(listKey, run.catch(() => {}))
+  return run
 }
 
 /**

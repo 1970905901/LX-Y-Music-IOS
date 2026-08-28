@@ -101,6 +101,9 @@ const List = forwardRef<ListType, ListProps>(
         lastSetListRef.current = list
         listDataRef.current = list
         setList(list)
+        // 数据更新后主动踢一下 VirtualizedList 的渐进填充链
+        // （onContentSizeChange → batcher），防止链路停滞导致窗口停留在初始行数。
+        flatListRef.current?.recordInteraction?.()
         onListUpdate?.(list)
         setShowSource(showSource)
         if (!isAppend && selectedListRef.current.length)
@@ -323,10 +326,14 @@ const List = forwardRef<ListType, ListProps>(
         numColumns={rowInfo.current.rowNum}
         horizontal={false}
         maxToRenderPerBatch={20}
-        // updateCellsBatchingPeriod={80}
+        updateCellsBatchingPeriod={50}
         windowSize={10}
         removeClippedSubviews={false}
-        initialNumToRender={12}
+        initialNumToRender={30}
+        // iOS 上必须显式设置 scrollEventThrottle，否则滚动事件只在手势结束时
+        // 触发一次，VirtualizedList 的渲染窗口无法跟随滚动推进，表现为
+        // 列表滚动到下方一片空白。
+        scrollEventThrottle={16}
         // 行数据原地更新（musicInfoUpdate）+ 播放状态变化时驱动对应行重渲染；
         // data 引用保持稳定、renderItem 引用固定，VirtualizedList 不重置渲染窗口。
         extraData={`${listVersion}|${playingId ?? ''}|${showSource ? '1' : '0'}|${selectedList.length}`}

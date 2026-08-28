@@ -32,14 +32,20 @@ export default forwardRef<MusicListType, {}>((props, ref) => {
     () => ({
       async loadList(source, id) {
         const listDetailInfo = boardState.listDetailInfo
-        listRef.current?.setList([])
-        if (
+        // 切换榜单前先快照缓存列表：setList([]) 会经 onListUpdate 回写
+        // boardState.listDetailInfo.list = []，不快照的话：
+        // 1) 缓存命中分支永远失效（每次切回都重新请求整页）；
+        // 2) 加载更多期间读到空列表会把页码错误地重置回 1，用第 1 页整表替换而非追加。
+        const cachedList =
           listDetailInfo.id == id &&
           listDetailInfo.source == source &&
           listDetailInfo.list.length
-        ) {
+            ? listDetailInfo.list
+            : null
+        listRef.current?.setList([])
+        if (cachedList) {
           requestAnimationFrame(() => {
-            listRef.current?.setList(listDetailInfo.list)
+            listRef.current?.setList(cachedList)
           })
         } else {
           listRef.current?.setStatus('loading')

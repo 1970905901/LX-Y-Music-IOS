@@ -224,6 +224,14 @@ export default () => {
   }
   const handlePlayerPlaying = () => {
     isEngineBuffering = false
+    // 缓冲结束、音频真正恢复时，立即用引擎真实位置重锚歌词时钟：
+    // 快进快退到未缓存区域会先 buffering，沉降窗口按住歌词/进度条；恢复播放的
+    // 这一拍立即校正，避免缓冲期间歌词长时间停在 seek 目标、恢复后与音频错位。
+    void getPosition().then((position) => {
+      if (position != null && playerState.musicInfo.id) {
+        try { lrcSyncToTime(position * 1000, playerState.isPlay) } catch {}
+      }
+    })
   }
 
   const handlePlay = () => {

@@ -92,6 +92,38 @@ export class LyricScrollLayout {
     return Math.max(0, target)
   }
 
+  /**
+   * 精确计算目标偏移：已测量行用真实行高，未测量行用「是否有翻译」分档估算。
+   * 相比 getTargetOffset 用全局平均高度估算，这里对翻译行/无翻译行区分高度，
+   * 可显著降低「从封面页切到歌词页 / 跳到中后段」时（FlatList 虚拟化导致当前行
+   * 之前的行未渲染未测量）累计偏移的估算误差，避免高亮行偶发不居中。
+   * @param lines 歌词行（含 extendedLyrics 判断是否有翻译）
+   */
+  getTargetOffsetPrecise(
+    index: number,
+    listHeight: number,
+    lines: { extendedLyrics?: unknown[] }[],
+    viewPosition = 0.5,
+    paddingV = 0,
+  ): number {
+    if (index <= 0) return 0
+    // 有翻译的行多渲染一行翻译，行高约为无翻译行的 1.55 倍（实测大屏 54→84 附近）。
+    const translationFactor = 1.55
+    let offset = 0
+    for (let i = 0; i < index; i++) {
+      const measured = this.lineHeights[i]
+      if (measured !== undefined) {
+        offset += measured
+      } else {
+        const hasTranslation = (lines[i]?.extendedLyrics?.length ?? 0) > 0
+        offset += hasTranslation ? this.defaultHeight * translationFactor : this.defaultHeight
+      }
+    }
+    const itemHeight = this.getLineHeight(index)
+    const target = paddingV + offset + itemHeight * viewPosition - listHeight * viewPosition
+    return Math.max(0, target)
+  }
+
   private ensureCumulativeOffsets(untilLine: number) {
     if (this.cumulativeOffsets.length > untilLine) return
     const oldLen = this.cumulativeOffsets.length

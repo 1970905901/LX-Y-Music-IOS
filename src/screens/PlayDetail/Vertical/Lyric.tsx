@@ -269,8 +269,10 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
     const paddingV = pageHeight > 0 ? pageHeight * 0.12 : 0
     // 等效 viewPosition:0.5：让高亮行落在歌词界面【正中央】（第 5 条同步要求：高亮行居中）。
     // 第 7 条“高亮行上移一行”已取消，故不再额外偏移一个 itemHeight。
-    // 使用缓存的累计偏移，避免长歌词列表每次滚动都从头累加行高。
-    const targetOffset = lyricScrollLayoutRef.current.getTargetOffset(index, listHeight, 0.5, paddingV)
+    // 使用精确偏移：已测量行用真实行高，未测量行按「是否有翻译」分档估算，
+    // 避免切到歌词页 / 跳到中后段时 FlatList 虚拟化导致之前行未测量、平均估算偏差过大，
+    // 高亮行偶发不居中。
+    const targetOffset = lyricScrollLayoutRef.current.getTargetOffsetPrecise(index, listHeight, lyricLines, 0.5, paddingV)
     const lineChanged = index !== lastScrolledLineRef.current
     // 非强制 + 同一行 + 当前行已在可视舒适区内（距目标 < 15% 视高）则跳过本次滚动（防抖动）；
     // 跨行切换 / 强制场景无条件滚动到中央，保证高亮行与音频同步且居中。

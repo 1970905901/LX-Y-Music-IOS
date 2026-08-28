@@ -13,7 +13,7 @@ import {
 } from './utils'
 import { getLocalFilePath } from '@/utils/music'
 import { readLyric, readPic } from '@/utils/localMediaMetadata'
-import { stat, existsFile, mkdir, writeFile, readDir } from '@/utils/fs'
+import { stat, existsFile, mkdir, writeFile, readDir, readFile } from '@/utils/fs'
 import { requestStoragePermission } from '@/utils/tools'
 import { searchMusic } from '@/utils/musicSdk'
 import { toNewMusicInfo } from '@/utils'
@@ -468,6 +468,22 @@ const getMusicFileLyric = async (filePath: string) => {
     lyric,
   }
 }
+
+// 读取音频文件同目录的同名 .lrc 歌词（离线可用）
+const getSidecarLyric = async (filePath: string): Promise<string | null> => {
+  if (!filePath) return null
+  const base = filePath.substring(0, filePath.lastIndexOf('.'))
+  if (!base) return null
+  for (const ext of ['.lrc', '.LRC']) {
+    try {
+      if (await existsFile(`${base}${ext}`)) {
+        const content = await readFile(`${base}${ext}`)
+        if (content) return content
+      }
+    } catch {}
+  }
+  return null
+}
 export const getLyricInfo = async ({
   musicInfo,
   isRefresh,
@@ -558,6 +574,9 @@ export const getLyricInfo = async ({
     
     const rawlrcInfo = await getMusicFileLyric(musicInfo.meta.filePath)
     if (rawlrcInfo) return buildLyricInfo(rawlrcInfo)
+
+    const sidecarLyric = await getSidecarLyric(musicInfo.meta.filePath)
+    if (sidecarLyric) return buildLyricInfo({ lyric: sidecarLyric })
 
     const lyricInfo = await getCachedLyricInfo(musicInfo)
     if (lyricInfo?.lyric) return buildLyricInfo(lyricInfo)

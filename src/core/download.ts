@@ -175,11 +175,36 @@ const startDownload = async (task: DownloadTask) => {
     }
     downloadActions.updateTask(task.id, { status: 'completed', progress: { ...task.progress, percent: 1 }, filePath: downloadedFilePath });
 
+    // 下载完成后缓存歌词（内存缓存 + 同名 .lrc），保证离线也能显示歌词
+    void cacheLyricForOffline(task, downloadedFilePath);
+
     if (!task.isForceCookie) {
       toast(`${task.fileName} 下载完成!`, 'short');
     }
   } finally {
     currentDownloadTask = null;
+  }
+};
+
+// 下载完成后缓存歌词：getLyricInfo 内部会写入歌词缓存（离线可读），同时写出同名 .lrc 文件
+// iOS 无原生嵌入写入能力，但 writeFile/.lrc 可用；Android 已由 handleMetadata 写 .lrc，这里兜底幂等
+const cacheLyricForOffline = async (task: DownloadTask, filePath: string) => {
+  try {
+    const lyrics = await getLyricInfo({ musicInfo: task.musicInfo as LX.Music.MusicInfoOnline });
+    const merged = mergeLyrics(lyrics.lyric, lyrics.tlyric, lyrics.rlyric);
+    if (merged) {
+      const lrcPath = `${filePath.substring(0, filePath.lastIndexOf('.'))}.lrc`;
+      try {
+        if (!(await RNFetchBlob.fs.exists(lrcPath))) {
+          await writeFile(lrcPath, merged);
+        }
+      } catch (e: any) {
+        console.warn('[Download] 写入离线歌词文件失败:', e?.message || e);
+      }
+    }
+    console.log(`[Download] 离线歌词已缓存: ${task.fileName}`);
+  } catch (e: any) {
+    console.warn('[Download] 离线歌词缓存失败（不影响歌曲）:', e?.message || e);
   }
 };
 

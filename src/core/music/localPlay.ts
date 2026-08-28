@@ -196,10 +196,7 @@ export const getPicUrl = async ({
   target: LocalPlayTarget
   isRefresh?: boolean
 }): Promise<string> => {
-  // 1. meta 缓存
-  if (!isRefresh && target.picUrl) return target.picUrl
-
-  // 2. 本地内嵌封面
+  // 1. 本地内嵌/sidecar 封面（优先本地文件，离线可用）
   if (target.filePath) {
     try {
       if (await existsFile(target.filePath)) {
@@ -208,6 +205,9 @@ export const getPicUrl = async ({
       }
     } catch {}
   }
+
+  // 2. meta 缓存
+  if (!isRefresh && target.picUrl) return target.picUrl
 
   // 3. 内置平台逐平台回退（搜索结果自带 img 兜底）
   const candidates = await searchCandidates(target.name, target.singer)

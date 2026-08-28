@@ -1,5 +1,5 @@
 import settingState from '@/store/setting/state'
-import { existsFile, mkdir, downloadFile, temporaryDirectoryPath } from '@/utils/fs'
+import { existsFile, mkdir, writeFile, temporaryDirectoryPath } from '@/utils/fs'
 import { requestStoragePermission } from '@/utils/tools'
 import { enforceCloudCacheLimit } from '@/utils/nativeModules/cache'
 
@@ -223,6 +223,35 @@ const xhrGet = (url: string, headers: Record<string, string>): Promise<{ status:
     xhr.send()
   })
 
+// 网盘专用 XHR 下载（arraybuffer）：
+// RNFS.downloadFile 底层 NSURLSession 会忽略手动设置的 Cookie/User-Agent 头
+// （Cookie 只能由 NSHTTPCookieStorage 管理），导致 dlink 直链下载被防盗链 403/401，
+// 表现为"点击后无法播放"。这里改用与 xhrGet 相同的 XHR（withCredentials=false +
+// 显式 setRequestHeader，Cookie/Referer/UA 均能正确下发，list 接口已验证可用），
+// 下载为 arraybuffer 后再落盘。
+const xhrDownload = (url: string, headers: Record<string, string>): Promise<ArrayBuffer> =>
+  new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.withCredentials = false
+    xhr.open('GET', url)
+    xhr.responseType = 'arraybuffer'
+    for (const key of Object.keys(headers)) {
+      try {
+        xhr.setRequestHeader(key, headers[key])
+      } catch {}
+    }
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(xhr.response as ArrayBuffer)
+      } else {
+        reject(new BaiduPanError(`下载失败（HTTP ${xhr.status}）`, xhr.status))
+      }
+    }
+    xhr.onerror = () => reject(new BaiduPanError('网络请求失败，请检查网络连接', -1))
+    xhr.ontimeout = () => reject(new BaiduPanError('网络请求超时，请稍后重试', -1))
+    xhr.send()
+  })
+
 // 统一网盘 API 请求，容忍各种拦截形态：
 // 1. withCredentials=false（见 xhrGet）—— 只发送我们显式设置的 Cookie 头。
 // 2. 以文本读取响应 —— Cookie 失效或触发风控时会被 302 到登录页返回 HTML，
@@ -371,15 +400,11 @@ export const downloadBaiduPanMusic = async (
     path: musicInfo.meta.filePath,
   })
 
-  // downloadFile（react-native-fs 的 NSURLSession）能正确携带 Referer / User-Agent / Cookie，
-  // 与 AVPlayer 不同，可正常通过百度网盘 CDN 的防盗链校验完成下载。
-  await downloadFile(downloadUrl, filePath, {
-    headers: {
-      'User-Agent': getUserAgent(),
-      Referer: `${API_BASE}/disk/main`,
-      ...(getCookie() ? { Cookie: getCookie() } : {}),
-    },
-  }).promise
+  // 用 XHR 下载（而非 RNFS.downloadFile）：RNFS 的 NSURLSession 会忽略手动设置的
+  // Cookie/UA 头，导致 dlink 下载被防盗链拒绝；XHR 的 withCredentials=false +
+  // setRequestHeader 能正确下发 Cookie/Referer/UA（与 list 接口一致的已验证链路）。
+  const arrayBuffer = await xhrDownload(downloadUrl, getHeaders())
+  await writeFile(filePath, Buffer.from(arrayBuffer).toString('base64'), 'base64')
 
   // 下载完成后按上限自动清理云盘缓存（LRU），避免缓存无限累积
   void enforceCloudCacheLimit((settingState.setting['player.cacheLimit'] || 0) * 1024 * 1024)

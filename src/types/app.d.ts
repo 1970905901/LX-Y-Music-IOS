@@ -81,6 +81,7 @@ declare global {
     'yt-cookie-set': (cookie: string) => void
     showWebLogin: () => void
     showTxWebLogin: () => void
+    showKgWebLogin: () => void
     showYouTubeLogin: () => void
     showVideoPlayer: (url: string) => void
   }

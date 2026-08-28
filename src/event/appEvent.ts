@@ -389,6 +389,18 @@ export class AppEvent extends Event {
   switchToLyricPage() {
     this.emit('switchToLyricPage')
   }
+
+  showWebLogin() {
+    this.emit('showWebLogin')
+  }
+
+  showTxWebLogin() {
+    this.emit('showTxWebLogin')
+  }
+
+  showKgWebLogin() {
+    this.emit('showKgWebLogin')
+  }
 }
 
 type EventMethods = Omit<EventType, keyof Event>

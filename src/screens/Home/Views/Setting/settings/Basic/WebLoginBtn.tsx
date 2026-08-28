@@ -13,7 +13,7 @@ export default memo(() => {
   };
 
   const handleShowKgLoginModal = () => {
-    (global.app_event as any).showKgWebLogin();
+    global.app_event.showKgWebLogin();
   };
 
   return (

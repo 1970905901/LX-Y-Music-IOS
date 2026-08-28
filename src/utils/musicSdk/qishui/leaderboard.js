@@ -79,35 +79,39 @@ export default {
   async getList(bangid, page, retryNum = 0) {
     // 汽水排行榜本质是官方歌单：优先用 Luna API（POST /luna/playlist/detail）
     // 获取完整榜单，避免 SSR 只内嵌部分歌曲导致列表不全。
+    // 注意：Luna API 对部分 bangid（实测音乐排行榜 7456941237036320787）会返回
+    // 空 media_resources 而非报错，此时必须回退 SSR，否则列表会变成 0 首。
     try {
       const result = await songList.getListDetail(String(bangid), page)
-      // 榜单名以 BOARDS 配置为准（Luna API 返回的歌单名可能缺失）
-      result.info.name = BOARDS.find((b) => b.bangid == bangid)?.name || result.info.name || '音乐排行榜'
-      return result
-    } catch (err) {
-      // 回退：从抖音网页 SSR HTML 提取歌曲 ID（原方案，兼容 Luna API 失效的情况）
-      try {
-        const ids = await fetchBoardSongIds(String(bangid))
-        const tracks = await Promise.all(ids.map((id) => fetchTrack(id).catch(() => null)))
-        const list = tracks.filter(Boolean)
-        return {
-          list,
-          page,
-          limit: list.length,
-          total: list.length,
-          source: 'qs',
-          info: {
-            name: BOARDS.find((b) => b.bangid == bangid)?.name || '音乐排行榜',
-            img: '',
-            desc: '',
-            author: '',
-            play_count: '',
-          },
-        }
-      } catch (err2) {
-        if (retryNum > 2) return Promise.reject(err2)
-        return this.getList(bangid, page, ++retryNum)
+      if (result.list && result.list.length) {
+        // 榜单名以 BOARDS 配置为准（Luna API 返回的歌单名可能缺失）
+        result.info.name = BOARDS.find((b) => b.bangid == bangid)?.name || result.info.name || '音乐排行榜'
+        return result
       }
+    } catch {}
+
+    // 回退：从抖音网页 SSR HTML 提取歌曲 ID（Luna API 为空/失败时的兜底）
+    try {
+      const ids = await fetchBoardSongIds(String(bangid))
+      const tracks = await Promise.all(ids.map((id) => fetchTrack(id).catch(() => null)))
+      const list = tracks.filter(Boolean)
+      return {
+        list,
+        page,
+        limit: list.length,
+        total: list.length,
+        source: 'qs',
+        info: {
+          name: BOARDS.find((b) => b.bangid == bangid)?.name || '音乐排行榜',
+          img: '',
+          desc: '',
+          author: '',
+          play_count: '',
+        },
+      }
+    } catch (err2) {
+      if (retryNum > 2) return Promise.reject(err2)
+      return this.getList(bangid, page, ++retryNum)
     }
   },
 }

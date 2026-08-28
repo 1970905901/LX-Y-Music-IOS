@@ -1,4 +1,5 @@
 import { formatPlayTime } from '@/utils/common'
+import { httpFetch } from '@/utils/request'
 
 // 汽水音乐（字节跳动旗下）Luna API 域名
 const LUNA_API_HOST = 'https://beta-luna.douyin.com'
@@ -30,6 +31,32 @@ const extractPlaylistId = (input) => {
   }
 }
 
+// 短链解析：https://qishui.douyin.com/s/iXUsubPF/ 这类分享短链会 302 到
+// https://music.douyin.com/qishui/share/playlist?playlist_id=xxx（跨 host）。
+// RN 的 fetch 自动跟随重定向，最终返回分享页 HTML，其中内嵌了 playlist_id。
+// 从最终响应 URL / HTML 里提取 playlist_id，兜底从 HTML 文本正则提取。
+const resolveShortLinkPlaylistId = async (url) => {
+  try {
+    const resp = await httpFetch(url, {
+      method: 'get',
+      headers: { 'User-Agent': 'Luna/19.1.0 Android' },
+    }).promise
+    // 1) 优先从重定向后的最终 URL 提取
+    let id = extractPlaylistId(resp.url || '')
+    if (id) return id
+    // 2) 兜底从 HTML 文本提取
+    const text = typeof resp.body === 'string' ? resp.body : ''
+    if (!text) return ''
+    id = text.match(/playlist_id[=:"'\s]+(\d+)/)?.[1]
+      || text.match(/playlist[\/=](\d{6,})/)?.[1]
+      || text.match(/("playlist_id")\s*:\s*"?(\d+)"?/)?.[2]
+      || ''
+    return id
+  } catch {
+    return ''
+  }
+}
+
 // 抖音/汽水图片对象 → 完整 URL（url_cover/cover 等字段是 { url_list: [...] } 结构）
 const pickUrl = (value) => {
   if (!value) return ''
@@ -53,6 +80,10 @@ export default {
     let playlistId = id
     if (/[?&:/]/.test(id)) {
       playlistId = extractPlaylistId(id)
+    }
+    // 短链（/s/xxx/）无法直接解析出 ID，先跟随重定向拿到 playlist_id
+    if (!playlistId && /^https?:\/\//.test(id)) {
+      playlistId = await resolveShortLinkPlaylistId(id)
     }
     if (!playlistId) return Promise.reject(new Error('汽水歌单链接或 ID 解析失败'))
 

@@ -371,12 +371,13 @@ export const downloadBaiduPanMusic = async (
     path: musicInfo.meta.filePath,
   })
 
-  // downloadFile（react-native-fs 的 NSURLSession）能正确携带 Referer / User-Agent，
+  // downloadFile（react-native-fs 的 NSURLSession）能正确携带 Referer / User-Agent / Cookie，
   // 与 AVPlayer 不同，可正常通过百度网盘 CDN 的防盗链校验完成下载。
   await downloadFile(downloadUrl, filePath, {
     headers: {
       'User-Agent': getUserAgent(),
       Referer: `${API_BASE}/disk/main`,
+      ...(getCookie() ? { Cookie: getCookie() } : {}),
     },
   }).promise
 

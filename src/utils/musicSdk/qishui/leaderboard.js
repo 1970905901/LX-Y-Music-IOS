@@ -1,4 +1,4 @@
-import { formatPlayTime } from '../../index'
+import { formatPlayTime } from '@/utils/common'
 
 const H5_UA = 'Luna/19.1.0 Android'
 const WEB_UA =

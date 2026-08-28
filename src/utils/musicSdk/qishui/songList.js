@@ -1,4 +1,4 @@
-import { formatPlayTime } from '../../index'
+import { formatPlayTime } from '@/utils/common'
 
 // 汽水音乐（字节跳动旗下）Luna API 域名
 const LUNA_API_HOST = 'https://beta-luna.douyin.com'

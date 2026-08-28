@@ -494,7 +494,10 @@ const handleRestorePlay = async (restorePlayInfo: LX.Player.SavedPlayInfo) => {
   // bug④: 恢复播放时直接写进度 store，绕过 setProgress 的 `if (!playerState.musicInfo.id) return` 守卫。
   // 恢复初期 playerState.musicInfo.id 尚未就绪，走 setProgress 会被丢弃，导致记忆进度以 0 起播。
   // 直接写 nowPlayTime / maxPlayTime 后，setMusicUrl 会以该时间向音频引擎 seek，并同步重锚歌词时钟。
-  const restoreTime = settingState.setting['player.isSavePlayTime'] ? restorePlayInfo.time : 0
+  // 记住播放进度：只要存有上次的播放位置就直接恢复（保存动作本身受 isSavePlayTime 开关控制）。
+  // 上次已接近播完（距结尾 <5s）的歌恢复时从头播放，避免一起播就触发切歌。
+  let restoreTime = restorePlayInfo.time
+  if (restorePlayInfo.maxTime > 0 && restoreTime >= restorePlayInfo.maxTime - 5) restoreTime = 0
   setNowPlayTime(restoreTime)
   setMaxplayTime(restorePlayInfo.maxTime)
   try { lrcSyncToTime(restoreTime * 1000, true) } catch {}

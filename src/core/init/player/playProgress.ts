@@ -15,12 +15,14 @@ import { updateScrobblePlayTime, updateScrobbleTotalTime } from '@/core/player/s
 import { LIST_IDS } from '@/config/constant.ts'
 import listState from '@/store/list/state'
 
-const delaySavePlayInfo = throttleBackgroundTimer(() => {
+// 记住播放进度：构造要持久化的播放信息（当前歌、位置、列表与索引）
+const buildPlayInfoToSave = (): LX.Player.SavedPlayInfo | null => {
   const listIdToSave = playerState.playMusicInfo.listId
+  if (!listIdToSave) return null
   const playInfoToSave: LX.Player.SavedPlayInfo = {
     time: playerState.progress.nowPlayTime,
     maxTime: playerState.progress.maxPlayTime,
-    listId: listIdToSave!,
+    listId: listIdToSave,
     index: playerState.playInfo.playIndex,
   }
 
@@ -28,7 +30,19 @@ const delaySavePlayInfo = throttleBackgroundTimer(() => {
     playInfoToSave.tempMeta = listState.tempListMeta
   }
 
-  void savePlayInfo(playInfoToSave)
+  return playInfoToSave
+}
+
+// 立即保存（暂停 / 退后台时调用，避免最后一次进度超出节流窗口而丢失）
+const savePlayInfoNow = () => {
+  if (!playerState.musicInfo.id || playerState.playMusicInfo.isTempPlay) return
+  const playInfoToSave = buildPlayInfoToSave()
+  if (playInfoToSave) void savePlayInfo(playInfoToSave)
+}
+
+const delaySavePlayInfo = throttleBackgroundTimer(() => {
+  const playInfoToSave = buildPlayInfoToSave()
+  if (playInfoToSave) void savePlayInfo(playInfoToSave)
 }, 2000)
 
 export default () => {
@@ -230,6 +244,9 @@ export default () => {
   const handlePause = () => {
     // 不再清除 updateTimeout：暂停时仍保持 250ms 轮询，使歌词（含封面页 MiniLyric）
     // 始终与音频当前位置同步。播放/保存/Scrobble 等播放态专属逻辑由 getCurrentTime 内部判断。
+    // 记住播放进度：暂停瞬间立即持久化一次当前进度，
+    // 用户暂停后直接杀掉 App 也不会丢失最后位置（节流保存可能在 2s 窗口内丢尾部）。
+    savePlayInfoNow()
   }
 
   const handleStop = () => {
@@ -277,6 +294,8 @@ export default () => {
   }
 
   AppState.addEventListener('change', (state) => {
+    // 记住播放进度：退后台立即持久化一次当前进度（iOS 上从后台被杀不保证还有保存机会）
+    if (state == 'background') savePlayInfoNow()
     if (state == 'active' && !isScreenOn) {
       handleScreenStateChanged('ON')
     }

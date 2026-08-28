@@ -1,13 +1,12 @@
 import {memo, useState, useRef, useMemo, useEffect, useCallback} from 'react'
 import { View, AppState, Animated, PanResponder } from 'react-native'
-
-import Header, { HEADER_HEIGHT } from './components/Header'
-import Player from './Player'
 import PagerView, { type PagerViewOnPageSelectedEvent } from 'react-native-pager-view'
+import MiniLyric from '../components/MiniLyric'
 import Pic from './Pic'
 import Lyric from './Lyric'
 import SongInfo from './components/SongInfo'
-import MiniLyric from '../components/MiniLyric'
+import Header, { HEADER_HEIGHT } from './components/Header'
+import Player from './Player'
 import { screenkeepAwake, screenUnkeepAwake } from '@/utils/nativeModules/utils'
 import commonState, { type InitState as CommonState } from '@/store/common/state'
 import { createStyle } from '@/utils/tools'
@@ -19,30 +18,34 @@ import { registerPager } from '@/utils/pagerScrollControl'
 import { scaleSizeW } from '@/utils/pixelRatio'
 import { COMPONENT_IDS } from '@/config/constant'
 
-const LyricPage = ({ activeIndex, pagerHeight = 0 }: { activeIndex: number; pagerHeight?: number }) => {
+const LyricPage = ({ activeIndex, pagerHeight = 0, isComingLyric = false }: { activeIndex: number; pagerHeight?: number; isComingLyric?: boolean }) => {
   const initedRef = useRef(false)
   switch (activeIndex) {
     case 1:
       if (!initedRef.current) initedRef.current = true
       return <Lyric key="lyric" active={true} pagerHeight={pagerHeight} />
     default:
-      return initedRef.current ? <Lyric key="lyric" active={false} pagerHeight={pagerHeight} /> : null
+      // 用户在封面页时：如果正在从左往右滑向歌词页（isComingLyric=true），
+      // 提前让歌词页开始定位高亮行；否则保持默认 active=false 抑制滚动。
+      const isActive = initedRef.current && isComingLyric
+      return initedRef.current ? <Lyric key="lyric" active={isActive} pagerHeight={pagerHeight} /> : null
   }
 }
 
 const VerticalNew = memo(({ componentId }: { componentId: string }) => {
   const [pageIndex, setPageIndex] = useState(0)
+  // 正在从左往右滑向歌词页（从封面切到歌词），用于让 LyricPage 提前激活高亮定位
   const pagerViewRef = useRef<PagerView>(null);
   const showLyricRef = useRef(false)
   const playlistRef = useRef<PlayerPlaylistType>(null)
   const { height: winHeight } = useWindowSize()
-  // 直接测量 PagerView 的真实渲染高度（与歌词页可用高度一致），作为歌词
-  // FlatList 的确定高度来源。PagerView 在普通 flex:1 容器里撑满，onLayout
-  // 测得的高度比“PagerView 子页面”或“winHeight 估算”都可靠，避免歌词页
-  // 因高度算小而在下方露出空白。
   const [pagerHeight, setPagerHeight] = useState(0)
   const isEnableSlideSwitchSong = useSettingValue('player.isEnableSlideSwitchSong')
   const miniLyricAlign = useSettingValue('playDetail.style.miniLyricAlign')
+  // 用 ref 追踪滑动方向，避免高频 onScroll 触发大量 setState 导致卡顿
+  // 仅在首次变为 true 时触发一次 setState 通知子组件
+  const isComingLyricRef = useRef(false)
+  const [, setForceUpdate] = useState(0)
 
   const slideOffset = useRef(new Animated.Value(0)).current;
   const maxSlide = winHeight * 0.5;
@@ -151,12 +154,27 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
   const onPageSelected = ({ nativeEvent }: PagerViewOnPageSelectedEvent) => {
     setPageIndex(nativeEvent.position)
     showLyricRef.current = nativeEvent.position === 1
+    // 页面选择完成后：滑向封面页，取消标记并通知子组件更新
+    if (nativeEvent.position === 0 && isComingLyricRef.current) {
+      isComingLyricRef.current = false
+      setForceUpdate(v => v + 1)
+    }
     if (showLyricRef.current) {
       screenkeepAwake()
     } else {
       screenUnkeepAwake()
     }
   }
+
+  // 在 PagerView 滑动过程中检测方向：position===0（封面页）且 offset>0 表示正在滑向歌词页。
+  // 用 ref 存状态避免高频 onScroll 触发 setState；首次变为 true 时通过 setForceUpdate 通知子组件。
+  const handlePageScroll = useCallback((e: { nativeEvent: { offset: number; position: number } }) => {
+    const coming = e.nativeEvent.position === 0 && e.nativeEvent.offset > 0
+    if (coming && !isComingLyricRef.current) {
+      isComingLyricRef.current = true
+      setForceUpdate(v => v + 1)
+    }
+  }, [])
 
   const handleSwitchToLyricPage = useCallback(() => {
     pagerViewRef.current?.setPage(1);
@@ -209,6 +227,7 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
       <View style={styles.container}>
         <PagerView
           onPageSelected={onPageSelected}
+          onScroll={handlePageScroll}
           style={styles.pagerView}
           ref={pagerViewRef}
           scrollEnabled={!isProgressDragging}
@@ -236,7 +255,7 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
             </Animated.View>
           </View>
           <View collapsable={false} style={{ flex: 1, width: '100%', height: '100%' }}>
-            <LyricPage activeIndex={pageIndex} pagerHeight={pagerHeight} />
+            <LyricPage activeIndex={pageIndex} pagerHeight={pagerHeight} isComingLyric={isComingLyricRef.current} />
           </View>
         </PagerView>
         {/* Progress bar must live OUTSIDE the PagerView so its horizontal drag never

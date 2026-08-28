@@ -136,8 +136,8 @@ export interface BaiduPanDirContent {
   musics: LX.BaiduPan.MusicInfo[]
 }
 
-// 同目录同名 .lrc 歌词索引：key 为 `目录|小写文件名(不带扩展名)`
-const lyricFileIndex = new Map<string, string>()
+// 同目录同名 .lrc 歌词索引：key 为 `目录|小写文件名(不带扩展名)`，值为文件 fsId + 路径
+const lyricFileIndex = new Map<string, { fsId: number, path: string }>()
 
 const getLyricIndexKey = (filePath: string) => {
   const slashIndex = filePath.lastIndexOf('/')
@@ -150,14 +150,88 @@ const getLyricIndexKey = (filePath: string) => {
 
 // 查找音频文件同目录的同名 .lrc 文件路径（需先 list 过所在目录建立索引）
 export const findBaiduPanLrcPath = (audioPath: string): string | null => {
-  return lyricFileIndex.get(getLyricIndexKey(audioPath)) ?? null
+  return lyricFileIndex.get(getLyricIndexKey(audioPath))?.path ?? null
 }
 
-const getTarget = (path: string) => encodeURIComponent(path)
-
-export const listBaiduPanDir = async (dir?: string): Promise<BaiduPanDirContent> => {
+// Cookie 形状校验：BDUSS 是网盘 API 的必备凭证（STOKEN 主要用于写操作）。
+// 缺失时直接给出明确提示，而不是放行后让接口返回晦涩的 errno。
+const assertCookieUsable = () => {
   const cookie = getCookie()
   if (!cookie) throw new BaiduPanError('请先在设置中填写百度网盘 Cookie', -6)
+  if (!/BDUSS\s*=/i.test(cookie)) {
+    throw new BaiduPanError(
+      'Cookie 缺少 BDUSS 字段：请在浏览器登录 pan.baidu.com 后，F12 → Network → 任意请求 → 复制完整 Cookie（需包含 BDUSS，建议同时带上 STOKEN）',
+      -6
+    )
+  }
+  return cookie
+}
+
+// 网盘专用 XHR 请求：
+// - withCredentials=false —— 禁止 iOS NSURLSession 用共享 Cookie 存储覆盖/合并我们
+//   显式设置的 Cookie 头。之前响应 Set-Cookie 写入的会话残留（PANWEB 等）会让
+//   BDUSS 丢失，这是"同样的 Cookie 时好时坏"的根源之一。用原生 XHR 而不是 fetch，
+//   是为了显式控制该开关（fetch polyfill 对 credentials:'omit' 的透传不确定）。
+// - Cookie 等头通过 setRequestHeader 显式下发，open 之后设置（XHR 规范要求）。
+const xhrGet = (url: string, headers: Record<string, string>): Promise<{ status: number, text: string }> =>
+  new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.withCredentials = false
+    xhr.open('GET', url)
+    for (const key of Object.keys(headers)) {
+      try {
+        xhr.setRequestHeader(key, headers[key])
+      } catch {}
+    }
+    xhr.onload = () => resolve({ status: xhr.status, text: xhr.responseText ?? '' })
+    xhr.onerror = () => reject(new BaiduPanError('网络请求失败，请检查网络连接', -1))
+    xhr.ontimeout = () => reject(new BaiduPanError('网络请求超时，请稍后重试', -1))
+    xhr.send()
+  })
+
+// 统一网盘 API 请求，容忍各种拦截形态：
+// 1. withCredentials=false（见 xhrGet）—— 只发送我们显式设置的 Cookie 头。
+// 2. 以文本读取响应 —— Cookie 失效或触发风控时会被 302 到登录页返回 HTML，
+//    response.json() 会抛出晦涩的 SyntaxError；这里识别 HTML 给出明确提示。
+// 3. 参数降级重试 —— 附加参数（channel/app_id）被部分账号风控拒绝时，
+//    回退到最小参数集重试一次。
+const requestPanApi = async (urls: string[]): Promise<any> => {
+  assertCookieUsable()
+
+  let lastError: unknown = null
+  for (const url of urls) {
+    try {
+      const { status, text } = await xhrGet(url, getHeaders())
+      if (/^\s*</.test(text)) {
+        throw new BaiduPanError(
+          '百度网盘返回了登录页：Cookie 已失效或被风控拦截，请重新获取（需包含 BDUSS）',
+          -6
+        )
+      }
+      let body: any
+      try {
+        body = JSON.parse(text)
+      } catch {
+        throw new BaiduPanError(
+          `百度网盘返回了无法解析的内容（HTTP ${status}），Cookie 可能已失效`,
+          -6
+        )
+      }
+      if (typeof body.errno === 'number' && body.errno !== 0) {
+        throw new BaiduPanError(mapErrno(body.errno), body.errno)
+      }
+      return body
+    } catch (err) {
+      lastError = err
+      // 限流类错误立即抛出，不重试
+      if (err instanceof BaiduPanError && (err.code === -9 || err.code === -20)) throw err
+    }
+  }
+  throw lastError ?? new BaiduPanError('百度网盘请求失败，请稍后重试', -1)
+}
+
+export const listBaiduPanDir = async (dir?: string): Promise<BaiduPanDirContent> => {
+  assertCookieUsable()
 
   const targetDir = dir && dir.length ? dir : getRootPath()
   const folders: LX.BaiduPan.DriveFile[] = []
@@ -167,17 +241,15 @@ export const listBaiduPanDir = async (dir?: string): Promise<BaiduPanDirContent>
   let page = 1
   const dirLyricKeys: string[] = []
   const bdstoken = getBdstoken()
+  const bdstokenQ = bdstoken ? `&bdstoken=${encodeURIComponent(bdstoken)}` : ''
   // 最多翻 50 页，避免极端情况下死循环
   while (page <= 50) {
-    const url =
-      `${API_BASE}/api/list?dir=${encodeURIComponent(targetDir)}` +
-      `&num=${num}&page=${page}&order=name&desc=0&clienttype=0&web=1&channel=chunmi&app_id=250528` +
-      (bdstoken ? `&bdstoken=${encodeURIComponent(bdstoken)}` : '')
-    const response = await fetch(url, { headers: getHeaders() })
-    const body = await response.json()
-    if (typeof body.errno === 'number' && body.errno !== 0) {
-      throw new BaiduPanError(mapErrno(body.errno), body.errno)
-    }
+    const dirQ = encodeURIComponent(targetDir)
+    // 参数降级：完整参数（channel=chunmi&app_id=250528）被风控拒绝时回退最小参数集
+    const body = await requestPanApi([
+      `${API_BASE}/api/list?dir=${dirQ}&num=${num}&page=${page}&order=name&desc=0&clienttype=0&web=1&channel=chunmi&app_id=250528${bdstokenQ}`,
+      `${API_BASE}/api/list?dir=${dirQ}&num=${num}&page=${page}&order=name&desc=0&clienttype=0&web=1&channel=web${bdstokenQ}`,
+    ])
     const list: LX.BaiduPan.DriveFile[] = body.list ?? []
     // 逐条目容错：个别异常条目（如缺失 server_filename/path 的占位文件、
     // 转码失败文件）不能让整个目录加载失败，跳过并继续处理其余条目。
@@ -189,9 +261,9 @@ export const listBaiduPanDir = async (dir?: string): Promise<BaiduPanDirContent>
         } else if (audioExts.has(getExt(item.server_filename))) {
           files.push(item)
         } else if (getExt(item.server_filename) === 'lrc' && typeof item.path === 'string') {
-          // 记录歌词文件，供播放时按同名匹配
+          // 记录歌词文件（含 fsId），供播放时按同名匹配
           const key = getLyricIndexKey(item.path)
-          lyricFileIndex.set(key, item.path)
+          lyricFileIndex.set(key, { fsId: item.fs_id, path: item.path })
           dirLyricKeys.push(key)
         }
       } catch (e) {
@@ -226,8 +298,7 @@ export const downloadBaiduPanMusic = async (
   musicInfo: LX.BaiduPan.MusicInfo,
   isRefresh = false
 ): Promise<string> => {
-  const cookie = getCookie()
-  if (!cookie) throw new BaiduPanError('请先在设置中填写百度网盘 Cookie', -6)
+  assertCookieUsable()
 
   const hasPermission = await requestStoragePermission()
   if (!hasPermission) {
@@ -242,12 +313,14 @@ export const downloadBaiduPanMusic = async (
 
   await mkdir(cacheDir)
 
-  const netDir = musicInfo.meta.filePath.split('/').slice(0, -1).join('/') || '/'
-  const downloadUrl =
-    `${API_BASE}/api/download?dir=${encodeURIComponent(netDir)}` +
-    `&filename=${encodeURIComponent(musicInfo.meta.fileName)}&clienttype=0&web=1&channel=web`
+  // 改用 dlink 直链下载：/api/download?dir=&filename= 不是标准网页端接口，
+  // 大概率拿不到文件。dlink + origin=dlna 免 Cookie/UA 绑定，可直接下载。
+  const downloadUrl = await buildDlink({
+    fsId: musicInfo.meta.fsId,
+    path: musicInfo.meta.filePath,
+  })
 
-  await downloadFile(downloadUrl, filePath, { headers: getHeaders() }).promise
+  await downloadFile(downloadUrl, filePath, { headers: { 'User-Agent': getUserAgent() } }).promise
 
   return filePath
 }
@@ -262,20 +335,17 @@ export const getBaiduPanLocalFilePath = (musicInfo: LX.BaiduPan.MusicInfo): stri
 const DLINK_TTL_MS = 6 * 60 * 60 * 1000
 const dlinkCache = new Map<string, { url: string; expire: number }>()
 
-const buildDlink = async (targetPath: string): Promise<string> => {
-  const cookie = getCookie()
-  if (!cookie) throw new BaiduPanError('请先在设置中填写百度网盘 Cookie', -6)
+const buildDlink = async (file: { fsId: number | string, path: string }): Promise<string> => {
+  assertCookieUsable()
 
   const bdstoken = getBdstoken()
-  const url =
-    `${API_BASE}/api/filemetas?target=${getTarget(targetPath)}` +
-    `&dlink=1&clienttype=0&web=1&channel=chunmi&app_id=250528` +
-    (bdstoken ? `&bdstoken=${encodeURIComponent(bdstoken)}` : '')
-  const response = await fetch(url, { headers: getHeaders() })
-  const body = await response.json()
-  if (typeof body.errno === 'number' && body.errno !== 0) {
-    throw new BaiduPanError(mapErrno(body.errno), body.errno)
-  }
+  const bdstokenQ = bdstoken ? `&bdstoken=${encodeURIComponent(bdstoken)}` : ''
+  // fsids 形式是网页端/官方客户端的标准用法，比裸路径 target 更可靠；
+  // 失败时降级用 JSON 数组形式的 target 重试。
+  const body = await requestPanApi([
+    `${API_BASE}/api/filemetas?fsids=${encodeURIComponent(`[${file.fsId}]`)}&dlink=1&web=1&clienttype=0&app_id=250528${bdstokenQ}`,
+    `${API_BASE}/api/filemetas?target=${encodeURIComponent(JSON.stringify([file.path]))}&dlink=1&web=1&clienttype=0${bdstokenQ}`,
+  ])
   const info = body.list?.[0]
   const dlink: string | undefined = info?.dlink ?? info?.dlinks?.[0]
   if (!dlink) throw new BaiduPanError('获取文件直链失败，请稍后重试', -1)
@@ -294,21 +364,24 @@ export const getBaiduPanPlayUrl = async (
     const cached = dlinkCache.get(key)
     if (cached && cached.expire > Date.now()) return cached.url
   }
-  const playUrl = await buildDlink(musicInfo.meta.filePath)
+  const playUrl = await buildDlink({
+    fsId: musicInfo.meta.fsId,
+    path: musicInfo.meta.filePath,
+  })
   dlinkCache.set(key, { url: playUrl, expire: Date.now() + DLINK_TTL_MS })
   return playUrl
 }
 
 // 拉取音频同目录同名 .lrc 歌词文本（通过 dlink 直链）
 export const fetchBaiduPanLrc = async (audioPath: string): Promise<string | null> => {
-  const lrcPath = findBaiduPanLrcPath(audioPath)
-  if (!lrcPath) return null
-  const key = `lrc:${lrcPath}`
+  const lrc = lyricFileIndex.get(getLyricIndexKey(audioPath))
+  if (!lrc) return null
+  const key = `lrc:${lrc.path}`
   const cached = dlinkCache.get(key)
   const url =
     cached && cached.expire > Date.now()
       ? cached.url
-      : await buildDlink(lrcPath).then(u => {
+      : await buildDlink(lrc).then(u => {
           dlinkCache.set(key, { url: u, expire: Date.now() + DLINK_TTL_MS })
           return u
         })

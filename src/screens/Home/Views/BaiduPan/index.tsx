@@ -276,7 +276,9 @@ export default memo(() => {
               placeholder="BDUSS=...; STOKEN=...; 粘贴完整 Cookie"
               autoCapitalize="none"
               autoCorrect={false}
-              secureTextEntry
+              autoComplete="off"
+              spellCheck={false}
+              textContentType="none"
               onChangeText={text => updateSetting({ 'baidupan.cookie': text })}
               placeholderTextColor={theme['c-font-label']}
               selectionColor={theme['c-primary-light-100-alpha-300']}

@@ -195,6 +195,12 @@ export function pushPlayDetailScreen(componentId: string, skipAnimation = false)
       ? { push: {}, pop: { content: { translationX: { from: 0, to: windowSizeTools.getSize().width, duration: 300 } } } }
       : undefined
 
+    // 原生转场背景色需与页面实际背景一致，否则 push 转场瞬间颜色跳变（闪屏）。
+    // PageContent 有背景图时实际背景是 c-content-background（模糊封面 + 底色），
+    // 无背景图时内容层用 c-main-background，两者在深色主题下色值不同，需动态匹配。
+    const hasBgPic = !!(commonState.bgPic || settingState.setting['theme.customBgPicPath'])
+    const componentBackgroundColor = hasBgPic ? theme['c-content-background'] : theme['c-main-background']
+
     void guardPush(Navigation.push(componentId, {
       component: {
         name: PLAY_DETAIL_SCREEN,
@@ -215,7 +221,7 @@ export function pushPlayDetailScreen(componentId: string, skipAnimation = false)
             backgroundColor: theme['c-content-background'],
           },
           layout: {
-            componentBackgroundColor: theme['c-content-background'],
+            componentBackgroundColor,
                   fitSystemWindows: false,
                   // @ts-expect-error RNN 运行期支持的安全区选项，当前类型未声明
                   safeAreaInsets: {

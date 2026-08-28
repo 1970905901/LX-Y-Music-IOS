@@ -238,6 +238,17 @@ export default () => {
           try { lrcSyncToTime(position * 1000, true) } catch {}
         }
       })
+      // 恢复播放（记忆进度 restore seek）/ 暂停恢复场景下，引擎从 seek 目标
+      // 真正起播需要数百毫秒稳定期，'playing' 瞬间 getPosition 可能仍是旧值。
+      // 延迟再锚一次，用稳定后的引擎真实位置校正歌词时钟，
+      // 确保「暂停→退出→重开→继续播放」后音频与歌词严格同步。
+      BackgroundTimer.setTimeout(() => {
+        void getPosition().then((position) => {
+          if (position != null && playerState.musicInfo.id && playerState.isPlay) {
+            try { lrcSyncToTime(position * 1000, true) } catch {}
+          }
+        })
+      }, 400)
     }
   }
 

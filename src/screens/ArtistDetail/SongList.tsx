@@ -43,6 +43,12 @@ const SongList = forwardRef<SongListRef, SongListProps>(({
                                                          }, ref) => {
   const theme = useTheme()
   const songListRef = useRef<OnlineListType>(null)
+  // 上次同步进 OnlineList 的列表引用。播放中 wy 音质详情回填会触发 musicInfoUpdate
+  // → OnlineList 内部更新列表 → onListUpdate 回写 songs.list → 本 effect 再次整表
+  // setList 替换 FlatList 数据，反复重置渲染窗口（initialNumToRender=12），表现为
+  // "播放时列表只显示 12 首下方空白"。引用相同（内容由 OnlineList 自身已更新）时
+  // 跳过 setList，阻断回环；仅在真实分页/排序/刷新产生新引用时才同步。
+  const lastSyncedListRef = useRef<LX.Music.MusicInfoOnline[] | null>(null)
 
   useImperativeHandle(ref, () => ({
     scrollToInfo: (info) => {
@@ -64,7 +70,10 @@ const SongList = forwardRef<SongListRef, SongListProps>(({
       songListRef.current?.setStatus(songs.loading ? 'loading' : songs.hasMore ? 'idle' : 'end')
       // page 表示“下一次要请求的页码”：首屏返回后 page=2，但列表仍应替换；
       // 从第二页返回后 page=3，才是追加已有列表。
-      songListRef.current?.setList(songs.list, songs.page > 2, false)
+      if (lastSyncedListRef.current !== songs.list) {
+        lastSyncedListRef.current = songs.list
+        songListRef.current?.setList(songs.list, songs.page > 2, false)
+      }
     }
   }, [songs.list, songs.loading, songs.hasMore, songs.page, activeTab])
 

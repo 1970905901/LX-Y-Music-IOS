@@ -460,7 +460,12 @@ const handleRestorePlay = async (restorePlayInfo: LX.Player.SavedPlayInfo) => {
   const restoreTime = settingState.setting['player.isSavePlayTime'] ? restorePlayInfo.time : 0
   setNowPlayTime(restoreTime)
   setMaxplayTime(restorePlayInfo.maxTime)
-  try { lrcSyncToTime(restoreTime * 1000, true) } catch {}
+  // 先按“未起播”语义把歌词行锚到记忆位置（仅显示高亮，不置播放态）。
+  // 绝不能在此处传 isPlaying=true：restore 阶段音频尚未加载/起播，把歌词时钟
+  // 置为播放态会污染后续 setLyric 的 wasPlaying 判定（歌词异步就绪后会以
+  // 引擎位置 0 重锚），表现为恢复播放后歌词与音频错位。
+  // 真正起播后由 playProgress 的 play 事件用引擎实时位置（含 400ms 延迟重锚）接管。
+  try { lrcSyncToTime(restoreTime * 1000, false) } catch {}
 
   const playMusicInfo = playerState.playMusicInfo
 

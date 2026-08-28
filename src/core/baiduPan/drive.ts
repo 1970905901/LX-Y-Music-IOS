@@ -166,16 +166,23 @@ export const listBaiduPanDir = async (dir?: string): Promise<BaiduPanDirContent>
       throw new BaiduPanError(mapErrno(body.errno), body.errno)
     }
     const list: LX.BaiduPan.DriveFile[] = body.list ?? []
+    // 逐条目容错：个别异常条目（如缺失 server_filename/path 的占位文件、
+    // 转码失败文件）不能让整个目录加载失败，跳过并继续处理其余条目。
     for (const item of list) {
-      if (item.isdir === 1) {
-        folders.push(item)
-      } else if (audioExts.has(getExt(item.server_filename))) {
-        files.push(item)
-      } else if (getExt(item.server_filename) === 'lrc') {
-        // 记录歌词文件，供播放时按同名匹配
-        const key = getLyricIndexKey(item.path)
-        lyricFileIndex.set(key, item.path)
-        dirLyricKeys.push(key)
+      try {
+        if (!item || typeof item.server_filename !== 'string') continue
+        if (item.isdir === 1) {
+          folders.push(item)
+        } else if (audioExts.has(getExt(item.server_filename))) {
+          files.push(item)
+        } else if (getExt(item.server_filename) === 'lrc' && typeof item.path === 'string') {
+          // 记录歌词文件，供播放时按同名匹配
+          const key = getLyricIndexKey(item.path)
+          lyricFileIndex.set(key, item.path)
+          dirLyricKeys.push(key)
+        }
+      } catch (e) {
+        console.error('Error processing BaiduPan item:', e)
       }
     }
     if (list.length < num) break
@@ -186,8 +193,8 @@ export const listBaiduPanDir = async (dir?: string): Promise<BaiduPanDirContent>
     if (!dirLyricKeys.includes(key) && key.split('|')[0] === targetDir) lyricFileIndex.delete(key)
   }
 
-  folders.sort((a, b) => a.server_filename.localeCompare(b.server_filename))
-  files.sort((a, b) => a.server_filename.localeCompare(b.server_filename))
+  folders.sort((a, b) => (a.server_filename ?? '').localeCompare(b.server_filename ?? ''))
+  files.sort((a, b) => (a.server_filename ?? '').localeCompare(b.server_filename ?? ''))
 
   return {
     dir: targetDir,

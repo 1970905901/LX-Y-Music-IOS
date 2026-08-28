@@ -71,6 +71,12 @@ const List = forwardRef<ListType, ListProps>(
     const theme = useTheme()
     const flatListRef = useRef<FlatList>(null)
     const [currentList, setList] = useState<LX.Music.MusicInfoOnline[]>([])
+    // 上次经命令式 setList 写入的数组引用。播放中 musicInfoUpdate 会在组件内部
+    // 更新列表（新数组引用）并经 onListUpdate 回传父组件，父组件再原样回传
+    // setList → 整表替换 → FlatList 渲染窗口被重置回 initialNumToRender(12)，
+    // 表现为“播放时列表只显示 12 条下方空白”。引用相同（数据已是该数组）时
+    // 直接跳过，阻断父组件回环替换。
+    const lastSetListRef = useRef<LX.Music.MusicInfoOnline[] | null>(null)
     const [showSource, setShowSource] = useState(false)
     const isMultiSelectModeRef = useRef(false)
     const selectModeRef = useRef<SelectMode>('single')
@@ -85,6 +91,11 @@ const List = forwardRef<ListType, ListProps>(
 
     useImperativeHandle(ref, () => ({
       setList(list, isAppend, showSource) {
+        // 引用相同（数据已是该数组）时跳过整表替换，阻断
+        // musicInfoUpdate → onListUpdate 回传父组件 → 父组件回传 setList 的回环，
+        // 避免播放中 FlatList 渲染窗口被反复重置（列表“只显示 12 条下方空白”）。
+        if (lastSetListRef.current === list) return
+        lastSetListRef.current = list
         setList(list)
         onListUpdate?.(list)
         setShowSource(showSource)
@@ -140,6 +151,8 @@ const List = forwardRef<ListType, ListProps>(
           if (index > -1) {
             const newList = [...currentList]
             newList[index] = musicInfo as LX.Music.MusicInfoOnline
+            // 记录新引用：父组件随后原样回传 setList 时命中同引用跳过，避免回环整表替换
+            lastSetListRef.current = newList
             onListUpdate?.(newList)
             return newList
           }

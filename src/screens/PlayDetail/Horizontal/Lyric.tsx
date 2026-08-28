@@ -18,6 +18,7 @@ import { setSpText } from '@/utils/pixelRatio'
 import settingState from '@/store/setting/state'
 import playerState from '@/store/player/state'
 import { scrollTo } from '@/utils/scroll'
+import { LyricScrollLayout } from '@/utils/lyricScroll'
 import PlayLine, { type PlayLineType } from '../components/PlayLine'
 
 type FlatListType = FlatListProps<Line>
@@ -112,10 +113,8 @@ export default () => {
   const lineRef = useRef({ line: 0, prevLine: 0 })
   const isFirstSetLrc = useRef(true)
   const scrollInfoRef = useRef<NativeSyntheticEvent<NativeScrollEvent>['nativeEvent'] | null>(null)
-  const listLayoutInfoRef = useRef<{ spaceHeight: number; lineHeights: number[] }>({
-    spaceHeight: 0,
-    lineHeights: [],
-  })
+  // 缓存歌词行高与累计偏移，把滚动定位从 O(n²) 降到 O(1)。
+  const lyricScrollLayoutRef = useRef(new LyricScrollLayout(54))
   const scrollCancelRef = useRef<(() => void) | null>(null)
   const isShowLyricProgressSetting = useSettingValue('playDetail.isShowLyricProgressSetting')
 
@@ -123,29 +122,32 @@ export default () => {
   const initialFontSizeRef = useRef(0)
 
   const panResponder = useMemo(() => PanResponder.create({
-    onStartShouldSetPanResponder: (evt) => evt.nativeEvent.touches.length === 2,
-    onMoveShouldSetPanResponder: (evt) => evt.nativeEvent.touches.length === 2,
+    // 仅当两根手指同时按下时才接管手势（双指缩放歌词字号），
+    // 用 gestureState.numberActiveTouches 判断，避免直接读 evt.nativeEvent.touches
+    // （iOS 某些触摸事件下为 undefined，会抛 "Cannot read property 'length' of undefined" 导致崩溃）。
+    onStartShouldSetPanResponder: (_, gestureState) => gestureState.numberActiveTouches === 2,
+    onMoveShouldSetPanResponder: (_, gestureState) => gestureState.numberActiveTouches === 2,
     onPanResponderGrant: (evt) => {
-      if (evt.nativeEvent.touches.length === 2) {
-        const dx = evt.nativeEvent.touches[0].pageX - evt.nativeEvent.touches[1].pageX
-        const dy = evt.nativeEvent.touches[0].pageY - evt.nativeEvent.touches[1].pageY
-        initialDistanceRef.current = Math.sqrt(dx * dx + dy * dy)
-        initialFontSizeRef.current = settingState.setting['playDetail.horizontal.style.lrcFontSize']
-      }
+      const touches = evt.nativeEvent.touches ?? evt.nativeEvent.changedTouches
+      if (!touches || touches.length < 2) return
+      const dx = touches[0].pageX - touches[1].pageX
+      const dy = touches[0].pageY - touches[1].pageY
+      initialDistanceRef.current = Math.sqrt(dx * dx + dy * dy)
+      initialFontSizeRef.current = settingState.setting['playDetail.horizontal.style.lrcFontSize']
     },
     onPanResponderMove: (evt) => {
-      if (evt.nativeEvent.touches.length === 2 && initialDistanceRef.current > 0) {
-        const dx = evt.nativeEvent.touches[0].pageX - evt.nativeEvent.touches[1].pageX
-        const dy = evt.nativeEvent.touches[0].pageY - evt.nativeEvent.touches[1].pageY
-        const distance = Math.sqrt(dx * dx + dy * dy)
+      const touches = evt.nativeEvent.touches ?? evt.nativeEvent.changedTouches
+      if (!touches || touches.length < 2 || initialDistanceRef.current <= 0) return
+      const dx = touches[0].pageX - touches[1].pageX
+      const dy = touches[0].pageY - touches[1].pageY
+      const distance = Math.sqrt(dx * dx + dy * dy)
 
-        const scale = distance / initialDistanceRef.current
-        let newSize = Math.round((initialFontSizeRef.current * scale) / 2) * 2
-        newSize = Math.max(100, Math.min(newSize, 300))
+      const scale = distance / initialDistanceRef.current
+      let newSize = Math.round((initialFontSizeRef.current * scale) / 2) * 2
+      newSize = Math.max(100, Math.min(newSize, 300))
 
-        if (settingState.setting['playDetail.horizontal.style.lrcFontSize'] !== newSize) {
-          updateSetting({ 'playDetail.horizontal.style.lrcFontSize': newSize })
-        }
+      if (settingState.setting['playDetail.horizontal.style.lrcFontSize'] !== newSize) {
+        updateSetting({ 'playDetail.horizontal.style.lrcFontSize': newSize })
       }
     },
     onPanResponderRelease: () => {
@@ -173,11 +175,9 @@ export default () => {
     if (index < 0) return
     if (flatListRef.current) {
       if (scrollInfoRef.current && lineRef.current.line - lineRef.current.prevLine == 1) {
-        let offset = listLayoutInfoRef.current.spaceHeight
-        for (let line = 0; line < index; line++) {
-          offset += listLayoutInfoRef.current.lineHeights[line]
-        }
-        offset += (listLayoutInfoRef.current.lineHeights[line] ?? 0) / 2
+        // 使用缓存的累计偏移，避免长歌词列表每次滚动都从头累加行高（O(n)→O(1)）。
+        const layout = lyricScrollLayoutRef.current
+        const offset = layout.spaceHeight + layout.getCumulativeOffset(index) + layout.getLineHeight(index) / 2
         const targetOffset = offset - scrollInfoRef.current.layoutMeasurement.height * 0.42
         // 根据滚动距离动态计算动画时长：距离越远时间越长
         const distance = Math.abs(targetOffset - scrollInfoRef.current.contentOffset.y)
@@ -259,7 +259,7 @@ export default () => {
 
   useEffect(() => {
     // linesRef.current = lyricLines
-    listLayoutInfoRef.current.lineHeights = []
+    lyricScrollLayoutRef.current.reset()
     lineRef.current.prevLine = 0
     lineRef.current.line = 0
     if (!flatListRef.current) return
@@ -301,7 +301,7 @@ export default () => {
 
   useEffect(() => {
     requestAnimationFrame(() => {
-      playLineRef.current?.updateLayoutInfo(listLayoutInfoRef.current)
+      playLineRef.current?.updateLayoutInfo(lyricScrollLayoutRef.current.getLayoutInfo())
       playLineRef.current?.updateLyricLines(lyricLines)
     })
   }, [isShowLyricProgressSetting])
@@ -313,13 +313,13 @@ export default () => {
   }
 
   const handleLineLayout = useCallback<LineProps['onLayout']>((lineNum, height) => {
-    listLayoutInfoRef.current.lineHeights[lineNum] = height
-    playLineRef.current?.updateLayoutInfo(listLayoutInfoRef.current)
+    lyricScrollLayoutRef.current.updateLineHeight(lineNum, height)
+    playLineRef.current?.updateLayoutInfo(lyricScrollLayoutRef.current.getLayoutInfo())
   }, [])
 
   const handleSpaceLayout = useCallback(({ nativeEvent }: LayoutChangeEvent) => {
-    listLayoutInfoRef.current.spaceHeight = nativeEvent.layout.height
-    playLineRef.current?.updateLayoutInfo(listLayoutInfoRef.current)
+    lyricScrollLayoutRef.current.setSpaceHeight(nativeEvent.layout.height)
+    playLineRef.current?.updateLayoutInfo(lyricScrollLayoutRef.current.getLayoutInfo())
   }, [])
 
   const handlePlayLine = useCallback((time: number) => {
@@ -369,7 +369,11 @@ export default () => {
         onScrollBeginDrag={handleScrollBeginDrag}
         onScrollEndDrag={onScrollEndDrag}
         fadingEdgeLength={100}
-        initialNumToRender={Math.max(line + 10, 10)}
+        initialNumToRender={Math.max(line + 20, 20)}
+        windowSize={15}
+        maxToRenderPerBatch={20}
+        updateCellsBatchingPeriod={50}
+        scrollEventThrottle={16}
         onScrollToIndexFailed={handleScrollToIndexFailed}
         onScroll={handleScroll}
       />

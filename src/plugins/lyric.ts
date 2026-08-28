@@ -118,26 +118,46 @@ export const pause = () => {
 }
 
 /**
+ * 二分查找当前时间（ms）对应的歌词行索引。
+ * 返回「最后一个 time <= 当前时间」的行：
+ * - 时间恰为某行起点时，立即亮起该行（不再滞后一行）；
+ * - 早于首行返回 0，晚于末行返回最后一行，空列表返回 -1。
+ * 相较原线性扫描，把 80ms 重锚热路径从 O(n) 降为 O(log n)，
+ * 并修复原 `time <= lines[i].time 减一` 导致的整拍边界高亮滞后问题。
+ * lines 需按 time 升序（lrc-file-parser 已保证）。
+ */
+export const findLineIndexByTime = (lines: Lines, time: number): number => {
+  const length = lines.length
+  if (!length) return -1
+  if (time <= lines[0].time) return 0
+  let low = 0
+  let high = length - 1
+  while (low < high) {
+    const mid = (low + high) >>> 1
+    if (lines[mid].time <= time) {
+      low = mid + 1
+    } else {
+      high = mid
+    }
+  }
+  return lines[low].time > time ? low - 1 : low
+}
+
+/**
  * 仅按传入时间（ms）设置当前歌词行，不启动内部 ticker。
  * 用于音频暂停/seek 等需要“歌词位置跟上播放头但不自动走字”的场景。
  * 直接根据 currentLines 查找当前行，避免调用 play() 启动 ticker 导致暂停态歌词自行前进。
  */
 export const setPlayTime = (time: number) => {
   const lines = lrcTools.currentLines
-  if (!lines.length) {
+  const lineIndex = findLineIndexByTime(lines, time)
+  if (lineIndex < 0) {
     if (lrcTools.currentLineData.line !== -1) {
       lrcTools.currentLineData.line = -1
       lrcTools.currentLineData.text = ''
       lrcTools.onPlay(-1, '')
     }
     return
-  }
-  let lineIndex = lines.length - 1
-  for (let i = 0; i < lines.length; i++) {
-    if (time <= lines[i].time) {
-      lineIndex = i === 0 ? 0 : i - 1
-      break
-    }
   }
   const line = lines[lineIndex]
   if (lrcTools.currentLineData.line === lineIndex && lrcTools.currentLineData.text === line.text) return

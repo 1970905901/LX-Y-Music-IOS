@@ -93,10 +93,22 @@ export default memo(() => {
         animated: true,
         viewPosition: 0.5,
       })
-    } catch (e) {
-      // ignore
+    } catch {
+      // scrollToIndex 失败时回退到 scrollToOffset，用估算行高定位
+      try {
+        flatListRef.current.scrollToOffset({
+          offset: index * 48,
+          animated: true,
+        })
+      } catch {}
     }
   }, [lyricLines.length])
+
+  useEffect(() => {
+    return () => {
+      if (scrollTimoutRef.current) clearTimeout(scrollTimoutRef.current)
+    }
+  }, [])
 
   useEffect(() => {
     lineRef.current.prevLine = 0
@@ -149,9 +161,11 @@ export default memo(() => {
         onMomentumScrollBegin={handleScrollBeginDrag}
         onMomentumScrollEnd={handleScrollEndDrag}
         fadingEdgeLength={100}
-        initialNumToRender={50}
-        maxToRenderPerBatch={50}
-        windowSize={10}
+        initialNumToRender={30}
+        maxToRenderPerBatch={20}
+        windowSize={15}
+        updateCellsBatchingPeriod={50}
+        scrollEventThrottle={16}
         onScrollToIndexFailed={(info) => {
           flatListRef.current?.scrollToOffset({
             offset: info.averageItemLength * info.index,
@@ -165,7 +179,7 @@ export default memo(() => {
                 viewPosition: 0.5,
               })
             }
-          }, 100)
+          }, 80)
         }}
       />
     </View>

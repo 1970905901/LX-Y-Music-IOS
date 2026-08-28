@@ -8,8 +8,9 @@ import {
   PanResponder,
 } from 'react-native'
 // import { useLayout } from '@/utils/hooks'
-import { type Line, useLrcPlay, useLrcSet, syncToTime as lrcSyncToTime } from '@/plugins/lyric'
+import { type Line, useLrcPlay, useLrcSet, syncToTime as lrcSyncToTime, findLineIndexByTime } from '@/plugins/lyric'
 import { getPosition } from '@/plugins/player'
+import { LyricScrollLayout } from '@/utils/lyricScroll'
 import { createStyle } from '@/utils/tools'
 import { updateSetting } from '@/core/common'
 import { useTheme } from '@/store/theme/hook'
@@ -164,9 +165,8 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
   // 记录上一帧的 active，用于检测“从封面页切回歌词页”的上升沿，
   // 上升沿这一次强制走 force 路径，避免被 [line, active] effect 的“舒适区动画滚动”抢先。
   const activeRef = useRef(active)
-  const listLayoutInfoRef = useRef<{ lineHeights: number[] }>({
-    lineHeights: [],
-  })
+  // 缓存歌词行高与累计偏移，把滚动定位从 O(n²) 降到 O(1)。
+  const lyricScrollLayoutRef = useRef(new LyricScrollLayout(isSmallWindow ? 40 : 54))
   const scrollCancelRef = useRef<(() => void) | null>(null)
   const scrollYRef = useRef(0)
   const isShowLyricProgressSetting = settingState.setting['playDetail.isShowLyricProgressSetting']
@@ -246,11 +246,7 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
 
   // const imgWidth = useMemo(() => layout.width * 0.75, [layout.width])
   const getLineIndexForTime = useCallback((time: number) => {
-    if (!lyricLines.length) return -1
-    for (let i = 0; i < lyricLines.length; i++) {
-      if (time <= lyricLines[i].time) return i === 0 ? 0 : i - 1
-    }
-    return lyricLines.length - 1
+    return findLineIndexByTime(lyricLines, time)
   }, [lyricLines])
 
   // 歌词高亮行定位：让当前行落在歌词界面【正中央】（等效 viewPosition≈0.5），满足第 5 条同步要求。
@@ -269,10 +265,10 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
     if (listHeight <= 0) return
     // 上下留白收紧为约 12% 列表高：正常播放时高亮行仍严格居中；仅最开头第 1 行（起播一瞬）会略偏上，到第 2 行起整首歌死死居中。
     const paddingV = pageHeight > 0 ? pageHeight * 0.12 : 0
-    const { offset: itemTop, length: itemHeight } = getItemLayout(lyricLines, index)
     // 等效 viewPosition:0.5：让高亮行落在歌词界面【正中央】（第 5 条同步要求：高亮行居中）。
     // 第 7 条“高亮行上移一行”已取消，故不再额外偏移一个 itemHeight。
-    const targetOffset = Math.max(0, paddingV + itemTop + itemHeight / 2 - listHeight / 2)
+    // 使用缓存的累计偏移，避免长歌词列表每次滚动都从头累加行高。
+    const targetOffset = lyricScrollLayoutRef.current.getTargetOffset(index, listHeight, 0.5, paddingV)
     const lineChanged = index !== lastScrolledLineRef.current
     // 非强制 + 同一行 + 当前行已在可视舒适区内（距目标 < 15% 视高）则跳过本次滚动（防抖动）；
     // 跨行切换 / 强制场景无条件滚动到中央，保证高亮行与音频同步且居中。
@@ -355,7 +351,7 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
   }, [setForceScroll])
 
   useEffect(() => {
-    listLayoutInfoRef.current.lineHeights = []
+    lyricScrollLayoutRef.current.reset()
     lastScrolledLineRef.current = -1
     if (!flatListRef.current) return
     flatListRef.current.scrollToOffset({ offset: 0, animated: false })
@@ -445,25 +441,16 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
   }, [])
 
   const handleLineLayout = useCallback<LineProps['onLayout']>((lineNum, height) => {
-    listLayoutInfoRef.current.lineHeights[lineNum] = height
+    lyricScrollLayoutRef.current.updateLineHeight(lineNum, height)
     // 当前行完成首次真实测量后立即重算目标偏移，避免先用估算高度滚动造成视觉滞后。
     if (lineNum === lineRef.current.line && active && !isPauseScrollRef.current) {
       requestAnimationFrame(() => handleScrollToActive(lineRef.current.line, true))
     }
-    // playLineRef.current?.updateLayoutInfo(listLayoutInfoRef.current)
   }, [active, handleScrollToActive])
 
-  const getItemLayout = useCallback<NonNullable<FlatListType['getItemLayout']>>((data, index) => {
-    const height = listLayoutInfoRef.current.lineHeights[index]
-    if (height == null) {
-      // 尚未测量到高度时给估算值，避免 scrollToIndex 失败/抖动
-      return { length: isSmallWindow ? 40 : 54, offset: (isSmallWindow ? 40 : 54) * index, index }
-    }
-    let offset = 0
-    for (let i = 0; i < index; i++) {
-      offset += listLayoutInfoRef.current.lineHeights[i] ?? (isSmallWindow ? 40 : 54)
-    }
-    return { length: height, offset, index }
+  // 小屏/大屏切换时同步估算行高，保证滚动定位偏移计算准确。
+  useEffect(() => {
+    lyricScrollLayoutRef.current.setDefaultHeight(isSmallWindow ? 40 : 54)
   }, [isSmallWindow])
 
   const handleLinePress = useCallback((index: number) => {
@@ -521,17 +508,17 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
         ref={flatListRef}
         showsVerticalScrollIndicator={false}
         onScroll={handleScroll}
-        // 仅记录偏移，不触发重渲染；80ms 让手动滚动结束后的重锚更及时。
-        scrollEventThrottle={80}
+        // 仅记录偏移，不触发重渲染；16ms 让手动滚动轨迹更平滑，同时记录精度更高。
+        scrollEventThrottle={16}
         onScrollBeginDrag={handleScrollBeginDrag}
         onScrollEndDrag={onScrollEndDrag}
-        initialNumToRender={20}
-        windowSize={10}
-        maxToRenderPerBatch={12}
-        updateCellsBatchingPeriod={100}
+        initialNumToRender={40}
+        windowSize={15}
+        maxToRenderPerBatch={20}
+        updateCellsBatchingPeriod={50}
         // 不向 FlatList 注册 getItemLayout：改用动态测量，避免“虚拟行 + 变高行 + 估算高度”
         // 在滚动时造成的歌词行定位错乱 / 空白缺失（即用户反馈的“滑动时歌词不全载”）。
-        // getItemLayout 函数本体会保留，供 handleScrollToActive 计算高亮行滚动目标偏移。
+        // 滚动目标偏移由 LyricScrollLayout 的缓存累计行高计算（O(1)）。
         extraData={line}
         // 禁用 removeClippedSubviews：iOS FlatList 在动态行高下回收屏幕外行后，
         // 配合 getItemLayout 估算高度常导致歌词行重绘失败 / 出现空白缺失。

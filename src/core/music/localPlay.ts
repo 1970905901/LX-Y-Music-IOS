@@ -31,8 +31,17 @@ export interface LocalPlayTarget {
 
 // 内置直连 URL 平台回退顺序：网易（cookie 直连）→ B 站（直连）
 const URL_SOURCES = ['wy', 'bilibili'] as const
-// 歌词/封面可用的内置平台回退顺序
-const META_SOURCES = ['kw', 'wy', 'kg', 'tx', 'mg'] as const
+// 歌词/封面可用的内置平台回退顺序：企鹅 → 网易 → 酷狗 → 酷我 → 咪咕
+const META_SOURCES = ['tx', 'wy', 'kg', 'kw', 'mg'] as const
+// 跨平台匹配优先级（数字越小越优先）：企鹅 → 网易 → 酷狗 → 酷我 → 咪咕
+const SOURCE_PRIORITY: Record<string, number> = {
+  tx: 0,
+  wy: 1,
+  kg: 2,
+  kw: 3,
+  mg: 4,
+}
+const SOURCE_PRIORITY_FALLBACK = META_SOURCES.length
 const URL_QUALITYS: LX.Quality[] = ['320k', '128k']
 
 const cleanName = (name: string): string => {
@@ -76,7 +85,14 @@ const searchCandidates = async (name: string, singer: string): Promise<SongCandi
   result.sort((a, b) => {
     const aMatch = (a.name || '').toLowerCase() === target ? 0 : 1
     const bMatch = (b.name || '').toLowerCase() === target ? 0 : 1
-    return aMatch - bMatch
+    // 1) 歌名完全匹配优先（跨平台匹配的首要依据）
+    if (aMatch !== bMatch) return aMatch - bMatch
+    // 2) 匹配度相同时按平台优先级：企鹅 → 网易 → 酷狗 → 酷我 → 咪咕
+    // 注：musicSdk.searchMusic 返回顺序由 sources 数组决定，不受 META_SOURCES 控制，
+    // 因此这里必须显式按优先级排序，否则平台顺序不稳定。
+    const aPriority = SOURCE_PRIORITY[a.source] ?? SOURCE_PRIORITY_FALLBACK
+    const bPriority = SOURCE_PRIORITY[b.source] ?? SOURCE_PRIORITY_FALLBACK
+    return aPriority - bPriority
   })
   return result
 }

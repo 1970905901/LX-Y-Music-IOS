@@ -1,4 +1,4 @@
-import {memo, useCallback, useEffect, useMemo, useRef} from 'react'
+import {memo, useCallback, useMemo, useRef} from 'react'
 import { PanResponder, View, TouchableOpacity } from 'react-native'
 import { useKeyboard } from '@/utils/hooks'
 import Pic from './components/Pic'
@@ -59,12 +59,11 @@ export default memo(({ componentId, isHome = false }: { componentId?: string, is
     playlistRef.current?.show()
   }
 
-  useEffect(() => {
-    global.app_event.on('showPlaylist', handleShowPlaylist)
-    return () => {
-      global.app_event.off('showPlaylist', handleShowPlaylist)
-    }
-  }, [])
+  // 注意：不要监听全局 showPlaylist 事件。该事件由播放详情页的控制条发出，
+  // 详情页内有自己的 PlayerPlaylist 实例负责响应；若此处也监听，会导致
+  // 详情页打开队列面板时，主界面播放条的队列面板同时在底层打开——用户关闭
+  // 详情页面板返回主界面后会“又出现一个队列面板”。本组件的 ☰ 按钮与
+  // 上滑手势均直接调用本地 handleShowPlaylist，不依赖全局事件。
 
   const gestureAction = useRef<'drawer' | 'playlist' | null>(null)
   const panResponder = useRef(

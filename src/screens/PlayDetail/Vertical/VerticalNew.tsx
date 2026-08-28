@@ -204,16 +204,20 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
     // 将 PagerView ref 注册给同步手势锁，供进度条拖动时立即禁用原生横滑
     registerPager(pagerViewRef)
 
+    // 必须用具名函数注册/移除，否则 off 传入新箭头函数无法匹配已注册的监听器，
+    // 会导致监听器泄漏（组件多次挂载后点击 ☰ 弹出多个队列面板）。
+    const handleShowPlaylist = () => { playlistRef.current?.show() }
+
     global.state_event.on('componentIdsUpdated', handleComponentIdsChange)
     global.app_event.on('switchToLyricPage', handleSwitchToLyricPage)
-    global.app_event.on('showPlaylist', () => { playlistRef.current?.show() })
+    global.app_event.on('showPlaylist', handleShowPlaylist)
 
     return () => {
       global.state_event.off('componentIdsUpdated', handleComponentIdsChange)
       global.app_event.off('progressDragState', handleProgressDragState)
       registerPager(null)
       global.app_event.off('switchToLyricPage', handleSwitchToLyricPage)
-      global.app_event.off('showPlaylist', () => { playlistRef.current?.show() })
+      global.app_event.off('showPlaylist', handleShowPlaylist)
       appstateListener.remove()
       screenUnkeepAwake()
     }

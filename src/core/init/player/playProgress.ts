@@ -47,14 +47,20 @@ export default () => {
   // 固定窗口早于生效即放开轮询会把进度条/歌词拽回旧位置造成回跳；收敛判定则一直
   // 按住目标值直到 getPosition() 真正到达目标附近，再无缝交还轮询，最大化实时同步。
   let seekTargetMs = -1
-  const SEEK_SETTLE_MAX_MS = 500 // 沉降窗口硬上限：seek 失败/接近末尾时也不无限期抑制
+  // 引擎是否正在缓冲/加载网络数据（seek 到未缓存区域时会持续数秒）。
+  // 缓冲期间沉降窗口使用更长的硬上限，避免窗口提前关闭后轮询用未收敛的旧位置
+  // 把进度条/歌词拽回旧位置造成回跳（快进快退到未缓存位置时不同步的主因）。
+  let isEngineBuffering = false
+  const SEEK_SETTLE_MAX_MS = 1200 // 无缓冲沉降窗口硬上限：覆盖偶发慢 seek，防止提前放开拽回
+  const SEEK_SETTLE_BUFFERING_MAX_MS = 5000 // 缓冲中硬上限：等网络数据到位收敛，同时兜底防死等
   const SEEK_CONVERGE_MS = 300 // 收敛容差（ms）：引擎位置落入目标±该值即判定 seek 已生效
 
   // seek 沉降窗口判定：返回 true 表示当前仍在 seek 沉降中，轮询应“按住”进度条与歌词、
   // 不读取尚未生效的 getPosition() 旧值。positionMs 为本次轮询取到的引擎位置（ms）。
   const inSeekSettle = (positionMs: number): boolean => {
     if (seekTargetMs < 0) return false
-    if (Date.now() - lastSeekTime > SEEK_SETTLE_MAX_MS) {
+    const maxMs = isEngineBuffering ? SEEK_SETTLE_BUFFERING_MAX_MS : SEEK_SETTLE_MAX_MS
+    if (Date.now() - lastSeekTime > maxMs) {
       seekTargetMs = -1
       return false
     }
@@ -182,16 +188,28 @@ export default () => {
     // （每次约 80~150ms 才生效），导致音频滞后于手指、与即时更新的歌词/进度条不同步。
     // 仅在时间变化且距上次 seek 已满节流窗口时下发；松手时 setProgress 会做一次权威
     // seek 兜底到精确位置，确保松手后音频停在手指处（第⑪条验收）。
+    // verify=false：预览 seek 只做指令下发，不等待/校验/重试，避免拖动中打断
+    // 进行中的网络缓冲，导致音频追不上手指、与歌词/进度条脱节。
     if (time !== lastPreviewTime && now - lastDragSeekTime >= 120) {
       lastPreviewTime = time
       lastDragSeekTime = now
-      void setCurrentTime(time / 1000)
+      void setCurrentTime(time / 1000, false)
     }
   }
   const handleProgressDragState = (drag: boolean) => {
     isDragging = drag
     // 进入拖动瞬间记一次 seek 时间戳，避免刚结束拖动时逐秒重锚把高亮拽回旧位置
     if (drag) lastSeekTime = Date.now()
+  }
+
+  // 引擎缓冲/加载状态跟踪：seek 到未缓存区域时引擎进入 buffering（等待网络数据），
+  // 此时沉降窗口需用更长的硬上限（见 inSeekSettle），防止提前放开轮询把
+  // 进度条/歌词拽回旧位置。playing 事件在缓冲结束、音频真正恢复时触发。
+  const handlePlayerWaiting = () => {
+    isEngineBuffering = true
+  }
+  const handlePlayerPlaying = () => {
+    isEngineBuffering = false
   }
 
   const handlePlay = () => {
@@ -286,6 +304,8 @@ export default () => {
   global.app_event.on('progressDragPreview', handleProgressDragPreview)
   global.app_event.on('progressDragState', handleProgressDragState)
   global.app_event.on('musicToggled', handleSetPlayInfo)
+  global.app_event.on('playerWaiting', handlePlayerWaiting)
+  global.app_event.on('playerPlaying', handlePlayerPlaying)
   global.state_event.on('configUpdated', handleConfigUpdated)
   onScreenStateChange(handleScreenStateChanged)
 }

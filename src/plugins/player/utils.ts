@@ -225,9 +225,9 @@ export const setPause = async() => {
   return TrackPlayer.pause()
 }
 // export const skipToNext = () => TrackPlayer.skipToNext()
-export const setCurrentTime = async(time: number) => {
+export const setCurrentTime = async(time: number, verify = true) => {
   if (Platform.OS == 'ios' && isNativeFlacActive()) return seekNativeFlacPlayback(time)
-  return seekToTime(time)
+  return seekToTime(time, verify)
 }
 export const setVolume = async(num: number) => {
   if (Platform.OS == 'ios' && isNativeFlacActive()) return setNativeFlacVolume(num)

@@ -1,4 +1,4 @@
-import {useMemo, useRef, useState, forwardRef, useImperativeHandle, useEffect} from 'react'
+import {useCallback, useMemo, useRef, useState, forwardRef, useImperativeHandle, useEffect} from 'react'
 import {FlatList, type FlatListProps, Keyboard, RefreshControl, View} from 'react-native'
 import ListItem, { ITEM_HEIGHT } from './ListItem'
 import { createStyle, getRowInfo, type RowInfoType } from '@/utils/tools'
@@ -234,22 +234,37 @@ const List = forwardRef<ListType, ListProps>(
       onLoadMore()
     }
 
-    const renderItem: FlatListType['renderItem'] = ({ item, index }) => (
-      <ListItem
-        item={item}
-        index={index}
-        listId={listId}
-        showSource={showSource}
-        onPress={handlePress}
-        onLongPress={handleLongPress}
-        onShowMenu={onShowMenu}
-        selectedList={selectedList}
-        playingId={playingId}
-        rowInfo={rowInfo.current}
-        isShowAlbumName={isShowAlbumName}
-        isShowInterval={isShowInterval}
-      />
-    )
+    // renderItem 引用必须永远不变：每次 List 重新渲染时若 renderItem 是新函数，
+    // VirtualizedList 会重置渲染窗口回 initialNumToRender(12)，表现为播放中
+    // 列表只显示前 12 条下方空白（各平台在线列表通病）。
+    // 通过 ref 镜像所有依赖，useCallback([]) 固定引用；行级刷新由 extraData 驱动。
+    const renderDepsRef = useRef({
+      showSource, isShowAlbumName, isShowInterval, listId, playingId,
+      selectedList, handlePress, handleLongPress, onShowMenu, rowInfo: rowInfo.current,
+    })
+    renderDepsRef.current = {
+      showSource, isShowAlbumName, isShowInterval, listId, playingId,
+      selectedList, handlePress, handleLongPress, onShowMenu, rowInfo: rowInfo.current,
+    }
+    const renderItem = useCallback<FlatListType['renderItem']>(({ item, index }) => {
+      const d = renderDepsRef.current
+      return (
+        <ListItem
+          item={item}
+          index={index}
+          listId={d.listId}
+          showSource={d.showSource}
+          onPress={d.handlePress}
+          onLongPress={d.handleLongPress}
+          onShowMenu={d.onShowMenu}
+          selectedList={d.selectedList}
+          playingId={d.playingId}
+          rowInfo={d.rowInfo}
+          isShowAlbumName={d.isShowAlbumName}
+          isShowInterval={d.isShowInterval}
+        />
+      )
+    }, [])
     const getkey: FlatListType['keyExtractor'] = (item) => (item as any).playHistoryId ?? item.id
     const getItemLayout: FlatListType['getItemLayout'] = (data, index) => {
       const numColumns = rowInfo.current.rowNum ?? 1
@@ -312,9 +327,9 @@ const List = forwardRef<ListType, ListProps>(
         windowSize={10}
         removeClippedSubviews={false}
         initialNumToRender={12}
-        // 行数据原地更新（musicInfoUpdate）时驱动对应行重渲染；
-        // data 引用保持稳定，VirtualizedList 不重置渲染窗口。
-        extraData={listVersion}
+        // 行数据原地更新（musicInfoUpdate）+ 播放状态变化时驱动对应行重渲染；
+        // data 引用保持稳定、renderItem 引用固定，VirtualizedList 不重置渲染窗口。
+        extraData={`${listVersion}|${playingId ?? ''}|${showSource ? '1' : '0'}|${selectedList.length}`}
         renderItem={renderItem}
         keyExtractor={getkey}
         getItemLayout={getItemLayout}

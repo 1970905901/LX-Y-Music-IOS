@@ -283,7 +283,7 @@ export default memo(() => {
               style={{ ...styles.input, borderColor: theme['c-border-background'], color: theme['c-font'] }}
             />
             <Text style={styles.tip} color={theme['c-font-label']}>
-              在浏览器登录百度网盘网页版，打开开发者工具（F12）→ Network/应用 → Cookie，复制以 BDUSS 开头的完整 Cookie 字符串。Cookie 仅保存在本机设置中。
+              在浏览器登录百度网盘网页版（pan.baidu.com），打开开发者工具（F12）→ Network → 任意请求 → Cookie，复制完整 Cookie 字符串（必须包含 BDUSS 和 STOKEN 字段）。Cookie 仅保存在本机设置中。
             </Text>
           </View>
 

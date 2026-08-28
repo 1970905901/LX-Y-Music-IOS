@@ -48,7 +48,16 @@ const getRootPath = () => {
 }
 
 const getUserAgent = () =>
-  'Mozilla/5.0 (Linux; Android 10; Pixel 3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.79 Mobile Safari/537.36'
+  // 桌面端 Chrome UA：百度网盘 API 对移动端 UA 有额外风控，容易返回 errno -6
+  // （判定未登录）。桌面端 UA 配合 Referer 更稳定。
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+
+// 从 Cookie 中提取 BDSTOKEN：百度网盘 API 的 CSRF 令牌，部分接口需要作为 URL 参数显式传递。
+const getBdstoken = (): string => {
+  const cookie = getCookie()
+  const match = cookie.match(/BDSTOKEN\s*=\s*([^;\s]+)/i)
+  return match?.[1] ?? ''
+}
 
 const getHeaders = (): Record<string, string> => {
   const cookie = getCookie()
@@ -56,6 +65,8 @@ const getHeaders = (): Record<string, string> => {
     'User-Agent': getUserAgent(),
     Referer: `${API_BASE}/disk/main`,
     Accept: 'application/json, text/plain, */*',
+    // X-Requested-With 标识 AJAX 请求，百度网盘 API 依赖此头避免风控拦截
+    'X-Requested-With': 'XMLHttpRequest',
     ...(cookie ? { Cookie: cookie } : {}),
   }
 }
@@ -79,9 +90,9 @@ const parseFileName = (fileName: string) => {
 const mapErrno = (errno: number): string => {
   switch (errno) {
     case -6:
-      return '百度网盘 Cookie 无效或未登录，请在设置中更新 Cookie'
+      return '百度网盘 Cookie 无效或未登录（需包含 BDUSS 和 STOKEN 字段，请在浏览器 F12 → Network → Cookie 中复制完整字符串）'
     case -7:
-      return '百度网盘登录已过期，请更新 Cookie'
+      return '百度网盘登录已过期，请重新获取 Cookie（BDUSS 和 STOKEN 均需更新）'
     case -9:
       return '百度网盘请求过于频繁，请稍后再试'
     case -12:
@@ -155,11 +166,13 @@ export const listBaiduPanDir = async (dir?: string): Promise<BaiduPanDirContent>
   const num = 1000
   let page = 1
   const dirLyricKeys: string[] = []
+  const bdstoken = getBdstoken()
   // 最多翻 50 页，避免极端情况下死循环
   while (page <= 50) {
     const url =
       `${API_BASE}/api/list?dir=${encodeURIComponent(targetDir)}` +
-      `&num=${num}&page=${page}&order=name&desc=0&clienttype=0&web=1&channel=web`
+      `&num=${num}&page=${page}&order=name&desc=0&clienttype=0&web=1&channel=chunmi&app_id=250528` +
+      (bdstoken ? `&bdstoken=${encodeURIComponent(bdstoken)}` : '')
     const response = await fetch(url, { headers: getHeaders() })
     const body = await response.json()
     if (typeof body.errno === 'number' && body.errno !== 0) {
@@ -253,9 +266,11 @@ const buildDlink = async (targetPath: string): Promise<string> => {
   const cookie = getCookie()
   if (!cookie) throw new BaiduPanError('请先在设置中填写百度网盘 Cookie', -6)
 
+  const bdstoken = getBdstoken()
   const url =
     `${API_BASE}/api/filemetas?target=${getTarget(targetPath)}` +
-    `&dlink=1&clienttype=0&web=1&channel=web`
+    `&dlink=1&clienttype=0&web=1&channel=chunmi&app_id=250528` +
+    (bdstoken ? `&bdstoken=${encodeURIComponent(bdstoken)}` : '')
   const response = await fetch(url, { headers: getHeaders() })
   const body = await response.json()
   if (typeof body.errno === 'number' && body.errno !== 0) {

@@ -71,12 +71,15 @@ const List = forwardRef<ListType, ListProps>(
     const theme = useTheme()
     const flatListRef = useRef<FlatList>(null)
     const [currentList, setList] = useState<LX.Music.MusicInfoOnline[]>([])
-    // 上次经命令式 setList 写入的数组引用。播放中 musicInfoUpdate 会在组件内部
-    // 更新列表（新数组引用）并经 onListUpdate 回传父组件，父组件再原样回传
-    // setList → 整表替换 → FlatList 渲染窗口被重置回 initialNumToRender(12)，
-    // 表现为“播放时列表只显示 12 条下方空白”。引用相同（数据已是该数组）时
-    // 直接跳过，阻断父组件回环替换。
+    // 上次经命令式 setList 写入的数组引用。引用相同（数据已是该数组）时跳过整表替换，
+    // 阻断 musicInfoUpdate → onListUpdate 回传父组件 → 父组件回传 setList 的回环，
+    // 避免播放中 FlatList 渲染窗口被反复重置（列表“只显示 12 条下方空白”）。
     const lastSetListRef = useRef<LX.Music.MusicInfoOnline[] | null>(null)
+    // 当前列表数据的镜像引用：musicInfoUpdate 时对其“原地”替换行对象并递增 version，
+    // data 数组引用保持不变 → VirtualizedList 不会重算渲染窗口（根治播放中列表被重置回
+    // initialNumToRender=12 而下方空白的顽疾），行级刷新由 extraData={listVersion} 驱动。
+    const listDataRef = useRef<LX.Music.MusicInfoOnline[]>([])
+    const [listVersion, setListVersion] = useState(0)
     const [showSource, setShowSource] = useState(false)
     const isMultiSelectModeRef = useRef(false)
     const selectModeRef = useRef<SelectMode>('single')
@@ -96,6 +99,7 @@ const List = forwardRef<ListType, ListProps>(
         // 避免播放中 FlatList 渲染窗口被反复重置（列表“只显示 12 条下方空白”）。
         if (lastSetListRef.current === list) return
         lastSetListRef.current = list
+        listDataRef.current = list
         setList(list)
         onListUpdate?.(list)
         setShowSource(showSource)
@@ -127,13 +131,13 @@ const List = forwardRef<ListType, ListProps>(
         return selectedListRef.current
       },
       getList() {
-        return currentList
+        return listDataRef.current
       },
       setStatus(val) {
         setStatus(val)
       },
       scrollToInfo(info) {
-        const index = currentList.findIndex(item => item.id === info.id)
+        const index = listDataRef.current.findIndex(item => item.id === info.id)
         if (index > -1) {
           flatListRef.current?.scrollToIndex({
             index: Math.floor(index / (rowInfo.current.rowNum ?? 1)),
@@ -146,18 +150,17 @@ const List = forwardRef<ListType, ListProps>(
 
     useEffect(() => {
       const handleMusicInfoUpdate = (musicInfo: LX.Music.MusicInfo) => {
-        setList(currentList => {
-          const index = currentList.findIndex(item => item.id === musicInfo.id)
-          if (index > -1) {
-            const newList = [...currentList]
-            newList[index] = musicInfo as LX.Music.MusicInfoOnline
-            // 记录新引用：父组件随后原样回传 setList 时命中同引用跳过，避免回环整表替换
-            lastSetListRef.current = newList
-            onListUpdate?.(newList)
-            return newList
-          }
-          return currentList
-        })
+        // 关键：不整表替换 data 数组。播放中该事件到达时若替换数组引用，
+        // VirtualizedList 会重算渲染窗口并重置回 initialNumToRender(12)，
+        // 用户看到“列表只显示 12 条下方空白”且滚动加载停滞（各平台在线列表通病）。
+        // 改为原地替换行对象 + 递增 version（extraData），data 引用不变 →
+        // 渲染窗口完全不受影响，仅对应行重新渲染。
+        const list = listDataRef.current
+        const index = list.findIndex(item => item.id === musicInfo.id)
+        if (index < 0) return
+        list[index] = musicInfo as LX.Music.MusicInfoOnline
+        setListVersion(version => version + 1)
+        onListUpdate?.(list)
       }
 
       global.app_event.on('musicInfoUpdate', handleMusicInfoUpdate)
@@ -304,11 +307,14 @@ const List = forwardRef<ListType, ListProps>(
         data={currentList}
         numColumns={rowInfo.current.rowNum}
         horizontal={false}
-        maxToRenderPerBatch={6}
+        maxToRenderPerBatch={20}
         // updateCellsBatchingPeriod={80}
         windowSize={10}
         removeClippedSubviews={false}
         initialNumToRender={12}
+        // 行数据原地更新（musicInfoUpdate）时驱动对应行重渲染；
+        // data 引用保持稳定，VirtualizedList 不重置渲染窗口。
+        extraData={listVersion}
         renderItem={renderItem}
         keyExtractor={getkey}
         getItemLayout={getItemLayout}

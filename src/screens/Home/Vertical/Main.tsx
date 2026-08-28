@@ -702,6 +702,13 @@ const Main = () => {
     return idx ?? 0;
   };
   const activeIndexRef = useRef(getInitialIndex());
+  // 页面集（id + 顺序）签名：分组开关 / 侧边栏显隐变化时会改变页面集合。
+  // iOS 上对运行中的 PagerView 原位重排子页面并立即 setPage，存在原生侧
+  // “index out of bounds” 崩溃（release 下表现为整个 App 白屏）。用 key 让
+  // 页面集变化时整体重建 PagerView 实例，initialPage 直接落到当前页，彻底避开该竞争。
+  const pagerKey = useMemo(() => `${navGroupEnabled ? 'g' : 'f'}|${visibleNavs.map(n => n.id).join('|')}`, [visibleNavs, navGroupEnabled]);
+  // remount 时的初始页：以当前导航 id 在新顺序中的位置为准
+  const initialPageIndex = useMemo(() => viewMap[commonState.navActiveId] ?? 0, [viewMap]);
 
   const onPageSelected = useCallback(({ nativeEvent }: PagerViewOnPageSelectedEvent) => {
     activeIndexRef.current = nativeEvent.position;
@@ -735,6 +742,8 @@ const Main = () => {
         setNavActiveId(visibleNavs[0].id);
       }
     } else if (index != null) {
+      // 防御：索引必须在当前页面集范围内，避免对原生 pager 下发越界页码
+      if (index >= visibleNavs.length) return
       activeIndexRef.current = index;
       pagerViewRef.current?.setPageWithoutAnimation(index);
     }
@@ -768,7 +777,8 @@ const Main = () => {
       if (index == null && visibleNavs.length > 0) {
         index = 0;
       }
-      if (index != null && activeIndexRef.current !== index) {
+      // 防御：索引必须在当前页面集范围内，避免对原生 pager 下发越界页码
+      if (index != null && index < visibleNavs.length && activeIndexRef.current !== index) {
         activeIndexRef.current = index;
         pagerViewRef.current?.setPageWithoutAnimation(index);
       }
@@ -821,8 +831,9 @@ const Main = () => {
   return (
     <View style={styles.container}>
       <PagerView
+        key={pagerKey}
         ref={pagerViewRef}
-        initialPage={activeIndexRef.current}
+        initialPage={initialPageIndex}
         offscreenPageLimit={1}
         onPageSelected={onPageSelected}
         onPageScrollStateChanged={onPageScrollStateChanged}

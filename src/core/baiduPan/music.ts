@@ -6,6 +6,7 @@ import { existsFile } from '@/utils/fs'
 import {
   fetchBaiduPanLrc,
   getBaiduPanLocalFilePath,
+  getBaiduPanPicUrl,
   getBaiduPanPlayUrl,
 } from './drive'
 
@@ -20,7 +21,7 @@ export const getMusicUrl = async ({
   return getBaiduPanPlayUrl(musicInfo, isRefresh)
 }
 
-// 封面：meta 缓存 → 已下载文件的内嵌封面 → 内置全平台接口回退
+// 封面：meta 缓存 → 网盘内封面文件（同名/通用）→ 已下载文件的内嵌封面 → 内置全平台接口回退
 export const getPicUrl = async ({
   musicInfo,
   isRefresh,
@@ -31,6 +32,16 @@ export const getPicUrl = async ({
 }): Promise<string> => {
   if (musicInfo.meta.picUrl && !isRefresh) return musicInfo.meta.picUrl
 
+  // 1. 网盘内封面文件（同目录同名 / 目录通用封面）直链
+  try {
+    const picUrl = await getBaiduPanPicUrl(musicInfo, isRefresh)
+    if (picUrl) {
+      musicInfo.meta.picUrl = picUrl
+      return picUrl
+    }
+  } catch {}
+
+  // 2. 已下载文件的内嵌封面
   try {
     const filePath = getBaiduPanLocalFilePath(musicInfo)
     if (await existsFile(filePath)) {
@@ -44,6 +55,7 @@ export const getPicUrl = async ({
     }
   } catch {}
 
+  // 3. 内置全平台接口回退
   return localPlay.getPicUrl({
     target: {
       name: musicInfo.name,

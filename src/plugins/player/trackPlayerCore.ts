@@ -5,6 +5,7 @@ import settingState from '@/store/setting/state'
 import { btoa } from 'react-native-quick-base64'
 import { seekToTime } from './seek'
 import { clearNowPlayingInfo, updateNowPlayingInfo } from '@/utils/nativeModules/nowPlaying'
+import { getBaiduPanTrackHeaders } from '@/core/baiduPan/drive'
 
 const list: LX.Player.Track[] = []
 
@@ -88,14 +89,26 @@ export const formatMusicInfo = (musicInfo: LX.Player.PlayMusic) => {
 }
 
 /**
- * WebDAV 流式直链播放的认证 headers（对齐百度网盘 dlink 直连链路）：
- * WebDAV 服务器需 Basic 认证，由播放器 track headers 携带。
+ * 云盘流式直连播放的认证 headers（百度网盘 dlink + WebDAV 直链统一直连链路）：
+ * - WebDAV：服务器需 Basic 认证，由播放器 track headers 携带。
+ * - 百度网盘：dlink 直链（origin=dlna）虽免 UA 绑定，但部分 CDN 节点仍校验
+ *   Referer/UA，这里带上桌面 UA + Referer 更稳妥。
  */
-const getWebDAVTrackHeaders = (musicInfo: LX.Player.PlayMusic): Record<string, string> | undefined => {
+const getCloudTrackHeaders = (musicInfo: LX.Player.PlayMusic): Record<string, string> | undefined => {
   const meta: any = 'progress' in musicInfo
     ? (musicInfo as any).metadata?.musicInfo?.meta
     : (musicInfo as any).meta
-  if (!meta || meta.webdav !== true) return undefined
+  if (!meta) return undefined
+
+  if (meta.baidupan === true) {
+    try {
+      return getBaiduPanTrackHeaders()
+    } catch {
+      return undefined
+    }
+  }
+
+  if (meta.webdav !== true) return undefined
   const headers: Record<string, string> = {
     'User-Agent': defaultUserAgent,
   }
@@ -113,7 +126,7 @@ export const buildTracks = (musicInfo: LX.Player.PlayMusic, url?: LX.Player.Trac
   const isShowNotificationImage = settingState.setting['player.isShowNotificationImage']
   const album = mInfo.album || undefined
   const artwork = isShowNotificationImage && mInfo.pic ? normalizeTrackArtwork(mInfo.pic) : undefined
-  const headers = getWebDAVTrackHeaders(musicInfo)
+  const headers = getCloudTrackHeaders(musicInfo)
   if (url) {
     track.push({
       id: `${mInfo.id}__//${Math.random()}__//${url}`,

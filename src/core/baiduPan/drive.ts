@@ -17,6 +17,11 @@ const audioExts = new Set([
   'ape',
 ])
 
+// 网盘内可作为封面的图片扩展名
+const picExts = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'])
+// 目录级通用封面文件名（不含扩展名），匹配不到同名封面时回退使用
+const genericPicNames = new Set(['cover', 'folder', 'front', 'album', 'back', 'poster', 'thumb'])
+
 export class BaiduPanError extends Error {
   public readonly code: number
   constructor(message: string, code: number) {
@@ -153,6 +158,34 @@ export const findBaiduPanLrcPath = (audioPath: string): string | null => {
   return lyricFileIndex.get(getLyricIndexKey(audioPath))?.path ?? null
 }
 
+// 同目录同名封面图片索引：key 为 `目录|小写文件名(不带扩展名)`，值为文件 fsId + 路径
+const picFileIndex = new Map<string, { fsId: number, path: string }>()
+// 目录级通用封面（cover/folder 等）：key 为目录路径，值为封面文件
+const genericPicIndex = new Map<string, { fsId: number, path: string }>()
+
+const getPicIndexKey = (filePath: string) => {
+  const slashIndex = filePath.lastIndexOf('/')
+  const dir = slashIndex >= 0 ? filePath.slice(0, slashIndex) : ''
+  const fileName = filePath.slice(slashIndex + 1)
+  const dotIndex = fileName.lastIndexOf('.')
+  const base = dotIndex > 0 ? fileName.slice(0, dotIndex) : fileName
+  return `${dir}|${base.toLowerCase()}`
+}
+
+const getDirKey = (filePath: string) => {
+  const slashIndex = filePath.lastIndexOf('/')
+  return slashIndex >= 0 ? filePath.slice(0, slashIndex) : ''
+}
+
+// 查找音频文件对应的网盘内封面：优先同目录同名，其次同目录通用封面
+export const findBaiduPanPicPath = (audioPath: string): { fsId: number, path: string } | null => {
+  return (
+    picFileIndex.get(getPicIndexKey(audioPath)) ??
+    genericPicIndex.get(getDirKey(audioPath)) ??
+    null
+  )
+}
+
 // Cookie 形状校验：BDUSS 是网盘 API 的必备凭证（STOKEN 主要用于写操作）。
 // 缺失时直接给出明确提示，而不是放行后让接口返回晦涩的 errno。
 const assertCookieUsable = () => {
@@ -240,6 +273,7 @@ export const listBaiduPanDir = async (dir?: string): Promise<BaiduPanDirContent>
   const num = 1000
   let page = 1
   const dirLyricKeys: string[] = []
+  const dirPicKeys: string[] = []
   const bdstoken = getBdstoken()
   const bdstokenQ = bdstoken ? `&bdstoken=${encodeURIComponent(bdstoken)}` : ''
   // 最多翻 50 页，避免极端情况下死循环
@@ -265,6 +299,15 @@ export const listBaiduPanDir = async (dir?: string): Promise<BaiduPanDirContent>
           const key = getLyricIndexKey(item.path)
           lyricFileIndex.set(key, { fsId: item.fs_id, path: item.path })
           dirLyricKeys.push(key)
+        } else if (picExts.has(getExt(item.server_filename)) && typeof item.path === 'string') {
+          // 记录封面图片（含 fsId），供播放时按同名/通用名匹配
+          const key = getPicIndexKey(item.path)
+          picFileIndex.set(key, { fsId: item.fs_id, path: item.path })
+          dirPicKeys.push(key)
+          const base = item.path.slice(item.path.lastIndexOf('/') + 1, item.path.lastIndexOf('.'))
+          if (genericPicNames.has(base.toLowerCase())) {
+            genericPicIndex.set(getDirKey(item.path), { fsId: item.fs_id, path: item.path })
+          }
         }
       } catch (e) {
         console.error('Error processing BaiduPan item:', e)
@@ -273,9 +316,15 @@ export const listBaiduPanDir = async (dir?: string): Promise<BaiduPanDirContent>
     if (list.length < num) break
     page++
   }
-  // 清理其他目录遗留的歌词索引，避免无限增长
+  // 清理其他目录遗留的歌词/封面索引，避免无限增长
   for (const key of Array.from(lyricFileIndex.keys())) {
     if (!dirLyricKeys.includes(key) && key.split('|')[0] === targetDir) lyricFileIndex.delete(key)
+  }
+  for (const key of Array.from(picFileIndex.keys())) {
+    if (!dirPicKeys.includes(key) && key.split('|')[0] === targetDir) picFileIndex.delete(key)
+  }
+  for (const dir of Array.from(genericPicIndex.keys())) {
+    if (dir === targetDir) genericPicIndex.delete(dir)
   }
 
   folders.sort((a, b) => (a.server_filename ?? '').localeCompare(b.server_filename ?? ''))
@@ -390,3 +439,29 @@ export const fetchBaiduPanLrc = async (audioPath: string): Promise<string | null
   const text = await response.text()
   return text?.trim() ? text : null
 }
+
+// 获取网盘内封面图片的 dlink 直链（可直接作为图片 URL 使用，无需下载到本地）
+export const getBaiduPanPicUrl = async (
+  musicInfo: LX.BaiduPan.MusicInfo,
+  isRefresh = false
+): Promise<string | null> => {
+  const pic = findBaiduPanPicPath(musicInfo.meta.filePath)
+  if (!pic) return null
+  const key = `pic:${pic.path}`
+  const cached = dlinkCache.get(key)
+  if (!isRefresh && cached && cached.expire > Date.now()) return cached.url
+  try {
+    const url = await buildDlink({ fsId: pic.fsId, path: pic.path })
+    dlinkCache.set(key, { url, expire: Date.now() + DLINK_TTL_MS })
+    return url
+  } catch {
+    return null
+  }
+}
+
+// 播放器 track 使用的请求头：dlink 直链（origin=dlna）虽免 UA 绑定，
+// 但部分 CDN 节点仍校验 Referer/UA，这里带上桌面 UA + Referer 更稳妥。
+export const getBaiduPanTrackHeaders = (): Record<string, string> => ({
+  'User-Agent': getUserAgent(),
+  Referer: `${API_BASE}/disk/main`,
+})

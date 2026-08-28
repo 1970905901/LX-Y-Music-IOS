@@ -25,6 +25,7 @@ import { addTempPlayList } from '@/core/player/tempPlayList'
 import { usePlayMusicInfo } from '@/store/player/hook'
 import playerState from '@/store/player/state'
 import {
+  fetchWebDAVPic,
   getWebDAVConfig,
   listWebDAVFolders,
   saveWebDAVFilterPath,
@@ -32,7 +33,6 @@ import {
   scanWebDAVSongs,
   updateWebDAVMusicMeta,
 } from '@/core/webdavMusic/drive'
-import { getPicPath } from '@/core/music'
 import settingState from '@/store/setting/state'
 import WebDAVListMenu, { type WebDAVListMenuType, type SelectInfo as WebDAVSelectInfo } from './WebDAVListMenu'
 import WebDAVDownloadPath from './components/WebDAVDownloadPath'
@@ -248,29 +248,26 @@ export default memo(() => {
   }, [songs])
 
   const syncSongsCover = useCallback(async (songList: LX.WebDAV.MusicInfo[]) => {
-    const updatedSongs = await Promise.all(
-      songList.map(async (song) => {
+    // 仅补充网盘内封面（快速直连下载到本地），不触发全平台搜索；
+    // 全平台封面由播放详情页按需获取。限制并发 4，避免批量下载风暴。
+    let index = 0
+    const workers = Array.from({ length: 4 }, async () => {
+      while (index < songList.length) {
+        const i = index++
+        const song = songList[i]
+        if (song.meta.picUrl) continue
         try {
-          const picUrl = await getPicPath({
-            musicInfo: song,
-            isRefresh: false,
-          })
-          if (picUrl && picUrl !== song.meta.picUrl) {
-            return {
-              ...song,
-              meta: {
-                ...song.meta,
-                picUrl,
-              },
-            }
+          const picUrl = await fetchWebDAVPic(song)
+          if (picUrl) {
+            songList[i] = { ...song, meta: { ...song.meta, picUrl } }
           }
-        } catch (err) {
+        } catch {
           // ignore error
         }
-        return song
-      })
-    )
-    setSongs(updatedSongs)
+      }
+    })
+    await Promise.all(workers)
+    setSongs([...songList])
   }, [])
 
   const loadConfig = useCallback(() => {

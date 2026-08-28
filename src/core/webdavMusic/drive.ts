@@ -2,6 +2,8 @@ import { getData, saveData } from '@/plugins/storage'
 import { createClient, FileStat } from 'webdav'
 import settingState from '@/store/setting/state'
 import { webDAVLog } from './logger'
+import { btoa } from 'react-native-quick-base64'
+import { downloadFile, existsFile, mkdir, getWebDAVPrivateDirectory } from '@/utils/fs'
 
 const CONFIG_KEY = '@webdav_music_config'
 const audioExts = new Set([
@@ -16,6 +18,10 @@ const audioExts = new Set([
   'wma',
   'ape',
 ])
+
+// 网盘内可作为封面的图片扩展名 + 目录级通用封面文件名
+const picExts = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'])
+const genericPicNames = new Set(['cover', 'folder', 'front', 'album', 'back', 'poster', 'thumb'])
 
 async function getClient() {
   const settings = settingState.setting
@@ -39,6 +45,11 @@ const normalizePath = (path: string | undefined, name: string) => {
 const getExt = (name: string) => {
   const ext = name.split('.').pop()
   return ext && ext != name ? ext.toLowerCase() : ''
+}
+
+const getBaseName = (name: string) => {
+  const dot = name.lastIndexOf('.')
+  return dot > 0 ? name.slice(0, dot) : name
 }
 
 const parseFileName = (fileName: string) => {
@@ -156,6 +167,24 @@ const scanFolder = async (
     throw error
   }
   
+  // 第一遍：收集当前目录的图片与歌词文件，供同名/通用封面匹配
+  const picMap = new Map<string, string>()
+  const lrcMap = new Map<string, string>()
+  let genericPic = ''
+  for (const item of contents) {
+    if (item.type !== 'file') continue
+    const ext = getExt(item.basename)
+    const path = normalizePath(folder?.path, item.basename)
+    const base = getBaseName(item.basename).toLowerCase()
+    if (ext === 'lrc') {
+      lrcMap.set(base, path)
+    } else if (picExts.has(ext)) {
+      picMap.set(base, path)
+      if (genericPicNames.has(base)) genericPic = path
+    }
+  }
+
+  // 第二遍：处理子目录与音频
   for (const item of contents) {
     const path = normalizePath(folder?.path, item.basename)
     if (item.type === 'directory') {
@@ -176,7 +205,14 @@ const scanFolder = async (
     if (item.type !== 'file') continue
     const ext = getExt(item.basename)
     if (!audioExts.has(ext)) continue
-    result.push(toMusicInfo(item, path))
+    const musicInfo = toMusicInfo(item, path)
+    // 网盘内封面/歌词：优先同目录同名，其次目录通用封面
+    const audioBase = getBaseName(item.basename).toLowerCase()
+    const picPath = picMap.get(audioBase) ?? genericPic
+    const lrcPath = lrcMap.get(audioBase)
+    if (picPath) musicInfo.meta.picPath = picPath
+    if (lrcPath) musicInfo.meta.lrcPath = lrcPath
+    result.push(musicInfo)
   }
   return result
 }
@@ -207,40 +243,60 @@ export const scanWebDAVSongs = async (
   return config
 }
 
-export const getWebDAVDownloadUrl = (musicInfo: LX.WebDAV.MusicInfo) => {
-  const settings = settingState.setting
-  const url = settings['sync.webdav.url']
-  
-  let remoteFilePath = String(musicInfo.meta.remotePath || musicInfo.meta.songId || musicInfo.meta.filePath)
-  
-  if (!remoteFilePath.startsWith('/')) {
-    remoteFilePath = '/' + remoteFilePath
+// WebDAV 直链播放/下载的认证 headers：服务器通常需 Basic 认证
+export const getWebDAVAuthHeaders = (): Record<string, string> => {
+  const headers: Record<string, string> = {
+    'User-Agent': 'Mozilla/5.0 (Linux; Android 10; Pixel 3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.79 Mobile Safari/537.36',
   }
-  
-  if (remoteFilePath.includes('/storage/emulated/') || remoteFilePath.includes('/sdcard/') || remoteFilePath.includes('/storage/self/')) {
-    webDAVLog.warn('getWebDAVDownloadUrl: detected local path in remoteFilePath, using songId instead', { remoteFilePath, songId: musicInfo.meta.songId })
-    remoteFilePath = String(musicInfo.meta.songId || musicInfo.meta.filePath)
-    if (!remoteFilePath.startsWith('/')) {
-      remoteFilePath = '/' + remoteFilePath
-    }
+  const username = settingState.setting['sync.webdav.username']
+  const password = settingState.setting['sync.webdav.password']
+  if (username && password) {
+    headers['Authorization'] = 'Basic ' + btoa(`${username}:${password}`)
   }
-  
+  return headers
+}
+
+// 由远程路径构造 WebDAV 直链 URL（保留 / 分隔，仅对每段编码）
+const getWebDAVRemoteUrl = (remoteFilePath: string): string => {
+  const url = settingState.setting['sync.webdav.url']
   if (!url) {
-    webDAVLog.error('getWebDAVDownloadUrl: WebDAV 未配置')
+    webDAVLog.error('getWebDAVRemoteUrl: WebDAV 未配置')
     throw new Error('WebDAV 未配置')
   }
+
+  let remote = String(remoteFilePath || '')
+  if (!remote.startsWith('/')) remote = '/' + remote
+
+  if (
+    remote.includes('/storage/emulated/') ||
+    remote.includes('/sdcard/') ||
+    remote.includes('/storage/self/')
+  ) {
+    webDAVLog.warn('getWebDAVRemoteUrl: detected local path in remoteFilePath', { remoteFilePath: remote })
+  }
+
   const baseUrl = url.endsWith('/') ? url.slice(0, -1) : url
   // 逐段编码：encodeURIComponent 会把路径分隔符 / 编成 %2F，
   // 整体编码后 URL 变成 "音乐%2F歌曲.mp3"，大多数 WebDAV 服务器
   // （坚果云/Alist/Nextcloud）会 404。正确做法是保留 / 分隔，
   // 只对每一段中的空格、中文、# 等特殊字符编码。
-  const encodedFilePath = remoteFilePath
+  const encodedFilePath = remote
     .substring(1)
     .split('/')
     .map(encodeURIComponent)
     .join('/')
-  const downloadUrl = `${baseUrl}/${encodedFilePath}`
-  return downloadUrl
+  return `${baseUrl}/${encodedFilePath}`
+}
+
+export const getWebDAVDownloadUrl = (musicInfo: LX.WebDAV.MusicInfo) => {
+  let remoteFilePath = String(musicInfo.meta.remotePath || musicInfo.meta.songId || musicInfo.meta.filePath)
+
+  if (remoteFilePath.includes('/storage/emulated/') || remoteFilePath.includes('/sdcard/') || remoteFilePath.includes('/storage/self/')) {
+    webDAVLog.warn('getWebDAVDownloadUrl: detected local path in remoteFilePath, using songId instead', { remoteFilePath, songId: musicInfo.meta.songId })
+    remoteFilePath = String(musicInfo.meta.songId || musicInfo.meta.filePath)
+  }
+
+  return getWebDAVRemoteUrl(remoteFilePath)
 }
 
 export interface WebDAVMusicMetaUpdate {
@@ -267,4 +323,40 @@ export const updateWebDAVMusicMeta = async (musicId: string, update: WebDAVMusic
 
   config.songs[songIndex] = song
   await saveWebDAVConfig(config)
+}
+
+// 拉取网盘内封面图片：下载到本地缓存目录，返回 file:// 本地路径
+// （FastImage 固定 defaultHeaders，无法注入 Basic Auth，需先下载到本地）
+export const fetchWebDAVPic = async (musicInfo: LX.WebDAV.MusicInfo): Promise<string | null> => {
+  const picPath = musicInfo.meta.picPath
+  if (!picPath) return null
+  try {
+    const url = getWebDAVRemoteUrl(picPath)
+    const coversDir = `${getWebDAVPrivateDirectory()}/covers`
+    const ext = picPath.split('.').pop()?.toLowerCase() || 'jpg'
+    const localPath = `${coversDir}/${encodeURIComponent(picPath)}.${ext}`
+    if (await existsFile(localPath)) return `file://${localPath}`
+    await mkdir(coversDir)
+    await downloadFile(url, localPath, { headers: getWebDAVAuthHeaders() }).promise
+    return `file://${localPath}`
+  } catch (err) {
+    webDAVLog.warn('fetchWebDAVPic: failed', { err })
+    return null
+  }
+}
+
+// 拉取网盘内同名 .lrc 歌词文本（通过直链 + Basic Auth）
+export const fetchWebDAVLrc = async (musicInfo: LX.WebDAV.MusicInfo): Promise<string | null> => {
+  const lrcPath = musicInfo.meta.lrcPath
+  if (!lrcPath) return null
+  try {
+    const url = getWebDAVRemoteUrl(lrcPath)
+    const response = await fetch(url, { headers: getWebDAVAuthHeaders() })
+    if (!response.ok) return null
+    const text = await response.text()
+    return text?.trim() ? text : null
+  } catch (err) {
+    webDAVLog.warn('fetchWebDAVLrc: failed', { err })
+    return null
+  }
 }

@@ -11,6 +11,7 @@ import {
 } from 'react-native'
 import Text from '@/components/common/Text'
 import Button from '@/components/common/Button'
+import Image from '@/components/common/Image'
 import { Icon } from '@/components/common/Icon'
 import { useTheme } from '@/store/theme/hook'
 import { createStyle, toast } from '@/utils/tools'
@@ -22,7 +23,7 @@ import { usePlayMusicInfo } from '@/store/player/hook'
 import { useSettingValue } from '@/store/setting/hook'
 import { updateSetting } from '@/core/common'
 import playerState from '@/store/player/state'
-import { BaiduPanError, listBaiduPanDir } from '@/core/baiduPan/drive'
+import { BaiduPanError, getBaiduPanPicUrl, listBaiduPanDir } from '@/core/baiduPan/drive'
 import { isBaiduPanMusicInfo } from '@/core/baiduPan/utils'
 
 const ITEM_HEIGHT = scaleSizeH(LIST_ITEM_HEIGHT)
@@ -32,6 +33,25 @@ const formatSize = (size?: number) => {
   if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`
   if (size < 1024 * 1024 * 1024) return `${(size / 1024 / 1024).toFixed(1)} MB`
   return `${(size / 1024 / 1024 / 1024).toFixed(1)} GB`
+}
+
+// 批量补充网盘内封面缩略图：限制并发 5，避免大目录触发百度网盘接口风控；
+// 只对有网盘内封面文件的歌曲产生网络请求（无封面时 getBaiduPanPicUrl 直接返回 null）。
+const applyDirCovers = async (list: LX.BaiduPan.MusicInfo[]) => {
+  let index = 0
+  const workers = Array.from({ length: 5 }, async () => {
+    while (index < list.length) {
+      const i = index++
+      const m = list[i]
+      try {
+        const picUrl = await getBaiduPanPicUrl(m)
+        if (picUrl && picUrl !== m.meta.picUrl) {
+          list[i] = { ...m, meta: { ...m.meta, picUrl } }
+        }
+      } catch {}
+    }
+  })
+  await Promise.all(workers)
 }
 
 type ListRow =
@@ -62,8 +82,12 @@ const SongItem = memo(
       >
         <TouchableOpacity style={styles.rowLeft} onPress={() => onPress(item)}>
           <View style={styles.coverBox}>
-            {/* IcoMoon 字体没有 "music" 字形，渲染成问号，这里用存在的 add-music 字形 */}
-            <Icon name="add-music" size={22} color={isPlaying ? theme['c-primary-font'] : theme['c-500']} />
+            {item.meta.picUrl ? (
+              <Image url={item.meta.picUrl} style={styles.albumArt} />
+            ) : (
+              /* IcoMoon 字体没有 "music" 字形，渲染成问号，这里用存在的 add-music 字形 */
+              <Icon name="add-music" size={22} color={isPlaying ? theme['c-primary-font'] : theme['c-500']} />
+            )}
           </View>
           <View style={styles.itemInfo}>
             <Text color={isPlaying ? theme['c-primary-font'] : theme['c-font']} numberOfLines={1}>
@@ -122,11 +146,14 @@ export default memo(() => {
       setLoading(true)
       setError('')
       void listBaiduPanDir(dir)
-        .then(content => {
+        .then(async content => {
           setFolders(content.folders)
-          setMusics(content.musics)
           setPath(content.dir)
           setConfigOpen(false)
+          // 先渲染列表，再异步补充网盘内封面缩略图
+          setMusics(content.musics)
+          await applyDirCovers(content.musics)
+          setMusics([...content.musics])
         })
         .catch((err: unknown) => {
           const message = err instanceof BaiduPanError ? err.message : err instanceof Error ? err.message : String(err)
@@ -442,6 +469,11 @@ const styles = createStyle({
     alignItems: 'center',
     paddingLeft: 5,
     paddingRight: 5,
+  },
+  albumArt: {
+    width: 52,
+    height: 52,
+    borderRadius: 4,
   },
   itemInfo: {
     flexGrow: 1,

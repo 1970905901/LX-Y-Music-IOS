@@ -161,27 +161,23 @@ export const getMusicUrl = async ({
   onToggleSource?: (musicInfo?: LX.Music.MusicInfoOnline) => void
   allowToggleSource?: boolean
 }): Promise<string> => {
-  if (!isRefresh) {
-    const isWebDAV = 'webdav' in musicInfo.meta && (musicInfo.meta as any).webdav === true
-    if (isWebDAV) {
-      const webDAVMusicInfo = musicInfo as LX.WebDAV.MusicInfo
-      // 已下载文件优先（离线可播）
-      if (webDAVMusicInfo.meta.filePath) {
-        const localExists = await existsFile(webDAVMusicInfo.meta.filePath).catch(() => false)
-        if (localExists) return webDAVMusicInfo.meta.filePath
-      }
-      // 未下载：返回 WebDAV 直链流式边下边播（与百度网盘 dlink 直连一致），
-      // 认证由播放器 track headers 携带，不再整文件预下载
-      try {
-        const module = await loadWebDAVModule()
-        const streamUrl = module.getWebDAVDownloadUrl(webDAVMusicInfo)
-        webDAVLog?.info('getMusicUrl: WebDAV streaming via direct url', { musicId: musicInfo.id })
-        return streamUrl
-      } catch (err: any) {
-        webDAVLog?.warn('getMusicUrl: WebDAV direct stream url failed, fallback to online source', { message: err?.message })
-      }
+  const isWebDAV = 'webdav' in musicInfo.meta && (musicInfo.meta as any).webdav === true
+  if (isWebDAV) {
+    const webDAVMusicInfo = musicInfo as LX.WebDAV.MusicInfo
+    // 已下载文件优先（离线可播，isRefresh 时也复用本地文件）
+    if (webDAVMusicInfo.meta.filePath) {
+      const localExists = await existsFile(webDAVMusicInfo.meta.filePath).catch(() => false)
+      if (localExists) return webDAVMusicInfo.meta.filePath
     }
+    // 未下载：WebDAV 直链流式边下边播（与百度网盘 dlink 直连一致），
+    // 认证由播放器 track headers 携带，不再整文件预下载；失败即抛错，不走自定义源换源
+    const module = await loadWebDAVModule()
+    const streamUrl = module.getWebDAVDownloadUrl(webDAVMusicInfo)
+    webDAVLog?.info('getMusicUrl: WebDAV streaming via direct url', { musicId: musicInfo.id })
+    return streamUrl
+  }
 
+  if (!isRefresh) {
     const path = await getLocalFilePath(musicInfo)
     if (path) return path
   }
@@ -230,6 +226,15 @@ export const getPicUrl = async ({
   
   if (!isRefresh && !skipFilePic) {
     if (isWebDAVMusic) {
+      // 网盘内封面文件优先（同目录同名 / 目录通用封面），下载到本地缓存
+      try {
+        const module = await loadWebDAVModule()
+        const picUrl = await module.fetchWebDAVPic(musicInfo as LX.WebDAV.MusicInfo)
+        if (picUrl) return picUrl
+      } catch (err) {
+        webDAVLog?.warn('getPicUrl: fetchWebDAVPic failed', { err })
+      }
+
       const { picCachePath, readPic: extractPic } = await import('@/utils/localMediaMetadata')
       
       const audioFileName = (musicInfo.meta as any).fileName?.replace(/\.[^/.]+$/, '') || musicInfo.name
@@ -324,11 +329,6 @@ export const getPicUrl = async ({
     if (musicInfo.meta.picUrl) return musicInfo.meta.picUrl
   }
 
-  if (isWebDAVMusic) {
-    webDAVLog?.info('getPicUrl: WebDAV music has no local cover, return empty (use manual fetch)')
-    return ''
-  }
-
   try {
     const result = await getOnlineOtherSourcePicByLocal(musicInfo)
     webDAVLog?.info('getPicUrl: fetched online cover', { url: result.url })
@@ -336,6 +336,9 @@ export const getPicUrl = async ({
   } catch (err) {
     webDAVLog?.warn('getPicUrl: getOnlineOtherSourcePicByLocal failed', { err })
   }
+
+  // 云盘（WebDAV）不走自定义源换源，返回空；普通本地音乐走自定义源换源回退
+  if (isWebDAVMusic) return ''
 
   onToggleSource()
   return getOtherSourceByLocal(musicInfo, async (otherSource) => {
@@ -392,7 +395,20 @@ export const getLyricInfo = async ({
       webDAVLog?.info('getLyricInfo: WebDAV music using edited lyric', { musicId: musicInfo.id })
         return buildLyricInfo(playerLyricInfo)
       }
-      
+
+      // 网盘内同名 .lrc 歌词优先（同目录同名匹配）
+      try {
+        const module = await loadWebDAVModule()
+        const lrcText = await module.fetchWebDAVLrc(musicInfo as LX.WebDAV.MusicInfo)
+        if (lrcText) {
+          webDAVLog?.info('getLyricInfo: WebDAV music using pan lrc', { musicId: musicInfo.id })
+          void saveLyric(musicInfo, { lyric: lrcText })
+          return buildLyricInfo({ lyric: lrcText })
+        }
+      } catch (err) {
+        webDAVLog?.warn('getLyricInfo: fetchWebDAVLrc failed', { err })
+      }
+
       const lyricInfo = await getCachedLyricInfo(musicInfo)
       if (lyricInfo?.lyric) {
         webDAVLog?.info('getLyricInfo: WebDAV music using cached lyric', { musicId: musicInfo.id })
@@ -441,18 +457,8 @@ export const getLyricInfo = async ({
         webDAVLog?.warn('getLyricInfo: WebDAV music online lyric fetch failed', { err })
       }
 
-      onToggleSource()
-      return getOtherSourceByLocal(musicInfo, async (otherSource) => {
-        return getOnlineOtherSourceLyricInfo({
-          musicInfos: [...otherSource],
-          onToggleSource,
-          isRefresh,
-        }).then(async ({ lyricInfo, musicInfo: targetMusicInfo, isFromCache }) => {
-          void saveLyric(musicInfo, lyricInfo)
-          if (!isFromCache) void saveLyric(targetMusicInfo, lyricInfo)
-          return buildLyricInfo(lyricInfo)
-        })
-      })
+      // 云盘（WebDAV）不走自定义源换源，返回空歌词
+      return buildLyricInfo({ lyric: '' })
     }
 
     const playerLyricInfo = await getPlayerLyric(musicInfo)

@@ -169,6 +169,8 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
   const lyricScrollLayoutRef = useRef(new LyricScrollLayout(isSmallWindow ? 40 : 54))
   const scrollCancelRef = useRef<(() => void) | null>(null)
   const scrollYRef = useRef(0)
+  // 跳转/首开时大量行尚未测量，定位落地后需在新行完成测量时静默回正一次。
+  const recentreTimerRef = useRef<NodeJS.Timeout | null>(null)
   const isShowLyricProgressSetting = settingState.setting['playDetail.isShowLyricProgressSetting']
 
   // 用户动作（拖动进度条 / 跳转 / 恢复播放）期间强制让歌词列表立即滚动到高亮行，
@@ -279,6 +281,17 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
       lastScrolledLineRef.current = index
     } catch { }
   }
+  // 跳转/歌词页中途打开时，当前行之前的大量行还没被测量，首跳落点必然有偏差；
+  // 等新一批行测量完成（防抖 150ms）后静默回正一次，保证高亮行最终严格居中。
+  const scheduleRecentre = useCallback(() => {
+    if (recentreTimerRef.current) clearTimeout(recentreTimerRef.current)
+    recentreTimerRef.current = setTimeout(() => {
+      recentreTimerRef.current = null
+      if (!active || isPauseScrollRef.current) return
+      handleScrollToActive(lineRef.current.line, true)
+    }, 150)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active])
   const handleScrollBeginDrag = () => {
     isPauseScrollRef.current = true
     // playLineRef.current?.setVisible(true)
@@ -317,6 +330,10 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
       if (scrollTimoutRef.current) {
         clearTimeout(scrollTimoutRef.current)
         scrollTimoutRef.current = null
+      }
+      if (recentreTimerRef.current) {
+        clearTimeout(recentreTimerRef.current)
+        recentreTimerRef.current = null
       }
     }
   }, [])
@@ -441,12 +458,17 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
   }, [])
 
   const handleLineLayout = useCallback<LineProps['onLayout']>((lineNum, height) => {
-    lyricScrollLayoutRef.current.updateLineHeight(lineNum, height)
-    // 当前行完成首次真实测量后立即重算目标偏移，避免先用估算高度滚动造成视觉滞后。
-    if (lineNum === lineRef.current.line && active && !isPauseScrollRef.current) {
-      requestAnimationFrame(() => handleScrollToActive(lineRef.current.line, true))
+    const layout = lyricScrollLayoutRef.current
+    const wasMeasured = layout.isMeasured(lineNum)
+    layout.updateLineHeight(lineNum, height)
+    if (!active || isPauseScrollRef.current) return
+    const current = lineRef.current.line
+    // 当前行高度变化，或当前行之前的某行“首次被测量”（会移动当前行的累计偏移）时，
+    // 防抖回正：避免跳到中段后估算误差让高亮行一直停在非居中位置。
+    if (lineNum === current || (!wasMeasured && lineNum < current)) {
+      scheduleRecentre()
     }
-  }, [active, handleScrollToActive])
+  }, [active, scheduleRecentre])
 
   // 小屏/大屏切换时同步估算行高，保证滚动定位偏移计算准确。
   useEffect(() => {

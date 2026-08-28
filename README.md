@@ -52,6 +52,64 @@
 
 目前本项目的原始发布地址只有 **GitHub**，其他渠道均为第三方转载发布，与本项目无关！
 
+## 目录结构
+
+```
+LX-Y-Music-IOS/
+├── .github/
+│   ├── ISSUE_TEMPLATE/          # bug / feature 提交模板
+│   └── workflows/               # CI：ios-ipa.yml（自动构建）、build-test、publish-version-info
+├── config/
+├── doc/images/
+├── ios/                         # iOS 原生工程
+│   ├── LxMusicMobile/           # 主工程源码（含 AppDelegate.mm 及全部原生模块）
+│   │   └── Images.xcassets/AppIcon.appiconset/
+│   ├── LxMusicMobile.xcodeproj/
+│   ├── LxMusicMobileTests/
+│   └── Vendor/LXLibFLAC/        # FLAC 解码静态库（include/src）
+├── patches/ios/
+├── publish/
+│   └── utils/
+├── scripts/
+├── src/                         # RN 主源码（TS/TSX/JS）
+│   ├── components/              # 通用组件（CheckBox、ChoosePath、PlayerBar 等）
+│   ├── config/
+│   ├── core/                    # 核心逻辑
+│   │   ├── baiduPan/ oneDrive/ webdavMusic/   # 网盘类
+│   │   ├── music/ player/ search/ sync/        # 音乐 / 播放 / 搜索 / 同步
+│   │   └── init/                # 初始化（deeplink / player / userApi）
+│   ├── event/
+│   ├── lang/
+│   ├── navigation/              # 导航（react-native-navigation）
+│   ├── plugins/
+│   │   ├── player/              # 播放引擎 + 音效（drivers / adapters）
+│   │   └── sync/client/         # 同步客户端
+│   ├── resources/               # 字体 / 图片 / 媒体
+│   ├── screens/
+│   │   ├── Home/                # 首页
+│   │   │   ├── Horizontal/ Vertical/
+│   │   │   └── Views/           # 各功能页
+│   │   │       ├── BaiduPan/ WebDAV/ OneDrive/    # 网盘
+│   │   │       ├── Leaderboard/                   # 排行榜
+│   │   │       ├── Search/ SongList/ Mylist/ ...
+│   │   │       └── Setting/settings/              # 设置（Player / Download / Basic / ...）
+│   │   ├── PlayDetail/          # 播放详情（Vertical / Horizontal / LandscapeImmersion）
+│   │   └── AlbumDetail/ ArtistDetail/ SonglistDetail/ Comment/ DownloadManager/ SimilarSongs/
+│   ├── store/                   # 状态管理（player / setting / list / user / theme / ...）
+│   ├── theme/themes/
+│   ├── types/
+│   └── utils/
+│       ├── musicSdk/            # 各平台 SDK（bd / kg / kw / mg / tx / wy / yt / bilibili / qishui / git）
+│       ├── nativeModules/       # 原生桥接封装（cache.ts / utils.ts / ...）
+│       └── data/ hooks/ simplify-chinese-main/
+├── app.json  babel.config.js  metro.config.js  tsconfig.json
+├── index.js  shim.js  test.js
+├── package.json  package-lock.json  .nvmrc  .ncurc.js  .eslintrc.cjs
+├── Gemfile                     # Ruby / CocoaPods 依赖
+├── dependencies-patch.js
+├── CHANGELOG.md  FAQ.md  README.md  LICENSE
+```
+
 ## 数据同步服务
 
 从 v1.0.0 起，上游发布了一个独立的[数据同步服务](https://github.com/lyswhut/lx-music-sync-server#readme)。如果你有服务器，可以将其部署到服务器上作为私人多端同步服务使用。

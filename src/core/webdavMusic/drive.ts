@@ -230,14 +230,22 @@ export const getWebDAVDownloadUrl = (musicInfo: LX.WebDAV.MusicInfo) => {
     throw new Error('WebDAV 未配置')
   }
   const baseUrl = url.endsWith('/') ? url.slice(0, -1) : url
-  const encodedFilePath = encodeURIComponent(remoteFilePath.substring(1))
+  // 逐段编码：encodeURIComponent 会把路径分隔符 / 编成 %2F，
+  // 整体编码后 URL 变成 "音乐%2F歌曲.mp3"，大多数 WebDAV 服务器
+  // （坚果云/Alist/Nextcloud）会 404。正确做法是保留 / 分隔，
+  // 只对每一段中的空格、中文、# 等特殊字符编码。
+  const encodedFilePath = remoteFilePath
+    .substring(1)
+    .split('/')
+    .map(encodeURIComponent)
+    .join('/')
   const downloadUrl = `${baseUrl}/${encodedFilePath}`
   return downloadUrl
 }
 
 export interface WebDAVMusicMetaUpdate {
   picUrl?: string
-  filePath?: string
+  filePath?: string | null
 }
 
 export const updateWebDAVMusicMeta = async (musicId: string, update: WebDAVMusicMetaUpdate): Promise<void> => {
@@ -246,15 +254,17 @@ export const updateWebDAVMusicMeta = async (musicId: string, update: WebDAVMusic
   if (songIndex === -1) {
     return
   }
-  
+
   const song = config.songs[songIndex]
   if (update.picUrl !== undefined) {
     song.meta.picUrl = update.picUrl
   }
+  // filePath 允许显式清空（传 null 或 ''）：文件被本地删除后需要清掉旧路径，
+  // 否则播放链路会一直误判"已下载"而尝试读取不存在的文件。
   if (update.filePath !== undefined) {
-    song.meta.filePath = update.filePath
+    song.meta.filePath = update.filePath || ''
   }
-  
+
   config.songs[songIndex] = song
   await saveWebDAVConfig(config)
 }

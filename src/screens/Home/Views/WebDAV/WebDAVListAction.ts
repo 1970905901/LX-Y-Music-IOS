@@ -73,7 +73,8 @@ export const handleWebDAVBatchDownload = async (
 
       if (musicInfo.meta.filePath && !fileExists) {
         webDAVLog.info('handleWebDAVBatchDownload: file was deleted, clearing old filePath', { oldPath: musicInfo.meta.filePath })
-        await updateWebDAVMusicMeta(musicInfo.id, { filePath: undefined })
+        // 传 null 显式清空（传 undefined 会被 update 判断跳过，永远清不掉）
+        await updateWebDAVMusicMeta(musicInfo.id, { filePath: null })
       }
 
       if (fileExists) {
@@ -310,6 +311,9 @@ const buildLocalMusicInfoByFilePath = (filePath: string): LX.Music.MusicInfoLoca
     meta: {
       picUrl: '',
       fileName,
+      // filePath 必须带上：下载列表先添加后补全标签的两段式流程中，
+      // 中途任何播放/判断逻辑都依赖 meta.filePath 定位本地文件。
+      filePath,
     },
   } as unknown as LX.Music.MusicInfoLocal
 }

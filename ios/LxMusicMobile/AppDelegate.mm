@@ -4684,6 +4684,19 @@ RCT_EXPORT_METHOD(exitApp) {
   });
 }
 
+// 屏幕常亮：播放歌词/横屏详情页时保持屏幕不熄灭（idleTimerDisabled）
+RCT_EXPORT_METHOD(screenkeepAwake) {
+  dispatch_async(dispatch_get_main_queue(), ^{
+    [UIApplication sharedApplication].idleTimerDisabled = YES;
+  });
+}
+
+RCT_EXPORT_METHOD(screenUnkeepAwake) {
+  dispatch_async(dispatch_get_main_queue(), ^{
+    [UIApplication sharedApplication].idleTimerDisabled = NO;
+  });
+}
+
 @end
 
 @interface CryptoModule : NSObject<RCTBridgeModule>

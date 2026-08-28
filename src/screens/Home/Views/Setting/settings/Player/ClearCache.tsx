@@ -10,8 +10,7 @@ import { useSettingValue } from '@/store/setting/hook'
 import { updateSetting } from '@/core/common'
 import { useI18n } from '@/lang'
 import Text from '@/components/common/Text'
-import { getAppCacheSize, clearAppCache, getCloudCacheSize, clearCloudCache, enforceCloudCacheLimit } from '@/utils/nativeModules/cache'
-import { getCacheSize, clearCache } from '@/plugins/player/utils'
+import { getAppCacheSize, clearAppCache, enforceCloudCacheLimit } from '@/utils/nativeModules/cache'
 import { clearMusicUrl } from '@/utils/data'
 
 // 缓存大小上限预设（MB，0 = 不限制）
@@ -33,8 +32,10 @@ export default memo(() => {
   const [cacheSize, setCacheSize] = useState<string | null>(null)
 
   const handleGetCacheSize = () => {
-    void Promise.all([getAppCacheSize(), getCloudCacheSize(), getCacheSize()]).then(([size0, size1, size2]) => {
-      setCacheSize(sizeFormate(size0 + size1 + size2))
+    // getAppCacheSize（iOS 原生 CacheModule）遍历 Caches + Tmp，已包含
+    // 云盘播放缓存、播放器缓存、封面缓存等全部应用缓存，无需再叠加子目录统计。
+    void getAppCacheSize().then((size) => {
+      setCacheSize(sizeFormate(size))
     })
   }
 
@@ -46,10 +47,10 @@ export default memo(() => {
     }).then((confirm) => {
       if (!confirm) return
       setCleaning(true)
+      // clearAppCache 清理 Caches + Tmp 全部缓存；clearMusicUrl 清理播放链接缓存（storage），
+      // 二者互补，无需再单独清理云盘/播放器子目录。
       void Promise.all([
         clearAppCache(),
-        clearCloudCache(),
-        clearCache(),
         clearMusicUrl(),
         resetNotificationPermissionCheck(),
         resetIgnoringBatteryOptimizationCheck(),

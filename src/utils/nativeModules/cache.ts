@@ -1,16 +1,16 @@
-import { NativeModules, Platform } from 'react-native'
+import { NativeModules } from 'react-native'
 import { readDir, unlink, existsFile, temporaryDirectoryPath } from '@/utils/fs'
 
 const { CacheModule } = NativeModules
-const isIOS = Platform.OS === 'ios'
 
-// CacheModule 在 iOS/Android 均有原生实现（iOS 遍历 Caches/Tmp 目录）。
-// 以下导出对缺失情况做兜底降级。
+// CacheModule 在 iOS/Android 均有原生实现（iOS 遍历 Caches/Tmp 目录，见 AppDelegate.mm）。
+// 之前误用 isIOS 判断导致 iOS 上 getAppCacheSize 返回 0、clearAppCache 空操作，
+// 而 iOS 原生端其实已实现。这里只按「原生模块是否存在」兜底降级。
 export const getAppCacheSize = async (): Promise<number> => {
-  if (isIOS || !CacheModule) return 0
+  if (!CacheModule) return 0
   return CacheModule.getAppCacheSize().then((size: number) => Math.trunc(size))
 }
-export const clearAppCache = isIOS || !CacheModule
+export const clearAppCache = !CacheModule
   ? (): Promise<void> => Promise.resolve()
   : (CacheModule.clearAppCache as () => Promise<void>)
 

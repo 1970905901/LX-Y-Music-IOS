@@ -25,15 +25,13 @@ export const installApk = isIOS
 export const screenkeepAwake = () => {
   if (global.lx.isScreenKeepAwake) return
   global.lx.isScreenKeepAwake = true
-  if (isIOS) return // iOS 无原生常亮模块，使用 react-native 的 KeepAwake 或系统行为
-  UtilsModule.screenkeepAwake()
+  // iOS/Android 均有 UtilsModule.screenkeepAwake 原生实现（iOS 用 idleTimerDisabled 保持常亮）
+  UtilsModule.screenkeepAwake?.()
 }
 export const screenUnkeepAwake = () => {
-  // console.log('screenUnkeepAwake')
   if (!global.lx.isScreenKeepAwake) return
   global.lx.isScreenKeepAwake = false
-  if (isIOS) return
-  UtilsModule.screenUnkeepAwake()
+  UtilsModule.screenUnkeepAwake?.()
 }
 
 export const getWIFIIPV4Address = isIOS

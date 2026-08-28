@@ -4,11 +4,6 @@ import {
   getLyricInfo as getOnlineLyricInfo,
 } from './online'
 import {
-  getMusicUrl as getDownloadMusicUrl,
-  getPicUrl as getDownloadPicUrl,
-  getLyricInfo as getDownloadLyricInfo,
-} from './download'
-import {
   getMusicUrl as getLocalMusicUrl,
   getPicUrl as getLocalPicUrl,
   getLyricInfo as getLocalLyricInfo,
@@ -23,10 +18,24 @@ import {
   getPicUrl as getBaiduPanPicUrl,
   getLyricInfo as getBaiduPanLyricInfo,
 } from '@/core/baiduPan/music'
+import * as localPlay from './localPlay'
 import { handleGetOnlinePicUrl } from './utils'
 import { webDAVLog } from '@/core/webdavMusic/logger'
 
 export { handleGetOnlinePicUrl }
+
+// 「本地与下载」专用链路：不走自定义源管理，本地文件优先 + 内置平台直连回退
+const getTaskTarget = (musicInfo: LX.Download.ListItem): localPlay.LocalPlayTarget => {
+  const task = musicInfo as any
+  const inner = task.musicInfo ?? task.metadata?.musicInfo
+  return {
+    name: inner?.name ?? '',
+    singer: inner?.singer ?? '',
+    filePath: task.filePath ?? task.metadata?.filePath ?? '',
+    picUrl: inner?.meta?.picUrl ?? null,
+    quality: 'quality' in musicInfo ? (musicInfo as any).quality : undefined,
+  }
+}
 
 export const getMusicUrl = async ({
   musicInfo,
@@ -47,7 +56,7 @@ export const getMusicUrl = async ({
     musicId: 'id' in musicInfo ? musicInfo.id : 'N/A',
   })
   if ('progress' in musicInfo) {
-    return getDownloadMusicUrl({ musicInfo, isRefresh, onToggleSource, allowToggleSource })
+    return localPlay.getMusicUrl({ target: getTaskTarget(musicInfo), isRefresh })
   } else if (musicInfo.source == 'local') {
     if ('oneDrive' in musicInfo.meta) {
       return getOneDriveMusicUrl({ musicInfo: musicInfo as LX.OneDrive.MusicInfo, isRefresh })
@@ -57,8 +66,18 @@ export const getMusicUrl = async ({
     }
     if ('webdav' in musicInfo.meta && (musicInfo.meta as any).webdav) {
       webDAVLog.info('index.ts: Detected WebDAV music', { source: musicInfo.source, meta: JSON.stringify(musicInfo.meta) })
+      return getLocalMusicUrl({ musicInfo, isRefresh, onToggleSource, allowToggleSource })
     }
-    return getLocalMusicUrl({ musicInfo, isRefresh, onToggleSource, allowToggleSource })
+    // 普通本地音乐：走本地播放接口（本地文件优先 + 内置平台回退）
+    return localPlay.getMusicUrl({
+      target: {
+        name: musicInfo.name,
+        singer: musicInfo.singer,
+        filePath: (musicInfo.meta as any).filePath,
+        picUrl: (musicInfo.meta as any).picUrl ?? null,
+      },
+      isRefresh,
+    })
   } else {
     return getOnlineMusicUrl({ musicInfo, isRefresh, quality, onToggleSource, allowToggleSource })
   }
@@ -76,7 +95,7 @@ export const getPicPath = async ({
   onToggleSource?: (musicInfo?: LX.Music.MusicInfoOnline) => void
 }): Promise<string> => {
   if ('progress' in musicInfo) {
-    return getDownloadPicUrl({ musicInfo, isRefresh, listId, onToggleSource })
+    return localPlay.getPicUrl({ target: getTaskTarget(musicInfo), isRefresh })
   } else if (musicInfo.source == 'local') {
     if ('oneDrive' in musicInfo.meta) {
       return getOneDrivePicUrl({ musicInfo: musicInfo as LX.OneDrive.MusicInfo, isRefresh, listId })
@@ -84,7 +103,18 @@ export const getPicPath = async ({
     if ('baidupan' in musicInfo.meta) {
       return getBaiduPanPicUrl({ musicInfo: musicInfo as LX.BaiduPan.MusicInfo, isRefresh, listId })
     }
-    return getLocalPicUrl({ musicInfo, isRefresh, listId, onToggleSource })
+    if ('webdav' in musicInfo.meta && (musicInfo.meta as any).webdav) {
+      return getLocalPicUrl({ musicInfo, isRefresh, listId, onToggleSource })
+    }
+    return localPlay.getPicUrl({
+      target: {
+        name: musicInfo.name,
+        singer: musicInfo.singer,
+        filePath: (musicInfo.meta as any).filePath,
+        picUrl: (musicInfo.meta as any).picUrl ?? null,
+      },
+      isRefresh,
+    })
   } else {
     return getOnlinePicUrl({ musicInfo, isRefresh, listId, onToggleSource })
   }
@@ -100,7 +130,7 @@ export const getLyricInfo = async ({
   onToggleSource?: (musicInfo?: LX.Music.MusicInfoOnline) => void
 }): Promise<LX.Player.LyricInfo> => {
   if ('progress' in musicInfo) {
-    return getDownloadLyricInfo({ musicInfo, isRefresh, onToggleSource })
+    return localPlay.getLyricInfo({ target: getTaskTarget(musicInfo), isRefresh })
   } else if (musicInfo.source == 'local') {
     if ('oneDrive' in musicInfo.meta) {
       return getOneDriveLyricInfo({ musicInfo: musicInfo as LX.OneDrive.MusicInfo, isRefresh })
@@ -108,7 +138,18 @@ export const getLyricInfo = async ({
     if ('baidupan' in musicInfo.meta) {
       return getBaiduPanLyricInfo({ musicInfo: musicInfo as LX.BaiduPan.MusicInfo, isRefresh })
     }
-    return getLocalLyricInfo({ musicInfo, isRefresh, onToggleSource })
+    if ('webdav' in musicInfo.meta && (musicInfo.meta as any).webdav) {
+      return getLocalLyricInfo({ musicInfo, isRefresh, onToggleSource })
+    }
+    return localPlay.getLyricInfo({
+      target: {
+        name: musicInfo.name,
+        singer: musicInfo.singer,
+        filePath: (musicInfo.meta as any).filePath,
+        picUrl: (musicInfo.meta as any).picUrl ?? null,
+      },
+      isRefresh,
+    })
   } else {
     return getOnlineLyricInfo({ musicInfo, isRefresh, onToggleSource })
   }

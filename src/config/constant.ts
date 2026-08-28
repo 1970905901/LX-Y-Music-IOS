@@ -116,8 +116,7 @@ export const NAV_MENUS = [
   { id: 'nav_webdav', icon: 'svg:onedrive' },
   { id: 'nav_onedrive', icon: 'svg:onedrive' },
   { id: 'nav_baidupan', icon: 'svg:onedrive' },
-  { id: 'nav_download_music', icon: 'download-2' },
-  { id: 'nav_local_music', icon: 'add-music' },
+  { id: 'nav_local_download', icon: 'download-2' },
   { id: 'nav_play_history', icon: 'music_time' },
   { id: 'nav_setting', icon: 'setting' },
 ] as const
@@ -152,10 +151,13 @@ export const getEffectiveFlatOrder = (
     Array.isArray(navFlatOrder) && navFlatOrder.length > 0
       ? (navFlatOrder as NAV_ID_Type[])
       : (Array.isArray(navOrder) && navOrder.length > 0 ? (navOrder as NAV_ID_Type[]) : NAV_MENUS.map(m => m.id))
-  const set = new Set(base)
   const allMenuIds = NAV_MENUS.map(m => m.id)
+  // 过滤已废弃的菜单 id（如合并前的 nav_download_music / nav_local_music），
+  // 避免老用户持久化顺序里的残留项渲染成未知页面
+  const validBase = base.filter(id => allMenuIds.includes(id))
+  const set = new Set(validBase)
   const extra = allMenuIds.filter(id => !set.has(id))
-  return extra.length ? [...base, ...extra] : base
+  return extra.length ? [...validBase, ...extra] : validBase
 }
 
 /**

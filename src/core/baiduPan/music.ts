@@ -1,10 +1,6 @@
 import { getPlayerLyric, saveLyric } from '@/utils/data'
-import {
-  buildLyricInfo,
-  getOnlineOtherSourceLyricByLocal,
-  getOnlineOtherSourceLyricInfo,
-  getOtherSource,
-} from '@/core/music/utils'
+import { buildLyricInfo } from '@/core/music/utils'
+import * as localPlay from '@/core/music/localPlay'
 import { readPic } from '@/utils/localMediaMetadata'
 import { existsFile } from '@/utils/fs'
 import {
@@ -24,15 +20,16 @@ export const getMusicUrl = async ({
   return getBaiduPanPlayUrl(musicInfo, isRefresh)
 }
 
-// 封面：优先取已缓存的 picUrl，其次尝试读取本地已下载文件的内嵌封面
+// 封面：meta 缓存 → 已下载文件的内嵌封面 → 内置全平台接口回退
 export const getPicUrl = async ({
   musicInfo,
+  isRefresh,
 }: {
   musicInfo: LX.BaiduPan.MusicInfo
   isRefresh: boolean
   listId?: string | null
 }): Promise<string> => {
-  if (musicInfo.meta.picUrl) return musicInfo.meta.picUrl
+  if (musicInfo.meta.picUrl && !isRefresh) return musicInfo.meta.picUrl
 
   try {
     const filePath = getBaiduPanLocalFilePath(musicInfo)
@@ -47,9 +44,17 @@ export const getPicUrl = async ({
     }
   } catch {}
 
-  return ''
+  return localPlay.getPicUrl({
+    target: {
+      name: musicInfo.name,
+      singer: musicInfo.singer,
+      picUrl: musicInfo.meta.picUrl ?? null,
+    },
+    isRefresh,
+  })
 }
 
+// 歌词：网盘同名 .lrc → 本地内嵌 → 内置全平台接口逐平台回退
 export const getLyricInfo = async ({
   musicInfo,
   isRefresh,
@@ -60,7 +65,7 @@ export const getLyricInfo = async ({
   const cachedLyric = await getPlayerLyric(musicInfo)
   if (cachedLyric.lyric && !isRefresh) return cachedLyric
 
-  // 1. 网盘内同目录同名 .lrc 歌词（离线场景最可靠）
+  // 1. 网盘内同目录同名 .lrc 歌词
   try {
     const lrcText = await fetchBaiduPanLrc(musicInfo.meta.filePath)
     if (lrcText) {
@@ -70,42 +75,18 @@ export const getLyricInfo = async ({
     }
   } catch {}
 
-  // 2. 已下载到本地的文件的内嵌歌词
+  // 2. 已下载到本地的文件的内嵌歌词 + 3. 内置全平台回退
   try {
-    const { readLyric } = await import('@/utils/localMediaMetadata')
-    const filePath = getBaiduPanLocalFilePath(musicInfo)
-    if (await existsFile(filePath)) {
-      const lyric = await readLyric(filePath).catch(() => null)
-      if (lyric) {
-        const lyricInfo = { lyric }
-        void saveLyric(musicInfo, lyricInfo)
-        return buildLyricInfo(lyricInfo)
-      }
+    const lyricInfo = await localPlay.getLyricInfo({
+      target: { name: musicInfo.name, singer: musicInfo.singer },
+      isRefresh,
+    })
+    if (lyricInfo?.lyric) {
+      void saveLyric(musicInfo, { lyric: lyricInfo.lyric })
+      return lyricInfo
     }
   } catch {}
 
-  // 3. 在线匹配歌词
-  try {
-    return await getOnlineOtherSourceLyricByLocal(musicInfo, isRefresh).then(
-      ({ lyricInfo, isFromCache }) => {
-        if (!isFromCache) void saveLyric(musicInfo, lyricInfo)
-        return buildLyricInfo(lyricInfo)
-      }
-    )
-  } catch {}
-
-  const otherSource = await getOtherSource(musicInfo, isRefresh)
-  if (otherSource.length) {
-    const { lyricInfo, musicInfo: targetMusicInfo, isFromCache } =
-      await getOnlineOtherSourceLyricInfo({
-        musicInfos: [...otherSource],
-        onToggleSource() {},
-        isRefresh,
-      })
-    void saveLyric(musicInfo, lyricInfo)
-    if (!isFromCache) void saveLyric(targetMusicInfo, lyricInfo)
-    return buildLyricInfo(lyricInfo)
-  }
-
   return cachedLyric
 }
+

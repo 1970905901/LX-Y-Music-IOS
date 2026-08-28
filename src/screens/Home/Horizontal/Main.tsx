@@ -14,8 +14,7 @@ import PlayHistory from '../Views/PlayHistory'
 import OneDrive from '../Views/OneDrive'
 import WebDAV from '../Views/WebDAV'
 import BaiduPan from '../Views/BaiduPan'
-import DownloadMusic from '../Views/DownloadMusic'
-import LocalMusic from '../Views/LocalMusic'
+import LocalDownload from '../Views/LocalDownload'
 import TXPlaylist from '../Views/TxPlaylist'
 import KgPlaylist from '../Views/KgPlaylist'
 import KgDailyRec from '../Views/KgDailyRec'
@@ -59,10 +58,8 @@ const Main = () => {
         return <WebDAV />
       case 'nav_baidupan':
         return <BaiduPan />
-      case 'nav_download_music':
-        return <DownloadMusic />
-      case 'nav_local_music':
-        return <LocalMusic />
+      case 'nav_local_download':
+        return <LocalDownload />
       case 'nav_tx_playlist':
         return <TXPlaylist />
       case 'nav_kg_playlist':

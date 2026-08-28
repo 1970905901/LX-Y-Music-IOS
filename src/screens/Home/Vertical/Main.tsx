@@ -25,8 +25,7 @@ import { useTheme } from '@/store/theme/hook'
 import OneDrive from '../Views/OneDrive'
 import WebDAV from '../Views/WebDAV'
 import BaiduPan from '../Views/BaiduPan'
-import DownloadMusic from '../Views/DownloadMusic'
-import LocalMusic from '../Views/LocalMusic'
+import LocalDownload from '../Views/LocalDownload'
 import TXPlaylist from '../Views/TxPlaylist'
 import KgPlaylist from '../Views/KgPlaylist'
 import KgDailyRec from '../Views/KgDailyRec'
@@ -491,50 +490,14 @@ const BaiduPanPage = () => {
   return visible ? component : null
 }
 
-const DownloadMusicPage = () => {
-  const [visible, setVisible] = useState(commonState.navActiveId == 'nav_download_music')
-  const component = useMemo(() => <DownloadMusic />, [])
+const LocalDownloadPage = () => {
+  const [visible, setVisible] = useState(commonState.navActiveId == 'nav_local_download')
+  const component = useMemo(() => <LocalDownload />, [])
   useEffect(() => {
     let currentId: CommonState['navActiveId'] = commonState.navActiveId
     const handleNavIdUpdate = (id: CommonState['navActiveId']) => {
       currentId = id
-      if (id == 'nav_download_music') {
-        requestAnimationFrame(() => {
-          setVisible(true)
-        })
-      }
-    }
-    const handleHide = () => {
-      if (currentId != 'nav_setting') return
-      setVisible(false)
-    }
-    const handleConfigUpdated = (keys: Array<keyof LX.AppSetting>) => {
-      if (keys.some((k) => hideKeys.includes(k))) handleHide()
-    }
-    global.state_event.on('navActiveIdUpdated', handleNavIdUpdate)
-    global.state_event.on('themeUpdated', handleHide)
-    global.state_event.on('languageChanged', handleHide)
-    global.state_event.on('configUpdated', handleConfigUpdated)
-
-    return () => {
-      global.state_event.off('navActiveIdUpdated', handleNavIdUpdate)
-      global.state_event.off('themeUpdated', handleHide)
-      global.state_event.off('languageChanged', handleHide)
-      global.state_event.off('configUpdated', handleConfigUpdated)
-    }
-  }, [])
-
-  return visible ? component : null
-}
-
-const LocalMusicPage = () => {
-  const [visible, setVisible] = useState(commonState.navActiveId == 'nav_local_music')
-  const component = useMemo(() => <LocalMusic />, [])
-  useEffect(() => {
-    let currentId: CommonState['navActiveId'] = commonState.navActiveId
-    const handleNavIdUpdate = (id: CommonState['navActiveId']) => {
-      currentId = id
-      if (id == 'nav_local_music') {
+      if (id == 'nav_local_download') {
         requestAnimationFrame(() => {
           setVisible(true)
         })
@@ -706,7 +669,9 @@ const Main = () => {
   // 如果老用户的 navOrder 里缺少这些子项，必须补进 PagerView 页面列表，否则点击会 fallback 到第一页。
   const effectiveOrder = useMemo(() => {
     if (!navGroupEnabled) return getEffectiveFlatOrder(navFlatOrder, navOrder);
-    const baseOrder = navOrder || [];
+    const allMenuIds = NAV_MENUS.map(m => m.id)
+    // 过滤已废弃的菜单 id，避免老用户持久化顺序里的残留项渲染成未知页面
+    const baseOrder = (navOrder || []).filter((id: string) => allMenuIds.includes(id)) as NAV_ID_Type[];
     const groupChildIds = NAV_GROUPS.flatMap(g => g.children) as NAV_ID_Type[];
     const missing = groupChildIds.filter(id => !baseOrder.includes(id));
     return missing.length ? [...baseOrder, ...missing] : baseOrder;
@@ -839,8 +804,7 @@ const Main = () => {
       nav_onedrive: <OneDrivePage />,
       nav_webdav: <WebDAVPage />,
       nav_baidupan: <BaiduPanPage />,
-      nav_download_music: <DownloadMusicPage />,
-      nav_local_music: <LocalMusicPage />,
+      nav_local_download: <LocalDownloadPage />,
       nav_tx_playlist: <TXPlaylistPage />,
       nav_kg_playlist: <KgPlaylistPage />,
       nav_kg_daily_rec: <KgDailyRecPage />,

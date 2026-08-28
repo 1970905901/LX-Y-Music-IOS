@@ -55,7 +55,7 @@ const sources = {
   mg,
   bilibili,
   git,
-  qishui,
+  qs: qishui,
   // yt,
 }
 

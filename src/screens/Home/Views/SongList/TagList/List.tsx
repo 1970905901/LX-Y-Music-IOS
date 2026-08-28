@@ -44,28 +44,33 @@ export default forwardRef<ListType, ListProps>(({ onTagChange }, ref) => {
             ],
           },
         ])
-        void getTags(source).then((tagInfo) => {
-          if (isUnmountedRef.current) return
-          prevSource.current = source
-          setList(
-            [
-              {
-                name: '',
-                list: [
-                  {
-                    name: t('songlist_tag_default'),
-                    id: '',
-                    parent_id: '',
-                    parent_name: '',
-                    source,
-                  },
-                ],
-              },
-              { name: t('songlist_tag_hot'), list: [...tagInfo.hotTag] },
-              ...tagInfo.tags,
-            ].filter((t) => t.list.length)
-          )
-        })
+        void getTags(source)
+          .then((tagInfo) => {
+            if (isUnmountedRef.current) return
+            prevSource.current = source
+            setList(
+              [
+                {
+                  name: '',
+                  list: [
+                    {
+                      name: t('songlist_tag_default'),
+                      id: '',
+                      parent_id: '',
+                      parent_name: '',
+                      source,
+                    },
+                  ],
+                },
+                { name: t('songlist_tag_hot'), list: [...tagInfo.hotTag] },
+                ...tagInfo.tags,
+              ].filter((t) => t.list.length)
+            )
+          })
+          .catch(() => {
+            // 汽水等平台无标签列表（getTags reject），保持默认空标签即可
+            prevSource.current = source
+          })
       }
     },
   }))

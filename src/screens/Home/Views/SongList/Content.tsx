@@ -116,7 +116,8 @@ export default () => {
   const handleSourceChange: HeaderBarProps['onSourceChange'] = (source) => {
     songlistInfo.current.source = source
     songlistInfo.current.tagId = ''
-    songlistInfo.current.sortId = songlistState.sortList[source]![0].id
+    // 汽水等仅支持「打开歌单链接」的平台没有 sortList，取空避免访问 [0].id 崩溃
+    songlistInfo.current.sortId = songlistState.sortList[source]?.[0]?.id ?? ''
     void saveSongListSetting({
       sortId: songlistInfo.current.sortId,
       source,

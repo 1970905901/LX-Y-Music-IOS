@@ -2,6 +2,7 @@ import TrackPlayer from 'react-native-track-player'
 import { defaultUrl } from '@/config'
 import { NativeModules, Platform } from 'react-native'
 import settingState from '@/store/setting/state'
+import { btoa } from 'react-native-quick-base64'
 import { seekToTime } from './seek'
 import { clearNowPlayingInfo, updateNowPlayingInfo } from '@/utils/nativeModules/nowPlaying'
 
@@ -10,6 +11,27 @@ const list: LX.Player.Track[] = []
 const defaultUserAgent = 'Mozilla/5.0 (Linux; Android 10; Pixel 3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.79 Mobile Safari/537.36'
 const httpRxp = /^(https?:\/\/.+|\/.+)/
 const wait = async(ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
+/**
+ * 归一化控制中心（原生 NowPlaying）封面：
+ * 原生侧用 imageWithContentsOfFile 读取本地封面，要求纯路径；
+ * 网络/纯路径原样返回，file:// 去掉前缀，其余视为无效。
+ */
+export const normalizeNowPlayingArtwork = (pic?: string | null): string | undefined => {
+  if (!pic) return undefined
+  if (pic.startsWith('file://')) return pic.slice('file://'.length) || undefined
+  return httpRxp.test(pic) ? pic : undefined
+}
+
+/**
+ * 归一化 RNTP track 封面：RNTP 要求 uri 带协议，
+ * 纯本地路径补 file://，网络与 file:// 原样返回。
+ */
+const normalizeTrackArtwork = (pic?: string | null): string | undefined => {
+  if (!pic) return undefined
+  if (pic.startsWith('/')) return `file://${pic}`
+  return /^(https?:\/\/|file:\/\/)/.test(pic) ? pic : undefined
+}
 
 export const trackPlayerState = {
   isPlaying: false,
@@ -65,12 +87,33 @@ export const formatMusicInfo = (musicInfo: LX.Player.PlayMusic) => {
   }
 }
 
+/**
+ * WebDAV 流式直链播放的认证 headers（对齐百度网盘 dlink 直连链路）：
+ * WebDAV 服务器需 Basic 认证，由播放器 track headers 携带。
+ */
+const getWebDAVTrackHeaders = (musicInfo: LX.Player.PlayMusic): Record<string, string> | undefined => {
+  const meta: any = 'progress' in musicInfo
+    ? (musicInfo as any).metadata?.musicInfo?.meta
+    : (musicInfo as any).meta
+  if (!meta || meta.webdav !== true) return undefined
+  const headers: Record<string, string> = {
+    'User-Agent': defaultUserAgent,
+  }
+  const username = settingState.setting['sync.webdav.username']
+  const password = settingState.setting['sync.webdav.password']
+  if (username && password) {
+    headers['Authorization'] = 'Basic ' + btoa(`${username}:${password}`)
+  }
+  return headers
+}
+
 export const buildTracks = (musicInfo: LX.Player.PlayMusic, url?: LX.Player.Track['url'], duration?: LX.Player.Track['duration']): LX.Player.Track[] => {
   const mInfo = formatMusicInfo(musicInfo)
   const track = [] as LX.Player.Track[]
   const isShowNotificationImage = settingState.setting['player.isShowNotificationImage']
   const album = mInfo.album || undefined
-  const artwork = isShowNotificationImage && mInfo.pic && httpRxp.test(mInfo.pic) ? mInfo.pic : undefined
+  const artwork = isShowNotificationImage && mInfo.pic ? normalizeTrackArtwork(mInfo.pic) : undefined
+  const headers = getWebDAVTrackHeaders(musicInfo)
   if (url) {
     track.push({
       id: `${mInfo.id}__//${Math.random()}__//${url}`,
@@ -80,6 +123,7 @@ export const buildTracks = (musicInfo: LX.Player.PlayMusic, url?: LX.Player.Trac
       album,
       artwork,
       userAgent: defaultUserAgent,
+      headers,
       musicId: mInfo.id,
       duration,
     })
@@ -92,6 +136,7 @@ export const buildTracks = (musicInfo: LX.Player.PlayMusic, url?: LX.Player.Trac
       artist: mInfo.singer || 'Unknow',
       album,
       artwork,
+      headers,
       musicId: mInfo.id,
       duration: 0,
     })
@@ -193,7 +238,7 @@ export const restoreTrack = async(track: LX.Player.Track, position: number, isPl
     title: restoredTrack.title,
     artist: restoredTrack.artist,
     album: restoredTrack.album,
-    artwork: typeof restoredTrack.artwork == 'string' ? restoredTrack.artwork : undefined,
+    artwork: normalizeNowPlayingArtwork(typeof restoredTrack.artwork == 'string' ? restoredTrack.artwork : undefined),
     duration: restoredTrack.duration,
     elapsedTime: position,
   })

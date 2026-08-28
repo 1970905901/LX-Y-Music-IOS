@@ -20,7 +20,6 @@ import { getOtherSource, getPlayQuality, QUALITY_RANK, tryUserDefinedSourceToggl
 import { addListMusics, removeListMusics } from '@/core/list'
 import { addDislikeInfo } from '@/utils/dislikeManage'
 import { LIST_IDS } from '@/config/constant'
-import { webDAVLog } from '@/core/webdavMusic/logger'
 import { requestMsg } from '@/utils/message'
 import { getRandom } from '@/utils/common'
 import { filterList } from './utils'
@@ -357,36 +356,6 @@ const getMusicPlayUrl = async (
   addLoadTimeout()
 
   const currentMusicInfo = 'progress' in musicInfo ? musicInfo.metadata.musicInfo : musicInfo
-  const isWebDAVMusic = 'webdav' in currentMusicInfo.meta && (currentMusicInfo.meta as any).webdav === true
-  
-  if (isWebDAVMusic) {
-    const webdavPath = settingState.setting['webdav.downloadPath']
-    let configuredDownloadDir = ''
-    if (webdavPath && typeof webdavPath === 'string' && webdavPath.trim()) {
-      configuredDownloadDir = webdavPath.trim()
-    } else {
-      const { getWebDAVPrivateDirectory } = await import('@/utils/fs')
-      configuredDownloadDir = getWebDAVPrivateDirectory()
-    }
-    const fileName = currentMusicInfo.meta.fileName
-    
-    const existingFilePath = currentMusicInfo.meta.filePath
-    let filePathToCheck = existingFilePath || `${configuredDownloadDir}/${fileName}`
-    
-    const { existsFile } = await import('@/utils/fs')
-    let fileExists = await existsFile(filePathToCheck)
-    
-    if (!fileExists && existingFilePath) {
-      const alternativePath = `${configuredDownloadDir}/${fileName}`
-      filePathToCheck = alternativePath
-      fileExists = await existsFile(filePathToCheck)
-    }
-    
-    if (!fileExists) {
-      setStatusText('正在下载歌曲...')
-      webDAVLog?.info('getMusicPlayUrl: WebDAV file not found, starting download', { musicId: currentMusicInfo.id, expectedPath: filePathToCheck })
-    }
-  }
 
   // const type = getPlayType(settingState.setting['player.isPlayHighQuality'], musicInfo)
   let toggleMusicInfo = currentMusicInfo.meta.toggleMusicInfo
@@ -444,15 +413,8 @@ export const setMusicUrl = (
         global.lx.gettingUrlId = ''
         clearLoadTimeout()
         setStatusText('')
-        
-        const isWebDAVMusic = 'webdav' in (currentMusicInfo as any).meta && ((currentMusicInfo as any).meta as any).webdav === true
-        if (isWebDAVMusic) {
-          void setStop().then(() => {
-            setResource(currentMusicInfo, url, playerState.progress.nowPlayTime)
-          })
-        } else {
-          setResource(currentMusicInfo, url, playerState.progress.nowPlayTime)
-        }
+
+        setResource(currentMusicInfo, url, playerState.progress.nowPlayTime)
         // 成功取得并加载音源，清零连续失败计数
         consecutiveLoadFailures = 0
         

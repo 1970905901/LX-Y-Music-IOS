@@ -13,6 +13,7 @@ import {
   getCurrentTrack,
   getTrackDuration,
   initTrackInfo as handleInitTrackInfo,
+  normalizeNowPlayingArtwork,
   restoreTrack,
   trackPlayerState as state,
   updateCurrentTrackMetadata,
@@ -96,7 +97,7 @@ const updateMetaInfo = async(mInfo: LX.Player.MusicInfo, lyric?: string, isPlayi
   // }
   // console.log('+++++updateMetaInfo+++++', mInfo.name)
   state.isPlaying = isPlaying
-  let artwork = isShowNotificationImage ? mInfo.pic ?? undefined : undefined
+  let artwork = isShowNotificationImage ? normalizeNowPlayingArtwork(mInfo.pic) : undefined
   let name: string
   let singer: string
   let album: string | undefined

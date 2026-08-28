@@ -1,5 +1,4 @@
 import { saveLyric, saveMusicUrl, getPlayerLyric } from '@/utils/data'
-import { updateListMusics } from '@/core/list'
 import {
   buildLyricInfo,
   getCachedLyricInfo,
@@ -13,13 +12,10 @@ import {
 } from './utils'
 import { getLocalFilePath } from '@/utils/music'
 import { readLyric, readPic } from '@/utils/localMediaMetadata'
-import { stat, existsFile, mkdir, writeFile, readDir, readFile } from '@/utils/fs'
-import { requestStoragePermission } from '@/utils/tools'
+import { stat, existsFile, readDir, readFile } from '@/utils/fs'
 import { searchMusic } from '@/utils/musicSdk'
 import { toNewMusicInfo } from '@/utils'
 import settingState from '@/store/setting/state'
-import { btoa } from 'react-native-quick-base64'
-import playerState from '@/store/player/state'
 const appEvent = global.app_event
 
 let webDAVModule: typeof import('@/core/webdavMusic/drive') | null = null
@@ -154,129 +150,6 @@ const getOtherSourceByLocal = async <T>(
   throw new Error('source not found')
 }
 
-const downloadWebDAVMusic = async (musicInfo: LX.WebDAV.MusicInfo): Promise<string> => {
-  const module = await loadWebDAVModule()
-  const { getWebDAVDownloadUrl, updateWebDAVMusicMeta } = module
-  const { downloadFile } = await import('@/utils/fs')
-  const { readMetadata } = await import('@/utils/localMediaMetadata')
-  
-  const hasPermission = await requestStoragePermission()
-  if (!hasPermission) {
-    throw new Error('没有存储权限，无法下载音乐')
-  }
-  
-  const downloadUrl = getWebDAVDownloadUrl(musicInfo)
-  
-  const webdavPath = settingState.setting['webdav.downloadPath']
-  let downloadDir = ''
-  if (webdavPath && typeof webdavPath === 'string' && webdavPath.trim()) {
-    downloadDir = webdavPath.trim()
-  } else {
-    const { getWebDAVPrivateDirectory } = await import('@/utils/fs')
-    downloadDir = getWebDAVPrivateDirectory()
-  }
-  
-  const fileName = musicInfo.meta.fileName
-  
-  let filePath = `${downloadDir}/${fileName}`
-
-  if (downloadPromises.has(filePath)) {
-    return downloadPromises.get(filePath)!
-  }
-
-  if (await existsFile(filePath)) {
-    return filePath
-  }
-
-  webDAVLog?.info('downloadWebDAVMusic: starting new download', { musicId: musicInfo.id, fileName })
-  const downloadPromise = (async () => {
-    try {
-      await mkdir(downloadDir)
-
-      const username = settingState.setting['sync.webdav.username']
-      const password = settingState.setting['sync.webdav.password']
-      const headers: Record<string, string> = {
-        'User-Agent': 'Mozilla/5.0 (Linux; Android 10; Pixel 3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.79 Mobile Safari/537.36',
-      }
-      if (username && password) {
-        headers['Authorization'] = 'Basic ' + btoa(`${username}:${password}`)
-      }
-
-      await downloadFile(downloadUrl, filePath, { headers }).promise
-
-      webDAVLog?.info('downloadWebDAVMusic: download completed successfully', { musicId: musicInfo.id, fileName })
-
-      const fileMetadata = await readMetadata(filePath).catch(() => null)
-      
-      const updates: Record<string, any> = { filePath }
-      
-      if (fileMetadata) {
-        if (fileMetadata.albumName) {
-          updates.albumName = fileMetadata.albumName
-        }
-        if (fileMetadata.name && !musicInfo.name) {
-          updates.name = fileMetadata.name
-        }
-        if (fileMetadata.singer && !musicInfo.singer) {
-          updates.singer = fileMetadata.singer
-        }
-      }
-      
-      await updateWebDAVMusicMeta(musicInfo.id, updates)
-
-      await readEmbeddedCoverAndSave(musicInfo, filePath, updateWebDAVMusicMeta)
-
-      if (playerState.playMusicInfo.musicInfo?.id === musicInfo.id) {
-        const playerAction = await import('@/store/player/action')
-        const updatedMusicInfo: any = { ...playerState.playMusicInfo.musicInfo }
-        if (updatedMusicInfo && updatedMusicInfo.meta) {
-          updatedMusicInfo.meta.filePath = filePath
-        }
-        playerAction.default.setPlayMusicInfo(playerState.playMusicInfo.listId, updatedMusicInfo, playerState.playMusicInfo.isTempPlay)
-      }
-
-      return filePath
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      const errorStack = error instanceof Error ? error.stack : ''
-      webDAVLog?.error('downloadWebDAVMusic: error occurred', {
-        message: errorMessage,
-        stack: errorStack,
-        errorType: error?.constructor?.name,
-        errorString: String(error)
-      })
-      throw error
-    } finally {
-      downloadPromises.delete(filePath)
-    }
-  })()
-
-  downloadPromises.set(filePath, downloadPromise)
-  return downloadPromise
-}
-
-const downloadPromises = new Map<string, Promise<string>>()
-
-const readEmbeddedCoverAndSave = async (
-  musicInfo: LX.WebDAV.MusicInfo,
-  filePath: string,
-  updateWebDAVMetaFn: typeof import('@/core/webdavMusic/drive').updateWebDAVMusicMeta
-) => {
-  try {
-    const picPath = await readPic(filePath)
-    if (picPath) {
-      const updatedPicUrl = picPath.startsWith('/') ? `file://${picPath}` : picPath
-      await updateWebDAVMetaFn(musicInfo.id, { picUrl: updatedPicUrl })
-
-      if (playerState.playMusicInfo.musicInfo?.id === musicInfo.id) {
-        global.app_event.picUpdated()
-      }
-    }
-  } catch (error) {
-    webDAVLog?.warn('readEmbeddedCoverAndSave: failed to read embedded cover', { error })
-  }
-}
-
 export const getMusicUrl = async ({
   musicInfo,
   isRefresh,
@@ -291,7 +164,22 @@ export const getMusicUrl = async ({
   if (!isRefresh) {
     const isWebDAV = 'webdav' in musicInfo.meta && (musicInfo.meta as any).webdav === true
     if (isWebDAV) {
-      return downloadWebDAVMusic(musicInfo as LX.WebDAV.MusicInfo)
+      const webDAVMusicInfo = musicInfo as LX.WebDAV.MusicInfo
+      // 已下载文件优先（离线可播）
+      if (webDAVMusicInfo.meta.filePath) {
+        const localExists = await existsFile(webDAVMusicInfo.meta.filePath).catch(() => false)
+        if (localExists) return webDAVMusicInfo.meta.filePath
+      }
+      // 未下载：返回 WebDAV 直链流式边下边播（与百度网盘 dlink 直连一致），
+      // 认证由播放器 track headers 携带，不再整文件预下载
+      try {
+        const module = await loadWebDAVModule()
+        const streamUrl = module.getWebDAVDownloadUrl(webDAVMusicInfo)
+        webDAVLog?.info('getMusicUrl: WebDAV streaming via direct url', { musicId: musicInfo.id })
+        return streamUrl
+      } catch (err: any) {
+        webDAVLog?.warn('getMusicUrl: WebDAV direct stream url failed, fallback to online source', { message: err?.message })
+      }
     }
 
     const path = await getLocalFilePath(musicInfo)

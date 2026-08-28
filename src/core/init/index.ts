@@ -21,6 +21,8 @@ import RNFS from 'react-native-fs'
 import { mkdir, readDir, moveFile, existsFile } from '@/utils/fs'
 import { getDefaultDownloadPath } from '@/utils/downloadPath'
 import { updateSetting } from '@/core/common'
+import { getDownloadTasks, saveDownloadTasks } from '@/utils/data/download'
+import downloadActions from '@/store/download/action'
 
 let isFirstPush = true
 const handlePushedHomeScreen = async() => {
@@ -93,12 +95,14 @@ export default async() => {
 
 /**
  * 初始化下载目录：
- * - 若设置中无 download.path，则预创建默认下载目录，确保「文件」App 中可见。
- * - iOS 上若用户仍使用旧默认路径 `${Documents}/LX-Y Music`，则迁移到 Documents 根目录，
- *   避免「文件」App 中出现两层同名 LX-Y Music 目录且外层为空的困惑。
+ * - 若设置中无 download.path，则预创建默认下载目录「本地」，确保「文件」App 中可见。
+ * - iOS 上迁移历史下载文件到「本地」文件夹：
+ *   1. 旧默认目录 `${Documents}/LX-Y Music` 内全部文件；
+ *   2. 早期版本散落在 Documents 根目录的下载文件（以下载任务记录为准，
+ *      连同同名 .lrc 歌词一并移动）。
+ *   迁移后同步改写下载任务的 filePath，保证列表内文件继续可播。
  */
 const initDownloadPath = async (setting: LX.AppSetting) => {
-  const currentPath = setting['download.path']
   const defaultPath = getDefaultDownloadPath()
 
   // 预创建默认下载目录（无论当前是否使用默认路径，都确保其存在）。
@@ -108,30 +112,68 @@ const initDownloadPath = async (setting: LX.AppSetting) => {
     console.error('[Download Path] Failed to create default download directory:', err)
   }
 
-  // iOS：迁移旧默认子目录路径到新默认路径（Documents 根目录）。
-  if (Platform.OS === 'ios' && currentPath) {
-    const oldDefaultPath = `${RNFS.DocumentDirectoryPath}/LX-Y Music`
-    if (currentPath === oldDefaultPath || currentPath.startsWith(`${oldDefaultPath}/`)) {
+  if (Platform.OS !== 'ios') return
+
+  const movedPaths = new Map<string, string>()
+
+  // 1) 迁移旧默认目录 `${Documents}/LX-Y Music` 内的全部文件
+  const oldDefaultPath = `${RNFS.DocumentDirectoryPath}/LX-Y Music`
+  try {
+    if (await existsFile(oldDefaultPath)) {
+      const items = await readDir(oldDefaultPath)
+      for (const item of items) {
+        if (!item.isFile()) continue
+        const targetPath = `${defaultPath}/${item.name}`
+        try {
+          await moveFile(item.path, targetPath)
+          movedPaths.set(item.path, targetPath)
+        } catch (moveErr) {
+          console.warn(`[Download Path] Failed to move ${item.path} to ${targetPath}:`, moveErr)
+        }
+      }
+      updateSetting({ 'download.path': '' })
+      console.log('[Download Path] Migrated legacy download directory into 本地.')
+    }
+  } catch (err) {
+    console.error('[Download Path] Failed to migrate legacy download directory:', err)
+  }
+
+  // 2) 迁移散落在 Documents 根目录的下载文件（按下载任务记录精确移动）
+  try {
+    const tasks = await getDownloadTasks()
+    let changed = false
+    for (const task of tasks) {
+      const filePath = task.filePath
+      if (!filePath || !filePath.startsWith(`${RNFS.DocumentDirectoryPath}/`)) continue
+      if (filePath.startsWith(`${defaultPath}/`)) continue
+      if (movedPaths.has(filePath)) {
+        task.filePath = movedPaths.get(filePath)!
+        changed = true
+        continue
+      }
+      const targetPath = `${defaultPath}/${filePath.split('/').pop()}`
       try {
-        const exists = await existsFile(oldDefaultPath)
-        if (exists) {
-          const items = await readDir(oldDefaultPath)
-          for (const item of items) {
-            if (item.isFile) {
-              const targetPath = `${RNFS.DocumentDirectoryPath}/${item.name}`
-              try {
-                await moveFile(item.path, targetPath)
-              } catch (moveErr) {
-                console.warn(`[Download Path] Failed to move ${item.path} to ${targetPath}:`, moveErr)
-              }
-            }
+        if (await existsFile(filePath)) {
+          await moveFile(filePath, targetPath)
+          movedPaths.set(filePath, targetPath)
+          // 同名 .lrc 歌词一并迁移
+          const lrcPath = filePath.replace(/\.[^/.]+$/, '.lrc')
+          if (lrcPath !== filePath && (await existsFile(lrcPath).catch(() => false))) {
+            await moveFile(lrcPath, targetPath.replace(/\.[^/.]+$/, '.lrc')).catch(() => {})
           }
         }
-        updateSetting({ 'download.path': '' })
-        console.log('[Download Path] Migrated old default download directory to Documents root.')
-      } catch (err) {
-        console.error('[Download Path] Failed to migrate old download directory:', err)
+        task.filePath = targetPath
+        changed = true
+      } catch (moveErr) {
+        console.warn(`[Download Path] Failed to move ${filePath} to ${targetPath}:`, moveErr)
       }
     }
+    if (changed) {
+      await saveDownloadTasks(tasks)
+      downloadActions.setTasks(await getDownloadTasks())
+      console.log('[Download Path] Rewrote download task paths into 本地.')
+    }
+  } catch (err) {
+    console.error('[Download Path] Failed to migrate stray download files:', err)
   }
 }

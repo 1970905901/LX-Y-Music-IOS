@@ -1,6 +1,6 @@
 import playerState from '@/store/player/state'
 import { prefetch } from '@/components/common/ImageBackground'
-import { setBgPic } from '@/core/common'
+import { setBgPic, updateSetting } from '@/core/common'
 import wyUserApi from '@/utils/musicSdk/wy/user';
 import txUserApi from '@/utils/musicSdk/tx/user';
 import { setWyFollowedArtists, setWyLikedSongs, setWySubscribedAlbums, setTxLikedSongs, setKgLikedSongs } from '@/store/user/action';
@@ -20,8 +20,13 @@ export default async (setting: LX.AppSetting) => {
     void prefetch(picUrl).then(() => {
       if (pic != playerState.musicInfo.pic || !isDynamicBg) return
       setBgPic(picUrl)
+      // 持久化最近一次动态背景，冷启动时先同步恢复，避免白屏闪烁
+      void updateSetting({ 'theme.lastDynamicBgPic': picUrl })
     })
   }
+  // 冷启动：先立即恢复上次的动态背景（免预取等待），预取完成后再无缝升级为当前封面
+  const lastBgPic = formatUri(setting['theme.lastDynamicBgPic'] as string | null)
+  if (isDynamicBg && lastBgPic) setBgPic(lastBgPic)
   const handlePicUpdate = () => {
     if (playerState.musicInfo.pic && playerState.musicInfo.pic != playerState.loadErrorPicUrl) {
       pic = playerState.musicInfo.pic
@@ -37,7 +42,10 @@ export default async (setting: LX.AppSetting) => {
     isDynamicBg = setting['theme.dynamicBg']!
     if (isDynamicBg) {
       if (pic) handleUpdatePic(pic)
-    } else setBgPic(null)
+    } else {
+      setBgPic(null)
+      void updateSetting({ 'theme.lastDynamicBgPic': '' })
+    }
   }
 
   const handleWyCookieUpdate = (keys: Array<keyof LX.AppSetting>, setting: Partial<LX.AppSetting>) => {

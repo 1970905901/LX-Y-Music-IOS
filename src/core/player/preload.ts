@@ -1,4 +1,4 @@
-import { getMusicUrl } from '@/core/music'
+import { getMusicUrl, getLyricInfo } from '@/core/music'
 import { getNextPlayMusicInfo } from '@/core/player/player'
 import { getList } from '@/core/player/playInfo'
 import playerState from '@/store/player/state'
@@ -58,6 +58,9 @@ const preloadNextMusic = async () => {
         
         success = true
         preloadLog.info(`Success! URL cached for "${currentInfo.name}" (length: ${url?.length || 0})`)
+        // 预取歌词：缓存歌词，切歌后歌词立即就绪，与音频真实位置实时同步，
+        // 避免切歌瞬间歌词异步加载造成的「歌词滞后于音频」。
+        void getLyricInfo({ musicInfo: currentInfo, isRefresh: false }).catch(() => {})
       } catch (err: any) {
         preloadLog.error(`Failed attempt ${tryCount + 1} for "${currentInfo.name}": ${err?.message || err}`)
         

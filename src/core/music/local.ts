@@ -164,17 +164,18 @@ export const getMusicUrl = async ({
   const isWebDAV = 'webdav' in musicInfo.meta && (musicInfo.meta as any).webdav === true
   if (isWebDAV) {
     const webDAVMusicInfo = musicInfo as LX.WebDAV.MusicInfo
-    // 已下载文件优先（离线可播，isRefresh 时也复用本地文件）
+    // 用户手动下载的文件优先（离线可播）
     if (webDAVMusicInfo.meta.filePath) {
       const localExists = await existsFile(webDAVMusicInfo.meta.filePath).catch(() => false)
       if (localExists) return webDAVMusicInfo.meta.filePath
     }
-    // 未下载：WebDAV 直链流式边下边播（与百度网盘 dlink 直连一致），
-    // 认证由播放器 track headers 携带，不再整文件预下载；失败即抛错，不走自定义源换源
+    // 未下载：整文件预下载到本地缓存后播放（与百度网盘一致）。
+    // iOS 的 AVPlayer 无法可靠注入 Authorization/User-Agent，直链流式不稳定，
+    // 改用 downloadFile 先下载再播放本地文件；失败即抛错，不走自定义源换源。
     const module = await loadWebDAVModule()
-    const streamUrl = module.getWebDAVDownloadUrl(webDAVMusicInfo)
-    webDAVLog?.info('getMusicUrl: WebDAV streaming via direct url', { musicId: musicInfo.id })
-    return streamUrl
+    const localPath = await module.downloadWebDAVMusic(webDAVMusicInfo)
+    webDAVLog?.info('getMusicUrl: WebDAV downloaded to local for playback', { musicId: musicInfo.id })
+    return localPath
   }
 
   if (!isRefresh) {

@@ -5,7 +5,6 @@ import IsSavePlayTime from './IsSavePlayTime'
 import IsSwipeToShowPlaylist from './IsSwipeToShowPlaylist'
 import PlayHighQuality from './PlayHighQuality'
 import IsHandleAudioFocus from './IsHandleAudioFocus'
-import IsEnableAudioOffload from './IsEnableAudioOffload'
 import IsEnableAudioPreload from './IsEnableAudioPreload'
 import IsAutoCleanPlayedList from './IsAutoCleanPlayedList'
 import IsShowBluetoothLyric from './IsShowBluetoothLyric'
@@ -13,7 +12,7 @@ import IsShowNotificationImage from './IsShowNotificationImage'
 import IsShowLyricTranslation from './IsShowLyricTranslation'
 import IsShowLyricRoma from './IsShowLyricRoma'
 import IsS2T from './IsS2T'
-import MaxCache from './MaxCache'
+import ClearCache from './ClearCache'
 import IsEnableAutoToggleSource from './IsEnableAutoToggleSource'
 import ToggleSourceMaxRetry from './ToggleSourceMaxRetry'
 import IsEnableFailureStrategy from './IsEnableFailureStrategy'
@@ -31,13 +30,12 @@ export default memo(() => {
       <IsSwipeToShowPlaylist />
       <IsAutoCleanPlayedList />
       <IsHandleAudioFocus />
-      <IsEnableAudioOffload />
       <IsEnableAudioPreload />
       <IsShowBluetoothLyric />
       <IsShowLyricTranslation />
       <IsShowLyricRoma />
       <IsS2T />
-      <MaxCache />
+      <ClearCache />
       <IsEnableAutoToggleSource />
       <ToggleSourceMaxRetry />
       <IsEnableFailureStrategy />

@@ -1,6 +1,7 @@
 import settingState from '@/store/setting/state'
-import { existsFile, mkdir, downloadFile, privateStorageDirectoryPath } from '@/utils/fs'
+import { existsFile, mkdir, downloadFile, temporaryDirectoryPath } from '@/utils/fs'
 import { requestStoragePermission } from '@/utils/tools'
+import { enforceCloudCacheLimit } from '@/utils/nativeModules/cache'
 
 const API_BASE = 'https://pan.baidu.com'
 
@@ -338,9 +339,10 @@ export const listBaiduPanDir = async (dir?: string): Promise<BaiduPanDirContent>
 }
 
 const getBaiduPanPrivateDirectory = () => {
-  const docDir = privateStorageDirectoryPath
-  if (!docDir || typeof docDir !== 'string') return '/storage/emulated/0/Music/LX-Y Music/BaiduPan'
-  return `${docDir}/BaiduPan`
+  // 播放缓存（整文件预下载）放 Caches 目录（temporaryDirectoryPath）：
+  // - 系统在磁盘空间不足时可自动清理，不会无限累积；
+  // - 不参与 iCloud 备份（Documents 会被备份，放音频缓存会浪费云空间并触发审核警告）。
+  return `${temporaryDirectoryPath}/BaiduPan`
 }
 
 export const downloadBaiduPanMusic = async (
@@ -369,7 +371,17 @@ export const downloadBaiduPanMusic = async (
     path: musicInfo.meta.filePath,
   })
 
-  await downloadFile(downloadUrl, filePath, { headers: { 'User-Agent': getUserAgent() } }).promise
+  // downloadFile（react-native-fs 的 NSURLSession）能正确携带 Referer / User-Agent，
+  // 与 AVPlayer 不同，可正常通过百度网盘 CDN 的防盗链校验完成下载。
+  await downloadFile(downloadUrl, filePath, {
+    headers: {
+      'User-Agent': getUserAgent(),
+      Referer: `${API_BASE}/disk/main`,
+    },
+  }).promise
+
+  // 下载完成后按上限自动清理云盘缓存（LRU），避免缓存无限累积
+  void enforceCloudCacheLimit((settingState.setting['player.cacheLimit'] || 0) * 1024 * 1024)
 
   return filePath
 }

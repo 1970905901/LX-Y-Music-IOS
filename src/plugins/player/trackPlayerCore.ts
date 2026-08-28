@@ -2,10 +2,8 @@ import TrackPlayer from 'react-native-track-player'
 import { defaultUrl } from '@/config'
 import { NativeModules, Platform } from 'react-native'
 import settingState from '@/store/setting/state'
-import { btoa } from 'react-native-quick-base64'
 import { seekToTime } from './seek'
 import { clearNowPlayingInfo, updateNowPlayingInfo } from '@/utils/nativeModules/nowPlaying'
-import { getBaiduPanTrackHeaders } from '@/core/baiduPan/drive'
 
 const list: LX.Player.Track[] = []
 
@@ -88,45 +86,12 @@ export const formatMusicInfo = (musicInfo: LX.Player.PlayMusic) => {
   }
 }
 
-/**
- * 云盘流式直连播放的认证 headers（百度网盘 dlink + WebDAV 直链统一直连链路）：
- * - WebDAV：服务器需 Basic 认证，由播放器 track headers 携带。
- * - 百度网盘：dlink 直链（origin=dlna）虽免 UA 绑定，但部分 CDN 节点仍校验
- *   Referer/UA，这里带上桌面 UA + Referer 更稳妥。
- */
-const getCloudTrackHeaders = (musicInfo: LX.Player.PlayMusic): Record<string, string> | undefined => {
-  const meta: any = 'progress' in musicInfo
-    ? (musicInfo as any).metadata?.musicInfo?.meta
-    : (musicInfo as any).meta
-  if (!meta) return undefined
-
-  if (meta.baidupan === true) {
-    try {
-      return getBaiduPanTrackHeaders()
-    } catch {
-      return undefined
-    }
-  }
-
-  if (meta.webdav !== true) return undefined
-  const headers: Record<string, string> = {
-    'User-Agent': defaultUserAgent,
-  }
-  const username = settingState.setting['sync.webdav.username']
-  const password = settingState.setting['sync.webdav.password']
-  if (username && password) {
-    headers['Authorization'] = 'Basic ' + btoa(`${username}:${password}`)
-  }
-  return headers
-}
-
 export const buildTracks = (musicInfo: LX.Player.PlayMusic, url?: LX.Player.Track['url'], duration?: LX.Player.Track['duration']): LX.Player.Track[] => {
   const mInfo = formatMusicInfo(musicInfo)
   const track = [] as LX.Player.Track[]
   const isShowNotificationImage = settingState.setting['player.isShowNotificationImage']
   const album = mInfo.album || undefined
   const artwork = isShowNotificationImage && mInfo.pic ? normalizeTrackArtwork(mInfo.pic) : undefined
-  const headers = getCloudTrackHeaders(musicInfo)
   if (url) {
     track.push({
       id: `${mInfo.id}__//${Math.random()}__//${url}`,
@@ -136,7 +101,6 @@ export const buildTracks = (musicInfo: LX.Player.PlayMusic, url?: LX.Player.Trac
       album,
       artwork,
       userAgent: defaultUserAgent,
-      headers,
       musicId: mInfo.id,
       duration,
     })
@@ -149,7 +113,6 @@ export const buildTracks = (musicInfo: LX.Player.PlayMusic, url?: LX.Player.Trac
       artist: mInfo.singer || 'Unknow',
       album,
       artwork,
-      headers,
       musicId: mInfo.id,
       duration: 0,
     })

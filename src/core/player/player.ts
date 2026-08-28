@@ -544,11 +544,7 @@ export const handlePlay = async () => {
     await playerInitial({
       volume: settingState.setting['player.volume'],
       playRate: settingState.setting['player.playbackRate'],
-      cacheSize: settingState.setting['player.cacheSize']
-        ? parseInt(settingState.setting['player.cacheSize'])
-        : 0,
       isHandleAudioFocus: settingState.setting['player.isHandleAudioFocus'],
-      isEnableAudioOffload: settingState.setting['player.isEnableAudioOffload'],
     })
   }
 

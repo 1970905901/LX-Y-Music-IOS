@@ -4,13 +4,17 @@ import * as localPlay from '@/core/music/localPlay'
 import { readPic } from '@/utils/localMediaMetadata'
 import { existsFile } from '@/utils/fs'
 import {
+  downloadBaiduPanMusic,
   fetchBaiduPanLrc,
   getBaiduPanLocalFilePath,
   getBaiduPanPicUrl,
-  getBaiduPanPlayUrl,
 } from './drive'
 
-// 播放：走 dlink 直链流式播放（origin=dlna 免 UA 校验），不再整文件预下载后才播
+// 播放：整文件预下载到本地后播放本地文件。
+// iOS 的 AVPlayer 无法注入 Referer / User-Agent（AVURLAssetHTTPHeaderFieldsKey
+// 对这两个特殊头不生效，会被系统忽略），dlink 直链流式播放会被百度网盘 CDN 以
+// 403 拒绝，表现为“点击后无法播放”。改用 downloadFile（react-native-fs，能正确
+// 携带 Referer / 桌面 UA）先下载到本地私有目录，再返回本地文件路径交给播放器。
 export const getMusicUrl = async ({
   musicInfo,
   isRefresh,
@@ -18,7 +22,11 @@ export const getMusicUrl = async ({
   musicInfo: LX.BaiduPan.MusicInfo
   isRefresh: boolean
 }): Promise<string> => {
-  return getBaiduPanPlayUrl(musicInfo, isRefresh)
+  // 已下载文件直接复用（离线可播）
+  const localPath = getBaiduPanLocalFilePath(musicInfo)
+  if (!isRefresh && (await existsFile(localPath))) return localPath
+
+  return downloadBaiduPanMusic(musicInfo, isRefresh)
 }
 
 // 封面：meta 缓存 → 网盘内封面文件（同名/通用）→ 已下载文件的内嵌封面 → 内置全平台接口回退

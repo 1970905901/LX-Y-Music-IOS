@@ -22,23 +22,18 @@ import playerState from '@/store/player/state'
 //   })
 // }
 
-const initial = async({ volume, playRate, cacheSize, isHandleAudioFocus, isEnableAudioOffload }: {
+const initial = async({ volume, playRate, isHandleAudioFocus }: {
   volume: number
   playRate: number
-  cacheSize: number
   isHandleAudioFocus: boolean
-  isEnableAudioOffload: boolean
 }) => {
   if (global.lx.playerStatus.isIniting || global.lx.playerStatus.isInitialized) return
   global.lx.playerStatus.isIniting = true
-  console.log('Cache Size', cacheSize * 1024)
   await migratePlayerCache()
   await TrackPlayer.setupPlayer({
-    maxCacheSize: cacheSize * 1024,
     maxBuffer: 1000,
     waitForBuffer: true,
     handleAudioFocus: isHandleAudioFocus,
-    audioOffload: isEnableAudioOffload,
     autoUpdateMetadata: false,
     // iOS 音频焦点：关闭时允许与其他 App 混音，避免被系统强制中断；
     // 开启时使用标准 Playback 分类，其他 App 出声时系统会发起中断。
@@ -60,9 +55,7 @@ const isInitialized = () => global.lx.playerStatus.isInitialized
 const getPlayerConfig = () => ({
   volume: settingState.setting['player.volume'],
   playRate: settingState.setting['player.playbackRate'],
-  cacheSize: settingState.setting['player.cacheSize'] ? parseInt(settingState.setting['player.cacheSize']) : 0,
   isHandleAudioFocus: settingState.setting['player.isHandleAudioFocus'],
-  isEnableAudioOffload: settingState.setting['player.isEnableAudioOffload'],
 })
 
 let reconfigurePromise = Promise.resolve()

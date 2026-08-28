@@ -5,6 +5,7 @@ import wy from './wy'
 import mg from './mg'
 import bilibili from './bilibili'
 import git from './git'
+import qishui from './qishui'
 // import yt from './yt'
 import { supportQuality } from './api-source'
 
@@ -38,6 +39,10 @@ const sources = {
       name: 'Gitcode',
       id: 'git',
     },
+    {
+      name: '汽水音乐',
+      id: 'qs',
+    },
     // {
     //   name: 'YouTube',
     //   id: 'yt',
@@ -50,6 +55,7 @@ const sources = {
   mg,
   bilibili,
   git,
+  qishui,
   // yt,
 }
 

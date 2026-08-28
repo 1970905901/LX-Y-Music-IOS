@@ -102,8 +102,10 @@ const styles = createStyle({
     textAlign: 'center',
   },
   listName: {
-    height: '100%',
-    justifyContent: 'center',
+    // 注意：不要给 Text 设置 height: '100%'。Text 高度依赖父容器（Button），
+    // 而 Button 高度又依赖内容，形成循环依赖，iOS 上 Yoga 重排时偶发把
+    // 高度解析为 0，导致榜单文字全部消失（表现为左侧变白）。
+    // 垂直居中由父容器 Button 的 alignItems: 'center' 负责。
     paddingLeft: 6,
     // backgroundColor: 'rgba(0,0,0,0.1)',
   },

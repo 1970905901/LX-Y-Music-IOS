@@ -14,6 +14,7 @@ const SOURCE_ABBR: Record<string, string> = {
   tx: 'QQ',
   kw: 'KW',
   mg: 'MG',
+  qs: 'QS',
   local: '本地',
   xm: 'XM',
   bilibili: 'BILI',

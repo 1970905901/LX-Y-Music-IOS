@@ -3,7 +3,8 @@ import { createClient, FileStat } from 'webdav'
 import settingState from '@/store/setting/state'
 import { webDAVLog } from './logger'
 import { btoa } from 'react-native-quick-base64'
-import { downloadFile, existsFile, mkdir, getWebDAVPrivateDirectory } from '@/utils/fs'
+import { downloadFile, existsFile, mkdir, temporaryDirectoryPath } from '@/utils/fs'
+import { enforceCloudCacheLimit } from '@/utils/nativeModules/cache'
 
 const CONFIG_KEY = '@webdav_music_config'
 const audioExts = new Set([
@@ -256,6 +257,11 @@ export const getWebDAVAuthHeaders = (): Record<string, string> => {
   return headers
 }
 
+// 播放/封面缓存目录（Caches，可被系统清理，不参与 iCloud 备份）。
+// 注意与 getWebDAVPrivateDirectory（用户手动下载目录，位于 Documents）区分：
+// 这里是流式播放自动预下载的临时缓存，可被系统回收；用户手动下载的文件要保留。
+const getWebDAVCacheDirectory = () => `${temporaryDirectoryPath}/WebDAV`
+
 // 由远程路径构造 WebDAV 直链 URL（保留 / 分隔，仅对每段编码）
 const getWebDAVRemoteUrl = (remoteFilePath: string): string => {
   const url = settingState.setting['sync.webdav.url']
@@ -332,7 +338,7 @@ export const fetchWebDAVPic = async (musicInfo: LX.WebDAV.MusicInfo): Promise<st
   if (!picPath) return null
   try {
     const url = getWebDAVRemoteUrl(picPath)
-    const coversDir = `${getWebDAVPrivateDirectory()}/covers`
+    const coversDir = `${getWebDAVCacheDirectory()}/covers`
     const ext = picPath.split('.').pop()?.toLowerCase() || 'jpg'
     const localPath = `${coversDir}/${encodeURIComponent(picPath)}.${ext}`
     if (await existsFile(localPath)) return `file://${localPath}`
@@ -359,4 +365,26 @@ export const fetchWebDAVLrc = async (musicInfo: LX.WebDAV.MusicInfo): Promise<st
     webDAVLog.warn('fetchWebDAVLrc: failed', { err })
     return null
   }
+}
+
+// 整文件预下载 WebDAV 音频到本地私有缓存目录，返回本地绝对路径。
+// 与百度网盘一致：iOS 的 AVPlayer 无法可靠注入 Authorization/User-Agent 头，
+// 直链流式播放不稳定，改为用 downloadFile（NSURLSession，能正确携带 Basic Auth）
+// 先下载到私有缓存，再播放本地文件。
+export const downloadWebDAVMusic = async (musicInfo: LX.WebDAV.MusicInfo): Promise<string> => {
+  const remotePath = String(musicInfo.meta.remotePath || musicInfo.meta.songId || musicInfo.meta.filePath)
+  const cacheDir = `${getWebDAVCacheDirectory()}/music`
+  const ext = musicInfo.meta.ext || getExt(musicInfo.meta.fileName || remotePath)
+  const filePath = `${cacheDir}/${encodeURIComponent(remotePath)}.${ext}`
+
+  if (await existsFile(filePath)) return filePath
+
+  await mkdir(cacheDir)
+  const downloadUrl = getWebDAVDownloadUrl(musicInfo)
+  await downloadFile(downloadUrl, filePath, { headers: getWebDAVAuthHeaders() }).promise
+
+  // 下载完成后按上限自动清理云盘缓存（LRU），避免缓存无限累积
+  void enforceCloudCacheLimit((settingState.setting['player.cacheLimit'] || 0) * 1024 * 1024)
+
+  return filePath
 }

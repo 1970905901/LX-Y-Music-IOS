@@ -7,7 +7,6 @@ export default (setting: any): Partial<LX.AppSetting> => {
     setting['player.startupAutoPlay'] = setting.startupAutoPlay
     setting['player.togglePlayMethod'] = setting.player?.togglePlayMethod
     setting['player.isSavePlayTime'] = setting.player?.isSavePlayTime
-    setting['player.cacheSize'] = setting.player?.cacheSize
     setting['player.timeoutExit'] = setting.player?.timeoutExit
     setting['player.timeoutExitPlayed'] = setting.player?.timeoutExitPlayed
     setting['player.isHandleAudioFocus'] = setting.player?.isHandleAudioFocus

@@ -119,10 +119,20 @@ export const getTheme = async () => {
   //     : settingState.setting['theme.lightId']
   //   // : 'china_ink'
   //   : settingState.setting['theme.id']
-  let themeId =
-    settingState.setting['common.isAutoTheme'] && shouldUseDarkColors
-      ? 'black'
-      : settingState.setting['theme.id']
+  let themeId: string
+  if (settingState.setting['common.isAutoTheme'] && shouldUseDarkColors) {
+    // 跟随系统 + 系统当前为深色 → black
+    themeId = 'black'
+  } else if (
+    !settingState.setting['common.isAutoTheme'] &&
+    settingState.setting['common.isDarkMode']
+  ) {
+    // 不跟随系统 + 手动开启深色模式 → black
+    themeId = 'black'
+  } else {
+    // 其他情况使用用户选定的浅色主题
+    themeId = settingState.setting['theme.id']
+  }
   // themeId = 'naruto'
   // themeId = 'pink'
   // themeId = 'black'

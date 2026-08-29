@@ -28,7 +28,7 @@ interface LineProps {
   line: Line
   lineNum: number
   activeLine: number
-  onLayout: (lineNum: number, height: number, width: number) => void
+  onLayout: (lineNum: number, height: number, width: number, isPlayed: boolean, isActive: boolean) => void
   onPress: (index: number) => void;
 }
 const LrcLine = memo(
@@ -48,7 +48,7 @@ const LrcLine = memo(
     }, [isActive, theme])
 
     const handleLayout = ({ nativeEvent }: LayoutChangeEvent) => {
-      onLayout(lineNum, nativeEvent.layout.height, nativeEvent.layout.width)
+      onLayout(lineNum, nativeEvent.layout.height, nativeEvent.layout.width, isPlayed, isActive)
     }
     const handlePress = useCallback(() => {
       onPress(lineNum);
@@ -246,7 +246,8 @@ export default () => {
     const layout = lyricScrollLayoutRef.current
     let i = findLineIndexByTime(lyricLines, t)
     if (i < 0) i = 0
-    const offset = layout.getContinuousOffset(i, lyricLines, t, listHeight, 0.42, 0, layout.spaceHeight)
+    // 横屏「当前行之前」全为已播放（bold）行，累计偏移统一用 bold 档，避免高亮行持续偏低。
+    const offset = layout.getContinuousOffset(i, lyricLines, t, listHeight, 0.42, 0, layout.spaceHeight, true)
     try {
       flatListRef.current.scrollToOffset({ offset, animated: false })
     } catch { }
@@ -393,10 +394,16 @@ export default () => {
     })
   }
 
-  const handleLineLayout = useCallback<LineProps['onLayout']>((lineNum, height) => {
-    lyricScrollLayoutRef.current.updateLineHeight(lineNum, height)
+  const handleLineLayout = useCallback<LineProps['onLayout']>((lineNum, height, _width, isPlayed, isActive) => {
+    lyricScrollLayoutRef.current.updateLineHeight(
+      lineNum,
+      height,
+      !!(lyricLines[lineNum]?.extendedLyrics?.length),
+      isActive,
+      isPlayed,
+    )
     playLineRef.current?.updateLayoutInfo(lyricScrollLayoutRef.current.getLayoutInfo())
-  }, [])
+  }, [lyricLines])
 
   const handleSpaceLayout = useCallback(({ nativeEvent }: LayoutChangeEvent) => {
     lyricScrollLayoutRef.current.setSpaceHeight(nativeEvent.layout.height)

@@ -18,6 +18,12 @@ export class LyricScrollLayout {
   // 基于 lines 引用缓存的「前 index 行累计偏移」：行高或歌词不变时每帧复用，摊销 O(1)（原每帧 O(n) × 2）。
   private preciseOffsets: number[] = []
   private preciseLinesRef: unknown = null
+  // 横屏：已播放/当前行用 bold（更宽，可能多换行、更高）。连续滚动时「当前行之前」全为已播放行，
+  // 故累计偏移应统一用「bold 档」高度估算；一次性定位未播放区域仍用下方 normal 档。两档各自维护
+  // 真实高度与平均，互不污染。
+  private playedLineHeights: number[] = []
+  private precisePlayedOffsets: number[] = []
+  private precisePlayedLinesRef: unknown = null
   private defaultHeight: number
   private measuredCount = 0
   private measuredSum = 0
@@ -28,6 +34,12 @@ export class LyricScrollLayout {
   private measuredTransSum = 0
   private measuredTransCount = 0
   private lineBucket: number[] = [] // 0=无翻译, 1=有翻译
+  // bold 档（已播放/当前行）的实测高度与平均，单独成档。
+  private playedPlainSum = 0
+  private playedPlainCount = 0
+  private playedTransSum = 0
+  private playedTransCount = 0
+  private playedBucket: number[] = []
   spaceHeight = 0
 
   // 有翻译行约是无翻译行的 1.55 倍（实测大屏 54→84 附近）。无翻译行测量不足时回退到 defaultHeight，
@@ -44,6 +56,9 @@ export class LyricScrollLayout {
     this.cumulativeOffsets = []
     this.preciseOffsets = []
     this.preciseLinesRef = null
+    this.playedLineHeights = []
+    this.precisePlayedOffsets = []
+    this.precisePlayedLinesRef = null
     this.measuredCount = 0
     this.measuredSum = 0
     this.measuredPlainSum = 0
@@ -51,6 +66,11 @@ export class LyricScrollLayout {
     this.measuredTransSum = 0
     this.measuredTransCount = 0
     this.lineBucket = []
+    this.playedPlainSum = 0
+    this.playedPlainCount = 0
+    this.playedTransSum = 0
+    this.playedTransCount = 0
+    this.playedBucket = []
     this.spaceHeight = 0
   }
 
@@ -67,37 +87,63 @@ export class LyricScrollLayout {
     this.defaultHeight = defaultHeight
   }
 
-  updateLineHeight(lineNum: number, height: number, hasTranslation?: boolean, isActive = false) {
+  // isPlayed：横屏里已播放/当前行都用 bold（更宽、可能更高）。同一行在 normal→bold 切换时高度会变，
+  // 故 bold 高度单独成档（playedLineHeights/played 桶），与 normal 档（lineHeights/measured 桶）互不影响；
+  // 竖屏不传此参数（默认 false），行为与改动前一致。
+  updateLineHeight(lineNum: number, height: number, hasTranslation?: boolean, isActive = false, isPlayed = false) {
     // 激活态高度只影响该行自身的居中定位，不影响后续行的累计偏移，故无需重建缓存。
     if (isActive) {
       this.activeLineHeights[lineNum] = height
       return
     }
-    const prev = this.lineHeights[lineNum]
+    const isBold = isPlayed
+    const target = isBold ? this.playedLineHeights : this.lineHeights
+    const prev = target[lineNum]
     if (prev === height) return
     if (prev === undefined) {
-      this.measuredCount++
-      this.measuredSum += height
-      const bucket = hasTranslation ? 1 : 0
-      this.lineBucket[lineNum] = bucket
-      if (bucket === 1) {
-        this.measuredTransSum += height
-        this.measuredTransCount++
+      if (isBold) {
+        const bucket = hasTranslation ? 1 : 0
+        this.playedBucket[lineNum] = bucket
+        if (bucket === 1) this.playedTransSum += height
+        else this.playedPlainSum += height
+        this.playedPlainCount += hasTranslation ? 0 : 1
+        this.playedTransCount += hasTranslation ? 1 : 0
       } else {
-        this.measuredPlainSum += height
-        this.measuredPlainCount++
+        this.measuredCount++
+        this.measuredSum += height
+        const bucket = hasTranslation ? 1 : 0
+        this.lineBucket[lineNum] = bucket
+        if (bucket === 1) {
+          this.measuredTransSum += height
+          this.measuredTransCount++
+        } else {
+          this.measuredPlainSum += height
+          this.measuredPlainCount++
+        }
       }
     } else {
-      this.measuredSum += height - prev
-      // 翻译状态不会变，用首次记录的分桶；极少数二次测量未带 hasTranslation 时沿用原分桶。
-      const bucket = this.lineBucket[lineNum] ?? (hasTranslation ? 1 : 0)
-      if (bucket === 1) this.measuredTransSum += height - prev
-      else this.measuredPlainSum += height - prev
+      if (isBold) {
+        const bucket = this.playedBucket[lineNum] ?? (hasTranslation ? 1 : 0)
+        if (bucket === 1) this.playedTransSum += height - prev
+        else this.playedPlainSum += height - prev
+      } else {
+        this.measuredSum += height - prev
+        // 翻译状态不会变，用首次记录的分桶；极少数二次测量未带 hasTranslation 时沿用原分桶。
+        const bucket = this.lineBucket[lineNum] ?? (hasTranslation ? 1 : 0)
+        if (bucket === 1) this.measuredTransSum += height - prev
+        else this.measuredPlainSum += height - prev
+      }
     }
-    this.lineHeights[lineNum] = height
-    // 行高变化后累计偏移失效，需要重建；精确偏移缓存同样失效。
-    this.cumulativeOffsets = []
-    this.preciseOffsets = []
+    target[lineNum] = height
+    // 已播放（bold）行的真实高度也同步给 lineHeights，供 PlayLine 进度线定位使用，
+    // 但不计入 normal 平均桶（避免污染未播放区的高度估算）。
+    if (isBold) this.lineHeights[lineNum] = height
+    // 行高变化后对应累计偏移失效，需要重建；精确偏移缓存同样失效。
+    if (isBold) this.precisePlayedOffsets = []
+    else {
+      this.cumulativeOffsets = []
+      this.preciseOffsets = []
+    }
   }
 
   /** 该行是否已被真实测量过（用于判断累计偏移是否发生变化） */
@@ -151,24 +197,36 @@ export class LyricScrollLayout {
    * 使每秒数十次的连续滚动位置计算摊销为 O(1)；切歌导致 lines 变化、或某行被真实测量
    * （updateLineHeight 已清空 preciseOffsets）时自动重建。
    */
-  private ensurePreciseOffsets(index: number, lines: { extendedLyrics?: unknown[] }[]) {
-    if (this.preciseLinesRef !== lines) {
-      this.preciseOffsets = []
-      this.preciseLinesRef = lines
+  private ensurePreciseOffsets(index: number, lines: { extendedLyrics?: unknown[] }[], usePlayed: boolean) {
+    const heights = usePlayed ? this.playedLineHeights : this.lineHeights
+    const cache = usePlayed ? this.precisePlayedOffsets : this.preciseOffsets
+    const ref = usePlayed ? this.precisePlayedLinesRef : this.preciseLinesRef
+    if (ref !== lines) {
+      cache.length = 0
+      if (usePlayed) this.precisePlayedLinesRef = lines
+      else this.preciseLinesRef = lines
     }
-    if (this.preciseOffsets.length > index) return
-    const plainAvg = this.measuredPlainCount > 0 ? this.measuredPlainSum / this.measuredPlainCount : this.defaultHeight
-    const transAvg = this.measuredTransCount > 0
-      ? this.measuredTransSum / this.measuredTransCount
-      : plainAvg * LyricScrollLayout.TRANSLATION_FACTOR
-    const oldLen = this.preciseOffsets.length
-    if (oldLen === 0) this.preciseOffsets[0] = 0
+    if (cache.length > index) return
+    // 按「是否 played 档」选对应分桶平均：当前行之前全为已播放行（横屏 bold）时，必须用 bold 平均，
+    // 否则用 normal 平均（竖屏/未播放区）。两类平均各自随用户字号自动修正。
+    const plainAvg = usePlayed
+      ? (this.playedPlainCount > 0 ? this.playedPlainSum / this.playedPlainCount : this.defaultHeight)
+      : (this.measuredPlainCount > 0 ? this.measuredPlainSum / this.measuredPlainCount : this.defaultHeight)
+    const transAvg = usePlayed
+      ? (this.playedTransCount > 0
+        ? this.playedTransSum / this.playedTransCount
+        : plainAvg * LyricScrollLayout.TRANSLATION_FACTOR)
+      : (this.measuredTransCount > 0
+        ? this.measuredTransSum / this.measuredTransCount
+        : plainAvg * LyricScrollLayout.TRANSLATION_FACTOR)
+    const oldLen = cache.length
+    if (oldLen === 0) cache[0] = 0
     for (let i = Math.max(oldLen, 1); i <= index; i++) {
-      const measured = this.lineHeights[i - 1]
+      const measured = heights[i - 1]
       const h = measured !== undefined
         ? measured
         : ((lines[i - 1]?.extendedLyrics?.length ?? 0) > 0 ? transAvg : plainAvg)
-      this.preciseOffsets[i] = this.preciseOffsets[i - 1] + h
+      cache[i] = cache[i - 1] + h
     }
   }
 
@@ -191,12 +249,13 @@ export class LyricScrollLayout {
     paddingV = 0,
     spaceHeight = 0,
     useActiveHeight = true,
+    usePlayed = false,
   ): number {
     if (index <= 0) return 0
     // 复用基于 lines 引用的累计偏移缓存：同一份歌词、行高无变化时每帧复用，摊销 O(1)
     // （原实现每帧对前 index 行做一次 O(n) 循环，连续滚动每秒约 120 次调用）。
-    this.ensurePreciseOffsets(index, lines)
-    const offset = this.preciseOffsets[index] ?? 0
+    this.ensurePreciseOffsets(index, lines, usePlayed)
+    const offset = (usePlayed ? this.precisePlayedOffsets : this.preciseOffsets)[index] ?? 0
     // 当前行处于激活态，其自身高度按激活态计算（可能被挤成两行而更高），保证居中定位准确；
     // 而其之前各行一律用非激活高度累加，保证累计偏移不随播放推进而跳动。
     const itemHeight = useActiveHeight ? this.getActiveLineHeight(index) : this.getLineHeight(index)
@@ -217,14 +276,16 @@ export class LyricScrollLayout {
     viewPosition = 0.5,
     paddingV = 0,
     spaceHeight = 0,
+    usePlayed = false,
   ): number {
     // 连续滚动统一用非激活高度，保证插值起点/终点同基准、切行不突跳。
-    const offsetI = this.getTargetOffsetPrecise(index, listHeight, lines, viewPosition, paddingV, spaceHeight, false)
+    // usePlayed：横屏下「当前行之前」全为已播放（bold）行，累计偏移须用 bold 档，否则高亮行持续偏低。
+    const offsetI = this.getTargetOffsetPrecise(index, listHeight, lines, viewPosition, paddingV, spaceHeight, false, usePlayed)
     if (index + 1 >= lines.length) return offsetI
     const curTime = lines[index].time
     const nextTime = lines[index + 1].time
     const progress = nextTime > curTime ? (t - curTime) / (nextTime - curTime) : 0
-    const offsetNext = this.getTargetOffsetPrecise(index + 1, listHeight, lines, viewPosition, paddingV, spaceHeight, false)
+    const offsetNext = this.getTargetOffsetPrecise(index + 1, listHeight, lines, viewPosition, paddingV, spaceHeight, false, usePlayed)
     return offsetI + progress * (offsetNext - offsetI)
   }
 

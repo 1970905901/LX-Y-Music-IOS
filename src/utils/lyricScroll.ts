@@ -15,6 +15,9 @@ export class LyricScrollLayout {
    */
   private activeLineHeights: number[] = []
   private cumulativeOffsets: number[] = []
+  // 基于 lines 引用缓存的「前 index 行累计偏移」：行高或歌词不变时每帧复用，摊销 O(1)（原每帧 O(n) × 2）。
+  private preciseOffsets: number[] = []
+  private preciseLinesRef: unknown = null
   private defaultHeight: number
   private measuredCount = 0
   private measuredSum = 0
@@ -39,6 +42,8 @@ export class LyricScrollLayout {
     this.lineHeights = []
     this.activeLineHeights = []
     this.cumulativeOffsets = []
+    this.preciseOffsets = []
+    this.preciseLinesRef = null
     this.measuredCount = 0
     this.measuredSum = 0
     this.measuredPlainSum = 0
@@ -90,8 +95,9 @@ export class LyricScrollLayout {
       else this.measuredPlainSum += height - prev
     }
     this.lineHeights[lineNum] = height
-    // 行高变化后累计偏移失效，需要重建
+    // 行高变化后累计偏移失效，需要重建；精确偏移缓存同样失效。
     this.cumulativeOffsets = []
+    this.preciseOffsets = []
   }
 
   /** 该行是否已被真实测量过（用于判断累计偏移是否发生变化） */
@@ -140,6 +146,33 @@ export class LyricScrollLayout {
   }
 
   /**
+   * 构建/复用「前 index 行累计偏移」缓存（对应 getTargetOffsetPrecise 的循环）。
+   * 以 lines 引用作为失效 key：同一份歌词（引用不变）且行高无变化时，缓存长期有效，
+   * 使每秒数十次的连续滚动位置计算摊销为 O(1)；切歌导致 lines 变化、或某行被真实测量
+   * （updateLineHeight 已清空 preciseOffsets）时自动重建。
+   */
+  private ensurePreciseOffsets(index: number, lines: { extendedLyrics?: unknown[] }[]) {
+    if (this.preciseLinesRef !== lines) {
+      this.preciseOffsets = []
+      this.preciseLinesRef = lines
+    }
+    if (this.preciseOffsets.length > index) return
+    const plainAvg = this.measuredPlainCount > 0 ? this.measuredPlainSum / this.measuredPlainCount : this.defaultHeight
+    const transAvg = this.measuredTransCount > 0
+      ? this.measuredTransSum / this.measuredTransCount
+      : plainAvg * LyricScrollLayout.TRANSLATION_FACTOR
+    const oldLen = this.preciseOffsets.length
+    if (oldLen === 0) this.preciseOffsets[0] = 0
+    for (let i = Math.max(oldLen, 1); i <= index; i++) {
+      const measured = this.lineHeights[i - 1]
+      const h = measured !== undefined
+        ? measured
+        : ((lines[i - 1]?.extendedLyrics?.length ?? 0) > 0 ? transAvg : plainAvg)
+      this.preciseOffsets[i] = this.preciseOffsets[i - 1] + h
+    }
+  }
+
+  /**
    * 精确计算目标偏移：已测量行用真实行高，未测量行用「是否有翻译」分档估算。
    * 相比 getTargetOffset 用全局平均高度估算，这里对翻译行/无翻译行区分高度，
    * 可显著降低「从封面页切到歌词页 / 跳到中后段」时（FlatList 虚拟化导致当前行
@@ -160,24 +193,10 @@ export class LyricScrollLayout {
     useActiveHeight = true,
   ): number {
     if (index <= 0) return 0
-    // 无翻译 / 有翻译两类未测量行，分别用各自「已测量行的真实平均高度」估算（随用户字号自动修正）。
-    // 原为固定 defaultHeight(54/40)，与真实行高/字号脱节；若用全局混合平均又会被翻译行抬高、反而更不准。
-    // 快进/快退到中后段时，当前行之前大量行因虚拟化未测量，固定值误差逐行累积成
-    // 「高亮行偏高/偏低一整行」，表现为歌词比音频慢一行或快一行。
-    const plainAvg = this.measuredPlainCount > 0 ? this.measuredPlainSum / this.measuredPlainCount : this.defaultHeight
-    const transAvg = this.measuredTransCount > 0
-      ? this.measuredTransSum / this.measuredTransCount
-      : plainAvg * LyricScrollLayout.TRANSLATION_FACTOR
-    let offset = 0
-    for (let i = 0; i < index; i++) {
-      const measured = this.lineHeights[i]
-      if (measured !== undefined) {
-        offset += measured
-      } else {
-        const hasTranslation = (lines[i]?.extendedLyrics?.length ?? 0) > 0
-        offset += hasTranslation ? transAvg : plainAvg
-      }
-    }
+    // 复用基于 lines 引用的累计偏移缓存：同一份歌词、行高无变化时每帧复用，摊销 O(1)
+    // （原实现每帧对前 index 行做一次 O(n) 循环，连续滚动每秒约 120 次调用）。
+    this.ensurePreciseOffsets(index, lines)
+    const offset = this.preciseOffsets[index] ?? 0
     // 当前行处于激活态，其自身高度按激活态计算（可能被挤成两行而更高），保证居中定位准确；
     // 而其之前各行一律用非激活高度累加，保证累计偏移不随播放推进而跳动。
     const itemHeight = useActiveHeight ? this.getActiveLineHeight(index) : this.getLineHeight(index)

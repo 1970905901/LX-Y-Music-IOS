@@ -1,5 +1,5 @@
 import {memo, useState, useRef, useMemo, useEffect, useCallback} from 'react'
-import { View, AppState, Animated, PanResponder } from 'react-native'
+import { View, AppState } from 'react-native'
 import PagerView, { type PagerViewOnPageSelectedEvent } from 'react-native-pager-view'
 import MiniLyric from '../components/MiniLyric'
 import Pic from './Pic'
@@ -10,9 +10,7 @@ import Player from './Player'
 import { screenkeepAwake, screenUnkeepAwake } from '@/utils/nativeModules/utils'
 import commonState, { type InitState as CommonState } from '@/store/common/state'
 import { createStyle } from '@/utils/tools'
-import { useWindowSize } from '@/utils/hooks'
 import { useSettingValue } from '@/store/setting/hook'
-import { playNext, playPrev } from '@/core/player/player'
 import PlayerPlaylist, { type PlayerPlaylistType } from '@/components/player/PlayerPlaylist.tsx'
 import { registerPager } from '@/utils/pagerScrollControl'
 import { scaleSizeW } from '@/utils/pixelRatio'
@@ -38,118 +36,14 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
   const pagerViewRef = useRef<PagerView>(null);
   const showLyricRef = useRef(false)
   const playlistRef = useRef<PlayerPlaylistType>(null)
-  const { height: winHeight } = useWindowSize()
   const [pagerHeight, setPagerHeight] = useState(0)
-  const isEnableSlideSwitchSong = useSettingValue('player.isEnableSlideSwitchSong')
   const miniLyricAlign = useSettingValue('playDetail.style.miniLyricAlign')
   // 用 ref 追踪滑动方向，避免高频 onScroll 触发大量 setState 导致卡顿
   // 仅在首次变为 true 时触发一次 setState 通知子组件
   const isComingLyricRef = useRef(false)
   const [, setForceUpdate] = useState(0)
 
-  const slideOffset = useRef(new Animated.Value(0)).current;
-  const maxSlide = winHeight * 0.5;
-  const slideThreshold = winHeight * 0.12;
-  const velocityThreshold = 800;
-  const isAnimating = useRef(false);
   const [isProgressDragging, setIsProgressDragging] = useState(false);
-
-  const isEnableSlideSwitchSongRef = useRef(isEnableSlideSwitchSong)
-  const pageIndexRef = useRef(pageIndex)
-  useEffect(() => {
-    isEnableSlideSwitchSongRef.current = isEnableSlideSwitchSong
-  }, [isEnableSlideSwitchSong])
-  useEffect(() => {
-    pageIndexRef.current = pageIndex
-  }, [pageIndex])
-
-  const resetSlide = useCallback(() => {
-    Animated.spring(slideOffset, {
-      toValue: 0,
-      tension: 65,
-      friction: 11,
-      useNativeDriver: true,
-    }).start();
-  }, [slideOffset]);
-
-  const animateOut = useCallback((direction: 'up' | 'down') => {
-    if (isAnimating.current) return
-    isAnimating.current = true
-    const toValue = direction === 'up' ? -winHeight : winHeight;
-    Animated.timing(slideOffset, {
-      toValue,
-      duration: 300,
-      useNativeDriver: true,
-    }).start(() => {
-      slideOffset.setValue(0);
-      isAnimating.current = false
-    });
-  }, [slideOffset, winHeight]);
-
-  const panResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => false,
-        onStartShouldSetPanResponderCapture: () => false,
-        // 仅捕获“明显垂直”的拖拽用于切歌；水平分量不能占主导，
-        // 否则会吞掉 PagerView 的横向切页手势，导致切页卡顿/不跟手。
-        // 只用 capture 阶段判断，阈值放宽到 dy > dx*2（强垂直意图），
-        // 普通带轻微上下抖动的横向滑页不会被拦截（这是此前切页不顺滑的主因）。
-        onMoveShouldSetPanResponder: () => false,
-        onMoveShouldSetPanResponderCapture: (_, gestureState) => {
-          if (!isEnableSlideSwitchSongRef.current || pageIndexRef.current !== 0) return false;
-          const { dy, dx } = gestureState;
-          return Math.abs(dy) > 20 && Math.abs(dy) > Math.abs(dx) * 2;
-        },
-        onPanResponderMove: (_, gestureState) => {
-          const { dy } = gestureState;
-          const dampening = dy > 0 ? 0.6 : 0.8;
-          const dampedDy = dy * dampening;
-          const clampedDy = Math.max(-maxSlide, Math.min(maxSlide, dampedDy));
-          slideOffset.setValue(clampedDy);
-        },
-        onPanResponderRelease: (_, gestureState) => {
-          const { dy, vy } = gestureState;
-          const shouldPlayNext = dy < -slideThreshold || vy < -velocityThreshold / 1000;
-          const shouldPlayPrev = dy > slideThreshold || vy > velocityThreshold / 1000;
-
-          if (shouldPlayNext) {
-            animateOut('up');
-            setTimeout(() => void playNext(), 150);
-          } else if (shouldPlayPrev) {
-            animateOut('down');
-            setTimeout(() => void playPrev(), 150);
-          } else {
-            resetSlide();
-          }
-        },
-        onPanResponderTerminate: () => {
-          resetSlide();
-        },
-        onPanResponderTerminationRequest: () => {
-          return false;
-        },
-      }),
-    [maxSlide, slideThreshold, velocityThreshold, slideOffset, animateOut, resetSlide]
-  );
-
-  const slideStyle = useMemo(() => {
-    const scale = slideOffset.interpolate({
-      inputRange: [-maxSlide, 0, maxSlide],
-      outputRange: [0.92, 1, 0.92],
-    });
-    const opacity = slideOffset.interpolate({
-      inputRange: [-maxSlide, -maxSlide * 0.3, 0, maxSlide * 0.3, maxSlide],
-      outputRange: [0.7, 0.9, 1, 0.9, 0.7],
-    });
-    return {
-      transform: [
-        { translateY: slideOffset },
-        { scale },
-      ],
-      opacity,
-    };
-  }, [slideOffset, maxSlide]);
 
   const onPageSelected = ({ nativeEvent }: PagerViewOnPageSelectedEvent) => {
     setPageIndex(nativeEvent.position)
@@ -242,7 +136,7 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
           }}
         >
           <View collapsable={false} style={styles.pageContainer}>
-            <Animated.View collapsable={false} {...panResponder.panHandlers} style={[styles.picPageContainerNew, slideStyle, { paddingTop: containerPaddingH }]}>
+            <View collapsable={false} style={[styles.picPageContainerNew, { paddingTop: containerPaddingH }]}>
               <View style={styles.picContainer}>
                 {/* 移植用户实测正常的 v20260826（e58d1ab1）VerticalOld 封面用法：
                     不传 maxCoverHeight，让 Pic 内部按 isNewUI=false 计算封面尺寸
@@ -256,7 +150,7 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
                   style={[styles.miniLyricContainerNew, miniLyricAlignStyles[miniLyricAlign as keyof typeof miniLyricAlignStyles]]}
                 />
               </View>
-            </Animated.View>
+            </View>
           </View>
           <View collapsable={false} style={{ flex: 1, width: '100%', height: '100%' }}>
             <LyricPage activeIndex={pageIndex} pagerHeight={pagerHeight} isComingLyric={isComingLyricRef.current} />
@@ -298,12 +192,10 @@ const styles = createStyle({
     flexDirection: 'column',
     justifyContent: 'space-between',
     position: 'relative',
-    // 注意：此处绝不能加 overflow: 'hidden'——该视图同时挂载 slideStyle 的
-    // transform/opacity（原生驱动动画）。iOS 上 clipsToBounds 与 transform
-    // 叠加在同一图层时，会把带 transform 的后代（旋转封面）剔除出渲染树，
+    // 注意：此处绝不能加 overflow: 'hidden'——iOS 上 clipsToBounds 与 transform
+    //（旋转封面）叠加在同一图层时，会把带 transform 的后代剔除出渲染树，
     // 导致封面空白（SongInfo 等无 transform 的子视图不受影响）。
     // 旧 UI（v20260826 实测封面正常）的 picPageContainerOld 就没有 overflow。
-    // 滑动切歌动画的裁切由 PagerView 原生页面裁切兜底，无需在此裁剪。
   },
   picContainer: {
     alignItems: 'center',

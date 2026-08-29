@@ -102,7 +102,6 @@ const defaultSetting: LX.AppSetting = {
   'player.isShowNotificationImage': true,
   'player.isS2t': true,
   'player.isShowBluetoothLyric': false,
-  'player.isEnableSlideSwitchSong': false,
   'player.autoPlayOnReturn': false,
   'player.enableAutoToggleSource': true,
   'player.toggleSourceMaxRetry': 5,

@@ -7,7 +7,6 @@ import Language from './Language'
 import FontSize from './FontSize'
 import ShareType from './ShareType'
 import IsStartupAutoPlay from './IsStartupAutoPlay'
-import IsEnableSlideSwitchSong from './IsEnableSlideSwitchSong'
 import IsStartupPushPlayDetailScreen from './IsStartupPushPlayDetailScreen'
 import IsAutoHidePlayBar from './IsAutoHidePlayBar'
 import IsHomePageScroll from './IsHomePageScroll'
@@ -28,7 +27,6 @@ export default memo(() => {
   return (
     <Section title={t('setting_basic')} sectionId="setting_basic">
       <IsStartupAutoPlay />
-      <IsEnableSlideSwitchSong />
       <IsNewListUI />
       {global.lx.isCarMode ? (
         <>

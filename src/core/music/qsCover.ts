@@ -13,6 +13,29 @@ import { getPicUrl as getLocalPlayPicUrl } from '@/core/music/localPlay'
 const qsCoverCache = new Map<string, string>()
 const qsCoverInflight = new Map<string, Promise<string>>()
 
+// 并发上限：列表逐行触发封面匹配时，若不限制会瞬间并发数十个跨平台搜索，
+// 集中唤醒射频并抢占 CPU/电量（尤其在播放中打开汽水歌单时）。串行化以削峰。
+const MAX_CONCURRENT = 4
+let activeCount = 0
+const taskQueue: Array<() => void> = []
+
+const runWithLimit = (fn: () => Promise<string>): Promise<string> => {
+  return new Promise<string>((resolve, reject) => {
+    const execute = () => {
+      activeCount++
+      fn()
+        .then(resolve, reject)
+        .finally(() => {
+          activeCount--
+          const next = taskQueue.shift()
+          if (next) next()
+        })
+    }
+    if (activeCount < MAX_CONCURRENT) execute()
+    else taskQueue.push(execute)
+  })
+}
+
 export const getCachedQsCover = (song: LX.Music.MusicInfoOnline): string => {
   return qsCoverCache.get(`${song.name}|${song.singer}`) ?? ''
 }
@@ -23,9 +46,9 @@ export const fetchQsCover = (song: LX.Music.MusicInfoOnline): Promise<string> =>
   if (cached) return Promise.resolve(cached)
   const inflight = qsCoverInflight.get(key)
   if (inflight) return inflight
-  const task = getLocalPlayPicUrl({
+  const task = runWithLimit(() => getLocalPlayPicUrl({
     target: { name: song.name, singer: song.singer, filePath: '', picUrl: null },
-  })
+  }))
     .then((url) => {
       if (url) qsCoverCache.set(key, url)
       return url

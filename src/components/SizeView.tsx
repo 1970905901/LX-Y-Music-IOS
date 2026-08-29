@@ -1,5 +1,5 @@
 import { memo, useCallback, useRef, useEffect } from 'react'
-import { type LayoutChangeEvent, StyleSheet, View, StatusBar, Dimensions, NativeModules, Platform } from 'react-native'
+import { type LayoutChangeEvent, StyleSheet, View, StatusBar, NativeModules, Platform } from 'react-native'
 import commonState from '@/store/common/state'
 import { setStatusbarHeight } from '@/core/common'
 import { windowSizeTools, getWindowSize } from '@/utils/windowSizeTools'
@@ -37,16 +37,19 @@ const getStatusbarHeight = (winHeight: number, layoutHeight: number) => {
 export default memo(
   () => {
     const currentHeightRef = useRef(commonState.statusbarHeight)
-    const dimensionsChangedRef = useRef(true)
     const handleLayout = useCallback(
       ({
         nativeEvent: { layout },
       }: LayoutChangeEvent | { nativeEvent: { layout: { width: number; height: number } } }) => {
-        // console.log('handleLayout')
-        if (!dimensionsChangedRef.current) return
+        // 窗口尺寸变化（含 iPad 旋转 / 分屏）会触发 onLayout。
+        // 这里不再依赖 Dimensions 'change' 事件（该事件在 iPad 旋转 / 分屏下可能不触发，
+        // 会导致窗口尺寸不更新、横竖屏布局残留），改为每次 onLayout 都直接同步更新尺寸。
+        const currentSize = windowSizeTools.getSize()
+        if (currentSize.width != layout.width || currentSize.height != layout.height) {
+          windowSizeTools.setWindowSize(layout.width, layout.height)
+        }
+        // 状态栏高度需异步校准（依赖原生返回的物理像素高度）
         void getWindowSize().then((size) => {
-          dimensionsChangedRef.current = false
-          // console.log(layout, size)
           const height = getStatusbarHeight(size.height, layout.height)
 
           if (currentHeightRef.current != height) {
@@ -55,11 +58,6 @@ export default memo(
           }
           // iOS 状态栏高度需异步校准（StatusBarManager 首次可能为 0），拿到真实值后再更新一次
           if (Platform.OS === 'ios') syncIosStatusbarHeight()
-          // console.log(layout, size)
-          const currentSize = windowSizeTools.getSize()
-          if (currentSize.width != layout.width || currentSize.height != layout.height) {
-            windowSizeTools.setWindowSize(layout.width, layout.height)
-          }
         })
       },
       []
@@ -67,21 +65,6 @@ export default memo(
     useEffect(() => {
       // iOS 首次进入主动校准一次状态栏高度（StatusBarManager 异步）
       if (Platform.OS === 'ios') syncIosStatusbarHeight()
-      // let timeout: NodeJS.Timeout | null = null
-      const subscription = Dimensions.addEventListener('change', () => {
-        dimensionsChangedRef.current = true
-        // if (timeout) clearTimeout(timeout)
-        // timeout = setTimeout(() => {
-        //   timeout = null
-        //   viewRef.current?.measureInWindow((x, y, width, height) => {
-        //     handleLayout({ nativeEvent: { layout: { width, height } } })
-        //   })
-        // }, 100)
-      })
-
-      return () => {
-        subscription.remove()
-      }
     }, [])
     return <View style={StyleSheet.absoluteFill} onLayout={handleLayout} />
   },

@@ -45,6 +45,16 @@ const createGettingUrlId = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem
 // 这里统计连续加载失败次数，整列循环一遍仍无一可播则停止并提示。
 let consecutiveLoadFailures = 0
 
+// 播放失败「切换平台」策略的平台尝试顺序：企鹅(tx) → 网易(wy) → 酷狗(kg) → 酷我(kw) → 咪咕(mg)
+// 仅作用于 executeFailureStrategy 的 togglePlatform 分支，不影响侧边栏/搜索等 UI 的平台顺序。
+const FAILURE_TOGGLE_PLATFORM_PRIORITY: Record<string, number> = {
+  tx: 0,
+  wy: 1,
+  kg: 2,
+  kw: 3,
+  mg: 4,
+}
+
 const diffCurrentMusicInfo = (curMusicInfo: LX.Music.MusicInfo | LX.Download.ListItem): boolean => {
   return (
     createGettingUrlId(curMusicInfo) != global.lx.gettingUrlId ||
@@ -144,8 +154,14 @@ export const executeFailureStrategy = async (
         }
         try {
           setStatusText('尝试切换平台...')
-          const otherSources = await getOtherSource(musicInfo)
-          console.log('[播放策略] [切换平台] 可用其他平台:', otherSources.map((s: any) => s.source))
+          let otherSources = await getOtherSource(musicInfo)
+          // 按目标顺序重排切换平台尝试顺序：企鹅 → 网易 → 酷狗 → 酷我 → 咪咕
+          otherSources = [...otherSources].sort((a, b) => {
+            const pa = FAILURE_TOGGLE_PLATFORM_PRIORITY[a.source] ?? Number.MAX_SAFE_INTEGER
+            const pb = FAILURE_TOGGLE_PLATFORM_PRIORITY[b.source] ?? Number.MAX_SAFE_INTEGER
+            return pa - pb
+          })
+          console.log('[播放策略] [切换平台] 可用其他平台(已按优先级排序):', otherSources.map((s) => s.source))
           for (const source of otherSources) {
             if (global.lx.isPlayedStop || currentMusicInfo?.id != playerState.playMusicInfo.musicInfo?.id) {
               console.log('[播放策略] [切换平台] 播放已停止或歌曲已切换，终止')

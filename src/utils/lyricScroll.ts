@@ -7,6 +7,13 @@ import { type FlatListProps } from 'react-native'
  */
 export class LyricScrollLayout {
   private lineHeights: number[] = []
+  /**
+   * 行处于「激活态」时测得的高度。激活行会放大字号并加粗，可能把原本单行的文字挤成两行。
+   * 该高度仅用于定位当前行自身，**不参与其后面行的累计偏移**：
+   * 若计入累计偏移，则每切一次行，前一行「激活→非激活」的高度回落会让整段偏移突跳，
+   * 表现为逐行滚动一卡一顿（仅在该行文字被挤成两行时明显，单行文字因高度不变而无感）。
+   */
+  private activeLineHeights: number[] = []
   private cumulativeOffsets: number[] = []
   private defaultHeight: number
   private measuredCount = 0
@@ -30,6 +37,7 @@ export class LyricScrollLayout {
 
   reset() {
     this.lineHeights = []
+    this.activeLineHeights = []
     this.cumulativeOffsets = []
     this.measuredCount = 0
     this.measuredSum = 0
@@ -54,7 +62,12 @@ export class LyricScrollLayout {
     this.defaultHeight = defaultHeight
   }
 
-  updateLineHeight(lineNum: number, height: number, hasTranslation?: boolean) {
+  updateLineHeight(lineNum: number, height: number, hasTranslation?: boolean, isActive = false) {
+    // 激活态高度只影响该行自身的居中定位，不影响后续行的累计偏移，故无需重建缓存。
+    if (isActive) {
+      this.activeLineHeights[lineNum] = height
+      return
+    }
     const prev = this.lineHeights[lineNum]
     if (prev === height) return
     if (prev === undefined) {
@@ -94,6 +107,11 @@ export class LyricScrollLayout {
     return this.measuredCount > 0 ? this.measuredSum / this.measuredCount : this.defaultHeight
   }
 
+  /** 当前行（激活态）的实际高度，未测得时回退到非激活高度 */
+  getActiveLineHeight(lineNum: number): number {
+    return this.activeLineHeights[lineNum] ?? this.getLineHeight(lineNum)
+  }
+
   getCumulativeOffset(lineNum: number): number {
     if (lineNum <= 0) return 0
     this.ensureCumulativeOffsets(lineNum)
@@ -116,7 +134,7 @@ export class LyricScrollLayout {
   getTargetOffset(index: number, listHeight: number, viewPosition = 0.5, paddingV = 0): number {
     if (index <= 0) return 0
     const itemTop = this.getCumulativeOffset(index)
-    const itemHeight = this.getLineHeight(index)
+    const itemHeight = this.getActiveLineHeight(index)
     const target = paddingV + itemTop + itemHeight * viewPosition - listHeight * viewPosition
     return Math.max(0, target)
   }
@@ -127,6 +145,10 @@ export class LyricScrollLayout {
    * 可显著降低「从封面页切到歌词页 / 跳到中后段」时（FlatList 虚拟化导致当前行
    * 之前的行未渲染未测量）累计偏移的估算误差，避免高亮行偶发不居中。
    * @param lines 歌词行（含 extendedLyrics 判断是否有翻译）
+   * @param useActiveHeight 该行自身是否按激活态高度计算。连续滚动传 false：
+   *   下一行的激活高度在它真正激活前测不到，若起点/终点分别用「已测得/未测得」的高度，
+   *   切行瞬间会出现一次突跳；统一用非激活高度可让插值严格连续（居中偏差恒定且极小），
+   *   而点击歌词、切歌、回正等一次性定位传 true 以取得最准确的居中位置。
    */
   getTargetOffsetPrecise(
     index: number,
@@ -135,6 +157,7 @@ export class LyricScrollLayout {
     viewPosition = 0.5,
     paddingV = 0,
     spaceHeight = 0,
+    useActiveHeight = true,
   ): number {
     if (index <= 0) return 0
     // 无翻译 / 有翻译两类未测量行，分别用各自「已测量行的真实平均高度」估算（随用户字号自动修正）。
@@ -155,7 +178,9 @@ export class LyricScrollLayout {
         offset += hasTranslation ? transAvg : plainAvg
       }
     }
-    const itemHeight = this.getLineHeight(index)
+    // 当前行处于激活态，其自身高度按激活态计算（可能被挤成两行而更高），保证居中定位准确；
+    // 而其之前各行一律用非激活高度累加，保证累计偏移不随播放推进而跳动。
+    const itemHeight = useActiveHeight ? this.getActiveLineHeight(index) : this.getLineHeight(index)
     const target = paddingV + spaceHeight + offset + itemHeight * viewPosition - listHeight * viewPosition
     return Math.max(0, target)
   }
@@ -174,12 +199,13 @@ export class LyricScrollLayout {
     paddingV = 0,
     spaceHeight = 0,
   ): number {
-    const offsetI = this.getTargetOffsetPrecise(index, listHeight, lines, viewPosition, paddingV, spaceHeight)
+    // 连续滚动统一用非激活高度，保证插值起点/终点同基准、切行不突跳。
+    const offsetI = this.getTargetOffsetPrecise(index, listHeight, lines, viewPosition, paddingV, spaceHeight, false)
     if (index + 1 >= lines.length) return offsetI
     const curTime = lines[index].time
     const nextTime = lines[index + 1].time
     const progress = nextTime > curTime ? (t - curTime) / (nextTime - curTime) : 0
-    const offsetNext = this.getTargetOffsetPrecise(index + 1, listHeight, lines, viewPosition, paddingV, spaceHeight)
+    const offsetNext = this.getTargetOffsetPrecise(index + 1, listHeight, lines, viewPosition, paddingV, spaceHeight, false)
     return offsetI + progress * (offsetNext - offsetI)
   }
 

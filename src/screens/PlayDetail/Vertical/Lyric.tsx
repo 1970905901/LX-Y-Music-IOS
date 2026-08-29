@@ -69,7 +69,7 @@ interface LineProps {
   line: Line
   lineNum: number
   activeLine: number
-  onLayout: (lineNum: number, height: number, width: number) => void
+  onLayout: (lineNum: number, height: number, width: number, isActive: boolean) => void
   onPress: (index: number) => void;
   isSmallWindow?: boolean;
 }
@@ -89,8 +89,11 @@ const LrcLine = memo(
         : ([theme['c-450'], theme['c-400'], 0.8] as const)
     }, [isActive, theme])
 
+    // 激活行会放大字号并加粗，可能把原本单行的文字挤成两行，导致本次测得的高度比非激活态更高。
+    // 需把 isActive 一并上报，让滚动布局把这种高度单独存放、不参与累计偏移，
+    // 否则每切一次行偏移都会突跳，滚动看起来一卡一卡的。
     const handleLayout = ({ nativeEvent }: LayoutChangeEvent) => {
-      onLayout(lineNum, nativeEvent.layout.height, nativeEvent.layout.width)
+      onLayout(lineNum, nativeEvent.layout.height, nativeEvent.layout.width, isActive)
     }
 
     const handlePress = useCallback(() => {
@@ -304,14 +307,17 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
     const paddingV = pageHeightRef.current > 0 ? pageHeightRef.current * 0.12 : 0
     let i = findLineIndexByTime(lyricLines, t)
     if (i < 0) i = 0
-    const offsetI = lyricScrollLayoutRef.current.getTargetOffsetPrecise(i, listHeight, lyricLines, 0.5, paddingV)
+    // 末位参数 false：连续滚动统一用非激活行高。下一行的激活高度在它真正激活前测不到，
+    // 若起点/终点分属「已测得 / 未测得」两套高度，切行瞬间会突跳一下（文字被挤成两行的行最明显）。
+    // 统一基准后插值严格连续；居中偏差恒定且仅约半个额外行高，远好于每次切行都顿一下。
+    const offsetI = lyricScrollLayoutRef.current.getTargetOffsetPrecise(i, listHeight, lyricLines, 0.5, paddingV, 0, false)
     let continuousOffset = offsetI
     // 当前行 → 下一行之间按时间进度插值：演唱点从当前行中心平滑移到下一行中心，歌词整体连续上移。
     if (i + 1 < lyricLines.length) {
       const curTime = lyricLines[i].time
       const nextTime = lyricLines[i + 1].time
       const progress = nextTime > curTime ? (t - curTime) / (nextTime - curTime) : 0
-      const offsetNext = lyricScrollLayoutRef.current.getTargetOffsetPrecise(i + 1, listHeight, lyricLines, 0.5, paddingV)
+      const offsetNext = lyricScrollLayoutRef.current.getTargetOffsetPrecise(i + 1, listHeight, lyricLines, 0.5, paddingV, 0, false)
       continuousOffset = offsetI + progress * (offsetNext - offsetI)
     }
     try {
@@ -524,12 +530,15 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
     scrollYRef.current = e.nativeEvent.contentOffset.y
   }, [])
 
-  const handleLineLayout = useCallback<LineProps['onLayout']>((lineNum, height) => {
+  const handleLineLayout = useCallback<LineProps['onLayout']>((lineNum, height, _width, isActive) => {
     const layout = lyricScrollLayoutRef.current
     const wasMeasured = layout.isMeasured(lineNum)
     // 把该行是否有翻译传给布局，使其未测量行估算能区分「无翻译/有翻译」两类真实平均高度，
     // 避免快进/快退到中后段时高亮行偏高/偏低一行。
-    layout.updateLineHeight(lineNum, height, !!(lyricLines[lineNum]?.extendedLyrics?.length))
+    // isActive：激活态高度只用于该行自身定位，不计入累计偏移（见 LyricScrollLayout 说明）。
+    layout.updateLineHeight(lineNum, height, !!(lyricLines[lineNum]?.extendedLyrics?.length), isActive)
+    // 激活行高度变化不会移动后续行，因此无需回正；此处回正会在连续滚动中造成一次瞬间跳变。
+    if (isActive) return
     if (!active || isPauseScrollRef.current) return
     const current = lineRef.current.line
     // 当前行高度变化，或当前行之前的某行“首次被测量”（会移动当前行的累计偏移）时，

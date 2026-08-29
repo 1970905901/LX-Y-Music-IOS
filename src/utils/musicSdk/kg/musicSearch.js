@@ -14,7 +14,13 @@ export default {
     const searchRequest = httpFetch(
       `https://songsearch.kugou.com/song_search_v2?keyword=${encodeURIComponent(
         str
-      )}&page=${page}&pagesize=${limit}&userid=0&clientver=&platform=WebFilter&filter=2&iscorrection=1&privilege_filter=0&area_code=1`
+      )}&page=${page}&pagesize=${limit}&userid=0&clientver=&platform=WebFilter&filter=2&iscorrection=1&privilege_filter=0`,
+      {
+        headers: {
+          Referer: 'https://www.kugou.com/',
+          'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1',
+        },
+      }
     )
     return searchRequest.promise.then(({ body }) => body)
   },
@@ -88,15 +94,16 @@ export default {
 
     return this.musicSearch(str, page, limit)
       .then(async (result) => {
-        // 接口偶发返回空 data/lists（error_code 为 0 但 data 为 null），同样视为失败重试，
-        // 避免 handleResult 里访问 result.data.lists 抛 TypeError 导致搜索直接失败。
-        if (!result || result.error_code !== 0 || !result.data || !Array.isArray(result.data.lists)) {
+        // 接口偶发返回空 data/lists（error_code 为 0 但 data 为 null，或被风控返回空列表），
+        // 同样视为失败重试，避免 handleResult 里访问 result.data.lists 抛 TypeError，
+        // 也避免「明明有结果却搜不出来」的偶发空结果。
+        if (!result || result.error_code !== 0 || !result.data || !Array.isArray(result.data.lists) || result.data.lists.length === 0) {
           return this.search(str, page, limit, retryNum)
         }
 
         let list = await this.handleResult(result.data.lists)
 
-        if (list == null) return this.search(str, page, limit, retryNum)
+        if (!list || list.length === 0) return this.search(str, page, limit, retryNum)
 
         this.total = result.data.total
         this.page = page
@@ -117,14 +124,22 @@ export default {
         return this.search(str, page, limit, retryNum)
       })
   },
-  async searchSinger(keyword, page = 1, limit = 10) {
+  async searchSinger(keyword, page = 1, limit = 10, retryNum = 0) {
+    if (++retryNum > 3) return { list: [] }
     try {
       const requestObj = httpFetch(
-        `https://songsearch.kugou.com/song_search_v2?keyword=${encodeURIComponent(keyword)}&page=${page}&pagesize=30&userid=0&platform=WebFilter&filter=2&iscorrection=1&area_code=1`
+        `https://songsearch.kugou.com/song_search_v2?keyword=${encodeURIComponent(keyword)}&page=${page}&pagesize=30&userid=0&platform=WebFilter&filter=2&iscorrection=1`,
+        {
+          headers: {
+            Referer: 'https://www.kugou.com/',
+            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1',
+          },
+        }
       )
       const { body } = await requestObj.promise
 
       if (!body || body.error_code !== 0 || !body.data || !body.data.lists) {
+        if (retryNum <= 3) return this.searchSinger(keyword, page, limit, retryNum)
         return { list: [] }
       }
 
@@ -146,16 +161,25 @@ export default {
       return { list }
     } catch (err) {
       console.error('[KuGou] searchSinger error:', err)
+      if (retryNum <= 3) return this.searchSinger(keyword, page, limit, retryNum)
       return { list: [] }
     }
   },
-  async searchAlbum(keyword, page = 1, limit = 30) {
+  async searchAlbum(keyword, page = 1, limit = 30, retryNum = 0) {
+    if (++retryNum > 3) return { list: [], total: 0, allPage: 0 }
     try {
       const requestObj = httpFetch(
-        `https://songsearch.kugou.com/song_search_v2?keyword=${encodeURIComponent(keyword)}&page=${page}&pagesize=${limit}&userid=0&platform=WebFilter&filter=4&iscorrection=1&area_code=1`
+        `https://songsearch.kugou.com/song_search_v2?keyword=${encodeURIComponent(keyword)}&page=${page}&pagesize=${limit}&userid=0&platform=WebFilter&filter=4&iscorrection=1`,
+        {
+          headers: {
+            Referer: 'https://www.kugou.com/',
+            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1',
+          },
+        }
       )
       const { body } = await requestObj.promise
       if (!body || body.error_code !== 0 || !body.data || !body.data.lists) {
+        if (retryNum <= 3) return this.searchAlbum(keyword, page, limit, retryNum)
         return { list: [], total: 0, allPage: 0 }
       }
 
@@ -199,6 +223,7 @@ export default {
       }
     } catch (err) {
       console.error('[KuGou] searchAlbum error:', err)
+      if (retryNum <= 3) return this.searchAlbum(keyword, page, limit, retryNum)
       return { list: [], total: 0, allPage: 0 }
     }
   },

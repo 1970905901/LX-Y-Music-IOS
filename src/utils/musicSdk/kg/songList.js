@@ -804,7 +804,13 @@ export default {
     return httpFetch(
       `http://msearchretry.kugou.com/api/v3/search/special?keyword=${encodeURIComponent(
         text
-      )}&page=${page}&pagesize=${limit}&showtype=10&filter=0&version=7910&sver=2`
+      )}&page=${page}&pagesize=${limit}&showtype=10&filter=0&version=7910&sver=2`,
+      {
+        headers: {
+          Referer: 'https://www.kugou.com/',
+          'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1',
+        },
+      }
     ).promise.then(({ body }) => {
       if (body.errcode != 0) throw new Error('filed')
       return {

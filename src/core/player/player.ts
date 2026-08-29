@@ -11,6 +11,7 @@ import { setStatusText } from '@/core/player/playStatus'
 import playerState from '@/store/player/state'
 import settingState from '@/store/setting/state'
 import { getList, setPlayMusicInfo, setMusicInfo, setPlayListId } from '@/core/player/playInfo'
+import { syncNowPlayingMetadata } from '@/core/player/nowPlaying'
 import { setNowPlayTime, setMaxplayTime } from '@/core/player/progress'
 import { syncToTime as lrcSyncToTime } from '@/plugins/lyric'
 import { clearPlayedList, addPlayedList, removePlayedList } from '@/core/player/playedList'
@@ -500,6 +501,8 @@ const handleRestorePlay = async (restorePlayInfo: LX.Player.SavedPlayInfo) => {
       return
     setMusicInfo({ pic: url })
     global.app_event.picUpdated()
+    // 同 debouncePlay：封面异步匹配完成后回刷控制中心元数据
+    void syncNowPlayingMetadata(true)
   })
 
   void getLyricInfo({ musicInfo })
@@ -536,6 +539,10 @@ const debouncePlay = debounceBackgroundTimer((musicInfo: LX.Player.PlayMusic) =>
       return
     setMusicInfo({ pic: url })
     global.app_event.picUpdated()
+    // 汽水(qs)等无自带封面的音源，封面是异步跨平台匹配出来的；匹配到后只更新了
+    // playerState.musicInfo.pic，控制中心(锁屏/通知栏)不会自动刷新。这里二次回刷
+    // NowPlaying 元数据，把封面推到 iOS 控制中心与 Android 通知。
+    void syncNowPlayingMetadata(true)
   })
 
   void getLyricInfo({ musicInfo })

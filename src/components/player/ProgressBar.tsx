@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { View, PanResponder } from 'react-native'
+import { Animated, Easing, View, PanResponder } from 'react-native'
 import { createStyle } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
 import { scaleSizeW, scaleSizeH } from '@/utils/pixelRatio'
@@ -115,7 +115,31 @@ const Progress = ({
   const [draging, setDraging] = useState(false)
   const [dragProgress, setDragProgress] = useState(0)
   // console.log(progress)
-  const progressStr: `${number}%` = `${progress * 100}%`
+  // 播放中 playProgressChanged 约每 1s 触发一次，进度条原本是秒级跳变。
+  // 非拖动时用 Animated 在两次更新之间做线性补间，让进度条连续平滑滑动。
+  const animProgress = useRef(new Animated.Value(progress)).current
+  const lastUpdateTimeRef = useRef(0)
+  useEffect(() => {
+    if (draging) return
+    const now = Date.now()
+    const dt = lastUpdateTimeRef.current ? now - lastUpdateTimeRef.current : 1000
+    lastUpdateTimeRef.current = now
+    const target = progress
+    const current = animProgress.__getValue()
+    // 切歌 / 后退 seek 等进度回退时直接跳到目标，避免反向补间
+    if (target < current - 1e-6) {
+      animProgress.setValue(target)
+      return
+    }
+    const anim = Animated.timing(animProgress, {
+      toValue: target,
+      duration: Math.min(Math.max(dt, 250), 1500),
+      easing: Easing.linear,
+      useNativeDriver: false,
+    })
+    anim.start()
+    return () => anim.stop()
+  }, [progress, draging, animProgress])
 
   const durationRef = useRef(duration)
   useEffect(() => {
@@ -150,11 +174,14 @@ const Progress = ({
             }}
           />
         ) : (
-          <View
+          <Animated.View
             style={{
               ...styles.progressBar,
               backgroundColor: activeColor,
-              width: progressStr,
+              width: animProgress.interpolate({
+                inputRange: [0, 1],
+                outputRange: ['0%', '100%'],
+              }),
               position: 'absolute',
               left: 0,
               top: 0,

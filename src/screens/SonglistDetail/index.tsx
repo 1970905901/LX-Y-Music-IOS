@@ -22,6 +22,7 @@ import { addWySubscribedPlaylist, removeWySubscribedPlaylist } from '@/store/use
 import { COMPONENT_IDS } from '@/config/constant'
 import { type DetailInfo } from "@/screens/SonglistDetail/Header.tsx"
 import LandscapeDetailLayout from '@/components/LandscapeDetailLayout'
+import PageContent from '@/components/PageContent'
 import playerState from '@/store/player/state'
 import { LIST_IDS } from '@/config/constant'
 import listState from '@/store/list/state'
@@ -278,14 +279,18 @@ export default ({ info, onBack, initialScrollToInfo }: { info: ListInfoItem, onB
   }, [])
 
   return (
-    <LandscapeDetailLayout
-      header={ListHeaderComponent}
-      body={
-        <ListInfoContext.Provider value={info}>
-          <MusicList ref={musicListRef} playingId={playerMusicInfo.id} componentId={commonState.componentIds[commonState.componentIds.length - 1]?.id} isCreator={true} searchText={searchText} isFuzzySearch={isFuzzySearch} onListUpdate={handleListUpdate} />
-        </ListInfoContext.Provider>
-      }
-    />
+    // 包裹 PageContent：与 AlbumDetail/ArtistDetail 同构——
+    // 提供 iPad 竖屏（宽 ≥700pt）限宽居中兜底与全局背景图层，横屏仍由 LandscapeDetailLayout 分栏
+    <PageContent>
+      <LandscapeDetailLayout
+        header={ListHeaderComponent}
+        body={
+          <ListInfoContext.Provider value={info}>
+            <MusicList ref={musicListRef} playingId={playerMusicInfo.id} componentId={commonState.componentIds[commonState.componentIds.length - 1]?.id} isCreator={true} searchText={searchText} isFuzzySearch={isFuzzySearch} onListUpdate={handleListUpdate} />
+          </ListInfoContext.Provider>
+        }
+      />
+    </PageContent>
   )
 }
 

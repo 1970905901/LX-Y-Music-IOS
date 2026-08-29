@@ -37,6 +37,11 @@ export interface ModalProps extends Omit<_ModalProps, 'visible'> {
    * 是否填充状态栏
    */
   statusBarPadding?: boolean
+  /**
+   * 内容区最大宽度（pt）。iPad 横屏/分屏下限制内容宽度并水平居中，
+   * 不传则铺满窗口（下拉面板等全宽交互组件保持原行为）
+   */
+  maxBodyWidth?: number
 }
 
 export interface ModalType {
@@ -51,6 +56,7 @@ export default forwardRef<ModalType, ModalProps>(
       bgHide = true,
       bgColor = 'rgba(0,0,0,0)',
       statusBarPadding = true,
+      maxBodyWidth,
       children,
       ...props
     }: ModalProps,
@@ -96,7 +102,20 @@ export default forwardRef<ModalType, ModalProps>(
           <TouchableWithoutFeedback onPress={handleBgClose} style={{ flex: 1 }}>
             <View style={{ flex: 1 }} />
           </TouchableWithoutFeedback>
-          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} pointerEvents="box-none">
+          <View
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              // 可选内容限宽（iPad 横屏）：不传时保持铺满，行为零回归
+              width: maxBodyWidth != null ? '100%' : undefined,
+              maxWidth: maxBodyWidth,
+              alignSelf: maxBodyWidth != null ? 'center' : undefined,
+            }}
+            pointerEvents="box-none"
+          >
              {memoChildren}
            </View>
         </View>

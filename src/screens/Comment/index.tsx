@@ -1,5 +1,5 @@
 import { memo, useMemo, useEffect, useRef, useState, useCallback } from 'react'
-import { View, TouchableOpacity, Alert } from 'react-native'
+import { View, TouchableOpacity, Alert, KeyboardAvoidingView, Platform } from 'react-native'
 import PagerView, { type PagerViewOnPageSelectedEvent } from 'react-native-pager-view'
 import Header from './components/Header'
 import { Icon } from '@/components/common/Icon'
@@ -257,7 +257,11 @@ export default memo(({ componentId }: { componentId: string }) => {
 
   const commentComponent = useMemo(() => {
     return (
-      <View style={styles.container}>
+      // 键盘规避：输入框固定在页面底部，不规避时软键盘会完全盖住输入框与发送按钮
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS == 'ios' ? 'padding' : undefined}
+      >
         <View
           style={{
             ...styles.tabHeader,
@@ -314,7 +318,7 @@ export default memo(({ componentId }: { componentId: string }) => {
             disabled={isSending}
           />
         ) : null}
-      </View>
+      </KeyboardAvoidingView>
     )
   }, [
     activeId,

@@ -131,6 +131,12 @@
 	<array>
 		<string>arm64</string>
 	</array>
+	<!-- 退出 iPad 多任务（Split View / Slide Over）：iPad 全屏独占运行。
+	     参与 multitasking 的 App 必须支持全部四个方向，当前 ~ipad 仅三方向会触发
+	     App Store "Invalid Bundle - iPad Multitasking support requires these orientations" 验证失败。
+	     退出多任务后方向完全由下方 UISupportedInterfaceOrientations~ipad 裁决。 -->
+	<key>UIRequiresFullScreen</key>
+	<true/>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>

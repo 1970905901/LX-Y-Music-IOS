@@ -671,8 +671,9 @@ export default memo(() => {
       <View style={{ flex: 1, flexDirection: 'row' }}>
         <View
           style={{
-            width: 360,
-            flexShrink: 0,
+            // 百分比宽度：iPad 分屏 / Slide Over 下窗口宽度不定，
+            // 写死 360 且禁止收缩会把右栏挤到接近 0（Slide Over 时内容不可用）
+            width: '38%',
             borderRightWidth: 1,
             borderRightColor: theme['c-border-background'],
           }}

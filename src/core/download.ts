@@ -1,4 +1,3 @@
-import { Platform } from 'react-native'
 import RNFetchBlob from '@/utils/rnFetchBlob';
 import {toMD5, toast, requestStoragePermission} from '@/utils/tools';
 import { getMusicUrl, getLyricInfo } from '@/core/music';
@@ -6,7 +5,7 @@ import {getFileExtension, getFileExtensionFromUrl} from '@/screens/Home/Views/My
 import { mergeLyrics } from '@/screens/Home/Views/Mylist/MusicList/download/lrcTool';
 import {writeFile, unlink, downloadFile, mkdir, moveFile, stopDownload} from '@/utils/fs';
 import { getDefaultDownloadPath } from '@/utils/downloadPath';
-import { writeMetadata, writePic, writeLyric } from '@/utils/localMediaMetadata';
+import { writeMetadata, writePic, writeLyric, isWriteSupported } from '@/utils/localMediaMetadata';
 import settingState from '@/store/setting/state';
 import downloadState from '@/store/download/state';
 import downloadActions from '@/store/download/action';
@@ -209,9 +208,10 @@ const cacheLyricForOffline = async (task: DownloadTask, filePath: string) => {
 };
 
 const handleMetadata = async (task: DownloadTask, filePath: string) => {
-  // iOS 无 react-native-local-media-metadata 原生模块，标签/封面/内嵌歌词写入能力不可用，
-  // 直接跳过整段写入（与 MusicList/listAction.ts 的下载写入守卫保持一致，避免误报与假成功）。
-  if (Platform.OS !== 'android') return
+  // 按原生写入能力判断（iOS 的 LocalMediaMetadata 内联模块同样支持标签/封面/内嵌歌词写入），
+  // 不再按平台一刀切跳过；能力不可用时整段跳过，避免误报与假成功
+  // （与 MusicList/listAction.ts 的下载写入守卫保持一致）。
+  if (!isWriteSupported()) return
   console.log('开始处理元数据:', filePath);
   
   const fileExt = filePath.substring(filePath.lastIndexOf('.') + 1).toLowerCase();
@@ -294,8 +294,8 @@ export const retryMetadata = async (taskId: string) => {
     return;
   }
 
-  // iOS 跳过：写入能力不可用（同 handleMetadata）
-  if (Platform.OS !== 'android') {
+  // 写入能力不可用时跳过（同 handleMetadata，按原生模块可用性而非平台判断）
+  if (!isWriteSupported()) {
     toast('当前平台不支持写入元数据');
     return;
   }

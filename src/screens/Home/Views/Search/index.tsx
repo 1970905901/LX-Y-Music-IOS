@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react'
 import { InteractionManager } from 'react-native'
-import { type LayoutChangeEvent, View, BackHandler } from 'react-native'
+import { type LayoutChangeEvent, View, BackHandler, KeyboardAvoidingView, Platform } from 'react-native'
 import HeaderBar, { type HeaderBarProps, type HeaderBarType } from './HeaderBar'
 import searchState, { type SearchType } from '@/store/search/state'
 import commonState from '@/store/common/state'
@@ -238,7 +238,11 @@ export default () => {
   }, [])
 
   return (
-    <View style={styles.container}>
+    // 键盘规避：键盘弹出时压缩结果列表高度，避免键盘遮挡列表底部（iOS 用 padding）
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS == 'ios' ? 'padding' : undefined}
+    >
       { !selectedList && (
         <HeaderBar
           key={headerKey}
@@ -263,7 +267,7 @@ export default () => {
           )
         }
       </View>
-    </View>
+    </KeyboardAvoidingView>
   )
 }
 

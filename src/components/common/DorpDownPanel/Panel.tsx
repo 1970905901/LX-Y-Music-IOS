@@ -1,5 +1,5 @@
 import { useMemo, useRef, useImperativeHandle, forwardRef, useState } from 'react'
-import { View, TouchableWithoutFeedback } from 'react-native'
+import { View, TouchableWithoutFeedback, type StyleProp, type ViewStyle } from 'react-native'
 import { useWindowSize } from '@/utils/hooks'
 
 import Modal, { type ModalType } from '@/components/common/Modal'
@@ -79,10 +79,20 @@ const Panel = ({
     return frameStyle
   }, [windowSize, buttonPosition])
 
+  // iPad 横屏下菜单内容限宽居中（对齐 Popup/Dialog 的 760 cap）；
+  // 外层保持全宽以承接“点击空白处关闭”的手势
+  const contentStyle = useMemo<StyleProp<ViewStyle>>(
+    () =>
+      windowSize.width / windowSize.height > 1.2
+        ? { width: '100%', maxWidth: 760, alignSelf: 'center' }
+        : undefined,
+    [windowSize.width, windowSize.height],
+  )
+
   return (
     <TouchableWithoutFeedback onPress={onHide}>
       <View style={{ ...styles.menu, ...style }}>
-        <View onStartShouldSetResponder={() => true}>{children}</View>
+        <View onStartShouldSetResponder={() => true} style={contentStyle}>{children}</View>
       </View>
     </TouchableWithoutFeedback>
   )

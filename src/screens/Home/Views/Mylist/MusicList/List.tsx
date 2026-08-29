@@ -15,6 +15,7 @@ import { getListPosition, getListPrevSelectId, saveListPosition } from '@/utils/
 import { getListMusics, setActiveList } from '@/core/list'
 import ListItem, { ITEM_HEIGHT } from './ListItem'
 import { createStyle, getRowInfo } from '@/utils/tools'
+import { useHorizontalMode } from '@/utils/hooks'
 import { usePlayInfo, usePlayMusicInfo } from '@/store/player/hook'
 import type { Position } from './ListMenu'
 import type { SelectMode } from './MultipleModeBar'
@@ -68,7 +69,15 @@ const List = forwardRef<ListType, ListProps>(
     const selectedListRef = useRef<LX.List.ListMusics>([])
     const currentListIdRef = useRef('')
     const waitJumpListPositionRef = useRef(false)
-    const rowInfo = useRef(getRowInfo())
+    // 列信息必须响应式：iPad 旋转/分屏跨过宽高比阈值时重新计算，
+    // 否则 useRef 固化挂载时刻的值，numColumns 永不更新。
+    // numColumns 变更时 FlatList 必须重挂载（见下方 key），否则 RN 会报错。
+    const isHorizontal = useHorizontalMode()
+    const rowInfo = useMemo(() => getRowInfo(), [isHorizontal])
+    const numColumns = rowInfo.rowNum ?? 1
+    // [] 依赖的 effect（jumpListPosition 等）内需要读到最新列数，用 ref 镜像
+    const rowInfoRef = useRef(rowInfo)
+    rowInfoRef.current = rowInfo
     const isShowAlbumName = useSettingValue('list.isShowAlbumName')
     const isShowInterval = useSettingValue('list.isShowInterval')
     const isShowSource = useSettingValue('list.isShowSource')
@@ -103,7 +112,7 @@ const List = forwardRef<ListType, ListProps>(
           const index = list.findIndex((m) => m.id == info.id)
           if (index < 0) return
           flatListRef.current?.scrollToIndex({
-            index: Math.floor(index / (rowInfo.current.rowNum ?? 1)),
+            index: Math.floor(index / numColumns),
             viewPosition: 0.3,
             animated: true,
           })
@@ -143,7 +152,7 @@ const List = forwardRef<ListType, ListProps>(
                     try {
                       flatListRef.current?.scrollToIndex({
                         index: Math.floor(
-                          playerState.playInfo.playIndex / (rowInfo.current.rowNum ?? 1)
+                          playerState.playInfo.playIndex / (rowInfoRef.current.rowNum ?? 1)
                         ),
                         viewPosition: 0.3,
                         animated: false,
@@ -194,7 +203,7 @@ const List = forwardRef<ListType, ListProps>(
             else {
               try {
                 flatListRef.current?.scrollToIndex({
-                  index: Math.floor(playerState.playInfo.playIndex / (rowInfo.current.rowNum ?? 1)),
+                  index: Math.floor(playerState.playInfo.playIndex / (rowInfoRef.current.rowNum ?? 1)),
                   viewPosition: 0.3,
                   animated: true,
                 })
@@ -299,12 +308,12 @@ const List = forwardRef<ListType, ListProps>(
     // 固定引用；行级刷新由 extraData={listVersion|activeIndex} 驱动。
     const renderDepsRef = useRef({
       activeIndex, selectedList, handlePress, handleLongPress, onShowMenu,
-      rowInfo: rowInfo.current, isShowAlbumName, isShowInterval, isShowSource, showCover,
+      rowInfo, isShowAlbumName, isShowInterval, isShowSource, showCover,
       playingId: playerState.playMusicInfo.musicInfo?.id ?? '',
     })
     renderDepsRef.current = {
       activeIndex, selectedList, handlePress, handleLongPress, onShowMenu,
-      rowInfo: rowInfo.current, isShowAlbumName, isShowInterval, isShowSource, showCover,
+      rowInfo, isShowAlbumName, isShowInterval, isShowSource, showCover,
       playingId: playerState.playMusicInfo.musicInfo?.id ?? '',
     }
     const renderItem = useCallback<FlatListType['renderItem']>(({ item, index }) => {
@@ -359,7 +368,10 @@ const List = forwardRef<ListType, ListProps>(
         data={currentList}
         maxToRenderPerBatch={20}
         updateCellsBatchingPeriod={50}
-        numColumns={rowInfo.current.rowNum}
+        // key：numColumns 变更（旋转/分屏）时强制重挂载 FlatList——
+        // RN 不支持运行中变更 numColumns，直接改值会崩溃；重挂载时数据保存在本组件 state 中不丢失
+        key={`cols-${numColumns}`}
+        numColumns={numColumns}
         horizontal={false}
         windowSize={10}
         removeClippedSubviews={false}

@@ -24,7 +24,7 @@ import { mergeLyrics } from './download/lrcTool'
 import { getListMusicSync } from '@/utils/listManage'
 import { requestStoragePermission } from '@/utils/tools'
 import { getMusicUrl, getLyricInfo, getPicUrl } from '@/core/music/online'
-import { writeMetadata, writePic, writeLyric } from '@/utils/localMediaMetadata'
+import { writeMetadata, writePic, writeLyric, isWriteSupported } from '@/utils/localMediaMetadata'
 import { downloadFile, writeFile } from '@/utils/fs'
 import { getDefaultDownloadPath } from '@/utils/downloadPath'
 import { clearMusicUrl } from '@/utils/data'
@@ -245,10 +245,11 @@ export const handleDownload = async (musicInfo: LX.Music.MusicInfo, quality: LX.
       await downloadTask.promise
       const filePath = path
 
-      toast(Platform.OS === 'android' ? `${fileName} 下载成功! 正在写入元数据` : `${fileName} 下载成功!`, 'short')
+      toast(isWriteSupported() ? `${fileName} 下载成功! 正在写入元数据` : `${fileName} 下载成功!`, 'short')
 
-      // iOS 没有 react-native-local-media-metadata 原生模块，标签写入不可用，直接跳过（避免误报「写入失败」）
-      if (Platform.OS === 'android' && settingState.setting['download.writeMetadata']) {
+      // 按原生写入能力判断（iOS 的 LocalMediaMetadata 内联模块同样支持标签写入），
+      // 能力不可用时直接跳过（避免误报「写入失败」）
+      if (isWriteSupported() && settingState.setting['download.writeMetadata']) {
         try {
           const metadata: {
             name: string
@@ -269,16 +270,19 @@ export const handleDownload = async (musicInfo: LX.Music.MusicInfo, quality: LX.
           }
 
           await writeMetadata(filePath, <MusicMetadata>metadata, true)
-          try {
-            const tempPath = filePath + '.tmp'
-            await RNFetchBlob.fs.mv(filePath, tempPath)
-            await RNFetchBlob.fs.scanFile([{ path: filePath }])
-            await RNFetchBlob.fs.mv(tempPath, filePath)
-            await RNFetchBlob.fs.scanFile([{ path: filePath }])
-            console.log('Media store updated successfully.')
-          } catch (err) {
-            console.error('Failed to force update media store:', err)
-            await RNFetchBlob.fs.scanFile([{ path: filePath }])
+          // MediaStore 刷新仅 Android 需要
+          if (Platform.OS === 'android') {
+            try {
+              const tempPath = filePath + '.tmp'
+              await RNFetchBlob.fs.mv(filePath, tempPath)
+              await RNFetchBlob.fs.scanFile([{ path: filePath }])
+              await RNFetchBlob.fs.mv(tempPath, filePath)
+              await RNFetchBlob.fs.scanFile([{ path: filePath }])
+              console.log('Media store updated successfully.')
+            } catch (err) {
+              console.error('Failed to force update media store:', err)
+              await RNFetchBlob.fs.scanFile([{ path: filePath }])
+            }
           }
           toast(`写入标签成功!`, 'short')
         } catch (err) {
@@ -295,8 +299,8 @@ export const handleDownload = async (musicInfo: LX.Music.MusicInfo, quality: LX.
           })
           const tasks = []
           const baseFilePath = filePath.substring(0, filePath.lastIndexOf('.'))
-          // 内嵌歌词走原生标签模块，iOS 不可用，仅 Android 执行；.lrc 文件写入（下方 writeFile）在 iOS 仍可用
-          if (settingState.setting['download.writeEmbedLyric'] && Platform.OS === 'android') {
+          // 内嵌歌词走原生标签模块（iOS 内联模块同样支持），能力不可用时回退写 .lrc 文件（writeFile 双平台可用）
+          if (settingState.setting['download.writeEmbedLyric'] && isWriteSupported()) {
             const embedLyricContent = mergeLyrics(lyrics.lyric, lyrics.tlyric, null)
             if (embedLyricContent) {
               tasks.push(writeLyric(filePath, embedLyricContent))
@@ -321,8 +325,8 @@ export const handleDownload = async (musicInfo: LX.Music.MusicInfo, quality: LX.
         }
       }
 
-      // iOS 已有原生封面写入模块（sidecar 伴随文件），与 Android 一样执行写入
-      if (settingState.setting['download.writePicture']) {
+      // 封面写入依赖原生模块（iOS 为 sidecar 伴随文件实现），按能力判断，避免能力缺失时假成功
+      if (settingState.setting['download.writePicture'] && isWriteSupported()) {
         try {
           const picUrl = await getPicUrl({
             musicInfo: musicInfo as LX.Music.MusicInfoOnline,

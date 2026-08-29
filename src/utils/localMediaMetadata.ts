@@ -1,5 +1,11 @@
+import { NativeModules } from 'react-native'
 import {temporaryDirectoryPath, readDir, unlink, extname, privateStorageDirectoryPath} from '@/utils/fs'
 import { readPic as _readPic } from 'react-native-local-media-metadata'
+
+// 原生写入能力是否可用（Android 由 LocalMediaMetadata 原生模块提供）。
+// 调用方（下载/元数据流程）按能力判断，避免能力缺失时误报或假成功。
+export const isWriteSupported = (): boolean =>
+  !!NativeModules.LocalMediaMetadata?.writeMetadata
 export {
   type MusicMetadata,
   type MusicMetadataFull,

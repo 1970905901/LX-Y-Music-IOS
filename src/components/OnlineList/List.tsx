@@ -2,6 +2,7 @@ import {useCallback, useMemo, useRef, useState, forwardRef, useImperativeHandle,
 import {FlatList, type FlatListProps, Keyboard, RefreshControl, View} from 'react-native'
 import ListItem, { ITEM_HEIGHT } from './ListItem'
 import { createStyle, getRowInfo, type RowInfoType } from '@/utils/tools'
+import { useHorizontalMode } from '@/utils/hooks'
 import type { Position } from './ListMenu'
 import type { SelectMode } from './MultipleModeBar'
 import { useTheme } from '@/store/theme/hook'
@@ -88,7 +89,12 @@ const List = forwardRef<ListType, ListProps>(
     const selectedListRef = useRef<LX.Music.MusicInfoOnline[]>([])
     const [visibleMultiSelect, setVisibleMultiSelect] = useState(false)
     const [status, setStatus] = useState<Status>('idle')
-    const rowInfo = useRef(getRowInfo(rowType))
+    // 列信息必须响应式：iPad 旋转/分屏跨过宽高比阈值时重新计算，
+    // 否则 useRef 固化挂载时刻的值，numColumns 永不更新（单列残留/双列不生效）。
+    // numColumns 变更时 FlatList 必须重挂载（见下方 key），否则 RN 会报错。
+    const isHorizontal = useHorizontalMode()
+    const rowInfo = useMemo(() => getRowInfo(rowType), [isHorizontal, rowType])
+    const numColumns = rowInfo.rowNum ?? 1
     const isShowAlbumName = useSettingValue('list.isShowAlbumName')
     const isShowInterval = useSettingValue('list.isShowInterval')
 
@@ -143,7 +149,7 @@ const List = forwardRef<ListType, ListProps>(
         const index = listDataRef.current.findIndex(item => item.id === info.id)
         if (index > -1) {
           flatListRef.current?.scrollToIndex({
-            index: Math.floor(index / (rowInfo.current.rowNum ?? 1)),
+            index: Math.floor(index / numColumns),
             viewPosition: 0.3,
             animated: true,
           })
@@ -243,11 +249,11 @@ const List = forwardRef<ListType, ListProps>(
     // 通过 ref 镜像所有依赖，useCallback([]) 固定引用；行级刷新由 extraData 驱动。
     const renderDepsRef = useRef({
       showSource, isShowAlbumName, isShowInterval, listId, playingId,
-      selectedList, handlePress, handleLongPress, onShowMenu, rowInfo: rowInfo.current,
+      selectedList, handlePress, handleLongPress, onShowMenu, rowInfo,
     })
     renderDepsRef.current = {
       showSource, isShowAlbumName, isShowInterval, listId, playingId,
-      selectedList, handlePress, handleLongPress, onShowMenu, rowInfo: rowInfo.current,
+      selectedList, handlePress, handleLongPress, onShowMenu, rowInfo,
     }
     const renderItem = useCallback<FlatListType['renderItem']>(({ item, index }) => {
       const d = renderDepsRef.current
@@ -270,7 +276,6 @@ const List = forwardRef<ListType, ListProps>(
     }, [])
     const getkey: FlatListType['keyExtractor'] = (item) => (item as any).playHistoryId ?? item.id
     const getItemLayout: FlatListType['getItemLayout'] = (data, index) => {
-      const numColumns = rowInfo.current.rowNum ?? 1
       const rowIndex = Math.floor(index / numColumns)
       return { length: ITEM_HEIGHT, offset: ITEM_HEIGHT * rowIndex, index }
     }
@@ -320,10 +325,13 @@ const List = forwardRef<ListType, ListProps>(
 
     return (
       <FlatList
+        // key：numColumns 变更（旋转/分屏）时强制重挂载 FlatList——
+        // RN 不支持运行中变更 numColumns，直接改值会崩溃；重挂载时数据保存在本组件 state 中不丢失
+        key={`cols-${numColumns}`}
         ref={flatListRef}
         style={styles.list}
         data={currentList}
-        numColumns={rowInfo.current.rowNum}
+        numColumns={numColumns}
         horizontal={false}
         maxToRenderPerBatch={20}
         updateCellsBatchingPeriod={50}

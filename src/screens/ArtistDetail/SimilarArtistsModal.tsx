@@ -8,6 +8,7 @@ import { Icon } from '@/components/common/Icon'
 import { navigations } from '@/navigation'
 import { useTheme } from '@/store/theme/hook'
 import musicSdk from '@/utils/musicSdk'
+import { useWindowSize } from '@/utils/hooks'
 import { createStyle, toast } from '@/utils/tools'
 
 export interface SimilarArtistsModalType {
@@ -87,6 +88,7 @@ export default forwardRef<SimilarArtistsModalType, { componentId: string }>(({ c
   const [list, setList] = useState<ArtistInfo[]>([])
   const [title, setTitle] = useState('相似歌手')
   const [currentSource, setCurrentSource] = useState<string>('wy')
+  const windowSize = useWindowSize()
   const requestIdRef = useRef(0)
   const theme = useTheme()
 
@@ -168,7 +170,8 @@ export default forwardRef<SimilarArtistsModalType, { componentId: string }>(({ c
 
   return visible ? (
     <Popup ref={popupRef} title={title} position="bottom" onHide={handleHide}>
-      <View style={styles.content}>
+      {/* 弹层高度随窗口自适应：iPad 分屏/旋转下写死高度会被压缩或浪费空间 */}
+      <View style={{ ...styles.content, height: Math.min(560, Math.round(windowSize.height * 0.78)) }}>
         <FlatList
           data={list}
           renderItem={renderItem}
@@ -186,7 +189,6 @@ export default forwardRef<SimilarArtistsModalType, { componentId: string }>(({ c
 const styles = createStyle({
   content: {
     width: '100%',
-    height: 560,
     maxHeight: '100%',
   },
   item: {

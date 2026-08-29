@@ -35,6 +35,12 @@ if (NativeModules.LocalMediaMetadata) {
   }
 }
 
+// 原生写入能力是否可用。
+// iOS 的 LocalMediaMetadata 内联模块（AppDelegate.mm RCT_REMAP_METHOD writeMetadata/writePic/writeLyric）
+// 同样提供标签/封面/内嵌歌词写入，调用方应按能力判断，而不是按平台一刀切跳过。
+export const isWriteSupported = (): boolean =>
+  !!(nativeLocalMediaMetadata?.writeMetadata && nativeLocalMediaMetadata?.writePic && nativeLocalMediaMetadata?.writeLyric)
+
 let cleared = false
 const picCachePath = temporaryDirectoryPath + '/local-media-metadata'
 const unsupportedError = new Error('Local media metadata is not supported on ios yet')

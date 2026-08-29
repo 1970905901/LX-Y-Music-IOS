@@ -1,13 +1,14 @@
 import {forwardRef, useImperativeHandle, useRef, useState, useCallback, memo, useEffect} from 'react'
-import { FlatList, RefreshControl } from 'react-native'
+import { FlatList, RefreshControl, Keyboard, View } from 'react-native'
 import wyMusicSearch from '@/utils/musicSdk/wy/musicSearch'
 import txMusicSearch from '@/utils/musicSdk/tx/musicSearch'
 import kgMusicSearch from '@/utils/musicSdk/kg/musicSearch'
 import { useTheme } from '@/store/theme/hook'
+import { useHorizontalMode } from '@/utils/hooks'
 import SingerListItem from '../FollowedArtists/ListItem'
 import AlbumListItem from '../../Views/SubscribedAlbums/ListItem'
 import { log } from '@/utils/log'
-import { toast } from '@/utils/tools'
+import { createStyle, toast } from '@/utils/tools'
 
 interface SearchResultListProps {
   searchType: 'singer' | 'album'
@@ -20,6 +21,8 @@ export default forwardRef(({ searchType, source }: SearchResultListProps, ref) =
   const searchInfoRef = useRef({ text: '', page: 1, hasMore: true })
   const searchTypeRef = useRef(searchType)
   const theme = useTheme()
+  // iPad 横屏下歌手/专辑结果双列展示（对齐 SubscribedAlbums / FollowedArtists 的既有模式）
+  const isHorizontal = useHorizontalMode()
 
   useEffect(() => {
     searchTypeRef.current = searchType
@@ -132,7 +135,7 @@ export default forwardRef(({ searchType, source }: SearchResultListProps, ref) =
     },
   }))
 
-  const renderItem = ({ item, index }: { item: any, index: number }) => {
+  const renderItemContent = ({ item, index }: { item: any, index: number }) => {
     log.info('[SearchResultList] === 渲染列表项 ===', {
       index,
       searchType,
@@ -155,11 +158,27 @@ export default forwardRef(({ searchType, source }: SearchResultListProps, ref) =
     return null
   }
 
+  // 横屏双列时每项包一层等宽容器（对齐 SubscribedAlbums / FollowedArtists 模式）
+  const renderItem = useCallback(
+    ({ item, index }: { item: any, index: number }) =>
+      isHorizontal ? (
+        <View style={styles.itemWrapper}>{renderItemContent({ item, index })}</View>
+      ) : (
+        renderItemContent({ item, index })
+      ),
+    [isHorizontal, searchType],
+  )
+
   return (
     <FlatList
       data={list}
+      // numColumns 变更时必须重挂载（key 变更），RN 不支持运行中修改 numColumns
+      key={isHorizontal ? 'horizontal' : 'vertical'}
+      numColumns={isHorizontal ? 2 : 1}
       renderItem={renderItem}
       keyExtractor={item => String(item.id)}
+      columnWrapperStyle={isHorizontal ? styles.columnWrapper : undefined}
+      onScrollBeginDrag={Keyboard.dismiss}
       onEndReached={() => {
         log.info('[SearchResultList] === 触底加载更多 ===', {
           text: searchInfoRef.current.text,
@@ -169,13 +188,6 @@ export default forwardRef(({ searchType, source }: SearchResultListProps, ref) =
         handleLoad(searchInfoRef.current.text, searchInfoRef.current.page)
       }}
       onEndReachedThreshold={0.5}
-      onScrollBeginDrag={() => {
-        log.info('[SearchResultList] === 开始拖动列表 ===', {
-          text: searchInfoRef.current.text,
-          page: searchInfoRef.current.page,
-          listLength: list.length,
-        })
-      }}
       refreshControl={
         <RefreshControl
           colors={[theme['c-primary']]}
@@ -191,4 +203,14 @@ export default forwardRef(({ searchType, source }: SearchResultListProps, ref) =
       }
     />
   )
+})
+
+const styles = createStyle({
+  columnWrapper: {
+    paddingHorizontal: 8,
+  },
+  itemWrapper: {
+    flex: 1,
+    maxWidth: '50%',
+  },
 })

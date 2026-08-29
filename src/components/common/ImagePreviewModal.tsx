@@ -82,7 +82,15 @@ export default memo(({ visible, url, name = 'image', onClose }: Props) => {
           {isActionVisible
             ? (
                 <TouchableWithoutFeedback onPress={() => {}}>
-                  <View style={{ ...styles.actionPanel, backgroundColor: theme['c-content-background'] }}>
+                  {/* iPad 宽屏下操作面板限宽 760 居中，不再被 left/right 40 拉满整屏 */}
+                  <View
+                    style={{
+                      ...styles.actionPanel,
+                      width: Math.min(windowSize.width - 80, 760),
+                      left: (windowSize.width - Math.min(windowSize.width - 80, 760)) / 2,
+                      backgroundColor: theme['c-content-background'],
+                    }}
+                  >
                     <TouchableOpacity style={styles.saveButton} activeOpacity={0.75} onPress={handleSave}>
                       <Text size={15}>保存图片</Text>
                     </TouchableOpacity>
@@ -110,10 +118,13 @@ const styles = createStyle({
   actionPanel: {
     position: 'absolute',
     bottom: 60,
-    left: 40,
-    right: 40,
     padding: 8,
     borderRadius: 8,
+    // 跨平台阴影：iOS 用 shadow 系列，Android 用 elevation
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
     elevation: 4,
   },
   saveButton: {

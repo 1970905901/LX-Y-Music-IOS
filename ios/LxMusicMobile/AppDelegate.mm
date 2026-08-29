@@ -4,6 +4,7 @@
 #import <React/RCTBridgeModule.h>
 #import <React/RCTBundleURLProvider.h>
 #import <React/RCTEventEmitter.h>
+#import <React/RCTLinkingManager.h>
 #import <ReactNativeNavigation/ReactNativeNavigation.h>
 #import <Security/Security.h>
 #import <AVFoundation/AVFoundation.h>
@@ -4622,7 +4623,9 @@ RCT_EXPORT_MODULE();
 }
 
 - (NSArray<NSString *> *)supportedEvents {
-  return @[ @"headphones-disconnected", @"remote-command", @"screen-state", @"screen-size-changed" ];
+  // screen-size-changed 已移除：iOS 端从未发送该事件（窗口尺寸由 JS 侧 SizeView onLayout 同步），
+  // 声明而不发送属于死事件，且避免误导后续接入
+  return @[ @"headphones-disconnected", @"remote-command", @"screen-state" ];
 }
 
 - (void)startObserving {
@@ -4679,9 +4682,8 @@ RCT_EXPORT_MODULE();
 }
 
 RCT_EXPORT_METHOD(exitApp) {
-  dispatch_async(dispatch_get_main_queue(), ^{
-    exit(0);
-  });
+  // iOS 禁止程序化退出（违反 HIG，有审核风险）；JS 侧实际走 BackHandler.exitApp（iOS no-op），
+  // 此方法保留为 no-op 防止误用
 }
 
 // 屏幕常亮：播放歌词/横屏详情页时保持屏幕不熄灭（idleTimerDisabled）
@@ -4796,6 +4798,15 @@ RCT_REMAP_METHOD(sha1, sha1:(NSString *)input resolver:(RCTPromiseResolveBlock)r
 
 - (NSArray<id<RCTBridgeModule>> *)extraModulesForBridge:(RCTBridge *)bridge {
   return [ReactNativeNavigation extraModulesForBridge:bridge];
+}
+
+// 深链（lxmusic://）与「从文件 App 打开 lxmc/bin」（LSSupportsOpeningDocumentsInPlace）
+// 此前声明了 scheme/文档类型却无任何原生入口承接，链路断裂。
+// 统一转发给 RN Linking，由 JS 侧 core/init/deeplink 的 Linking 监听接收处理。
+- (BOOL)application:(UIApplication *)app
+            openURL:(NSURL *)url
+            options:(NSDictionary<UIApplicationOpenURLOptionsKey, id> *)options {
+  return [RCTLinkingManager application:app openURL:url options:options];
 }
 
 - (NSURL *)sourceURLForBridge:(RCTBridge *)bridge

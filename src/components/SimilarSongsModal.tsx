@@ -5,6 +5,7 @@ import Popup, { type PopupType } from '@/components/common/Popup'
 import OnlineList, { type OnlineListType } from '@/components/OnlineList'
 import { playOnlineList } from '@/core/list'
 import { usePlayerMusicInfo } from '@/store/player/hook'
+import { useWindowSize } from '@/utils/hooks'
 import { createStyle, toast } from '@/utils/tools'
 import wyApi from '@/utils/musicSdk/wy'
 import txApi from '@/utils/musicSdk/tx'
@@ -29,6 +30,9 @@ export default forwardRef<SimilarSongsModalType, {}>((props, ref) => {
   const [visible, setVisible] = useState(false)
   const [title, setTitle] = useState('相似歌曲')
   const playerMusicInfo = usePlayerMusicInfo()
+  const windowSize = useWindowSize()
+  // 弹层高度随窗口自适应：iPad 分屏/旋转下写死高度会被压缩或浪费空间
+  const contentHeight = Math.min(520, Math.round(windowSize.height * 0.78))
 
   const loadData = useCallback(async(isAppend = false) => {
     const musicInfo = currentMusicInfoRef.current
@@ -138,7 +142,7 @@ export default forwardRef<SimilarSongsModalType, {}>((props, ref) => {
 
   return visible ? (
     <Popup ref={popupRef} title={title} position="bottom" onHide={handleHide}>
-      <View style={styles.content}>
+      <View style={{ ...styles.content, height: contentHeight }}>
         <OnlineList
           ref={listRef}
           listId={LIST_ID}
@@ -157,7 +161,6 @@ export default forwardRef<SimilarSongsModalType, {}>((props, ref) => {
 const styles = createStyle({
   content: {
     width: '100%',
-    height: 520,
     maxHeight: '100%',
   },
 })

@@ -1,5 +1,5 @@
 // import { useEffect, useState } from 'react'
-import { View, Dimensions } from 'react-native'
+import { View } from 'react-native'
 import { useTheme } from '@/store/theme/hook'
 import ImageBackground from '@/components/common/ImageBackground'
 import { useWindowSize, useHorizontalMode } from '@/utils/hooks'
@@ -32,11 +32,13 @@ export default ({ children }: Props) => {
   const BLUR_RADIUS = blur
 
   const contentComponent = useMemo(() => {
-    // Use screen dimensions for background to cover cutout/notch area in edge-to-edge mode
-    const screenSize = Dimensions.get('screen');
-    const windowDims = Dimensions.get('window');
-    const bgWidth = Math.max(screenSize.width, windowSize.width);
-    const bgHeight = Math.max(screenSize.height, windowSize.height);
+    // 背景必须按窗口（App 可用区域）尺寸铺设。
+    // 不能取 Dimensions.get('screen')：iPad 分屏 / Slide Over / Stage Manager 下
+    // screen 是整块物理屏（如 1194pt），而窗口可能只有 320~500pt，取 max 会导致
+    // 背景被铺到整屏宽并被裁切（观感：背景突然变大变糊、不随窗口居中）。
+    // 刘海/状态栏覆盖由 RNN drawBehind + position:absolute 保证，不依赖 screen 尺寸。
+    const bgWidth = windowSize.width;
+    const bgHeight = windowSize.height;
 
     return (
       <View style={{ flex: 1, overflow: 'hidden' }}>

@@ -444,8 +444,6 @@
   "setting_lyric_desktop_toggle_anima": "显示歌词切换动画",
   "setting_lyric_desktop_view_width": "窗口百分比宽度",
   "setting_other": "其他",
-  "setting_other_hide_navigation_bar": "隐藏小白条",
-  "setting_other_hide_navigation_bar_tip": "隐藏Android系统底部导航栏，重启软件生效",
   "setting_other_cache": "缓存管理（包括歌曲、歌词、错误日志等缓存，若没有歌曲播放相关的问题则不建议清理）",
   "setting_other_cache_clear_btn": "清理缓存",
   "setting_other_cache_clear_success_tip": "缓存清理完成",

@@ -19,7 +19,6 @@ const defaultSetting: LX.AppSetting = {
   'common.kg_cookie': '',
   'common.yt_cookie': '',
   'common.lockLandscape': false,
-  'common.hideNavigationBar': false,
   'common.isEnableLog': true,
   'common.isEnableSyncLog': false,
   'common.isEnableUserApiLog': false,

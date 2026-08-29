@@ -125,7 +125,7 @@ export async function pushHomeScreen() {
                   backgroundColor: 'transparent',
                 },
                 navigationBar: {
-          visible: !settingState.setting['common.hideNavigationBar'],
+          visible: true,
           backgroundColor: theme['c-content-background'],
         },
                 orientation: lockLandscape ? ['landscape'] : ['portrait'],
@@ -217,7 +217,7 @@ export function pushPlayDetailScreen(componentId: string, skipAnimation = false)
             backgroundColor: 'transparent',
           },
           navigationBar: {
-            visible: !settingState.setting['common.hideNavigationBar'],
+            visible: true,
             backgroundColor: theme['c-content-background'],
           },
           layout: {
@@ -261,7 +261,7 @@ export function pushSonglistDetailScreen(componentId: string, info: ListInfoItem
             backgroundColor: 'transparent',
           },
           navigationBar: {
-            visible: !settingState.setting['common.hideNavigationBar'],
+            visible: true,
             backgroundColor: theme['c-content-background'],
           },
           layout: {
@@ -402,7 +402,7 @@ export function pushCommentScreen(componentId: string) {
             backgroundColor: 'transparent',
           },
           navigationBar: {
-            visible: !settingState.setting['common.hideNavigationBar'],
+            visible: true,
             backgroundColor: theme['c-content-background'],
           },
           layout: {

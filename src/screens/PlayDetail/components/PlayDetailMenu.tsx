@@ -18,7 +18,6 @@ const initSelectInfo = {}
 export interface PlayDetailMenuProps {
   onAdd: (selectInfo: SelectInfo) => void
   onDownload: (selectInfo: SelectInfo) => void
-  onMusicSourceDetail: (selectInfo: SelectInfo) => void
   onDislikeMusic: (selectInfo: SelectInfo) => void
   onArtistDetail: (selectInfo: SelectInfo) => void
   onAlbumDetail: (selectInfo: SelectInfo) => void
@@ -52,7 +51,6 @@ export default forwardRef<PlayDetailMenuType, PlayDetailMenuProps>((props, ref) 
 
   const menuSetting = {
     playMV: useSettingValue('menu.playMV'),
-    songDetail: useSettingValue('menu.songDetail'),
   }
 
   useImperativeHandle(ref, () => ({
@@ -114,9 +112,6 @@ export default forwardRef<PlayDetailMenuType, PlayDetailMenuProps>((props, ref) 
       }
     }
 
-    if (musicInfo && musicInfo.source !== 'local') {
-     if (menuSetting.songDetail) menuItems.push({ action: 'musicSourceDetail', label: t('music_source_detail') });
-    }
     menuItems.push({ action: 'clearCache', label: t('clear_music_cache') });
 
     return menuItems;
@@ -142,9 +137,6 @@ export default forwardRef<PlayDetailMenuType, PlayDetailMenuProps>((props, ref) 
         break;
       case 'similarSongs':
         props.onSimilarSongs(selectInfo);
-        break;
-      case 'musicSourceDetail':
-        props.onMusicSourceDetail(selectInfo);
         break;
       case 'clearCache':
         props.onClearCache(selectInfo);

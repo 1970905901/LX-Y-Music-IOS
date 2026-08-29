@@ -8,7 +8,7 @@ import Btn from './Btn'
 import { type Position } from '@/screens/Home/Views/Mylist/MusicList/ListMenu'
 import PlayDetailMenu, { type PlayDetailMenuType, type SelectInfo } from '@/screens/PlayDetail/components/PlayDetailMenu'
 import playerState from '@/store/player/state'
-import { handleDislikeMusic, handleShowMusicSourceDetail, handleClearMusicCache } from '@/screens/Home/Views/Mylist/MusicList/listAction'
+import { handleDislikeMusic, handleClearMusicCache } from '@/screens/Home/Views/Mylist/MusicList/listAction'
 import {handleLikeMusic, handleTxLikeMusic, handleKgLikeMusic, handleShowAlbumDetail, handleShowArtistDetail} from '@/components/OnlineList/listAction'
 import MusicAddModal, { type MusicAddModalType } from '@/components/MusicAddModal'
 import MusicDownloadModal, { type MusicDownloadModalType } from '@/screens/Home/Views/Mylist/MusicList/MusicDownloadModal'
@@ -83,10 +83,6 @@ export default memo(({ componentId }: { componentId: string }) => {
 
   const onSimilarSongs = (info: SelectInfo) => {
     similarSongsModalRef.current?.show(info.musicInfo);
-  };
-
-  const onMusicSourceDetail = (info: SelectInfo) => {
-    void handleShowMusicSourceDetail(info.musicInfo);
   };
 
   const onDislikeMusic = (info: SelectInfo) => {
@@ -180,7 +176,6 @@ export default memo(({ componentId }: { componentId: string }) => {
         onArtistDetail={onArtistDetail}
         onAlbumDetail={onAlbumDetail}
         onSimilarSongs={onSimilarSongs}
-        onMusicSourceDetail={onMusicSourceDetail}
         onDislikeMusic={onDislikeMusic}
         onPlayMv={onPlayMv}
         onClearCache={onClearCache}

@@ -14,7 +14,7 @@ import MusicDownloadModal, { type MusicDownloadModalType } from '@/screens/Home/
 import SimilarSongsModal, { type SimilarSongsModalType } from '@/components/SimilarSongsModal'
 import { updateSetting } from '@/core/common'
 import settingState from '@/store/setting/state'
-import { handleDislikeMusic, handleShowMusicSourceDetail, handleClearMusicCache } from '@/screens/Home/Views/Mylist/MusicList/listAction'
+import { handleDislikeMusic, handleClearMusicCache } from '@/screens/Home/Views/Mylist/MusicList/listAction'
 import { handleLikeMusic, handleTxLikeMusic, handleKgLikeMusic, handleShowAlbumDetail, handleShowArtistDetail } from '@/components/OnlineList/listAction'
 import { usePlayMusicInfo } from '@/store/player/hook'
 import { type Position } from '@/screens/Home/Views/Mylist/MusicList/ListMenu'
@@ -114,10 +114,6 @@ export default memo(({ componentId }: { componentId: string }) => {
     similarSongsModalRef.current?.show(info.musicInfo)
   }, [])
 
-  const onMusicSourceDetail = useCallback((info: SelectInfo) => {
-    void handleShowMusicSourceDetail(info.musicInfo)
-  }, [])
-
   const onDislikeMusic = useCallback((info: SelectInfo) => {
     void handleDislikeMusic(info.musicInfo)
   }, [])
@@ -204,7 +200,6 @@ export default memo(({ componentId }: { componentId: string }) => {
         onArtistDetail={onArtistDetail}
         onAlbumDetail={onAlbumDetail}
         onSimilarSongs={onSimilarSongs}
-        onMusicSourceDetail={onMusicSourceDetail}
         onDislikeMusic={onDislikeMusic}
         onPlayMv={onPlayMv}
         onClearCache={onClearCache}

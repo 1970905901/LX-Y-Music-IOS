@@ -45,17 +45,11 @@ const guardPush = async (promise: Promise<string> | undefined, id: COMPONENT_IDS
   endPush(id)
 }
 
-// 横屏锁定：所有页面统一跟随 common.lockLandscape。
-// iOS 无 UtilsModule.setScreenOrientation，方向完全由 RNN 的 options.layout.orientation 控制，
-// 因此每个页面都必须显式设置，否则会回落到 App 默认方向、导致横屏体验断裂。
+// 方向策略（一个包适配 iPhone/iPad）：
+// 各页面已显式声明 orientation: ['portrait', 'landscape']，实际可旋转范围由系统级
+// Info.plist 裁决——iPhone 系统仅竖屏 -> 实际只能竖屏；iPad 系统竖横均支持 -> 可竖可横
+// （横屏时走响应式横屏布局）。不再提供手动横屏开关。
 // 注意：RNN 只识别 options.layout.orientation，写在 options 顶层不会生效。
-//
-// 默认（lockLandscape 关闭）放开为竖+横，由系统级 Info.plist 裁决实际可旋转范围：
-//   - iPhone 系统仅竖屏   -> 实际只能竖屏
-//   - iPad   系统竖横均支持 -> 可竖可横（横屏时走响应式横屏布局）
-// lockLandscape 开启时仍强制横屏（iPad 生效；iPhone 因设备限制交集为空，系统回退为竖屏）。
-const getScreenOrientation = (): ('landscape' | 'portrait')[] =>
-  settingState.setting['common.lockLandscape'] ? ['landscape'] : ['portrait', 'landscape']
 
 
 export async function pushHomeScreen() {
@@ -106,16 +100,6 @@ export async function pushHomeScreen() {
   */
 
   const theme = themeState.theme
-  const lockLandscape = settingState.setting['common.lockLandscape']
-
-  if (lockLandscape) {
-    setTimeout(() => {
-      if (Platform.OS !== 'ios') {
-        const { setScreenOrientation } = require('@/utils/nativeModules/utils')
-        setScreenOrientation('landscape')
-      }
-    }, 500)
-  }
 
   return Navigation.setRoot({
     root: {
@@ -141,7 +125,7 @@ export async function pushHomeScreen() {
           backgroundColor: theme['c-content-background'],
         },
                 layout: {
-                  orientation: getScreenOrientation(),
+                  orientation: ['portrait', 'landscape'],
                   componentBackgroundColor: theme['c-content-background'],
                   fitSystemWindows: false,
                   // @ts-expect-error RNN 运行期支持的安全区选项，当前类型未声明
@@ -233,7 +217,7 @@ export function pushPlayDetailScreen(componentId: string, skipAnimation = false)
             backgroundColor: theme['c-content-background'],
           },
           layout: {
-            orientation: getScreenOrientation(),
+            orientation: ['portrait', 'landscape'],
             componentBackgroundColor,
                   fitSystemWindows: false,
                   // @ts-expect-error RNN 运行期支持的安全区选项，当前类型未声明
@@ -278,7 +262,7 @@ export function pushSonglistDetailScreen(componentId: string, info: ListInfoItem
             backgroundColor: theme['c-content-background'],
           },
           layout: {
-            orientation: getScreenOrientation(),
+            orientation: ['portrait', 'landscape'],
             componentBackgroundColor: theme['c-content-background'],
                   fitSystemWindows: false,
                   // @ts-expect-error RNN 运行期支持的安全区选项，当前类型未声明
@@ -420,7 +404,7 @@ export function pushCommentScreen(componentId: string) {
             backgroundColor: theme['c-content-background'],
           },
           layout: {
-            orientation: getScreenOrientation(),
+            orientation: ['portrait', 'landscape'],
             componentBackgroundColor: theme['c-content-background'],
                   fitSystemWindows: false,
                   // @ts-expect-error RNN 运行期支持的安全区选项，当前类型未声明
@@ -681,7 +665,7 @@ export function pushArtistDetailScreen(componentId: string, artistInfo: { id: st
           backgroundColor: 'transparent',
         },
         layout: {
-          orientation: getScreenOrientation(),
+          orientation: ['portrait', 'landscape'],
           componentBackgroundColor: theme['c-content-background'],
                   fitSystemWindows: false,
         },
@@ -732,7 +716,7 @@ export function pushAlbumDetailScreen(componentId: string, albumInfo: any) {
           backgroundColor: 'transparent',
         },
         layout: {
-          orientation: getScreenOrientation(),
+          orientation: ['portrait', 'landscape'],
           componentBackgroundColor: theme['c-content-background'],
                   fitSystemWindows: false,
         },
@@ -781,7 +765,7 @@ export function pushDownloadManagerScreen(componentId: string) {
           backgroundColor: 'transparent',
         },
         layout: {
-          orientation: getScreenOrientation(),
+          orientation: ['portrait', 'landscape'],
           componentBackgroundColor: theme['c-content-background'],
                   fitSystemWindows: false,
         },
@@ -834,7 +818,7 @@ export function pushSimilarSongsScreen(componentId: string, similarSongs: LX.Mus
           backgroundColor: 'transparent',
         },
         layout: {
-          orientation: getScreenOrientation(),
+          orientation: ['portrait', 'landscape'],
           componentBackgroundColor: theme['c-content-background'],
                   fitSystemWindows: false,
         },

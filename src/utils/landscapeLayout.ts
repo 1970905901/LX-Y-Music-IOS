@@ -4,7 +4,7 @@ import { useWindowSize } from '@/utils/hooks'
 /**
  * 横屏布局档位
  *
- * 横屏 UI 的挂载由 useHorizontalMode（宽高比 > 1.2）决定，与 lockLandscape 设置解耦，
+ * 横屏 UI 的挂载由 useHorizontalMode（宽高比 > 1.2）决定，与设备类型/手动开关无关，
  * 因此只要窗口够宽就会走横屏布局。这里再按窗口长边细分两档，让 iPad 这类大屏
  * 不必沿用为手机横屏调过的尺寸。
  *

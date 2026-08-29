@@ -98,12 +98,14 @@ export default memo(() => {
 const styles = StyleSheet.create({
   preview: {
     justifyContent: 'center',
+    alignItems: 'center',
     // paddingTop: 3,
     paddingBottom: 10,
-    height: 45,
+    minHeight: 45,
   },
   list: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    alignItems: 'center',
   },
 })

@@ -18,7 +18,6 @@ const initSelectInfo = {}
 export interface PlayDetailMenuProps {
   onAdd: (selectInfo: SelectInfo) => void
   onDownload: (selectInfo: SelectInfo) => void
-  onCopyName: (selectInfo: SelectInfo) => void
   onMusicSourceDetail: (selectInfo: SelectInfo) => void
   onDislikeMusic: (selectInfo: SelectInfo) => void
   onArtistDetail: (selectInfo: SelectInfo) => void
@@ -52,7 +51,6 @@ export default forwardRef<PlayDetailMenuType, PlayDetailMenuProps>((props, ref) 
   );
 
   const menuSetting = {
-    share: useSettingValue('menu.share'),
     playMV: useSettingValue('menu.playMV'),
     songDetail: useSettingValue('menu.songDetail'),
   }
@@ -85,7 +83,6 @@ export default forwardRef<PlayDetailMenuType, PlayDetailMenuProps>((props, ref) 
     const musicInfo = selectInfoRef.current.musicInfo;
     const menuItems: Menus[number][] = [];
     menuItems.push({ action: 'download', label: t('download') });
-    if (menuSetting.share) menuItems.push({ action: 'copyName', label: t('copy_name') });
 
     if (musicInfo?.source === 'wy') {
       menuItems.push({ action: 'like', label: renderLikeLabel(isLiked) })
@@ -136,9 +133,6 @@ export default forwardRef<PlayDetailMenuType, PlayDetailMenuProps>((props, ref) 
         break;
       case 'playMv':
         props.onPlayMv(selectInfo);
-        break;
-      case 'copyName':
-        props.onCopyName(selectInfo);
         break;
       case 'artistDetail':
         props.onArtistDetail(selectInfo);

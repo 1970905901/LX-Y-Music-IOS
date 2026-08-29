@@ -14,7 +14,7 @@ import MusicDownloadModal, { type MusicDownloadModalType } from '@/screens/Home/
 import SimilarSongsModal, { type SimilarSongsModalType } from '@/components/SimilarSongsModal'
 import { updateSetting } from '@/core/common'
 import settingState from '@/store/setting/state'
-import { handleDislikeMusic, handleShare, handleShowMusicSourceDetail, handleClearMusicCache } from '@/screens/Home/Views/Mylist/MusicList/listAction'
+import { handleDislikeMusic, handleShowMusicSourceDetail, handleClearMusicCache } from '@/screens/Home/Views/Mylist/MusicList/listAction'
 import { handleLikeMusic, handleTxLikeMusic, handleKgLikeMusic, handleShowAlbumDetail, handleShowArtistDetail } from '@/components/OnlineList/listAction'
 import { usePlayMusicInfo } from '@/store/player/hook'
 import { type Position } from '@/screens/Home/Views/Mylist/MusicList/ListMenu'
@@ -96,10 +96,6 @@ export default memo(({ componentId }: { componentId: string }) => {
     if (settingState.setting['download.enable']) {
       musicDownloadModalRef.current?.show(info.musicInfo)
     }
-  }, [])
-
-  const onCopyName = useCallback((info: SelectInfo) => {
-    handleShare(info.musicInfo)
   }, [])
 
   const onArtistDetail = useCallback((info: SelectInfo) => {
@@ -205,7 +201,6 @@ export default memo(({ componentId }: { componentId: string }) => {
         onAdd={onAdd}
         onLike={onLike}
         onDownload={onDownload}
-        onCopyName={onCopyName}
         onArtistDetail={onArtistDetail}
         onAlbumDetail={onAlbumDetail}
         onSimilarSongs={onSimilarSongs}

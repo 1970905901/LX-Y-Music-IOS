@@ -11,7 +11,6 @@ import MyPlaylist from '../Views/MyPlaylist'
 import SubscribedAlbums from "@/screens/Home/Views/SubscribedAlbums"
 import FollowedArtists from "@/screens/Home/Views/FollowedArtists"
 import PlayHistory from '../Views/PlayHistory'
-import OneDrive from '../Views/OneDrive'
 import WebDAV from '../Views/WebDAV'
 
 import LocalDownload from '../Views/LocalDownload'
@@ -52,8 +51,6 @@ const Main = () => {
         return <FollowedArtists />
       case 'nav_subscribed_albums':
         return <SubscribedAlbums />
-      case 'nav_onedrive':
-        return <OneDrive />
       case 'nav_webdav':
         return <WebDAV />
       case 'nav_local_download':

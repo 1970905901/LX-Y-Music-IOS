@@ -16,7 +16,6 @@ import { updateSetting } from '@/core/common'
 import settingState from '@/store/setting/state'
 import { handleDislikeMusic, handleShare, handleShowMusicSourceDetail, handleClearMusicCache } from '@/screens/Home/Views/Mylist/MusicList/listAction'
 import { handleLikeMusic, handleTxLikeMusic, handleKgLikeMusic, handleShowAlbumDetail, handleShowArtistDetail } from '@/components/OnlineList/listAction'
-import { isOneDriveMusicInfo } from '@/core/oneDrive/utils'
 import { usePlayMusicInfo } from '@/store/player/hook'
 import { type Position } from '@/screens/Home/Views/Mylist/MusicList/ListMenu'
 import { getMvUrl as getWyMvUrl } from '@/utils/musicSdk/wy/mv.js'
@@ -37,7 +36,6 @@ export default memo(({ componentId }: { componentId: string }) => {
   const similarSongsModalRef = useRef<SimilarSongsModalType>(null)
   const moreBtnRef = useRef<TouchableOpacity>(null)
   const playMusicInfo = usePlayMusicInfo()
-  const isOneDrive = isOneDriveMusicInfo(playMusicInfo.musicInfo)
 
   const handleDownloadPress = useCallback(() => {
     const info = playerState.playMusicInfo.musicInfo

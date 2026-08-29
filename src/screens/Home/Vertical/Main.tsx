@@ -22,7 +22,6 @@ import {NAV_MENUS, NAV_GROUPS, type NAV_ID_Type, getEffectiveFlatOrder} from "@/
 import {useSettingValue} from "@/store/setting/hook.ts";
 import PlayHistory from '../Views/PlayHistory'
 import { useTheme } from '@/store/theme/hook'
-import OneDrive from '../Views/OneDrive'
 import WebDAV from '../Views/WebDAV'
 
 import LocalDownload from '../Views/LocalDownload'
@@ -382,41 +381,7 @@ const SubscribedAlbumsPage = () => {
   return visible ? component : null;
 };
 
-const OneDrivePage = () => {
-  const [visible, setVisible] = useState(commonState.navActiveId == 'nav_onedrive')
-  const component = useMemo(() => <OneDrive />, [])
-  useEffect(() => {
-    let currentId: CommonState['navActiveId'] = commonState.navActiveId
-    const handleNavIdUpdate = (id: CommonState['navActiveId']) => {
-      currentId = id
-      if (id == 'nav_onedrive') {
-        requestAnimationFrame(() => {
-          setVisible(true)
-        })
-      }
-    }
-    const handleHide = () => {
-      if (currentId != 'nav_setting') return
-      setVisible(false)
-    }
-    const handleConfigUpdated = (keys: Array<keyof LX.AppSetting>) => {
-      if (keys.some((k) => hideKeys.includes(k))) handleHide()
-    }
-    global.state_event.on('navActiveIdUpdated', handleNavIdUpdate)
-    global.state_event.on('themeUpdated', handleHide)
-    global.state_event.on('languageChanged', handleHide)
-    global.state_event.on('configUpdated', handleConfigUpdated)
 
-    return () => {
-      global.state_event.off('navActiveIdUpdated', handleNavIdUpdate)
-      global.state_event.off('themeUpdated', handleHide)
-      global.state_event.off('languageChanged', handleHide)
-      global.state_event.off('configUpdated', handleConfigUpdated)
-    }
-  }, [])
-
-  return visible ? component : null
-}
 
 const WebDAVPage = () => {
   const [visible, setVisible] = useState(commonState.navActiveId == 'nav_webdav')
@@ -629,7 +594,7 @@ const Main = () => {
   // 与侧边栏（DrawerNav）保持同一套“有效顺序”，否则二者不一致时点击侧边栏项会跳错页面。
   // 分组开启用 navOrder；否则优先用用户在“侧边栏导航”里自定义过的扁平顺序 navFlatOrder，
   // 都没有再回退 navOrder。
-  // 注意：分组开启时 DrawerNav 会通过 NAV_GROUPS 显示 group children（如云盘下的 OneDrive/WebDAV），
+  // 注意：分组开启时 DrawerNav 会通过 NAV_GROUPS 显示 group children（如云盘下的 WebDAV），
   // 如果老用户的 navOrder 里缺少这些子项，必须补进 PagerView 页面列表，否则点击会 fallback 到第一页。
   const effectiveOrder = useMemo(() => {
     if (!navGroupEnabled) return getEffectiveFlatOrder(navFlatOrder, navOrder);
@@ -775,7 +740,6 @@ const Main = () => {
       nav_followed_artists: <FollowedArtistsPage />,
       nav_subscribed_albums: <SubscribedAlbumsPage />,
       nav_my_playlist: <MyPlaylistPage />,
-      nav_onedrive: <OneDrivePage />,
       nav_webdav: <WebDAVPage />,
       nav_local_download: <LocalDownloadPage />,
       nav_tx_playlist: <TXPlaylistPage />,

@@ -17,7 +17,6 @@ import {getMvUrl as getWyMvUrl} from "@/utils/musicSdk/wy/mv.js";
 import {getMvUrl as getTxMvUrl} from "@/utils/musicSdk/tx/mv.js";
 import {getMvUrl as getKgMvUrl} from "@/utils/musicSdk/kg/mv.js";
 import SimilarSongsModal, { type SimilarSongsModalType } from '@/components/SimilarSongsModal'
-import { isOneDriveMusicInfo } from '@/core/oneDrive/utils'
 import { usePlayMusicInfo } from '@/store/player/hook'
 
 
@@ -28,7 +27,6 @@ export default memo(({ componentId }: { componentId: string }) => {
   const musicDownloadModalRef = useRef<MusicDownloadModalType>(null);
   const similarSongsModalRef = useRef<SimilarSongsModalType>(null);
   const playMusicInfo = usePlayMusicInfo();
-  const isOneDrive = isOneDriveMusicInfo(playMusicInfo.musicInfo);
 
   useEffect(() => {
     const handleMusicChange = () => {
@@ -174,7 +172,7 @@ export default memo(({ componentId }: { componentId: string }) => {
       <View style={styles.container}>
         <MusicAddBtn />
         <PlayModeBtn />
-        {isOneDrive ? null : <CommentBtn />}
+        <CommentBtn />
         <Btn icon="dots-vertical" onPress={handleShowMenu} ref={moreBtnRef} />
       </View>
 

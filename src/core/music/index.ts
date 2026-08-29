@@ -8,11 +8,6 @@ import {
   getPicUrl as getLocalPicUrl,
   getLyricInfo as getLocalLyricInfo,
 } from './local'
-import {
-  getMusicUrl as getOneDriveMusicUrl,
-  getPicUrl as getOneDrivePicUrl,
-  getLyricInfo as getOneDriveLyricInfo,
-} from '@/core/oneDrive/music'
 import * as localPlay from './localPlay'
 import { handleGetOnlinePicUrl } from './utils'
 import { webDAVLog } from '@/core/webdavMusic/logger'
@@ -53,9 +48,6 @@ export const getMusicUrl = async ({
   if ('progress' in musicInfo) {
     return localPlay.getMusicUrl({ target: getTaskTarget(musicInfo), isRefresh })
   } else if (musicInfo.source == 'local') {
-    if ('oneDrive' in musicInfo.meta) {
-      return getOneDriveMusicUrl({ musicInfo: musicInfo as LX.OneDrive.MusicInfo, isRefresh })
-    }
     if ('webdav' in musicInfo.meta && (musicInfo.meta as any).webdav) {
       webDAVLog.info('index.ts: Detected WebDAV music', { source: musicInfo.source, meta: JSON.stringify(musicInfo.meta) })
       return getLocalMusicUrl({ musicInfo, isRefresh, onToggleSource, allowToggleSource })
@@ -100,9 +92,6 @@ export const getPicPath = async ({
   if ('progress' in musicInfo) {
     return localPlay.getPicUrl({ target: getTaskTarget(musicInfo), isRefresh })
   } else if (musicInfo.source == 'local') {
-    if ('oneDrive' in musicInfo.meta) {
-      return getOneDrivePicUrl({ musicInfo: musicInfo as LX.OneDrive.MusicInfo, isRefresh, listId })
-    }
     if ('webdav' in musicInfo.meta && (musicInfo.meta as any).webdav) {
       return getLocalPicUrl({ musicInfo, isRefresh, listId, onToggleSource })
     }
@@ -143,9 +132,6 @@ export const getLyricInfo = async ({
   if ('progress' in musicInfo) {
     return localPlay.getLyricInfo({ target: getTaskTarget(musicInfo), isRefresh })
   } else if (musicInfo.source == 'local') {
-    if ('oneDrive' in musicInfo.meta) {
-      return getOneDriveLyricInfo({ musicInfo: musicInfo as LX.OneDrive.MusicInfo, isRefresh })
-    }
     if ('webdav' in musicInfo.meta && (musicInfo.meta as any).webdav) {
       return getLocalLyricInfo({ musicInfo, isRefresh, onToggleSource })
     }

@@ -39,7 +39,6 @@ const defaultSetting: LX.AppSetting = {
     nav_my_playlist: true,
     nav_followed_artists: true,
     nav_subscribed_albums: true,
-    nav_onedrive: true,
     nav_webdav: true,
     nav_tx_daily_rec: true,
   },
@@ -58,7 +57,6 @@ const defaultSetting: LX.AppSetting = {
     'nav_songlist',
     'nav_top',
     'nav_webdav',
-    'nav_onedrive',
     'nav_setting',
   ],
 

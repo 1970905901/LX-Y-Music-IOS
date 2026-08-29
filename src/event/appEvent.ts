@@ -11,7 +11,6 @@ import {COMPONENT_IDS, LIST_IDS, type NAV_ID_Type} from '@/config/constant'
 import {navigations} from "@/navigation";
 import {getDailyRecCache} from "@/utils/data.ts";
 import {toast} from "@/utils/tools.ts";
-import { isOneDriveMusicInfo } from '@/core/oneDrive/utils'
 
 // {
 //   // sync: {
@@ -208,14 +207,6 @@ export class AppEvent extends Event {
     const rawMusicInfo = playMusicInfo.musicInfo
     const musicInfo = rawMusicInfo && 'progress' in rawMusicInfo ? rawMusicInfo.metadata.musicInfo : rawMusicInfo
 
-    if (isOneDriveMusicInfo(musicInfo)) {
-      if (commonState.navActiveId !== 'nav_onedrive') setNavActiveId('nav_onedrive')
-      setTimeout(() => {
-        this.emit('jumpOneDrivePosition')
-      }, 200)
-      return
-    }
-
     if (!listId || !musicInfo) {
       if (commonState.navActiveId === 'nav_love') {
         this.emit('jumpListPosition')
@@ -363,10 +354,6 @@ export class AppEvent extends Event {
   }
   playlist_updated(data: { source: string, listId: string }) {
     this.emit('playlist_updated', data)
-  }
-
-  jumpOneDrivePosition() {
-    this.emit('jumpOneDrivePosition')
   }
 
   showPlaylist() {

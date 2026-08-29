@@ -11,7 +11,6 @@ import commonState from '@/store/common/state'
 import CommentBtn from './CommentBtn'
 import Btn from './Btn'
 import SettingPopup, { type SettingPopupType } from '../../components/SettingPopup'
-import { isOneDriveMusicInfo } from '@/core/oneDrive/utils'
 import { handleShowArtistDetail } from '@/components/OnlineList/listAction'
 
 export const HEADER_HEIGHT = scaleSizeH(_HEADER_HEIGHT)
@@ -104,7 +103,6 @@ const Title = () => {
 export default memo(() => {
   const popupRef = useRef<SettingPopupType>(null)
   const playMusicInfo = usePlayMusicInfo()
-  const isOneDrive = isOneDriveMusicInfo(playMusicInfo.musicInfo)
   const theme = useTheme()
   const back = () => {
     void pop(commonState.componentIds[commonState.componentIds.length - 1]?.id!)
@@ -119,7 +117,7 @@ export default memo(() => {
           <Icon name="chevron-left" size={18} />
         </TouchableOpacity>
         <Title />
-        {isOneDrive ? null : <CommentBtn />}
+        <CommentBtn />
         <Btn icon="slider" onPress={showSetting} />
       </View>
       <SettingPopup ref={popupRef} position="left" direction="horizontal" />

@@ -10,7 +10,6 @@ import { useTheme } from '@/store/theme/hook';
 
 type MenuSettingKey =
   | 'menu.playLater'
-  | 'menu.share'
   | 'menu.playMV'
   | 'menu.songDetail'
   | 'menu.dislike'
@@ -47,7 +46,6 @@ export default memo(() => {
         ]}
       >
         <SettingItem settingKey="menu.playLater" label={t('play_later')} />
-        <SettingItem settingKey="menu.share" label={t('copy_name')} />
         <SettingItem settingKey="menu.playMV" label={'播放MV'} />
         <SettingItem settingKey="menu.songDetail" label={t('music_source_detail')} />
         <SettingItem settingKey="menu.dislike" label={t('dislike')} />

@@ -12,7 +12,7 @@ import { playList, playNext } from '@/core/player/player'
 import { addTempPlayList } from '@/core/player/tempPlayList'
 
 import { filterFileName, similar, sortInsert, toOldMusicInfo } from '@/utils'
-import { confirmDialog, openUrl, shareMusic, toast } from '@/utils/tools'
+import { confirmDialog, openUrl, toast } from '@/utils/tools'
 import { addDislikeInfo, hasDislike } from '@/core/dislikeList'
 
 import { type SelectInfo } from './ListMenu'
@@ -109,14 +109,6 @@ export const handleUpdateMusicInfo = (
       },
     },
   ])
-}
-
-export const handleShare = (musicInfo: SelectInfo['musicInfo']) => {
-  shareMusic(
-    settingState.setting['common.shareType'],
-    settingState.setting['download.fileName'],
-    musicInfo
-  )
 }
 
 export const searchListMusic = (list: LX.Music.MusicInfo[], text: string) => {

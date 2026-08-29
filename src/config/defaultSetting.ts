@@ -152,7 +152,6 @@ const defaultSetting: LX.AppSetting = {
 
   'menu.playLater': true,
   'menu.addTo': true,
-  'menu.share': true,
   'menu.playMV': true,
   'menu.songDetail': true,
   'menu.dislike': true,

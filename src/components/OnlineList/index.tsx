@@ -13,7 +13,6 @@ import {
   handleDislikeMusic,
   handlePlay,
   handlePlayLater,
-  handleShare,
   handleShowMusicSourceDetail,
   handleShowArtistDetail,
   handleShowAlbumDetail,
@@ -365,9 +364,6 @@ export default forwardRef<OnlineListType, OnlineListProps>(
           onPlayLater={(info) => {
             hancelExitSelect()
             handlePlayLater(info.musicInfo, info.selectedList, hancelExitSelect)
-          }}
-          onCopyName={(info) => {
-            handleShare(info.musicInfo)
           }}
           onAdd={handleAddMusic}
           onMove={handleMoveMusic}

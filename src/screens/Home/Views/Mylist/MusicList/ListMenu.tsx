@@ -21,7 +21,6 @@ export interface ListMenuProps {
   onMove: (selectInfo: SelectInfo) => void
   onEditMetadata: (selectInfo: SelectInfo) => void
   onDownload: (selectInfo: SelectInfo) => void
-  onCopyName: (selectInfo: SelectInfo) => void
   onChangePosition: (selectInfo: SelectInfo) => void
   onToggleSource: (selectInfo: SelectInfo) => void
   onMusicSourceDetail: (selectInfo: SelectInfo) => void
@@ -52,7 +51,6 @@ export default forwardRef<ListMenuType, ListMenuProps>((props, ref) => {
   const [menus, setMenus] = useState<Menus>([])
 
   const menuPlayLater = useSettingValue('menu.playLater')
-  const menuShare = useSettingValue('menu.share')
   const menuPlayMV = useSettingValue('menu.playMV')
   const menuSongDetail = useSettingValue('menu.songDetail')
   const menuDislike = useSettingValue('menu.dislike')
@@ -60,12 +58,11 @@ export default forwardRef<ListMenuType, ListMenuProps>((props, ref) => {
 
   const menuSetting = useMemo(() => ({
     playLater: menuPlayLater,
-    share: menuShare,
     playMV: menuPlayMV,
     songDetail: menuSongDetail,
     dislike: menuDislike,
   }), [
-    menuPlayLater, menuShare, menuPlayMV, menuSongDetail, menuDislike,
+    menuPlayLater, menuPlayMV, menuSongDetail, menuDislike,
   ])
 
   useImperativeHandle(ref, () => ({
@@ -95,7 +92,6 @@ export default forwardRef<ListMenuType, ListMenuProps>((props, ref) => {
       menu.push({ action: 'move', label: t('move_to') })
       menu.push({ action: 'changePosition', label: t('change_position') })
       menu.push({ action: 'toggleSource', label: t('toggle_source') })
-      if (menuSetting.share) menu.push({ action: 'copyName', label: t('copy_name') })
       if (menuSetting.songDetail) {
         menu.push({
           action: 'musicSourceDetail',
@@ -156,7 +152,6 @@ export default forwardRef<ListMenuType, ListMenuProps>((props, ref) => {
       case 'add': props.onAdd(info); break
       case 'move': props.onMove(info); break
       case 'editMetadata': props.onEditMetadata(info); break
-      case 'copyName': props.onCopyName(info); break
       case 'changePosition': props.onChangePosition(info); break
       case 'toggleSource': props.onToggleSource(info); break
       case 'artistDetail': props.onArtistDetail(info); break

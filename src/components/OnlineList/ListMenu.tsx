@@ -24,7 +24,6 @@ export interface ListMenuProps {
   onPlayLater: (selectInfo: SelectInfo) => void
   onAdd: (selectInfo: SelectInfo) => void
   onDownload: (selectInfo: SelectInfo) => void
-  onCopyName: (selectInfo: SelectInfo) => void
   onMusicSourceDetail: (selectInfo: SelectInfo) => void
   onDislikeMusic: (selectInfo: SelectInfo) => void
   onArtistDetail: (selectInfo: SelectInfo) => void
@@ -54,7 +53,6 @@ export default forwardRef<ListMenuType, ListMenuProps>((props: ListMenuProps, re
   const menuSetting = {
     playLater: useSettingValue('menu.playLater'),
     addTo: useSettingValue('menu.addTo'),
-    share: useSettingValue('menu.share'),
     playMV: useSettingValue('menu.playMV'),
     songDetail: useSettingValue('menu.songDetail'),
     dislike: useSettingValue('menu.dislike'),
@@ -81,7 +79,6 @@ export default forwardRef<ListMenuType, ListMenuProps>((props: ListMenuProps, re
     // if (menuSetting.addTo) menu.push({ action: 'add', label: t('add_to') });
     menu.push({ action: 'add', label: t('add_to') });
     menu.push({ action: 'move', label: t('move_to') });
-    if (menuSetting.share) menu.push({ action: 'copyName', label: t('copy_name') });
 
     const wyMenuItems = [];
     if (selectInfo.musicInfo?.source === 'wy') {
@@ -148,9 +145,6 @@ export default forwardRef<ListMenuType, ListMenuProps>((props: ListMenuProps, re
         break
       case 'add':
         props.onAdd(selectInfo)
-        break
-      case 'copyName':
-        props.onCopyName(selectInfo)
         break
       case 'artistDetail':
         props.onArtistDetail(selectInfo)

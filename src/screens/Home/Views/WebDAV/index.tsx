@@ -41,7 +41,6 @@ import {
   handleWebDAVDownload,
   handleFetchWebDAVPicFromOnline,
   handleWebDAVRemove,
-  handleWebDAVCopyName,
   handleWebDAVDownloadAndImport,
 } from './WebDAVListAction'
 import { readMetadata, readPic } from '@/utils/localMediaMetadata'
@@ -442,10 +441,6 @@ export default memo(() => {
     void handleWebDAVRemove(info.musicInfo).then(() => {
       setSongs(prevSongs => prevSongs.filter(song => song.id !== info.musicInfo.id))
     })
-  }, [])
-
-  const handleCopyName = useCallback((info: WebDAVSelectInfo) => {
-    handleWebDAVCopyName(info.musicInfo)
   }, [])
 
   const handleBatchDownload = useCallback(() => {
@@ -888,7 +883,6 @@ export default memo(() => {
         onFetchPicFromOnline={handleFetchPicFromOnline}
         onEditMetadata={handleEditMetadata}
         onRemove={handleRemove}
-        onCopyName={handleCopyName}
         onLoadMetadata={handleLoadMetadata}
       />
       <MetadataEditModal ref={metadataEditTypeRef} onUpdate={handleUpdateMetadata} />

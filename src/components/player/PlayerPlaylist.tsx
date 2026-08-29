@@ -29,7 +29,6 @@ import {
   handleShowArtistDetail,
   handleShowMusicSourceDetail,
 } from "@/components/OnlineList/listAction";
-import { handleShare } from '@/screens/Home/Views/Mylist/MusicList/listAction';
 import settingState from '@/store/setting/state';
 import commonState from '@/store/common/state';
 import SimilarSongsModal, { type SimilarSongsModalType } from '@/components/SimilarSongsModal'
@@ -334,7 +333,6 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
         onPlayLater={onPlayLater}
         onAdd={onAdd}
         onDownload={onDownload}
-        onCopyName={selectInfo => { handleShare(selectInfo.musicInfo) }}
         onMusicSourceDetail={onMusicSourceDetail}
         onDislikeMusic={selectInfo => { void handleDislikeMusic(selectInfo.musicInfo) }}
         onArtistDetail={onArtistDetail}

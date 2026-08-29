@@ -1,7 +1,7 @@
 import { findMusic } from '@/utils/musicSdk'
 import { getWebDAVConfig, updateWebDAVMusicMeta, getWebDAVDownloadUrl, saveWebDAVConfig } from '@/core/webdavMusic/drive'
 import { downloadFile, existsFile, mkdir, getWebDAVPrivateDirectory } from '@/utils/fs'
-import { toast, clipboardWriteText, requestStoragePermission } from '@/utils/tools'
+import { toast, requestStoragePermission } from '@/utils/tools'
 import settingState from '@/store/setting/state'
 import playerState from '@/store/player/state'
 import { btoa } from 'react-native-quick-base64'
@@ -427,19 +427,4 @@ export const handleWebDAVRemove = async (
     webDAVLog.error('handleWebDAVRemove: failed', { error: error.message })
     toast(`移除失败：${error.message}`, 'long')
   }
-}
-
-/**
- * 复制歌曲名称到剪贴板
- */
-export const handleWebDAVCopyName = (
-  musicInfo: LX.WebDAV.MusicInfo
-): void => {
-  const text = musicInfo.name || musicInfo.meta.fileName || ''
-  if (!text) {
-    toast('没有可复制的内容')
-    return
-  }
-  clipboardWriteText(text)
-  toast('已复制到剪贴板')
 }

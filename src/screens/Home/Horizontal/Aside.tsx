@@ -5,10 +5,10 @@ import { useTheme } from '@/store/theme/hook'
 import { Icon } from '@/components/common/Icon'
 import { SvgIcon } from '@/components/common/SvgIcon'
 import { confirmDialog, createStyle, exitApp as backHome } from '@/utils/tools'
-import { NAV_MENUS } from '@/config/constant'
+import { NAV_MENUS, NAV_GROUPS, type NavGroup, type NAV_ID_Type, getEffectiveFlatOrder, getEffectiveGroupChildren } from '@/config/constant'
 import type { InitState } from '@/store/common/state'
 // import commonState from '@/store/common/state'
-import { exitApp, setNavActiveId } from '@/core/common'
+import { exitApp, setNavActiveId, updateSetting } from '@/core/common'
 import { BorderWidths } from '@/theme'
 import { useSettingValue } from '@/store/setting/hook'
 import ImageBackground from '@/components/common/ImageBackground'
@@ -84,6 +84,12 @@ const styles = createStyle({
     justifyContent: 'center',
     alignItems: 'center',
     // backgroundColor: 'rgba(0, 0, 0, 0.2)',
+  },
+  subMenuItem: {
+    paddingTop: 9,
+    paddingBottom: 9,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   iconContent: {
     // width: 24,
@@ -174,6 +180,64 @@ const MenuItem = ({
   )
 }
 
+const CollapsibleGroupItem = ({
+  group,
+  iconSize,
+  onPress,
+}: {
+  group: NavGroup
+  iconSize: number
+  onPress: (id: IdType) => void
+}) => {
+  const theme = useTheme()
+  const activeId = useNavActiveId()
+  const navGroupExpanded = useSettingValue('common.navGroupExpanded')
+  const navGroupOrder = useSettingValue('common.navGroupOrder')
+  const navStatus = useSettingValue('common.navStatus')
+  const isExpanded = navGroupExpanded[group.id] ?? false
+
+  const orderedChildren = useMemo(() => {
+    return getEffectiveGroupChildren(group, navGroupOrder[group.id])
+      .filter(id => (navStatus[id as keyof typeof navStatus] ?? true))
+  }, [group, navGroupOrder, navStatus])
+
+  const toggleCollapse = () => {
+    updateSetting({ 'common.navGroupExpanded': { ...navGroupExpanded, [group.id]: !isExpanded } })
+  }
+
+  return (
+    <View>
+      <TouchableOpacity style={styles.menuItem} onPress={toggleCollapse}>
+        <View style={styles.iconContent}>
+          {renderIcon(group.icon, iconSize, theme['c-font-label'])}
+        </View>
+      </TouchableOpacity>
+      {isExpanded
+        ? orderedChildren.map(childId => {
+            const childMenu = NAV_MENUS.find(m => m.id === childId)
+            if (!childMenu) return null
+            const isActive = childId === activeId
+            return (
+              <TouchableOpacity
+                key={childId}
+                style={styles.subMenuItem}
+                onPress={() => onPress(childId as IdType)}
+              >
+                <View style={styles.iconContent}>
+                  {renderIcon(
+                    childMenu.icon,
+                    Math.round(iconSize * 0.85),
+                    isActive ? theme['c-primary-font-active'] : theme['c-font-label']
+                  )}
+                </View>
+              </TouchableOpacity>
+            )
+          })
+        : null}
+    </View>
+  )
+}
+
 export default memo(() => {
   const theme = useTheme()
   // console.log('render drawer nav')
@@ -183,6 +247,9 @@ export default memo(() => {
   const navOrder = useSettingValue('common.navOrder');
   const navFlatOrder = useSettingValue('common.navFlatOrder');
   const navGroupEnabled = useSettingValue('common.navGroupEnabled');
+  const navGroupOrder = useSettingValue('common.navGroupOrder');
+  const navGroupVisible = useSettingValue('common.navGroupVisible');
+  const navGroupExpanded = useSettingValue('common.navGroupExpanded');
   const isDynamicBg = useSettingValue('theme.dynamicBg');
   const isSidebarDynamicBg = useSettingValue('theme.sidebarDynamicBg');
   const dynamicPic = useBgPic();
@@ -214,18 +281,61 @@ export default memo(() => {
   }
 
   const filteredNavMenus = useMemo(() => {
-    const order = navGroupEnabled
-      ? navOrder
-      : (navFlatOrder?.length ? navFlatOrder : navOrder);
+    const order: NAV_ID_Type[] = navGroupEnabled
+      ? (navOrder as NAV_ID_Type[])
+      : getEffectiveFlatOrder(navFlatOrder, navOrder)
     if (!order?.length) return NAV_MENUS.filter(
       menu => menu.id !== 'nav_play_history' && (menu.id === 'nav_setting' || (navStatus[menu.id] ?? true))
-    );
-
+    )
     return order
-      .filter((id: string) => id !== 'nav_play_history')
-      .map((id: string) => NAV_MENUS.find(menu => menu.id === id))
-      .filter((menu: typeof NAV_MENUS[number] | undefined): menu is typeof NAV_MENUS[number] => menu !== undefined && (menu.id === 'nav_setting' || (navStatus[menu.id] ?? true)));
-  }, [navStatus, navOrder, navFlatOrder, navGroupEnabled]);
+      .filter(id => id !== 'nav_play_history')
+      .map(id => NAV_MENUS.find(menu => menu.id === id))
+      .filter((menu): menu is typeof NAV_MENUS[number] => menu !== undefined && (menu.id === 'nav_setting' || (navStatus[menu.id] ?? true)))
+  }, [navStatus, navOrder, navFlatOrder, navGroupEnabled])
+
+  const visibleGroups = useMemo(() => {
+    return NAV_GROUPS.filter(group => {
+      if (navGroupVisible && navGroupVisible[group.id] === false) return false
+      return true
+    })
+  }, [navGroupVisible])
+
+  const groupChildIds = useMemo(() => new Set(NAV_GROUPS.flatMap(g => g.children)), [])
+
+  const menuWithGroups = useMemo(() => {
+    if (!navGroupEnabled) {
+      return filteredNavMenus.map(menu => ({ type: 'menu' as const, menu }))
+    }
+    const items: Array<{ type: 'menu'; menu: typeof NAV_MENUS[number] } | { type: 'group'; group: NavGroup }> = []
+    const insertedGroupIds = new Set<string>()
+    for (const menu of filteredNavMenus) {
+      if (groupChildIds.has(menu.id as any)) {
+        const parentGroup = visibleGroups.find(g => g.children.includes(menu.id as any))
+        if (parentGroup && !insertedGroupIds.has(parentGroup.id)) {
+          items.push({ type: 'group', group: parentGroup })
+          insertedGroupIds.add(parentGroup.id)
+        }
+        continue
+      }
+      items.push({ type: 'menu', menu })
+    }
+    for (const group of visibleGroups) {
+      if (!insertedGroupIds.has(group.id)) {
+        const order = (navOrder as NAV_ID_Type[]) || NAV_MENUS.map(m => m.id)
+        const firstChildIdx = order.findIndex(id => group.children.includes(id as any))
+        let insertIdx = items.length
+        if (firstChildIdx >= 0) {
+          for (let i = 0; i < items.length; i++) {
+            const item = items[i]
+            const itemOrderIdx = order.indexOf(item.type === 'group' ? (NAV_GROUPS.find(g => g.id === item.group.id)?.children[0] as any) : item.menu.id)
+            if (itemOrderIdx > firstChildIdx) { insertIdx = i; break }
+          }
+        }
+        items.splice(insertIdx, 0, { type: 'group', group })
+      }
+    }
+    return items
+  }, [filteredNavMenus, visibleGroups, groupChildIds, navGroupEnabled, navOrder])
 
   const isLandscapeStretch = useSettingValue('theme.isLandscapeStretch')
   const layout = useLandscapeLayout()
@@ -266,9 +376,12 @@ export default memo(() => {
       <Header />
       <ScrollView style={styles.menus}>
         <View style={styles.list}>
-          {filteredNavMenus.map((menu: typeof NAV_MENUS[number]) => (
-            <MenuItem key={menu.id} id={menu.id} icon={menu.icon} iconSize={layout.asideIconSize} onPress={handlePress} />
-          ))}
+          {menuWithGroups.map((item) => {
+            if (item.type === 'group') {
+              return <CollapsibleGroupItem key={item.group.id} group={item.group} iconSize={layout.asideIconSize} onPress={handlePress} />
+            }
+            return <MenuItem key={item.menu.id} id={item.menu.id} icon={item.menu.icon} iconSize={layout.asideIconSize} onPress={handlePress} />
+          })}
           <View style={styles.divider} />
         </View>
       </ScrollView>

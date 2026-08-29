@@ -12,7 +12,6 @@ import IsAutoHidePlayBar from './IsAutoHidePlayBar'
 import IsHomePageScroll from './IsHomePageScroll'
 import IsShowBackBtn from './IsShowBackBtn'
 import IsShowExitBtn from './IsShowExitBtn'
-import IsUseSystemFileSelector from './IsUseSystemFileSelector'
 import LockLandscape from './LockLandscape'
 import DrawerLayoutPosition from './DrawerLayoutPosition'
 import IsShowMyListSubMenu from './IsShowMyListSubMenu'
@@ -36,7 +35,6 @@ export default memo(() => {
       <IsShowMyListSubMenu />
       <LockLandscape />
       <IsHomePageScroll />
-      <IsUseSystemFileSelector />
       <DrawerLayoutPosition />
       <NavMenu />
       <Language />

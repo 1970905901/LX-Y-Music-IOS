@@ -15,9 +15,7 @@ import {
 import { useI18n } from '@/lang'
 import { selectFile, unlink } from '@/utils/fs'
 import { useUnmounted } from '@/utils/hooks'
-import settingState from '@/store/setting/state'
 import { log } from '@/utils/log'
-import { updateSetting } from '@/core/common'
 
 export interface ReadOptions {
   title: string
@@ -57,16 +55,12 @@ export default forwardRef<ChoosePathType, ChoosePathProps>(
 
     useImperativeHandle(ref, () => ({
       show(options) {
-        if (!settingState.setting['common.useSystemFileSelector'] || options.dirOnly) {
-          // if (options.isPersist) {
+        if (options.dirOnly) {
+          // 选择目录：iOS 系统文件选择器选出的沙盒外目录无法持久读写（需安全作用域书签），
+          // 因此统一走内置文件列表（限定在应用沙盒内浏览）。
           void handleOpenExternalStorage(options)
-          // } else {
-          //   void selectManagedFolder().then((dir) => {
-          //     if (!dir || isUnmounted.current) return
-          //     listRef.current?.show(options.title, dir.path, options.dirOnly, options.filter)
-          //   })
-          // }
         } else {
+          // 选择文件：固定使用 iOS 系统文件选择器（FilePickerModule.openDocument）
           void selectFile({
             extTypes: options.filter,
             toPath: TEMP_FILE_PATH,
@@ -92,7 +86,6 @@ export default forwardRef<ChoosePathType, ChoosePathProps>(
                   toast(t('disagree_tip'), 'long')
                   return
                 }
-                updateSetting({ 'common.useSystemFileSelector': false })
                 void handleOpenExternalStorage(options)
               })
             })

@@ -13,7 +13,6 @@ const defaultSetting: LX.AppSetting = {
   'common.homePageScroll': true,
   'common.showBackBtn': false,
   'common.showExitBtn': false,
-  'common.useSystemFileSelector': true,
   'common.wy_cookie': '',
   'common.wy_serpapi_key': '',
   'common.tx_cookie': '',

@@ -153,7 +153,7 @@ const Progress = ({
               style={{
                 ...styles.progressBar,
                 backgroundColor: theme['c-primary-light-200-alpha-900'],
-                width: progressStr,
+                width: `${progress * 100}%`,
                 position: 'absolute',
                 left: 0,
                 top: 0,

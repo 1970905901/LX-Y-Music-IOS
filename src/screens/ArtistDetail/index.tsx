@@ -351,3 +351,4 @@ export default memo(({ componentId, artistInfo }: { componentId: string, artistI
       />
     </PageContent>
   );
+})

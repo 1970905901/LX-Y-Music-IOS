@@ -12,6 +12,7 @@ import { StyleSheet, View, Animated } from 'react-native'
 // import { AppColors } from '@/theme'
 import { useTheme } from '@/store/theme/hook'
 import List, { type ItemT, type ListProps, type ListType } from './List'
+import { shadow } from '@/utils/shadow'
 // import InsetShadow from 'react-native-inset-shadow'
 
 export interface SearchTipListProps<T> extends ListProps<T> {
@@ -146,7 +147,8 @@ const styles = StyleSheet.create({
     flex: 0,
     // flexGrow: 0,
     // borderBottomWidth: BorderWidths.normal,
-    elevation: 2,
+    // 跨平台阴影：iOS 用 shadow 系列，Android 用 elevation
+    ...shadow(2),
     maxHeight: '80%',
   },
   blank: {

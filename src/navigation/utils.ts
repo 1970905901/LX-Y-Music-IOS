@@ -1,6 +1,7 @@
 import { Navigation } from 'react-native-navigation'
 import { VERSION_MODAL, PACT_MODAL, SYNC_MODE_MODAL, ANNOUNCEMENT_MODAL } from './screenNames'
 import themeState from '@/store/theme/state'
+import { windowSizeTools } from '@/utils/windowSizeTools'
 
 const pendingOverlays = new Set<string>()
 
@@ -8,7 +9,22 @@ export const getStatusBarStyle = (isDark: boolean) => (isDark ? 'light' : 'dark'
 
 export const dismissOverlay = async (compId: string) => Navigation.dismissOverlay(compId)
 
-export const pop = async (compId: string) => Navigation.pop(compId)
+// pop 动画原本在 push 时注册、固化 push 时刻的窗口宽度：push 后旋转/分屏再返回，
+// 滑出距离与实际窗口不符（不足/过头），结束瞬间跳变。改为在 pop 时机动态传入
+// 动画覆盖，用当前窗口宽度，保证任何窗口尺寸下转场都正确。
+export const pop = async (compId: string) => Navigation.pop(compId, {
+  animations: {
+    pop: {
+      content: {
+        translationX: {
+          from: 0,
+          to: windowSizeTools.getSize().width,
+          duration: 300,
+        },
+      },
+    },
+  },
+})
 export const popToRoot = async (compId: string) => Navigation.popToRoot(compId)
 export const popTo = async (compId: string) => Navigation.popTo(compId)
 

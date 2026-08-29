@@ -5,6 +5,7 @@ import Modal, { type ModalType } from './Modal'
 import { Icon } from '@/components/common/Icon'
 import { useKeyboard, useHorizontalMode } from '@/utils/hooks'
 import { createStyle } from '@/utils/tools'
+import { shadow } from '@/utils/shadow'
 import { useTheme } from '@/store/theme/hook'
 import Text from './Text'
 import { useStatusbarHeight } from '@/store/common/hook'
@@ -16,7 +17,8 @@ const styles = createStyle({
     // alignItems: 'center',
   },
   modalView: {
-    elevation: 6,
+    // 跨平台阴影：iOS 用 shadow 系列，Android 用 elevation
+    ...shadow(6),
     flexGrow: 0,
     flexShrink: 1,
   },

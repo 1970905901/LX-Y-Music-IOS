@@ -5,6 +5,7 @@ import MusicList from './MusicList'
 import MyList from './MyList'
 import NewListUI from './NewListUI'
 import { useTheme } from '@/store/theme/hook'
+import { shadow } from '@/utils/shadow'
 import DrawerLayoutFixed, {
   type DrawerLayoutFixedType,
 } from '@/components/common/DrawerLayoutFixed'
@@ -99,7 +100,8 @@ export default () => {
       drawerPosition={settingState.setting['common.drawerLayoutPosition']}
       renderNavigationView={navigationView}
       drawerBackgroundColor={drawerBgColor}
-      style={{ elevation: 1 }}
+      // 跨平台阴影：iOS 用 shadow 系列，Android 用 elevation
+      style={{ ...shadow(1) }}
     >
       <MusicList />
     </DrawerLayoutFixed>

@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { View, Text, StyleSheet } from 'react-native'
 import state from '@/store/theme/state'
 import { Navigation } from 'react-native-navigation'
+import { shadow } from '@/utils/shadow'
 
 // 非阻塞 Toast 浮层（替代 iOS 的 Alert.alert）。
 // 通过 RNN showOverlay 呈现，overlay.interceptTouchOutside=false 保证不拦截底层触摸，
@@ -57,7 +58,8 @@ const styles = StyleSheet.create({
     paddingBottom: 0,
   },
   toast: {
-    elevation: 2,
+    // 跨平台阴影：iOS 用 shadow 系列，Android 用 elevation
+    ...shadow(2),
     maxWidth: '85%',
     paddingVertical: 10,
     paddingHorizontal: 16,

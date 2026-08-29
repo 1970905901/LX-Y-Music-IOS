@@ -1,10 +1,11 @@
-import React, { useImperativeHandle, forwardRef, useMemo, useRef, useState, type Ref } from 'react'
+import React, { useImperativeHandle, forwardRef, useMemo, useRef, useState, useEffect, type Ref } from 'react'
 import { View, Animated, TouchableHighlight } from 'react-native'
 import { useWindowSize } from '@/utils/hooks'
 
 import Modal, { type ModalType } from './Modal'
 
 import { createStyle } from '@/utils/tools'
+import { shadow } from '@/utils/shadow'
 import { useTheme } from '@/store/theme/hook'
 import Text from './Text'
 import { scaleSizeH, scaleSizeW } from '@/utils/pixelRatio'
@@ -42,7 +43,8 @@ const styles = createStyle({
     borderColor: 'lightgray',
     borderRadius: 2,
     backgroundColor: 'white',
-    elevation: 3,
+    // 跨平台阴影：iOS 用 shadow 系列，Android 用 elevation
+    ...shadow(3),
   },
   menuItem: {
     paddingLeft: 10,
@@ -271,6 +273,18 @@ const Component = <M extends Menus>(
       hide()
     },
   }))
+
+  const windowSize = useWindowSize()
+  const prevWindowSizeRef = useRef(windowSize)
+  useEffect(() => {
+    // iPad 旋转/分屏后窗口尺寸变化，打开时快照的锚点坐标已失效：
+    // 菜单若继续展开会定位错乱。尺寸变化时直接关闭，避免错位。
+    const prev = prevWindowSizeRef.current
+    if (prev.width !== windowSize.width || prev.height !== windowSize.height) {
+      prevWindowSizeRef.current = windowSize
+      modalRef.current?.setVisible(false)
+    }
+  }, [windowSize])
 
   return (
     <Modal onHide={onHide} ref={modalRef}>

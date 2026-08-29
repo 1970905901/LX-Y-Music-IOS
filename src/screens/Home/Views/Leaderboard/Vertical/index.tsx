@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { View } from 'react-native'
 import { createStyle } from '@/utils/tools'
+import { shadow } from '@/utils/shadow'
 
 import MusicList, { type MusicListType } from '../MusicList'
 import { getLeaderboardSetting, saveLeaderboardSetting } from '@/utils/data'
@@ -130,7 +131,8 @@ export default () => {
       drawerPosition={settingState.setting['common.drawerLayoutPosition']}
       renderNavigationView={navigationView}
       drawerBackgroundColor={theme['c-content-background']}
-      style={{ elevation: 1 }}
+      // 跨平台阴影：iOS 用 shadow 系列，Android 用 elevation
+      style={{ ...shadow(1) }}
     >
       <View style={styles.container}>
         <HeaderBar ref={headerBarRef} onShowBound={onShowBound} onSourceChange={onSourceChange} />

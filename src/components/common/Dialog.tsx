@@ -5,6 +5,7 @@ import Modal, { type ModalType } from './Modal'
 import { Icon } from '@/components/common/Icon'
 import { useKeyboard, useHorizontalMode } from '@/utils/hooks'
 import { createStyle } from '@/utils/tools'
+import { shadow } from '@/utils/shadow'
 import { useTheme } from '@/store/theme/hook'
 import Text from './Text'
 import { scaleSizeH } from '@/utils/pixelRatio'
@@ -22,14 +23,8 @@ const styles = createStyle({
     maxHeight: '78%',
     // backgroundColor: 'white',
     borderRadius: 4,
-    // shadowColor: '#000',
-    // shadowOffset: {
-    //   width: 0,
-    //   height: 2,
-    // },
-    // shadowOpacity: 0.25,
-    // shadowRadius: 4,
-    elevation: 3,
+    // 跨平台阴影：iOS 用 shadow 系列，Android 用 elevation（原 shadow 属性曾被注释导致 iOS 无投影）
+    ...shadow(3),
   },
   header: {
     flexGrow: 0,

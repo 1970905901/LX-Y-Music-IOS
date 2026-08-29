@@ -59,6 +59,13 @@ const AnimatedSlideUpPanel = forwardRef<AnimatedSlideUpPanelType, Props>(({ chil
     return () => backHandler.remove();
   }, [isVisible, hide]);
 
+  useEffect(() => {
+    // 窗口高度变化（iPad 旋转/分屏）时，隐藏态的动画值仍停留在旧窗口高，
+    // 会导致下次 show 前 opacity 插值区间 [0, windowHeight] 与当前值错位；
+    // 隐藏态直接对齐到新窗口高（显示态 translateY=0 无需处理）。
+    if (!isVisible) animatedValue.setValue(windowHeight);
+  }, [windowHeight, isVisible, animatedValue]);
+
   if (!isVisible) {
     return null;
   }

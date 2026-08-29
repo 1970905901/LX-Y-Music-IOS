@@ -1,53 +1,69 @@
-iOS 手机端 & iPad 端适配说明（2026-08-29）
-==========================================
+iOS 手机端 & iPad 端适配说明（一个包，2026-08-29 更新）
+====================================================
 
-在"横屏模式适配"基础上，本次把适配面覆盖到整个 App（手机端 + iPad 端），
-并补齐竖屏/通用层的平板适配。核心原则：手机端零回归，iPad 端原生运行。
+目标：一个 universal 包（同一 IPA）同时运行在 iPhone 与 iPad 上，
+- 手机端：只能竖屏
+- iPad：能竖屏也能横屏
+- 不再提供手动"横屏锁定"开关，方向完全由系统级配置裁决。
 
 一、已完成的改动
 ----------------
-1. 原生工程配置（iPad 可原生运行，不再是放大兼容模式）
-   - project.pbxproj：主 App 的 Debug/Release 各加 TARGETED_DEVICE_FAMILY = "1,2"
-   - Info.plist：删除 LSRequiresIPhoneOS，新增 UIDeviceFamily = [1,2]
-   （撤销：git checkout -- ios/）
+1. 原生工程配置（一个包，iPad 原生运行）
+   - project.pbxproj：TARGETED_DEVICE_FAMILY = "1,2"（iPhone + iPad）
+   - Info.plist：
+     · UIDeviceFamily = [1, 2]
+     · UISupportedInterfaceOrientations（iPhone）= 仅 Portrait
+     · UISupportedInterfaceOrientations~ipad（iPad）= Portrait + Landscape 左右
+     → 系统级方向裁决：iPhone 永远竖屏，iPad 可竖可横。
 
-2. 全局尺寸修复 src/utils/pixelRatio.ts
-   - 平板 pixelRatio 多为 2，原逻辑会让 scaleSizeW/H 算出约 1.55 倍，
-     导致间距/图标/高度整体偏大。新增有效倍率上限 1.2：
-     手机（pr=3，约 1.0~1.11）与 iPad 放大模式完全不受影响，仅平板原生大屏生效。
+2. 删除手动横屏开关
+   - 删除设置项组件 LockLandscape.tsx 及其在设置页的引用
+   - 删除 defaultSetting.ts 中的 common.lockLandscape 默认值
+   - navigation.ts 移除 getScreenOrientation / lockLandscape 分支；
+     所有页面 RNN orientation 统一声明为 ['portrait', 'landscape']，
+     实际可旋转范围交由上述 Info.plist 裁决。
 
-3. 横屏模式响应式 src/utils/landscapeLayout.ts（新增）
-   - 按窗口长边分 expanded（≥1000pt，iPad 全屏横屏）/ medium（其余，含全部手机横屏）。
-   - 横屏首页：侧栏 68→84、图标 20→24。
-   - 横屏播放详情：左右 45/55→50/50、歌词区限宽 700（超宽屏兜底）、
-     封面按左区实际宽度推导并放宽填充率 0.76→0.85 / 0.62→0.70。
+3. 横屏布局自动触发（与开关无关）
+   - useHorizontalMode 按窗口宽高比（> 1.2）判定横屏，iPad 横屏时
+     自动挂载响应式横屏布局（landscapeLayout.ts，按长边分档）。
+   - 因此 iPad 横屏 → 走横屏布局；iPad 竖屏 / 手机竖屏 → 走竖屏布局。
 
-4. 竖屏/通用层限宽 src/components/PageContent.tsx
-   - 平板/大屏竖屏（宽 ≥ 700pt）下内容限宽 700 并居中，背景图仍全屏。
-   - 手机竖屏（宽 < 700）与所有横屏（已由各页面布局处理）不受影响。
-   - 一处改动覆盖全部页面竖屏，是"全面适配"的最高杠杆点。
+4. 全局尺寸修复 src/utils/pixelRatio.ts
+   - 新增有效倍率上限 1.2，避免平板 pixelRatio(=2) 把整体尺寸算大约 1.55 倍。
 
-二、适配范围对照
-----------------
-                      手机端                 iPad 竖屏                  iPad 横屏
- 窗口/分辨率     原生手机尺寸           原生 iPad 尺寸            原生 iPad 尺寸
- 尺寸比例       pixelRatio 修复兜底    pixelRatio 修复兜底       pixelRatio 修复兜底
- 内容宽度       flex 撑满(手机宽)      限宽 700 居中             核心页(Home/播放详情)撑满；
-                                                                 其余页(竖屏布局)撑满
- 横屏布局       Home/播放详情 已适配    ——                       Home/播放详情 已适配
- 分屏           系统回落竖屏 UI          系统回落竖屏 UI           系统回落竖屏 UI
+5. 竖屏/通用层限宽 src/components/PageContent.tsx
+   - 宽 ≥ 700pt 时内容限宽并居中，背景全屏，覆盖全部页面竖屏。
 
-三、限制与后续（需真机迭代）
+6. 浮层/转场打磨（旋转/分屏后）
+   - 新增 src/utils/shadow.ts 统一跨平台阴影，12 处弹层/浮层补齐 iOS 投影。
+   - pop 转场宽度改为返回时动态读取，旋转后再返回滑出距离正确。
+   - 菜单/下拉面板在窗口尺寸变化时自动关闭，避免旧锚点定位错乱。
+   - ModalContent 最小宽度 320→260，适配 Slide Over 窄窗。
+
+二、一个包的运行时行为
+----------------------
+                       iPhone                  iPad
+  支持设备          原生手机                 原生 iPad
+  可旋转方向        仅竖屏（系统锁）         竖屏 + 横屏
+  横屏布局          不触发（系统不允许）     横屏时自动走响应式横屏布局
+  尺寸比例          pixelRatio 兜底          pixelRatio 兜底
+  竖屏内容宽度      flex 撑满               限宽居中（PageContent）
+
+三、构建验证（GitHub Action）
 ----------------------------
-- 大量详情/列表页（专辑、歌单、评论、搜索…）目前只有竖屏布局。
-  在 iPad **横屏**下会撑满整个宽屏，属于已知限制；建议后续按页面补横屏布局或分栏。
-  验证方法：iPad 横屏逐页过一遍，列出问题页，再逐个精调。
-- 列表多列：横屏下已支持 2 列（getRowInfo）；竖屏 iPad 限宽 700 后仍为单列（类大手机），
-  如需 iPad 竖屏多列可后续在 getRowInfo 扩展。
-- 所有改动均无法在本地构建验证（当前为 Windows 环境），请在 Xcode/Mac 真机回归。
+- 流水线：.github/workflows/ios-ipa.yml（macOS-14 runner）
+- 分支：ios-adaptation（push 自动触发）
+- 本次构建 run：https://github.com/1970905901/LX-Y-Music-IOS/actions/runs/33254295776
+- Action 验证编译/打包层面；视觉布局仍需真机/模拟器回归。
 
-四、验证建议
+四、已知限制（后续迭代）
+------------------------
+- 多数详情/列表页（专辑、歌单、评论、搜索…）目前仅竖屏布局，
+  iPad 横屏下会撑满宽屏，建议后续补横屏布局或分栏。
+- 更多页面精细化横屏适配可逐个迭代。
+
+五、验证建议
 ------------
-1. 手机（含 Pro Max 横竖屏）：外观应与改动前完全一致 —— 零回归判据。
-2. iPad 竖屏：内容居中（两侧不再无限拉伸），背景全屏。
-3. iPad 横屏：Home/播放详情左右各半、封面更大；其余页按竖屏布局撑满（见上限制）。
+1. iPhone：仅竖屏，外观与改动前一致（零回归）。
+2. iPad 竖屏：内容居中，背景全屏。
+3. iPad 横屏：Home/播放详情左右各半、封面更大；其余页按竖屏布局撑满。

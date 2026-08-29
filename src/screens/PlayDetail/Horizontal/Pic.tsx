@@ -3,6 +3,7 @@ import { Animated, Easing, View } from 'react-native';
 import { usePlayerMusicInfo, useIsPlay } from '@/store/player/hook';
 import { useWindowSize } from '@/utils/hooks';
 import { createStyle } from '@/utils/tools';
+import { shadow } from '@/utils/shadow';
 import { HEADER_HEIGHT } from './components/Header';
 import { BTN_WIDTH } from './MoreBtn/Btn';
 import { marginLeft } from './constant';
@@ -101,7 +102,8 @@ export default memo(({ componentId }: { componentId: string }) => {
       width: imgWidth,
       height: imgWidth,
       borderRadius: radius,
-      elevation: 3,
+      // 跨平台阴影：iOS 用 shadow 系列，Android 用 elevation
+      ...shadow(3),
       opacity: 1,
       backgroundColor: 'transparent',
       overflow: 'hidden',

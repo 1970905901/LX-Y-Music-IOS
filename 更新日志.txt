@@ -1,0 +1,28 @@
+LX-Y Music 近期更新日志
+====================
+
+[歌词] 横屏歌词连续滚动平滑优化  (commit c282dbbb)
+- 横屏里已播放/当前行用 bold 渲染（更宽、常更高），而连续滚动累计偏移原本用"全局混合平均"估算未渲染行，bold 行本应更高，导致高亮行持续偏低一截。
+- LyricScrollLayout 新增独立的 bold（已播放）高度档与累计偏移缓存（按歌词引用命中，沿用上次的 O(1) 摊销）。
+- 横屏歌词按播放状态分档累加偏移，高亮行位置与真实行高一致；竖屏行为不变（不传 isPlayed）。
+
+（前置）[歌词] 连续滚动累计偏移缓存  (commit 4c9dd4eb)
+- getTargetOffsetPrecise 原本每帧跑两次 O(n) 循环，开销随歌词行数增长。改为按歌词引用缓存累计偏移，仅在行高被测量或歌词切换时重建。
+
+[设置] 横屏模式切换重启提示  (commit 2b1cac81)
+- "横屏模式"开关原本只在说明文字里写"首页需要重启软件后才会生效"，用户切换时不易注意到。
+- 现在开启或关闭时都会弹 toast 提示"首页需重启软件后才会生效"。
+
+[设置] 字体大小页布局修复  (commit f961c30d)
+- 字号 ≥ 标准（100%）时，较长的选项标签（如"非常大"）可能换行，导致 flex 列表默认 stretch 把同行的短标签（如左上角"标准"）异常拉高，排版错位。
+- 选项列表改为 alignItems: center；预览区由固定 height 改为 minHeight 并居中，大字号不再截断。
+
+[跨平台] 浮层阴影统一（iOS 补齐投影）
+- 新增 src/utils/shadow.ts：封装跨平台阴影（iOS shadow 四件套 + Android elevation）。
+- 12 处弹层/浮层（Dialog、Popup、Menu、Toast、ModalContent、SearchTipList、ChoosePath 头/底部、每日推荐 StylizedModal、播放详情横屏封面、排行榜/我的列表侧栏等）由裸 elevation 改为统一 shadow()，iOS 上弹层从此有正确投影（其中 Dialog/ModalContent 的 shadow 属性此前被注释，属修复）。
+
+[iPad] 旋转/分屏后的浮层与转场修复
+- 返回动画（pop）由 push 时固化窗口宽度改为返回时动态读取，iPad 旋转后再返回不再滑出距离不足/过头。
+- 菜单/下拉面板在窗口尺寸变化（旋转/分屏）时自动关闭，避免基于旧锚点的定位错乱。
+- AnimatedSlideUpPanel 窗口高变化时对齐隐藏态动画值；ModalContent 最小宽度 320→260，适配 Slide Over 窄窗。
+- 修复 useDeviceOrientation 初始尺寸 {0,0} 时 portrait/landscape 同时为 true 的问题。

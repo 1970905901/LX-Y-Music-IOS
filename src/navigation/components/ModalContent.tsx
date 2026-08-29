@@ -1,6 +1,7 @@
 import { View } from 'react-native'
 import { useTheme } from '@/store/theme/hook'
 import { createStyle } from '@/utils/tools'
+import { shadow } from '@/utils/shadow'
 // import { useWindowSize } from '@/utils/hooks'
 const HEADER_HEIGHT = 20
 
@@ -31,18 +32,13 @@ const styles = createStyle({
   },
   modalView: {
     maxWidth: '90%',
-    minWidth: 320,
+    // Slide Over 最窄窗口约 320pt：minWidth 320 会撑满并可能溢出，降到 260 允许收窄
+    minWidth: 260,
     maxHeight: '78%',
     // backgroundColor: 'white',
     borderRadius: 4,
-    // shadowColor: '#000',
-    // shadowOffset: {
-    //   width: 0,
-    //   height: 2,
-    // },
-    // shadowOpacity: 0.25,
-    // shadowRadius: 4,
-    elevation: 3,
+    // 跨平台阴影：iOS 用 shadow 系列，Android 用 elevation（原 shadow 属性曾被注释导致 iOS 无投影）
+    ...shadow(3),
   },
   header: {
     flexGrow: 0,

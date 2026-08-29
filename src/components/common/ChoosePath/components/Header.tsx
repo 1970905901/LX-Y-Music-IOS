@@ -3,6 +3,7 @@ import { View, TouchableOpacity } from 'react-native'
 import Text from '@/components/common/Text'
 import { Icon } from '@/components/common/Icon'
 import { createStyle } from '@/utils/tools'
+import { shadow } from '@/utils/shadow'
 import { getExternalStoragePaths, stat } from '@/utils/fs'
 import { useTheme } from '@/store/theme/hook'
 import { scaleSizeH } from '@/utils/pixelRatio'
@@ -110,7 +111,8 @@ const styles = createStyle({
     paddingLeft: 15,
     paddingRight: 15,
     alignItems: 'center',
-    elevation: 2,
+    // 跨平台阴影：iOS 用 shadow 系列，Android 用 elevation
+    ...shadow(2),
     zIndex: 2,
     // borderBottomWidth: BorderWidths.normal,
   },

@@ -4,6 +4,7 @@ import Button from '@/components/common/Button'
 import Text from '@/components/common/Text'
 import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
+import { shadow } from '@/utils/shadow'
 
 export default memo(
   ({
@@ -39,7 +40,8 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     flexDirection: 'row',
     // borderTopWidth: BorderWidths.normal,
-    elevation: 8,
+    // 跨平台阴影：iOS 用 shadow 系列，Android 用 elevation
+    ...shadow(8),
   },
   footerBtn: {
     width: '50%',

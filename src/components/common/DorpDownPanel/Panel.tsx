@@ -1,4 +1,4 @@
-import { useMemo, useRef, useImperativeHandle, forwardRef, useState } from 'react'
+import { useMemo, useRef, useImperativeHandle, forwardRef, useState, useEffect } from 'react'
 import { View, TouchableWithoutFeedback, type StyleProp, type ViewStyle } from 'react-native'
 import { useWindowSize } from '@/utils/hooks'
 
@@ -125,6 +125,18 @@ export default forwardRef<PanelType, PanelProps>(({ onHide, keyHide, bgHide, chi
       modalRef.current?.setVisible(false)
     },
   }))
+
+  const windowSize = useWindowSize()
+  const prevWindowSizeRef = useRef(windowSize)
+  useEffect(() => {
+    // iPad 旋转/分屏后窗口尺寸变化，打开时快照的锚点坐标已失效：
+    // 面板若继续展开会定位错乱。尺寸变化时直接关闭，避免错位。
+    const prev = prevWindowSizeRef.current
+    if (prev.width !== windowSize.width || prev.height !== windowSize.height) {
+      prevWindowSizeRef.current = windowSize
+      modalRef.current?.setVisible(false)
+    }
+  }, [windowSize])
 
   // console.log(visible)
   return (

@@ -3,6 +3,7 @@ import { View, ScrollView, TouchableOpacity, Modal } from 'react-native'
 import Text from '@/components/common/Text'
 import { useTheme } from '@/store/theme/hook'
 import { createStyle, toast } from '@/utils/tools'
+import { shadow } from '@/utils/shadow'
 import { getData, saveData } from '@/plugins/storage'
 
 export const CATEGORIES = {
@@ -235,7 +236,8 @@ const styles = createStyle({
     height: '70%',
     borderRadius: 8,
     overflow: 'hidden',
-    elevation: 5,
+    // 跨平台阴影：iOS 用 shadow 系列，Android 用 elevation
+    ...shadow(5),
   },
   header: {
     flexDirection: 'row',

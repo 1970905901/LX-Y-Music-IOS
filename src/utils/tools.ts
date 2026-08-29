@@ -463,7 +463,14 @@ let isSupportedAutoTheme: boolean | null = null
 export const getIsSupportedAutoTheme = () => {
   if (isSupportedAutoTheme == null) {
     const osVerNum = parseInt(osVer)
-    isSupportedAutoTheme = isAndroid ? osVerNum >= 5 : osVerNum >= 13
+    if (isAndroid) {
+      isSupportedAutoTheme = Number.isNaN(osVerNum) ? true : osVerNum >= 5
+    } else {
+      // iOS：系统深色模式（Appearance.getColorScheme）从 iOS 13 起支持。
+      // osVer 解析失败（NaN）时保守地视为支持（现代设备基本都 >= 13），
+      // 避免「跟随系统」开关被误隐藏。
+      isSupportedAutoTheme = Number.isNaN(osVerNum) ? true : osVerNum >= 13
+    }
   }
   return isSupportedAutoTheme
 }

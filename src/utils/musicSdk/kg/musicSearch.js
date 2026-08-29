@@ -86,25 +86,36 @@ export default {
     if (++retryNum > 3) return Promise.reject(new Error('try max num'))
     if (limit == null) limit = this.limit
 
-    return this.musicSearch(str, page, limit).then(async (result) => {
-      if (!result || result.error_code !== 0) return this.search(str, page, limit, retryNum)
+    return this.musicSearch(str, page, limit)
+      .then(async (result) => {
+        // 接口偶发返回空 data/lists（error_code 为 0 但 data 为 null），同样视为失败重试，
+        // 避免 handleResult 里访问 result.data.lists 抛 TypeError 导致搜索直接失败。
+        if (!result || result.error_code !== 0 || !result.data || !Array.isArray(result.data.lists)) {
+          return this.search(str, page, limit, retryNum)
+        }
 
-      let list = await this.handleResult(result.data.lists)
+        let list = await this.handleResult(result.data.lists)
 
-      if (list == null) return this.search(str, page, limit, retryNum)
+        if (list == null) return this.search(str, page, limit, retryNum)
 
-      this.total = result.data.total
-      this.page = page
-      this.allPage = Math.ceil(this.total / limit)
+        this.total = result.data.total
+        this.page = page
+        this.allPage = Math.ceil(this.total / limit)
 
-      return Promise.resolve({
-        list,
-        allPage: this.allPage,
-        limit,
-        total: this.total,
-        source: 'kg',
+        return Promise.resolve({
+          list,
+          allPage: this.allPage,
+          limit,
+          total: this.total,
+          source: 'kg',
+        })
       })
-    })
+      .catch((err) => {
+        // 网络错误 / 超时 / 被限流时 musicSearch 的 promise 会 reject，此前直接抛给上层，
+        // 导致「酷狗搜索偶发失败」。这里捕获后按重试次数重试，超过 3 次再抛。
+        if (retryNum > 3) return Promise.reject(err)
+        return this.search(str, page, limit, retryNum)
+      })
   },
   async searchSinger(keyword, page = 1, limit = 10) {
     try {

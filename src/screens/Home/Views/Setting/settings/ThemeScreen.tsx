@@ -2,8 +2,7 @@ import { memo } from 'react'
 import Section from '../components/Section'
 import { useI18n } from '@/lang/i18n'
 import Theme from './Theme/Theme'
-import IsAutoTheme from './Theme/IsAutoTheme'
-import IsDarkMode from './Theme/IsDarkMode'
+import ThemeMode from './Theme/ThemeMode'
 import IsDynamicBg from './Theme/IsDynamicBg'
 import IsSidebarDynamicBg from './Theme/IsSidebarDynamicBg'
 import IsMylistDynamicBg from './Theme/IsMylistDynamicBg'
@@ -21,8 +20,7 @@ export default memo(() => {
   return (
     <Section title={t('setting_theme')} sectionId="setting_theme">
       <Theme />
-      <IsAutoTheme />
-      <IsDarkMode />
+      <ThemeMode />
       <IsDynamicBg />
       <IsSidebarDynamicBg />
       <IsMylistDynamicBg />

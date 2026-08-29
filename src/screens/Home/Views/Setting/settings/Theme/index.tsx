@@ -2,8 +2,7 @@ import { memo } from 'react'
 
 import Section from '../../components/Section'
 import Theme from './Theme'
-import IsAutoTheme from './IsAutoTheme'
-import IsDarkMode from './IsDarkMode'
+import ThemeMode from './ThemeMode'
 import IsHideBgDark from './IsHideBgDark'
 import IsDynamicBg from './IsDynamicBg'
 import IsFontShadow from './IsFontShadow'
@@ -19,8 +18,7 @@ export default memo(() => {
   return (
     <Section title={t('setting_theme')} sectionId="setting_theme">
       <Theme />
-      <IsAutoTheme />
-      <IsDarkMode />
+      <ThemeMode />
       <IsDynamicBg />
       <CustomBg />
       <PicOpacity />

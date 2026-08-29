@@ -134,6 +134,7 @@ export class LyricScrollLayout {
     lines: { extendedLyrics?: unknown[] }[],
     viewPosition = 0.5,
     paddingV = 0,
+    spaceHeight = 0,
   ): number {
     if (index <= 0) return 0
     // 无翻译 / 有翻译两类未测量行，分别用各自「已测量行的真实平均高度」估算（随用户字号自动修正）。
@@ -155,8 +156,31 @@ export class LyricScrollLayout {
       }
     }
     const itemHeight = this.getLineHeight(index)
-    const target = paddingV + offset + itemHeight * viewPosition - listHeight * viewPosition
+    const target = paddingV + spaceHeight + offset + itemHeight * viewPosition - listHeight * viewPosition
     return Math.max(0, target)
+  }
+
+  /**
+   * 连续平滑滚动偏移：基于精确播放时间 t(ms)，在当前行与下一行「居中偏移」之间线性插值，
+   * 让歌词随演唱连续上移（卡拉OK 式），取代原来「每行到来才 scrollToIndex 跳变」的观感。
+   * 行级高亮着色仍由 useLrcPlay 的 line 驱动；本函数只负责位置连续（每帧基于精确时间计算）。
+   */
+  getContinuousOffset(
+    index: number,
+    lines: { time: number; extendedLyrics?: unknown[] }[],
+    t: number,
+    listHeight: number,
+    viewPosition = 0.5,
+    paddingV = 0,
+    spaceHeight = 0,
+  ): number {
+    const offsetI = this.getTargetOffsetPrecise(index, listHeight, lines, viewPosition, paddingV, spaceHeight)
+    if (index + 1 >= lines.length) return offsetI
+    const curTime = lines[index].time
+    const nextTime = lines[index + 1].time
+    const progress = nextTime > curTime ? (t - curTime) / (nextTime - curTime) : 0
+    const offsetNext = this.getTargetOffsetPrecise(index + 1, listHeight, lines, viewPosition, paddingV, spaceHeight)
+    return offsetI + progress * (offsetNext - offsetI)
   }
 
   private ensureCumulativeOffsets(untilLine: number) {

@@ -8,7 +8,7 @@ import {
   type LayoutChangeEvent, TouchableOpacity,
   PanResponder,
 } from 'react-native'
-import { type Line, useLrcPlay, useLrcSet } from '@/plugins/lyric'
+import { type Line, useLrcPlay, useLrcSet, findLineIndexByTime } from '@/plugins/lyric'
 import { createStyle } from '@/utils/tools'
 import { updateSetting } from '@/core/common'
 import { useTheme } from '@/store/theme/hook'
@@ -19,6 +19,7 @@ import settingState from '@/store/setting/state'
 import playerState from '@/store/player/state'
 import { scrollTo } from '@/utils/scroll'
 import { LyricScrollLayout } from '@/utils/lyricScroll'
+import { audioClock } from '@/core/player/audioClock'
 import PlayLine, { type PlayLineType } from '../components/PlayLine'
 
 type FlatListType = FlatListProps<Line>
@@ -117,6 +118,13 @@ export default () => {
   const lyricScrollLayoutRef = useRef(new LyricScrollLayout(54))
   const scrollCancelRef = useRef<(() => void) | null>(null)
   const isShowLyricProgressSetting = useSettingValue('playDetail.isShowLyricProgressSetting')
+  // 拖动进度条 / 跳转 / 点击歌词期间强制立即定位，结束后（500ms）复位交由连续滚动循环驱动。
+  const forceScrollRef = useRef(false)
+  const forceScrollTimer = useRef<NodeJS.Timeout | null>(null)
+  // 连续滚动循环记录上一帧精确时间，暂停/无推进时跳过，避免空转重复写 scrollToOffset。
+  const lastContinuousTimeRef = useRef(-1)
+  // 列表可视高度（onLayout 测量），连续滚动按此计算居中偏移。
+  const listHeightRef = useRef(0)
 
   const initialDistanceRef = useRef(0)
   const initialFontSizeRef = useRef(0)
@@ -209,6 +217,41 @@ export default () => {
     }
   }
 
+  // 拖拽 / 跳转 / 点击歌词期间强制立即定位；keep=true（长拖拽）保持 force，
+  // 否则 500ms 后自动复位，交还给每帧连续滚动循环驱动平滑上移。
+  const setForceScroll = (value: boolean, keep = false) => {
+    forceScrollRef.current = value
+    if (forceScrollTimer.current) {
+      clearTimeout(forceScrollTimer.current)
+      forceScrollTimer.current = null
+    }
+    if (value && !keep) {
+      forceScrollTimer.current = setTimeout(() => {
+        forceScrollRef.current = false
+        forceScrollTimer.current = null
+      }, 500)
+    }
+  }
+
+  // 连续平滑滚动：基于外推时钟的精确播放时间，在当前行与下一行「居中偏移」之间线性插值，
+  // 让歌词随演唱连续上移（卡拉OK 式），取代原来「每行到来才 scrollToIndex 跳变」的观感。
+  // 行级高亮着色仍由 useLrcPlay 的 line 驱动；本函数只负责位置连续（每帧基于精确时间计算）。
+  const scrollToActiveContinuous = () => {
+    const t = audioClock.getTime() * 1000 // ms
+    if (t === lastContinuousTimeRef.current) return // 暂停/无推进时跳过
+    lastContinuousTimeRef.current = t
+    if (!flatListRef.current || !lyricLines.length) return
+    const listHeight = listHeightRef.current || scrollInfoRef.current?.layoutMeasurement.height || 0
+    if (listHeight <= 0) return
+    const layout = lyricScrollLayoutRef.current
+    let i = findLineIndexByTime(lyricLines, t)
+    if (i < 0) i = 0
+    const offset = layout.getContinuousOffset(i, lyricLines, t, listHeight, 0.42, 0, layout.spaceHeight)
+    try {
+      flatListRef.current.scrollToOffset({ offset, animated: false })
+    } catch { }
+  }
+
   const handleScroll = ({ nativeEvent }: NativeSyntheticEvent<NativeScrollEvent>) => {
     scrollInfoRef.current = nativeEvent
     if (isPauseScrollRef.current) {
@@ -291,13 +334,51 @@ export default () => {
     lineRef.current.line = line
     if (!flatListRef.current || isPauseScrollRef.current) return
 
-    if (line - lineRef.current.prevLine != 1) {
+    // 拖动进度条 / 跳转 / 点击歌词（force）期间立即定位；普通播放推进交给每帧连续
+    // 滚动循环（scrollToActiveContinuous），实现平滑上移而非逐行跳变。
+    if (forceScrollRef.current) {
       handleScrollToActive()
-      return
     }
-
-    handleScrollToActive()
   }, [line])
+
+  // 每帧连续平滑滚动循环：歌词页激活且非用户手动滚动、非强制定位时，基于外推时钟精确时间驱动歌词连续上移。
+  // iOS 后台 / 锁屏时 rAF 暂停（歌词停滚无妨）；前台播放每帧（~16ms）定位，消除原来的行级跳变。
+  useEffect(() => {
+    let rafId = 0
+    const loop = () => {
+      if (!isPauseScrollRef.current && !forceScrollRef.current && flatListRef.current && lyricLines.length) {
+        scrollToActiveContinuous()
+      }
+      rafId = requestAnimationFrame(loop)
+    }
+    rafId = requestAnimationFrame(loop)
+    return () => cancelAnimationFrame(rafId)
+  }, [lyricLines])
+
+  // 拖动进度条 / 跳转 / 恢复播放等用户动作期间强制让歌词列表立即滚动到高亮行，
+  // 保证高亮行与进度条（及音频）绝对同步，结束后回归连续滚动。
+  useEffect(() => {
+    const handleDragState = (dragging: boolean) => {
+      if (dragging) setForceScroll(true, true)
+      else {
+        if (forceScrollTimer.current) clearTimeout(forceScrollTimer.current)
+        forceScrollTimer.current = setTimeout(() => {
+          forceScrollRef.current = false
+          forceScrollTimer.current = null
+        }, 500)
+      }
+    }
+    const handleSetProgress = () => setForceScroll(true)
+    const handlePlay = () => setForceScroll(true)
+    global.app_event.on('progressDragState', handleDragState)
+    global.app_event.on('setProgress', handleSetProgress)
+    global.app_event.on('play', handlePlay)
+    return () => {
+      global.app_event.off('progressDragState', handleDragState)
+      global.app_event.off('setProgress', handleSetProgress)
+      global.app_event.off('play', handlePlay)
+    }
+  }, [])
 
   useEffect(() => {
     requestAnimationFrame(() => {
@@ -322,6 +403,11 @@ export default () => {
     playLineRef.current?.updateLayoutInfo(lyricScrollLayoutRef.current.getLayoutInfo())
   }, [])
 
+  // 测量列表可视高度，供连续滚动计算居中偏移（首帧滚动前即可拿到真实高度）。
+  const handleListLayout = useCallback(({ nativeEvent }: LayoutChangeEvent) => {
+    listHeightRef.current = nativeEvent.layout.height
+  }, [])
+
   const handlePlayLine = useCallback((time: number) => {
     playLineRef.current?.setVisible(false)
     global.app_event.setProgress(time)
@@ -337,6 +423,8 @@ export default () => {
       scrollCancelRef.current = null;
     }
     isPauseScrollRef.current = false;
+    // 点击歌词视为用户主动跳转：强制立即定位，越过连续滚动循环，使高亮行与音频绝对同步。
+    setForceScroll(true);
     const line = lyricLines[index];
     if (line) {
       global.app_event.setProgress(line.time / 1000);
@@ -376,6 +464,7 @@ export default () => {
         scrollEventThrottle={16}
         onScrollToIndexFailed={handleScrollToIndexFailed}
         onScroll={handleScroll}
+        onLayout={handleListLayout}
       />
       {isShowLyricProgressSetting ? (
         <PlayLine ref={playLineRef} onPlayLine={handlePlayLine} />

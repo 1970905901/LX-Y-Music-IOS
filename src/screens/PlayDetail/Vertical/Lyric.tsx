@@ -405,6 +405,9 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
     }
   }, [setForceScroll])
 
+  // 仅歌词内容真正变化（切歌 / 异步歌词到达）时才重置行高缓存并回顶；
+  // 从封面页切回歌词页（仅 active 变化）不再 reset，保留已测得的真实行高。
+  // 否则进入歌词页时缓存被清空、当前行之前的行退化为估算，高亮行会偶发不居中。
   useEffect(() => {
     lyricScrollLayoutRef.current.reset()
     lastScrolledLineRef.current = -1
@@ -420,7 +423,7 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
       isPauseScrollRef.current = false
       handleScrollToActive(lineRef.current.line, true)
     })
-  }, [lyricLines, active])
+  }, [lyricLines])
 
   useEffect(() => {
     if (line < 0) return

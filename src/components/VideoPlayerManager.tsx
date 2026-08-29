@@ -1,26 +1,18 @@
-import { useEffect, useRef, useState } from 'react';
-import VideoPlayerModal, { type VideoPlayerModalType } from './VideoPlayerModal';
+import { useEffect } from 'react';
+import { showVideoPlayer } from '@/navigation/utils';
 
+// 监听“播放 MV”事件，改用 RNN 浮层（showOverlay）呈现视频，
+// 使视频浮于播放详情页等所有页面之上，立即出现且可正常关闭。
 export default () => {
-  const modalRef = useRef<VideoPlayerModalType>(null);
-  const [visible, setVisible] = useState(false);
-
   useEffect(() => {
     const handleShow = (url: string) => {
-      if (visible) {
-        modalRef.current?.show(url);
-      } else {
-        setVisible(true);
-        requestAnimationFrame(() => {
-          modalRef.current?.show(url);
-        });
-      }
+      showVideoPlayer(url);
     };
     global.app_event.on('showVideoPlayer', handleShow);
     return () => {
       global.app_event.off('showVideoPlayer', handleShow);
     };
-  }, [visible]);
+  }, []);
 
-  return visible ? <VideoPlayerModal ref={modalRef} /> : null;
+  return null;
 };

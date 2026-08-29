@@ -1,5 +1,5 @@
 import { Navigation } from 'react-native-navigation'
-import { VERSION_MODAL, PACT_MODAL, SYNC_MODE_MODAL, ANNOUNCEMENT_MODAL } from './screenNames'
+import { VERSION_MODAL, PACT_MODAL, SYNC_MODE_MODAL, ANNOUNCEMENT_MODAL, VIDEO_PLAYER_SCREEN } from './screenNames'
 import themeState from '@/store/theme/state'
 
 const pendingOverlays = new Set<string>()
@@ -175,6 +175,36 @@ export const showSyncModeModal = () => {
 //     },
 //   })
 // }
+
+// MV 视频播放：作为浮层显示在所有页面（含播放详情页）之上，
+// 避免被详情页遮盖导致“点播放 MV 后不立即出现、关闭详情页才露出、且后台持续出声卡顿”。
+export const showVideoPlayer = (url: string) => {
+  if (pendingOverlays.has(VIDEO_PLAYER_SCREEN)) return
+  pendingOverlays.add(VIDEO_PLAYER_SCREEN)
+  setTimeout(() => pendingOverlays.delete(VIDEO_PLAYER_SCREEN), 500)
+  const theme = themeState.theme
+
+  void Navigation.showOverlay({
+    component: {
+      name: VIDEO_PLAYER_SCREEN,
+      passProps: { url },
+      options: {
+        layout: {
+          componentBackgroundColor: 'transparent',
+        },
+        overlay: {
+          interceptTouchOutside: false,
+        },
+        statusBar: {
+          drawBehind: true,
+          visible: true,
+          style: getStatusBarStyle(theme.isDark),
+          backgroundColor: 'transparent',
+        },
+      },
+    },
+  })
+}
 
 export const showAnnouncementModal = () => {
   if (pendingOverlays.has(ANNOUNCEMENT_MODAL)) return

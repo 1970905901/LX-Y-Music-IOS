@@ -15,7 +15,8 @@ import MusicAddModal, { type MusicAddModalType } from '@/components/MusicAddModa
 import MusicDownloadModal, { type MusicDownloadModalType } from '@/screens/Home/Views/Mylist/MusicList/MusicDownloadModal';
 import { useSettingValue } from '@/store/setting/hook';
 import listState from '@/store/list/state';
-import { addTempPlayList } from '@/core/player/tempPlayList';
+import { addTempPlayList, removeTempPlayList } from '@/core/player/tempPlayList';
+import { removeListMusics } from '@/core/list';
 import { Icon } from "@/components/common/Icon.tsx";
 
 import OnlineListItem from '@/components/OnlineList/ListItem';
@@ -294,6 +295,22 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
     }
   }
 
+  const onRemove = useCallback(async (info: SelectInfo) => {
+    const listId = playerInfo.playerListId
+    if (!listId) return
+
+    if (listId === LIST_IDS.TEMP) {
+      removeTempPlayList(info.index)
+      setPlaylist(prev => prev.filter((_, i) => i !== info.index))
+    } else if (!listId.includes('__')) {
+      // 本地歌单：默认/我喜欢/自建歌单
+      await removeListMusics(listId, [info.musicInfo.id])
+      setPlaylist(prev => prev.filter((_, i) => i !== info.index))
+    } else {
+      toast('暂不支持从该播放队列移除此来源的歌曲')
+    }
+  }, [playerInfo.playerListId])
+
   const handlePanelHide = () => {
     setIsVisible(false);
   };
@@ -329,6 +346,7 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
 
       <ListMenu
         ref={listMenuRef}
+        listId={playerInfo.playerListId ?? undefined}
         onPlay={() => {}}
         onPlayLater={onPlayLater}
         onAdd={onAdd}
@@ -340,6 +358,7 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
         onSimilarSongs={onSimilarSongs}
         onLike={onLike}
         onPlayMv={onPlayMv}
+        onRemove={onRemove}
       />
       <MusicAddModal ref={musicAddModalRef} />
       {settingState.setting['download.enable'] && <MusicDownloadModal ref={musicDownloadModalRef} onDownloadInfo={() => {}} />}

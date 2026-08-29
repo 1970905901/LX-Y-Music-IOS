@@ -125,7 +125,7 @@ export default forwardRef<ListMenuType, ListMenuProps>((props: ListMenuProps, re
   }, [t, isDislikeMusic, selectInfo, menuSetting, props.isCreator]);
 
   const handleMenuPress = ({ action }: (typeof menus)[number]) => {
-    if ((action === 'move' || action === 'remove') && selectInfo.musicInfo?.source === 'tx' && isTxCookieExpired()) {
+    if ((action === 'move' || action === 'remove') && props.listId?.startsWith('tx__') && isTxCookieExpired()) {
       toast('QQ音乐Cookie已过期，请重新获取')
       return
     }

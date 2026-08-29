@@ -219,7 +219,6 @@ const PlaylistCard = memo(({
   const transform = isDragSource
     ? [{ translateY }, { scale }]
     : [{ translateY }]
-  const elevation = isDragSource ? 8 : 0
   const shadowOpacity = isDragSource ? 0.25 : 0
   const backgroundColor = isDragSource
     ? theme['c-primary-background-active']
@@ -236,7 +235,6 @@ const PlaylistCard = memo(({
           opacity,
           transform,
           zIndex,
-          elevation,
           shadowOpacity,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: 2 },

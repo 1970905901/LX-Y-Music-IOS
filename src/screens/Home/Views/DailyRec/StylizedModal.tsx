@@ -236,7 +236,7 @@ const styles = createStyle({
     height: '70%',
     borderRadius: 8,
     overflow: 'hidden',
-    // 跨平台阴影：iOS 用 shadow 系列，Android 用 elevation
+    // iOS 浮层阴影（仅 iPhone/iPad）
     ...shadow(5),
   },
   header: {

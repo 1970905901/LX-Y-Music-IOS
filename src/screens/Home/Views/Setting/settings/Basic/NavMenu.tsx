@@ -216,7 +216,6 @@ const DraggableItem = memo(({
         opacity,
         transform,
         zIndex,
-        elevation: isDragSource ? 8 : 0,
         shadowOpacity: isDragSource ? 0.25 : 0,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },

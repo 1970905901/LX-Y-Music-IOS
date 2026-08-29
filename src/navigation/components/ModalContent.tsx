@@ -37,7 +37,7 @@ const styles = createStyle({
     maxHeight: '78%',
     // backgroundColor: 'white',
     borderRadius: 4,
-    // 跨平台阴影：iOS 用 shadow 系列，Android 用 elevation（原 shadow 属性曾被注释导致 iOS 无投影）
+    // iOS 浮层阴影（仅 iPhone/iPad；原 shadow 属性曾被注释导致 iOS 无投影）
     ...shadow(3),
   },
   header: {

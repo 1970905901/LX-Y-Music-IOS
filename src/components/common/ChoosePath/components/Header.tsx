@@ -111,7 +111,7 @@ const styles = createStyle({
     paddingLeft: 15,
     paddingRight: 15,
     alignItems: 'center',
-    // 跨平台阴影：iOS 用 shadow 系列，Android 用 elevation
+    // iOS 浮层阴影（仅 iPhone/iPad）
     ...shadow(2),
     zIndex: 2,
     // borderBottomWidth: BorderWidths.normal,

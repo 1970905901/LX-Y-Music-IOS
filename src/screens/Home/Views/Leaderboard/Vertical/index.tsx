@@ -131,7 +131,7 @@ export default () => {
       drawerPosition={settingState.setting['common.drawerLayoutPosition']}
       renderNavigationView={navigationView}
       drawerBackgroundColor={theme['c-content-background']}
-      // 跨平台阴影：iOS 用 shadow 系列，Android 用 elevation
+      // iOS 浮层阴影（仅 iPhone/iPad）
       style={{ ...shadow(1) }}
     >
       <View style={styles.container}>

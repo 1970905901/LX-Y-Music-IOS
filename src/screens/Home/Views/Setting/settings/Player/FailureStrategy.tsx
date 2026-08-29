@@ -139,7 +139,6 @@ const StrategyItem = memo(({
   const transform = isDragSource
     ? [{ translateY }, { scale }]
     : [{ translateY }]
-  const elevation = isDragSource ? 8 : 0
   const shadowOpacity = isDragSource ? 0.25 : 0
 
   return (
@@ -152,7 +151,6 @@ const StrategyItem = memo(({
           opacity,
           transform,
           zIndex,
-          elevation,
           shadowOpacity,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: 2 },

@@ -102,7 +102,7 @@ export default memo(({ componentId }: { componentId: string }) => {
       width: imgWidth,
       height: imgWidth,
       borderRadius: radius,
-      // 跨平台阴影：iOS 用 shadow 系列，Android 用 elevation
+      // iOS 浮层阴影（仅 iPhone/iPad）
       ...shadow(3),
       opacity: 1,
       backgroundColor: 'transparent',

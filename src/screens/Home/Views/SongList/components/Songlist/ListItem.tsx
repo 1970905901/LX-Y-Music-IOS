@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { View, Platform, TouchableOpacity } from 'react-native'
+import { View, TouchableOpacity } from 'react-native'
 import { createStyle } from '@/utils/tools'
 import { type ListInfoItem } from '@/store/songlist/state'
 import Text from '@/components/common/Text'
@@ -67,20 +67,14 @@ const styles = createStyle({
     borderRadius: 4,
     marginBottom: 5,
     overflow: 'hidden',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: {
-          width: 0,
-          height: 1,
-        },
-        shadowOpacity: 0.2,
-        shadowRadius: 1.41,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
+    // iOS 专属阴影（仅 iPhone/iPad）
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
   },
   sourceLabel: {
     paddingLeft: 4,

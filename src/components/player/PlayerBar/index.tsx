@@ -165,7 +165,6 @@ const styles = createStyle({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 6,
-    elevation: 4,
     overflow: 'hidden',
   },
   left: {

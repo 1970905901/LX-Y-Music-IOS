@@ -120,12 +120,11 @@ const styles = createStyle({
     bottom: 60,
     padding: 8,
     borderRadius: 8,
-    // 跨平台阴影：iOS 用 shadow 系列，Android 用 elevation
+    // iOS 浮层阴影（仅 iPhone/iPad）
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
-    elevation: 4,
   },
   saveButton: {
     height: 44,

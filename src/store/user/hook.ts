@@ -45,7 +45,7 @@ export const useIsTxLiked = (songMid: string | number) => {
 
 export const useIsWyArtistFollowed = (artistId: string | number | undefined) => {
   const strId = String(artistId)
-  const [isFollowed, setIsFollowed] = useState(() => artistId === undefined || artistId === null ? false : state.wy_followed_artists.some(a => String(a.id) === strId))
+  const [isFollowed, setIsFollowed] = useState(() => artistId === undefined || artistId === null ? false : state.wy_followed_artist_ids.has(strId))
 
   useEffect(() => {
     if (artistId === undefined || artistId === null) {
@@ -54,7 +54,7 @@ export const useIsWyArtistFollowed = (artistId: string | number | undefined) => 
     }
 
     const handleUpdate = () => {
-      const newFollowedStatus = state.wy_followed_artists.some(a => String(a.id) === strId)
+      const newFollowedStatus = state.wy_followed_artist_ids.has(strId)
       setIsFollowed(newFollowedStatus)
     }
 

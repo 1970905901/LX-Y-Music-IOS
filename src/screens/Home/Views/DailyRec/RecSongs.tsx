@@ -39,12 +39,21 @@ interface RecSongsProps {
 
 export default memo(({ isStylized, stylizedSelection }: RecSongsProps) => {
   const listRef = useRef<OnlineListType>(null)
+  const unmountedRef = useRef(false)
   const [isLoading, setIsLoading] = useState(true)
   const t = useI18n()
   const cookie = useSettingValue('common.wy_cookie')
   const playerMusicInfo = usePlayerMusicInfo()
   const theme = useTheme()
   const [isAllSimilarSongsFetched, setIsAllSimilarSongsFetched] = useState(false)
+
+  // 卸载时停止后台相似歌曲预取任务，避免切走后仍跑网络请求/磁盘读写造成卡顿
+  useEffect(() => {
+    return () => {
+      unmountedRef.current = true
+      similarSongsFetcher.isFetching = false
+    }
+  }, [])
 
   useEffect(() => {
     const handleJumpPosition = async () => {
@@ -158,6 +167,10 @@ export default memo(({ isStylized, stylizedSelection }: RecSongsProps) => {
         const allDailySongIds = new Set(result.list.map((s: any) => s.id))
 
         const processQueue = async () => {
+          if (unmountedRef.current) {
+            similarSongsFetcher.isFetching = false
+            return
+          }
           const batch = songsToFetch.splice(0, BATCH_SIZE)
           if (batch.length === 0) {
             setIsAllSimilarSongsFetched(true)
@@ -202,6 +215,10 @@ export default memo(({ isStylized, stylizedSelection }: RecSongsProps) => {
 
           await saveDailyRecCache(currentCache)
           console.log(`批次完成，已更新 ${batch.length} 首歌曲的相似推荐缓存。`)
+          if (unmountedRef.current) {
+            similarSongsFetcher.isFetching = false
+            return
+          }
           if (songsToFetch.length > 0) {
             setTimeout(processQueue, 2000)
           } else {

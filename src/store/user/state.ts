@@ -49,6 +49,7 @@ export interface InitState {
   wy_uid: string | null
   wy_liked_song_ids: Set<string>
   wy_followed_artists: FollowedArtistInfo[]
+  wy_followed_artist_ids: Set<string>
   wy_subscribed_albums: SubscribedAlbumInfo[]
   wy_subscribed_playlists: SubscribedPlaylistInfo[]
   wy_vip_type: number
@@ -61,6 +62,7 @@ const state: InitState = {
   wy_uid: null,
   wy_liked_song_ids: new Set(),
   wy_followed_artists: [],
+  wy_followed_artist_ids: new Set(),
   wy_subscribed_albums: [],
   wy_subscribed_playlists: [],
   wy_vip_type: 0,

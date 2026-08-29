@@ -25,22 +25,23 @@ export const removeWyLikedSong = (id: string | number) => {
 
 export const setWyFollowedArtists = (artists: FollowedArtistInfo[]) => {
   state.wy_followed_artists = artists
+  state.wy_followed_artist_ids = new Set(artists.map(a => String(a.id)))
   global.state_event.wyFollowedListChanged()
 }
 
 export const addWyFollowedArtist = (artist: FollowedArtistInfo) => {
-  if (state.wy_followed_artists.some(a => String(a.id) === String(artist.id))) return
+  const strId = String(artist.id)
+  if (state.wy_followed_artist_ids.has(strId)) return
   state.wy_followed_artists = [artist, ...state.wy_followed_artists]
+  state.wy_followed_artist_ids.add(strId)
   global.state_event.wyFollowedListChanged()
 }
 
 export const removeWyFollowedArtist = (id: string | number) => {
   const strId = String(id)
-  const index = state.wy_followed_artists.findIndex(a => String(a.id) === strId)
-  if (index < 0) return
-  const newList = [...state.wy_followed_artists]
-  newList.splice(index, 1)
-  state.wy_followed_artists = newList
+  if (!state.wy_followed_artist_ids.has(strId)) return
+  state.wy_followed_artists = state.wy_followed_artists.filter(a => String(a.id) !== strId)
+  state.wy_followed_artist_ids.delete(strId)
   global.state_event.wyFollowedListChanged()
 }
 

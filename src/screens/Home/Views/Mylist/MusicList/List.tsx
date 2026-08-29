@@ -1,5 +1,5 @@
 import { playList } from '@/core/player/player'
-import { useMemo, useRef, useState, useEffect, forwardRef, useImperativeHandle } from 'react'
+import { useMemo, useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallback } from 'react'
 import {
   FlatList,
   type NativeScrollEvent,
@@ -55,6 +55,11 @@ const List = forwardRef<ListType, ListProps>(
     // const t = useI18n()
     const flatListRef = useRef<FlatList>(null)
     const [currentList, setList] = useState<LX.List.ListMusics>([])
+    // 当前列表数据的镜像引用 + 版本号：handleChange / musicInfoUpdate 时原地更新行对象，
+    // 保持 data 数组引用不变 → FlatList(VirtualizedList) 不重算渲染窗口，
+    // 避免播放中列表被重置回 initialNumToRender 而「加载不全 / 空白」。
+    const listDataRef = useRef<LX.List.ListMusics>([])
+    const [listVersion, setListVersion] = useState(0)
     const listFirstScrollRef = useRef(false)
     const isMultiSelectModeRef = useRef(false)
     const selectModeRef = useRef<SelectMode>('single')
@@ -118,35 +123,44 @@ const List = forwardRef<ListType, ListProps>(
         if (currentListIdRef.current == id) return
         isUpdateingList = true
         setList([])
+        listDataRef.current = []
         currentListIdRef.current = id
-        void Promise.all([getListMusics(id), getListPosition(id)]).then(([list, position]) => {
-          requestAnimationFrame(() => {
-            if (currentListIdRef.current != id) return
-            selectedListRef.current = []
-            setSelectedList([])
-            setList([...list])
+        void Promise.all([getListMusics(id), getListPosition(id)])
+          .then(([list, position]) => {
             requestAnimationFrame(() => {
-              isUpdateingList = false
-              listFirstScrollRef.current = true
-              if (waitJumpListPositionRef.current) {
-                waitJumpListPositionRef.current = false
-                if (playerState.playMusicInfo.listId == id && playerState.playInfo.playIndex > -1) {
-                  try {
-                    flatListRef.current?.scrollToIndex({
-                      index: Math.floor(
-                        playerState.playInfo.playIndex / (rowInfo.current.rowNum ?? 1)
-                      ),
-                      viewPosition: 0.3,
-                      animated: false,
-                    })
-                    return
-                  } catch {}
+              if (currentListIdRef.current != id) return
+              selectedListRef.current = []
+              setSelectedList([])
+              listDataRef.current = list
+              setList(list)
+              setListVersion((v) => v + 1)
+              requestAnimationFrame(() => {
+                isUpdateingList = false
+                listFirstScrollRef.current = true
+                if (waitJumpListPositionRef.current) {
+                  waitJumpListPositionRef.current = false
+                  if (playerState.playMusicInfo.listId == id && playerState.playInfo.playIndex > -1) {
+                    try {
+                      flatListRef.current?.scrollToIndex({
+                        index: Math.floor(
+                          playerState.playInfo.playIndex / (rowInfo.current.rowNum ?? 1)
+                        ),
+                        viewPosition: 0.3,
+                        animated: false,
+                      })
+                      return
+                    } catch {}
+                  }
                 }
-              }
-              flatListRef.current?.scrollToOffset({ offset: position, animated: false })
+                flatListRef.current?.scrollToOffset({ offset: position, animated: false })
+              })
             })
           })
-        })
+          .catch(() => {
+            // getListMusics / getListPosition 任一 reject 时，绝不能把列表永久停在 []，
+            // 否则「重新打开歌单直接空白」。
+            isUpdateingList = false
+          })
       }
       const handleChange = (ids: string[]) => {
         if (!ids.includes(listState.activeListId)) return
@@ -155,7 +169,16 @@ const List = forwardRef<ListType, ListProps>(
           if (currentListIdRef.current != id) return
           selectedListRef.current = []
           setSelectedList([])
-          setList([...list])
+          // 原地同步行对象，保持 data 引用不变，避免整表替换触发渲染窗口重置。
+          const current = listDataRef.current
+          if (current.length === list.length) {
+            for (let i = 0; i < list.length; i++) current[i] = list[i]
+            setListVersion((v) => v + 1)
+          } else {
+            listDataRef.current = list
+            setList(list)
+            setListVersion((v) => v + 1)
+          }
         })
       }
 
@@ -270,23 +293,38 @@ const List = forwardRef<ListType, ListProps>(
       void saveListPosition(listState.activeListId, nativeEvent.contentOffset.y)
     }
 
-    const renderItem: FlatListType['renderItem'] = ({ item, index }) => {
+    // renderItem 引用必须永远不变：每次 List 重新渲染时若 renderItem 是新函数，
+    // VirtualizedList 会重置渲染窗口回 initialNumToRender，表现为播放中列表
+    // 「只显示前面部分、下方空白/加载不全」。通过 ref 镜像所有依赖，useCallback([])
+    // 固定引用；行级刷新由 extraData={listVersion|activeIndex} 驱动。
+    const renderDepsRef = useRef({
+      activeIndex, selectedList, handlePress, handleLongPress, onShowMenu,
+      rowInfo: rowInfo.current, isShowAlbumName, isShowInterval, isShowSource, showCover,
+      playingId: playerState.playMusicInfo.musicInfo?.id ?? '',
+    })
+    renderDepsRef.current = {
+      activeIndex, selectedList, handlePress, handleLongPress, onShowMenu,
+      rowInfo: rowInfo.current, isShowAlbumName, isShowInterval, isShowSource, showCover,
+      playingId: playerState.playMusicInfo.musicInfo?.id ?? '',
+    }
+    const renderItem = useCallback<FlatListType['renderItem']>(({ item, index }) => {
+      const d = renderDepsRef.current
       if (item.source === 'wy') {
         return (
           <OnlineListItem
             item={item as LX.Music.MusicInfoOnline}
             index={index}
-            onPress={handlePress}
-            onLongPress={handleLongPress}
-            onShowMenu={onShowMenu}
-            selectedList={selectedList as LX.Music.MusicInfoOnline[]}
-            playingId={playerState.playMusicInfo.musicInfo?.id ?? ''}
-            rowInfo={rowInfo.current}
-            isShowAlbumName={isShowAlbumName}
-            isShowInterval={isShowInterval}
+            onPress={d.handlePress}
+            onLongPress={d.handleLongPress}
+            onShowMenu={d.onShowMenu}
+            selectedList={d.selectedList as LX.Music.MusicInfoOnline[]}
+            playingId={d.playingId}
+            rowInfo={d.rowInfo}
+            isShowAlbumName={d.isShowAlbumName}
+            isShowInterval={d.isShowInterval}
             listId='dailyrec_wy'
-            showSource={isShowSource}
-            showCover={showCover}
+            showSource={d.isShowSource}
+            showCover={d.showCover}
           />
         );
       } else {
@@ -294,20 +332,20 @@ const List = forwardRef<ListType, ListProps>(
           <ListItem
             item={item}
             index={index}
-            activeIndex={activeIndex}
+            activeIndex={d.activeIndex}
             onScrollBeginDrag={Keyboard.dismiss}
-            onPress={handlePress}
-            onLongPress={handleLongPress}
-            onShowMenu={onShowMenu}
-            selectedList={selectedList}
-            rowInfo={rowInfo.current}
-            isShowAlbumName={isShowAlbumName}
-            isShowInterval={isShowInterval}
-            showCover={showCover}
+            onPress={d.handlePress}
+            onLongPress={d.handleLongPress}
+            onShowMenu={d.onShowMenu}
+            selectedList={d.selectedList}
+            rowInfo={d.rowInfo}
+            isShowAlbumName={d.isShowAlbumName}
+            isShowInterval={d.isShowInterval}
+            showCover={d.showCover}
           />
         );
       }
-    }
+    }, [])
     const getkey: FlatListType['keyExtractor'] = (item) => item.id
     const getItemLayout: FlatListType['getItemLayout'] = (data, index) => {
       return { length: ITEM_HEIGHT, offset: ITEM_HEIGHT * index, index }
@@ -331,7 +369,8 @@ const List = forwardRef<ListType, ListProps>(
         scrollEventThrottle={16}
         renderItem={renderItem}
         keyExtractor={getkey}
-        extraData={activeIndex}
+        // listVersion 驱动「原地更新行对象」后的行级刷新；activeIndex 驱动播放态高亮行刷新。
+        extraData={`${listVersion}|${activeIndex}`}
         getItemLayout={getItemLayout}
       />
     )

@@ -155,6 +155,11 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
   // 不再用 winHeight - HEADER_HEIGHT 估算：后者未扣除状态栏高和底部 Player
   // 控制区高，导致 FlatList 被撑得比歌词页还大，下方被 PagerView 裁剪或顶上去。
   const [pageHeight, setPageHeight] = useState(winHeight > 0 ? Math.max(0, winHeight - 180) : 0)
+  // 用 ref 持有最新页面高度：handleScrollToActive 内部多处依赖 pageHeight 计算居中偏移，
+  // 而 [active] effect 里延迟的 re-center（rAF / getPosition().then）闭包捕获的是旧渲染的
+  // pageHeight（初始估算 winHeight-180），此时真实高度（onLayout）可能尚未到来，
+  // 导致切到歌词页时高亮行偶发不居中。改为读 ref，确保延迟定位始终用真实高度。
+  const pageHeightRef = useRef(pageHeight)
   const flatListRef = useRef<FlatList>(null)
   // active 页面首次挂载时即可自动定位；只有用户手动拖动歌词时才暂时暂停。
   const isPauseScrollRef = useRef(false)
@@ -263,10 +268,10 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
       scrollCancelRef.current()
       scrollCancelRef.current = null
     }
-    const listHeight = pageHeight > 0 ? pageHeight : pagerHeight
+    const listHeight = pageHeightRef.current > 0 ? pageHeightRef.current : pagerHeight
     if (listHeight <= 0) return
     // 上下留白收紧为约 12% 列表高：正常播放时高亮行仍严格居中；仅最开头第 1 行（起播一瞬）会略偏上，到第 2 行起整首歌死死居中。
-    const paddingV = pageHeight > 0 ? pageHeight * 0.12 : 0
+    const paddingV = pageHeightRef.current > 0 ? pageHeightRef.current * 0.12 : 0
     // 等效 viewPosition:0.5：让高亮行落在歌词界面【正中央】（第 5 条同步要求：高亮行居中）。
     // 第 7 条“高亮行上移一行”已取消，故不再额外偏移一个 itemHeight。
     // 使用精确偏移：已测量行用真实行高，未测量行按「是否有翻译」分档估算，
@@ -447,6 +452,14 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
     })
   }, [active])
 
+  // 页面真实高度（onLayout）到来后用精确高度把高亮行重新定位到中央，
+  // 修正首次用估算高度（winHeight-180）计算偏移、导致切到歌词页时高亮行偶发不居中的问题。
+  useEffect(() => {
+    if (!active || pageHeight <= 0 || isPauseScrollRef.current) return
+    handleScrollToActive(lineRef.current.line, true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageHeight, active])
+
   // useEffect(() => {
   //   requestAnimationFrame(() => {
   //     playLineRef.current?.updateLayoutInfo(listLayoutInfoRef.current)
@@ -512,7 +525,10 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
 
   const handlePageLayout = useCallback(({ nativeEvent }: LayoutChangeEvent) => {
     const h = Math.round(nativeEvent.layout.height)
-    if (h > 0 && h !== pageHeight) setPageHeight(h)
+    if (h > 0) {
+      pageHeightRef.current = h
+      if (h !== pageHeight) setPageHeight(h)
+    }
   }, [pageHeight])
 
   return (

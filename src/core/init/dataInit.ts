@@ -23,6 +23,7 @@ import {
   setKgLikedSongs
 } from '@/store/user/action.ts'
 import {getDownloadTasks} from "@/utils/data/download.ts";
+import { cleanOneDriveDirtyData } from '@/utils/data';
 import downloadActions from '@/store/download/action';
 
 export default async (appSetting: LX.AppSetting) => {
@@ -31,6 +32,8 @@ export default async (appSetting: LX.AppSetting) => {
   setUserList(await getUserLists())
   setDislikeInfo(await getDislikeInfo())
   bootLog('User list inited.')
+
+  void cleanOneDriveDirtyData().then(() => bootLog('OneDrive dirty data cleaned.')).catch((err) => bootLog(`OneDrive dirty data clean failed: ${err?.message ?? err}`))
 
 
   bootLog('Download tasks init...');

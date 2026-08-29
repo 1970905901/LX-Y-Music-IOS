@@ -42,6 +42,7 @@ const selectedManagedFolderPrefix = storageDataPrefix.selectedManagedFolder
 const lastSelectQualityKey = storageDataPrefix.lastSelectQuality
 const wyUidCachePrefix = storageDataPrefix.wyUidCache
 const localAnnouncementIdKey = storageDataPrefix.localAnnouncementId
+const oneDriveCleanupKey = storageDataPrefix.oneDriveCleanup
 
 // const defaultListKey = listPrefix + 'default'
 // const loveListKey = listPrefix + 'love'
@@ -480,6 +481,41 @@ export const savePlayHistory = async (history: LX.Player.PlayHistoryItem[]) => {
 
 export const getPlayHistory = async () => {
   return getData<LX.Player.PlayHistoryItem[] | null>(playHistoryStorageKey).then((history) => history ?? [])
+}
+
+/**
+ * 清理旧 OneDrive 云盘残留的音乐条目。
+ *
+ * 移除 OneDrive 云盘功能后，早期从 OneDrive 添加进用户歌单/历史的音乐条目
+ * （MusicInfoLocal 且 meta.oneDrive === true）在元数据中已没有可用播放地址，
+ * 播放会失败。这里把它们从默认列表、我的喜欢、所有自建列表以及播放历史中移除。
+ * 通过一次性标记避免每次启动都扫描。
+ */
+export const cleanOneDriveDirtyData = async () => {
+  if (await getData<boolean>(oneDriveCleanupKey)) return
+  const isOneDrive = (m: LX.Music.MusicInfo): boolean =>
+    !!(m.meta && (m.meta as LX.Music.MusicInfoMeta_local & { oneDrive?: boolean }).oneDrive)
+
+  // 用户歌单：默认、我的喜欢 + 所有自建列表
+  const userLists = await getUserLists()
+  const allListIds = [LIST_IDS.DEFAULT, LIST_IDS.LOVE, ...userLists.map((l) => l.id)]
+  const changed: Array<{ id: string; musics: LX.Music.MusicInfo[] }> = []
+  for (const id of allListIds) {
+    const musics = await getListMusics(id)
+    if (!musics.length) continue
+    const filtered = musics.filter((m) => !isOneDrive(m))
+    if (filtered.length !== musics.length) changed.push({ id, musics: filtered })
+  }
+  if (changed.length) await saveListMusics(changed)
+
+  // 播放历史
+  const history = await getPlayHistory()
+  if (history.length) {
+    const filtered = history.filter((h) => h.musicInfo && !isOneDrive(h.musicInfo))
+    if (filtered.length !== history.length) await savePlayHistory(filtered)
+  }
+
+  await saveData(oneDriveCleanupKey, true)
 }
 
 let selectedManagedFolder: string | null = ''

@@ -84,6 +84,7 @@ export const storageDataPrefix = {
   wyUidCache: '@wy_uid_cache__',
   similarSongsCache: '@similar_songs_cache',
   localAnnouncementId: '@local_announcement_id',
+  oneDriveCleanup: '@one_drive_cleanup',
 } as const
 
 export const storageDataPrefixOld = {

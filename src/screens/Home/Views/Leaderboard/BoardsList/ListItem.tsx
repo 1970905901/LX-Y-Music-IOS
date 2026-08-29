@@ -1,10 +1,8 @@
 import { useCallback, useRef } from 'react'
-import { StyleSheet } from 'react-native'
 import Text from '@/components/common/Text'
 import { useTheme } from '@/store/theme/hook'
 import Button, { type BtnType } from '@/components/common/Button'
 import { createStyle } from '@/utils/tools'
-import { setSpText } from '@/utils/pixelRatio'
 import { type BoardItem } from '@/store/leaderboard/state'
 import { Icon } from '@/components/common/Icon'
 
@@ -76,7 +74,7 @@ export default ({
         />
       ) : null}
       <Text
-        style={StyleSheet.compose(styles.listName, { lineHeight: setSpText(20) || 20 })}
+        style={styles.listName}
         size={14}
         textBreakStrategy="simple"
         color={active ? theme['c-primary-font-active'] : theme['c-font']}
@@ -107,10 +105,11 @@ const styles = createStyle({
     // 注意：不要给 Text 设置 height: '100%'。Text 高度依赖父容器（Button），
     // 而 Button 高度又依赖内容，形成循环依赖，iOS 上 Yoga 重排时偶发把
     // 高度解析为 0，导致榜单文字全部消失（表现为左侧变白）。
-    // lineHeight 必须内联，避免 createStyle 在模块加载时依赖尚未初始化的
-    // global.lx.fontSize 把它缩放为 0/NaN，冷启动时榜单文字因此消失。
+    // 显式指定 lineHeight 强制一个非零高度（fontSize 14 * 1.4 ≈ 20），
+    // 绕开 Yoga 偶发把自动行高解析为 0 的回归。
     // 垂直居中由父容器 Button 的 alignItems: 'center' 负责。
     paddingLeft: 6,
+    lineHeight: 20,
     // backgroundColor: 'rgba(0,0,0,0.1)',
   },
 })

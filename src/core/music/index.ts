@@ -64,12 +64,13 @@ export const getMusicUrl = async ({
     })
   } else if (musicInfo.source == 'qs') {
     // 汽水音乐：本地无文件，走「其他源匹配」播放（用歌名+歌手在线搜索其他平台）
+    // picUrl 传 null，强制跨平台匹配封面，避免汽水自身封面为空/不可用时卡在空图
     return localPlay.getMusicUrl({
       target: {
         name: musicInfo.name,
         singer: musicInfo.singer,
         filePath: '',
-        picUrl: (musicInfo as any).img ?? null,
+        picUrl: null,
       },
       isRefresh,
     })
@@ -105,13 +106,14 @@ export const getPicPath = async ({
       isRefresh,
     })
   } else if (musicInfo.source == 'qs') {
-    // 汽水音乐封面：优先用歌单里带出的封面，否则走「其他源匹配」在线获取
+    // 汽水音乐封面：汽水自身通常不返回可用封面，直接走「其他源匹配」在线获取
+    // （跨平台顺序：企鹅 → 网易 → 酷狗 → 酷我 → 咪咕），picUrl 传 null 强制回退匹配
     return localPlay.getPicUrl({
       target: {
         name: musicInfo.name,
         singer: musicInfo.singer,
         filePath: '',
-        picUrl: (musicInfo as any).img ?? null,
+        picUrl: null,
       },
       isRefresh,
     })
@@ -145,13 +147,13 @@ export const getLyricInfo = async ({
       isRefresh,
     })
   } else if (musicInfo.source == 'qs') {
-    // 汽水音乐歌词：走「其他源匹配」在线获取
+    // 汽水音乐歌词：走「其他源匹配」在线获取（跨平台顺序同上）
     return localPlay.getLyricInfo({
       target: {
         name: musicInfo.name,
         singer: musicInfo.singer,
         filePath: '',
-        picUrl: (musicInfo as any).img ?? null,
+        picUrl: null,
       },
       isRefresh,
     })

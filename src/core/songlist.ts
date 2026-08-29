@@ -7,6 +7,35 @@ import songlistActions, { LIST_LOAD_LIMIT } from '@/store/songlist/action'
 import { deduplicationList, toNewMusicInfo } from '@/utils'
 import musicSdk from '@/utils/musicSdk'
 import { log } from '@/utils/log'
+import { getPicUrl as getLocalPlayPicUrl } from '@/core/music/localPlay'
+import { updateListMusics } from '@/core/list'
+
+// 汽水(qs) 源自身通常不返回可用封面，这里用跨平台匹配（企鹅→网易→酷狗→酷我→咪咕）
+// 补全列表封面：仅在该歌曲尚无可用封面时后台拉取，成功后写回列表 store，逐张“浮现”。
+// 控制并发避免一次性打爆各音源接口。
+const fetchQsListCovers = (listId: string, list: LX.Music.MusicInfoOnline[]) => {
+  const qsSongs = list.filter((s) => s.source === 'qs' && !(s.meta as any)?.picUrl)
+  if (!qsSongs.length) return
+  const CONCURRENCY = 3
+  let idx = 0
+  const worker = () => {
+    if (idx >= qsSongs.length) return
+    const song = qsSongs[idx++]
+    getLocalPlayPicUrl({
+      target: { name: song.name, singer: song.singer, filePath: '', picUrl: null },
+    })
+      .then((url) => {
+        if (url) {
+          void updateListMusics([
+            { id: listId, musicInfo: { ...song, meta: { ...song.meta, picUrl: url } } },
+          ])
+        }
+      })
+      .catch(() => {})
+      .finally(worker)
+  }
+  for (let i = 0; i < CONCURRENCY; i++) worker()
+}
 
 interface DetailPageCache {
   data: ListDetailInfo
@@ -137,6 +166,8 @@ const doGetListDetailLimit = async (
       result.list = deduplicationList(
         result.list.map((m) => toNewMusicInfo(m)).filter(Boolean) as LX.Music.MusicInfoOnline[]
       )
+      // 汽水(qs) 歌单/排行榜：用跨平台匹配补全封面（后台异步，逐张浮现）
+      if (source === 'qs') fetchQsListCovers(id, result.list)
       let p = page
       const tempList = listCache.get(tempListKey) as ListDetailInfo['list']
       if (tempList) {

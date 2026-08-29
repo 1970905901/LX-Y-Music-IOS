@@ -19,13 +19,18 @@ import KgPlaylist from '../Views/KgPlaylist'
 import KgDailyRec from '../Views/KgDailyRec'
 import LandscapeCentered from '@/components/LandscapeCentered'
 
-// 已做精细横屏（Vertical/Horizontal 双组件或自带 useHorizontalMode 横屏处理）的子页面不在此限宽；
-// 其余纯竖屏子页面在 iPad 横屏右栏内统一限宽居中，避免列表行被拉得过长。竖屏不受任何影响（Main 仅横屏挂载）。
-const EXCLUDED_LANDSCAPE_IDS = new Set([
+// 以下子页面在 iPad 横屏右栏内保持原样（铺满右栏）：
+//  - 已做精细横屏（Leaderboard/Setting）或自带 useHorizontalMode 处理（SubscribedAlbums/FollowedArtists）
+//  - 网格型每日推荐（DailyRec/TXDailyRec/KgDailyRec），铺满右栏可自然多列，观感更佳
+// 其余纯竖屏子页面统一限宽居中，避免列表行被拉得过长。竖屏不受影响（Main 仅横屏挂载）。
+const FULLWIDTH_LANDSCAPE_IDS = new Set([
   'nav_top',
   'nav_setting',
   'nav_subscribed_albums',
   'nav_followed_artists',
+  'nav_daily_rec',
+  'nav_tx_daily_rec',
+  'nav_kg_daily_rec',
 ])
 
 const Main = () => {
@@ -81,7 +86,7 @@ const Main = () => {
     }
   }, [id])
 
-  return EXCLUDED_LANDSCAPE_IDS.has(id) ? component : <LandscapeCentered>{component}</LandscapeCentered>
+  return FULLWIDTH_LANDSCAPE_IDS.has(id) ? component : <LandscapeCentered>{component}</LandscapeCentered>
 }
 
 export default Main

@@ -319,13 +319,16 @@ const List = forwardRef<ListType, ListProps>(
         onScroll={handleScroll}
         style={styles.list}
         data={currentList}
-        maxToRenderPerBatch={4}
+        maxToRenderPerBatch={20}
+        updateCellsBatchingPeriod={50}
         numColumns={rowInfo.current.rowNum}
         horizontal={false}
-        // updateCellsBatchingPeriod={80}
-        windowSize={8}
-        removeClippedSubviews={true}
-        initialNumToRender={12}
+        windowSize={10}
+        removeClippedSubviews={false}
+        initialNumToRender={30}
+        // iOS 上必须显式设置 scrollEventThrottle，否则滚动事件只在手势结束时
+        // 触发一次，VirtualizedList 渲染窗口无法跟随滚动，列表下方一片空白。
+        scrollEventThrottle={16}
         renderItem={renderItem}
         keyExtractor={getkey}
         extraData={activeIndex}

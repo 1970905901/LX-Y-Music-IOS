@@ -1,4 +1,4 @@
-import { memo, useRef } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import { View, TouchableOpacity } from 'react-native'
 import { LIST_ITEM_HEIGHT } from '@/config/constant'
 import { Icon } from '@/components/common/Icon'
@@ -14,8 +14,36 @@ import PlayingIcon from '@/components/common/PlayingIcon'
 import { useI18n } from '@/lang'
 import { useIsWyLiked, useIsTxLiked, useIsKgLiked } from '@/store/user/hook'
 import { handleLikeMusic, handleTxLikeMusic, handleKgLikeMusic } from '@/components/OnlineList/listAction'
+import { fetchQsCover, getCachedQsCover } from '@/core/music/qsCover'
 
 export const ITEM_HEIGHT = scaleSizeH(LIST_ITEM_HEIGHT)
+
+// 汽水(qs) 源自带封面 URL 常因签名/防盗链失效，这里用跨平台匹配补全，
+// 逻辑与 OnlineList/ListItem 保持一致（结果按「歌名|歌手」缓存）。
+const useQsCover = (item: LX.Music.MusicInfo): string => {
+  const [url, setUrl] = useState(() => (item.source === 'qs' ? getCachedQsCover(item as LX.Music.MusicInfoOnline) : ''))
+
+  useEffect(() => {
+    if (item.source !== 'qs') {
+      setUrl('')
+      return
+    }
+    const cached = getCachedQsCover(item as LX.Music.MusicInfoOnline)
+    if (cached) {
+      setUrl(cached)
+      return
+    }
+    let ignore = false
+    void fetchQsCover(item as LX.Music.MusicInfoOnline).then((pic) => {
+      if (!ignore && pic) setUrl(pic)
+    })
+    return () => {
+      ignore = true
+    }
+  }, [item])
+
+  return item.source === 'qs' ? url || item.meta.picUrl : item.meta.picUrl
+}
 
 const useQualityTag = (musicInfo: LX.Music.MusicInfo) => {
   const t = useI18n()
@@ -95,6 +123,7 @@ export default memo(
     onScrollBeginDrag?: () => void
   }) => {
     const theme = useTheme()
+    const coverUrl = useQsCover(item)
     const isSelected = selectedList.includes(item)
     const isSupported = useAssertApiSupport(item.source)
     const moreButtonRef = useRef<TouchableOpacity>(null)
@@ -162,7 +191,7 @@ export default memo(
 
           <View style={showCover ? styles.sn : styles.snIndex}>
             {showCover ? (
-              <Image url={item.meta.picUrl} style={styles.albumArt} />
+              <Image url={coverUrl} style={styles.albumArt} />
             ) : active ? (
               <PlayingIcon />
             ) : (

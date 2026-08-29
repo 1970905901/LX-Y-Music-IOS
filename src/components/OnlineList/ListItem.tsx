@@ -28,10 +28,6 @@ const useQsCover = (item: LX.Music.MusicInfoOnline): string => {
       setUrl('')
       return
     }
-    if (item.meta.picUrl) {
-      setUrl('')
-      return
-    }
     const cached = getCachedQsCover(item)
     if (cached) {
       setUrl(cached)
@@ -46,7 +42,9 @@ const useQsCover = (item: LX.Music.MusicInfoOnline): string => {
     }
   }, [item])
 
-  return item.source === 'qs' ? item.meta.picUrl || url : item.meta.picUrl
+  // 汽水(qs) 自带封面 URL 常因签名/防盗链失效（排行榜、导入歌单的 meta.picUrl
+  // 非空但加载失败），因此优先用跨平台匹配到的封面，匹配不到再回退自带封面。
+  return item.source === 'qs' ? url || item.meta.picUrl : item.meta.picUrl
 }
 
 export const ITEM_HEIGHT = scaleSizeH(LIST_ITEM_HEIGHT)

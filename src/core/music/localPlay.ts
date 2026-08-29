@@ -146,7 +146,10 @@ const searchBilibili = async (name: string, singer: string): Promise<SongCandida
   }
 }
 
-// 内置平台直连获取播放 URL（wy cookie 直连 / bilibili 直连）
+// 内置平台获取播放 URL：
+// 1) 优先走音源脚本（musicSdk[source].getMusicUrl，覆盖 tx/wy/kg/kw/mg），
+//    这是汽水歌曲跨平台匹配播放的主链路（有导入音源脚本时）；
+// 2) 回退 wy cookie 直连 + bilibili 直连（无音源脚本时兜底）。
 const getOnlineUrl = async (
   target: LocalPlayTarget,
   candidates: SongCandidate[]
@@ -155,6 +158,19 @@ const getOnlineUrl = async (
     ? [target.quality, ...URL_QUALITYS.filter(q => q !== target.quality)]
     : URL_QUALITYS
 
+  // 1. 音源脚本（按 searchCandidates 已排好的平台优先级依次尝试）
+  for (const candidate of candidates) {
+    const sdk = (musicSdk as any)[candidate.source]
+    if (!sdk?.getMusicUrl || !candidate.songmid) continue
+    for (const quality of qualitys) {
+      try {
+        const result = await resolveSdkResult<{ url?: string }>(sdk.getMusicUrl(candidate, quality))
+        if (result?.url) return result.url
+      } catch {}
+    }
+  }
+
+  // 2. 回退 wy cookie 直连 / bilibili 直连
   for (const source of URL_SOURCES) {
     if (source === 'wy') {
       const wyCandidate = candidates.find(c => c.source === 'wy' && c.songmid)

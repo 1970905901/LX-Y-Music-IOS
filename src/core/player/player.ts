@@ -270,7 +270,11 @@ export const executeFailureStrategy = async (
         }
         try {
           setStatusText('尝试切换音源...')
-          const maxRetry = settingState.setting['player.toggleSourceMaxRetry'] ?? 5
+          // 设置项在输入框里被清空时会存成空字符串（''），直接拿来比较会被当成 0，
+          // 导致 `triedCount >= maxRetry` 首轮即成立、一次换源都不尝试。
+          // 这里统一归一化：非正数 / NaN 一律回落到默认 5 次。
+          const rawMaxRetry = Number(settingState.setting['player.toggleSourceMaxRetry'])
+          const maxRetry = Number.isFinite(rawMaxRetry) && rawMaxRetry > 0 ? Math.trunc(rawMaxRetry) : 5
           console.log('[播放策略] [切换音源] 最大尝试次数:', maxRetry)
           const result = await tryUserDefinedSourceToggle({
             musicInfo: currentMusicInfo as LX.Music.MusicInfoOnline,

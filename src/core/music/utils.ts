@@ -618,20 +618,18 @@ export const getUserDefinedSourceList = (
 ): Array<{ id: string; name: string }> => {
   const currentSource = settingState.setting['common.apiSource']
 
-  const builtinSources = (musicSdk as any).sources
-    .filter((source: any) => source.id !== excludeSourceId)
-    .map((source: any) => ({ id: source.id, name: source.name }))
-
-  const userSources = userApiState.list
-    .filter(api => api.id !== excludeSourceId)
+  // 只有「音源脚本」才是真正的 API 源：用户导入的自定义音源 id 形如 user_api_xxx。
+  // 内置平台 id（kw/kg/tx/wy/mg/...）是【音乐平台】而不是【音源接口】，
+  // 把它们当作 apiSource 写入后，apis() 会走到 getAPI() 找不到实现而抛
+  // 'Api is not found'（api-source-info 的内置音源列表当前为空），结果是：
+  // 1) 白耗换源尝试次数（maxRetry 被这些必然失败的“音源”吃光）；
+  // 2) 换源期间 common.apiSource 被写成非法值，并行的歌词 / 封面 / 预加载请求全部失败。
+  // 因此这里只返回用户导入的自定义音源。
+  // 排序：当前音源放最后 —— 先试其它脚本，最后再重试当前脚本（故障可能是瞬时的）。
+  return userApiState.list
+    .filter(api => /^user_api/.test(api.id) && api.id !== excludeSourceId)
     .map(api => ({ id: api.id, name: api.name }))
-
-  if (/^user_api/.test(currentSource)) {
-    const otherUserSources = userSources.filter(s => s.id !== currentSource)
-    return [...otherUserSources, ...builtinSources]
-  }
-
-  return [...userSources, ...builtinSources.filter((s: any) => s.id !== currentSource)]
+    .sort((a, b) => (a.id === currentSource ? 1 : 0) - (b.id === currentSource ? 1 : 0))
 }
 
 export const tryUserDefinedSourceToggle = async ({
@@ -662,6 +660,27 @@ export const tryUserDefinedSourceToggle = async ({
 
   let triedCount = 0
   const PLUGIN_TIMEOUT_MS = 8000
+
+  // 该平台没有 getMusicUrl（例如汽水 qs 走跨平台匹配播放），换源无从下手，直接失败，
+  // 避免把 maxRetry 全部浪费在必然抛异常的调用上。
+  if (!platformSdk?.getMusicUrl) {
+    console.log('[播放策略] [切换音源] 当前平台不支持 getMusicUrl，放弃换源:', musicInfo.source)
+    throw new Error(global.i18n.t('toggle_source_failed'))
+  }
+
+  // 换源过程中会临时改写 common.apiSource 并重新初始化脚本（global.lx.apis 被整体替换）。
+  // 结束后必须把【设置值】与【实际已加载的脚本】一起还原，
+  // 否则会出现「设置里是 A、实际生效的是 B」的不一致：后续歌曲、歌词、封面
+  // 都会走被悄悄换掉的脚本，而界面上仍显示原音源。
+  const restoreApiSource = async () => {
+    if (settingState.setting['common.apiSource'] === originalApiSource) return
+    settingState.setting['common.apiSource'] = originalApiSource
+    try {
+      const { setApiSource } = await import('@/core/apiSource')
+      setApiSource(originalApiSource)
+      await global.lx.apiInitPromise[0]
+    } catch {}
+  }
 
   const tryWithApiSource = async (apiSourceId: string): Promise<string | null> => {
     if (apiSourceId !== originalApiSource) {
@@ -706,7 +725,7 @@ export const tryUserDefinedSourceToggle = async ({
       const url = await tryWithApiSourceWithTimeout(source.id)
 
       if (url) {
-        settingState.setting['common.apiSource'] = originalApiSource
+        await restoreApiSource()
         console.log(`[播放策略] [切换音源] ========== 切换插件成功! ==========`)
         console.log(`[播放策略] [切换音源] 成功插件: "${source.name}" (${source.id})`)
         onToggleSource(musicInfo)
@@ -723,7 +742,7 @@ export const tryUserDefinedSourceToggle = async ({
     }
   }
 
-  settingState.setting['common.apiSource'] = originalApiSource
+  await restoreApiSource()
   console.log('[播放策略] [切换音源] ========== 所有插件均尝试失败 ==========')
   throw new Error(global.i18n.t('toggle_source_failed'))
 }

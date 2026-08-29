@@ -49,8 +49,13 @@ const guardPush = async (promise: Promise<string> | undefined, id: COMPONENT_IDS
 // iOS 无 UtilsModule.setScreenOrientation，方向完全由 RNN 的 options.layout.orientation 控制，
 // 因此每个页面都必须显式设置，否则会回落到 App 默认方向、导致横屏体验断裂。
 // 注意：RNN 只识别 options.layout.orientation，写在 options 顶层不会生效。
+//
+// 默认（lockLandscape 关闭）放开为竖+横，由系统级 Info.plist 裁决实际可旋转范围：
+//   - iPhone 系统仅竖屏   -> 实际只能竖屏
+//   - iPad   系统竖横均支持 -> 可竖可横（横屏时走响应式横屏布局）
+// lockLandscape 开启时仍强制横屏（iPad 生效；iPhone 因设备限制交集为空，系统回退为竖屏）。
 const getScreenOrientation = (): ('landscape' | 'portrait')[] =>
-  settingState.setting['common.lockLandscape'] ? ['landscape'] : ['portrait']
+  settingState.setting['common.lockLandscape'] ? ['landscape'] : ['portrait', 'landscape']
 
 
 export async function pushHomeScreen() {

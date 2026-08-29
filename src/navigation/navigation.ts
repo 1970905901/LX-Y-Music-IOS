@@ -45,6 +45,13 @@ const guardPush = async (promise: Promise<string> | undefined, id: COMPONENT_IDS
   endPush(id)
 }
 
+// 横屏锁定：所有页面统一跟随 common.lockLandscape。
+// iOS 无 UtilsModule.setScreenOrientation，方向完全由 RNN 的 options.layout.orientation 控制，
+// 因此每个页面都必须显式设置，否则会回落到 App 默认方向、导致横屏体验断裂。
+// 注意：RNN 只识别 options.layout.orientation，写在 options 顶层不会生效。
+const getScreenOrientation = (): ('landscape' | 'portrait')[] =>
+  settingState.setting['common.lockLandscape'] ? ['landscape'] : ['portrait']
+
 
 export async function pushHomeScreen() {
   // iOS 安全区适配：默认给所有 screen 顶部/底部均保留安全区。
@@ -128,8 +135,8 @@ export async function pushHomeScreen() {
           visible: true,
           backgroundColor: theme['c-content-background'],
         },
-                orientation: lockLandscape ? ['landscape'] : ['portrait'],
                 layout: {
+                  orientation: getScreenOrientation(),
                   componentBackgroundColor: theme['c-content-background'],
                   fitSystemWindows: false,
                   // @ts-expect-error RNN 运行期支持的安全区选项，当前类型未声明
@@ -221,6 +228,7 @@ export function pushPlayDetailScreen(componentId: string, skipAnimation = false)
             backgroundColor: theme['c-content-background'],
           },
           layout: {
+            orientation: getScreenOrientation(),
             componentBackgroundColor,
                   fitSystemWindows: false,
                   // @ts-expect-error RNN 运行期支持的安全区选项，当前类型未声明
@@ -265,6 +273,7 @@ export function pushSonglistDetailScreen(componentId: string, info: ListInfoItem
             backgroundColor: theme['c-content-background'],
           },
           layout: {
+            orientation: getScreenOrientation(),
             componentBackgroundColor: theme['c-content-background'],
                   fitSystemWindows: false,
                   // @ts-expect-error RNN 运行期支持的安全区选项，当前类型未声明
@@ -406,6 +415,7 @@ export function pushCommentScreen(componentId: string) {
             backgroundColor: theme['c-content-background'],
           },
           layout: {
+            orientation: getScreenOrientation(),
             componentBackgroundColor: theme['c-content-background'],
                   fitSystemWindows: false,
                   // @ts-expect-error RNN 运行期支持的安全区选项，当前类型未声明
@@ -666,6 +676,7 @@ export function pushArtistDetailScreen(componentId: string, artistInfo: { id: st
           backgroundColor: 'transparent',
         },
         layout: {
+          orientation: getScreenOrientation(),
           componentBackgroundColor: theme['c-content-background'],
                   fitSystemWindows: false,
         },
@@ -716,6 +727,7 @@ export function pushAlbumDetailScreen(componentId: string, albumInfo: any) {
           backgroundColor: 'transparent',
         },
         layout: {
+          orientation: getScreenOrientation(),
           componentBackgroundColor: theme['c-content-background'],
                   fitSystemWindows: false,
         },
@@ -764,6 +776,7 @@ export function pushDownloadManagerScreen(componentId: string) {
           backgroundColor: 'transparent',
         },
         layout: {
+          orientation: getScreenOrientation(),
           componentBackgroundColor: theme['c-content-background'],
                   fitSystemWindows: false,
         },
@@ -816,6 +829,7 @@ export function pushSimilarSongsScreen(componentId: string, similarSongs: LX.Mus
           backgroundColor: 'transparent',
         },
         layout: {
+          orientation: getScreenOrientation(),
           componentBackgroundColor: theme['c-content-background'],
                   fitSystemWindows: false,
         },

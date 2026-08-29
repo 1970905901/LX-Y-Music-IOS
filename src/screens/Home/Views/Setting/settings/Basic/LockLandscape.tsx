@@ -25,6 +25,7 @@ export default memo(() => {
       <CheckBoxItem
         check={lockLandscape}
         label={t('setting_basic_lock_landscape')}
+        helpDesc={t('setting_basic_lock_landscape_tip')}
         onChange={setLockLandscape}
       />
     </View>

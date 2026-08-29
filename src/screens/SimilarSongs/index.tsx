@@ -6,6 +6,7 @@ import OnlineList, { type OnlineListType } from '@/components/OnlineList';
 import { toast, createStyle } from '@/utils/tools';
 import { setComponentId } from '@/core/common';
 import PlayerBar from '@/components/player/PlayerBar';
+import LandscapeCentered from '@/components/LandscapeCentered';
 import { playOnlineList } from '@/core/list';
 import { usePlayerMusicInfo } from '@/store/player/hook';
 import playerState from '@/store/player/state';
@@ -58,20 +59,22 @@ export default memo(({ componentId, similarSongs: initialSimilarSongs }: { compo
 
   return (
     <PageContent>
-      <View style={styles.container}>
-        <Header componentId={componentId} title="相似歌曲推荐" />
-        <OnlineList componentId={componentId}
-          ref={listRef}
-          listId="dailyrec_wy"
-          forcePlayList={true}
-          playingId={playerMusicInfo.id}
-          onPlayList={onPlayList}
-          onLoadMore={() => {}}
-          onRefresh={() => {}}
-          onListUpdate={handleListUpdate}
-        />
-        <PlayerBar />
-      </View>
+      <LandscapeCentered>
+        <View style={styles.container}>
+          <Header componentId={componentId} title="相似歌曲推荐" />
+          <OnlineList componentId={componentId}
+            ref={listRef}
+            listId="dailyrec_wy"
+            forcePlayList={true}
+            playingId={playerMusicInfo.id}
+            onPlayList={onPlayList}
+            onLoadMore={() => {}}
+            onRefresh={() => {}}
+            onListUpdate={handleListUpdate}
+          />
+          <PlayerBar />
+        </View>
+      </LandscapeCentered>
     </PageContent>
   );
 });

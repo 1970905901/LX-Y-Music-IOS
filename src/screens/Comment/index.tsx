@@ -12,6 +12,7 @@ import { useI18n } from '@/lang'
 import { COMPONENT_IDS } from '@/config/constant'
 import { setComponentId } from '@/core/common'
 import PageContent from '@/components/PageContent'
+import LandscapeCentered from '@/components/LandscapeCentered'
 import playerState from '@/store/player/state'
 import { scaleSizeH } from '@/utils/pixelRatio'
 import { BorderWidths } from '@/theme'
@@ -335,7 +336,7 @@ export default memo(({ componentId }: { componentId: string }) => {
   return (
     <PageContent>
       {musicInfo == null ? null : (
-        <>
+        <LandscapeCentered>
           <Header musicInfo={musicInfo} />
           {musicInfo.source == 'local' ? (
             <View style={{ ...styles.container, alignItems: 'center', justifyContent: 'center' }}>
@@ -344,7 +345,7 @@ export default memo(({ componentId }: { componentId: string }) => {
           ) : (
             commentComponent
           )}
-        </>
+        </LandscapeCentered>
       )}
     </PageContent>
   )

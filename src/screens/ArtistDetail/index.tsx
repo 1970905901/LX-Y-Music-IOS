@@ -9,7 +9,7 @@ import kgApi from '@/utils/musicSdk/kg/artist';
 import { toast } from '@/utils/tools';
 import {setComponentId, updateSetting} from '@/core/common';
 import PlayerBar from '@/components/player/PlayerBar';
-import { createStyle } from '@/utils/tools';
+import LandscapeDetailLayout from '@/components/LandscapeDetailLayout';
 import { getArtistCache, setArtistCache,
   clearArtistCache, getArtistDetailCache, setArtistDetailCache } from '@/core/cache';
 import {useSettingValue} from "@/store/setting/hook.ts";
@@ -326,34 +326,28 @@ export default memo(({ componentId, artistInfo }: { componentId: string, artistI
 
   return (
     <PageContent>
-      <View style={styles.container}>
-        <Header artist={displayArtist} componentId={componentIdRef.current} />
-        <SongList
-          componentId={componentId}
-          songs={songs}
-          albums={albums}
-          activeTab={activeTab}
-          ref={songListRef as any}
-          artistId={artistInfo.id}
-          albumViewMode={albumViewMode}
-          onTabChange={handleTabChange}
-          onLoadMoreSongs={handleLoadMoreSongs}
-          onLoadMoreAlbums={handleLoadMoreAlbums}
-          onSortChange={handleSortChange}
-          onRefresh={handleRefresh}
-          onAlbumViewModeChange={handleAlbumViewModeChange}
-          onSongListUpdate={handleSongListUpdate}
-          playingId={playerMusicInfo.id}
-        />
-        <PlayerBar />
-      </View>
+      <LandscapeDetailLayout
+        header={<Header artist={displayArtist} componentId={componentIdRef.current} />}
+        body={
+          <SongList
+            componentId={componentId}
+            songs={songs}
+            albums={albums}
+            activeTab={activeTab}
+            ref={songListRef as any}
+            artistId={artistInfo.id}
+            albumViewMode={albumViewMode}
+            onTabChange={handleTabChange}
+            onLoadMoreSongs={handleLoadMoreSongs}
+            onLoadMoreAlbums={handleLoadMoreAlbums}
+            onSortChange={handleSortChange}
+            onRefresh={handleRefresh}
+            onAlbumViewModeChange={handleAlbumViewModeChange}
+            onSongListUpdate={handleSongListUpdate}
+            playingId={playerMusicInfo.id}
+          />
+        }
+        footer={<PlayerBar />}
+      />
     </PageContent>
   );
-});
-
-const styles = createStyle({
-  container: {
-    flex: 1,
-    flexDirection: 'column',
-  },
-})

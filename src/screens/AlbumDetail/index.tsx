@@ -9,7 +9,7 @@ import kgApi from '@/utils/musicSdk/kg/album'
 import { toast } from '@/utils/tools'
 import { setComponentId } from '@/core/common'
 import PlayerBar from '@/components/player/PlayerBar'
-import { createStyle } from '@/utils/tools'
+import LandscapeDetailLayout from '@/components/LandscapeDetailLayout'
 import { type ListInfoItem } from '@/store/songlist/state'
 import { playOnlineList } from '@/core/list'
 import {COMPONENT_IDS, LIST_IDS} from "@/config/constant.ts"
@@ -176,27 +176,22 @@ export default memo(({ componentId, albumInfo }: { componentId: string; albumInf
 
   return (
     <PageContent>
-      <View style={styles.container}>
-        <Header albumInfo={displayAlbumInfo} componentId={componentId} />
-        <OnlineList componentId={componentId}
-          ref={listRef}
-          listId='album'
-          forcePlayList={true}
-          onPlayList={onPlayList}
-          onLoadMore={() => {}}
-          onRefresh={onRefresh}
-          onListUpdate={handleListUpdate}
-          playingId={playerMusicInfo.id}
-        />
-        <PlayerBar />
-      </View>
+      <LandscapeDetailLayout
+        header={<Header albumInfo={displayAlbumInfo} componentId={componentId} />}
+        body={
+          <OnlineList componentId={componentId}
+            ref={listRef}
+            listId='album'
+            forcePlayList={true}
+            onPlayList={onPlayList}
+            onLoadMore={() => {}}
+            onRefresh={onRefresh}
+            onListUpdate={handleListUpdate}
+            playingId={playerMusicInfo.id}
+          />
+        }
+        footer={<PlayerBar />}
+      />
     </PageContent>
   )
 });
-
-const styles = createStyle({
-  container: {
-    flex: 1,
-    flexDirection: 'column',
-  },
-})

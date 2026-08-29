@@ -9,6 +9,7 @@ import { createStyle } from '@/utils/tools';
 import { setComponentId } from '@/core/common';
 import { removeTask } from '@/core/download';
 import { COMPONENT_IDS } from '@/config/constant';
+import LandscapeCentered from '@/components/LandscapeCentered';
 
 export default memo(({ componentId }: { componentId: string }) => {
   useEffect(() => {
@@ -23,20 +24,22 @@ export default memo(({ componentId }: { componentId: string }) => {
 
   return (
     <PageContent>
-      <View style={styles.container}>
-        <Header componentId={componentId} />
-        <DownloadPathBar />
-        <FlatList
-          data={tasks}
-          renderItem={({ item }) => (
-            <ListItem
-              task={item}
-              onRemove={handleRemove}
-            />
-          )}
-          keyExtractor={item => item.id}
-        />
-      </View>
+      <LandscapeCentered>
+        <View style={styles.container}>
+          <Header componentId={componentId} />
+          <DownloadPathBar />
+          <FlatList
+            data={tasks}
+            renderItem={({ item }) => (
+              <ListItem
+                task={item}
+                onRemove={handleRemove}
+              />
+            )}
+            keyExtractor={item => item.id}
+          />
+        </View>
+      </LandscapeCentered>
     </PageContent>
   );
 });

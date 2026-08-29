@@ -3,7 +3,7 @@ import { View, TouchableHighlight } from 'react-native'
 
 import Modal, { type ModalType } from './Modal'
 import { Icon } from '@/components/common/Icon'
-import { useKeyboard } from '@/utils/hooks'
+import { useKeyboard, useHorizontalMode } from '@/utils/hooks'
 import { createStyle } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
 import Text from './Text'
@@ -85,6 +85,7 @@ export default forwardRef<DialogType, DialogProps>(
   ) => {
     const theme = useTheme()
     const { keyboardShown, keyboardHeight } = useKeyboard()
+    const isHorizontal = useHorizontalMode()
     const modalRef = useRef<ModalType>(null)
 
     useImperativeHandle(ref, () => ({
@@ -115,7 +116,7 @@ export default forwardRef<DialogType, DialogProps>(
       >
         <View style={{ ...styles.centeredView, paddingBottom: keyboardShown ? keyboardHeight : 0 }}>
           <View
-            style={{ ...styles.modalView, height, backgroundColor: theme['c-content-background'] }}
+            style={{ ...styles.modalView, height, maxWidth: isHorizontal ? 760 : '90%', minWidth: isHorizontal ? undefined : '60%', backgroundColor: theme['c-content-background'] }}
           >
             <View
               style={{ ...styles.header, backgroundColor: theme['c-primary-light-100-alpha-100'] }}

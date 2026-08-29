@@ -12,7 +12,8 @@ import { overwriteListMusics } from '@/core/list'
 import { playList } from '@/core/player/player'
 import { LIST_IDS } from '@/config/constant'
 import { getDefaultDownloadPath } from '@/utils/downloadPath'
-import { mkdir, readDir } from '@/utils/fs'
+import downloadActions from '@/store/download/action'
+import { mkdir, readDir, unlink } from '@/utils/fs'
 import { sizeFormate } from '@/utils'
 
 type TabId = 'local' | 'download'
@@ -89,17 +90,22 @@ const SongRow = memo(
     title,
     subText,
     isPlaying,
+    selected,
     onPress,
   }: {
     title: string
     subText: string
     isPlaying: boolean
+    selected: boolean
     onPress: () => void
   }) => {
     const theme = useTheme()
     return (
       <TouchableOpacity
-        style={{ ...styles.songItem, backgroundColor: isPlaying ? theme['c-primary-background-hover'] : 'transparent' }}
+        style={{
+          ...styles.songItem,
+          backgroundColor: isPlaying || selected ? theme['c-primary-background-hover'] : 'transparent',
+        }}
         onPress={onPress}
       >
         <View style={styles.itemInfo}>
@@ -110,6 +116,13 @@ const SongRow = memo(
             {subText}
           </Text>
         </View>
+        {selected && (
+          <View style={styles.selectedMark}>
+            <Text size={12} color={theme['c-primary-font-active']}>
+              ✓
+            </Text>
+          </View>
+        )}
       </TouchableOpacity>
     )
   }
@@ -192,6 +205,57 @@ export default memo(() => {
     [completedTasks]
   )
 
+  // 批量管理模式：点击行改为切换选中，底部出现 全选 / 已选 / 删除 操作栏
+  const [selecting, setSelecting] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+
+  const enterSelecting = useCallback(() => {
+    setSelecting(true)
+    setSelectedIds(new Set())
+  }, [])
+
+  const exitSelecting = useCallback(() => {
+    setSelecting(false)
+    setSelectedIds(new Set())
+  }, [])
+
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
+
+  const toggleSelectAll = useCallback(() => {
+    const current = tab === 'download' ? completedTasks : localFiles
+    const allIds = current.map(i => i.id)
+    const allSelected = allIds.length > 0 && allIds.every(id => selectedIds.has(id))
+    setSelectedIds(allSelected ? new Set() : new Set(allIds))
+  }, [tab, completedTasks, localFiles, selectedIds])
+
+  const handleDeleteSelected = useCallback(() => {
+    if (selectedIds.size === 0) return
+    if (tab === 'download') {
+      for (const id of selectedIds) {
+        const task = completedTasks.find(t => t.id === id)
+        if (!task) continue
+        const removeFile = task.filePath ? unlink(task.filePath).catch(() => {}) : Promise.resolve()
+        void removeFile.then(() => downloadActions.removeTask(id))
+      }
+    } else {
+      for (const id of selectedIds) {
+        const item = localFiles.find(f => f.id === id)
+        if (!item) continue
+        void unlink(item.path).catch(() => {})
+      }
+    }
+    toast('已删除', 'short')
+    exitSelecting()
+    void scanLocalDir()
+  }, [selectedIds, tab, completedTasks, localFiles, exitSelecting, scanLocalDir])
+
   const isPlayingId = playMusicInfo.musicInfo?.id
 
   return (
@@ -201,14 +265,18 @@ export default memo(() => {
           <Text size={18} color={theme['c-font']}>
             {t('nav_local_download')}
           </Text>
-          <TouchableOpacity
-            style={styles.refreshBtn}
-            onPress={handleRefresh}
-          >
-            <Text size={13} color={theme['c-primary-font-active']}>
-              刷新
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity style={styles.headerBtn} onPress={selecting ? exitSelecting : enterSelecting}>
+              <Text size={13} color={theme['c-primary-font-active']}>
+                {selecting ? '取消' : '批量管理'}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.refreshBtn} onPress={handleRefresh}>
+              <Text size={13} color={theme['c-primary-font-active']}>
+                刷新
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={{ ...styles.tabs, borderColor: theme['c-border-background'] }}>
@@ -237,49 +305,90 @@ export default memo(() => {
             : `下载目录下的「${getLocalDirName()}」文件夹，把音频放进来即可离线播放，支持同名 .lrc 歌词`}
         </Text>
 
-        {tab === 'download' ? (
-          <FlatList
-            data={completedTasks}
-            keyExtractor={item => item.id}
-            renderItem={({ item, index }) => (
-              <SongRow
-                title={item.musicInfo.name}
-                subText={[
-                  item.musicInfo.singer,
-                  item.quality ? item.quality.toUpperCase() : '',
-                  item.progress?.total ? sizeFormate(item.progress.total) : '',
-                ]
-                  .filter(Boolean)
-                  .join(' · ')}
-                isPlaying={isPlayingId == item.id}
-                onPress={() => handlePlayTask(item, index)}
-              />
-            )}
-            ListEmptyComponent={
-              <View style={styles.empty}>
-                <Text color={theme['c-500']}>{loading ? '加载中...' : t('no_item')}</Text>
-              </View>
-            }
-          />
-        ) : (
-          <FlatList
-            data={localFiles}
-            keyExtractor={item => item.id}
-            renderItem={({ item, index }) => (
-              <SongRow
-                title={item.name}
-                subText={[item.singer, item.size ? sizeFormate(item.size) : ''].filter(Boolean).join(' · ')}
-                isPlaying={isPlayingId == item.id}
-                onPress={() => handlePlayLocal(item, index)}
-              />
-            )}
-            ListEmptyComponent={
-              <View style={styles.empty}>
-                <Text color={theme['c-500']}>{loading ? '正在扫描...' : `「${getLocalDirName()}」文件夹为空`}</Text>
-              </View>
-            }
-          />
-        )}
+        <View style={styles.listArea}>
+          {tab === 'download' ? (
+            <FlatList
+              style={styles.list}
+              data={completedTasks}
+              keyExtractor={item => item.id}
+              renderItem={({ item, index }) => (
+                <SongRow
+                  title={item.musicInfo.name}
+                  subText={[
+                    item.musicInfo.singer,
+                    item.quality ? item.quality.toUpperCase() : '',
+                    item.progress?.total ? sizeFormate(item.progress.total) : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                  isPlaying={isPlayingId == item.id}
+                  selected={selectedIds.has(item.id)}
+                  onPress={() => (selecting ? toggleSelect(item.id) : handlePlayTask(item, index))}
+                />
+              )}
+              ListEmptyComponent={
+                <View style={styles.empty}>
+                  <Text color={theme['c-500']}>{loading ? '加载中...' : t('no_item')}</Text>
+                </View>
+              }
+            />
+          ) : (
+            <FlatList
+              style={styles.list}
+              data={localFiles}
+              keyExtractor={item => item.id}
+              renderItem={({ item, index }) => (
+                <SongRow
+                  title={item.name}
+                  subText={[item.singer, item.size ? sizeFormate(item.size) : ''].filter(Boolean).join(' · ')}
+                  isPlaying={isPlayingId == item.id}
+                  selected={selectedIds.has(item.id)}
+                  onPress={() => (selecting ? toggleSelect(item.id) : handlePlayLocal(item, index))}
+                />
+              )}
+              ListEmptyComponent={
+                <View style={styles.empty}>
+                  <Text color={theme['c-500']}>{loading ? '正在扫描...' : `「${getLocalDirName()}」文件夹为空`}</Text>
+                </View>
+              }
+            />
+          )}
+
+          {selecting && (
+            <View
+              style={[
+                styles.selectBar,
+                { borderTopWidth: StyleSheet.hairlineWidth, borderColor: theme['c-border-background'] },
+              ]}
+            >
+              <TouchableOpacity style={styles.selectBarBtn} onPress={toggleSelectAll}>
+                <Text size={13} color={theme['c-primary-font-active']}>
+                  {tab === 'download'
+                    ? completedTasks.length > 0 && completedTasks.every(t => selectedIds.has(t.id))
+                      ? '取消全选'
+                      : '全选'
+                    : localFiles.length > 0 && localFiles.every(f => selectedIds.has(f.id))
+                      ? '取消全选'
+                      : '全选'}
+                </Text>
+              </TouchableOpacity>
+              <Text size={13} color={theme['c-500']} style={{ marginLeft: 'auto' }}>
+                已选 {selectedIds.size} 项
+              </Text>
+              <TouchableOpacity
+                style={[styles.selectBarBtn, selectedIds.size === 0 && styles.selectBarBtnDisabled]}
+                onPress={handleDeleteSelected}
+              >
+                <Text
+                  size={13}
+                  color={selectedIds.size === 0 ? theme['c-500'] : theme['c-primary-font-active']}
+                >
+                  删除
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
       </View>
     </PageContent>
   )
@@ -297,8 +406,16 @@ const styles = createStyle({
     paddingLeft: 14,
     paddingRight: 14,
   },
-  refreshBtn: {
+  headerActions: {
     marginLeft: 'auto',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+  },
+  refreshBtn: {
     paddingVertical: 4,
     paddingHorizontal: 10,
   },
@@ -336,5 +453,28 @@ const styles = createStyle({
   empty: {
     paddingTop: 60,
     alignItems: 'center',
+  },
+  listArea: {
+    flex: 1,
+  },
+  list: {
+    flex: 1,
+  },
+  selectBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  selectBarBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+  },
+  selectBarBtnDisabled: {
+    opacity: 0.5,
+  },
+  selectedMark: {
+    paddingLeft: 12,
+    paddingRight: 8,
   },
 })

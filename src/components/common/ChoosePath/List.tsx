@@ -4,6 +4,7 @@ import { externalStorageDirectoryPath, readDir } from '@/utils/fs'
 import { createStyle, toast } from '@/utils/tools'
 // import { useTranslation } from '@/plugins/i18n'
 import Modal, { type ModalType } from '@/components/common/Modal'
+import { useHorizontalMode } from '@/utils/hooks'
 
 import Header from './components/Header'
 import Main from './components/Main'
@@ -100,6 +101,7 @@ export default forwardRef<ListType, ListProps>(
     const [isReading, setIsReading] = useState(false)
     const modalRef = useRef<ModalType>(null)
     const theme = useTheme()
+    const isHorizontal = useHorizontalMode()
 
     useImperativeHandle(ref, () => ({
       show(title, dir = '', dirOnly = false, filter) {
@@ -190,7 +192,15 @@ export default forwardRef<ListType, ListProps>(
 
     return (
       <Modal ref={modalRef} bgHide={false} statusBarPadding={false}>
-        <View style={{ ...styles.container, backgroundColor: theme['c-content-background'] }}>
+        <View
+          style={{
+            ...styles.container,
+            backgroundColor: theme['c-content-background'],
+            width: '100%',
+            maxWidth: isHorizontal ? 760 : undefined,
+            alignSelf: isHorizontal ? 'center' : undefined,
+          }}
+        >
           <Header
             onRefreshDir={async (path) =>
               readDir(path, readOptions.current.dirOnly, readOptions.current.filter, true)

@@ -50,8 +50,10 @@ export const getDeviceLanguage = async () => {
 }
 
 export const isAndroid = Platform.OS === 'android'
-// @ts-expect-error
-export const osVer = Platform.constants.Release as string
+// iOS 上 Platform.constants.Release（Android 专属字段）不存在，会导致 osVer 为 undefined、
+// parseInt 得到 NaN，进而 getIsSupportedAutoTheme 恒为 false，「跟随系统」开关被隐藏。
+// 统一用跨平台的 Platform.Version（iOS 返回 osVersion，Android 返回 Release）。
+export const osVer = String(Platform.Version)
 
 export const isActive = () => AppState.currentState == 'active'
 

@@ -93,7 +93,7 @@ LX-Y-Music-IOS/
 │   │   │       ├── Leaderboard/                   # 排行榜
 │   │   │       ├── Search/ SongList/ Mylist/ ...
 │   │   │       └── Setting/settings/              # 设置（Player / Download / Basic / ...）
-│   │   ├── PlayDetail/          # 播放详情（Vertical / Horizontal / LandscapeImmersion）
+│   │   ├── PlayDetail/          # 播放详情（Vertical / Horizontal）
 │   │   └── AlbumDetail/ ArtistDetail/ SonglistDetail/ Comment/ DownloadManager/ SimilarSongs/
 │   ├── store/                   # 状态管理（player / setting / list / user / theme / ...）
 │   ├── theme/themes/

@@ -616,7 +616,6 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
         extraData={line}
         // 禁用 removeClippedSubviews：iOS FlatList 在动态行高下回收屏幕外行后，
         // 配合 getItemLayout 估算高度常导致歌词行重绘失败 / 出现空白缺失。
-        // Horizontal/LandscapeImmersion 歌词页均未启用此属性，保持行为一致。
         removeClippedSubviews={false}
         {...panResponder.panHandlers}
       />

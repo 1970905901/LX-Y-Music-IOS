@@ -8,7 +8,6 @@ export interface InitState {
   lastNavActiveId: NAV_ID_Type
   sourceNames: Record<LX.OnlineSource | 'all', string>
   bgPic: string | null
-  isLandscapeImmersion: boolean
 }
 
 const initData = {}
@@ -21,7 +20,6 @@ const state: InitState = {
   lastNavActiveId: 'nav_love',
   sourceNames: initData as InitState['sourceNames'],
   bgPic: null,
-  isLandscapeImmersion: false,
 }
 
 export default state

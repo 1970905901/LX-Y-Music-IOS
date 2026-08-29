@@ -159,8 +159,10 @@ export default () => {
   const setProgress = (time: number, maxTime?: number) => {
     if (!playerState.musicInfo.id) return
     seekTargetMs = time * 1000 // 记录 seek 目标，开启“收敛保护”窗口，防止校准用旧位置拉回
-    // 立即把外推锚点设到目标：歌词/进度条瞬间对齐（不依赖 80ms 轮询收敛），高亮行与音频实时同步。
-    audioClock.setAnchor(time * 1000, getRate(), playerState.isPlay)
+    // 立即把外推时钟【冻结】在目标位置（不从这一刻外推前进）：歌词/进度条瞬间对齐到目标，
+    // 且不会因 seek 生效延迟（80~450ms）让外推时钟漂到「目标+延迟」、使歌词跑在音频前面造成不同步。
+    // 待 seek 真正生效（playerPlaying / 收敛探测）后用引擎真实位置 resume，从准确位置继续外推。
+    audioClock.hold(time * 1000)
     setNowPlayTime(time)
     if (playerState.isPlay) updateScrobblePlayTime(time)
     void setCurrentTime(time)
@@ -177,7 +179,12 @@ export default () => {
       const timer = BackgroundTimer.setTimeout(() => {
         void getPosition().then((position) => {
           if (position == null || !playerState.musicInfo.id) return
-          if (Math.abs(position * 1000 - seekTargetMs) <= SEEK_CONVERGE_MS) seekTargetMs = -1
+          if (Math.abs(position * 1000 - seekTargetMs) <= SEEK_CONVERGE_MS) {
+            // 兜底：若未收到 playing 事件，这里同样用真实位置放开外推（保留当前播放态），
+            // 避免歌词长时间卡在 seek 目标值而不随音频前进。
+            audioClock.setAnchor(position * 1000, getRate(), playerState.isPlay)
+            seekTargetMs = -1
+          }
         }).catch(() => {})
       }, delay)
       seekResyncTimers.push(timer)
@@ -220,19 +227,43 @@ export default () => {
   // 暂停外推、固定显示当前位置，避免歌词超前于尚未真正播放的音频。
   const handlePlayerWaiting = () => {
     isEngineBuffering = true
-    audioClock.hold(audioClock.getTime() * 1000)
+    if (seekTargetMs >= 0) {
+      // seek 进行中：固定显示在【seek 目标值】（已立即对齐），而非外推漂移值，避免歌词超前于尚未真正跳转的音频。
+      audioClock.hold(seekTargetMs)
+      return
+    }
+    // 网络缓冲：冻结在音频【真实】位置（而非外推漂移值），避免歌词超前于已停滞的音频；
+    // playing 后用真实位置 resume 即可无缝衔接（不回跳）。与「预加载」(player.isEnableAudioPreload)
+    // 互补：预加载保证切歌 / 缓冲边界流畅，此处保证播放中偶发网络缓冲时歌词与音频仍严格同步。
+    void getPosition().then((position) => {
+      if (position != null && playerState.musicInfo.id && isEngineBuffering) {
+        audioClock.hold(position * 1000)
+      } else if (playerState.musicInfo.id && isEngineBuffering) {
+        audioClock.hold(audioClock.getTime() * 1000)
+      }
+    }).catch(() => {
+      if (isEngineBuffering) audioClock.hold(audioClock.getTime() * 1000)
+    })
   }
   const handlePlayerPlaying = () => {
     isEngineBuffering = false
-    // 缓冲结束、音频真正恢复：若不在 seek 沉降中，用引擎真实位置重锚外推；
-    // 否则交给收敛探测，避免用未到位的旧位置把外推拉回造成回跳。
-    if (seekTargetMs < 0) {
+    // seek 已真正生效并从该位置恢复播放：立即用引擎真实位置重锚外推并放开校准，
+    // 歌词从此刻起严格跟随音频（不再死等收敛探测，消除「跳转后歌词卡在偏移位置」）。
+    if (seekTargetMs >= 0) {
       void getPosition().then((position) => {
         if (position != null && playerState.musicInfo.id) {
           audioClock.resume(position * 1000, getRate())
         }
       }).catch(() => {})
+      seekTargetMs = -1
+      return
     }
+    // 普通缓冲结束（非 seek）：用引擎真实位置重锚外推。
+    void getPosition().then((position) => {
+      if (position != null && playerState.musicInfo.id) {
+        audioClock.resume(position * 1000, getRate())
+      }
+    }).catch(() => {})
   }
 
   const handlePlay = () => {

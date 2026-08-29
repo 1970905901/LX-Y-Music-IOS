@@ -1,4 +1,4 @@
-import { memo, useRef } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import { View, TouchableOpacity } from 'react-native'
 import Text from '@/components/common/Text'
 import Badge, { type BadgeType } from '@/components/common/Badge'
@@ -12,7 +12,42 @@ import { createStyle, type RowInfo } from '@/utils/tools'
 import Image from '@/components/common/Image'
 import PlayingIcon from '@/components/common/PlayingIcon'
 import { useIsWyLiked, useIsTxLiked, useIsKgLiked } from '@/store/user/hook'
+import { fetchQsCover, getCachedQsCover } from '@/core/music/qsCover'
 import { handleLikeMusic, handleTxLikeMusic, handleKgLikeMusic } from './listAction'
+
+// 汽水(qs) 源自身通常不返回可用封面（meta.picUrl 为空）。
+// 这里在列表项里按需用跨平台匹配（企鹅→网易→酷狗→酷我→咪咕）补全，
+// 结果按「歌名|歌手」缓存，同名歌曲只请求一次。
+// 放在列表项里做，才能同时覆盖排行榜、歌单详情、导入后的我的列表等所有展示场景
+// （这些页面的列表由各自组件持有，只在 core 里回写 store 无法刷新界面）。
+const useQsCover = (item: LX.Music.MusicInfoOnline): string => {
+  const [url, setUrl] = useState(() => (item.source === 'qs' ? getCachedQsCover(item) : ''))
+
+  useEffect(() => {
+    if (item.source !== 'qs') {
+      setUrl('')
+      return
+    }
+    if (item.meta.picUrl) {
+      setUrl('')
+      return
+    }
+    const cached = getCachedQsCover(item)
+    if (cached) {
+      setUrl(cached)
+      return
+    }
+    let ignore = false
+    void fetchQsCover(item).then((pic) => {
+      if (!ignore && pic) setUrl(pic)
+    })
+    return () => {
+      ignore = true
+    }
+  }, [item])
+
+  return item.source === 'qs' ? item.meta.picUrl || url : item.meta.picUrl
+}
 
 export const ITEM_HEIGHT = scaleSizeH(LIST_ITEM_HEIGHT)
 
@@ -97,6 +132,7 @@ export default memo(
     const theme = useTheme()
     const isPlaying = playingId === item.id;
     const isSelected = selectedList.includes(item)
+    const coverUrl = useQsCover(item)
     const isWyLiked = useIsWyLiked(item.meta.songId)
     const txSongId = (item.meta as any).id
     const isNumericId = txSongId && /^\d+$/.test(String(txSongId))
@@ -155,7 +191,7 @@ export default memo(
 
           <View style={showCover ? styles.sn : styles.snIndex}>
             {showCover ? (
-              <Image url={item.meta.picUrl} style={styles.albumArt} />
+              <Image url={coverUrl} style={styles.albumArt} />
             ) : isPlaying ? (
               <PlayingIcon />
             ) : (

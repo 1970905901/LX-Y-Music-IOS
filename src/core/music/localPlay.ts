@@ -11,7 +11,7 @@
  *   （kw/kg/tx/wy/mg）逐平台回退匹配。
  * - 封面：meta 缓存 → 本地内嵌封面 → 内置平台接口逐平台回退。
  */
-import musicSdk from '@/utils/musicSdk'
+import musicSdk, { searchMusic } from '@/utils/musicSdk'
 import wySdk from '@/utils/musicSdk/wy'
 import bilibiliSdk from '@/utils/musicSdk/bilibili'
 import { existsFile, readFile } from '@/utils/fs'
@@ -62,14 +62,51 @@ interface SongCandidate {
   [key: string]: any
 }
 
+/**
+ * 统一解包各音源 SDK 的返回值。
+ *
+ * 各平台的 getLyric / getPic 返回值并不统一：有的直接返回 Promise（如 wy.getPic、
+ * kg.getPic、kw.getPic），有的返回 `{ promise, cancelHttp }` 请求对象（如 tx/wy/kg/kw/mg
+ * 的 getLyric、mg.getPic）。若直接 `await` 请求对象，因为它不是 thenable，
+ * await 会原样返回该对象，导致：
+ * - 歌词：`lyricInfo.lyric` 恒为 undefined —— 所有候选都被跳过，最终返回空歌词；
+ * - 封面：返回的是对象而非 URL 字符串，图片加载失败。
+ * 这里最多解包 3 层，兼顾「Promise 里再包一层请求对象」的情况。
+ */
+const resolveSdkResult = async <T = any>(result: unknown): Promise<T | null> => {
+  try {
+    let value: any = result
+    for (let i = 0; i < 3; i++) {
+      if (value == null) return null
+      if (typeof value.then === 'function') {
+        value = await value
+        continue
+      }
+      if (value.promise && typeof value.promise.then === 'function') {
+        value = await value.promise
+        continue
+      }
+      break
+    }
+    return (value ?? null) as T | null
+  } catch {
+    return null
+  }
+}
+
 // 按歌名+歌手在内置平台搜索候选（跨平台），歌名完全匹配优先
 const searchCandidates = async (name: string, singer: string): Promise<SongCandidate[]> => {
   const keyword = `${cleanName(name)} ${singer || ''}`.trim()
   const result: SongCandidate[] = []
 
-  const lists = (await musicSdk.searchMusic({
+  // 注意：searchMusic 是 musicSdk 的【命名导出】，不是默认导出的成员。
+  // 之前写成 musicSdk.searchMusic(...) 会得到 undefined，调用即抛 TypeError，
+  // 导致候选列表恒为空 —— 汽水的封面/歌词/播放匹配全部失败。
+  const lists = (await searchMusic({
     name: cleanName(name),
     singer: singer || '',
+    // qs 无 musicSearch，本就不会返回；显式传入以防后续为汽水接入搜索后被重复查询
+    source: 'qs',
     limit: 10,
   }).catch(() => [])) as any[]
 
@@ -196,10 +233,8 @@ export const getLyricInfo = async ({
   for (const candidate of candidates) {
     const sdk = (musicSdk as any)[candidate.source]
     if (!sdk?.getLyric || !candidate.songmid) continue
-    try {
-      const lyricInfo = await sdk.getLyric(candidate)
-      if (lyricInfo?.lyric) return buildLyricInfo(lyricInfo)
-    } catch {}
+    const lyricInfo = await resolveSdkResult<{ lyric?: string }>(sdk.getLyric(candidate))
+    if (lyricInfo?.lyric) return buildLyricInfo(lyricInfo)
   }
 
   return buildLyricInfo({ lyric: '' })
@@ -230,12 +265,11 @@ export const getPicUrl = async ({
   for (const candidate of candidates) {
     const sdk = (musicSdk as any)[candidate.source]
     if (!candidate.songmid) continue
-    try {
-      if (sdk?.getPic) {
-        const pic = await sdk.getPic(candidate)
-        if (pic) return pic
-      }
-    } catch {}
+    if (sdk?.getPic) {
+      const pic = await resolveSdkResult<string>(sdk.getPic(candidate))
+      // 必须是非空字符串：请求对象未解包时会得到 object，直接返回会让图片加载失败
+      if (typeof pic === 'string' && pic) return pic
+    }
     if (candidate.img) return candidate.img
   }
   return ''

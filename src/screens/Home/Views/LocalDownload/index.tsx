@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { FlatList, StyleSheet, TouchableOpacity, View } from 'react-native'
 import PageContent from '@/components/PageContent'
+import LandscapeDetailLayout from '@/components/LandscapeDetailLayout'
 import Text from '@/components/common/Text'
 import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
@@ -260,7 +261,9 @@ export default memo(() => {
 
   return (
     <PageContent>
-      <View style={styles.container}>
+      <LandscapeDetailLayout
+        header={
+          <>
         <View style={styles.header}>
           <Text size={18} color={theme['c-font']}>
             {t('nav_local_download')}
@@ -304,7 +307,9 @@ export default memo(() => {
             ? '软件内下载的音乐，离线可播放'
             : `下载目录下的「${getLocalDirName()}」文件夹，把音频放进来即可离线播放，支持同名 .lrc 歌词`}
         </Text>
-
+          </>
+        }
+        body={
         <View style={styles.listArea}>
           {tab === 'download' ? (
             <FlatList
@@ -389,7 +394,8 @@ export default memo(() => {
             </View>
           )}
         </View>
-      </View>
+        }
+      />
     </PageContent>
   )
 })

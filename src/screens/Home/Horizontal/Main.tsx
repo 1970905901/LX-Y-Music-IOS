@@ -31,6 +31,8 @@ const FULLWIDTH_LANDSCAPE_IDS = new Set([
   'nav_daily_rec',
   'nav_tx_daily_rec',
   'nav_kg_daily_rec',
+  // 已用 LandscapeDetailLayout 做真正横屏分栏，需铺满右栏才能体现分栏效果
+  'nav_local_download',
 ])
 
 const Main = () => {

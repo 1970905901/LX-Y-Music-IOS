@@ -1,12 +1,11 @@
 import { memo, useCallback, useRef, useEffect } from 'react'
 import { type LayoutChangeEvent, StyleSheet, View, StatusBar, Dimensions, NativeModules, Platform } from 'react-native'
 import commonState from '@/store/common/state'
-import settingState from '@/store/setting/state'
 import { setStatusbarHeight } from '@/core/common'
 import { windowSizeTools, getWindowSize } from '@/utils/windowSizeTools'
 
 // iOS 没有 StatusBar.currentHeight（恒为 undefined），且顶部刘海/状态栏是物理存在、
-// 必须预留的空间，不能受 Android 专用的 alwaysKeepStatusbarHeight 开关影响。
+// 必须预留的空间。
 // 这里用 NativeModules.StatusBarManager.getHeight 获取真实状态栏高度（异步），
 // 同步先用兜底值，拿到真实值后再校准一次。
 const IOS_STATUSBAR_HEIGHT_FALLBACK = 44
@@ -24,11 +23,10 @@ function syncIosStatusbarHeight() {
 }
 
 const getStatusbarHeight = (winHeight: number, layoutHeight: number) => {
-  // iOS：始终返回真实状态栏高度（忽略 Android 专用的 alwaysKeep 开关）
+  // iOS：始终返回真实状态栏高度
   if (Platform.OS === 'ios') return iosStatusbarHeight
-  // Android：保留原逻辑
+  // Android：动态判断是否需要为系统状态栏保留间距
   const height =
-    !settingState.setting['common.alwaysKeepStatusbarHeight'] &&
     parseFloat(winHeight.toFixed(2)) >= parseFloat(layoutHeight.toFixed(2))
       ? 0
       : (StatusBar.currentHeight ?? 0)
@@ -39,7 +37,6 @@ const getStatusbarHeight = (winHeight: number, layoutHeight: number) => {
 export default memo(
   () => {
     const currentHeightRef = useRef(commonState.statusbarHeight)
-    const sizeRef = useRef([0, 0])
     const dimensionsChangedRef = useRef(true)
     const handleLayout = useCallback(
       ({
@@ -50,7 +47,6 @@ export default memo(
         void getWindowSize().then((size) => {
           dimensionsChangedRef.current = false
           // console.log(layout, size)
-          sizeRef.current = [size.height, layout.height]
           const height = getStatusbarHeight(size.height, layout.height)
 
           if (currentHeightRef.current != height) {
@@ -83,21 +79,8 @@ export default memo(
         // }, 100)
       })
 
-      const handleSettingUpdate = (keys: Array<keyof LX.AppSetting>) => {
-        if (!keys.includes('common.alwaysKeepStatusbarHeight') || !sizeRef.current[1]) return
-        const height = getStatusbarHeight(sizeRef.current[0], sizeRef.current[1])
-
-        if (currentHeightRef.current != height) {
-          currentHeightRef.current = height
-          setStatusbarHeight(height)
-        }
-        if (Platform.OS === 'ios') syncIosStatusbarHeight()
-      }
-      global.state_event.on('configUpdated', handleSettingUpdate)
-
       return () => {
         subscription.remove()
-        global.state_event.off('configUpdated', handleSettingUpdate)
       }
     }, [])
     return <View style={StyleSheet.absoluteFill} onLayout={handleLayout} />

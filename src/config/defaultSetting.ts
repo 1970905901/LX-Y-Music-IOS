@@ -19,7 +19,6 @@ const defaultSetting: LX.AppSetting = {
   'common.tx_cookie': '',
   'common.kg_cookie': '',
   'common.yt_cookie': '',
-  'common.alwaysKeepStatusbarHeight': false,
   'common.lockLandscape': false,
   'common.hideNavigationBar': false,
   'common.isEnableLog': true,

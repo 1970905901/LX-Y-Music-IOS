@@ -11,6 +11,7 @@ import {
 import { type Line, useLrcPlay, useLrcSet, syncToTime as lrcSyncToTime, findLineIndexByTime } from '@/plugins/lyric'
 import { getPosition } from '@/plugins/player'
 import { LyricScrollLayout } from '@/utils/lyricScroll'
+import { audioClock } from '@/core/player/audioClock'
 import { createStyle } from '@/utils/tools'
 import { updateSetting } from '@/core/common'
 import { useTheme } from '@/store/theme/hook'
@@ -288,6 +289,36 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
       lastScrolledLineRef.current = index
     } catch { }
   }
+
+  // 连续平滑滚动：基于外推时钟的精确播放时间，在当前行与下一行「居中偏移」之间线性插值，
+  // 让歌词随演唱连续上移（卡拉OK 式），取代原来「每行到来才 scrollToOffset 跳变」的观感。
+  // 行级高亮着色仍由 useLrcPlay 的 line 驱动；本函数只负责位置连续（每帧基于精确时间计算）。
+  const lastContinuousTimeRef = useRef(-1)
+  const scrollToActiveContinuous = () => {
+    const t = audioClock.getTime() * 1000 // ms
+    if (t === lastContinuousTimeRef.current) return // 暂停/无推进时跳过，避免空转 Bridge 写
+    lastContinuousTimeRef.current = t
+    if (!flatListRef.current || !lyricLines.length) return
+    const listHeight = pageHeightRef.current > 0 ? pageHeightRef.current : pagerHeight
+    if (listHeight <= 0) return
+    const paddingV = pageHeightRef.current > 0 ? pageHeightRef.current * 0.12 : 0
+    let i = findLineIndexByTime(lyricLines, t)
+    if (i < 0) i = 0
+    const offsetI = lyricScrollLayoutRef.current.getTargetOffsetPrecise(i, listHeight, lyricLines, 0.5, paddingV)
+    let continuousOffset = offsetI
+    // 当前行 → 下一行之间按时间进度插值：演唱点从当前行中心平滑移到下一行中心，歌词整体连续上移。
+    if (i + 1 < lyricLines.length) {
+      const curTime = lyricLines[i].time
+      const nextTime = lyricLines[i + 1].time
+      const progress = nextTime > curTime ? (t - curTime) / (nextTime - curTime) : 0
+      const offsetNext = lyricScrollLayoutRef.current.getTargetOffsetPrecise(i + 1, listHeight, lyricLines, 0.5, paddingV)
+      continuousOffset = offsetI + progress * (offsetNext - offsetI)
+    }
+    try {
+      flatListRef.current.scrollToOffset({ offset: continuousOffset, animated: false })
+    } catch { }
+  }
+
   // 跳转/歌词页中途打开时，当前行之前的大量行还没被测量，首跳落点必然有偏差；
   // 等新一批行测量完成（防抖 150ms）后静默回正一次，保证高亮行最终严格居中。
   const scheduleRecentre = useCallback(() => {
@@ -412,10 +443,28 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
     // 高亮行就“慢慢滚”到目标，而非立即到位。
     const force = forceScrollRef.current || activeRef.current === false
     activeRef.current = active
-    // 拖动进度条 / 跳转 / 恢复播放等用户动作期间强制滚动（force），使高亮行绝对同步跟随；
-    // 被动逐秒重锚时仍用舒适区节流，避免逐行微滚动卡顿。
-    handleScrollToActive(lineRef.current.line, force)
+    // 拖动进度条 / 跳转 / 恢复播放等用户动作（force）期间立即无动画定位；
+    // 普通播放推进交给每帧连续滚动循环（scrollToActiveContinuous），实现平滑上移而非逐行跳变。
+    if (force) {
+      handleScrollToActive(lineRef.current.line, true)
+    }
   }, [line, active])
+
+  // 每帧连续平滑滚动循环：歌词页激活且非用户手动滚动时，基于外推时钟精确时间驱动歌词连续上移。
+  // iOS 后台 / 锁屏时 rAF 暂停（歌词停滚无妨）；前台播放每帧（~16ms）定位，消除原来的行级跳变。
+  useEffect(() => {
+    if (!active) return
+    let rafId = 0
+    const loop = () => {
+      if (!isPauseScrollRef.current && flatListRef.current && lyricLines.length) {
+        scrollToActiveContinuous()
+      }
+      rafId = requestAnimationFrame(loop)
+    }
+    rafId = requestAnimationFrame(loop)
+    return () => cancelAnimationFrame(rafId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, lyricLines])
 
   // 从封面页切回歌词页时，立即把歌词时钟重锚到真实音频位置，并强制把当前行定位到 42% 位置，
   // 避免“长暂停后再播放 / 重开后”高亮行姗姗来迟、与音频不同步。

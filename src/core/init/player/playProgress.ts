@@ -3,6 +3,7 @@ import { setMaxplayTime, setNowPlayTime } from '@/core/player/progress'
 import { play } from '@/core/player/player'
 import { setCurrentTime, getDuration, getPosition } from '@/plugins/player'
 import { syncToTime as lrcSyncToTime } from '@/plugins/lyric'
+import { audioClock } from '@/core/player/audioClock'
 import { formatPlayTime2 } from '@/utils/common'
 import { savePlayInfo } from '@/utils/data'
 import { throttleBackgroundTimer } from '@/utils/tools'
@@ -48,79 +49,64 @@ const delaySavePlayInfo = throttleBackgroundTimer(() => {
 export default () => {
   // const updateMusicInfo = useCommit('list', 'updateMusicInfo')
 
-  let updateTimeout: number | null = null
+  // 帧循环句柄（requestAnimationFrame）：前台每帧（~16ms）外推音频位置并驱动歌词同步。
+  let rafId: number | null = null
+  // 背景计时器句柄（BackgroundTimer，跨 JS 休眠、前后台都跑）：负责锚点校准/进度条/保存/Scrobble。
+  // 与 rAF 分工——rAF 每帧做歌词外推（无 Bridge 延迟），BackgroundTimer 保证后台进度不丢。
+  let bgInterval: ReturnType<typeof BackgroundTimer.setInterval> | null = null
   let isScreenOn = true
-  // 进度条拖动进行中：此时歌词时钟交由拖动预览重锚，暂停逐秒的 lrc 重锚，
-  // 否则每拍都会把预览高亮拽回音频旧位置，表现为“拖动时进度条与歌词高亮行不同步”。
+  // 进度条拖动进行中：此时歌词时钟由拖动预览 hold 在手指位置，进度条 UI 也跟随手指。
   let isDragging = false
-  // 最近一次 seek/点击跳转的时间戳。每拍重锚歌词时钟前需判断是否在 seek 沉降窗口内，
-  // 避免把刚跳转的高亮行又拽回 seek 前的旧位置（iOS 一次 seek 约需 ~80-150ms 才生效）。
-  let lastSeekTime = 0
-  // 最近一次 seek 的目标位置（毫秒），-1 表示当前不在 seek 沉降窗口内。
-  // 改用“位置收敛”判定替代固定 120ms：iOS seek 实际生效时间 80~150ms 且不稳定，
-  // 固定窗口早于生效即放开轮询会把进度条/歌词拽回旧位置造成回跳；收敛判定则一直
-  // 按住目标值直到 getPosition() 真正到达目标附近，再无缝交还轮询，最大化实时同步。
+  // 最近一次 seek/点击跳转的目标位置（毫秒），-1 表示当前不在 seek 沉降窗口内。
+  // 外推时钟已在 setProgress 时立即锚到目标，这里仅用于在收敛前“保护”校准不被未到位的
+  // 引擎旧位置拉回（iOS 一次 seek 约需 80~200ms 才生效）。
   let seekTargetMs = -1
   // 引擎是否正在缓冲/加载网络数据（seek 到未缓存区域时会持续数秒）。
-  // 缓冲期间沉降窗口使用更长的硬上限，避免窗口提前关闭后轮询用未收敛的旧位置
-  // 把进度条/歌词拽回旧位置造成回跳（快进快退到未缓存位置时不同步的主因）。
   let isEngineBuffering = false
-  const SEEK_SETTLE_MAX_MS = 1200 // 无缓冲沉降窗口硬上限：覆盖偶发慢 seek，防止提前放开拽回
-  const SEEK_SETTLE_BUFFERING_MAX_MS = 5000 // 缓冲中硬上限：等网络数据到位收敛，同时兜底防死等
   const SEEK_CONVERGE_MS = 300 // 收敛容差（ms）：引擎位置落入目标±该值即判定 seek 已生效
-  // seek 后额外用引擎真实位置再锚几次，覆盖 iOS seek 生效延迟 / 缓冲导致的首行滞后
+  // seek 后额外用引擎真实位置探测收敛，覆盖 iOS seek 生效延迟 / 缓冲导致的首行滞后。
+  // 仅用于“清除 seekTargetMs 放开校准”，不再用未收敛的旧位置重锚（外推已立即对齐到目标）。
   let seekResyncTimers: ReturnType<typeof BackgroundTimer.setTimeout>[] = []
 
-  // seek 沉降窗口判定：返回 true 表示当前仍在 seek 沉降中，轮询应“按住”进度条与歌词、
-  // 不读取尚未生效的 getPosition() 旧值。positionMs 为本次轮询取到的引擎位置（ms）。
-  const inSeekSettle = (positionMs: number): boolean => {
-    if (seekTargetMs < 0) return false
-    const maxMs = isEngineBuffering ? SEEK_SETTLE_BUFFERING_MAX_MS : SEEK_SETTLE_MAX_MS
-    if (Date.now() - lastSeekTime > maxMs) {
-      seekTargetMs = -1
-      return false
-    }
-    if (!Number.isNaN(positionMs) && Math.abs(positionMs - seekTargetMs) <= SEEK_CONVERGE_MS) {
-      seekTargetMs = -1
-      return false
-    }
-    return true
+  // 当前播放速率（集中读取，避免多处重复）。
+  const getRate = () => settingState.setting['player.playbackRate']
+
+  /**
+   * 前台每帧（~16ms）驱动：用外推时钟（audioClock）拿到平滑的音频位置（秒），
+   * 直接镜像到歌词——不再走 Bridge 取 getPosition()，消除 ~20ms 异步延迟与抖动。
+   * 只做歌词 sync；进度条/校准/保存交由 tickCalibrate（前后台都跑的后台计时器）。
+   * 行未变化时 lrcSyncToTime 内部跳过重渲染，故每帧高频调用不会重绘整棵歌词树。
+   */
+  const tickFrame = () => {
+    const position = audioClock.getTime()
+    try {
+      lrcSyncToTime(position * 1000, playerState.isPlay)
+    } catch {}
+    rafId = requestAnimationFrame(tickFrame)
   }
 
-  const getCurrentTime = () => {
-    let id = playerState.musicInfo.id
+  /**
+   * 前后台都跑（BackgroundTimer，JS 休眠时仍触发）：用原生位置校准外推锚点，
+   * 并写入进度条 / Scrobble / 记忆进度。保证后台长时间播放时进度不丢失（原 BackgroundTimer 行为），
+   * 同时防止外推长期漂移。仅在「正常播放、非拖动、非 seek 沉降、非缓冲」时重锚，避免回跳。
+   */
+  const tickCalibrate = () => {
     void getPosition().then((position) => {
-      // 仅以 position == null（未取到位置）为跳过条件，允许 position 为 0（歌曲起始瞬间）。
-      if (position == null || id != playerState.musicInfo.id) return
-      // seek 沉降窗口内（拖动中 / 刚 seek 后引擎位置尚未收敛到目标）：进度条与歌词均保持
-      // 在 setProgress / progressDragPreview 写入的目标值，不读取尚未生效的 getPosition() 旧值，
-      // 避免把刚跳转的高亮行又拽回旧位置（iOS 一次 seek 约需 80~150ms 才生效，固定 120ms
-      // 窗口会早于生效放开导致回跳）。位置收敛到目标附近或超硬上限后，inSeekSettle 返回
-      // false，下方正常重锚无缝接管，最大化音频与歌词实时同步。
-      const suppressReanchor = isDragging || (!isDragging && inSeekSettle(position * 1000))
-      if (!suppressReanchor) {
-        setNowPlayTime(position)
-        try {
-          // 无论播放/暂停，用【真实音频位置】做纯镜像重锚（不启动 ticker），
-          // 歌词行永远等于音频真实位置 → 音频与歌词实时同步（覆盖所有场景，含 ⑩）。
-          lrcSyncToTime(position * 1000, playerState.isPlay)
-        } catch {}
+      if (position == null || !playerState.musicInfo.id) return
+      if (!isDragging && seekTargetMs < 0 && !isEngineBuffering) {
+        audioClock.setAnchor(position * 1000, getRate(), playerState.isPlay)
       }
-
-      if (!playerState.isPlay) return
-
-      updateScrobblePlayTime(position)
-      if (
-        settingState.setting['player.isSavePlayTime'] &&
-        !playerState.playMusicInfo.isTempPlay &&
-        isScreenOn
-      ) {
-        delaySavePlayInfo()
+      setNowPlayTime(position)
+      if (playerState.isPlay) {
+        updateScrobblePlayTime(position)
+        if (
+          settingState.setting['player.isSavePlayTime'] &&
+          !playerState.playMusicInfo.isTempPlay
+        ) {
+          delaySavePlayInfo()
+        }
       }
-    }).catch(() => {
-      // getPosition() 在个别情况下可能 reject（如原生模块未就绪）；
-      // 绝不能让一次失败静默杀死整条轮询链，否则歌词将彻底停止跟随音频。
-    })
+    }).catch(() => {})
   }
 
   const getMaxTime = async() => {
@@ -148,82 +134,78 @@ export default () => {
   }
 
   const clearUpdateTimeout = () => {
-    if (!updateTimeout) return
-    BackgroundTimer.clearInterval(updateTimeout)
-    updateTimeout = null
+    if (rafId != null) {
+      cancelAnimationFrame(rafId)
+      rafId = null
+    }
+    if (bgInterval != null) {
+      BackgroundTimer.clearInterval(bgInterval)
+      bgInterval = null
+    }
   }
 
   const startUpdateTimeout = () => {
     if (!isScreenOn) return
     clearUpdateTimeout()
-    // 歌词时钟与音频位置的重锚节拍：原 1000ms 过粗，叠加 seek 后 500ms 抑制窗口，
-    // 拖拽/快进后高亮行最大可滞后约 1.5s（用户反馈“高亮歌词晚一点”）。
-    // 继续收紧到 80ms，使高亮更贴近音频真实位置（getPosition 本身仍有轮询延迟，
-    // 该值即高亮与音频的稳态偏差上限）。
-    updateTimeout = BackgroundTimer.setInterval(() => {
-      getCurrentTime()
-    }, 80 / settingState.setting['player.playbackRate'])
-    getCurrentTime()
+    // 歌词时钟：requestAnimationFrame 每帧（~16ms）以「外推时钟」驱动，取代原 80ms Bridge 轮询。
+    // 外推时钟只在锚点处取一次原生位置，之后纯 JS 单调时钟外推，不受 Bridge 往返延迟与
+    // JS 线程排队影响，使高亮行紧贴音频真实位置（实时同步）。
+    rafId = requestAnimationFrame(tickFrame)
+    // 后台计时器（1s）：前后台都跑，负责锚点校准 / 进度条 / 保存 / Scrobble。
+    // 与 rAF 分工——rAF 每帧做歌词外推（无 Bridge 延迟），BG 计时器保证后台进度不丢、外推不漂移。
+    bgInterval = BackgroundTimer.setInterval(tickCalibrate, 1000)
   }
 
   const setProgress = (time: number, maxTime?: number) => {
     if (!playerState.musicInfo.id) return
-    lastSeekTime = Date.now()
-    seekTargetMs = time * 1000 // 记录 seek 目标，开启“位置收敛”沉降窗口，按住 UI 直到引擎真正到位
+    seekTargetMs = time * 1000 // 记录 seek 目标，开启“收敛保护”窗口，防止校准用旧位置拉回
+    // 立即把外推锚点设到目标：歌词/进度条瞬间对齐（不依赖 80ms 轮询收敛），高亮行与音频实时同步。
+    audioClock.setAnchor(time * 1000, getRate(), playerState.isPlay)
     setNowPlayTime(time)
     if (playerState.isPlay) updateScrobblePlayTime(time)
     void setCurrentTime(time)
-    // 跳转进度时同步校正歌词：用真实音频位置纯镜像重锚（含点击歌词行 / 进度条 seek），
-    // 无论播放暂停都锚到该位置，歌词行与音频实时同步（不启动 ticker）。
+    // 跳转进度时同步校正歌词：外推已锚到目标，歌词行与音频实时同步（不启动 ticker）。
     try {
       lrcSyncToTime(time * 1000, playerState.isPlay)
     } catch {}
-    // seek 后引擎真正落位常有 80~200ms 延迟（尤其 iOS / 网络缓冲），仅靠一次重锚可能
-    // 让歌词高亮仍停在 seek 目标前一行。再分 150ms/450ms 两次用真实位置重锚，
-    // 确保高亮行与音频最终严格对齐。
+    // seek 后引擎真正落位常有 80~200ms 延迟（尤其 iOS / 网络缓冲）。探测收敛：仅在引擎位置
+    // 落入目标±容差时清除 seekTargetMs 放开校准，避免校准用未收敛旧位置把外推拉回造成回跳。
+    // 注意：此处只用探测清除窗口，不再用旧位置重锚（外推已立即对齐目标，重锚反而回归 bug）。
     seekResyncTimers.forEach(t => BackgroundTimer.clearTimeout(t))
     seekResyncTimers = []
-    const scheduleResync = (delay: number) => {
+    const scheduleSeekSettle = (delay: number) => {
       const timer = BackgroundTimer.setTimeout(() => {
         void getPosition().then((position) => {
           if (position == null || !playerState.musicInfo.id) return
-          try {
-            lrcSyncToTime(position * 1000, playerState.isPlay)
-          } catch {}
-        })
+          if (Math.abs(position * 1000 - seekTargetMs) <= SEEK_CONVERGE_MS) seekTargetMs = -1
+        }).catch(() => {})
       }, delay)
       seekResyncTimers.push(timer)
     }
-    scheduleResync(150)
-    scheduleResync(450)
+    scheduleSeekSettle(150)
+    scheduleSeekSettle(450)
     if (maxTime != null) {
       setMaxplayTime(maxTime)
       updateScrobbleTotalTime(maxTime)
     }
   }
 
-  // bug③/⑪: 拖动进度条期间接管歌词时钟，使其高亮行跟随手指位置；
-  // 同时实时 seek 音频，让音频与高亮歌词一起跟手指走，达到「播放/暂停态拖动进度条音频与歌词实时同步」。
-  // 无论播放还是暂停，向左/向右拖动进度条，歌词高亮行都必须与手指实时同步（第⑪条验收）。
+  // 拖动进度条期间接管歌词时钟，使其高亮行跟随手指位置；同时实时 seek 音频。
+  // 无论播放/暂停态，向左/向右拖动进度条，歌词高亮行都必须与手指实时同步。
   let lastPreviewTime = 0
   let lastDragSeekTime = 0
   const handleProgressDragPreview = (time: number) => {
     if (!playerState.musicInfo.id) return
-    // 拖动预览歌词：用真实音频位置纯镜像重锚（time 已是毫秒），
-    // 歌词高亮行跟随手指位置；播放/暂停态一致，左右拖动均与歌词实时同步（不启动 ticker）。
+    // 拖动预览：用真实手指位置 hold 住外推时钟（暂停外推、固定显示手指位置），
+    // 歌词高亮行跟随手指；rAF 每帧用 hold 值同步，达到「拖动时音频与歌词实时同步」。
+    audioClock.hold(time)
+    setNowPlayTime(time / 1000)
     try {
       lrcSyncToTime(time, playerState.isPlay)
     } catch {}
-    // 同步更新 store 进度，使进度条 UI 与歌词在拖动全程（含暂停态）都实时一致：
-    // 渲染层进度条与歌词高亮行永远指向同一手指位置（第⑪条：向左/向右拖动均与歌词实时同步）。
-    setNowPlayTime(time / 1000)
+    // 节流音频 seek：每 ~120ms 最多一次，避免连续拖动产生大量 seek 在 iOS 上堆积，
+    // 导致音频滞后于手指、与即时更新的歌词/进度条不同步。
     const now = Date.now()
-    // 节流音频 seek：每 ~120ms 最多一次，避免连续拖动产生大量 seek 在 iOS 上堆积
-    // （每次约 80~150ms 才生效），导致音频滞后于手指、与即时更新的歌词/进度条不同步。
-    // 仅在时间变化且距上次 seek 已满节流窗口时下发；松手时 setProgress 会做一次权威
-    // seek 兜底到精确位置，确保松手后音频停在手指处（第⑪条验收）。
-    // verify=false：预览 seek 只做指令下发，不等待/校验/重试，避免拖动中打断
-    // 进行中的网络缓冲，导致音频追不上手指、与歌词/进度条脱节。
     if (time !== lastPreviewTime && now - lastDragSeekTime >= 120) {
       lastPreviewTime = time
       lastDragSeekTime = now
@@ -232,48 +214,46 @@ export default () => {
   }
   const handleProgressDragState = (drag: boolean) => {
     isDragging = drag
-    // 进入拖动瞬间记一次 seek 时间戳，避免刚结束拖动时逐秒重锚把高亮拽回旧位置
-    if (drag) lastSeekTime = Date.now()
   }
 
   // 引擎缓冲/加载状态跟踪：seek 到未缓存区域时引擎进入 buffering（等待网络数据），
-  // 此时沉降窗口需用更长的硬上限（见 inSeekSettle），防止提前放开轮询把
-  // 进度条/歌词拽回旧位置。playing 事件在缓冲结束、音频真正恢复时触发。
+  // 暂停外推、固定显示当前位置，避免歌词超前于尚未真正播放的音频。
   const handlePlayerWaiting = () => {
     isEngineBuffering = true
+    audioClock.hold(audioClock.getTime() * 1000)
   }
   const handlePlayerPlaying = () => {
     isEngineBuffering = false
-    // 缓冲结束、音频真正恢复时，立即用引擎真实位置重锚歌词时钟：
-    // 快进快退到未缓存区域会先 buffering，沉降窗口按住歌词/进度条；恢复播放的
-    // 这一拍立即校正，避免缓冲期间歌词长时间停在 seek 目标、恢复后与音频错位。
-    void getPosition().then((position) => {
-      if (position != null && playerState.musicInfo.id) {
-        try { lrcSyncToTime(position * 1000, playerState.isPlay) } catch {}
-      }
-    })
+    // 缓冲结束、音频真正恢复：若不在 seek 沉降中，用引擎真实位置重锚外推；
+    // 否则交给收敛探测，避免用未到位的旧位置把外推拉回造成回跳。
+    if (seekTargetMs < 0) {
+      void getPosition().then((position) => {
+        if (position != null && playerState.musicInfo.id) {
+          audioClock.resume(position * 1000, getRate())
+        }
+      }).catch(() => {})
+    }
   }
 
   const handlePlay = () => {
     void getMaxTime()
     startUpdateTimeout()
-    // 从暂停 / 后台返回后恢复播放的瞬间，立即用引擎实时位置重锚歌词时钟，
+    // 从暂停 / 后台返回后恢复播放的瞬间，立即用引擎实时位置重锚外推时钟，
     // 避免首句高亮与音频真实位置错位，覆盖「暂停→后台→重开→播放」场景。
     if (playerState.musicInfo.id) {
       void getPosition().then((position) => {
         if (position != null && playerState.musicInfo.id) {
-          // 恢复播放瞬间用真实位置纯镜像重锚（不启动 ticker），消除起播错位。
+          audioClock.setAnchor(position * 1000, getRate(), true)
           try { lrcSyncToTime(position * 1000, true) } catch {}
         }
       })
-      // 恢复播放（记忆进度 restore seek）/ 暂停恢复场景下，引擎从 seek 目标
-      // 真正起播需要数百毫秒稳定期，'playing' 瞬间 getPosition 可能仍是旧值。
-      // 延迟再锚一次，用稳定后的引擎真实位置校正歌词时钟，
+      // 恢复播放（记忆进度 restore seek）/ 暂停恢复场景下，引擎从 seek 目标真正起播需要
+      // 数百毫秒稳定期，'playing' 瞬间 getPosition 可能仍是旧值。延迟再锚一次校正外推时钟，
       // 确保「暂停→退出→重开→继续播放」后音频与歌词严格同步。
       BackgroundTimer.setTimeout(() => {
         void getPosition().then((position) => {
           if (position != null && playerState.musicInfo.id && playerState.isPlay) {
-            try { lrcSyncToTime(position * 1000, true) } catch {}
+            audioClock.setAnchor(position * 1000, getRate(), true)
           }
         })
       }, 400)
@@ -281,10 +261,9 @@ export default () => {
   }
 
   const handlePause = () => {
-    // 不再清除 updateTimeout：暂停时仍保持 250ms 轮询，使歌词（含封面页 MiniLyric）
-    // 始终与音频当前位置同步。播放/保存/Scrobble 等播放态专属逻辑由 getCurrentTime 内部判断。
-    // 记住播放进度：暂停瞬间立即持久化一次当前进度，
-    // 用户暂停后直接杀掉 App 也不会丢失最后位置（节流保存可能在 2s 窗口内丢尾部）。
+    // 外推停在当前位置：仍保持 rAF 每帧 sync，使歌词（含封面页 MiniLyric）始终与音频当前位置同步，
+    // 但歌词时钟不再自行前进。暂停瞬间立即持久化一次当前进度，防止杀 App 丢失位置。
+    audioClock.setPlaying(false)
     savePlayInfoNow()
   }
 
@@ -292,12 +271,14 @@ export default () => {
     clearUpdateTimeout()
     seekResyncTimers.forEach(t => BackgroundTimer.clearTimeout(t))
     seekResyncTimers = []
+    audioClock.reset()
     setNowPlayTime(0)
     setMaxplayTime(0)
   }
 
   const handleError = () => {
     clearUpdateTimeout()
+    audioClock.reset()
   }
 
   const handleSetPlayInfo = () => {
@@ -322,13 +303,18 @@ export default () => {
   }
 
   const handleConfigUpdated: typeof global.state_event.configUpdated = (keys, settings) => {
-    if (keys.includes('player.playbackRate')) startUpdateTimeout()
+    if (keys.includes('player.playbackRate')) {
+      // 速率变化：以当前外推位置为新的锚点重算，避免外推跳变；并重启帧循环（实际无需重启，
+      // 但保持与原行为一致，确保新速率在下一帧立即生效）。
+      audioClock.setRate(getRate())
+      startUpdateTimeout()
+    }
   }
 
   const handleScreenStateChanged: Parameters<typeof onScreenStateChange>[0] = (state) => {
     isScreenOn = state == 'ON'
     if (isScreenOn) {
-      // 亮屏时即启动轮询：无论播放/暂停都保持歌词与音频位置同步
+      // 亮屏时即启动帧循环：无论播放/暂停都保持歌词与音频位置同步
       // （暂停 seek / 后台重开 / 封面页 MiniLyric 等场景）。
       startUpdateTimeout()
     } else clearUpdateTimeout()
@@ -341,11 +327,11 @@ export default () => {
       handleScreenStateChanged('ON')
     }
     if (state == 'active' && playerState.musicInfo.id) {
-      // 从后台/挂起状态回到前台：立即用引擎实时位置纯镜像重锚歌词时钟，
-      // 不依赖 isScreenOn 是否已被清为 false，消除回前台瞬间高亮滞后窗口，
-      // 保证“播放时后台回前台”音频与歌词实时同步（第⑫条验收）。
+      // 从后台/挂起状态回到前台：立即用引擎实时位置重锚外推时钟，不依赖 isScreenOn 是否已清，
+      // 消除回前台瞬间高亮滞后窗口，保证“播放时后台回前台”音频与歌词实时同步。
       void getPosition().then((position) => {
         if (position != null && playerState.musicInfo.id) {
+          audioClock.setAnchor(position * 1000, getRate(), playerState.isPlay)
           try { lrcSyncToTime(position * 1000, playerState.isPlay) } catch {}
         }
       })

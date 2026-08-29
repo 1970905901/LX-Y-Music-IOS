@@ -3,7 +3,7 @@ import { View, TouchableOpacity } from 'react-native'
 
 import Modal, { type ModalType } from './Modal'
 import { Icon } from '@/components/common/Icon'
-import { useKeyboard } from '@/utils/hooks'
+import { useKeyboard, useHorizontalMode } from '@/utils/hooks'
 import { createStyle } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
 import Text from './Text'
@@ -77,6 +77,7 @@ export default forwardRef<PopupType, PopupProps>(
     const theme = useTheme()
     const { keyboardShown, keyboardHeight } = useKeyboard()
     const statusBarHeight = useStatusbarHeight()
+    const isHorizontal = useHorizontalMode()
 
     const modalRef = useRef<ModalType>(null)
 
@@ -113,6 +114,8 @@ export default forwardRef<PopupType, PopupProps>(
             },
             {
               width: '100%',
+              maxWidth: isHorizontal ? 760 : undefined,
+              alignSelf: isHorizontal ? 'center' : undefined,
               maxHeight: '78%',
               minHeight: '20%',
               // backgroundColor: 'white',
@@ -130,8 +133,9 @@ export default forwardRef<PopupType, PopupProps>(
               justifyContent: 'flex-start',
             },
             {
-              minWidth: '45%',
-              maxWidth: '78%',
+              minWidth: isHorizontal ? undefined : '45%',
+              width: isHorizontal ? 420 : undefined,
+              maxWidth: isHorizontal ? undefined : '78%',
               height: '100%',
               paddingTop: statusBarHeight,
               // backgroundColor: 'white',
@@ -149,8 +153,9 @@ export default forwardRef<PopupType, PopupProps>(
               justifyContent: 'flex-end',
             },
             {
-              minWidth: '45%',
-              maxWidth: '78%',
+              minWidth: isHorizontal ? undefined : '45%',
+              width: isHorizontal ? 420 : undefined,
+              maxWidth: isHorizontal ? undefined : '78%',
               height: '100%',
               paddingTop: statusBarHeight,
               // backgroundColor: 'white',
@@ -169,6 +174,8 @@ export default forwardRef<PopupType, PopupProps>(
             },
             {
               width: '100%',
+              maxWidth: isHorizontal ? 760 : undefined,
+              alignSelf: isHorizontal ? 'center' : undefined,
               maxHeight: '78%',
               minHeight: '20%',
               // backgroundColor: 'white',
@@ -177,7 +184,7 @@ export default forwardRef<PopupType, PopupProps>(
             },
           ] as const
       }
-    }, [position, statusBarHeight])
+    }, [position, statusBarHeight, isHorizontal])
 
     return (
       <Modal

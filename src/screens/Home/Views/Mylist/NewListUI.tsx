@@ -10,6 +10,7 @@ import { Icon } from '@/components/common/Icon'
 import { createStyle } from '@/utils/tools'
 import commonState from '@/store/common/state'
 import MusicList from './MusicList'
+import { useHorizontalMode } from '@/utils/hooks'
 import ListMenu, { type ListMenuType, type Position } from './MyList/ListMenu'
 import ListNameEdit, { type ListNameEditType } from './MyList/ListNameEdit'
 import ListMusicSort, { type ListMusicSortType } from './MyList/ListMusicSort'
@@ -278,6 +279,7 @@ export default memo(() => {
   const theme = useTheme()
   const allList = useMyList()
   const activeListId = useActiveListId()
+  const isHorizontal = useHorizontalMode()
 
   const [listInfoMap, setListInfoMap] = useState<Map<string, { cover: string; total: number }>>(new Map())
   const [isLoading, setIsLoading] = useState(true)
@@ -566,19 +568,8 @@ export default memo(() => {
     }
   }, [allList])
 
-  if (showMusicList) {
+  if (!isHorizontal && showMusicList) {
     return <MusicList onBack={handleBackToList} />
-  }
-
-  if (hasError) {
-    return (
-      <View style={styles.errorContainer}>
-        <Text size={16} color={theme['c-font']} style={styles.errorText}>加载失败</Text>
-        <TouchableOpacity onPress={() => void refreshListInfo()} style={styles.retryButton}>
-          <Text size={14} color={theme['c-primary-font']}>点击尝试重新加载</Text>
-        </TouchableOpacity>
-      </View>
-    )
   }
 
   const renderItem = ({ item }: { item: ListItemInfo }) => {
@@ -620,9 +611,16 @@ export default memo(() => {
     )
   }
 
-  return (
+  const listPanel = (
     <View style={styles.content}>
-      {isLoading ? (
+      {hasError ? (
+        <View style={styles.errorContainer}>
+          <Text size={16} color={theme['c-font']} style={styles.errorText}>加载失败</Text>
+          <TouchableOpacity onPress={() => void refreshListInfo()} style={styles.retryButton}>
+            <Text size={14} color={theme['c-primary-font']}>点击尝试重新加载</Text>
+          </TouchableOpacity>
+        </View>
+      ) : isLoading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator color={theme['c-primary-font']} size="large" />
         </View>
@@ -665,6 +663,36 @@ export default memo(() => {
       )}
     </View>
   )
+
+  // iPad 横屏：左栏列表名卡片 + 右栏歌曲列表（master-detail 分栏），竖屏走上面的整屏切换。
+  if (isHorizontal) {
+    const hasActiveList = showMusicList || (activeListId != null && activeListId !== LIST_IDS.DEFAULT)
+    return (
+      <View style={{ flex: 1, flexDirection: 'row' }}>
+        <View
+          style={{
+            width: 360,
+            flexShrink: 0,
+            borderRightWidth: 1,
+            borderRightColor: theme['c-border-background'],
+          }}
+        >
+          {listPanel}
+        </View>
+        <View style={{ flex: 1, overflow: 'hidden' }}>
+          {hasActiveList ? (
+            <MusicList />
+          ) : (
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+              <Text size={13} color={theme['c-500']}>点击左侧列表查看歌曲</Text>
+            </View>
+          )}
+        </View>
+      </View>
+    )
+  }
+
+  return listPanel
 })
 
 const styles = createStyle({

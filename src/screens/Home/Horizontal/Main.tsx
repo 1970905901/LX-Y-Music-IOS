@@ -33,6 +33,10 @@ const FULLWIDTH_LANDSCAPE_IDS = new Set([
   'nav_kg_daily_rec',
   // 已用 LandscapeDetailLayout 做真正横屏分栏，需铺满右栏才能体现分栏效果
   'nav_local_download',
+  // 「我的列表」新 UI 在横屏下做 master-detail 分栏（左列表名 + 右歌曲），需铺满右栏
+  'nav_love',
+  // 「歌单列表」横屏下标签常驻左栏 + 歌单列表右栏（master-detail），需铺满右栏
+  'nav_songlist',
 ])
 
 const Main = () => {

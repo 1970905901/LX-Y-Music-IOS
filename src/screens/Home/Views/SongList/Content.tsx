@@ -12,6 +12,7 @@ import playerState from '@/store/player/state'
 import { LIST_IDS } from '@/config/constant'
 import listState from '@/store/list/state'
 import { useWySubscribedPlaylists } from '@/store/user/hook'
+import { useHorizontalMode } from '@/utils/hooks'
 import MusicInfoOnline = LX.Music.MusicInfoOnline;
 
 interface SonglistInfo {
@@ -23,6 +24,7 @@ interface SonglistInfo {
 export default () => {
   const headerBarRef = useRef<HeaderBarType>(null)
   const listRef = useRef<ListType>(null)
+  const isHorizontal = useHorizontalMode()
   const [selectedList, setSelectedList] = useState<ListInfoItem | null>(null)
   const [scrollToMusicInfo, setScrollToMusicInfo] = useState<MusicInfoOnline | null>(null)
   const selectedListRef = useRef(selectedList)
@@ -59,8 +61,12 @@ export default () => {
       songlistInfo.current.tagId = info.tagId
       headerBarRef.current?.setSource(info.source, info.sortId, info.tagName, info.tagId)
       loadList()
+      // 横屏下标签列表常驻左栏，初始化时同步一次标签数据源
+      if (isHorizontal) {
+        global.app_event.showSonglistTagList(info.source, info.tagId)
+      }
     })
-  }, [loadList, headerKey])
+  }, [loadList, headerKey, isHorizontal])
 
   useEffect(() => {
     if (!selectedList) {
@@ -131,6 +137,10 @@ export default () => {
       songlistInfo.current.tagId
     )
     listRef.current?.loadList(source, songlistInfo.current.sortId, songlistInfo.current.tagId)
+    // 横屏下标签列表常驻左栏，切源后同步标签数据源
+    if (isHorizontal) {
+      global.app_event.showSonglistTagList(source, songlistInfo.current.tagId)
+    }
   }
 
   const handleOpenDetail = useCallback((item: ListInfoItem) => {

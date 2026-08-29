@@ -1,6 +1,6 @@
 import React, {forwardRef, useImperativeHandle, useRef, useEffect, useCallback, useState} from 'react';
 import { Animated, View, StyleSheet, TouchableWithoutFeedback, BackHandler } from 'react-native';
-import { useWindowSize } from '@/utils/hooks';
+import { useWindowSize, useHorizontalMode } from '@/utils/hooks';
 
 export interface AnimatedSlideUpPanelType {
   setVisible: (visible: boolean) => void;
@@ -13,6 +13,7 @@ interface Props {
 
 const AnimatedSlideUpPanel = forwardRef<AnimatedSlideUpPanelType, Props>(({ children, onHide }, ref) => {
   const { height: windowHeight } = useWindowSize();
+  const isHorizontal = useHorizontalMode();
   const [isVisible, setIsVisible] = useState(false);
   const animatedValue = useRef(new Animated.Value(windowHeight)).current;
 
@@ -81,6 +82,7 @@ const AnimatedSlideUpPanel = forwardRef<AnimatedSlideUpPanelType, Props>(({ chil
       <Animated.View
         style={[
           styles.panel,
+          isHorizontal ? { maxWidth: 760, marginHorizontal: 'auto' } : null,
           {
             transform: [{ translateY: animatedValue }],
           },

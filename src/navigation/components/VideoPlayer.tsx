@@ -3,13 +3,15 @@ import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'rea
 import { Navigation } from 'react-native-navigation'
 import Video, { type VideoRef } from 'react-native-video'
 import { useTheme } from '@/store/theme/hook'
+import { useStatusbarHeight } from '@/store/common/hook'
 import { createStyle } from '@/utils/tools'
 
 // MV 视频播放浮层：通过 RNN showOverlay 渲染，浮于所有页面（含播放详情页）之上，
 // 因此点击“播放 MV”后会立即出现在最上层，而不是被播放详情页遮盖、
 // 直到关闭详情页才露出来。关闭浮层即卸载 Video 组件并停止播放，避免后台继续出声/卡顿。
-const VideoPlayer = ({ componentId, url }: { componentId: string; url: string }) => {
+const VideoPlayer = ({ componentId, url, onDismiss }: { componentId: string; url: string; onDismiss?: () => void }) => {
   const theme = useTheme()
+  const statusBarHeight = useStatusbarHeight()
   const videoRef = useRef<VideoRef>(null)
   const [loading, setLoading] = useState(true)
 
@@ -19,7 +21,8 @@ const VideoPlayer = ({ componentId, url }: { componentId: string; url: string })
       videoRef.current?.pause?.()
     } catch {}
     void Navigation.dismissOverlay(componentId)
-  }, [componentId])
+    onDismiss?.()
+  }, [componentId, onDismiss])
 
   // 卸载时确保暂停，防止浮层被其他方式销毁后音频残留
   useEffect(() => {
@@ -27,12 +30,13 @@ const VideoPlayer = ({ componentId, url }: { componentId: string; url: string })
       try {
         videoRef.current?.pause?.()
       } catch {}
+      onDismiss?.()
     }
-  }, [])
+  }, [onDismiss])
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity style={styles.closeBtn} onPress={handleClose} activeOpacity={0.7}>
+      <TouchableOpacity style={[styles.closeBtn, { top: statusBarHeight }]} onPress={handleClose} activeOpacity={0.7}>
         <Text style={[styles.closeText, { color: theme['c-font'] }]}>✕</Text>
       </TouchableOpacity>
       {url ? (
@@ -72,10 +76,10 @@ const styles = createStyle({
     top: 0,
     right: 0,
     zIndex: 10,
-    paddingTop: 20,
-    paddingRight: 20,
-    paddingLeft: 20,
-    paddingBottom: 20,
+    paddingTop: 16,
+    paddingRight: 16,
+    paddingLeft: 16,
+    paddingBottom: 16,
   },
   closeText: {
     fontSize: 26,

@@ -521,7 +521,7 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
   const renderItem: FlatListType['renderItem'] = ({ item, index }) => {
     return <LrcLine line={item} lineNum={index} activeLine={line} onLayout={handleLineLayout} onPress={handleLinePress} isSmallWindow={isSmallWindow} />;
   };
-  const getkey: FlatListType['keyExtractor'] = (item, index) => `${index}${item.text}`
+  const getkey: FlatListType['keyExtractor'] = (_item, index) => `${index}`
 
   const handlePageLayout = useCallback(({ nativeEvent }: LayoutChangeEvent) => {
     const h = Math.round(nativeEvent.layout.height)
@@ -554,10 +554,10 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
         scrollEventThrottle={16}
         onScrollBeginDrag={handleScrollBeginDrag}
         onScrollEndDrag={onScrollEndDrag}
-        initialNumToRender={40}
-        windowSize={15}
-        maxToRenderPerBatch={20}
-        updateCellsBatchingPeriod={50}
+        initialNumToRender={60}
+        windowSize={21}
+        maxToRenderPerBatch={30}
+        updateCellsBatchingPeriod={10}
         // 不向 FlatList 注册 getItemLayout：改用动态测量，避免“虚拟行 + 变高行 + 估算高度”
         // 在滚动时造成的歌词行定位错乱 / 空白缺失（即用户反馈的“滑动时歌词不全载”）。
         // 滚动目标偏移由 LyricScrollLayout 的缓存累计行高计算（O(1)）。
@@ -565,7 +565,7 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
         // 禁用 removeClippedSubviews：iOS FlatList 在动态行高下回收屏幕外行后，
         // 配合 getItemLayout 估算高度常导致歌词行重绘失败 / 出现空白缺失。
         // Horizontal/LandscapeImmersion 歌词页均未启用此属性，保持行为一致。
-        // removeClippedSubviews={true}
+        removeClippedSubviews={false}
         {...panResponder.panHandlers}
       />
     </View>

@@ -178,7 +178,7 @@ export const showSyncModeModal = () => {
 
 // MV 视频播放：作为浮层显示在所有页面（含播放详情页）之上，
 // 避免被详情页遮盖导致“点播放 MV 后不立即出现、关闭详情页才露出、且后台持续出声卡顿”。
-export const showVideoPlayer = (url: string) => {
+export const showVideoPlayer = (url: string, onDismiss?: () => void) => {
   if (pendingOverlays.has(VIDEO_PLAYER_SCREEN)) return
   pendingOverlays.add(VIDEO_PLAYER_SCREEN)
   setTimeout(() => pendingOverlays.delete(VIDEO_PLAYER_SCREEN), 500)
@@ -187,7 +187,7 @@ export const showVideoPlayer = (url: string) => {
   void Navigation.showOverlay({
     component: {
       name: VIDEO_PLAYER_SCREEN,
-      passProps: { url },
+      passProps: { url, onDismiss },
       options: {
         layout: {
           componentBackgroundColor: 'transparent',

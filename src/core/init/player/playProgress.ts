@@ -68,6 +68,8 @@ export default () => {
   const SEEK_SETTLE_MAX_MS = 1200 // 无缓冲沉降窗口硬上限：覆盖偶发慢 seek，防止提前放开拽回
   const SEEK_SETTLE_BUFFERING_MAX_MS = 5000 // 缓冲中硬上限：等网络数据到位收敛，同时兜底防死等
   const SEEK_CONVERGE_MS = 300 // 收敛容差（ms）：引擎位置落入目标±该值即判定 seek 已生效
+  // seek 后额外用引擎真实位置再锚几次，覆盖 iOS seek 生效延迟 / 缓冲导致的首行滞后
+  let seekResyncTimers: ReturnType<typeof BackgroundTimer.setTimeout>[] = []
 
   // seek 沉降窗口判定：返回 true 表示当前仍在 seek 沉降中，轮询应“按住”进度条与歌词、
   // 不读取尚未生效的 getPosition() 旧值。positionMs 为本次轮询取到的引擎位置（ms）。
@@ -176,6 +178,24 @@ export default () => {
     try {
       lrcSyncToTime(time * 1000, playerState.isPlay)
     } catch {}
+    // seek 后引擎真正落位常有 80~200ms 延迟（尤其 iOS / 网络缓冲），仅靠一次重锚可能
+    // 让歌词高亮仍停在 seek 目标前一行。再分 150ms/450ms 两次用真实位置重锚，
+    // 确保高亮行与音频最终严格对齐。
+    seekResyncTimers.forEach(t => BackgroundTimer.clearTimeout(t))
+    seekResyncTimers = []
+    const scheduleResync = (delay: number) => {
+      const timer = BackgroundTimer.setTimeout(() => {
+        void getPosition().then((position) => {
+          if (position == null || !playerState.musicInfo.id) return
+          try {
+            lrcSyncToTime(position * 1000, playerState.isPlay)
+          } catch {}
+        })
+      }, delay)
+      seekResyncTimers.push(timer)
+    }
+    scheduleResync(150)
+    scheduleResync(450)
     if (maxTime != null) {
       setMaxplayTime(maxTime)
       updateScrobbleTotalTime(maxTime)
@@ -270,6 +290,8 @@ export default () => {
 
   const handleStop = () => {
     clearUpdateTimeout()
+    seekResyncTimers.forEach(t => BackgroundTimer.clearTimeout(t))
+    seekResyncTimers = []
     setNowPlayTime(0)
     setMaxplayTime(0)
   }

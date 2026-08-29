@@ -462,7 +462,9 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
   const handleLineLayout = useCallback<LineProps['onLayout']>((lineNum, height) => {
     const layout = lyricScrollLayoutRef.current
     const wasMeasured = layout.isMeasured(lineNum)
-    layout.updateLineHeight(lineNum, height)
+    // 把该行是否有翻译传给布局，使其未测量行估算能区分「无翻译/有翻译」两类真实平均高度，
+    // 避免快进/快退到中后段时高亮行偏高/偏低一行。
+    layout.updateLineHeight(lineNum, height, !!(lyricLines[lineNum]?.extendedLyrics?.length))
     if (!active || isPauseScrollRef.current) return
     const current = lineRef.current.line
     // 当前行高度变化，或当前行之前的某行“首次被测量”（会移动当前行的累计偏移）时，
@@ -470,7 +472,7 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
     if (lineNum === current || (!wasMeasured && lineNum < current)) {
       scheduleRecentre()
     }
-  }, [active, scheduleRecentre])
+  }, [active, scheduleRecentre, lyricLines])
 
   // 小屏/大屏切换时同步估算行高，保证滚动定位偏移计算准确。
   useEffect(() => {

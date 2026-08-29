@@ -11,7 +11,18 @@ export class LyricScrollLayout {
   private defaultHeight: number
   private measuredCount = 0
   private measuredSum = 0
+  // 未测量行估算需区分「无翻译 / 有翻译」两类真实平均高度，否则混合平均会被翻译行抬高，
+  // 反而比固定 defaultHeight 更不准（无翻译行被高估）。按首次测量记录每行归属，翻译状态不会变更。
+  private measuredPlainSum = 0
+  private measuredPlainCount = 0
+  private measuredTransSum = 0
+  private measuredTransCount = 0
+  private lineBucket: number[] = [] // 0=无翻译, 1=有翻译
   spaceHeight = 0
+
+  // 有翻译行约是无翻译行的 1.55 倍（实测大屏 54→84 附近）。无翻译行测量不足时回退到 defaultHeight，
+  // 有翻译行测量不足时回退为「无翻译平均 × 该系数」。
+  static readonly TRANSLATION_FACTOR = 1.55
 
   constructor(defaultHeight = 54) {
     this.defaultHeight = defaultHeight
@@ -22,6 +33,11 @@ export class LyricScrollLayout {
     this.cumulativeOffsets = []
     this.measuredCount = 0
     this.measuredSum = 0
+    this.measuredPlainSum = 0
+    this.measuredPlainCount = 0
+    this.measuredTransSum = 0
+    this.measuredTransCount = 0
+    this.lineBucket = []
     this.spaceHeight = 0
   }
 
@@ -38,16 +54,29 @@ export class LyricScrollLayout {
     this.defaultHeight = defaultHeight
   }
 
-  updateLineHeight(lineNum: number, height: number) {
+  updateLineHeight(lineNum: number, height: number, hasTranslation?: boolean) {
     const prev = this.lineHeights[lineNum]
     if (prev === height) return
-    this.lineHeights[lineNum] = height
     if (prev === undefined) {
       this.measuredCount++
       this.measuredSum += height
+      const bucket = hasTranslation ? 1 : 0
+      this.lineBucket[lineNum] = bucket
+      if (bucket === 1) {
+        this.measuredTransSum += height
+        this.measuredTransCount++
+      } else {
+        this.measuredPlainSum += height
+        this.measuredPlainCount++
+      }
     } else {
       this.measuredSum += height - prev
+      // 翻译状态不会变，用首次记录的分桶；极少数二次测量未带 hasTranslation 时沿用原分桶。
+      const bucket = this.lineBucket[lineNum] ?? (hasTranslation ? 1 : 0)
+      if (bucket === 1) this.measuredTransSum += height - prev
+      else this.measuredPlainSum += height - prev
     }
+    this.lineHeights[lineNum] = height
     // 行高变化后累计偏移失效，需要重建
     this.cumulativeOffsets = []
   }
@@ -107,8 +136,14 @@ export class LyricScrollLayout {
     paddingV = 0,
   ): number {
     if (index <= 0) return 0
-    // 有翻译的行多渲染一行翻译，行高约为无翻译行的 1.55 倍（实测大屏 54→84 附近）。
-    const translationFactor = 1.55
+    // 无翻译 / 有翻译两类未测量行，分别用各自「已测量行的真实平均高度」估算（随用户字号自动修正）。
+    // 原为固定 defaultHeight(54/40)，与真实行高/字号脱节；若用全局混合平均又会被翻译行抬高、反而更不准。
+    // 快进/快退到中后段时，当前行之前大量行因虚拟化未测量，固定值误差逐行累积成
+    // 「高亮行偏高/偏低一整行」，表现为歌词比音频慢一行或快一行。
+    const plainAvg = this.measuredPlainCount > 0 ? this.measuredPlainSum / this.measuredPlainCount : this.defaultHeight
+    const transAvg = this.measuredTransCount > 0
+      ? this.measuredTransSum / this.measuredTransCount
+      : plainAvg * LyricScrollLayout.TRANSLATION_FACTOR
     let offset = 0
     for (let i = 0; i < index; i++) {
       const measured = this.lineHeights[i]
@@ -116,7 +151,7 @@ export class LyricScrollLayout {
         offset += measured
       } else {
         const hasTranslation = (lines[i]?.extendedLyrics?.length ?? 0) > 0
-        offset += hasTranslation ? this.defaultHeight * translationFactor : this.defaultHeight
+        offset += hasTranslation ? transAvg : plainAvg
       }
     }
     const itemHeight = this.getLineHeight(index)

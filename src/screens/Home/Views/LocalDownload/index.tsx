@@ -12,8 +12,7 @@ import { overwriteListMusics } from '@/core/list'
 import { playList } from '@/core/player/player'
 import { LIST_IDS } from '@/config/constant'
 import { getDefaultDownloadPath } from '@/utils/downloadPath'
-import downloadActions from '@/store/download/action'
-import { mkdir, readDir, unlink } from '@/utils/fs'
+import { mkdir, readDir } from '@/utils/fs'
 import { sizeFormate } from '@/utils'
 
 type TabId = 'local' | 'download'
@@ -91,33 +90,27 @@ const SongRow = memo(
     subText,
     isPlaying,
     onPress,
-    onDelete,
   }: {
     title: string
     subText: string
     isPlaying: boolean
     onPress: () => void
-    onDelete: () => void
   }) => {
     const theme = useTheme()
     return (
-      <View style={{ ...styles.songItem, backgroundColor: isPlaying ? theme['c-primary-background-hover'] : 'transparent' }}>
-        <TouchableOpacity style={styles.songItemMain} onPress={onPress}>
-          <View style={styles.itemInfo}>
-            <Text color={isPlaying ? theme['c-primary-font'] : theme['c-font']} numberOfLines={1}>
-              {title}
-            </Text>
-            <Text size={11} color={isPlaying ? theme['c-primary-alpha-200'] : theme['c-500']} numberOfLines={1}>
-              {subText}
-            </Text>
-          </View>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.deleteBtn} onPress={onDelete}>
-          <Text size={12} color={theme['c-500']}>
-            删除
+      <TouchableOpacity
+        style={{ ...styles.songItem, backgroundColor: isPlaying ? theme['c-primary-background-hover'] : 'transparent' }}
+        onPress={onPress}
+      >
+        <View style={styles.itemInfo}>
+          <Text color={isPlaying ? theme['c-primary-font'] : theme['c-font']} numberOfLines={1}>
+            {title}
           </Text>
-        </TouchableOpacity>
-      </View>
+          <Text size={11} color={isPlaying ? theme['c-primary-alpha-200'] : theme['c-500']} numberOfLines={1}>
+            {subText}
+          </Text>
+        </View>
+      </TouchableOpacity>
     )
   }
 )
@@ -199,35 +192,6 @@ export default memo(() => {
     [completedTasks]
   )
 
-  // 删除本地音乐文件
-  const handleDeleteLocal = useCallback(
-    (item: LocalFileItem) => {
-      void unlink(item.path)
-        .then(() => {
-          toast('已删除', 'short')
-        })
-        .catch(() => toast('删除失败', 'short'))
-        .finally(() => {
-          void scanLocalDir()
-        })
-    },
-    [scanLocalDir]
-  )
-
-  // 删除下载记录与文件
-  const handleDeleteTask = useCallback(
-    (task: LX.Download.DownloadTask) => {
-      const removeFile = task.filePath
-        ? unlink(task.filePath).catch(() => {})
-        : Promise.resolve()
-      void removeFile.then(() => {
-        downloadActions.removeTask(task.id)
-        toast('已删除', 'short')
-      })
-    },
-    []
-  )
-
   const isPlayingId = playMusicInfo.musicInfo?.id
 
   return (
@@ -289,7 +253,6 @@ export default memo(() => {
                   .join(' · ')}
                 isPlaying={isPlayingId == item.id}
                 onPress={() => handlePlayTask(item, index)}
-                onDelete={() => handleDeleteTask(item)}
               />
             )}
             ListEmptyComponent={
@@ -308,7 +271,6 @@ export default memo(() => {
                 subText={[item.singer, item.size ? sizeFormate(item.size) : ''].filter(Boolean).join(' · ')}
                 isPlaying={isPlayingId == item.id}
                 onPress={() => handlePlayLocal(item, index)}
-                onDelete={() => handleDeleteLocal(item)}
               />
             )}
             ListEmptyComponent={
@@ -367,18 +329,9 @@ const styles = createStyle({
     paddingTop: 10,
     paddingBottom: 10,
   },
-  songItemMain: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
   itemInfo: {
     flex: 1,
     gap: 4,
-  },
-  deleteBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
   },
   empty: {
     paddingTop: 60,

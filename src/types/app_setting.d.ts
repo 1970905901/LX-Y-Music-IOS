@@ -234,9 +234,6 @@ declare global {
       'webdav.downloadPath': string
       'sync.webdav.path': string
       'sync.webdav.lastSyncTimeLists': number
-
-      'baidupan.cookie': string
-      'baidupan.rootPath': string
     }
   }
 }

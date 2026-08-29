@@ -41,7 +41,6 @@ const defaultSetting: LX.AppSetting = {
     nav_subscribed_albums: true,
     nav_onedrive: true,
     nav_webdav: true,
-    nav_baidupan: true,
     nav_tx_daily_rec: true,
   },
 
@@ -60,7 +59,6 @@ const defaultSetting: LX.AppSetting = {
     'nav_top',
     'nav_webdav',
     'nav_onedrive',
-    'nav_baidupan',
     'nav_setting',
   ],
 
@@ -187,9 +185,6 @@ const defaultSetting: LX.AppSetting = {
   'webdav.downloadPath': '',
   'sync.webdav.path': '/LX_Music/',
   'sync.webdav.lastSyncTimeLists': 0,
-
-  'baidupan.cookie': '',
-  'baidupan.rootPath': '',
 
   'theme.id': 'green',
   'theme.lightId': 'green',

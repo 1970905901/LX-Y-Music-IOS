@@ -370,7 +370,7 @@ export const fetchWebDAVLrc = async (musicInfo: LX.WebDAV.MusicInfo): Promise<st
 }
 
 // 整文件预下载 WebDAV 音频到本地私有缓存目录，返回本地绝对路径。
-// 与百度网盘一致：iOS 的 AVPlayer 无法可靠注入 Authorization/User-Agent 头，
+// iOS 的 AVPlayer 无法可靠注入 Authorization/User-Agent 头，
 // 直链流式播放不稳定，改为用 downloadFile（NSURLSession，能正确携带 Basic Auth）
 // 先下载到私有缓存，再播放本地文件。
 export const downloadWebDAVMusic = async (musicInfo: LX.WebDAV.MusicInfo): Promise<string> => {

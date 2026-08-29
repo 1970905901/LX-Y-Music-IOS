@@ -17,7 +17,6 @@ export const clearAppCache = !CacheModule
 // 云盘播放缓存目录（位于 Caches，可被系统回收，不参与 iCloud 备份）。
 // 与 getWebDAVPrivateDirectory（Documents，用户手动下载）区分开。
 const cloudCacheDirs = [
-  `${temporaryDirectoryPath}/BaiduPan`,
   `${temporaryDirectoryPath}/WebDAV/music`,
   `${temporaryDirectoryPath}/WebDAV/covers`,
 ]
@@ -47,7 +46,7 @@ const clearDirRecursively = async (dir: string) => {
   } catch {}
 }
 
-// 统计云盘播放缓存（百度网盘 / WebDAV 的流式播放预下载缓存）
+// 统计云盘播放缓存（WebDAV 的流式播放预下载缓存）
 export const getCloudCacheSize = async (): Promise<number> => {
   let total = 0
   for (const dir of cloudCacheDirs) {

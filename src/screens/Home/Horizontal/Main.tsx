@@ -13,7 +13,7 @@ import FollowedArtists from "@/screens/Home/Views/FollowedArtists"
 import PlayHistory from '../Views/PlayHistory'
 import OneDrive from '../Views/OneDrive'
 import WebDAV from '../Views/WebDAV'
-import BaiduPan from '../Views/BaiduPan'
+
 import LocalDownload from '../Views/LocalDownload'
 import TXPlaylist from '../Views/TxPlaylist'
 import KgPlaylist from '../Views/KgPlaylist'
@@ -56,8 +56,6 @@ const Main = () => {
         return <OneDrive />
       case 'nav_webdav':
         return <WebDAV />
-      case 'nav_baidupan':
-        return <BaiduPan />
       case 'nav_local_download':
         return <LocalDownload />
       case 'nav_tx_playlist':

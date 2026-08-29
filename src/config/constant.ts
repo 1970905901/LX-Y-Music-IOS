@@ -115,7 +115,6 @@ export const NAV_MENUS = [
   { id: 'nav_subscribed_albums', icon: 'svg:album-disc' },
   { id: 'nav_webdav', icon: 'svg:onedrive' },
   { id: 'nav_onedrive', icon: 'svg:onedrive' },
-  { id: 'nav_baidupan', icon: 'svg:onedrive' },
   { id: 'nav_local_download', icon: 'download-2' },
   { id: 'nav_play_history', icon: 'music_time' },
   { id: 'nav_setting', icon: 'setting' },
@@ -133,7 +132,7 @@ export interface NavGroup {
 export const NAV_GROUPS: NavGroup[] = [
   { id: 'group_online', label: 'group_online', icon: 'album', children: ['nav_tx_playlist', 'nav_my_playlist', 'nav_kg_playlist', 'nav_followed_artists', 'nav_subscribed_albums'] },
   { id: 'group_daily', label: 'group_daily', icon: 'svg:calendar', children: ['nav_tx_daily_rec', 'nav_daily_rec', 'nav_kg_daily_rec'] },
-  { id: 'group_cloud', label: 'group_cloud', icon: 'svg:onedrive', children: ['nav_webdav', 'nav_onedrive', 'nav_baidupan'] },
+  { id: 'group_cloud', label: 'group_cloud', icon: 'svg:onedrive', children: ['nav_webdav', 'nav_onedrive'] },
 ]
 
 /**

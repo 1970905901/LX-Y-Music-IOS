@@ -13,11 +13,6 @@ import {
   getPicUrl as getOneDrivePicUrl,
   getLyricInfo as getOneDriveLyricInfo,
 } from '@/core/oneDrive/music'
-import {
-  getMusicUrl as getBaiduPanMusicUrl,
-  getPicUrl as getBaiduPanPicUrl,
-  getLyricInfo as getBaiduPanLyricInfo,
-} from '@/core/baiduPan/music'
 import * as localPlay from './localPlay'
 import { handleGetOnlinePicUrl } from './utils'
 import { webDAVLog } from '@/core/webdavMusic/logger'
@@ -60,9 +55,6 @@ export const getMusicUrl = async ({
   } else if (musicInfo.source == 'local') {
     if ('oneDrive' in musicInfo.meta) {
       return getOneDriveMusicUrl({ musicInfo: musicInfo as LX.OneDrive.MusicInfo, isRefresh })
-    }
-    if ('baidupan' in musicInfo.meta) {
-      return getBaiduPanMusicUrl({ musicInfo: musicInfo as LX.BaiduPan.MusicInfo, isRefresh })
     }
     if ('webdav' in musicInfo.meta && (musicInfo.meta as any).webdav) {
       webDAVLog.info('index.ts: Detected WebDAV music', { source: musicInfo.source, meta: JSON.stringify(musicInfo.meta) })
@@ -111,9 +103,6 @@ export const getPicPath = async ({
     if ('oneDrive' in musicInfo.meta) {
       return getOneDrivePicUrl({ musicInfo: musicInfo as LX.OneDrive.MusicInfo, isRefresh, listId })
     }
-    if ('baidupan' in musicInfo.meta) {
-      return getBaiduPanPicUrl({ musicInfo: musicInfo as LX.BaiduPan.MusicInfo, isRefresh, listId })
-    }
     if ('webdav' in musicInfo.meta && (musicInfo.meta as any).webdav) {
       return getLocalPicUrl({ musicInfo, isRefresh, listId, onToggleSource })
     }
@@ -156,9 +145,6 @@ export const getLyricInfo = async ({
   } else if (musicInfo.source == 'local') {
     if ('oneDrive' in musicInfo.meta) {
       return getOneDriveLyricInfo({ musicInfo: musicInfo as LX.OneDrive.MusicInfo, isRefresh })
-    }
-    if ('baidupan' in musicInfo.meta) {
-      return getBaiduPanLyricInfo({ musicInfo: musicInfo as LX.BaiduPan.MusicInfo, isRefresh })
     }
     if ('webdav' in musicInfo.meta && (musicInfo.meta as any).webdav) {
       return getLocalLyricInfo({ musicInfo, isRefresh, onToggleSource })

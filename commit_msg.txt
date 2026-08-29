@@ -1,0 +1,6 @@
+refactor: 移除百度网盘云盘功能
+
+- 删除 src/core/baiduPan 核心模块（utils/music/drive）与 LX.BaiduPan 类型声明
+- 移除侧边栏 nav_baidupan 入口、NAV_GROUPS 分组项、默认设置项与 zh-cn 文案
+- 清理 event/appEvent、core/music、playHistory、PlayerPlaylist、各播放详情页、cache 的引用
+- 保留 musicSdk/bd 百度音乐搜索源（与百度网盘无关联）

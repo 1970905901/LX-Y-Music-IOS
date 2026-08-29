@@ -12,7 +12,6 @@ import CommentBtn from './CommentBtn'
 import Btn from './Btn'
 import SettingPopup, { type SettingPopupType } from '../../components/SettingPopup'
 import { isOneDriveMusicInfo } from '@/core/oneDrive/utils'
-import { isBaiduPanMusicInfo } from '@/core/baiduPan/utils'
 import { handleShowArtistDetail } from '@/components/OnlineList/listAction'
 
 export const HEADER_HEIGHT = scaleSizeH(_HEADER_HEIGHT)
@@ -105,7 +104,7 @@ const Title = () => {
 export default memo(() => {
   const popupRef = useRef<SettingPopupType>(null)
   const playMusicInfo = usePlayMusicInfo()
-  const isOneDrive = isOneDriveMusicInfo(playMusicInfo.musicInfo) || isBaiduPanMusicInfo(playMusicInfo.musicInfo)
+  const isOneDrive = isOneDriveMusicInfo(playMusicInfo.musicInfo)
   const theme = useTheme()
   const back = () => {
     void pop(commonState.componentIds[commonState.componentIds.length - 1]?.id!)

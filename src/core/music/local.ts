@@ -169,7 +169,7 @@ export const getMusicUrl = async ({
       const localExists = await existsFile(webDAVMusicInfo.meta.filePath).catch(() => false)
       if (localExists) return webDAVMusicInfo.meta.filePath
     }
-    // 未下载：整文件预下载到本地缓存后播放（与百度网盘一致）。
+    // 未下载：整文件预下载到本地缓存后播放。
     // iOS 的 AVPlayer 无法可靠注入 Authorization/User-Agent，直链流式不稳定，
     // 改用 downloadFile 先下载再播放本地文件；失败即抛错，不走自定义源换源。
     const module = await loadWebDAVModule()

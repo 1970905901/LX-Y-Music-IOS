@@ -24,7 +24,6 @@ import {
   SIMILAR_SONGS_SCREEN,
   ANNOUNCEMENT_MODAL,
   TOAST_SCREEN,
-  VIDEO_PLAYER_SCREEN,
   // SETTING_SCREEN,
 } from './screenNames'
 import PactModal from './components/PactModal'
@@ -32,7 +31,6 @@ import SyncModeModal from './components/SyncModeModal'
 import AnnouncementModal from './components/AnnouncementModal'
 import DownloadManager from "@/screens/DownloadManager";
 import ToastOverlay from './components/Toast'
-import VideoPlayer from './components/VideoPlayer'
 function WrappedComponent(Component: any) {
   return function inject(props: Record<string, any>) {
     const EnhancedComponent = () => (
@@ -57,8 +55,6 @@ export default () => {
   Navigation.registerComponent(DOWNLOAD_MANAGER_SCREEN, () => WrappedComponent(DownloadManager))
   Navigation.registerComponent(SIMILAR_SONGS_SCREEN, () => WrappedComponent(SimilarSongs))
   Navigation.registerComponent(ANNOUNCEMENT_MODAL, () => WrappedComponent(AnnouncementModal))
-  // MV 视频播放浮层：浮于所有页面（含播放详情页）之上，避免被详情页遮盖
-  Navigation.registerComponent(VIDEO_PLAYER_SCREEN, () => WrappedComponent(VideoPlayer))
   // 非阻塞 Toast 浮层：用于替代 iOS 上的 Alert.alert，避免连续 toast 弹原生 Alert 堆叠导致整页卡死
   Navigation.registerComponent(TOAST_SCREEN, () => WrappedComponent(ToastOverlay))
   // Navigation.registerComponent(SETTING_SCREEN, () => WrappedComponent(Setting))

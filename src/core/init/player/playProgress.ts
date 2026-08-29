@@ -55,6 +55,11 @@ export default () => {
   // 与 rAF 分工——rAF 每帧做歌词外推（无 Bridge 延迟），BackgroundTimer 保证后台进度不丢。
   let bgInterval: ReturnType<typeof BackgroundTimer.setInterval> | null = null
   let isScreenOn = true
+  // AppState 是否处于前台（active）。iOS 上 onScreenStateChange 为空实现（utils.ts 直接 return），
+  // isScreenOn 恒为 true，不能用来判断是否「退后台」。改用 AppState 在退后台时停掉 1s 后台计时器
+  // 与帧循环，避免 BackgroundTimer 在后台仍每秒经 Bridge 取播放位置 / 写进度 / 上报 Scrobble，
+  // 造成 iOS「后台活动」耗电（音频由原生继续播放，不受影响）。
+  let isAppActive = AppState.currentState === 'active'
   // 进度条拖动进行中：此时歌词时钟由拖动预览 hold 在手指位置，进度条 UI 也跟随手指。
   let isDragging = false
   // 最近一次 seek/点击跳转的目标位置（毫秒），-1 表示当前不在 seek 沉降窗口内。
@@ -145,7 +150,7 @@ export default () => {
   }
 
   const startUpdateTimeout = () => {
-    if (!isScreenOn) return
+    if (!isScreenOn || !isAppActive) return
     clearUpdateTimeout()
     // 歌词时钟：requestAnimationFrame 每帧（~16ms）以「外推时钟」驱动，取代原 80ms Bridge 轮询。
     // 外推时钟只在锚点处取一次原生位置，之后纯 JS 单调时钟外推，不受 Bridge 往返延迟与
@@ -352,8 +357,14 @@ export default () => {
   }
 
   AppState.addEventListener('change', (state) => {
-    // 记住播放进度：退后台立即持久化一次当前进度（iOS 上从后台被杀不保证还有保存机会）
-    if (state == 'background') savePlayInfoNow()
+    isAppActive = state == 'active'
+    if (state == 'background') {
+      // 退后台：立即持久化一次进度，并停掉 1s 后台计时器与帧循环。否则 BackgroundTimer 在后台仍
+      // 每秒经 Bridge 取播放位置 / 写进度 / 上报 Scrobble，造成 iOS「后台活动」耗电。音频由原生继续播放。
+      savePlayInfoNow()
+      clearUpdateTimeout()
+      return
+    }
     if (state == 'active' && !isScreenOn) {
       handleScreenStateChanged('ON')
     }
@@ -366,6 +377,9 @@ export default () => {
           try { lrcSyncToTime(position * 1000, playerState.isPlay) } catch {}
         }
       })
+      // 回前台重启帧循环与 1s 后台计时器（iOS 上 onScreenStateChange 为空实现，必须靠此路径重启，
+      // 否则退后台清除后回到前台不会恢复歌词同步/进度校准）。
+      startUpdateTimeout()
     }
     // 从后台切换回软件时，若开启开关且当前有歌曲但处于暂停状态，则自动恢复播放
     if (state == 'active' && settingState.setting['player.autoPlayOnReturn'] && !playerState.isPlay && playerState.musicInfo.id) {

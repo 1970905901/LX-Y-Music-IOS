@@ -16,6 +16,7 @@ import { defaultHeaders } from '@/components/common/Image'
 import { getCutoutLeftPx } from '@/utils/nativeModules/utils'
 import commonState from '@/store/common/state'
 import { navigations } from '@/navigation'
+import { useLandscapeLayout } from '@/utils/landscapeLayout'
 
 const NAV_WIDTH = 68
 
@@ -139,10 +140,12 @@ const renderIcon = (icon: string, size: number, color: string) => {
 const MenuItem = ({
   id,
   icon,
+  iconSize,
   onPress,
 }: {
   id: IdType
   icon: string
+  iconSize: number
   onPress: (id: IdType) => void
 }) => {
   // const t = useI18n()
@@ -152,7 +155,7 @@ const MenuItem = ({
   return activeId == id ? (
     <View style={{ ...styles.menuItem, backgroundColor: theme['c-primary-background-hover'] }}>
       <View style={styles.iconContent}>
-        {renderIcon(icon, 20, theme['c-primary-font-active'])}
+        {renderIcon(icon, iconSize, theme['c-primary-font-active'])}
       </View>
       {/* <Text style={styles.text} size={14} color={theme['c-primary-font']}>{t(id)}</Text> */}
     </View>
@@ -164,7 +167,7 @@ const MenuItem = ({
       }}
     >
       <View style={styles.iconContent}>
-        {renderIcon(icon, 20, theme['c-font-label'])}
+        {renderIcon(icon, iconSize, theme['c-font-label'])}
       </View>
       {/* <Text style={styles.text} size={14}>{t(id)}</Text> */}
     </TouchableOpacity>
@@ -225,6 +228,7 @@ export default memo(() => {
   }, [navStatus, navOrder, navFlatOrder, navGroupEnabled]);
 
   const isLandscapeStretch = useSettingValue('theme.isLandscapeStretch')
+  const layout = useLandscapeLayout()
   const rawCutoutLeft = useCutoutLeft()
   const cutoutLeft = isLandscapeStretch ? 0 : rawCutoutLeft
 
@@ -236,7 +240,7 @@ export default memo(() => {
   }
 
   return (
-    <View style={{ ...styles.container, marginLeft: cutoutLeft, borderRightColor: theme['c-border-background'], backgroundColor: showSidebarBg ? 'transparent' : undefined }}>
+    <View style={{ ...styles.container, width: layout.asideWidth, marginLeft: cutoutLeft, borderRightColor: theme['c-border-background'], backgroundColor: showSidebarBg ? 'transparent' : undefined }}>
       {showSidebarBg ? (
         <ImageBackground
           style={{
@@ -263,13 +267,13 @@ export default memo(() => {
       <ScrollView style={styles.menus}>
         <View style={styles.list}>
           {filteredNavMenus.map((menu: typeof NAV_MENUS[number]) => (
-            <MenuItem key={menu.id} id={menu.id} icon={menu.icon} onPress={handlePress} />
+            <MenuItem key={menu.id} id={menu.id} icon={menu.icon} iconSize={layout.asideIconSize} onPress={handlePress} />
           ))}
           <View style={styles.divider} />
         </View>
       </ScrollView>
-      {global.lx.isCarMode && showBackBtn ? <MenuItem id="back_home" icon="home" onPress={handlePress} /> : null}
-      {global.lx.isCarMode && showExitBtn ? <MenuItem id="nav_exit" icon="exit2" onPress={handlePress} /> : null}
+      {global.lx.isCarMode && showBackBtn ? <MenuItem id="back_home" icon="home" iconSize={layout.asideIconSize} onPress={handlePress} /> : null}
+      {global.lx.isCarMode && showExitBtn ? <MenuItem id="nav_exit" icon="exit2" iconSize={layout.asideIconSize} onPress={handlePress} /> : null}
 
       <View style={styles.footer}>
         <TouchableOpacity style={styles.footerBtn} onPress={handleHistoryPress}>

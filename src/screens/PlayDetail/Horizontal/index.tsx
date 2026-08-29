@@ -17,6 +17,7 @@ import { createStyle } from '@/utils/tools'
 import { marginLeftRaw } from './constant'
 import { useStatusbarHeight } from '@/store/common/hook'
 import { useSettingValue } from '@/store/setting/hook'
+import { useLandscapeLayout } from '@/utils/landscapeLayout'
 
 const useCutoutLeft = () => {
   const [cutoutLeftDp, setCutoutLeftDp] = useState(() => {
@@ -45,6 +46,7 @@ const useCutoutLeft = () => {
 export default memo(({ componentId }: { componentId: string }) => {
   const statusBarHeight = useStatusbarHeight()
   const isLandscapeStretch = useSettingValue('theme.isLandscapeStretch')
+  const layout = useLandscapeLayout()
   const rawCutoutLeft = useCutoutLeft()
   const cutoutLeft = isLandscapeStretch ? 0 : rawCutoutLeft
 
@@ -80,7 +82,7 @@ export default memo(({ componentId }: { componentId: string }) => {
     <PageContent>
       <StatusBar />
       <View style={{ ...styles.container, paddingTop: statusBarHeight }}>
-        <View style={{ ...styles.left, marginLeft: cutoutLeft }}>
+        <View style={{ ...styles.left, width: `${layout.leftRatio * 100}%`, marginLeft: cutoutLeft }}>
           <Header />
           <View style={styles.leftContent}>
             <MoreBtn />
@@ -92,7 +94,7 @@ export default memo(({ componentId }: { componentId: string }) => {
             <ControlBtn />
           </View> */}
         </View>
-        <View style={styles.right}>
+        <View style={{ ...styles.right, width: `${layout.rightRatio * 100}%`, maxWidth: Number.isFinite(layout.lyricMaxWidth) ? layout.lyricMaxWidth : undefined }}>
           <Lyric />
         </View>
       </View>

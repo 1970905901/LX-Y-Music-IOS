@@ -9,10 +9,12 @@ import { marginLeft } from './constant';
 import Image from '@/components/common/Image';
 import { useStatusbarHeight } from '@/store/common/hook';
 import { useSettingValue } from '@/store/setting/hook';
+import { useLandscapeLayout, getLeftWidth } from '@/utils/landscapeLayout';
 
 export default memo(({ componentId }: { componentId: string }) => {
   const musicInfo = usePlayerMusicInfo();
   const { width: winWidth, height: winHeight } = useWindowSize();
+  const layout = useLandscapeLayout();
   const statusBarHeight = useStatusbarHeight();
   const isPlay = useIsPlay();
   const isCoverSpin = useSettingValue('playDetail.isCoverSpin');
@@ -85,9 +87,12 @@ export default memo(({ componentId }: { componentId: string }) => {
   });
 
   const imageContainerStyle = useMemo(() => {
+    // 歌词区被限宽时，多出来的空间由左半区吸收，因此按左半区实际宽度推导封面尺寸，
+    // 避免封面与信息区脱节。手机横屏（medium 档）下结果与历史计算完全一致。
+    const leftWidth = getLeftWidth(winWidth, layout);
     let baseWidth = Math.min(
-      (winWidth * 0.45 - marginLeft - BTN_WIDTH) * 0.76,
-      (winHeight - statusBarHeight - HEADER_HEIGHT) * 0.62,
+      (leftWidth - marginLeft - BTN_WIDTH) * layout.coverFillRatio,
+      (winHeight - statusBarHeight - HEADER_HEIGHT) * layout.coverHeightRatio,
     );
     baseWidth -= baseWidth * (global.lx.fontSize - 1) * 0.3;
     const imgWidth = baseWidth * (coverSize / 100);
@@ -101,7 +106,7 @@ export default memo(({ componentId }: { componentId: string }) => {
       backgroundColor: 'transparent',
       overflow: 'hidden',
     };
-  }, [winWidth, winHeight, statusBarHeight, isCoverSpin, coverSize]);
+  }, [winWidth, winHeight, statusBarHeight, isCoverSpin, coverSize, layout]);
 
   const imageStyle = useMemo(() => ({
     width: '100%',

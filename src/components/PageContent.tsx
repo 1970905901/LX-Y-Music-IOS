@@ -2,7 +2,7 @@
 import { View, Dimensions } from 'react-native'
 import { useTheme } from '@/store/theme/hook'
 import ImageBackground from '@/components/common/ImageBackground'
-import { useWindowSize } from '@/utils/hooks'
+import { useWindowSize, useHorizontalMode } from '@/utils/hooks'
 import { useMemo } from 'react'
 import { scaleSizeAbsHR } from '@/utils/pixelRatio'
 import { defaultHeaders } from './common/Image'
@@ -19,6 +19,10 @@ interface Props {
 export default ({ children }: Props) => {
   const theme = useTheme();
   const windowSize = useWindowSize();
+  const isHorizontal = useHorizontalMode();
+  // 平板/大屏竖屏（宽 ≥ 700pt）限制内容宽度并居中，避免列表与文字行被拉得过长；
+  // 手机竖屏（宽 < 700）与所有横屏（已由各自布局处理）不受影响。
+  const isWidePortrait = !isHorizontal && windowSize.width >= 700;
   const dynamicPic = useBgPic();
   const customBgPicPath = useSettingValue('theme.customBgPicPath');
   const pic = customBgPicPath || dynamicPic;
@@ -67,13 +71,17 @@ export default ({ children }: Props) => {
             // 全局左右内收：所有屏幕内容稍离屏幕边缘（背景图仍全屏不受影响）
             paddingHorizontal: 6,
             backgroundColor: pic ? undefined : theme['c-main-background'],
+            // 平板/大屏竖屏下限制内容宽度并居中，避免列表与文字行被拉得过长；
+            // 手机竖屏（宽 < 700）与所有横屏（已由各自布局处理）不受影响。
+            maxWidth: isWidePortrait ? 700 : undefined,
+            alignSelf: isWidePortrait ? 'center' : undefined,
           }}
         >
           {children}
         </View>
       </View>
     );
-  }, [children, pic, theme, windowSize.height, windowSize.width, BLUR_RADIUS, picOpacity]);
+  }, [children, pic, theme, windowSize.height, windowSize.width, BLUR_RADIUS, picOpacity, isWidePortrait]);
 
   return (
     <>

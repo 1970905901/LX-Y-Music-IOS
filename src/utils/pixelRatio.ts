@@ -11,6 +11,9 @@ import { windowSizeTools } from './windowSizeTools'
 const designWidth = 375.0
 const designHeight = 667.0
 
+// scaleSizeW/H 的真实放大倍率是 scale / pixelRatio（这两个函数里还会再除一次 pixelRatio）。
+const MAX_EFFECTIVE_SCALE = 1.2
+
 let screenW = 0
 let screenH = 0
 let fontScale = PixelRatio.getFontScale()
@@ -35,7 +38,10 @@ const recalc = () => {
 
   const scaleW = screenPxW / designWidth
   const scaleH = screenPxH / designHeight
-  scale = Math.min(scaleW, scaleH, 3.1)
+  // 手机（含 Pro Max）的有效倍率落在 1.0~1.11，本来就在上限内；而平板 pixelRatio 多为 2，
+  // 仅用 3.1 这个物理倍率上限会算出约 1.55 倍，导致 iPad/平板上间距、图标、高度整体偏大。
+  // 补一个有效倍率上限：手机完全不受影响，平板（含 iPad 原生大屏）尺寸回归合理。
+  scale = Math.min(scaleW, scaleH, 3.1, MAX_EFFECTIVE_SCALE * pixelRatio)
 }
 
 windowSizeTools.onSizeChanged(() => recalc())

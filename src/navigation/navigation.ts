@@ -644,7 +644,9 @@ export function pushTabBasedApp() {
 }
  */
 export function pushArtistDetailScreen(componentId: string, artistInfo: { id: string, mid?: string, name: string, picUrl?: string, source?: string }) {
-  if (!startPush(COMPONENT_IDS.ARTIST_DETAIL)) return
+  // allowSameTop: 允许从「歌手详情页」跳转到另一个「歌手详情页」（如相似歌手入口），
+  // 否则 startPush 会因 isTopScreen(ARTIST_DETAIL) 直接拦截，导致相似歌手点击无响应。
+  if (!startPush(COMPONENT_IDS.ARTIST_DETAIL, true)) return
   const theme = themeState.theme
   void guardPush(Navigation.push(componentId, {
     component: {

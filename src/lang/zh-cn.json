@@ -694,6 +694,7 @@
   "group_cloud": "云盘",
   "setting_basic_lock_landscape": "横屏模式",
   "setting_basic_lock_landscape_tip": "开启后所有页面锁定为横屏显示，关闭后锁定为竖屏显示。\n\n切换后新打开的页面会立即生效，首页需要重启软件后才会生效。",
+  "setting_basic_lock_landscape_restart_tip": "横屏模式已切换，首页需重启软件后才会生效",
   "setting_search_source_toggle": "启用搜索平台",
   "source_kw": "酷我",
   "source_kg": "酷狗",

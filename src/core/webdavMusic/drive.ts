@@ -4,7 +4,7 @@ import settingState from '@/store/setting/state'
 import { webDAVLog } from './logger'
 import { btoa } from 'react-native-quick-base64'
 import { downloadFile, existsFile, mkdir, temporaryDirectoryPath } from '@/utils/fs'
-import { enforceCloudCacheLimit } from '@/utils/nativeModules/cache'
+import { enforceCacheLimit } from '@/utils/nativeModules/cache'
 import { stringMd5 } from 'react-native-quick-md5'
 
 const CONFIG_KEY = '@webdav_music_config'
@@ -388,8 +388,9 @@ export const downloadWebDAVMusic = async (musicInfo: LX.WebDAV.MusicInfo): Promi
   const downloadUrl = getWebDAVDownloadUrl(musicInfo)
   await downloadFile(downloadUrl, filePath, { headers: getWebDAVAuthHeaders() }).promise
 
-  // 下载完成后按上限自动清理云盘缓存（LRU），避免缓存无限累积
-  void enforceCloudCacheLimit((settingState.setting['player.cacheLimit'] || 0) * 1024 * 1024)
+  // 下载完成后按上限对全部应用缓存做 LRU 清理，避免缓存无限累积
+  // （不仅清 WebDAV 子目录，让 getAppCacheSize 显示的总大小也收敛到上限内）
+  void enforceCacheLimit((settingState.setting['player.cacheLimit'] || 0) * 1024 * 1024)
 
   return filePath
 }

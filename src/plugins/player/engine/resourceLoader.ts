@@ -12,6 +12,8 @@ import {
   ensureCurrentTrackMetadata,
   loadTrackPlayerResource,
 } from '../trackPlayerCore'
+import settingState from '@/store/setting/state'
+import { enforceCacheLimit } from '@/utils/nativeModules/cache'
 
 const resolveShouldAutoStart = (currentTrackIndex: number | null) => {
   if (currentTrackIndex != null) return true
@@ -55,6 +57,8 @@ export const loadPlaybackResource = async({
         duration: playbackInfo.duration,
         elapsedTime: playbackInfo.position,
       })
+      // 每次加载新歌后做 LRU 清理，让资源缓存管理设定的上限真正约束总大小
+      void enforceCacheLimit((settingState.setting['player.cacheLimit'] || 0) * 1024 * 1024)
       return
     } catch (err) {
       // 原生 FLAC 播放器不可用或启动失败（例如非远程/加密格式、原生模块异常）：
@@ -81,5 +85,7 @@ export const loadPlaybackResource = async({
     duration: track.duration,
     elapsedTime: time,
   })
+  // 每次加载新歌后做 LRU 清理，让资源缓存管理设定的上限真正约束总大小
+  void enforceCacheLimit((settingState.setting['player.cacheLimit'] || 0) * 1024 * 1024)
 }
 

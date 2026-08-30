@@ -10,7 +10,7 @@ import { useSettingValue } from '@/store/setting/hook'
 import { updateSetting } from '@/core/common'
 import { useI18n } from '@/lang'
 import Text from '@/components/common/Text'
-import { getAppCacheSize, clearAppCache, enforceCloudCacheLimit } from '@/utils/nativeModules/cache'
+import { getAppCacheSize, clearAppCache, enforceCacheLimit } from '@/utils/nativeModules/cache'
 import { clearMusicUrl } from '@/utils/data'
 
 // 缓存大小上限预设（MB，0 = 不限制）
@@ -65,8 +65,9 @@ export default memo(() => {
 
   const handleSetCacheLimit = (value: number) => {
     updateSetting({ 'player.cacheLimit': value })
-    // 选择后立即按新上限清理，缓存立即收敛到上限内（0 = 不限制，跳过清理）。
-    void enforceCloudCacheLimit(value * 1024 * 1024).finally(() => handleGetCacheSize())
+    // 选择后立即按新上限对全部应用缓存做 LRU 清理，使 getAppCacheSize 显示的
+    // 总大小真正收敛到上限内（0 = 不限制，跳过清理）。
+    void enforceCacheLimit(value * 1024 * 1024).finally(() => handleGetCacheSize())
   }
 
   useEffect(() => {

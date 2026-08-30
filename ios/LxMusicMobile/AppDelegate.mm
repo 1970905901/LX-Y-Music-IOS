@@ -4540,6 +4540,56 @@ RCT_REMAP_METHOD(clearAppCache, clearAppCacheWithResolver:(RCTPromiseResolveBloc
   });
 }
 
+// 按缓存大小上限对全部应用缓存（Caches + Tmp，排除 TrackPlayer 原生缓存目录）做
+// LRU 清理。iOS 上 RNTP 的 maxCacheSize 不生效，getAppCacheSize/clearAppCache 跳过
+// TrackPlayer（见 LXShouldSkipManagedCacheEntry），这里保持一致：只清理应用自身可
+// 管理的缓存（云盘播放缓存、FastImage 封面缓存、URLCache、临时文件等），按最后
+// 修改时间最旧优先删除，直到总大小 <= limitBytes。limitBytes <= 0 表示不限制。
+RCT_REMAP_METHOD(enforceCacheLimit, enforceCacheLimitWithLimitBytes:(nonnull NSNumber *)limitBytes
+                          resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
+  long long limit = [limitBytes longLongValue];
+  if (limit <= 0) { resolve(@(0)); return; }
+
+  dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+    NSFileManager *fileManager = [NSFileManager defaultManager];
+    NSMutableArray<NSDictionary *> *files = [NSMutableArray array];
+    unsigned long long total = 0;
+    for (NSString *dir in LXCacheDirectories()) {
+      NSDirectoryEnumerator *enumerator = [fileManager enumeratorAtPath:dir];
+      for (NSString *itemPath in enumerator) {
+        // 与 getAppCacheSize 一致：跳过 TrackPlayer 原生缓存目录
+        if (LXShouldSkipManagedCacheEntry(itemPath)) { [enumerator skipDescendants]; continue; }
+        NSString *fullPath = [dir stringByAppendingPathComponent:itemPath];
+        NSDictionary *attrs = [fileManager attributesOfItemAtPath:fullPath error:nil];
+        if (!attrs || [attrs[NSFileType] isEqualToString:NSFileTypeDirectory]) continue;
+        unsigned long long size = [attrs[NSFileSize] unsignedLongLongValue];
+        NSDate *modDate = attrs[NSFileModificationDate];
+        long long mtime = modDate ? (long long)([modDate timeIntervalSince1970] * 1000) : 0;
+        [files addObject:@{@"path": fullPath, @"size": @(size), @"mtime": @(mtime)}];
+        total += size;
+      }
+    }
+    if (total <= (unsigned long long)limit) { resolve(@(0)); return; }
+
+    // 最旧在前，优先删除最久未使用的缓存文件
+    NSArray *sorted = [files sortedArrayUsingComparator:^NSComparisonResult(NSDictionary *a, NSDictionary *b) {
+      return [a[@"mtime"] compare:b[@"mtime"]];
+    }];
+
+    unsigned long long freed = 0;
+    for (NSDictionary *f in sorted) {
+      if (total <= (unsigned long long)limit) break;
+      NSString *path = f[@"path"];
+      unsigned long long size = [f[@"size"] unsignedLongLongValue];
+      if ([fileManager removeItemAtPath:path error:nil]) {
+        total -= size;
+        freed += size;
+      }
+    }
+    resolve(@(freed));
+  });
+}
+
 @end
 
 @interface NowPlayingModule : NSObject<RCTBridgeModule>

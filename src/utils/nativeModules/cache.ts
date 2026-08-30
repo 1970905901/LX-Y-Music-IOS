@@ -84,6 +84,16 @@ const collectCloudCacheFiles = async (dir: string, files: CloudCacheFile[] = [])
   return files
 }
 
+// 按缓存大小上限对全部应用缓存做 LRU 清理（与 getAppCacheSize/clearAppCache 一致，
+// 排除 TrackPlayer 原生缓存目录）。iOS 上 RNTP 的 maxCacheSize 不生效，所以这里
+// 在原生侧对 Caches + Tmp 按最后修改时间最旧优先删除，直到总大小 <= limitBytes。
+// 这是「资源缓存管理」里设定的上限真正生效的兜底——单纯清理云盘 WebDAV 子目录
+// 无法让 getAppCacheSize 显示的总数收敛到上限内。
+// limitBytes <= 0 表示不限制，返回实际释放的字节数。
+export const enforceCacheLimit = !CacheModule
+  ? (_limitBytes: number): Promise<number> => Promise.resolve(0)
+  : (CacheModule.enforceCacheLimit as (limitBytes: number) => Promise<number>)
+
 // 按缓存大小上限清理云盘缓存（LRU：删除最旧的文件，直到总大小 <= limitBytes）。
 // limitBytes 为字节数，<= 0 表示不限制。
 export const enforceCloudCacheLimit = async (limitBytes: number) => {

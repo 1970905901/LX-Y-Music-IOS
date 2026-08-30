@@ -9,6 +9,9 @@ import { playOnlineList } from '@/core/list'
 import { getPlayHistoryByRange } from '@/core/player/playHistory'
 import { usePlayerMusicInfo } from '@/store/player/hook'
 import { useTheme } from '@/store/theme/hook'
+import { useBgPic } from '@/store/common/hook'
+import ImageBackground from '@/components/common/ImageBackground'
+import { defaultHeaders } from '@/components/common/Image'
 import { createStyle, toast } from '@/utils/tools'
 
 type HistoryMusicInfo = LX.Music.MusicInfoOnline & {
@@ -94,6 +97,13 @@ export default memo(() => {
   const [list, setList] = useState<HistoryMusicInfo[]>([])
   const playerMusicInfo = usePlayerMusicInfo()
   const theme = useTheme()
+  const isDynamicBg = useSettingValue('theme.dynamicBg')
+  const dynamicPic = useBgPic()
+  const customBgPicPath = useSettingValue('theme.customBgPicPath')
+  const blur = useSettingValue('theme.blur')
+  const picOpacity = useSettingValue('theme.picOpacity')
+  const pic = customBgPicPath || dynamicPic
+  const showBg = isDynamicBg && !!pic
 
   const isRange = !!endDate && endDate !== startDate
   const title = isRange ? `${startDate} ~ ${endDate}` : startDate
@@ -208,7 +218,17 @@ export default memo(() => {
   }, [changeDay, isRange])
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme['c-content-background'] }]}>
+      {showBg ? (
+        <ImageBackground
+          style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0 }}
+          source={{ uri: pic, headers: defaultHeaders }}
+          resizeMode="cover"
+          blurRadius={blur}
+        >
+          <View style={{ flex: 1, backgroundColor: theme['c-content-background'], opacity: picOpacity / 100 }} />
+        </ImageBackground>
+      ) : null}
       <View style={{ ...styles.header, borderBottomColor: theme['c-border-background'] }}>
         <TouchableOpacity style={styles.iconBtn} disabled={isRange} onPress={() => changeDay(-1)}>
           <Icon name="chevron-left" size={18} color={isRange ? theme['c-300'] : theme['c-font']} />

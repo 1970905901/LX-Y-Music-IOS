@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { TouchableOpacity, View } from 'react-native'
+import { TouchableOpacity, View, type ImageSourcePropType } from 'react-native'
 import PagerView, { type PagerViewOnPageSelectedEvent } from 'react-native-pager-view'
 import OnlineList, { type OnlineListType } from '@/components/OnlineList'
 import Text from '@/components/common/Text'
@@ -102,8 +102,13 @@ export default memo(() => {
   const customBgPicPath = useSettingValue('theme.customBgPicPath')
   const blur = useSettingValue('theme.blur')
   const picOpacity = useSettingValue('theme.picOpacity')
-  const pic = customBgPicPath || dynamicPic
-  const showBg = isDynamicBg && !!pic
+  const themeBg = theme['bg-image']
+  const bgSource: ImageSourcePropType | null = customBgPicPath
+    ? { uri: customBgPicPath, headers: defaultHeaders }
+    : isDynamicBg && dynamicPic
+      ? { uri: dynamicPic, headers: defaultHeaders }
+      : themeBg ?? null
+  const showBg = !!bgSource
 
   const isRange = !!endDate && endDate !== startDate
   const title = isRange ? `${startDate} ~ ${endDate}` : startDate
@@ -222,7 +227,7 @@ export default memo(() => {
       {showBg ? (
         <ImageBackground
           style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0 }}
-          source={{ uri: pic, headers: defaultHeaders }}
+          source={bgSource}
           resizeMode="cover"
           blurRadius={blur}
         >

@@ -15,6 +15,11 @@ export const useFontSize = () => {
   return value
 }
 
+// 全局顶部间距偏移（pt）：所有页面 Header 均以 useStatusbarHeight 作为
+// 距状态栏的 paddingTop，在此统一加一点留白，避免标题贴住状态栏/灵动岛。
+// 只读偏移，不写入 state，避免影响 SizeView 的原始高度校准。
+const STATUSBAR_TOP_OFFSET = 6
+
 export const useStatusbarHeight = () => {
   const [value, update] = useState(state.statusbarHeight)
 
@@ -25,7 +30,7 @@ export const useStatusbarHeight = () => {
     }
   }, [])
 
-  return value
+  return value + STATUSBAR_TOP_OFFSET
 }
 
 export const useComponentIds = () => {

@@ -17,7 +17,7 @@ export default ({ componentId }: { componentId: string }) => {
   }, [])
 
   return (
-    <PageContent>
+    <PageContent backgroundFadeIn>
       <StatusBar />
       {isHorizontalMode ? (
         <Horizontal componentId={componentId} />

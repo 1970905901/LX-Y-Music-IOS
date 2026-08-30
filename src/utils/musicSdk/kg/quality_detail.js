@@ -81,6 +81,34 @@ export const getHashFromItem = (item) => {
   return null
 }
 
+// 从 audio_info.filesize* 字段直接推导音质（不依赖 get_res_privilege 接口），
+// 作为 getBatchMusicQualityInfo 失败/返回空时的降级，逻辑与 musicInfo.js 保持一致。
+const deriveTypesFromAudioInfo = (audioInfo) => {
+  const types = []
+  const _types = {}
+  if (audioInfo.filesize && audioInfo.filesize !== '0') {
+    const size = sizeFormate(parseInt(audioInfo.filesize))
+    types.push({ type: '128k', size, hash: audioInfo.hash })
+    _types['128k'] = { size, hash: audioInfo.hash }
+  }
+  if (audioInfo.filesize_320 && audioInfo.filesize_320 !== '0') {
+    const size = sizeFormate(parseInt(audioInfo.filesize_320))
+    types.push({ type: '320k', size, hash: audioInfo.hash_320 })
+    _types['320k'] = { size, hash: audioInfo.hash_320 }
+  }
+  if (audioInfo.filesize_flac && audioInfo.filesize_flac !== '0') {
+    const size = sizeFormate(parseInt(audioInfo.filesize_flac))
+    types.push({ type: 'flac', size, hash: audioInfo.hash_flac })
+    _types.flac = { size, hash: audioInfo.hash_flac }
+  }
+  if (audioInfo.filesize_high && audioInfo.filesize_high !== '0') {
+    const size = sizeFormate(parseInt(audioInfo.filesize_high))
+    types.push({ type: 'hires', size, hash: audioInfo.hash_high })
+    _types.hires = { size, hash: audioInfo.hash_high }
+  }
+  return { types, _types }
+}
+
 export const filterData = async (rawList, options = {}) => {
   let processedList = rawList
 
@@ -108,9 +136,16 @@ export const filterData = async (rawList, options = {}) => {
 
   return processedList.map((item) => {
     const hash = getHashFromItem(item)
-    const { types = [], _types = {} } = qualityInfoMap[hash] || {}
+    let { types = [], _types = {} } = qualityInfoMap[hash] || {}
 
     if (item.audio_info) {
+      // 降级：getBatchMusicQualityInfo（get_res_privilege 接口）失败或未返回该 hash
+      // 的音质时，从 audio_info.filesize* 字段直接推导，避免歌单详情页音质徽章缺失。
+      if (!types.length) {
+        const derived = deriveTypesFromAudioInfo(item.audio_info)
+        types = derived.types
+        _types = derived._types
+      }
       return {
         id: `${item.audio_info.audio_id}_${item.audio_info.hash}`,
         name: decodeName(item.songname),

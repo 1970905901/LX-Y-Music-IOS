@@ -1,5 +1,5 @@
 // import { useEffect, useState } from 'react'
-import { View } from 'react-native'
+import { View, StyleSheet } from 'react-native'
 import { useTheme } from '@/store/theme/hook'
 import ImageBackground from '@/components/common/ImageBackground'
 import { useWindowSize, useHorizontalMode } from '@/utils/hooks'
@@ -32,23 +32,19 @@ export default ({ children }: Props) => {
   const BLUR_RADIUS = blur
 
   const contentComponent = useMemo(() => {
-    // 背景必须按窗口（App 可用区域）尺寸铺设。
-    // 不能取 Dimensions.get('screen')：iPad 分屏 / Slide Over / Stage Manager 下
-    // screen 是整块物理屏（如 1194pt），而窗口可能只有 320~500pt，取 max 会导致
-    // 背景被铺到整屏宽并被裁切（观感：背景突然变大变糊、不随窗口居中）。
-    // 刘海/状态栏覆盖由 RNN drawBehind + position:absolute 保证，不依赖 screen 尺寸。
-    const bgWidth = windowSize.width;
-    const bgHeight = windowSize.height;
-
     return (
       <View style={{ flex: 1, overflow: 'hidden' }}>
         <ImageBackground
+          // 背景用 absoluteFill 撑满本容器（页面区域），而不是写死窗口尺寸：
+          // 1) 不能取 Dimensions.get('screen')：iPad 分屏 / Slide Over / Stage Manager 下
+          //    screen 是整块物理屏（如 1194pt），窗口可能只有 320~500pt，会导致背景
+          //    被铺到整屏宽并裁切（观感：背景突然变大变糊、不随窗口居中）。
+          // 2) 也不能写死 windowSize.width/height：首帧 windowSize 尚未测量时为 {0,0}，
+          //    背景会被渲染成 0 尺寸而看不见（开启动态背景后表现为背景不显示/闪烁），
+          //    且容器与窗口不等时（页面被抽屉等容器包裹）会错位或底部被裁。
+          // 用 absoluteFill 由布局系统保证精确铺满，自动适配手机/iPad/横竖屏/分屏。
           style={{
-            position: 'absolute',
-            left: 0,
-            top: 0,
-            height: bgHeight,
-            width: bgWidth,
+            ...StyleSheet.absoluteFillObject,
             backgroundColor: theme['c-content-background'],
           }}
           source={pic ? { uri: pic, headers: defaultHeaders } : theme['bg-image']}
@@ -83,7 +79,9 @@ export default ({ children }: Props) => {
         </View>
       </View>
     );
-  }, [children, pic, theme, windowSize.height, windowSize.width, BLUR_RADIUS, picOpacity, isWidePortrait]);
+    // 背景改由 absoluteFill 撑满容器，不再依赖 windowSize 的宽高数值，
+    // 故依赖中去掉 windowSize.height/width（isWidePortrait 已覆盖尺寸相关变化）
+  }, [children, pic, theme, BLUR_RADIUS, picOpacity, isWidePortrait]);
 
   return (
     <>

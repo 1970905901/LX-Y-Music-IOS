@@ -492,6 +492,9 @@ const styles = createStyle({
     alignItems: 'center',
     paddingHorizontal: 14,
     paddingVertical: 10,
+    // 批量操作栏原贴在页面底部，会被底部浮动的迷你播放器胶囊遮住；
+    // 抬到胶囊上方：胶囊底部 18 + 内容约 60 + 间距，与列表 paddingBottom:80 的预留一致。
+    marginBottom: 88,
   },
   selectBarBtn: {
     paddingVertical: 4,

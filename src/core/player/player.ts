@@ -5,7 +5,7 @@ import {
   setPause,
   setPlay,
   setResource,
-  setStop, initTrackInfo,
+  setStop,
 } from '@/plugins/player'
 import { setStatusText } from '@/core/player/playStatus'
 import playerState from '@/store/player/state'
@@ -490,38 +490,14 @@ const handleRestorePlay = async (restorePlayInfo: LX.Player.SavedPlayInfo) => {
 
   const playMusicInfo = playerState.playMusicInfo
 
-  void initTrackInfo(musicInfo, playerState.musicInfo)
-
-  void getPicPath({ musicInfo, listId: playMusicInfo.listId }).then((url: string) => {
-    if (
-      musicInfo.id != playMusicInfo.musicInfo?.id ||
-      playerState.musicInfo.pic == url ||
-      playerState.loadErrorPicUrl == url
-    )
-      return
-    setMusicInfo({ pic: url })
-    global.app_event.picUpdated()
-    // 同 debouncePlay：封面异步匹配完成后回刷控制中心元数据
-    void syncNowPlayingMetadata(true)
-  })
-
-  void getLyricInfo({ musicInfo })
-    .then((lyricInfo) => {
-      if (musicInfo.id != playMusicInfo.musicInfo?.id) return
-      setMusicInfo({
-        lrc: lyricInfo.lyric,
-        tlrc: lyricInfo.tlyric,
-        lxlrc: lyricInfo.lxlyric,
-        rlrc: lyricInfo.rlyric,
-        rawlrc: lyricInfo.rawlrcInfo.lyric,
-      })
-      global.app_event.lyricUpdated()
-    })
-    .catch((err) => {
-      console.log(err)
-      if (musicInfo.id != playMusicInfo.musicInfo?.id) return
-      setStatusText(global.i18n.t('lyric__load_error'))
-    })
+  // 关键修复：恢复播放必须主动加载音频 URL 并 seek 到记忆进度。
+  // 此前这里只 initTrackInfo（add+skip，不加载 URL、不 seek），真正加载音频+seek 的
+  // setMusicUrl 依赖 play()，而 play() 又只在 startupAutoPlay 开启时才被 initPlayInfo 调用。
+  // 导致 startupAutoPlay 关闭时，恢复后 nowPlayTime 只是 store 值、音频位置仍是 0，
+  // 后续 getPosition 返回 0 把进度覆盖清空（表现为「进度清空」）。
+  // 这里改用 debouncePlay：内部 setMusicUrl 会以已写入的 nowPlayTime 为 seek 目标，
+  // 封面/歌词也一并异步补全（与正常播放路径一致）。
+  debouncePlay(musicInfo)
 
   if (settingState.setting['player.togglePlayMethod'] == 'random' && !playMusicInfo.isTempPlay)
     addPlayedList(playMusicInfo as LX.Player.PlayMusicInfo)
@@ -581,7 +557,6 @@ export const handlePlay = async () => {
 
   if (global.lx.restorePlayInfo) {
     void handleRestorePlay(global.lx.restorePlayInfo)
-    global.lx.restorePlayInfo = null
     return
   }
 

@@ -3,6 +3,7 @@ import { stringMd5 } from 'react-native-quick-md5';
 import { Buffer } from '@craftzdog/react-native-buffer';
 import { generateSidEdt, cryptoAesEncrypt, cryptoRSAEncrypt, cryptoAesDecrypt, rsaEncrypt2, playlistAesEncrypt, playlistAesDecrypt } from './crypto';
 import { formatPlayTime } from '@/utils/common';
+import { getBatchMusicQualityInfo } from '../quality_detail';
 
 const KG_CONFIG = {
   appid: '1005',
@@ -1169,6 +1170,31 @@ export async function getPlaylistSongs(
         albumId: item.album_id || 0,
         mixSongId: item.mixsongid || 0,
       }))
+
+      // 用户歌单接口（get_other_list_file_nofilt）只返回歌曲基本信息，没有 audio_info，
+      // 因此 _qualitys 字段缺失——列表项里 VIP/SQ/24bit 等音质徽章就不会显示。
+      // 这里复用 kg 搜索接口的成熟做法：按 hash 批量调 getBatchMusicQualityInfo 补全。
+      const hashList = list.map((s: { hash: string }) => s.hash).filter((h: string) => !!h)
+      let qualityInfoMap: Record<string, any> = {}
+      try {
+        qualityInfoMap = await getBatchMusicQualityInfo(hashList).promise
+      } catch (err: any) {
+        log(`获取歌曲音质信息失败: ${err?.message ?? err}`)
+      }
+      for (const song of list) {
+        if (song.hash && qualityInfoMap[song.hash]) {
+          const { types = [], _types = {} } = qualityInfoMap[song.hash]
+          const meta = { _qualitys: _types, qualitys: types }
+          Object.assign(song, {
+            types,
+            _types,
+            qualitys: types,
+            _qualitys: _types,
+            meta: { ...song.meta, ...meta },
+          })
+        }
+      }
+
       log(`获取成功: ${list.length} 首歌曲`)
       return { success: true, message: '获取成功', data: { list, total: result.data.total || list.length } }
     } else {

@@ -119,13 +119,25 @@ const Progress = ({
   // 非拖动时用 Animated 在两次更新之间做线性补间，让进度条连续平滑滑动。
   const animProgress = useRef(new Animated.Value(progress)).current
   const lastUpdateTimeRef = useRef(0)
+  const wasDragingRef = useRef(false)
   useEffect(() => {
-    if (draging) return
+    if (draging) {
+      wasDragingRef.current = true
+      return
+    }
+    const target = progress
+    const current = (animProgress as any).__getValue()
+    // 拖动刚结束：把补间值立即对齐到释放位置，避免「从拖动前旧值缓慢追到目标」
+    // 造成的进度条回退 + 慢动画（表现为手动滑动进度条动画太慢）。
+    if (wasDragingRef.current) {
+      wasDragingRef.current = false
+      animProgress.setValue(target)
+      lastUpdateTimeRef.current = 0
+      return
+    }
     const now = Date.now()
     const dt = lastUpdateTimeRef.current ? now - lastUpdateTimeRef.current : 1000
     lastUpdateTimeRef.current = now
-    const target = progress
-    const current = (animProgress as any).__getValue()
     // 切歌 / 后退 seek 等进度回退时直接跳到目标，避免反向补间
     if (target < current - 1e-6) {
       animProgress.setValue(target)

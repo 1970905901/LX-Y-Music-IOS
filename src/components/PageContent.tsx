@@ -2,9 +2,7 @@
 import { View, StyleSheet } from 'react-native'
 import { useTheme } from '@/store/theme/hook'
 import ImageBackground from '@/components/common/ImageBackground'
-import { useWindowSize, useHorizontalMode } from '@/utils/hooks'
 import { useMemo } from 'react'
-import { scaleSizeAbsHR } from '@/utils/pixelRatio'
 import { defaultHeaders } from './common/Image'
 import SizeView from './SizeView'
 import { useBgPic } from '@/store/common/hook'
@@ -18,11 +16,6 @@ interface Props {
 
 export default ({ children }: Props) => {
   const theme = useTheme();
-  const windowSize = useWindowSize();
-  const isHorizontal = useHorizontalMode();
-  // 平板/大屏竖屏（宽 ≥ 700pt）限制内容宽度并居中，避免列表与文字行被拉得过长；
-  // 手机竖屏（宽 < 700）与所有横屏（已由各自布局处理）不受影响。
-  const isWidePortrait = !isHorizontal && windowSize.width >= 700;
   const dynamicPic = useBgPic();
   const customBgPicPath = useSettingValue('theme.customBgPicPath');
   const pic = customBgPicPath || dynamicPic;
@@ -66,22 +59,14 @@ export default ({ children }: Props) => {
           style={{
             flex: 1,
             flexDirection: 'column',
-            // 全局左右内收：所有屏幕内容稍离屏幕边缘（背景图仍全屏不受影响）
-            paddingHorizontal: 6,
             backgroundColor: pic ? undefined : theme['c-main-background'],
-            // 平板/大屏竖屏下限制内容宽度并居中，避免列表与文字行被拉得过长；
-            // 手机竖屏（宽 < 700）与所有横屏（已由各自布局处理）不受影响。
-            maxWidth: isWidePortrait ? 700 : undefined,
-            alignSelf: isWidePortrait ? 'center' : undefined,
           }}
         >
           {children}
         </View>
       </View>
     );
-    // 背景改由 absoluteFill 撑满容器，不再依赖 windowSize 的宽高数值，
-    // 故依赖中去掉 windowSize.height/width（isWidePortrait 已覆盖尺寸相关变化）
-  }, [children, pic, theme, BLUR_RADIUS, picOpacity, isWidePortrait]);
+  }, [children, pic, theme, BLUR_RADIUS, picOpacity]);
 
   return (
     <>

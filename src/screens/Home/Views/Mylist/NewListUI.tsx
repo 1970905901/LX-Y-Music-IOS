@@ -2,6 +2,7 @@ import { memo, useCallback, useMemo, useState, useEffect, useRef } from 'react'
 import { View, TouchableOpacity, FlatList, ActivityIndicator, RefreshControl, Animated, PanResponder, BackHandler, type GestureResponderEvent, type PanResponderGestureState } from 'react-native'
 import { useMyList, useActiveListId, useListFetching } from '@/store/list/hook'
 import { setActiveList, updateUserListPosition } from '@/core/list'
+import { fetchCoverUrl } from '@/core/music/coverUrl'
 import { getListMusics, getListPrevSelectId } from '@/utils/data'
 import { useTheme } from '@/store/theme/hook'
 import Text from '@/components/common/Text'
@@ -341,7 +342,13 @@ export default memo(() => {
   const fetchListInfo = useCallback(async (listId: string) => {
     try {
       const musics = await getListMusics(listId)
-      const cover = musics.length > 0 ? (musics[0].meta?.picUrl || '') : ''
+      const first = musics[0]
+      let cover = first?.meta?.picUrl || ''
+      // meta.picUrl 为空（WebDAV 同步 / 备份导入的歌单首曲常无封面）时按需动态补全，
+      // 复用列表项同一套 getPicPath 分发（带缓存 + 并发限制），与「歌曲列表有封面」保持一致。
+      if (!cover && first) {
+        cover = await fetchCoverUrl(first)
+      }
       return { cover, total: musics.length }
     } catch {
       return { cover: '', total: 0 }

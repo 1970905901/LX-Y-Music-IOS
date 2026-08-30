@@ -154,13 +154,13 @@ export default memo(({ componentId, isHome = false }: { componentId?: string, is
 
 const styles = createStyle({
   wrapper: {
-    // 半透明迷你播放器：绝对定位浮在屏幕底部，上移 10px 不与底边贴合，
-    // 留 16 水平边距让胶囊"悬浮"在底部两侧。
+    // 半透明迷你播放器：绝对定位浮在屏幕底部，上移 18px 不与底边贴合，
+    // 留 24 水平边距让胶囊更窄（横向长度减短），"悬浮"在底部两侧。
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 10,
-    paddingHorizontal: 16,
+    bottom: 18,
+    paddingHorizontal: 24,
     paddingTop: 4,
   },
   container: {

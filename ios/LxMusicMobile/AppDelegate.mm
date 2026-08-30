@@ -626,6 +626,12 @@ static void LXApplyNowPlayingArtwork(UIImage *image, NSUInteger requestId) {
     }];
     info[MPMediaItemPropertyArtwork] = artwork;
     LXApplyNowPlayingInfo();
+    // 异步下载的封面可能被随后到达的元数据刷新短暂覆盖，这里延迟再应用一次，
+    // 确保封面在控制中心/锁屏稳定显示（对齐 pauseNowPlaying 的 0.15s 重应用策略）。
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+      if (requestId != LXNowPlayingArtworkRequestId) return;
+      LXApplyNowPlayingInfo();
+    });
   });
 }
 

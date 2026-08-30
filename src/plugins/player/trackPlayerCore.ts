@@ -167,7 +167,15 @@ export const updateCurrentTrackMetadata = async(metadata: {
     // 争抢同一个 nowPlayingInfo 造成信息被覆盖。
     const nowPlayingMetadata: Parameters<typeof updateNowPlayingInfo>[0] = {
       ...metadata,
-      artwork: metadata.artwork ?? '',
+    }
+    // 仅在真正拿到封面时携带 artwork 字段：空值（封面尚未异步匹配到，如汽水 qs）
+    // 时省略该键，让原生侧走「仅重应用、不触碰封面」分支，避免把「封面未就绪」的
+    // 元数据刷新误当成「清空封面」，从而取消正在下载的封面 / 擦除已显示封面
+    // （表现为播放中控制中心封面缺失，需暂停再播放才恢复）。
+    if (metadata.artwork) {
+      nowPlayingMetadata.artwork = metadata.artwork
+    } else {
+      delete nowPlayingMetadata.artwork
     }
     if (metadata.playbackRate !== undefined) nowPlayingMetadata.playbackRate = metadata.playbackRate
     await updateNowPlayingInfo(nowPlayingMetadata).catch(() => {})

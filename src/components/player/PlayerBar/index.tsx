@@ -27,6 +27,7 @@ export default memo(({ componentId, isHome = false }: { componentId?: string, is
   const playlistRef = useRef<PlayerPlaylistType>(null)
   const drawerLayoutPosition = useSettingValue('common.drawerLayoutPosition')
   const picOpacity = useSettingValue('theme.picOpacity')
+  const miniPlayerOpacity = useSettingValue('theme.miniPlayerOpacity')
   const isSwipeToShowPlaylist = useSettingValue('player.isSwipeToShowPlaylist')
 
   const handleLongPress = useCallback(() => {
@@ -108,9 +109,16 @@ export default memo(({ componentId, isHome = false }: { componentId?: string, is
 
   const playerComponent = useMemo(
     () => {
+      // 迷你播放器磨砂浮层的不透明度由主题设置 theme.miniPlayerOpacity 控制（0–100），
+      // 实时计算内联 style（createStyle 在模块加载时冻结，无法读取运行时设置）。
+      const opacity = (Number(miniPlayerOpacity) || 0) / 100
+      const containerStyle = {
+        backgroundColor: `rgba(255, 255, 255, ${opacity})`,
+        borderColor: `rgba(255, 255, 255, ${Math.min(1, opacity * 0.6 + 0.3)})`,
+      }
       return (
         <View style={styles.wrapper}>
-          <View style={styles.container} {...panResponder.panHandlers}>
+          <View style={[styles.container, containerStyle]} {...panResponder.panHandlers}>
             <MiniProgressBar />
 
             <TouchableOpacity style={styles.left} onPress={handleNavigate} onLongPress={handleLongPress} activeOpacity={0.8}>
@@ -130,7 +138,7 @@ export default memo(({ componentId, isHome = false }: { componentId?: string, is
         </View>
       )
     },
-    [theme, isHome, handleShowPlaylist, panResponder.panHandlers, drawerLayoutPosition],
+    [theme, isHome, handleShowPlaylist, panResponder.panHandlers, drawerLayoutPosition, miniPlayerOpacity],
   )
 
   return (
@@ -152,11 +160,17 @@ const styles = createStyle({
     paddingVertical: 10,
     paddingLeft: 12,
     paddingRight: 12,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    // 去掉半透明白色背景/描边/阴影，不再有磨砂「遮罩」浮层，
-    // 迷你播放器直接铺在页面内容上，周围与下方不遮挡内容。
-    backgroundColor: 'rgba(0, 0, 0, 0)',
+    borderWidth: 0.5,
+    shadowColor: 'rgba(0, 0, 0, 0.15)',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
     overflow: 'hidden',
   },
   left: {

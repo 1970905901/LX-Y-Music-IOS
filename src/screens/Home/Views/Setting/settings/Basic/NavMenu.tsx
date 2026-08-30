@@ -240,7 +240,6 @@ export default memo(() => {
   const t = useI18n()
   const navGroupEnabled = useSettingValue('common.navGroupEnabled')
   const navGroupOrder = useSettingValue('common.navGroupOrder')
-  const navStatus = useSettingValue('common.navStatus')
   const navOrder = useSettingValue('common.navOrder')
   const navFlatOrder = useSettingValue('common.navFlatOrder')
   const navGroupVisible = useSettingValue('common.navGroupVisible')
@@ -300,7 +299,9 @@ export default memo(() => {
       items.push({ id: 'nav_setting', name: t('nav_setting'), isGroup: false })
     }
     return items
-  }, [navGroupEnabled, navOrder, navStatus, navFlatOrder, t])
+    // 注意：计算逻辑不读取 navStatus，绝不能把它放进依赖数组——
+    // 否则点击列表项勾选（更新 navStatus）会重建整个列表，屏幕跳动。
+  }, [navGroupEnabled, navOrder, navFlatOrder, t])
 
   const groupItems = useMemo((): MenuItemData[] => {
     if (!selectedGroup) return []
@@ -308,7 +309,8 @@ export default memo(() => {
     if (!group) return []
     return getEffectiveGroupChildren(group, navGroupOrder[group.id])
       .map(id => ({ id, name: t(id as any), isGroup: false }))
-  }, [selectedGroup, navGroupOrder, navStatus, t])
+    // 同 topLevelItems：计算不依赖 navStatus，放入依赖数组会导致勾选时列表重建跳动
+  }, [selectedGroup, navGroupOrder, t])
 
   const handleTopLevelReorder = useCallback((from: number, to: number) => {
     const items = [...topLevelItems]

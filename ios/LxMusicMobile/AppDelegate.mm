@@ -625,6 +625,12 @@ static void LXApplyNowPlayingArtwork(UIImage *image, NSUInteger requestId) {
       return image;
     }];
     info[MPMediaItemPropertyArtwork] = artwork;
+    // iOS 已知行为：同一播放会话中 nowPlayingInfo 已发布过「无封面」版本后，
+    // 仅追加 artwork 再调 LXApplyNowPlayingInfo 不一定能刷新锁屏/控制中心封面
+    // （表现为要暂停再播放才出现封面）。这里先置空再发布，强制媒体控制中心
+    // 重新渲染整张媒体卡片（含封面）。
+    MPNowPlayingInfoCenter *center = [MPNowPlayingInfoCenter defaultCenter];
+    center.nowPlayingInfo = nil;
     LXApplyNowPlayingInfo();
     // 异步下载的封面可能被随后到达的元数据刷新短暂覆盖，这里延迟再应用一次，
     // 确保封面在控制中心/锁屏稳定显示（对齐 pauseNowPlaying 的 0.15s 重应用策略）。
@@ -657,7 +663,13 @@ static void LXSetNowPlayingArtwork(NSString *artworkPath) {
   if ([artworkPath hasPrefix:@"http://"] || [artworkPath hasPrefix:@"https://"]) {
     NSURL *url = [NSURL URLWithString:artworkPath];
     if (url == nil) return;
-    LXNowPlayingArtworkTask = [[NSURLSession sharedSession] dataTaskWithURL:url completionHandler:^(NSData * _Nullable data, NSURLResponse * _Nullable response, NSError * _Nullable error) {
+    // 与 JS 侧 FastImage 的 defaultHeaders 保持一致：部分音源封面 CDN 对
+    // 无 User-Agent 的裸请求会返回 403，导致控制中心封面下载失败（播放详情页
+    // 用 FastImage 带 UA 能正常显示）。这里补上浏览器 UA，保证同一 URL 在
+    // 控制中心/锁屏也能下载成功。
+    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
+    [request setValue:@"Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.100 Safari/537.36" forHTTPHeaderField:@"User-Agent"];
+    LXNowPlayingArtworkTask = [[NSURLSession sharedSession] dataTaskWithRequest:request completionHandler:^(NSData * _Nullable data, NSURLResponse * _Nullable response, NSError * _Nullable error) {
       if (error != nil || data.length == 0) return;
       UIImage *image = [UIImage imageWithData:data];
       setArtwork(image);

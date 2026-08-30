@@ -37,6 +37,7 @@ const defaultSetting: LX.AppSetting = {
     nav_subscribed_albums: true,
     nav_webdav: true,
     nav_tx_daily_rec: true,
+    nav_play_history: true,
   },
 
   'common.navOrder': [
@@ -53,6 +54,7 @@ const defaultSetting: LX.AppSetting = {
     'nav_songlist',
     'nav_top',
     'nav_webdav',
+    'nav_play_history',
     'nav_setting',
   ],
 

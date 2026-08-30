@@ -331,19 +331,14 @@ export default memo(() => {
     setNavActiveId(id as any)
   }
 
-  const handleHistoryPress = () => {
-    global.app_event.changeMenuVisible(false);
-    setNavActiveId('nav_play_history');
-  };
   const filteredNavMenus = useMemo(() => {
     const order: NAV_ID_Type[] = navGroupEnabled
       ? (navOrder as NAV_ID_Type[])
       : getEffectiveFlatOrder(navFlatOrder, navOrder)
     if (!order?.length) return NAV_MENUS.filter(
-      menu => menu.id !== 'nav_play_history' && (menu.id === 'nav_setting' || (navStatus[menu.id] ?? true))
+      menu => menu.id === 'nav_setting' || (navStatus[menu.id] ?? true)
     )
     return order
-      .filter(id => id !== 'nav_play_history')
       .map(id => NAV_MENUS.find(menu => menu.id === id))
       .filter((menu): menu is typeof NAV_MENUS[number] => menu !== undefined && (menu.id === 'nav_setting' || (navStatus[menu.id] ?? true)))
   }, [navStatus, navOrder, navFlatOrder, navGroupEnabled])
@@ -433,12 +428,6 @@ export default memo(() => {
           })}
         </View>
       </ScrollView>
-
-      <View style={styles.footer}>
-        <TouchableOpacity style={styles.footerBtn} onPress={handleHistoryPress}>
-          <Icon name="music_time" size={25} color={theme['c-font-label']} />
-        </TouchableOpacity>
-      </View>
 
       {global.lx.isCarMode && showBackBtn ? <MenuItem id="back_home" icon="home" onPress={handlePress} /> : null}
       {global.lx.isCarMode && showExitBtn ? <MenuItem id="nav_exit" icon="exit2" onPress={handlePress} /> : null}

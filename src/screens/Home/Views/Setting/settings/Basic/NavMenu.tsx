@@ -255,7 +255,6 @@ export default memo(() => {
     const order: NAV_ID_Type[] = navGroupEnabled ? (navOrder || NAV_MENUS.map(m => m.id)) : effectiveFlatOrder
     if (!navGroupEnabled) {
       return order
-        .filter(id => id !== 'nav_play_history')
         .map(id => {
           const menu = NAV_MENUS.find(m => m.id === id)
           if (!menu) return null
@@ -267,7 +266,6 @@ export default memo(() => {
     const items: MenuItemData[] = []
     const insertedGroupIds = new Set<string>()
     for (const id of order) {
-      if (id === 'nav_play_history') continue
       if (groupChildIds.has(id as NAV_ID_Type)) {
         const group = NAV_GROUPS.find(g => g.children.includes(id as NAV_ID_Type))
         if (group && !insertedGroupIds.has(group.id)) {

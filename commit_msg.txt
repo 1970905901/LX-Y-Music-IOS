@@ -1,4 +1,6 @@
-fix: 删除侧边栏底部多余的下载管理按钮
+feat: 侧边栏播放历史移入导航菜单并支持自定义排序
 
-- 竖屏 DrawerNav 和横屏 Aside 底部 footer 中的下载图标已移除
-- 仅保留历史记录按钮
+- 移除竖屏 DrawerNav / 横屏 Aside 底部独立的历史按钮
+- 播放历史(nav_play_history)纳入主侧边栏菜单，参与现有排序机制
+- 自定义排序页(NavMenu)扁平/分组模式均包含该项，可调顺序与显隐
+- 默认 navOrder 追加 nav_play_history，默认 navStatus 标记可见

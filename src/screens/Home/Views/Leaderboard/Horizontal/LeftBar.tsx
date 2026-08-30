@@ -1,15 +1,15 @@
-import { forwardRef, useImperativeHandle, useRef } from 'react'
+import { forwardRef, useImperativeHandle, useRef, useState } from 'react'
 import { View } from 'react-native'
 
 import SourceSelector, {
   type SourceSelectorType as _SourceSelectorType,
   // type SourceSelectorProps as _SourceSelectorProps,
 } from '@/components/SourceSelector'
-import BoardsList, { type BoardsListType, type BoardsListProps } from '../BoardsList'
+import BoardsList, { type BoardsListProps } from '../BoardsList'
 import { BorderWidths } from '@/theme'
 import { createStyle } from '@/utils/tools'
 import { handleCollect, handlePlay } from '../listAction'
-import boardState, { type InitState } from '@/store/leaderboard/state'
+import boardState, { type InitState, type BoardItem } from '@/store/leaderboard/state'
 import { useTheme } from '@/store/theme/hook'
 import { getBoardsList } from '@/core/leaderboard'
 
@@ -28,11 +28,13 @@ export interface LeftBarType {
 export default forwardRef<LeftBarType, LeftBarProps>(({ onChangeList }, ref) => {
   const theme = useTheme()
   const sourceSelectorRef = useRef<SourceSelectorType>(null)
-  const boardsListRef = useRef<BoardsListType>(null)
-  const boundInfo = useRef<{ source: LX.OnlineSource; id: string | null }>({
+  const boundInfo = useRef<{ source: LX.OnlineSource, id: string | null }>({
     source: 'kw',
     id: null,
   })
+  // BoardsList 数据由父组件统一管理（状态提升，参见 BoardsList/List.tsx 说明）
+  const [boardsList, setBoardsList] = useState<BoardItem[]>([])
+  const [boardsActiveId, setBoardsActiveId] = useState<string>('')
   useImperativeHandle(
     ref,
     () => ({
@@ -40,11 +42,12 @@ export default forwardRef<LeftBarType, LeftBarProps>(({ onChangeList }, ref) => 
         boundInfo.current = { source, id: listId }
         sourceSelectorRef.current?.setSourceList(boardState.sources, source)
         void getBoardsList(source).then((list) => {
-          boardsListRef.current?.setList(list, listId)
+          setBoardsList(list)
+          setBoardsActiveId(listId)
         })
       },
     }),
-    []
+    [],
   )
 
   const onSourceChange = (source: LX.OnlineSource) => {
@@ -52,7 +55,8 @@ export default forwardRef<LeftBarType, LeftBarProps>(({ onChangeList }, ref) => 
     void getBoardsList(source).then((list) => {
       const id = list[0].id
       requestAnimationFrame(() => {
-        boardsListRef.current?.setList(list, id)
+        setBoardsList(list)
+        setBoardsActiveId(id)
         requestAnimationFrame(() => {
           onChangeList(source, id)
         })
@@ -61,6 +65,7 @@ export default forwardRef<LeftBarType, LeftBarProps>(({ onChangeList }, ref) => 
   }
   const onBoundChange: BoardsListProps['onBoundChange'] = (id) => {
     boundInfo.current.id = id
+    setBoardsActiveId(id)
     onChangeList(boundInfo.current.source, id)
   }
   const onPlay: BoardsListProps['onPlay'] = (id) => {
@@ -78,7 +83,8 @@ export default forwardRef<LeftBarType, LeftBarProps>(({ onChangeList }, ref) => 
         <SourceSelector ref={sourceSelectorRef} onSourceChange={onSourceChange} />
       </View>
       <BoardsList
-        ref={boardsListRef}
+        list={boardsList}
+        activeId={boardsActiveId}
         onBoundChange={onBoundChange}
         onPlay={onPlay}
         onCollect={onCollect}

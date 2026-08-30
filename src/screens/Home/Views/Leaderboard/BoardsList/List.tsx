@@ -7,35 +7,32 @@ import ListItem, { type ListItemProps } from './ListItem'
 import { type BoardItem } from '@/store/leaderboard/state'
 
 export interface ListProps {
+  // list/activeId 改为受控 props，由父组件（Vertical）统一管理。
+  // 原内部 useState 在 DrawerLayoutAndroid 关闭→打开 navigationView 重新挂载时会被
+  // 重置回空数组，导致排行榜左侧空白；提升后每次 mount 都有数据。
+  list: BoardItem[]
+  activeId: string
   onBoundChange: (listId: string) => void
-  onShowMenu: (info: { listId: string; name: string; index: number }, position: Position) => void
+  onShowMenu: (info: { listId: string, name: string, index: number }, position: Position) => void
 }
 export interface ListType {
-  setList: (list: BoardItem[], activeId: string) => void
   hideMenu: () => void
 }
 
-export default forwardRef<ListType, ListProps>(({ onBoundChange, onShowMenu }, ref) => {
-  const [activeId, setActiveId] = useState('')
+export default forwardRef<ListType, ListProps>(({ list, activeId, onBoundChange, onShowMenu }, ref) => {
   const [longPressIndex, setLongPressIndex] = useState(-1)
-  const [list, setList] = useState<BoardItem[]>([])
 
   useImperativeHandle(
     ref,
     () => ({
-      setList(list, activeId) {
-        setList(list)
-        setActiveId(activeId)
-      },
       hideMenu() {
         setLongPressIndex(-1)
       },
     }),
-    []
+    [],
   )
 
   const handleBoundChange = (item: BoardItem) => {
-    setActiveId(item.id)
     onBoundChange(item.id)
   }
 

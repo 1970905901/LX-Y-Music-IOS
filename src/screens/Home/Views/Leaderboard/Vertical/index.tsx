@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { View } from 'react-native'
 import { createStyle } from '@/utils/tools'
 import { shadow } from '@/utils/shadow'
@@ -13,13 +13,13 @@ import { scaleSizeW } from '@/utils/pixelRatio'
 import { useTheme } from '@/store/theme/hook'
 // import { BorderWidths } from '@/theme'
 // import { useTheme } from '@/store/theme/hook'
-import BoardsList, { type BoardsListType, type BoardsListProps } from '../BoardsList'
+import BoardsList, { type BoardsListProps } from '../BoardsList'
 import type { InitState as CommonState } from '@/store/common/state'
 import settingState from '@/store/setting/state'
 import { getBoardsList } from '@/core/leaderboard'
 import { COMPONENT_IDS } from '@/config/constant'
 import { handleCollect, handlePlay } from '../listAction'
-import boardState from '@/store/leaderboard/state'
+import boardState, { type BoardItem } from '@/store/leaderboard/state'
 
 const MAX_WIDTH = scaleSizeW(200)
 
@@ -28,13 +28,16 @@ export default () => {
   const theme = useTheme()
   const musicListRef = useRef<MusicListType>(null)
   const isUnmountedRef = useRef(false)
-  const boardsListRef = useRef<BoardsListType>(null)
   const headerBarRef = useRef<HeaderBarType>(null)
-  const boundInfo = useRef<{ source: LX.OnlineSource; id: string | null }>({
+  const boundInfo = useRef<{ source: LX.OnlineSource, id: string | null }>({
     source: 'kw',
     id: null,
   })
-  // const [width, setWidth] = useState(0)
+  // BoardsList 数据由父组件统一管理（状态提升），避免 navigationView 在
+  // DrawerLayoutAndroid 关闭→打开被 unmount/remount 后丢失内部 useState，
+  // 导致排行榜左侧空白（参见 BoardsList/List.tsx 说明）。
+  const [boardsList, setBoardsList] = useState<BoardItem[]>([])
+  const [boardsActiveId, setBoardsActiveId] = useState<string>('')
 
   const handleBoundChange = (source: LX.OnlineSource, id: string) => {
     musicListRef.current?.loadList(source, id)
@@ -45,6 +48,7 @@ export default () => {
   }
   const onBoundChange: BoardsListProps['onBoundChange'] = (id) => {
     boundInfo.current.id = id
+    setBoardsActiveId(id)
     void getBoardsList(boundInfo.current.source).then((list) => {
       requestAnimationFrame(() => {
         const bound = list.find((l) => l.id == id)
@@ -75,7 +79,8 @@ export default () => {
       const id = list[0].id
       const name = list[0].name
       requestAnimationFrame(() => {
-        boardsListRef.current?.setList(list, id)
+        setBoardsList(list)
+        setBoardsActiveId(id)
         headerBarRef.current?.setBound(source, id, name ?? 'Unknown')
         requestAnimationFrame(() => {
           handleBoundChange(source, id)
@@ -87,7 +92,8 @@ export default () => {
   const navigationView = () => {
     return (
       <BoardsList
-        ref={boardsListRef}
+        list={boardsList}
+        activeId={boardsActiveId}
         onBoundChange={onBoundChange}
         onCollect={onCollect}
         onPlay={onPlay}
@@ -109,7 +115,8 @@ export default () => {
       boundInfo.current.id = boardId
       void getBoardsList(source).then((list) => {
         const bound = list.find((l) => l.id == boardId)
-        boardsListRef.current?.setList(list, boardId)
+        setBoardsList(list)
+        setBoardsActiveId(boardId)
         headerBarRef.current?.setBound(source, boardId, bound?.name ?? 'Unknown')
       })
       musicListRef.current?.loadList(source, boardId)

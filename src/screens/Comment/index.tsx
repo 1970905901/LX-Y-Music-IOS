@@ -13,6 +13,7 @@ import { COMPONENT_IDS } from '@/config/constant'
 import { setComponentId } from '@/core/common'
 import PageContent from '@/components/PageContent'
 import LandscapeCentered from '@/components/LandscapeCentered'
+import { useHorizontalMode } from '@/utils/hooks'
 import playerState from '@/store/player/state'
 import { scaleSizeH } from '@/utils/pixelRatio'
 import { BorderWidths } from '@/theme'
@@ -58,12 +59,15 @@ const HeaderItem = ({
 const HotCommentPage = memo(
   ({
     activeId,
+    forceRender,
     musicInfo,
     onUpdateTotal,
     actions,
     refreshKey,
   }: {
     activeId: ActiveId
+    /** 横屏分栏时两栏同时可见，需强制渲染（不受 activeId 懒加载限制） */
+    forceRender?: boolean
     musicInfo: LX.Music.MusicInfoOnline
     onUpdateTotal: (total: number) => void
     actions?: any
@@ -79,7 +83,7 @@ const HotCommentPage = memo(
         if (!initedRef.current) initedRef.current = true
         return comment
       default:
-        return initedRef.current ? comment : null
+        return forceRender || initedRef.current ? comment : null
     }
   }
 )
@@ -87,12 +91,15 @@ const HotCommentPage = memo(
 const NewCommentPage = memo(
   ({
     activeId,
+    forceRender,
     musicInfo,
     onUpdateTotal,
     actions,
     refreshKey,
   }: {
     activeId: ActiveId
+    /** 横屏分栏时两栏同时可见，需强制渲染（不受 activeId 懒加载限制） */
+    forceRender?: boolean
     musicInfo: LX.Music.MusicInfoOnline
     onUpdateTotal: (total: number) => void
     actions?: any
@@ -108,7 +115,7 @@ const NewCommentPage = memo(
         if (!initedRef.current) initedRef.current = true
         return comment
       default:
-        return initedRef.current ? comment : null
+        return forceRender || initedRef.current ? comment : null
     }
   }
 )
@@ -120,6 +127,8 @@ const getMusicInfo = (musicInfo: LX.Player.PlayMusic | null) => {
 }
 export default memo(({ componentId }: { componentId: string }) => {
   const pagerViewRef = useRef<PagerView>(null)
+  // 横屏（iPad / 手机横屏）下热门与最新评论并排分栏，避免只在中间条带滑动切换
+  const isHorizontal = useHorizontalMode()
   const [activeId, setActiveId] = useState<ActiveId>('hot')
   const [musicInfo, setMusicInfo] = useState<LX.Music.MusicInfo | null>(
     getMusicInfo(playerState.playMusicInfo.musicInfo)
@@ -270,15 +279,27 @@ export default memo(({ componentId }: { componentId: string }) => {
           }}
         >
           <View style={styles.left}>
-            {tabs.map(({ id, label }) => (
-              <HeaderItem
-                id={id}
-                label={label}
-                key={id}
-                isActive={activeId == id}
-                onPress={toggleTab}
-              />
-            ))}
+            {isHorizontal
+              // 横屏：两栏同时可见，标题各占一半替代 Tab 切换
+              ? (
+                <>
+                  <View style={styles.paneTitle}>
+                    <Text color={theme['c-primary-font-active']}>{tabs[0].label}</Text>
+                  </View>
+                  <View style={styles.paneTitle}>
+                    <Text color={theme['c-primary-font-active']}>{tabs[1].label}</Text>
+                  </View>
+                </>
+              )
+              : tabs.map(({ id, label }) => (
+                <HeaderItem
+                  id={id}
+                  label={label}
+                  key={id}
+                  isActive={activeId == id}
+                  onPress={toggleTab}
+                />
+              ))}
           </View>
           <View>
             <TouchableOpacity onPress={refreshComment} style={{ ...styles.btn, width: BAR_HEIGHT }}>
@@ -286,31 +307,60 @@ export default memo(({ componentId }: { componentId: string }) => {
             </TouchableOpacity>
           </View>
         </View>
-        <PagerView
-          ref={pagerViewRef}
-          onPageSelected={onPageSelected}
-          // onPageScrollStateChanged={onPageScrollStateChanged}
-          style={styles.pagerView}
-        >
-          <View collapsable={false} style={styles.pageStyle}>
-            <HotCommentPage
-              activeId={activeId}
-              musicInfo={musicInfo as LX.Music.MusicInfoOnline}
-              onUpdateTotal={setHotTotal}
-              actions={commentActions}
-              refreshKey={refreshKey}
-            />
-          </View>
-          <View collapsable={false} style={styles.pageStyle}>
-            <NewCommentPage
-              activeId={activeId}
-              musicInfo={musicInfo as LX.Music.MusicInfoOnline}
-              onUpdateTotal={setNewTotal}
-              actions={commentActions}
-              refreshKey={refreshKey}
-            />
-          </View>
-        </PagerView>
+        {isHorizontal
+          // 横屏分栏：热门 / 最新并排，充分利用 iPad 横向空间
+          ? (
+            <View style={styles.splitContainer}>
+              <View style={styles.splitPane}>
+                <HotCommentPage
+                  activeId="hot"
+                  forceRender
+                  musicInfo={musicInfo as LX.Music.MusicInfoOnline}
+                  onUpdateTotal={setHotTotal}
+                  actions={commentActions}
+                  refreshKey={refreshKey}
+                />
+              </View>
+              <View style={{ ...styles.splitDivider, backgroundColor: theme['c-border-background'] }} />
+              <View style={styles.splitPane}>
+                <NewCommentPage
+                  activeId="new"
+                  forceRender
+                  musicInfo={musicInfo as LX.Music.MusicInfoOnline}
+                  onUpdateTotal={setNewTotal}
+                  actions={commentActions}
+                  refreshKey={refreshKey}
+                />
+              </View>
+            </View>
+          )
+          : (
+            <PagerView
+              ref={pagerViewRef}
+              onPageSelected={onPageSelected}
+              // onPageScrollStateChanged={onPageScrollStateChanged}
+              style={styles.pagerView}
+            >
+              <View collapsable={false} style={styles.pageStyle}>
+                <HotCommentPage
+                  activeId={activeId}
+                  musicInfo={musicInfo as LX.Music.MusicInfoOnline}
+                  onUpdateTotal={setHotTotal}
+                  actions={commentActions}
+                  refreshKey={refreshKey}
+                />
+              </View>
+              <View collapsable={false} style={styles.pageStyle}>
+                <NewCommentPage
+                  activeId={activeId}
+                  musicInfo={musicInfo as LX.Music.MusicInfoOnline}
+                  onUpdateTotal={setNewTotal}
+                  actions={commentActions}
+                  refreshKey={refreshKey}
+                />
+              </View>
+            </PagerView>
+          )}
         {isWyLoggedIn ? (
           <CommentInput
             ref={commentInputRef}
@@ -335,6 +385,7 @@ export default memo(({ componentId }: { componentId: string }) => {
     handleSendComment,
     isSending,
     commentActions,
+    isHorizontal,
   ])
 
   return (
@@ -390,5 +441,23 @@ const styles = createStyle({
   },
   pageStyle: {
     overflow: 'hidden',
+  },
+  // 横屏分栏（热门 / 最新并排）
+  splitContainer: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  splitPane: {
+    flex: 1,
+    overflow: 'hidden',
+  },
+  splitDivider: {
+    width: 1,
+  },
+  paneTitle: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: '100%',
   },
 })

@@ -1,5 +1,5 @@
 import { type COMPONENT_IDS } from '@/config/constant'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import state, { type InitState } from './state'
 
 export const useFontSize = () => {
@@ -54,14 +54,21 @@ export const usePageVisible = (
   visibleNames: COMPONENT_IDS[],
   onChange: (visible: boolean) => void,
 ) => {
+  // 用 ref 持有最新参数，事件订阅只建立一次（依赖数组恒空），
+  // 避免调用方传入的数组字面量/内联函数导致反复订阅解绑。
+  const visibleNamesRef = useRef(visibleNames)
+  const onChangeRef = useRef(onChange)
+  visibleNamesRef.current = visibleNames
+  onChangeRef.current = onChange
+
   useEffect(() => {
-    let visible = hasVisible(visibleNames, state.componentIds)
+    let visible = hasVisible(visibleNamesRef.current, state.componentIds)
     const handlecheck = (ids: InitState['componentIds']) => {
-      const res = hasVisible(visibleNames, ids)
+      const res = hasVisible(visibleNamesRef.current, ids)
       // console.log(visible, res, res == visible)
       if (res == visible) return
       visible = res
-      onChange(visible)
+      onChangeRef.current(visible)
     }
     global.state_event.on('componentIdsUpdated', handlecheck)
     return () => {
@@ -71,18 +78,24 @@ export const usePageVisible = (
 }
 
 export const useAssertApiSupport = (source: LX.Source) => {
-  const [value, update] = useState(global.lx.qualityList[source] != null || source == 'local' || source == 'bilibili')
+  const isSupported = useCallback(
+    () => global.lx.qualityList[source] != null || source == 'local' || source == 'bilibili',
+    [source],
+  )
+  const [value, update] = useState(isSupported)
 
   useEffect(() => {
+    // source 变化时同步一次最新支持状态，并订阅后续更新事件
+    update(isSupported())
     const handleUpdate = () => {
-      update(global.lx.qualityList[source] != null || source == 'local' || source == 'bilibili')
+      update(isSupported())
     }
 
     global.state_event.on('apiSourceUpdated', handleUpdate)
     return () => {
       global.state_event.off('apiSourceUpdated', handleUpdate)
     }
-  }, [])
+  }, [isSupported])
 
   return value
 }

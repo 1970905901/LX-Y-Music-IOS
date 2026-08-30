@@ -626,15 +626,19 @@ static void LXApplyNowPlayingArtwork(UIImage *image, NSUInteger requestId) {
     }];
     info[MPMediaItemPropertyArtwork] = artwork;
     // iOS 已知行为：同一播放会话中 nowPlayingInfo 已发布过「无封面」版本后，
-    // 仅追加 artwork 再调 LXApplyNowPlayingInfo 不一定能刷新锁屏/控制中心封面
-    // （表现为要暂停再播放才出现封面）。这里先置空再发布，强制媒体控制中心
-    // 重新渲染整张媒体卡片（含封面）。
+    // 仅追加 artwork 再发布不一定能刷新锁屏/控制中心封面（表现为要暂停再播放
+    // 才出现封面）。同一 runloop 里「置空 + 立即重设」会被系统合并成一次更新，
+    // 仍无法触发重绘。这里先置空，延迟一帧后再发布，强制控制中心重新渲染
+    // 整张媒体卡片（含封面）。
     MPNowPlayingInfoCenter *center = [MPNowPlayingInfoCenter defaultCenter];
     center.nowPlayingInfo = nil;
-    LXApplyNowPlayingInfo();
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.05 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+      if (requestId != LXNowPlayingArtworkRequestId) return;
+      LXApplyNowPlayingInfo();
+    });
     // 异步下载的封面可能被随后到达的元数据刷新短暂覆盖，这里延迟再应用一次，
     // 确保封面在控制中心/锁屏稳定显示（对齐 pauseNowPlaying 的 0.15s 重应用策略）。
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
       if (requestId != LXNowPlayingArtworkRequestId) return;
       LXApplyNowPlayingInfo();
     });

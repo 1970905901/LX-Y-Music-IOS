@@ -29,26 +29,42 @@ const resolveMetadataDuration = (duration: number) => {
   return getTimelineDuration(playerState.playMusicInfo.musicInfo, duration)
 }
 
+// RNTP 桥接调用在 iOS 27 beta 下可能卡死/异常（见 trackPlayerCore 注释），
+// 若 updateMetaData 里的 await 挂起，delayUpdateMusicInfo 永远不会执行，
+// 异步匹配到的封面就发不到控制中心（表现为汽水等音源需暂停再播放才出封面）。
+// 这里统一加超时兜底：即使底层调用不 settle，也保证封面/标题元数据继续下发。
+const withTimeout = <T,>(promise: Promise<T>, ms: number, fallback: T): Promise<T> => {
+  return new Promise<T>((resolve) => {
+    const timer = setTimeout(() => resolve(fallback), ms)
+    promise.then(
+      (v) => { clearTimeout(timer); resolve(v) },
+      () => { clearTimeout(timer); resolve(fallback) }
+    )
+  })
+}
+const safeGetTrackDuration = () => withTimeout(getTrackDuration(), 1000, 0)
+const safeGetCurrentTrack = () => withTimeout(getCurrentTrack(), 1000, null as any)
+
 export const updateMetaData = async(musicInfo: LX.Player.MusicInfo, isPlay: boolean, lyric?: string, force = false) => {
   const prevIsPlaying = state.isPlaying
   state.isPlaying = isPlay
   if (force) {
-    const duration = resolveMetadataDuration(await getTrackDuration())
+    const duration = resolveMetadataDuration(await safeGetTrackDuration())
     state.prevDuration = duration
     delayUpdateMusicInfo(musicInfo, lyric, isPlay)
     return
   }
   if (!force && isPlay == prevIsPlaying) {
-    const duration = resolveMetadataDuration(await getTrackDuration())
+    const duration = resolveMetadataDuration(await safeGetTrackDuration())
     if (state.prevDuration != duration) {
       state.prevDuration = duration
-      const trackInfo = await getCurrentTrack()
+      const trackInfo = await safeGetCurrentTrack()
       if (trackInfo && musicInfo) {
         delayUpdateMusicInfo(musicInfo, lyric, isPlay)
       }
     }
   } else {
-    const [duration, trackInfo] = await Promise.all([getTrackDuration(), getCurrentTrack()])
+    const [duration, trackInfo] = await Promise.all([safeGetTrackDuration(), safeGetCurrentTrack()])
     state.prevDuration = resolveMetadataDuration(duration)
     if (trackInfo && musicInfo) {
       delayUpdateMusicInfo(musicInfo, lyric, isPlay)
@@ -122,9 +138,12 @@ const updateMetaInfo = async(mInfo: LX.Player.MusicInfo, lyric?: string, isPlayi
     album,
     artwork,
     duration: state.prevDuration || 0,
+    // 取播放位置同样加超时：getAccuratePosition 走 RNTP/原生桥接，若挂起会让
+    // 带 artwork 的元数据永远发不到控制中心。超时按 0 处理，进度条位置随后由
+    // syncNowPlayingState(play/pause) 单独更新。
     elapsedTime: isNativeFlacActive()
-      ? await getNativeFlacPosition().catch(() => 0)
-      : await getAccuratePosition().catch(() => 0),
+      ? await withTimeout(getNativeFlacPosition(), 500, 0).catch(() => 0)
+      : await withTimeout(getAccuratePosition(), 500, 0).catch(() => 0),
   }
   await updateCurrentTrackMetadata(metadata)
 }

@@ -31,7 +31,8 @@ export default ({ header, body, footer, headerWidth }: Props) => {
     return (
       <View style={{ flex: 1, flexDirection: 'column' }}>
         {header}
-        <View style={{ flex: 1 }}>{body}</View>
+        {/* 底部内边距：给绝对定位悬浮的迷你播放器（footer）留出空间，避免列表最后一项被盖住 */}
+        <View style={{ flex: 1, paddingBottom: footer ? 80 : 0 }}>{body}</View>
         {footer}
       </View>
     )

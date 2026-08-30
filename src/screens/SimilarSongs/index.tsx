@@ -62,16 +62,19 @@ export default memo(({ componentId, similarSongs: initialSimilarSongs }: { compo
       <LandscapeCentered>
         <View style={styles.container}>
           <Header componentId={componentId} title="相似歌曲推荐" />
-          <OnlineList componentId={componentId}
-            ref={listRef}
-            listId="dailyrec_wy"
-            forcePlayList={true}
-            playingId={playerMusicInfo.id}
-            onPlayList={onPlayList}
-            onLoadMore={() => {}}
-            onRefresh={() => {}}
-            onListUpdate={handleListUpdate}
-          />
+          {/* 底部内边距：给绝对定位悬浮的迷你播放器留出空间 */}
+          <View style={styles.listWrap}>
+            <OnlineList componentId={componentId}
+              ref={listRef}
+              listId="dailyrec_wy"
+              forcePlayList={true}
+              playingId={playerMusicInfo.id}
+              onPlayList={onPlayList}
+              onLoadMore={() => {}}
+              onRefresh={() => {}}
+              onListUpdate={handleListUpdate}
+            />
+          </View>
           <PlayerBar />
         </View>
       </LandscapeCentered>
@@ -83,5 +86,9 @@ const styles = createStyle({
   container: {
     flex: 1,
     flexDirection: 'column',
+  },
+  listWrap: {
+    flex: 1,
+    paddingBottom: 80,
   },
 });

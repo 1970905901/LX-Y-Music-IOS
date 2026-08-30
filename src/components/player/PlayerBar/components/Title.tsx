@@ -3,7 +3,6 @@ import { navigations } from '@/navigation'
 import { usePlayerMusicInfo } from '@/store/player/hook'
 // import { toast } from '@/utils/tools'
 import { useSettingValue } from '@/store/setting/hook'
-import { useTheme } from '@/store/theme/hook'
 import commonState from '@/store/common/state'
 import playerState from '@/store/player/state'
 import Text from '@/components/common/Text'
@@ -15,7 +14,6 @@ export default ({ isHome }: { isHome: boolean }) => {
   // const { t } = useTranslation()
   const musicInfo = usePlayerMusicInfo()
   const downloadFileName = useSettingValue('download.fileName')
-  const theme = useTheme()
   const longPressedRef = useRef(false)
 
   const handlePress = () => {
@@ -51,7 +49,9 @@ export default ({ isHome }: { isHome: boolean }) => {
       onPress={handlePress}
       activeOpacity={0.7}
     >
-      <Text color={theme['c-font-label']} numberOfLines={1} style={{ fontWeight: '700' }}>
+      {/* 胶囊背景为固定白色磨砂（与主题无关），故文字用固定深灰保证在白底上清晰；
+          原先的 c-font-label(c-450) 在白底上偏浅，这里改用更深的 #2a2a2a 并保留加粗。 */}
+      <Text color="#2a2a2a" numberOfLines={1} style={{ fontWeight: '700' }}>
         {title}
       </Text>
     </TouchableOpacity>

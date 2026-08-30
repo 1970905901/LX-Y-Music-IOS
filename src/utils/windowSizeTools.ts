@@ -48,6 +48,8 @@ export const windowSizeTools = {
       // log.info('Dimensions window size', window)
       this.size = {
         width: Math.round(window.width),
+        // iOS 无 StatusBar.currentHeight（恒 undefined），?? 0 恒加 0，结果正确；
+        // 该字段仅 Android 用于补偿系统状态栏高度，勿误改为强制加法。
         height: Math.round(window.height) + (StatusBar.currentHeight ?? 0),
       }
     }

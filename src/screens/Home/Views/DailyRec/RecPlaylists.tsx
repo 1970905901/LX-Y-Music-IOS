@@ -3,6 +3,7 @@ import { View, FlatList, RefreshControl, Keyboard } from 'react-native'
 import { useSettingValue } from '@/store/setting/hook'
 import { toast } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
+import { useHorizontalMode } from '@/utils/hooks'
 import wyApi from '@/utils/musicSdk/wy/dailyRec'
 import wy from '@/utils/musicSdk/wy/index'
 import ListItem from '../MyPlaylist/ListItem'
@@ -13,6 +14,7 @@ export default memo(({ onOpenDetail }: { onOpenDetail: (info: any) => void }) =>
   const [loading, setLoading] = useState(true)
   const cookie = useSettingValue('common.wy_cookie')
   const theme = useTheme()
+  const isHorizontal = useHorizontalMode()
 
   const loadPlaylists = useCallback((isRefresh = false) => {
     if (!cookie) {
@@ -88,7 +90,14 @@ export default memo(({ onOpenDetail }: { onOpenDetail: (info: any) => void }) =>
       <FlatList
         onScrollBeginDrag={Keyboard.dismiss}
         data={playlists}
-        renderItem={({ item }) => <ListItem item={item} onPress={handleItemPress} />}
+        key={isHorizontal ? 'horizontal' : 'vertical'}
+        numColumns={isHorizontal ? 2 : 1}
+        columnWrapperStyle={isHorizontal ? { paddingHorizontal: 8 } : undefined}
+        renderItem={({ item }) => (
+          <View style={isHorizontal ? { flex: 1, maxWidth: '50%' } : null}>
+            <ListItem item={item} onPress={handleItemPress} />
+          </View>
+        )}
         keyExtractor={item => String(item.id)}
         refreshControl={
           <RefreshControl

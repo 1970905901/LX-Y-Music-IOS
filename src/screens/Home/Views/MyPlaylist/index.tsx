@@ -8,6 +8,7 @@ import { playOnlineList } from '@/core/list'
 import { MUSIC_TOGGLE_MODE } from '@/config/constant'
 import { updateSetting } from '@/core/common'
 import { useWySubscribedPlaylists, useWyUid } from '@/store/user/hook.ts'
+import { useHorizontalMode } from '@/utils/hooks'
 import userState from '@/store/user/state'
 import { useSettingValue } from '@/store/setting/hook'
 import { toast, confirmDialog } from '@/utils/tools'
@@ -30,6 +31,7 @@ export default memo(() => {
   const [loading, setLoading] = useState(true)
   const cookie = useSettingValue('common.wy_cookie')
   const theme = useTheme()
+  const isHorizontal = useHorizontalMode()
   const [selectedPlaylist, setSelectedPlaylist] = useState<ListInfoItem | null>(null)
   const [scrollToMusicInfo, setScrollToMusicInfo] = useState<MusicInfoOnline | null>(null)
   const selectedPlaylistRef = useRef(selectedPlaylist)
@@ -231,7 +233,14 @@ export default memo(() => {
         <FlatList
           onScrollBeginDrag={Keyboard.dismiss}
           data={playlists}
-          renderItem={({ item }) => <ListItem item={item} onPress={handleItemPress} onHeartbeatPress={handleHeartbeatPress} onMenuPress={handleMenuPress} />}
+          key={isHorizontal ? 'horizontal' : 'vertical'}
+          numColumns={isHorizontal ? 2 : 1}
+          columnWrapperStyle={isHorizontal ? { paddingHorizontal: 8 } : undefined}
+          renderItem={({ item }) => (
+            <View style={isHorizontal ? { flex: 1, maxWidth: '50%' } : null}>
+              <ListItem item={item} onPress={handleItemPress} onHeartbeatPress={handleHeartbeatPress} onMenuPress={handleMenuPress} />
+            </View>
+          )}
           keyExtractor={item => String(item.id)}
           refreshControl={
             <RefreshControl

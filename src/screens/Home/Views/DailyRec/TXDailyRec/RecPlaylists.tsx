@@ -2,6 +2,7 @@ import { memo, useEffect, useState, useCallback } from 'react'
 import { RefreshControl, View, FlatList, TouchableOpacity, Image } from 'react-native'
 import Text from '@/components/common/Text'
 import { useTheme } from '@/store/theme/hook'
+import { useHorizontalMode } from '@/utils/hooks'
 import { createStyle, toast } from '@/utils/tools'
 import { useI18n } from '@/lang'
 import txApi from '@/utils/musicSdk/tx'
@@ -41,6 +42,7 @@ export default memo(({ onOpenDetail }: Props) => {
   const [playlists, setPlaylists] = useState<PlaylistInfo[]>([])
   const [loading, setLoading] = useState(false)
   const theme = useTheme()
+  const isHorizontal = useHorizontalMode()
   const t = useI18n()
 
   const loadPlaylists = useCallback(async (refresh = false) => {
@@ -85,7 +87,14 @@ export default memo(({ onOpenDetail }: Props) => {
       <FlatList
         onScrollBeginDrag={() => {}}
         data={playlists}
-        renderItem={({ item }) => <ListItem item={item} onPress={() => handleItemPress(item)} />}
+        key={isHorizontal ? 'horizontal' : 'vertical'}
+        numColumns={isHorizontal ? 2 : 1}
+        columnWrapperStyle={isHorizontal ? styles.columnWrapper : undefined}
+        renderItem={({ item }) => (
+          <View style={isHorizontal ? styles.itemWrapper : null}>
+            <ListItem item={item} onPress={() => handleItemPress(item)} />
+          </View>
+        )}
         keyExtractor={(item) => String(item.id)}
         refreshControl={
           <RefreshControl colors={[theme['c-primary']]} refreshing={loading} onRefresh={handleRefresh} />
@@ -96,6 +105,13 @@ export default memo(({ onOpenDetail }: Props) => {
 })
 
 const styles = createStyle({
+  columnWrapper: {
+    paddingHorizontal: 8,
+  },
+  itemWrapper: {
+    flex: 1,
+    maxWidth: '50%',
+  },
   item: {
     flexDirection: 'row',
     padding: 15,

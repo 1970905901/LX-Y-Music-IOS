@@ -4,6 +4,7 @@ import PageContent from '@/components/PageContent'
 import LandscapeDetailLayout from '@/components/LandscapeDetailLayout'
 import Text from '@/components/common/Text'
 import { useTheme } from '@/store/theme/hook'
+import { useHorizontalMode } from '@/utils/hooks'
 import { useI18n } from '@/lang'
 import { createStyle, toast } from '@/utils/tools'
 import { useDownloadTasks } from '@/store/download/hook'
@@ -132,6 +133,7 @@ const SongRow = memo(
 export default memo(() => {
   const t = useI18n()
   const theme = useTheme()
+  const isHorizontal = useHorizontalMode()
   const downloadPathSetting = useSettingValue('download.path')
   const tasks = useDownloadTasks()
   const playMusicInfo = usePlayMusicInfo()
@@ -315,21 +317,26 @@ export default memo(() => {
             <FlatList
               style={styles.list}
               data={completedTasks}
+              key={isHorizontal ? 'horizontal' : 'vertical'}
+              numColumns={isHorizontal ? 2 : 1}
+              columnWrapperStyle={isHorizontal ? styles.columnWrapper : undefined}
               keyExtractor={item => item.id}
               renderItem={({ item, index }) => (
-                <SongRow
-                  title={item.musicInfo.name}
-                  subText={[
-                    item.musicInfo.singer,
-                    item.quality ? item.quality.toUpperCase() : '',
-                    item.progress?.total ? sizeFormate(item.progress.total) : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')}
-                  isPlaying={isPlayingId == item.id}
-                  selected={selectedIds.has(item.id)}
-                  onPress={() => (selecting ? toggleSelect(item.id) : handlePlayTask(item, index))}
-                />
+                <View style={isHorizontal ? styles.itemWrapper : null}>
+                  <SongRow
+                    title={item.musicInfo.name}
+                    subText={[
+                      item.musicInfo.singer,
+                      item.quality ? item.quality.toUpperCase() : '',
+                      item.progress?.total ? sizeFormate(item.progress.total) : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                    isPlaying={isPlayingId == item.id}
+                    selected={selectedIds.has(item.id)}
+                    onPress={() => (selecting ? toggleSelect(item.id) : handlePlayTask(item, index))}
+                  />
+                </View>
               )}
               ListEmptyComponent={
                 <View style={styles.empty}>
@@ -341,15 +348,20 @@ export default memo(() => {
             <FlatList
               style={styles.list}
               data={localFiles}
+              key={isHorizontal ? 'horizontal' : 'vertical'}
+              numColumns={isHorizontal ? 2 : 1}
+              columnWrapperStyle={isHorizontal ? styles.columnWrapper : undefined}
               keyExtractor={item => item.id}
               renderItem={({ item, index }) => (
-                <SongRow
-                  title={item.name}
-                  subText={[item.singer, item.size ? sizeFormate(item.size) : ''].filter(Boolean).join(' · ')}
-                  isPlaying={isPlayingId == item.id}
-                  selected={selectedIds.has(item.id)}
-                  onPress={() => (selecting ? toggleSelect(item.id) : handlePlayLocal(item, index))}
-                />
+                <View style={isHorizontal ? styles.itemWrapper : null}>
+                  <SongRow
+                    title={item.name}
+                    subText={[item.singer, item.size ? sizeFormate(item.size) : ''].filter(Boolean).join(' · ')}
+                    isPlaying={isPlayingId == item.id}
+                    selected={selectedIds.has(item.id)}
+                    onPress={() => (selecting ? toggleSelect(item.id) : handlePlayLocal(item, index))}
+                  />
+                </View>
               )}
               ListEmptyComponent={
                 <View style={styles.empty}>
@@ -443,6 +455,13 @@ const styles = createStyle({
     paddingLeft: 14,
     paddingRight: 14,
     paddingBottom: 6,
+  },
+  columnWrapper: {
+    paddingHorizontal: 8,
+  },
+  itemWrapper: {
+    flex: 1,
+    maxWidth: '50%',
   },
   songItem: {
     flexDirection: 'row',

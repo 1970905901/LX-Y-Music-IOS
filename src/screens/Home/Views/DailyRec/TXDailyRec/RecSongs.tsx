@@ -3,6 +3,7 @@ import { View, FlatList, TouchableOpacity, Image, RefreshControl } from 'react-n
 import OnlineList, { type OnlineListType } from '@/components/OnlineList'
 import Text from '@/components/common/Text'
 import { useTheme } from '@/store/theme/hook'
+import { useHorizontalMode } from '@/utils/hooks'
 import { createStyle, toast } from '@/utils/tools'
 import txApi from '@/utils/musicSdk/tx'
 import { usePlayerMusicInfo } from '@/store/player/hook'
@@ -49,6 +50,7 @@ export default memo(({ type, onOpenDetail }: Props) => {
   const [playlists, setPlaylists] = useState<{ id: string; name: string; cover: string; playCount: number }[]>([])
   const [loading, setLoading] = useState(false)
   const theme = useTheme()
+  const isHorizontal = useHorizontalMode()
 
   const loadPlaylists = useCallback(async (refresh = false) => {
     if (type !== 'home') return
@@ -146,7 +148,14 @@ export default memo(({ type, onOpenDetail }: Props) => {
       <View style={{ flex: 1 }}>
         <FlatList
           data={playlists}
-          renderItem={({ item }) => <PlaylistItem item={item} onPress={() => handlePlaylistPress(item)} />}
+          key={isHorizontal ? 'horizontal' : 'vertical'}
+          numColumns={isHorizontal ? 2 : 1}
+          columnWrapperStyle={isHorizontal ? styles.columnWrapper : undefined}
+          renderItem={({ item }) => (
+            <View style={isHorizontal ? styles.itemWrapper : null}>
+              <PlaylistItem item={item} onPress={() => handlePlaylistPress(item)} />
+            </View>
+          )}
           keyExtractor={(item) => item.id}
           refreshControl={
             <RefreshControl colors={[theme['c-primary']]} refreshing={loading} onRefresh={handleRefresh} />
@@ -173,6 +182,13 @@ export default memo(({ type, onOpenDetail }: Props) => {
 })
 
 const styles = createStyle({
+  columnWrapper: {
+    paddingHorizontal: 8,
+  },
+  itemWrapper: {
+    flex: 1,
+    maxWidth: '50%',
+  },
   item: {
     flexDirection: 'row',
     padding: 15,

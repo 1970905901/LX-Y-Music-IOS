@@ -9,7 +9,8 @@ const StatusBar = function () {
   )
 }
 
-StatusBar.currentHeight = RNStatusBar.currentHeight ?? 0
+// currentHeight 在 iOS 恒为 0 且无人使用（统一走 SizeView 的 StatusBarManager 校准），
+// 仅保留 setBarStyle 供主题切换时同步系统状态栏样式。
 StatusBar.setBarStyle = RNStatusBar.setBarStyle
 
 export default StatusBar

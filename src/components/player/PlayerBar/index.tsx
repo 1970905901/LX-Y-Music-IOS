@@ -152,19 +152,11 @@ const styles = createStyle({
     paddingVertical: 10,
     paddingLeft: 12,
     paddingRight: 12,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    borderBottomLeftRadius: 16,
-    borderBottomRightRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.35)',
-    borderWidth: 0.5,
-    borderColor: 'rgba(255, 255, 255, 0.6)',
-    shadowColor: 'rgba(0, 0, 0, 0.15)',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
+    // 去掉半透明白色背景/描边/阴影，不再有磨砂「遮罩」浮层，
+    // 迷你播放器直接铺在页面内容上，周围与下方不遮挡内容。
+    backgroundColor: 'rgba(0, 0, 0, 0)',
     overflow: 'hidden',
   },
   left: {

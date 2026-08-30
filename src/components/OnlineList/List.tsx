@@ -255,7 +255,7 @@ const List = forwardRef<ListType, ListProps>(
       showSource, isShowAlbumName, isShowInterval, listId, playingId,
       selectedList, handlePress, handleLongPress, onShowMenu, rowInfo,
     }
-    const renderItem = useCallback<FlatListType['renderItem']>(({ item, index }) => {
+    const renderItem = useCallback<NonNullable<FlatListType['renderItem']>>(({ item, index }) => {
       const d = renderDepsRef.current
       return (
         <ListItem

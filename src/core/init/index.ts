@@ -122,7 +122,7 @@ const initDownloadPath = async (setting: LX.AppSetting) => {
     if (await existsFile(oldDefaultPath)) {
       const items = await readDir(oldDefaultPath)
       for (const item of items) {
-        if (!item.isFile()) continue
+        if (item.isDirectory) continue
         const targetPath = `${defaultPath}/${item.name}`
         try {
           await moveFile(item.path, targetPath)

@@ -316,7 +316,7 @@ const List = forwardRef<ListType, ListProps>(
       rowInfo, isShowAlbumName, isShowInterval, isShowSource, showCover,
       playingId: playerState.playMusicInfo.musicInfo?.id ?? '',
     }
-    const renderItem = useCallback<FlatListType['renderItem']>(({ item, index }) => {
+    const renderItem = useCallback<NonNullable<FlatListType['renderItem']>>(({ item, index }) => {
       const d = renderDepsRef.current
       if (item.source === 'wy') {
         return (

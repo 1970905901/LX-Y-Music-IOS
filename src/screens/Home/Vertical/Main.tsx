@@ -600,7 +600,7 @@ const Main = () => {
     if (!navGroupEnabled) return getEffectiveFlatOrder(navFlatOrder, navOrder);
     const allMenuIds = NAV_MENUS.map(m => m.id)
     // 过滤已废弃的菜单 id，避免老用户持久化顺序里的残留项渲染成未知页面
-    const baseOrder = (navOrder || []).filter((id: string) => allMenuIds.includes(id)) as NAV_ID_Type[];
+    const baseOrder = (navOrder || []).filter((id: string) => allMenuIds.includes(id as NAV_ID_Type)) as NAV_ID_Type[];
     const groupChildIds = NAV_GROUPS.flatMap(g => g.children) as NAV_ID_Type[];
     const missing = groupChildIds.filter(id => !baseOrder.includes(id));
     return missing.length ? [...baseOrder, ...missing] : baseOrder;

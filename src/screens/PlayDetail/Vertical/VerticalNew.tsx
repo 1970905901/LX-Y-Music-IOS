@@ -125,7 +125,7 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
       <View style={styles.container}>
         <PagerView
           onPageSelected={onPageSelected}
-          onScroll={handlePageScroll}
+          onPageScroll={handlePageScroll}
           style={styles.pagerView}
           ref={pagerViewRef}
           scrollEnabled={!isProgressDragging}

@@ -12,7 +12,7 @@ const useCoverUrl = (item: {
   source: string
   name: string
   singer: string
-  meta?: { picUrl?: string }
+  meta?: { picUrl?: string | null }
 }): string => {
   const [url, setUrl] = useState<string>(() => item.meta?.picUrl ?? getCachedCoverUrl(item))
 

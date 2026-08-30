@@ -250,7 +250,7 @@ export const getLyricInfo = async ({
     const sdk = (musicSdk as any)[candidate.source]
     if (!sdk?.getLyric || !candidate.songmid) continue
     const lyricInfo = await resolveSdkResult<{ lyric?: string }>(sdk.getLyric(candidate))
-    if (lyricInfo?.lyric) return buildLyricInfo(lyricInfo)
+    if (lyricInfo?.lyric) return buildLyricInfo(lyricInfo as LX.Player.LyricInfo)
   }
 
   return buildLyricInfo({ lyric: '' })

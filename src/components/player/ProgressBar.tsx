@@ -125,7 +125,7 @@ const Progress = ({
     const dt = lastUpdateTimeRef.current ? now - lastUpdateTimeRef.current : 1000
     lastUpdateTimeRef.current = now
     const target = progress
-    const current = animProgress.__getValue()
+    const current = (animProgress as any).__getValue()
     // 切歌 / 后退 seek 等进度回退时直接跳到目标，避免反向补间
     if (target < current - 1e-6) {
       animProgress.setValue(target)

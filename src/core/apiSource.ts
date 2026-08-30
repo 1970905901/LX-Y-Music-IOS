@@ -25,7 +25,6 @@ export const setApiSource = (apiId: string) => {
       if (api.id != settingState.setting['common.apiSource']) setApiSource(api.id)
     })
   } else {
-    // @ts-expect-error
     global.lx.qualityList = musicSdk.supportQuality[apiId] ?? {}
     destroyUserApi()
     if (!global.lx.apiInitPromise[1]) global.lx.apiInitPromise[2](true)

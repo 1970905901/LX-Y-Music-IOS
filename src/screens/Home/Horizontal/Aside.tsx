@@ -347,9 +347,6 @@ export default memo(() => {
   const handleHistoryPress = () => {
     setNavActiveId('nav_play_history')
   }
-  const handleDownloadPress = () => {
-    navigations.pushDownloadManagerScreen(commonState.componentIds[commonState.componentIds.length - 1]?.id!)
-  }
 
   return (
     <View style={{ ...styles.container, width: layout.asideWidth, marginLeft: cutoutLeft, borderRightColor: theme['c-border-background'], backgroundColor: showSidebarBg ? 'transparent' : undefined }}>
@@ -393,9 +390,6 @@ export default memo(() => {
       <View style={styles.footer}>
         <TouchableOpacity style={styles.footerBtn} onPress={handleHistoryPress}>
           <Icon name="music_time" size={22} color={theme['c-font-label']} />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.footerBtn} onPress={handleDownloadPress}>
-          <Icon name="download-2" size={20} color={theme['c-font-label']} />
         </TouchableOpacity>
       </View>
     </View>

@@ -1,4 +1,4 @@
-fix: 在真正生效的主题设置页(ThemeScreen)中加入迷你播放器透明度设置
+fix: 删除侧边栏底部多余的下载管理按钮
 
-- 之前 MiniPlayerOpacity 只加到了未被渲染的 settings/Theme/index.tsx
-- 实际主题设置页为 ThemeScreen.tsx，现补上「迷你播放器不透明度」(0-100 可调)
+- 竖屏 DrawerNav 和横屏 Aside 底部 footer 中的下载图标已移除
+- 仅保留历史记录按钮

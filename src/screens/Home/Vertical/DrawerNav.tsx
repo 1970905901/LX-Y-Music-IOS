@@ -331,10 +331,6 @@ export default memo(() => {
     setNavActiveId(id as any)
   }
 
-  const handleDownloadPress = () => {
-    global.app_event.changeMenuVisible(false);
-    navigations.pushDownloadManagerScreen(commonState.componentIds[commonState.componentIds.length - 1]?.id!);
-  };
   const handleHistoryPress = () => {
     global.app_event.changeMenuVisible(false);
     setNavActiveId('nav_play_history');
@@ -441,9 +437,6 @@ export default memo(() => {
       <View style={styles.footer}>
         <TouchableOpacity style={styles.footerBtn} onPress={handleHistoryPress}>
           <Icon name="music_time" size={25} color={theme['c-font-label']} />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.footerBtn} onPress={handleDownloadPress}>
-          <Icon name="download-2" size={22} color={theme['c-font-label']} />
         </TouchableOpacity>
       </View>
 

@@ -14,10 +14,17 @@ const useCoverUrl = (item: {
   singer: string
   meta?: { picUrl?: string | null }
 }): string => {
-  const [url, setUrl] = useState<string>(() => item.meta?.picUrl ?? getCachedCoverUrl(item))
+  // 汽水(qs) 等音源自身返回的封面（meta.picUrl）通常不可用/为空，播放链路对此一律
+  // 走跨平台匹配（core/music/index.ts 对 qs 强制 picUrl=null）。列表侧保持一致：
+  // 忽略 meta.picUrl，统一走 getCachedCoverUrl / fetchCoverUrl（qs 会分发到 qsCover
+  // 跨平台匹配），避免「列表用不可用封面加载失败、播放详情页却有封面」的不一致。
+  const isCrossMatchSource = item.source === 'qs'
+  const [url, setUrl] = useState<string>(() =>
+    isCrossMatchSource ? getCachedCoverUrl(item) : (item.meta?.picUrl ?? getCachedCoverUrl(item))
+  )
 
   useEffect(() => {
-    if (item.meta?.picUrl) {
+    if (!isCrossMatchSource && item.meta?.picUrl) {
       setUrl(item.meta.picUrl)
       return
     }
@@ -33,7 +40,7 @@ const useCoverUrl = (item: {
     return () => {
       ignore = true
     }
-  }, [item])
+  }, [item, isCrossMatchSource])
 
   return url
 }

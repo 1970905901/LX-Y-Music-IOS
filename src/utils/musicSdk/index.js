@@ -75,6 +75,19 @@ export const init = () => {
   return Promise.all(tasks)
 }
 
+// 给单平台搜索加超时兜底：部分平台的搜索请求没有内置 timeout，挂起时
+// Promise.all 永远不 settle，会连带卡死依赖 searchMusic 的跨平台匹配
+// （歌单/排行榜封面逐首匹配、播放匹配等）。超时后按失败处理（返回 null）。
+const withSearchTimeout = (promise, ms = 10000) => {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(null), ms)
+    promise.then(
+      (v) => { clearTimeout(timer); resolve(v) },
+      () => { clearTimeout(timer); resolve(null) }
+    )
+  })
+}
+
 export const searchMusic = async ({ name, singer, source: s, limit = 25 }) => {
   const trimStr = (str) => (typeof str == 'string' ? str.trim() : str)
   const musicName = trimStr(name)
@@ -84,9 +97,9 @@ export const searchMusic = async ({ name, singer, source: s, limit = 25 }) => {
     if (!sources[source.id].musicSearch || source.id == s || excludeSource.includes(source.id))
       continue
     tasks.push(
-      sources[source.id].musicSearch
-        .search(`${musicName} ${singer || ''}`.trim(), 1, limit)
-        .catch((_) => null)
+      withSearchTimeout(
+        sources[source.id].musicSearch.search(`${musicName} ${singer || ''}`.trim(), 1, limit)
+      )
     )
   }
   return (await Promise.all(tasks)).filter((s) => s)

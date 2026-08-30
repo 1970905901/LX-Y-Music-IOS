@@ -538,6 +538,7 @@ export default ({
       ref={flatListRef}
       onScroll={handleScroll}
       style={styles.container}
+      contentContainerStyle={{ paddingBottom: 80 }}
       data={allList}
       maxToRenderPerBatch={9}
       windowSize={9}

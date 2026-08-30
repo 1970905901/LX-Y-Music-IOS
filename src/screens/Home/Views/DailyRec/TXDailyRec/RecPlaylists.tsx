@@ -87,6 +87,7 @@ export default memo(({ onOpenDetail }: Props) => {
       <FlatList
         onScrollBeginDrag={() => {}}
         data={playlists}
+        contentContainerStyle={{ paddingBottom: 80 }}
         key={isHorizontal ? 'horizontal' : 'vertical'}
         numColumns={isHorizontal ? 2 : 1}
         columnWrapperStyle={isHorizontal ? styles.columnWrapper : undefined}

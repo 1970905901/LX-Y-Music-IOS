@@ -148,6 +148,7 @@ export default memo(({ type, onOpenDetail }: Props) => {
       <View style={{ flex: 1 }}>
         <FlatList
           data={playlists}
+          contentContainerStyle={{ paddingBottom: 80 }}
           key={isHorizontal ? 'horizontal' : 'vertical'}
           numColumns={isHorizontal ? 2 : 1}
           columnWrapperStyle={isHorizontal ? styles.columnWrapper : undefined}

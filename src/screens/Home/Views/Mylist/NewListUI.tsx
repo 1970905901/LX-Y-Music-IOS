@@ -633,6 +633,7 @@ export default memo(() => {
         <>
           <FlatList
             data={listItems}
+            contentContainerStyle={{ paddingBottom: 80 }}
             renderItem={renderItem}
             keyExtractor={item => item.id}
             style={styles.listContainer}

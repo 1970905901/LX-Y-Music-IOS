@@ -47,6 +47,7 @@ export default memo(({ componentId }: { componentId: string }) => {
           <FlatList
             key={`cols-${numColumns}`}
             data={tasks}
+            contentContainerStyle={{ paddingBottom: 80 }}
             numColumns={numColumns}
             renderItem={renderItem}
             keyExtractor={item => item.id}

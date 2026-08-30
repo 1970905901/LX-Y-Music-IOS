@@ -855,6 +855,7 @@ export default memo(() => {
         key={`cols-${numColumns}`}
         ref={listRef}
         data={filteredSongs}
+        contentContainerStyle={{ paddingBottom: 80 }}
         numColumns={numColumns}
         renderItem={renderSong}
         keyExtractor={item => item.id}

@@ -160,6 +160,7 @@ export default forwardRef<ListType, ListProps>(({ onRefresh, onLoadMore, onOpenD
           columnWrapperStyle={{ justifyContent: 'space-evenly' }}
           numColumns={rowInfo.num}
           data={list}
+          contentContainerStyle={{ paddingBottom: 80 }}
           maxToRenderPerBatch={4}
           onScrollBeginDrag={Keyboard.dismiss}
           // updateCellsBatchingPeriod={80}

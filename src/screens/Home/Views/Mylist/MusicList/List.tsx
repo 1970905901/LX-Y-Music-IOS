@@ -365,6 +365,7 @@ const List = forwardRef<ListType, ListProps>(
         ref={flatListRef}
         onScroll={handleScroll}
         style={styles.list}
+        contentContainerStyle={{ paddingBottom: 80 }}
         data={currentList}
         maxToRenderPerBatch={20}
         updateCellsBatchingPeriod={50}

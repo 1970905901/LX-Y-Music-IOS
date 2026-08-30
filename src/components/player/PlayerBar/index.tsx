@@ -1,5 +1,5 @@
-import { memo, useCallback, useMemo, useRef, useState } from 'react'
-import { ImageBackground, PanResponder, StyleSheet, View, TouchableOpacity, useWindowDimensions } from 'react-native'
+import { memo, useCallback, useMemo, useRef } from 'react'
+import { PanResponder, View, TouchableOpacity } from 'react-native'
 import { useKeyboard } from '@/utils/hooks'
 import Pic from './components/Pic'
 import Title from './components/Title'
@@ -17,8 +17,6 @@ import PlayerPlaylist, { PlayerPlaylistType } from '@/components/player/PlayerPl
 import MiniProgressBar from "@/components/player/PlayerBar/components/MiniProgressBar.tsx"
 import playerState from '@/store/player/state'
 import { LIST_IDS } from '@/config/constant'
-import { useBgPic } from '@/store/common/hook'
-import { defaultHeaders } from '@/components/common/Image'
 
 export default memo(({ componentId, isHome = false }: { componentId?: string, isHome?: boolean }) => {
   const { keyboardShown } = useKeyboard()
@@ -31,14 +29,6 @@ export default memo(({ componentId, isHome = false }: { componentId?: string, is
   const picOpacity = useSettingValue('theme.picOpacity')
   const miniPlayerOpacity = useSettingValue('theme.miniPlayerOpacity')
   const isSwipeToShowPlaylist = useSettingValue('player.isSwipeToShowPlaylist')
-  const dynamicPic = useBgPic()
-  const customBgPicPath = useSettingValue('theme.customBgPicPath')
-  const blurSetting = useSettingValue('theme.blur')
-  const { height: windowHeight } = useWindowDimensions()
-  // 胶囊在窗口中的 y 坐标：通过 onLayout + measureInWindow 测量得到，
-  // 用于把背景图的"窗口对齐副本"定位到胶囊区域，让模糊图与页面背景无缝衔接。
-  const containerRef = useRef<View>(null)
-  const [frostedY, setFrostedY] = useState(0)
 
   const handleLongPress = useCallback(() => {
     longPressedRef.current = true
@@ -119,56 +109,19 @@ export default memo(({ componentId, isHome = false }: { componentId?: string, is
 
   const playerComponent = useMemo(
     () => {
-      // 迷你播放器磨砂玻璃胶囊：纯 JS 路线，依赖 RN 内置的 Image.blurRadius（无需原生 pod）。
-      // 不透明度由主题设置 theme.miniPlayerOpacity 控制（0–100），同时控制 blurRadius 和白色叠层。
+      // 迷你播放器：半透明白色背景，透明度由主题设置 theme.miniPlayerOpacity 控制（0–100）。
+      // 与页面动态背景不同源（不再用背景图做模糊），背景样式不随动态背景变化。
       const opacity = (Number(miniPlayerOpacity) || 0) / 100
-      // 背景图源与 PageContent 保持一致（动态封面 > 自定义背景 > 主题默认图），
-      // 用 defaultHeaders 解决部分音源 CDN 对无 UA 请求返回 403 的问题。
-      const pic = customBgPicPath || dynamicPic
-      const bgSource: any = pic
-        ? { uri: pic, headers: defaultHeaders }
-        : (theme['bg-image'] || null)
-      // blurRadius 取一个明显强于页面背景的值（≥25），保证胶囊里看到的是"被重模糊"的图，
-      // 而不是与页面同强度的模糊（那会和上面的页面背景视觉上糊在一起，失去磨砂玻璃边界感）。
-      const barBlurRadius = Math.max(Number(blurSetting) || 10, 25)
       const containerStyle = {
-        borderColor: `rgba(255, 255, 255, ${Math.min(0.5, opacity * 0.6 + 0.2)})`,
+        backgroundColor: `rgba(255, 255, 255, ${Math.min(1, opacity)})`,
+        borderColor: `rgba(255, 255, 255, ${Math.min(0.8, opacity * 0.6 + 0.2)})`,
       }
-      // wrapper 留 16 水平边距，让胶囊呈"悬浮胶囊"形态而不是满宽。
       return (
         <View style={styles.wrapper}>
           <View
-            ref={containerRef}
             style={[styles.container, containerStyle]}
             {...panResponder.panHandlers}
-            onLayout={() => {
-              // 用 measureInWindow 拿到胶囊在窗口中的真实 y 坐标，
-              // 这样背景图"窗口对齐副本"才能精准覆盖到胶囊区域，与 PageContent 背景无缝衔接。
-              containerRef.current?.measureInWindow((_x, y) => {
-                if (Math.round(y) !== Math.round(frostedY)) setFrostedY(y)
-              })
-            }}
           >
-            {bgSource && frostedY > 0 ? (
-              <ImageBackground
-                source={bgSource}
-                resizeMode="cover"
-                blurRadius={barBlurRadius}
-                pointerEvents="none"
-                style={{
-                  position: 'absolute',
-                  left: 0,
-                  right: 0,
-                  top: -frostedY,
-                  height: windowHeight,
-                }}
-              />
-            ) : null}
-            {/* 极薄的白色叠层：让磨砂玻璃偏冷白/亮调（iOS light 风格），又不至于把模糊图盖住 */}
-            <View
-              pointerEvents="none"
-              style={[StyleSheet.absoluteFillObject, { backgroundColor: `rgba(255, 255, 255, ${Math.min(0.3, opacity * 0.6)})` }]}
-            />
             <MiniProgressBar />
 
             <TouchableOpacity style={styles.left} onPress={handleNavigate} onLongPress={handleLongPress} activeOpacity={0.8}>
@@ -201,27 +154,26 @@ export default memo(({ componentId, isHome = false }: { componentId?: string, is
 
 const styles = createStyle({
   wrapper: {
-    // 椭圆磨砂胶囊：绝对定位浮在屏幕底部（iOS Music 同款），不再挤压列表高度。
+    // 半透明迷你播放器：绝对定位浮在屏幕底部，上移 10px 不与底边贴合，
     // 留 16 水平边距让胶囊"悬浮"在底部两侧。
-    // 父容器需要 flex:1 + position:'relative' 作为定位参照；
-    // 内容区域需要给列表加 paddingBottom 避免最后一项被盖住。
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 0,
+    bottom: 10,
     paddingHorizontal: 16,
     paddingTop: 4,
   },
   container: {
     width: '100%',
-    paddingVertical: 10,
+    // 缩小：垂直内边距从 10 收到 8，整体高度更紧凑
+    paddingVertical: 8,
     paddingLeft: 12,
     paddingRight: 12,
-    // 椭圆磨砂胶囊：四个角都用 28 大圆角，左右两端呈半圆（胶囊形）
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
+    // 缩小：圆角从 28 收到 24
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 0.5,
@@ -256,8 +208,8 @@ const styles = createStyle({
     paddingRight: 5,
   },
   menuBtn: {
-    width: 46,
-    height: 46,
+    width: 42,
+    height: 42,
     justifyContent: 'center',
     alignItems: 'center',
   },

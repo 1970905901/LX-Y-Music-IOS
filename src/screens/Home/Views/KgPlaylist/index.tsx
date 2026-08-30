@@ -285,6 +285,7 @@ export default memo(() => {
           key={`cols-${numColumns}`}
           onScrollBeginDrag={Keyboard.dismiss}
           data={playlists}
+          contentContainerStyle={{ paddingBottom: 80 }}
           numColumns={numColumns}
           renderItem={({ item }) => (
             <ListItem item={item} rowWidth={rowInfo.rowWidth} onPress={handleItemPress} onMenuPress={handleMenuPress} />

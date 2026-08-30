@@ -55,6 +55,7 @@ export default memo(() => {
       <FlatList
         onScrollBeginDrag={Keyboard.dismiss}
         data={subscribedAlbums}
+        contentContainerStyle={{ paddingBottom: 80 }}
         key={isHorizontal ? 'horizontal' : 'vertical'}
         numColumns={isHorizontal ? 2 : 1}
         renderItem={({ item }) => (

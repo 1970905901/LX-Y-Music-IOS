@@ -317,6 +317,7 @@ export default memo(() => {
             <FlatList
               style={styles.list}
               data={completedTasks}
+              contentContainerStyle={{ paddingBottom: 80 }}
               key={isHorizontal ? 'horizontal' : 'vertical'}
               numColumns={isHorizontal ? 2 : 1}
               columnWrapperStyle={isHorizontal ? styles.columnWrapper : undefined}
@@ -348,6 +349,7 @@ export default memo(() => {
             <FlatList
               style={styles.list}
               data={localFiles}
+              contentContainerStyle={{ paddingBottom: 80 }}
               key={isHorizontal ? 'horizontal' : 'vertical'}
               numColumns={isHorizontal ? 2 : 1}
               columnWrapperStyle={isHorizontal ? styles.columnWrapper : undefined}

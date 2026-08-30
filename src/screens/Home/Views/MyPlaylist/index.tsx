@@ -233,6 +233,7 @@ export default memo(() => {
         <FlatList
           onScrollBeginDrag={Keyboard.dismiss}
           data={playlists}
+          contentContainerStyle={{ paddingBottom: 80 }}
           key={isHorizontal ? 'horizontal' : 'vertical'}
           numColumns={isHorizontal ? 2 : 1}
           columnWrapperStyle={isHorizontal ? { paddingHorizontal: 8 } : undefined}

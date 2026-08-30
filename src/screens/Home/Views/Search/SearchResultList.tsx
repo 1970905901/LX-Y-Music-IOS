@@ -172,6 +172,7 @@ export default forwardRef(({ searchType, source }: SearchResultListProps, ref) =
   return (
     <FlatList
       data={list}
+      contentContainerStyle={{ paddingBottom: 80 }}
       // numColumns 变更时必须重挂载（key 变更），RN 不支持运行中修改 numColumns
       key={isHorizontal ? 'horizontal' : 'vertical'}
       numColumns={isHorizontal ? 2 : 1}

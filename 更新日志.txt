@@ -26,3 +26,19 @@ LX-Y Music 近期更新日志
 - 菜单/下拉面板在窗口尺寸变化（旋转/分屏）时自动关闭，避免基于旧锚点的定位错乱。
 - AnimatedSlideUpPanel 窗口高变化时对齐隐藏态动画值；ModalContent 最小宽度 320→260，适配 Slide Over 窄窗。
 - 修复 useDeviceOrientation 初始尺寸 {0,0} 时 portrait/landscape 同时为 true 的问题。
+
+[iOS] 移除 Android 专属 elevation（纯 iPhone/iPad）
+- shadow.ts 改为纯 iOS 实现，不再输出 Android 的 elevation（此项目只做 iPhone/iPad）。
+- 清理 10+ 处组件中在 iOS 上无效的裸 elevation 死代码（弹窗、播放条、设置卡片、拖拽排序项等）。
+
+[界面] 全局增加页面顶部与状态栏间距
+- useStatusbarHeight 返回时统一加 6pt 顶部留白，所有页面 Header（排行榜/播放详情/评论/专辑/歌手/下载/弹窗等）一次性生效，避免标题贴住状态栏/灵动岛。
+
+[设置] 侧边栏功能分组点击选项屏幕跳动修复
+- 点击分组下选项勾选 CheckBox 时列表整条重建导致屏幕跳动。
+- 根因：topLevelItems/groupItems 的 useMemo 依赖数组含 navStatus（计算并不读取它），勾选更新 navStatus 后触发重建。
+- 移除多余依赖后点击仅更新选中态，不再跳动。
+
+[排行榜] 启动时切换榜单左侧空白修复
+- 根因：BoardsList/List 内部 useState 保存榜单列表，DrawerLayoutAndroid 关闭→打开会卸载重挂载 navigationView，数据被重置回空 → 左侧空白。
+- 修复：list/activeId 状态提升到父组件（竖屏 Vertical / 横屏 LeftBar）通过 props 传入，Drawer 重挂载不再丢数据。

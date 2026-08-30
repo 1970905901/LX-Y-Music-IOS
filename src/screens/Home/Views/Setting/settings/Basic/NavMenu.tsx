@@ -1,5 +1,5 @@
 import { memo, useMemo, useState, useCallback, useRef, useEffect } from 'react'
-import { StyleSheet, View, Text, Animated, PanResponder, ScrollView, TouchableOpacity } from 'react-native'
+import { StyleSheet, View, Text, Animated, PanResponder, TouchableOpacity } from 'react-native'
 import SubTitle from '../../components/SubTitle'
 import CheckBox from '@/components/common/CheckBox'
 import { useSettingValue } from '@/store/setting/hook'
@@ -8,7 +8,7 @@ import { updateSetting } from '@/core/common'
 import { NAV_MENUS, NAV_GROUPS, type NAV_ID_Type, getEffectiveFlatOrder, getEffectiveGroupChildren } from '@/config/constant'
 import { useTheme } from '@/store/theme/hook'
 import { Icon } from '@/components/common/Icon'
-import { acquireScrollLock, releaseScrollLock, subscribeScrollLock } from '@/utils/scrollLock'
+import { acquireScrollLock, releaseScrollLock } from '@/utils/scrollLock'
 
 const LONG_PRESS_MS = 350
 
@@ -244,8 +244,6 @@ export default memo(() => {
   const navFlatOrder = useSettingValue('common.navFlatOrder')
   const navGroupVisible = useSettingValue('common.navGroupVisible')
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null)
-  const [scrollLocked, setScrollLocked] = useState(false)
-  useEffect(() => subscribeScrollLock(setScrollLocked), [])
 
   const effectiveFlatOrder = useMemo(() => {
     return getEffectiveFlatOrder(navFlatOrder, navOrder)
@@ -369,14 +367,12 @@ export default memo(() => {
               <Icon name="chevron-left" size={14} color="#666" />
               <TextAny size={13} color="#666" style={{ marginLeft: 4 }}>{t('setting_basic_nav_menu_back_top')}</TextAny>
             </TouchableOpacity>
-            <ScrollView keyboardShouldPersistTaps="always" scrollEnabled={!scrollLocked}>
-              <SortableList key={`group-${selectedGroup}`} items={groupItems} onReorder={handleGroupReorder} dragHint={t('setting_basic_nav_menu_reorder_tip')} navGroupVisible={navGroupVisible} />
-            </ScrollView>
+            {/* 不套内层 ScrollView：设置页本身已是滚动容器，嵌套滚动会在点按开关时
+                把手势冒泡到外层导致整页滚动一下。拖拽排序靠全局 scrollLock 锁定外层滚动。 */}
+            <SortableList key={`group-${selectedGroup}`} items={groupItems} onReorder={handleGroupReorder} dragHint={t('setting_basic_nav_menu_reorder_tip')} navGroupVisible={navGroupVisible} />
           </View>
         ) : (
-          <ScrollView keyboardShouldPersistTaps="always" scrollEnabled={!scrollLocked}>
-            <SortableList key={`top-${navGroupEnabled}`} items={topLevelItems} onReorder={handleTopLevelReorder} dragHint={t('setting_basic_nav_menu_reorder_tip')} navGroupVisible={navGroupVisible} />
-          </ScrollView>
+          <SortableList key={`top-${navGroupEnabled}`} items={topLevelItems} onReorder={handleTopLevelReorder} dragHint={t('setting_basic_nav_menu_reorder_tip')} navGroupVisible={navGroupVisible} />
         )}
       </View>
     </SubTitle>

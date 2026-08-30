@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState } from 'react'
+import { memo, useRef } from 'react'
 import { View, TouchableOpacity } from 'react-native'
 import Text from '@/components/common/Text'
 import Badge, { type BadgeType } from '@/components/common/Badge'
@@ -12,40 +12,13 @@ import { createStyle, type RowInfo } from '@/utils/tools'
 import Image from '@/components/common/Image'
 import PlayingIcon from '@/components/common/PlayingIcon'
 import { useIsWyLiked, useIsTxLiked, useIsKgLiked } from '@/store/user/hook'
-import { fetchQsCover, getCachedQsCover } from '@/core/music/qsCover'
 import { handleLikeMusic, handleTxLikeMusic, handleKgLikeMusic } from './listAction'
+import useCoverUrl from '@/utils/hooks/useCoverUrl'
 
-// 汽水(qs) 源自身通常不返回可用封面（meta.picUrl 为空）。
-// 这里在列表项里按需用跨平台匹配（企鹅→网易→酷狗→酷我→咪咕）补全，
-// 结果按「歌名|歌手」缓存，同名歌曲只请求一次。
-// 放在列表项里做，才能同时覆盖排行榜、歌单详情、导入后的我的列表等所有展示场景
-// （这些页面的列表由各自组件持有，只在 core 里回写 store 无法刷新界面）。
-const useQsCover = (item: LX.Music.MusicInfoOnline): string => {
-  const [url, setUrl] = useState(() => (item.source === 'qs' ? getCachedQsCover(item) : ''))
-
-  useEffect(() => {
-    if (item.source !== 'qs') {
-      setUrl('')
-      return
-    }
-    const cached = getCachedQsCover(item)
-    if (cached) {
-      setUrl(cached)
-      return
-    }
-    let ignore = false
-    void fetchQsCover(item).then((pic) => {
-      if (!ignore && pic) setUrl(pic)
-    })
-    return () => {
-      ignore = true
-    }
-  }, [item])
-
-  // 汽水(qs) 自带封面 URL 常因签名/防盗链失效（排行榜、导入歌单的 meta.picUrl
-  // 非空但加载失败），因此优先用跨平台匹配到的封面，匹配不到再回退自带封面。
-  return item.source === 'qs' ? url || item.meta.picUrl : item.meta.picUrl
-}
+// 列表项封面：优先用自带 meta.picUrl；为空时按需动态获取（在线接口/本地内嵌/
+// 网盘封面/qs 跨平台匹配），解决 cookie 歌单、WebDAV 同步、备份导入的歌单
+// 「列表无封面但播放有封面」的问题（播放时 player 走同一 getPicPath 动态获取）。
+// 结果带缓存与并发限制，见 core/music/coverUrl.ts。
 
 export const ITEM_HEIGHT = scaleSizeH(LIST_ITEM_HEIGHT)
 
@@ -130,7 +103,7 @@ export default memo(
     const theme = useTheme()
     const isPlaying = playingId === item.id;
     const isSelected = selectedList.includes(item)
-    const coverUrl = useQsCover(item)
+    const coverUrl = useCoverUrl(item)
     const isWyLiked = useIsWyLiked(item.meta.songId)
     const txSongId = (item.meta as any).id
     const isNumericId = txSongId && /^\d+$/.test(String(txSongId))

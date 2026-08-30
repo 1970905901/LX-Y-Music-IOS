@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState } from 'react'
+import { memo, useRef } from 'react'
 import { View, TouchableOpacity } from 'react-native'
 import { LIST_ITEM_HEIGHT } from '@/config/constant'
 import { Icon } from '@/components/common/Icon'
@@ -14,36 +14,14 @@ import PlayingIcon from '@/components/common/PlayingIcon'
 import { useI18n } from '@/lang'
 import { useIsWyLiked, useIsTxLiked, useIsKgLiked } from '@/store/user/hook'
 import { handleLikeMusic, handleTxLikeMusic, handleKgLikeMusic } from '@/components/OnlineList/listAction'
-import { fetchQsCover, getCachedQsCover } from '@/core/music/qsCover'
+import useCoverUrl from '@/utils/hooks/useCoverUrl'
 
 export const ITEM_HEIGHT = scaleSizeH(LIST_ITEM_HEIGHT)
 
-// 汽水(qs) 源自带封面 URL 常因签名/防盗链失效，这里用跨平台匹配补全，
-// 逻辑与 OnlineList/ListItem 保持一致（结果按「歌名|歌手」缓存）。
-const useQsCover = (item: LX.Music.MusicInfo): string => {
-  const [url, setUrl] = useState(() => (item.source === 'qs' ? getCachedQsCover(item as LX.Music.MusicInfoOnline) : ''))
-
-  useEffect(() => {
-    if (item.source !== 'qs') {
-      setUrl('')
-      return
-    }
-    const cached = getCachedQsCover(item as LX.Music.MusicInfoOnline)
-    if (cached) {
-      setUrl(cached)
-      return
-    }
-    let ignore = false
-    void fetchQsCover(item as LX.Music.MusicInfoOnline).then((pic) => {
-      if (!ignore && pic) setUrl(pic)
-    })
-    return () => {
-      ignore = true
-    }
-  }, [item])
-
-  return item.source === 'qs' ? url || item.meta?.picUrl : item.meta?.picUrl
-}
+// 列表项封面：优先用自带 meta.picUrl；为空时按需动态获取（在线接口/本地内嵌/
+// 网盘封面/qs 跨平台匹配），解决 cookie 歌单、WebDAV 同步、备份导入的歌单
+// 「列表无封面但播放有封面」的问题（播放时 player 走同一 getPicPath 动态获取）。
+// 结果带缓存与并发限制，见 core/music/coverUrl.ts。
 
 const useQualityTag = (musicInfo: LX.Music.MusicInfo) => {
   const t = useI18n()
@@ -123,7 +101,7 @@ export default memo(
     onScrollBeginDrag?: () => void
   }) => {
     const theme = useTheme()
-    const coverUrl = useQsCover(item)
+    const coverUrl = useCoverUrl(item)
     // 汽水(qs) 等音源经 filterListDetail 构造的歌曲可能不带 meta 字段，这里兜底避免
     // 下方 item.meta.xxx 访问 undefined 时整行抛错、导致整列表空白（尤其播放态重渲染时）。
     const meta = (item.meta ?? {}) as any

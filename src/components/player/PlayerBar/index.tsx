@@ -1,5 +1,5 @@
-import {memo, useCallback, useMemo, useRef} from 'react'
-import { PanResponder, View, TouchableOpacity } from 'react-native'
+import { memo, useCallback, useMemo, useRef, type ComponentType } from 'react'
+import { PanResponder, StyleSheet, View, TouchableOpacity, type StyleProp, type ViewStyle } from 'react-native'
 import { useKeyboard } from '@/utils/hooks'
 import Pic from './components/Pic'
 import Title from './components/Title'
@@ -17,6 +17,22 @@ import PlayerPlaylist, { PlayerPlaylistType } from '@/components/player/PlayerPl
 import MiniProgressBar from "@/components/player/PlayerBar/components/MiniProgressBar.tsx"
 import playerState from '@/store/player/state'
 import { LIST_IDS } from '@/config/constant'
+
+type BlurViewComponent = ComponentType<{
+  style?: StyleProp<ViewStyle>
+  blurType?: string
+  blurAmount?: number
+  reducedTransparencyFallbackColor?: string
+}>
+// 磨砂玻璃需要原生模块 @react-native-community/blur（需 cd ios && pod install 后重新编译原生工程）。
+// 原生模块未链接时，直接 import 会在模块加载期抛错，这里延迟加载：可用则用 BlurView 做真正的
+// 实时模糊；不可用则降级为半透明白色叠加层，保证未 pod install 时也能正常编译运行不闪退。
+let BlurView: BlurViewComponent | null = null
+try {
+  BlurView = require('@react-native-community/blur').BlurView
+} catch {
+  BlurView = null
+}
 
 export default memo(({ componentId, isHome = false }: { componentId?: string, isHome?: boolean }) => {
   const { keyboardShown } = useKeyboard()
@@ -112,13 +128,33 @@ export default memo(({ componentId, isHome = false }: { componentId?: string, is
       // 迷你播放器磨砂浮层的不透明度由主题设置 theme.miniPlayerOpacity 控制（0–100），
       // 实时计算内联 style（createStyle 在模块加载时冻结，无法读取运行时设置）。
       const opacity = (Number(miniPlayerOpacity) || 0) / 100
+      // 磨砂浓度由主题设置 theme.miniPlayerOpacity 控制（0–100 → blurAmount 0–25）。
+      // BlurView 的 blurType/blurAmount 是固定值，磨砂玻璃样式不随动态背景的颜色/亮度变化。
+      // BlurView 可用时对后方视图做真正的实时模糊（iOS 走 UIVisualEffectView）；
+      // 不可用时降级为半透明白色叠加在 PageContent 已模糊的动态背景上。
+      const blurAmount = Math.min(25, Math.max(0, opacity * 25))
       const containerStyle = {
-        backgroundColor: `rgba(255, 255, 255, ${opacity})`,
         borderColor: `rgba(255, 255, 255, ${Math.min(1, opacity * 0.6 + 0.3)})`,
       }
+      // wrapper 保持透明：迷你播放器为满宽磨砂玻璃条，四周不再有纯色大背景块。
       return (
         <View style={styles.wrapper}>
           <View style={[styles.container, containerStyle]} {...panResponder.panHandlers}>
+            {BlurView
+              ? (
+                <BlurView
+                  style={StyleSheet.absoluteFillObject}
+                  blurType="light"
+                  blurAmount={blurAmount}
+                  reducedTransparencyFallbackColor="white"
+                />
+              )
+              : (
+                <View
+                  pointerEvents="none"
+                  style={[StyleSheet.absoluteFillObject, { backgroundColor: `rgba(255, 255, 255, ${Math.min(0.75, opacity * 1.4)})` }]}
+                />
+              )}
             <MiniProgressBar />
 
             <TouchableOpacity style={styles.left} onPress={handleNavigate} onLongPress={handleLongPress} activeOpacity={0.8}>
@@ -151,7 +187,8 @@ export default memo(({ componentId, isHome = false }: { componentId?: string, is
 
 const styles = createStyle({
   wrapper: {
-    paddingHorizontal: 16,
+    // 磨砂玻璃条满宽铺底：去掉水平内边距，保留底部安全区
+    paddingHorizontal: 0,
     paddingBottom: 18,
     paddingTop: 4,
   },
@@ -160,17 +197,19 @@ const styles = createStyle({
     paddingVertical: 10,
     paddingLeft: 12,
     paddingRight: 12,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    borderBottomLeftRadius: 16,
-    borderBottomRightRadius: 16,
+    // 磨砂玻璃样式：去掉椭圆大圆角（28 全部归零），满宽铺底；
+    // BlurView 的 blurType/blurAmount 为固定值，不再随动态背景颜色/亮度变化。
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 0.5,
-    shadowColor: 'rgba(0, 0, 0, 0.15)',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
+    borderWidth: 0,
+    shadowColor: 'rgba(0, 0, 0, 0.08)',
+    shadowOffset: { width: 0, height: -1 },
+    shadowOpacity: 1,
+    shadowRadius: 2,
     overflow: 'hidden',
   },
   left: {

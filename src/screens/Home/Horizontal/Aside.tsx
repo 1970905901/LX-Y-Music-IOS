@@ -14,8 +14,8 @@ import { useSettingValue } from '@/store/setting/hook'
 import ImageBackground from '@/components/common/ImageBackground'
 import { defaultHeaders } from '@/components/common/Image'
 import { getCutoutLeftPx } from '@/utils/nativeModules/utils'
-import commonState from '@/store/common/state'
-import { navigations } from '@/navigation'
+
+
 import { useLandscapeLayout } from '@/utils/landscapeLayout'
 
 const NAV_WIDTH = 68
@@ -249,9 +249,7 @@ export default memo(() => {
   const navOrder = useSettingValue('common.navOrder');
   const navFlatOrder = useSettingValue('common.navFlatOrder');
   const navGroupEnabled = useSettingValue('common.navGroupEnabled');
-  const navGroupOrder = useSettingValue('common.navGroupOrder');
   const navGroupVisible = useSettingValue('common.navGroupVisible');
-  const navGroupExpanded = useSettingValue('common.navGroupExpanded');
   const isDynamicBg = useSettingValue('theme.dynamicBg');
   const isSidebarDynamicBg = useSettingValue('theme.sidebarDynamicBg');
   const dynamicPic = useBgPic();

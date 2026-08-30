@@ -17,7 +17,7 @@ import { syncToTime as lrcSyncToTime } from '@/plugins/lyric'
 import { clearPlayedList, addPlayedList, removePlayedList } from '@/core/player/playedList'
 import { clearTempPlayeList, removeTempPlayList } from '@/core/player/tempPlayList'
 import { getMusicUrl, getPicPath, getLyricInfo } from '@/core/music'
-import { getOtherSource, getPlayQuality, QUALITY_RANK, tryUserDefinedSourceToggle } from '@/core/music/utils'
+import { getOtherSource, QUALITY_RANK, tryUserDefinedSourceToggle } from '@/core/music/utils'
 import { addListMusics, removeListMusics } from '@/core/list'
 import { addDislikeInfo } from '@/utils/dislikeManage'
 import { LIST_IDS } from '@/config/constant'
@@ -335,7 +335,7 @@ const createDelayNextTimeout = (delay: number) => {
     addDelayNextTimeout,
   }
 }
-const { addDelayNextTimeout, clearDelayNextTimeout } = createDelayNextTimeout(5000)
+const { clearDelayNextTimeout } = createDelayNextTimeout(5000)
 const { addDelayNextTimeout: addLoadTimeout, clearDelayNextTimeout: clearLoadTimeout } =
   createDelayNextTimeout(30000)
 

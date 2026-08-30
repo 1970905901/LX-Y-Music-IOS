@@ -185,7 +185,6 @@ const StrategyItem = memo(({
 
 export default memo(() => {
   const t = useI18n()
-  const theme = useTheme()
   const failureStrategy = useSettingValue('player.failureStrategy')
   const isEnableAutoToggleSource = useSettingValue('player.enableAutoToggleSource')
   const subContainerOpacity = useSettingValue('theme.subContainerOpacity')

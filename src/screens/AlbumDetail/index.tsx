@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef, useState, useCallback, useMemo } from 'react'
-import { View } from 'react-native'
+
 import PageContent from '@/components/PageContent'
 import Header from './Header'
 import OnlineList, { type OnlineListType } from '@/components/OnlineList'
@@ -10,7 +10,7 @@ import { toast } from '@/utils/tools'
 import { setComponentId } from '@/core/common'
 import PlayerBar from '@/components/player/PlayerBar'
 import LandscapeDetailLayout from '@/components/LandscapeDetailLayout'
-import { type ListInfoItem } from '@/store/songlist/state'
+
 import { playOnlineList } from '@/core/list'
 import {COMPONENT_IDS, LIST_IDS} from "@/config/constant.ts"
 import playerState from '@/store/player/state'

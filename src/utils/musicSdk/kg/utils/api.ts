@@ -14,7 +14,6 @@ const KG_CONFIG = {
 
 const KG_API_BASE = 'https://gateway.kugou.com';
 const KG_LOGIN_BASE = 'http://login.user.kugou.com';
-const KUGOU_API_SERVER = 'http://10.0.2.2:3000';
 
 let cachedDevice: { headers: Record<string, string>; defaultParams: Record<string, any> } | null = null;
 
@@ -1109,8 +1108,6 @@ export async function getPlaylistSongs(
   };
 
   const cookieObj = cookieToJson(cookie)
-  const userid = cookieObj.userid || cookieObj.KugooID || ''
-  const token = cookieObj.token || cookieObj.t || ''
 
   log(`获取歌单详情: id=${globalCollectionId}, page=${page}`)
 

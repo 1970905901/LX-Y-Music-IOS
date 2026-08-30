@@ -1,10 +1,10 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {memo, useCallback, useEffect, useRef, useState} from 'react'
 import { Animated, Easing, View, PanResponder } from 'react-native'
 import { createStyle } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
-import { scaleSizeW, scaleSizeH } from '@/utils/pixelRatio'
+
 import { useDrag } from '@/utils/hooks'
-import { Icon } from '@/components/common/Icon'
+
 import { setPagerScrollEnabled } from '@/utils/pagerScrollControl'
 // import { AppColors } from '@/theme'
 
@@ -214,8 +214,6 @@ const Progress = ({
 const progressContentPadding = 6
 const progressHeight = 7
 const progressContentHeight = progressContentPadding * 2 + progressHeight
-const progressHeightSize = scaleSizeH(progressHeight)
-let progressDotSize = scaleSizeW(progressContentHeight * 0.8)
 const styles = createStyle({
   progress: {
     width: '100%',

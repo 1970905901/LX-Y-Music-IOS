@@ -1,4 +1,4 @@
-import {forwardRef, useImperativeHandle, useRef, useState, useCallback, memo, useEffect} from 'react'
+import {forwardRef, useImperativeHandle, useRef, useState, useCallback, useEffect} from 'react'
 import { FlatList, RefreshControl, Keyboard, View } from 'react-native'
 import wyMusicSearch from '@/utils/musicSdk/wy/musicSearch'
 import txMusicSearch from '@/utils/musicSdk/tx/musicSearch'

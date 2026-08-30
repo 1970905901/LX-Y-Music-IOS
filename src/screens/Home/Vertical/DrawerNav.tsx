@@ -14,8 +14,8 @@ import { useSettingValue } from '@/store/setting/hook'
 import { Animated as AnimatedType, Easing } from 'react-native'
 import { useMyList } from '@/store/list/hook'
 import { setActiveList } from '@/core/list'
-import { navigations } from "@/navigation"
-import commonState from '@/store/common/state'
+
+
 import ImageBackground from '@/components/common/ImageBackground'
 import { defaultHeaders } from '@/components/common/Image'
 import { updateSetting } from '@/core/common'
@@ -139,8 +139,6 @@ const CollapsibleGroupItem = ({ group, activeId, onPress }: { group: NavGroup; a
 
   const animatedHeight = animation.interpolate({ inputRange: [0, 1], outputRange: [0, contentHeight] })
   const animatedOpacity = animation.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, 0, 1] })
-
-  const hasActiveChild = group.children.some(c => c === activeId)
 
   return (
     <View>

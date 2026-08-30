@@ -3,7 +3,7 @@ import { memo } from 'react'
 import Section from '../../components/Section'
 import Theme from './Theme'
 import ThemeMode from './ThemeMode'
-import IsHideBgDark from './IsHideBgDark'
+
 import IsDynamicBg from './IsDynamicBg'
 import IsFontShadow from './IsFontShadow'
 import Blur from "@/screens/Home/Views/Setting/settings/Theme/Blur.tsx";

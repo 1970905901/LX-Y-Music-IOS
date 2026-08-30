@@ -96,7 +96,6 @@ const resolveSdkResult = async <T = any>(result: unknown): Promise<T | null> => 
 
 // 按歌名+歌手在内置平台搜索候选（跨平台），歌名完全匹配优先
 const searchCandidates = async (name: string, singer: string): Promise<SongCandidate[]> => {
-  const keyword = `${cleanName(name)} ${singer || ''}`.trim()
   const result: SongCandidate[] = []
 
   // 注意：searchMusic 是 musicSdk 的【命名导出】，不是默认导出的成员。

@@ -20,7 +20,7 @@ import commonState from '@/store/common/state'
 import playerState from '@/store/player/state'
 import { LIST_IDS } from '@/config/constant'
 import listState from '@/store/list/state'
-import {setWySubscribedPlaylists, removeWySubscribedPlaylist, updateWySubscribedPlaylist} from "@/store/user/action.ts"
+import {setWySubscribedPlaylists, removeWySubscribedPlaylist} from "@/store/user/action.ts"
 import Menu, { type MenuType, type Position } from '@/components/common/Menu'
 import PlaylistEditModal, { type PlaylistEditModalType } from './PlaylistEditModal'
 import MusicInfoOnline = LX.Music.MusicInfoOnline;

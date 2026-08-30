@@ -27,7 +27,7 @@ import { getMusicUrl, getLyricInfo, getPicUrl } from '@/core/music/online'
 import { writeMetadata, writePic, writeLyric, isWriteSupported } from '@/utils/localMediaMetadata'
 import { downloadFile, writeFile } from '@/utils/fs'
 import { getDefaultDownloadPath } from '@/utils/downloadPath'
-import { clearMusicUrl } from '@/utils/data'
+
 import { getAllKeys, removeDataMultiple } from '@/plugins/storage'
 import { storageDataPrefix } from '@/config/constant'
 import {MusicMetadata} from "react-native-local-media-metadata";

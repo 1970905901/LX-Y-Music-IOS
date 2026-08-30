@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react'
-import { View, BackHandler, TouchableOpacity, StyleSheet, TextInput as RNTextInput } from 'react-native'
+import {View, BackHandler, TouchableOpacity} from 'react-native'
 import MusicList, { type MusicListType } from './MusicList'
 import { type ListInfoItem } from '@/store/songlist/state'
 import { ListInfoContext } from './state'
@@ -11,7 +11,7 @@ import { createStyle, toast } from '@/utils/tools'
 import { scaleSizeW } from '@/utils/pixelRatio'
 import { useTheme } from '@/store/theme/hook'
 import { BorderWidths } from '@/theme'
-import { pop } from '@/navigation'
+
 import commonState from '@/store/common/state'
 import { Icon } from '@/components/common/Icon'
 import { SvgIcon } from '@/components/common/SvgIcon'
@@ -151,7 +151,6 @@ export default ({ info, onBack, initialScrollToInfo }: { info: ListInfoItem, onB
   const [isFuzzySearch, setIsFuzzySearch] = useState(true)
   const playlists = useWySubscribedPlaylists()
   const isInitialMount = useRef(true)
-  const loggedInUserId = useWyUid()
   const playerMusicInfo = usePlayerMusicInfo()
   const initialScrollDoneRef = useRef(false)
 

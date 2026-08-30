@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef, useState, useCallback } from 'react';
-import { View } from 'react-native';
+
 import PageContent from '@/components/PageContent';
 import Header from './Header';
 import SongList from './SongList';
@@ -16,7 +16,7 @@ import {useSettingValue} from "@/store/setting/hook.ts";
 import playerState from '@/store/player/state'
 import listState from '@/store/list/state'
 import { LIST_IDS } from '@/config/constant'
-import { type OnlineListType } from '@/components/OnlineList'
+
 import {usePlayerMusicInfo} from "@/store/player/hook.ts";
 import { log } from '@/utils/log'
 

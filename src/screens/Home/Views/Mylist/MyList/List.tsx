@@ -8,8 +8,6 @@ import {
   type FlatListProps,
   Animated,
   PanResponder,
-  type GestureResponderEvent,
-  type PanResponderGestureState,
 } from 'react-native'
 
 import { Icon } from '@/components/common/Icon'

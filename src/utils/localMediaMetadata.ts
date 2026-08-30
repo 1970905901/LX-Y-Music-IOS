@@ -1,5 +1,5 @@
 import { NativeModules } from 'react-native'
-import {temporaryDirectoryPath, readDir, unlink, extname, privateStorageDirectoryPath} from '@/utils/fs'
+import {readDir, extname, privateStorageDirectoryPath} from '@/utils/fs'
 import { readPic as _readPic } from 'react-native-local-media-metadata'
 
 // 原生写入能力是否可用（Android 由 LocalMediaMetadata 原生模块提供）。
@@ -16,7 +16,6 @@ export {
   writeLyric,
 } from 'react-native-local-media-metadata'
 
-let cleared = false
 export const picCachePath = privateStorageDirectoryPath + '/local-media-covers';
 
 export const getPicCachePath = () => picCachePath;
@@ -47,11 +46,6 @@ export const scanAudioFiles = async (dirPath: string) => {
   }
   
   return audioFiles
-}
-
-const clearPicCache = async () => {
-  await unlink(picCachePath)
-  cleared = true
 }
 
 export const readPic = async (filePath: string): Promise<string> => {

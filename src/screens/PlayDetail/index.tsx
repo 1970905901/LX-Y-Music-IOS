@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { View } from 'react-native'
+
 import { useHorizontalMode } from '@/utils/hooks'
 
 import Vertical from './Vertical'

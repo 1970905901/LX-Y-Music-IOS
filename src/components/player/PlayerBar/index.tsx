@@ -26,7 +26,6 @@ export default memo(({ componentId, isHome = false }: { componentId?: string, is
   const navigatingRef = useRef(false)
   const playlistRef = useRef<PlayerPlaylistType>(null)
   const drawerLayoutPosition = useSettingValue('common.drawerLayoutPosition')
-  const picOpacity = useSettingValue('theme.picOpacity')
   const miniPlayerOpacity = useSettingValue('theme.miniPlayerOpacity')
   const isSwipeToShowPlaylist = useSettingValue('player.isSwipeToShowPlaylist')
 

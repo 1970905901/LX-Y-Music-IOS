@@ -44,7 +44,6 @@ const BuiltInItem = ({
   change: (id: string) => void
 }) => {
   const isActive = useActive(id)
-  const theme = useTheme()
   return (
     <CheckBox
       marginBottom={5}
@@ -240,7 +239,6 @@ const UserApiItem = memo(({
 
 export default memo(() => {
   const t = useI18n()
-  const theme = useTheme()
   const subContainerOpacity = useSettingValue('theme.subContainerOpacity')
   const list = useMemo(
     () =>

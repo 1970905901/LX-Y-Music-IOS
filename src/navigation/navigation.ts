@@ -1,5 +1,5 @@
 import { Navigation } from 'react-native-navigation'
-import { InteractionManager, Platform } from 'react-native'
+
 
 import {
   HOME_SCREEN,

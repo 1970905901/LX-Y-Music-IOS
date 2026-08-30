@@ -13,7 +13,6 @@ import Text from '@/components/common/Text'
 import { handlePlay } from './listAction'
 import { useSettingValue } from '@/store/setting/hook'
 
-const wait = async (time = 50) => new Promise((resolve) => setTimeout(resolve, time))
 type FlatListType = FlatListProps<LX.Music.MusicInfoOnline>
 export type { RowInfoType }
 

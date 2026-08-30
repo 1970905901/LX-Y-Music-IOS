@@ -7,8 +7,8 @@ import Language from './Language'
 import FontSize from './FontSize'
 import ShareType from './ShareType'
 import IsStartupAutoPlay from './IsStartupAutoPlay'
-import IsStartupPushPlayDetailScreen from './IsStartupPushPlayDetailScreen'
-import IsAutoHidePlayBar from './IsAutoHidePlayBar'
+
+
 import IsHomePageScroll from './IsHomePageScroll'
 import IsShowBackBtn from './IsShowBackBtn'
 import IsShowExitBtn from './IsShowExitBtn'

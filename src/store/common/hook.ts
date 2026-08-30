@@ -52,7 +52,7 @@ const hasVisible = (visibleNames: COMPONENT_IDS[], ids: InitState['componentIds'
 }
 export const usePageVisible = (
   visibleNames: COMPONENT_IDS[],
-  onChange: (visible: boolean) => void
+  onChange: (visible: boolean) => void,
 ) => {
   useEffect(() => {
     let visible = hasVisible(visibleNames, state.componentIds)

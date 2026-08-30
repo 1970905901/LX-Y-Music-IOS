@@ -31,6 +31,9 @@ const DrawerLayoutFixed = forwardRef<DrawerLayoutFixedType, Props>(({
 }, ref) => {
   const [containerWidth, setContainerWidth] = useState(0)
   const [visible, setVisible] = useState(false)
+  // 动画期间把侧边栏内容光栅化成位图，避免滑入/滑出时逐帧重新合成
+  // 复杂的歌单卡片列表（封面图 + 文本），显著降低 GPU 合成开销、提升帧率。
+  const [rasterize, setRasterize] = useState(false)
   const animation = useRef(new Animated.Value(0)).current
 
   const drawerWidth = useMemo(() => {
@@ -42,21 +45,26 @@ const DrawerLayoutFixed = forwardRef<DrawerLayoutFixedType, Props>(({
   const openDrawer = useCallback(() => {
     if (!drawerWidth) return
     setVisible(true)
+    setRasterize(true)
     global.app_event.changeHomePageScrollEnabled?.(false)
     Animated.timing(animation, {
       toValue: 1,
       duration: 220,
       useNativeDriver: true,
-    }).start()
+    }).start(({ finished }) => {
+      if (finished) setRasterize(false)
+    })
   }, [animation, drawerWidth])
 
   const closeDrawer = useCallback(() => {
+    setRasterize(true)
     Animated.timing(animation, {
       toValue: 0,
       duration: 180,
       useNativeDriver: true,
     }).start(({ finished }) => {
       if (finished) setVisible(false)
+      setRasterize(false)
       global.app_event.changeHomePageScrollEnabled?.(true)
     })
   }, [animation])
@@ -100,6 +108,7 @@ const DrawerLayoutFixed = forwardRef<DrawerLayoutFixedType, Props>(({
                 </Animated.View>
                 <Animated.View
                   pointerEvents={visible ? 'auto' : 'none'}
+                  shouldRasterizeIOS={rasterize}
                   style={{
                     position: 'absolute',
                     top: 0,

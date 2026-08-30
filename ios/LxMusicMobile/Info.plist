@@ -148,6 +148,10 @@
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
-<true/>
+	<true/>
+	<!-- 解锁 iPhone ProMotion 高刷：RN Animated 动画由 CADisplayLink 驱动，
+	     默认在 ProMotion 设备上被限制到 60Hz；开启后侧边栏等动画可达 120Hz。 -->
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
 </dict>
 </plist>

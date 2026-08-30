@@ -16,12 +16,13 @@ import Image from '@/components/common/Image'
 import { Icon } from '@/components/common/Icon'
 import { SvgIcon } from '@/components/common/SvgIcon'
 import { useTheme } from '@/store/theme/hook'
-import { confirmDialog, createStyle, toast } from '@/utils/tools'
+import { confirmDialog, createStyle, toast, getRowInfo } from '@/utils/tools'
 import { LIST_IDS, LIST_ITEM_HEIGHT } from '@/config/constant'
 import { scaleSizeH } from '@/utils/pixelRatio'
 import { overwriteListMusics } from '@/core/list'
 import { playList } from '@/core/player/player'
 import { addTempPlayList } from '@/core/player/tempPlayList'
+import { useHorizontalMode } from '@/utils/hooks'
 import { usePlayMusicInfo } from '@/store/player/hook'
 import playerState from '@/store/player/state'
 import {
@@ -96,12 +97,15 @@ const SongItem = memo(
     item,
     index,
     isPlaying,
+    rowWidth = '100%',
     onPress,
     onShowMenu,
   }: {
     item: LX.WebDAV.MusicInfo
     index: number
     isPlaying: boolean
+    /** 横屏多列时每列宽度（如 '50%'），竖屏为 '100%' */
+    rowWidth?: `${number}%`
     onPress: (musicInfo: LX.WebDAV.MusicInfo) => void
     onShowMenu: (
       item: LX.WebDAV.MusicInfo,
@@ -133,6 +137,7 @@ const SongItem = memo(
       <View
         style={{
           ...styles.songItem,
+          width: rowWidth,
           backgroundColor: isPlaying ? theme['c-primary-background-hover'] : 'transparent',
         }}
       >
@@ -618,17 +623,25 @@ export default memo(() => {
     scrollToMusic(musicId)
   }, [activeTab, scrollToMusic])
 
+  // 列数响应式（对齐 OnlineList）：iPad 横屏/分屏时双列，避免歌曲行在超宽屏上
+  // 被拉得过长、左右留白；竖屏保持单列零回归。
+  // numColumns 变更时 FlatList 必须重挂载（RN 不支持运行中改列数），故加 key。
+  const isHorizontal = useHorizontalMode()
+  const rowInfo = useMemo(() => getRowInfo(), [isHorizontal])
+  const numColumns = rowInfo.rowNum ?? 1
+
   const renderSong: ListRenderItem<LX.WebDAV.MusicInfo> = useCallback(
     ({ item, index }) => (
       <SongItem
         item={item}
         index={index}
         isPlaying={playMusicInfo.musicInfo?.id === item.id}
+        rowWidth={rowInfo.rowWidth}
         onPress={handlePlay}
         onShowMenu={showMenu}
       />
     ),
-    [handlePlay, showMenu, playMusicInfo.musicInfo?.id]
+    [handlePlay, showMenu, playMusicInfo.musicInfo?.id, rowInfo.rowWidth]
   )
 
   const headerText = useMemo(() => {
@@ -839,12 +852,19 @@ export default memo(() => {
         </Button>
       </View>
       <FlatList
+        key={`cols-${numColumns}`}
         ref={listRef}
         data={filteredSongs}
+        numColumns={numColumns}
         renderItem={renderSong}
         keyExtractor={item => item.id}
         style={{ flex: 1 }}
-        getItemLayout={(data, index) => ({ length: ITEM_HEIGHT, offset: ITEM_HEIGHT * index, index })}
+        // 多列时每 row 放 numColumns 项，偏移按行计算，否则 scrollToIndex 会算错位置
+        getItemLayout={(data, index) => ({
+          length: ITEM_HEIGHT,
+          offset: ITEM_HEIGHT * Math.floor(index / numColumns),
+          index,
+        })}
         onScrollToIndexFailed={(info) => {
           listRef.current?.scrollToOffset({
             offset: Math.max(0, info.averageItemLength * info.index),

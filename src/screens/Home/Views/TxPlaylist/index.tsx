@@ -2,14 +2,14 @@
  * QQ音乐歌单页面 - 显示用户自建歌单和收藏歌单
  */
 
-import { memo, useEffect, useState, useCallback, useRef } from 'react'
+import { memo, useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { View, FlatList, RefreshControl, BackHandler, StyleSheet, Keyboard, TouchableOpacity } from 'react-native'
 import ListItem from './ListItem'
 import txUserApi from '@/utils/musicSdk/tx/user'
 import { useI18n } from '@/lang'
 import { useTheme } from '@/store/theme/hook'
 import Text from '@/components/common/Text'
-import { toast, confirmDialog } from '@/utils/tools'
+import { toast, confirmDialog, getRowInfo } from '@/utils/tools'
 import SonglistDetail from '../../../SonglistDetail'
 import commonState from '@/store/common/state'
 import Menu, { type MenuType, type Position } from '@/components/common/Menu'
@@ -18,6 +18,7 @@ import Input from '@/components/common/Input'
 import playerState from '@/store/player/state'
 import listState from '@/store/list/state'
 import { LIST_IDS } from '@/config/constant'
+import { useHorizontalMode } from '@/utils/hooks'
 
 interface PlaylistInfo {
   id: string
@@ -51,6 +52,13 @@ export default memo(() => {
   const [createModalVisible, setCreateModalVisible] = useState(false)
   const createModalRef = useRef<ConfirmAlertType>(null)
   const [newPlaylistName, setNewPlaylistName] = useState('')
+
+  // 列数响应式（对齐 OnlineList）：iPad 横屏/分屏时双列，避免歌单卡片在超宽屏上
+  // 被拉成一行很长、左右留白；竖屏保持单列零回归。
+  // numColumns 变更时 FlatList 必须重挂载（RN 不支持运行中改列数），故加 key。
+  const isHorizontal = useHorizontalMode()
+  const rowInfo = useMemo(() => getRowInfo(), [isHorizontal])
+  const numColumns = rowInfo.rowNum ?? 1
 
   const playlists = activeTab === 'created' ? createdPlaylists : collectedPlaylists
 
@@ -279,10 +287,12 @@ export default memo(() => {
         </View>
 
         <FlatList
+          key={`cols-${numColumns}`}
           onScrollBeginDrag={Keyboard.dismiss}
           data={playlists}
+          numColumns={numColumns}
           renderItem={({ item }) => (
-            <ListItem item={item} onPress={handleItemPress} onMenuPress={handleMenuPress} />
+            <ListItem item={item} rowWidth={rowInfo.rowWidth} onPress={handleItemPress} onMenuPress={handleMenuPress} />
           )}
           keyExtractor={item => `${item.id}-${item.isCollected ? 'collected' : 'created'}`}
           showsVerticalScrollIndicator={false}

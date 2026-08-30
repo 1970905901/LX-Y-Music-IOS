@@ -9,7 +9,7 @@ import { createStyle } from '@/utils/tools';
 import {dateFormat, sizeFormate} from '@/utils/common';
 import { resumeTask, retryTask } from '@/core/download';
 
-export default memo(({ task: initialTask, onRemove }: { task: LX.Download.DownloadTask, onRemove: (id: string) => void }) => {
+export default memo(({ task: initialTask, rowWidth = '100%', onRemove }: { task: LX.Download.DownloadTask, rowWidth?: `${number}%`, onRemove: (id: string) => void }) => {
   const theme = useTheme();
   const [task, setTask] = useState(initialTask);
   const errorColor = theme['c-600'];
@@ -111,7 +111,7 @@ export default memo(({ task: initialTask, onRemove }: { task: LX.Download.Downlo
   );
 
   return (
-    <View style={styles.container}>
+    <View style={{ ...styles.container, width: rowWidth }}>
       <Image url={task.musicInfo.meta.picUrl} style={styles.artwork} />
       <View style={styles.info}>
         <Text numberOfLines={1}>

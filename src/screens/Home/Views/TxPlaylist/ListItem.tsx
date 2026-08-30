@@ -23,11 +23,13 @@ interface PlaylistItem {
 
 interface ListItemProps {
   item: PlaylistItem
+  /** 横屏多列时每列宽度（如 '50%'），竖屏为 '100%' */
+  rowWidth?: `${number}%`
   onPress: (item: PlaylistItem) => void
   onMenuPress: (item: PlaylistItem, position: Position) => void
 }
 
-export default memo(({ item, onPress, onMenuPress }: ListItemProps) => {
+export default memo(({ item, rowWidth = '100%', onPress, onMenuPress }: ListItemProps) => {
   const theme = useTheme()
   const menuBtnRef = useRef<TouchableOpacity>(null)
 
@@ -42,7 +44,7 @@ export default memo(({ item, onPress, onMenuPress }: ListItemProps) => {
 
   return (
     <TouchableOpacity
-      style={[styles.container, { borderBottomColor: theme['c-list-header-border-bottom'] }]}
+      style={[styles.container, { width: rowWidth, borderBottomColor: theme['c-list-header-border-bottom'] }]}
       onPress={() => onPress(item)}
     >
       <View style={styles.coverContainer}>

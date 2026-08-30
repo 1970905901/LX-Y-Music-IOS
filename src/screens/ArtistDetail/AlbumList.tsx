@@ -79,6 +79,8 @@ export default memo(({ componentId, albums, loading, hasMore, onLoadMore, onRefr
           key={String(rowInfo.num) + viewMode}
           numColumns={rowInfo.num}
           data={list}
+          // 底部内边距：让专辑列表能滚到屏幕底部，最后一行停下时让位给悬浮的迷你播放器。
+          contentContainerStyle={{ paddingBottom: 80 }}
           renderItem={renderItem}
           keyExtractor={item => String(item.id)}
           onEndReached={onLoadMore}

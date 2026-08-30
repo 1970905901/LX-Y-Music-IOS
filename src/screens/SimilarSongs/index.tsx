@@ -89,6 +89,5 @@ const styles = createStyle({
   },
   listWrap: {
     flex: 1,
-    paddingBottom: 80,
   },
 });

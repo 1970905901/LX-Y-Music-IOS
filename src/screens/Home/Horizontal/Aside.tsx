@@ -54,7 +54,9 @@ const styles = createStyle({
     // justifyContent: 'center',
     // padding: 10,
     borderRightWidth: BorderWidths.normal,
-    paddingBottom: 10,
+    // 底部内边距：满宽悬浮的迷你播放器（高约 72）会盖住屏幕底部，
+    // 这里在原有 10 基础上加 80，让底部历史/下载按钮浮在胶囊上方不被遮挡。
+    paddingBottom: 90,
     width: NAV_WIDTH,
   },
   header: {

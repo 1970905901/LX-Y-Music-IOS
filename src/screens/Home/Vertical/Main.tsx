@@ -779,7 +779,7 @@ const styles = createStyle({
     flex: 1,
     // 底部内边距：给悬浮的迷你播放器留出空间，避免列表最后一行被胶囊盖住。
     // 数值 = wrapper paddingTop 4 + 容器内边距 20 + 内容区约 46 + 进度条 3 ≈ 73，取 80 留余量。
-    paddingBottom: 80,
+    paddingBottom: 0,
   },
   pagerView: {
     flex: 1,

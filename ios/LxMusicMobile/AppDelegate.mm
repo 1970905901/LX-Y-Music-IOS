@@ -636,6 +636,27 @@ static void LXApplyNowPlayingArtwork(UIImage *image, NSUInteger requestId) {
       if (requestId != LXNowPlayingArtworkRequestId) return;
       LXApplyNowPlayingInfo();
     });
+    // 汽水(qs) / 排行榜等异步匹配封面的音源，封面是在播放中途才就绪的：仅重设
+    // nowPlayingInfo 不一定会让控制中心/锁屏重绘封面（表现为需暂停再播放封面才
+    // 出现）。这里在信息重设后，短暂把 playbackState 切到相反值再切回，等效于
+    // 控制中心的「暂停→播放」，强制系统重绘整张媒体卡片（含封面）。
+    // 注意：playbackState 仅是控制中心/锁屏的显示状态，不驱动真实音频，不会
+    // 导致实际播放暂停/继续，也不会触发 remote command 事件。
+    if (@available(iOS 13.0, *)) {
+      MPNowPlayingPlaybackState current = LXNowPlayingState;
+      MPNowPlayingPlaybackState opposite = (current == MPNowPlayingPlaybackStatePlaying)
+        ? MPNowPlayingPlaybackStatePaused
+        : MPNowPlayingPlaybackStatePlaying;
+      dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.15 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        if (requestId != LXNowPlayingArtworkRequestId) return;
+        center.playbackState = opposite;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.08 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+          if (requestId != LXNowPlayingArtworkRequestId) return;
+          center.playbackState = current;
+          LXApplyNowPlayingInfo();
+        });
+      });
+    }
     // 异步下载的封面可能被随后到达的元数据刷新短暂覆盖，这里延迟再应用一次，
     // 确保封面在控制中心/锁屏稳定显示（对齐 pauseNowPlaying 的 0.15s 重应用策略）。
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{

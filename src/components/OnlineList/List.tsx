@@ -330,6 +330,11 @@ const List = forwardRef<ListType, ListProps>(
         key={`cols-${numColumns}`}
         ref={flatListRef}
         style={styles.list}
+        // 底部内边距：让列表内容能滚到屏幕底部，最后一项停下时距离屏幕底部 80px，
+        // 正好让位给绝对定位悬浮的迷你播放器（胶囊高度约 72，留 80 缓冲）。
+        // 这里用 contentContainerStyle 而不是给外层容器加 paddingBottom，是因为
+        // 后者会缩短列表的滚动范围（停在胶囊上方留空白），前者让列表占满整屏。
+        contentContainerStyle={{ paddingBottom: 80 }}
         data={currentList}
         numColumns={numColumns}
         horizontal={false}

@@ -13,7 +13,6 @@ import {
   handleDislikeMusic,
   handlePlay,
   handlePlayLater,
-  handleShowMusicSourceDetail,
   handleShowArtistDetail,
   handleShowAlbumDetail,
   handleLikeMusic,
@@ -372,9 +371,6 @@ export default forwardRef<OnlineListType, OnlineListProps>(
           onAlbumDetail={handleShowAlbum}
           onSimilarSongs={(info) => {
             similarSongsModalRef.current?.show(info.musicInfo)
-          }}
-          onMusicSourceDetail={(info) => {
-            void handleShowMusicSourceDetail(info.musicInfo)
           }}
           onDislikeMusic={(info) => {
             void handleDislikeMusic(info.musicInfo, listId)

@@ -167,7 +167,6 @@ declare global {
       'menu.playLater': boolean
       'menu.addTo': boolean
       'menu.playMV': boolean
-      'menu.songDetail': boolean
       'menu.dislike': boolean
 
       'menu.moveTo': boolean

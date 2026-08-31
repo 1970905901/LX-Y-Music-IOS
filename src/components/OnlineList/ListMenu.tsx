@@ -24,7 +24,6 @@ export interface ListMenuProps {
   onPlayLater: (selectInfo: SelectInfo) => void
   onAdd: (selectInfo: SelectInfo) => void
   onDownload: (selectInfo: SelectInfo) => void
-  onMusicSourceDetail: (selectInfo: SelectInfo) => void
   onDislikeMusic: (selectInfo: SelectInfo) => void
   onArtistDetail: (selectInfo: SelectInfo) => void
   onAlbumDetail: (selectInfo: SelectInfo) => void
@@ -54,7 +53,6 @@ export default forwardRef<ListMenuType, ListMenuProps>((props: ListMenuProps, re
     playLater: useSettingValue('menu.playLater'),
     addTo: useSettingValue('menu.addTo'),
     playMV: useSettingValue('menu.playMV'),
-    songDetail: useSettingValue('menu.songDetail'),
     dislike: useSettingValue('menu.dislike'),
   }
 
@@ -113,8 +111,6 @@ export default forwardRef<ListMenuType, ListMenuProps>((props: ListMenuProps, re
     }
 
     const remainingMenu = []
-    if (menuSetting.songDetail)
-      remainingMenu.push({ action: 'musicSourceDetail', label: t('music_source_detail') })
     if (menuSetting.dislike)
       remainingMenu.push({ action: 'dislike', label: t('dislike'), disabled: isDislikeMusic })
     remainingMenu.push({ action: 'clearCache', label: t('clear_music_cache') })
@@ -154,9 +150,6 @@ export default forwardRef<ListMenuType, ListMenuProps>((props: ListMenuProps, re
         break
       case 'similarSongs':
         props.onSimilarSongs(selectInfo)
-        break
-      case 'musicSourceDetail':
-        props.onMusicSourceDetail(selectInfo)
         break
       case 'dislike':
         props.onDislikeMusic(selectInfo)

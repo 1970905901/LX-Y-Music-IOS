@@ -8,7 +8,6 @@ import {
   handlePlay,
   handlePlayLater,
   handleRemove,
-  handleShowMusicSourceDetail,
   handleUpdateMusicInfo,
   handleUpdateMusicPosition,
   handleClearMusicCache,
@@ -311,9 +310,6 @@ export default ({ onBack }: MusicListProps) => {
           void handleDislikeMusic(info.musicInfo)
         }}
         onDownload={(info) => musicDownloadModalRef?.current?.show(info.musicInfo)}
-        onMusicSourceDetail={(info) => {
-          void handleShowMusicSourceDetail(info.musicInfo)
-        }}
         onAdd={handleAddMusic}
         onMove={handleMoveMusic}
         onEditMetadata={handleEditMetadata}

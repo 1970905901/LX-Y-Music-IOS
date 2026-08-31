@@ -28,7 +28,6 @@ import {
   handleKgLikeMusic,
   handleShowAlbumDetail,
   handleShowArtistDetail,
-  handleShowMusicSourceDetail,
 } from "@/components/OnlineList/listAction";
 import settingState from '@/store/setting/state';
 import commonState from '@/store/common/state';
@@ -225,13 +224,6 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
     }
   };
 
-  const onMusicSourceDetail = (info: SelectInfo) => {
-    panelRef.current?.setVisible(false);
-    requestAnimationFrame(() => {
-      handleShowMusicSourceDetail(info.musicInfo);
-    });
-  };
-
   const onPlayMv = (info: SelectInfo) => {
     const musicInfo = info.musicInfo as LX.Music.MusicInfoOnline
     console.log('[MV] 点击播放MV, source:', musicInfo.source, 'musicInfo:', musicInfo)
@@ -351,7 +343,6 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
         onPlayLater={onPlayLater}
         onAdd={onAdd}
         onDownload={onDownload}
-        onMusicSourceDetail={onMusicSourceDetail}
         onDislikeMusic={selectInfo => { void handleDislikeMusic(selectInfo.musicInfo) }}
         onArtistDetail={onArtistDetail}
         onAlbumDetail={onAlbumDetail}

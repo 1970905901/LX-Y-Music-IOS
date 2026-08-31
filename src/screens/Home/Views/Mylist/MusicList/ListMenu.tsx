@@ -23,7 +23,6 @@ export interface ListMenuProps {
   onDownload: (selectInfo: SelectInfo) => void
   onChangePosition: (selectInfo: SelectInfo) => void
   onToggleSource: (selectInfo: SelectInfo) => void
-  onMusicSourceDetail: (selectInfo: SelectInfo) => void
   onArtistDetail: (selectInfo: SelectInfo) => void
   onAlbumDetail: (selectInfo: SelectInfo) => void
   onSimilarSongs: (selectInfo: SelectInfo) => void
@@ -52,17 +51,15 @@ export default forwardRef<ListMenuType, ListMenuProps>((props, ref) => {
 
   const menuPlayLater = useSettingValue('menu.playLater')
   const menuPlayMV = useSettingValue('menu.playMV')
-  const menuSongDetail = useSettingValue('menu.songDetail')
   const menuDislike = useSettingValue('menu.dislike')
 
 
   const menuSetting = useMemo(() => ({
     playLater: menuPlayLater,
     playMV: menuPlayMV,
-    songDetail: menuSongDetail,
     dislike: menuDislike,
   }), [
-    menuPlayLater, menuPlayMV, menuSongDetail, menuDislike,
+    menuPlayLater, menuPlayMV, menuDislike,
   ])
 
   useImperativeHandle(ref, () => ({
@@ -92,13 +89,6 @@ export default forwardRef<ListMenuType, ListMenuProps>((props, ref) => {
       menu.push({ action: 'move', label: t('move_to') })
       menu.push({ action: 'changePosition', label: t('change_position') })
       menu.push({ action: 'toggleSource', label: t('toggle_source') })
-      if (menuSetting.songDetail) {
-        menu.push({
-          action: 'musicSourceDetail',
-          disabled: musicInfo.source == 'local',
-          label: t('music_source_detail'),
-        })
-      }
 
       if (musicInfo.source === 'wy') {
         menu.push({ action: 'artistDetail', label: t('artist_detail') })
@@ -159,7 +149,6 @@ export default forwardRef<ListMenuType, ListMenuProps>((props, ref) => {
       case 'similarSongs': props.onSimilarSongs(info); break
       case 'dislike': props.onDislikeMusic(info); break
       case 'clearCache': props.onClearCache(info); break
-      case 'musicSourceDetail': props.onMusicSourceDetail(info); break
       case 'remove': props.onRemove(info); break
       case 'playMv': props.onPlayMv(info); break
       default:

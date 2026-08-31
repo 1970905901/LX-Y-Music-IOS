@@ -263,6 +263,7 @@ export default memo(() => {
   const navGroupEnabled = useSettingValue('common.navGroupEnabled');
   const navGroupVisible = useSettingValue('common.navGroupVisible');
   const navFlatOrder = useSettingValue('common.navFlatOrder');
+  const sidebarOpacity = useSettingValue('theme.sidebarOpacity');
   const statusBarHeight = useStatusbarHeight()
   const activeId = useNavActiveId()
 
@@ -342,7 +343,7 @@ export default memo(() => {
   }, [filteredNavMenus, visibleGroups, groupChildIds, navGroupEnabled])
 
   return (
-    <View style={{ ...styles.container, backgroundColor: theme['c-content-background'] }}>
+    <View style={{ ...styles.container, backgroundColor: theme['c-content-background'], opacity: sidebarOpacity / 100 }}>
       <ScrollView
         style={styles.menus}
         contentContainerStyle={{

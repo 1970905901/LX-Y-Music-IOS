@@ -248,6 +248,7 @@ export default memo(() => {
   const navFlatOrder = useSettingValue('common.navFlatOrder');
   const navGroupEnabled = useSettingValue('common.navGroupEnabled');
   const navGroupVisible = useSettingValue('common.navGroupVisible');
+  const sidebarOpacity = useSettingValue('theme.sidebarOpacity');
 
   const handlePress = (id: IdType) => {
     switch (id) {
@@ -331,7 +332,7 @@ export default memo(() => {
   const cutoutLeft = isLandscapeStretch ? 0 : rawCutoutLeft
 
   return (
-    <View style={{ ...styles.container, width: layout.asideWidth, marginLeft: cutoutLeft, borderRightColor: theme['c-border-background'], backgroundColor: theme['c-content-background'] }}>
+    <View style={{ ...styles.container, width: layout.asideWidth, marginLeft: cutoutLeft, borderRightColor: theme['c-border-background'], backgroundColor: theme['c-content-background'], opacity: sidebarOpacity / 100 }}>
       <Header />
       <ScrollView style={styles.menus}>
         <View style={styles.list}>

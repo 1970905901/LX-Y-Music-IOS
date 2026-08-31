@@ -190,6 +190,7 @@ const defaultSetting: LX.AppSetting = {
   'theme.sectionOpacity': 50,
   'theme.subContainerOpacity': 50,
   'theme.miniPlayerOpacity': 35,
+  'theme.sidebarOpacity': 90,
 }
 
 if (new Date().getMonth() < 2) {

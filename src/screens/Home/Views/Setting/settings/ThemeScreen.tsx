@@ -13,6 +13,7 @@ import PicOpacity from './Theme/PicOpacity'
 import MiniPlayerOpacity from './Theme/MiniPlayerOpacity'
 import SectionOpacity from './Theme/SectionOpacity'
 import SubContainerOpacity from './Theme/SubContainerOpacity'
+import SidebarOpacity from './Theme/SidebarOpacity'
 
 export default memo(() => {
   const t = useI18n()
@@ -30,6 +31,7 @@ export default memo(() => {
       <MiniPlayerOpacity />
       <SectionOpacity />
       <SubContainerOpacity />
+      <SidebarOpacity />
       <IsFontShadow />
     </Section>
   )

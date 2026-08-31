@@ -30,7 +30,7 @@ import MetadataEditModal, {
   type MetadataEditType,
   type MetadataEditProps,
 } from '@/components/MetadataEditModal'
-import MusicDownloadModal, { type MusicDownloadModalType } from './MusicDownloadModal'
+import { downloadMusic } from '@/core/download'
 import MusicToggleModal, { type MusicToggleModalType } from './MusicToggleModal'
 import {handleShowAlbumDetail, handleShowArtistDetail} from "@/components/OnlineList/listAction.ts";
 import {useSettingValue} from "@/store/setting/hook.ts";
@@ -54,7 +54,7 @@ export default ({ onBack }: MusicListProps) => {
   const listMusicAddRef = useRef<ListMusicAddType>(null)
   const listMusicMultiAddRef = useRef<ListAddMultiType>(null)
   const musicPositionModalRef = useRef<MusicPositionModalType>(null)
-  const musicDownloadModalRef = useRef<MusicDownloadModalType>(null)
+
   const metadataEditTypeRef = useRef<MetadataEditType>(null)
   const listMenuRef = useRef<ListMenuType>(null)
   const musicToggleModalRef = useRef<MusicToggleModalType>(null)
@@ -290,9 +290,6 @@ export default ({ onBack }: MusicListProps) => {
           )
         }}
       />
-      {settingState.setting['download.enable'] && (
-        <MusicDownloadModal ref={musicDownloadModalRef} onDownloadInfo={(info) => {}} />
-      )}
       <ListMenu
         ref={listMenuRef}
         onPlay={(info) => {
@@ -309,7 +306,7 @@ export default ({ onBack }: MusicListProps) => {
         onDislikeMusic={(info) => {
           void handleDislikeMusic(info.musicInfo)
         }}
-        onDownload={(info) => musicDownloadModalRef?.current?.show(info.musicInfo)}
+        onDownload={(info) => downloadMusic(info.musicInfo)}
         onAdd={handleAddMusic}
         onMove={handleMoveMusic}
         onEditMetadata={handleEditMetadata}

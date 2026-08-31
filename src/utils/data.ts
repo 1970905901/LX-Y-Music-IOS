@@ -39,7 +39,6 @@ const dislikeListPrefix = storageDataPrefix.dislikeList
 const userApiPrefix = storageDataPrefix.userApi
 const openStoragePathPrefix = storageDataPrefix.openStoragePath
 const selectedManagedFolderPrefix = storageDataPrefix.selectedManagedFolder
-const lastSelectQualityKey = storageDataPrefix.lastSelectQuality
 const wyUidCachePrefix = storageDataPrefix.wyUidCache
 const localAnnouncementIdKey = storageDataPrefix.localAnnouncementId
 const oneDriveCleanupKey = storageDataPrefix.oneDriveCleanup
@@ -671,13 +670,6 @@ export const setUserApiList = async (list: LX.UserApi.UserApiInfo[]) => {
   userApis = [...list]
   await saveData(userApiPrefix, userApis)
   return [...userApis]
-}
-
-export const getLastSelectQuality = async (): Promise<LX.Quality> => {
-  return (await getData<LX.Quality>(lastSelectQualityKey)) ?? '128k'
-}
-export const saveLastSelectQuality = async (quality: LX.Quality) => {
-  await saveData(lastSelectQualityKey, quality)
 }
 
 export const getWyUidCache = async (hashedCookie: string): Promise<{ uid: string, vipType: number } | null> => {

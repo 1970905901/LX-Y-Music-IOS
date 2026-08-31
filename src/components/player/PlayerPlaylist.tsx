@@ -12,8 +12,8 @@ import { createStyle, toast, type RowInfo } from '@/utils/tools';
 import { scaleSizeH } from '@/utils/pixelRatio';
 import { LIST_ITEM_HEIGHT, LIST_IDS } from '@/config/constant';
 import MusicAddModal, { type MusicAddModalType } from '@/components/MusicAddModal';
-import MusicDownloadModal, { type MusicDownloadModalType } from '@/screens/Home/Views/Mylist/MusicList/MusicDownloadModal';
 import { useSettingValue } from '@/store/setting/hook';
+import { downloadMusic } from '@/core/download';
 import listState from '@/store/list/state';
 import { useWindowSize } from '@/utils/hooks';
 import { addTempPlayList, removeTempPlayList } from '@/core/player/tempPlayList';
@@ -74,7 +74,6 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
   const [playlist, setPlaylist] = useState<LX.Player.PlayMusic[]>([]);
   const [initialIndex, setInitialIndex] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
-  const musicDownloadModalRef = useRef<MusicDownloadModalType>(null);
   const listMenuRef = useRef<ListMenuType>(null);
   const musicAddModalRef = useRef<MusicAddModalType>(null);
   const similarSongsModalRef = useRef<SimilarSongsModalType>(null);
@@ -210,7 +209,7 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
   };
 
   const onDownload = (info: SelectInfo) => {
-    musicDownloadModalRef.current?.show(info.musicInfo);
+    downloadMusic(info.musicInfo);
   };
 
   const onArtistDetail = (info: SelectInfo) => {
@@ -375,7 +374,6 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
         onRemove={onRemove}
       />
       <MusicAddModal ref={musicAddModalRef} />
-      {settingState.setting['download.enable'] && <MusicDownloadModal ref={musicDownloadModalRef} onDownloadInfo={() => {}} />}
       <SimilarSongsModal ref={similarSongsModalRef} />
     </>
   );

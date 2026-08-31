@@ -20,14 +20,11 @@ import {
   handleKgLikeMusic,
 } from './listAction'
 import { handleClearMusicCache } from '@/screens/Home/Views/Mylist/MusicList/listAction'
-import MusicDownloadModal, {
-  type MusicDownloadModalType,
-} from '@/screens/Home/Views/Mylist/MusicList/MusicDownloadModal'
 import {createStyle, toast} from '@/utils/tools'
 import wyApi from '@/utils/musicSdk/wy/user'
 import txUserApi from '@/utils/musicSdk/tx/user'
 import { removeSongsFromPlaylist as removeKgSongsFromPlaylist, getPlaylistSongs as getKgPlaylistSongs } from '@/utils/musicSdk/kg/utils/api'
-import {batchDownload} from "@/core/download.ts"
+import { batchDownload, downloadMusic } from '@/core/download'
 import {getMvUrl as getWyMvUrl} from "@/utils/musicSdk/wy/mv.js"
 import {getMvUrl as getTxMvUrl} from "@/utils/musicSdk/tx/mv.js"
 import {getMvUrl as getKgMvUrl} from "@/utils/musicSdk/kg/mv.js"
@@ -89,7 +86,7 @@ export default forwardRef<OnlineListType, OnlineListProps>(
     const listMusicAddRef = useRef<ListMusicAddType>(null)
     const listMusicMultiAddRef = useRef<ListAddMultiType>(null)
     const listMenuRef = useRef<ListMenuType>(null)
-    const musicDownloadModalRef = useRef<MusicDownloadModalType>(null)
+  
     const similarSongsModalRef = useRef<SimilarSongsModalType>(null)
     const t = useI18n()
     const subscribedPlaylists = useWySubscribedPlaylists()
@@ -343,7 +340,7 @@ export default forwardRef<OnlineListType, OnlineListProps>(
             onExitSelectMode={hancelExitSelect}
             onDownload={handleBatchDownload}
           />
-          <MusicDownloadModal ref={musicDownloadModalRef} onDownloadInfo={(info) => {}} />
+
         </View>
         <ListMusicAdd
           ref={listMusicAddRef}
@@ -375,7 +372,7 @@ export default forwardRef<OnlineListType, OnlineListProps>(
           onDislikeMusic={(info) => {
             void handleDislikeMusic(info.musicInfo, listId)
           }}
-          onDownload={(info) => musicDownloadModalRef.current?.show(info.musicInfo)}
+          onDownload={(info) => downloadMusic(info.musicInfo)}
           onLike={(info) => {
             if (info.musicInfo.source === 'wy') {
               handleLikeMusic(info.musicInfo)

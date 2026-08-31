@@ -10,11 +10,11 @@ import playerState from '@/store/player/state'
 import { useSettingValue } from '@/store/setting/hook'
 import PlayDetailMenu, { type PlayDetailMenuType, type SelectInfo } from '@/screens/PlayDetail/components/PlayDetailMenu'
 import MusicAddModal, { type MusicAddModalType } from '@/components/MusicAddModal'
-import MusicDownloadModal, { type MusicDownloadModalType } from '@/screens/Home/Views/Mylist/MusicList/MusicDownloadModal'
 import SimilarSongsModal, { type SimilarSongsModalType } from '@/components/SimilarSongsModal'
 import { updateSetting } from '@/core/common'
 import settingState from '@/store/setting/state'
 import { handleDislikeMusic, handleClearMusicCache } from '@/screens/Home/Views/Mylist/MusicList/listAction'
+import { downloadMusic } from '@/core/download'
 import { handleLikeMusic, handleTxLikeMusic, handleKgLikeMusic, handleShowAlbumDetail, handleShowArtistDetail } from '@/components/OnlineList/listAction'
 import { usePlayMusicInfo } from '@/store/player/hook'
 import { type Position } from '@/screens/Home/Views/Mylist/MusicList/ListMenu'
@@ -32,7 +32,7 @@ export default memo(({ componentId }: { componentId: string }) => {
   const isSmallWindow = winHeight < 700
   const menuRef = useRef<PlayDetailMenuType>(null)
   const musicAddModalRef = useRef<MusicAddModalType>(null)
-  const musicDownloadModalRef = useRef<MusicDownloadModalType>(null)
+
   const similarSongsModalRef = useRef<SimilarSongsModalType>(null)
   const moreBtnRef = useRef<TouchableOpacity>(null)
   const playMusicInfo = usePlayMusicInfo()
@@ -42,7 +42,7 @@ export default memo(({ componentId }: { componentId: string }) => {
     if (!info) return
     const musicInfo = 'progress' in info ? info.metadata.musicInfo : info
     if (settingState.setting['download.enable']) {
-      musicDownloadModalRef.current?.show(musicInfo)
+      downloadMusic(musicInfo)
     }
   }, [])
 
@@ -94,7 +94,7 @@ export default memo(({ componentId }: { componentId: string }) => {
 
   const onDownload = useCallback((info: SelectInfo) => {
     if (settingState.setting['download.enable']) {
-      musicDownloadModalRef.current?.show(info.musicInfo)
+      downloadMusic(info.musicInfo)
     }
   }, [])
 
@@ -205,7 +205,6 @@ export default memo(({ componentId }: { componentId: string }) => {
         onClearCache={onClearCache}
       />
       <MusicAddModal ref={musicAddModalRef} />
-      {settingState.setting['download.enable'] && <MusicDownloadModal ref={musicDownloadModalRef} onDownloadInfo={() => {}} />}
       <SimilarSongsModal ref={similarSongsModalRef} />
     </View>
   )

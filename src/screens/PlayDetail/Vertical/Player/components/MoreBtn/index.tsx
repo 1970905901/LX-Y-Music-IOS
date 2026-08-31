@@ -9,9 +9,9 @@ import { type Position } from '@/screens/Home/Views/Mylist/MusicList/ListMenu'
 import PlayDetailMenu, { type PlayDetailMenuType, type SelectInfo } from '@/screens/PlayDetail/components/PlayDetailMenu'
 import playerState from '@/store/player/state'
 import { handleDislikeMusic, handleClearMusicCache } from '@/screens/Home/Views/Mylist/MusicList/listAction'
+import { downloadMusic } from '@/core/download'
 import {handleLikeMusic, handleTxLikeMusic, handleKgLikeMusic, handleShowAlbumDetail, handleShowArtistDetail} from '@/components/OnlineList/listAction'
 import MusicAddModal, { type MusicAddModalType } from '@/components/MusicAddModal'
-import MusicDownloadModal, { type MusicDownloadModalType } from '@/screens/Home/Views/Mylist/MusicList/MusicDownloadModal'
 import settingState from '@/store/setting/state'
 import {getMvUrl as getWyMvUrl} from "@/utils/musicSdk/wy/mv.js";
 import {getMvUrl as getTxMvUrl} from "@/utils/musicSdk/tx/mv.js";
@@ -24,7 +24,6 @@ export default memo(({ componentId }: { componentId: string }) => {
   const menuRef = useRef<PlayDetailMenuType>(null);
   const moreBtnRef = useRef<TouchableOpacity>(null);
   const musicAddModalRef = useRef<MusicAddModalType>(null);
-  const musicDownloadModalRef = useRef<MusicDownloadModalType>(null);
   const similarSongsModalRef = useRef<SimilarSongsModalType>(null);
   const playMusicInfo = usePlayMusicInfo();
 
@@ -65,7 +64,7 @@ export default memo(({ componentId }: { componentId: string }) => {
 
   const onDownload = (info: SelectInfo) => {
     if (settingState.setting['download.enable']) {
-      musicDownloadModalRef.current?.show(info.musicInfo);
+      downloadMusic(info.musicInfo);
     }
   };
 
@@ -181,7 +180,6 @@ export default memo(({ componentId }: { componentId: string }) => {
         onClearCache={onClearCache}
       />
       <MusicAddModal ref={musicAddModalRef} />
-      {settingState.setting['download.enable'] && <MusicDownloadModal ref={musicDownloadModalRef} onDownloadInfo={() => {}} />}
       <SimilarSongsModal ref={similarSongsModalRef} />
     </>
   )

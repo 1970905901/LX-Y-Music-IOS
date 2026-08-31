@@ -207,6 +207,7 @@ declare global {
        */
       'download.writeMetadata': boolean
       'download.writeAlias': boolean
+      'download.quality': LX.Quality
 
       /**
        * 是否启用同步

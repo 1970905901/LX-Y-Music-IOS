@@ -502,7 +502,7 @@ export const batchDownload = async (musicInfos: LX.Music.MusicInfo[]) => {
     toast('未配置网易云 Cookie，网易云音源将使用普通音质下载');
   }
 
-  const quality = settingState.setting['player.playQuality'];
+  const quality = settingState.setting['download.quality'];
   let wyCount = 0;
   let otherCount = 0;
   
@@ -521,3 +521,16 @@ export const batchDownload = async (musicInfos: LX.Music.MusicInfo[]) => {
     await new Promise(resolve => setTimeout(resolve, 1000));
   }
 };
+
+/**
+ * 直接按下载设置中的音质下载单曲，并提示所添加的音质（不再弹确认框）
+ */
+export const downloadMusic = (musicInfo: LX.Music.MusicInfo) => {
+  if (!settingState.setting['download.enable']) return
+  const quality = settingState.setting['download.quality'] as LX.Quality
+  addTask(musicInfo, quality)
+  toast(
+    global.i18n.t('download_added_tip', { name: musicInfo.name, quality: global.i18n.t(quality) }),
+    'short',
+  )
+}

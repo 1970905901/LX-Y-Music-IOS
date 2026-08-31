@@ -163,6 +163,7 @@ const defaultSetting: LX.AppSetting = {
   'download.writeMetadata': true,
   'download.writePicture': true,
   'download.writeAlias': false,
+  'download.quality': '128k',
 
   'sync.enable': false,
   'sync.webdav.enable': false,

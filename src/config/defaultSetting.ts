@@ -81,7 +81,6 @@ const defaultSetting: LX.AppSetting = {
     setting_basic_source_user_api: true,
   },
 
-  'player.startupAutoPlay': false,
   'player.startupPushPlayDetailScreen': false,
   'player.togglePlayMethod': 'listLoop',
   'player.playQuality': '320k',

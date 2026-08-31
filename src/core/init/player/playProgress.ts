@@ -60,6 +60,8 @@ export default () => {
   // 与帧循环，避免 BackgroundTimer 在后台仍每秒经 Bridge 取播放位置 / 写进度 / 上报 Scrobble，
   // 造成 iOS「后台活动」耗电（音频由原生继续播放，不受影响）。
   let isAppActive = AppState.currentState === 'active'
+  // 用于「返回软件时自动播放」：仅在应用曾经进入过后台，随后回到前台时才触发，避免启动时误触。
+  let wasInBackground = false
   // 进度条拖动进行中：此时歌词时钟由拖动预览 hold 在手指位置，进度条 UI 也跟随手指。
   let isDragging = false
   // 最近一次 seek/点击跳转的目标位置（毫秒），-1 表示当前不在 seek 沉降窗口内。
@@ -361,6 +363,7 @@ export default () => {
     if (state == 'background') {
       // 退后台：立即持久化一次进度，并停掉 1s 后台计时器与帧循环。否则 BackgroundTimer 在后台仍
       // 每秒经 Bridge 取播放位置 / 写进度 / 上报 Scrobble，造成 iOS「后台活动」耗电。音频由原生继续播放。
+      wasInBackground = true
       savePlayInfoNow()
       clearUpdateTimeout()
       return
@@ -382,7 +385,7 @@ export default () => {
       startUpdateTimeout()
     }
     // 从后台切换回软件时，若开启开关且当前有歌曲但处于暂停状态，则自动恢复播放
-    if (state == 'active' && settingState.setting['player.autoPlayOnReturn'] && !playerState.isPlay && playerState.musicInfo.id) {
+    if (state == 'active' && wasInBackground && settingState.setting['player.autoPlayOnReturn'] && !playerState.isPlay && playerState.musicInfo.id) {
       play()
     }
   })

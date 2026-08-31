@@ -4,7 +4,6 @@ export default (setting: any): Partial<LX.AppSetting> => {
   setting = { ...setting }
 
   if (compareVer(setting.version as string, '2.0') < 0) {
-    setting['player.startupAutoPlay'] = setting.startupAutoPlay
     setting['player.togglePlayMethod'] = setting.player?.togglePlayMethod
     setting['player.isSavePlayTime'] = setting.player?.isSavePlayTime
     setting['player.timeoutExit'] = setting.player?.timeoutExit

@@ -17,6 +17,4 @@ export default async (setting: LX.AppSetting) => {
   global.lx.restorePlayInfo = info
 
   await playList(info.listId, info.index)
-
-  if (setting['player.startupAutoPlay']) setTimeout(play)
 }

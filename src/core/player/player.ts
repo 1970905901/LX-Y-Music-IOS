@@ -492,8 +492,8 @@ const handleRestorePlay = async (restorePlayInfo: LX.Player.SavedPlayInfo) => {
 
   // 关键修复：恢复播放必须主动加载音频 URL 并 seek 到记忆进度。
   // 此前这里只 initTrackInfo（add+skip，不加载 URL、不 seek），真正加载音频+seek 的
-  // setMusicUrl 依赖 play()，而 play() 又只在 startupAutoPlay 开启时才被 initPlayInfo 调用。
-  // 导致 startupAutoPlay 关闭时，恢复后 nowPlayTime 只是 store 值、音频位置仍是 0，
+  // setMusicUrl 依赖 play()，而 play() 此前只在启动自动播放开启时才被 initPlayInfo 调用。
+  // 导致启动自动播放关闭时，恢复后 nowPlayTime 只是 store 值、音频位置仍是 0，
   // 后续 getPosition 返回 0 把进度覆盖清空（表现为「进度清空」）。
   // 这里改用 debouncePlay：内部 setMusicUrl 会以已写入的 nowPlayTime 为 seek 目标，
   // 封面/歌词也一并异步补全（与正常播放路径一致）。

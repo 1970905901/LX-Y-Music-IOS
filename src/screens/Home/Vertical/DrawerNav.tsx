@@ -267,6 +267,10 @@ export default memo(() => {
   const statusBarHeight = useStatusbarHeight()
   const activeId = useNavActiveId()
 
+  // Convert opacity (0-100) to hex alpha channel for backgroundColor
+  const opacityHex = Math.round((sidebarOpacity / 100) * 255).toString(16).padStart(2, '0').toUpperCase()
+  const bgColorWithOpacity = `${theme['c-content-background']}${opacityHex}`
+
   const handlePress = (id: IdType) => {
     switch (id) {
       case 'nav_exit':
@@ -343,13 +347,11 @@ export default memo(() => {
   }, [filteredNavMenus, visibleGroups, groupChildIds, navGroupEnabled])
 
   return (
-    <View style={{ ...styles.container, backgroundColor: theme['c-content-background'], opacity: sidebarOpacity / 100 }}>
+    <View style={{ ...styles.container, backgroundColor: bgColorWithOpacity }}>
       <ScrollView
         style={styles.menus}
         contentContainerStyle={{
-          paddingTop: statusBarHeight + 10,
-          // 底部避让迷你播放器胶囊（bottom 18 + 高约 58），
-          // 末尾项可滚到胶囊上方；内容不满一屏时随整体垂直居中。
+          paddingTop: statusBarHeight,
           paddingBottom: 110,
           flexGrow: 1,
           justifyContent: 'center',

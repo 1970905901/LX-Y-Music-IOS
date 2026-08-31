@@ -10,7 +10,7 @@ import DrawerLayoutFixed, {
 } from '@/components/common/DrawerLayoutFixed'
 import { scaleSizeW } from '@/utils/pixelRatio'
 
-const MAX_WIDTH = scaleSizeW(300)
+const MAX_WIDTH = scaleSizeW(250)
 
 const Content = () => {
   const drawer = useRef<DrawerLayoutFixedType>(null)

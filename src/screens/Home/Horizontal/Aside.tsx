@@ -331,8 +331,12 @@ export default memo(() => {
   const rawCutoutLeft = useCutoutLeft()
   const cutoutLeft = isLandscapeStretch ? 0 : rawCutoutLeft
 
+  // Convert opacity (0-100) to hex alpha channel for backgroundColor
+  const opacityHex = Math.round((sidebarOpacity / 100) * 255).toString(16).padStart(2, '0').toUpperCase()
+  const bgColorWithOpacity = `${theme['c-content-background']}${opacityHex}`
+
   return (
-    <View style={{ ...styles.container, width: layout.asideWidth, marginLeft: cutoutLeft, borderRightColor: theme['c-border-background'], backgroundColor: theme['c-content-background'], opacity: sidebarOpacity / 100 }}>
+    <View style={{ ...styles.container, width: layout.asideWidth, marginLeft: cutoutLeft, borderRightColor: theme['c-border-background'], backgroundColor: bgColorWithOpacity }}>
       <Header />
       <ScrollView style={styles.menus}>
         <View style={styles.list}>

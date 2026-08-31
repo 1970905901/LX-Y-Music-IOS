@@ -31,7 +31,6 @@ const DrawerLayoutFixed = forwardRef<DrawerLayoutFixedType, Props>(
 
     const bgPic = useBgPic()
     const dynamicBg = useSettingValue('theme.dynamicBg')
-    const sidebarDynamicBg = useSettingValue('theme.sidebarDynamicBg')
 
     const fixDrawerWidth = useCallback(() => {
       if (!changedRef.current.width) return
@@ -42,7 +41,7 @@ const DrawerLayoutFixed = forwardRef<DrawerLayoutFixedType, Props>(
 
     useEffect(() => {
       fixDrawerWidth()
-    }, [bgPic, dynamicBg, sidebarDynamicBg, fixDrawerWidth])
+    }, [bgPic, dynamicBg, fixDrawerWidth])
 
     usePageVisible(
       visibleNavNames,

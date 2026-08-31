@@ -1,6 +1,6 @@
 import { memo, useMemo, useState, useEffect } from 'react'
 import { ScrollView, TouchableOpacity, View, Dimensions, Platform } from 'react-native'
-import { useNavActiveId, useStatusbarHeight, useBgPic } from '@/store/common/hook'
+import { useNavActiveId, useStatusbarHeight } from '@/store/common/hook'
 import { useTheme } from '@/store/theme/hook'
 import { Icon } from '@/components/common/Icon'
 import { SvgIcon } from '@/components/common/SvgIcon'
@@ -11,8 +11,6 @@ import type { InitState } from '@/store/common/state'
 import { exitApp, setNavActiveId, updateSetting } from '@/core/common'
 import { BorderWidths } from '@/theme'
 import { useSettingValue } from '@/store/setting/hook'
-import ImageBackground from '@/components/common/ImageBackground'
-import { defaultHeaders } from '@/components/common/Image'
 import { getCutoutLeftPx } from '@/utils/nativeModules/utils'
 
 
@@ -250,15 +248,6 @@ export default memo(() => {
   const navFlatOrder = useSettingValue('common.navFlatOrder');
   const navGroupEnabled = useSettingValue('common.navGroupEnabled');
   const navGroupVisible = useSettingValue('common.navGroupVisible');
-  const isDynamicBg = useSettingValue('theme.dynamicBg');
-  const isSidebarDynamicBg = useSettingValue('theme.sidebarDynamicBg');
-  const dynamicPic = useBgPic();
-  const customBgPicPath = useSettingValue('theme.customBgPicPath');
-  const pic = customBgPicPath || dynamicPic;
-  const blur = useSettingValue('theme.blur');
-  const picOpacity = useSettingValue('theme.picOpacity');
-
-  const showSidebarBg = isDynamicBg && isSidebarDynamicBg && pic;
 
   const handlePress = (id: IdType) => {
     switch (id) {
@@ -342,29 +331,7 @@ export default memo(() => {
   const cutoutLeft = isLandscapeStretch ? 0 : rawCutoutLeft
 
   return (
-    <View style={{ ...styles.container, width: layout.asideWidth, marginLeft: cutoutLeft, borderRightColor: theme['c-border-background'], backgroundColor: showSidebarBg ? 'transparent' : undefined }}>
-      {showSidebarBg ? (
-        <ImageBackground
-          style={{
-            position: 'absolute',
-            left: -cutoutLeft,
-            top: 0,
-            bottom: 0,
-            right: 0,
-          }}
-          source={{ uri: pic, headers: defaultHeaders }}
-          resizeMode="cover"
-          blurRadius={blur}
-        >
-          <View
-            style={{
-              flex: 1,
-              backgroundColor: theme['c-content-background'],
-              opacity: picOpacity / 100,
-            }}
-          />
-        </ImageBackground>
-      ) : null}
+    <View style={{ ...styles.container, width: layout.asideWidth, marginLeft: cutoutLeft, borderRightColor: theme['c-border-background'], backgroundColor: theme['c-content-background'] }}>
       <Header />
       <ScrollView style={styles.menus}>
         <View style={styles.list}>

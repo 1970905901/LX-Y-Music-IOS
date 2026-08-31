@@ -1,7 +1,7 @@
 import { memo, useMemo, useRef, useState, useCallback } from 'react'
 import { ScrollView, TouchableOpacity, View } from 'react-native'
 import { useI18n } from '@/lang'
-import { useNavActiveId, useStatusbarHeight, useBgPic } from '@/store/common/hook'
+import { useNavActiveId, useStatusbarHeight } from '@/store/common/hook'
 import { useTheme } from '@/store/theme/hook'
 import { Icon } from '@/components/common/Icon'
 import { SvgIcon } from '@/components/common/SvgIcon'
@@ -16,8 +16,6 @@ import { useMyList } from '@/store/list/hook'
 import { setActiveList } from '@/core/list'
 
 
-import ImageBackground from '@/components/common/ImageBackground'
-import { defaultHeaders } from '@/components/common/Image'
 import { updateSetting } from '@/core/common'
 
 interface MyListItemProps {
@@ -265,16 +263,7 @@ export default memo(() => {
   const navGroupEnabled = useSettingValue('common.navGroupEnabled');
   const navGroupVisible = useSettingValue('common.navGroupVisible');
   const navFlatOrder = useSettingValue('common.navFlatOrder');
-  const isDynamicBg = useSettingValue('theme.dynamicBg');
-  const isSidebarDynamicBg = useSettingValue('theme.sidebarDynamicBg');
-  const dynamicPic = useBgPic();
-  const customBgPicPath = useSettingValue('theme.customBgPicPath');
-  const pic = customBgPicPath || dynamicPic;
-  const blur = useSettingValue('theme.blur');
-  const picOpacity = useSettingValue('theme.picOpacity');
   const statusBarHeight = useStatusbarHeight()
-
-  const showSidebarBg = isDynamicBg && isSidebarDynamicBg && pic;
   const activeId = useNavActiveId()
 
   const handlePress = (id: IdType) => {
@@ -353,29 +342,7 @@ export default memo(() => {
   }, [filteredNavMenus, visibleGroups, groupChildIds, navGroupEnabled])
 
   return (
-    <View style={{ ...styles.container, backgroundColor: showSidebarBg ? 'transparent' : theme['c-content-background'] }}>
-      {showSidebarBg ? (
-        <ImageBackground
-          style={{
-            position: 'absolute',
-            left: 0,
-            top: 0,
-            bottom: 0,
-            right: 0,
-          }}
-          source={{ uri: pic, headers: defaultHeaders }}
-          resizeMode="cover"
-          blurRadius={blur}
-        >
-          <View
-            style={{
-              flex: 1,
-              backgroundColor: theme['c-content-background'],
-              opacity: picOpacity / 100,
-            }}
-          />
-        </ImageBackground>
-      ) : null}
+    <View style={{ ...styles.container, backgroundColor: theme['c-content-background'] }}>
       <ScrollView
         style={styles.menus}
         contentContainerStyle={{

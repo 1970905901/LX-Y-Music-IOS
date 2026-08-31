@@ -186,10 +186,15 @@ export function pushPlayDetailScreen(componentId: string, skipAnimation = false)
     const theme = themeState.theme
     // 不使用 sharedElementTransitions / elementTransitions：iOS 上 RNN 共享元素转场会把
     // 封面 Image 在原生层劫持成中间态（巨大、错位、静止），导致竖屏播放页封面异常。
-    // 改用 RNN 内置默认 push 转场（skipAnimation 时仅启用 pop 滑出）。
+    // 进入/返回统一用整页 alpha 淡入淡出：更接近原生全屏播放器（如系统音乐）的柔和过渡，
+    // 且能消除默认右侧滑入“白屏滑入”的生硬跳变。背景白→彩的淡入仍由 PageContent 负责，
+    // 与整页 alpha 同步，形成“淡现 + 底色渐显”的连贯观感。
     const playDetailAnimations = skipAnimation
-      ? { push: {}, pop: { content: { translationX: { from: 0, to: windowSizeTools.getSize().width, duration: 300 } } } }
-      : undefined
+      ? { push: {}, pop: { content: { alpha: { from: 1, to: 0, duration: 300 } } } }
+      : {
+          push: { content: { alpha: { from: 0, to: 1, duration: 350 } } },
+          pop: { content: { alpha: { from: 1, to: 0, duration: 300 } } },
+        }
 
     // 原生转场背景色需与页面实际背景一致，否则 push 转场瞬间颜色跳变（闪屏）。
     // PageContent 有背景图时实际背景是 c-content-background（模糊封面 + 底色），

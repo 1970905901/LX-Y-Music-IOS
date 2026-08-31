@@ -39,7 +39,8 @@ export default ({ children, backgroundFadeIn = false }: Props) => {
     bgOpacity.setValue(0)
     const anim = Animated.timing(bgOpacity, {
       toValue: 1,
-      duration: 450,
+      // 与 navigation 整页 alpha 转场（350ms）对齐，确保背景白→彩与整页淡入同步完成。
+      duration: 350,
       useNativeDriver: true,
     })
     anim.start()
@@ -94,9 +95,9 @@ export default ({ children, backgroundFadeIn = false }: Props) => {
               flexDirection: 'column',
               backgroundColor: pic ? undefined : theme['c-main-background'],
             },
-            // 淡入时让页面内容（文字/控件）与背景同步浮现，避免“白底白字”瞬间不可见；
-            // 不淡入时 bgOpacity 恒为 1，对正常显示无影响。
-            { opacity: bgOpacity },
+            // 内容层不再单独淡入：整页的淡入/淡出由 navigation 的 RNN content alpha 转场统一
+            // 负责，这里若再叠一层 bgOpacity 会造成“双重淡入”让文字出现偏慢。背景白→彩的
+            // 淡入由上方背景层独立负责，二者同步即可形成连贯观感。
           ]}
         >
           {children}

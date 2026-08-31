@@ -14,6 +14,7 @@ import { useSettingValue } from '@/store/setting/hook'
 import { Animated as AnimatedType, Easing } from 'react-native'
 import { useMyList } from '@/store/list/hook'
 import { setActiveList } from '@/core/list'
+import { applyOpacity } from '@/utils/colorOpacity'
 
 
 import { updateSetting } from '@/core/common'
@@ -267,9 +268,10 @@ export default memo(() => {
   const statusBarHeight = useStatusbarHeight()
   const activeId = useNavActiveId()
 
-  // Convert opacity (0-100) to hex alpha channel for backgroundColor
-  const opacityHex = Math.round((sidebarOpacity / 100) * 255).toString(16).padStart(2, '0').toUpperCase()
-  const bgColorWithOpacity = `${theme['c-content-background']}${opacityHex}`
+  // Convert opacity (0-100) to an alpha-composited background color.
+  // Applying opacity to the View would fade the text too; tinting only the
+  // background keeps menu labels fully opaque.
+  const bgColorWithOpacity = applyOpacity(theme['c-content-background'], sidebarOpacity)
 
   const handlePress = (id: IdType) => {
     switch (id) {

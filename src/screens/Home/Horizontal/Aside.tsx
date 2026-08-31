@@ -12,6 +12,7 @@ import { exitApp, setNavActiveId, updateSetting } from '@/core/common'
 import { BorderWidths } from '@/theme'
 import { useSettingValue } from '@/store/setting/hook'
 import { getCutoutLeftPx } from '@/utils/nativeModules/utils'
+import { applyOpacity } from '@/utils/colorOpacity'
 
 
 import { useLandscapeLayout } from '@/utils/landscapeLayout'
@@ -331,9 +332,10 @@ export default memo(() => {
   const rawCutoutLeft = useCutoutLeft()
   const cutoutLeft = isLandscapeStretch ? 0 : rawCutoutLeft
 
-  // Convert opacity (0-100) to hex alpha channel for backgroundColor
-  const opacityHex = Math.round((sidebarOpacity / 100) * 255).toString(16).padStart(2, '0').toUpperCase()
-  const bgColorWithOpacity = `${theme['c-content-background']}${opacityHex}`
+  // Convert opacity (0-100) to an alpha-composited background color.
+  // Applying opacity to the View would fade the text too; tinting only the
+  // background keeps menu labels fully opaque.
+  const bgColorWithOpacity = applyOpacity(theme['c-content-background'], sidebarOpacity)
 
   return (
     <View style={{ ...styles.container, width: layout.asideWidth, marginLeft: cutoutLeft, borderRightColor: theme['c-border-background'], backgroundColor: bgColorWithOpacity }}>

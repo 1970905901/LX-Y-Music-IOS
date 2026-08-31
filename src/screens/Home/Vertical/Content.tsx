@@ -10,7 +10,10 @@ import DrawerLayoutFixed, {
 } from '@/components/common/DrawerLayoutFixed'
 import { scaleSizeW } from '@/utils/pixelRatio'
 
-const MAX_WIDTH = scaleSizeW(250)
+// 侧边栏宽度只需容纳最长的菜单项（如“网易每日推荐”6 个中文字符：
+// 左内边距 25 + 图标 24 + 文字左距 20 + 文字约 90 + 右内边距 25 ≈ 184）。
+// 取 188 预留少量边距，避免右侧大片空白。
+const MAX_WIDTH = scaleSizeW(188)
 
 const Content = () => {
   const drawer = useRef<DrawerLayoutFixedType>(null)

@@ -1,6 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { FlatList, StyleSheet, TouchableOpacity, View } from 'react-native'
-import PageContent from '@/components/PageContent'
 import LandscapeDetailLayout from '@/components/LandscapeDetailLayout'
 import Text from '@/components/common/Text'
 import { useTheme } from '@/store/theme/hook'
@@ -262,56 +261,55 @@ export default memo(() => {
   const isPlayingId = playMusicInfo.musicInfo?.id
 
   return (
-    <PageContent>
-      <LandscapeDetailLayout
-        header={
-          <>
-        <View style={styles.header}>
-          <Text size={18} color={theme['c-font']}>
-            {t('nav_local_download')}
-          </Text>
-          <View style={styles.headerActions}>
-            <TouchableOpacity style={styles.headerBtn} onPress={selecting ? exitSelecting : enterSelecting}>
-              <Text size={13} color={theme['c-primary-font-active']}>
-                {selecting ? '取消' : '批量管理'}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.refreshBtn} onPress={handleRefresh}>
-              <Text size={13} color={theme['c-primary-font-active']}>
-                刷新
-              </Text>
-            </TouchableOpacity>
+    <LandscapeDetailLayout
+      header={
+        <>
+          <View style={styles.header}>
+            <Text size={18} color={theme['c-font']}>
+              {t('nav_local_download')}
+            </Text>
+            <View style={styles.headerActions}>
+              <TouchableOpacity style={styles.headerBtn} onPress={selecting ? exitSelecting : enterSelecting}>
+                <Text size={13} color={theme['c-primary-font-active']}>
+                  {selecting ? '取消' : '批量管理'}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.refreshBtn} onPress={handleRefresh}>
+                <Text size={13} color={theme['c-primary-font-active']}>
+                  刷新
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
 
-        <View style={{ ...styles.tabs, borderColor: theme['c-border-background'] }}>
-          {(['download', 'local'] as TabId[]).map(id => (
-            <TouchableOpacity
-              key={id}
-              style={[
-                styles.tabItem,
-                tab === id && { ...styles.tabItemActive, backgroundColor: theme['c-primary-background-hover'] },
-              ]}
-              onPress={() => setTab(id)}
-            >
-              <Text
-                size={13}
-                color={tab === id ? theme['c-primary-font-active'] : theme['c-500']}
+          <View style={{ ...styles.tabs, borderColor: theme['c-border-background'] }}>
+            {(['download', 'local'] as TabId[]).map(id => (
+              <TouchableOpacity
+                key={id}
+                style={[
+                  styles.tabItem,
+                  tab === id && { ...styles.tabItemActive, backgroundColor: theme['c-primary-background-hover'] },
+                ]}
+                onPress={() => setTab(id)}
               >
-                {id === 'local' ? '本地' : '下载'}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+                <Text
+                  size={13}
+                  color={tab === id ? theme['c-primary-font-active'] : theme['c-500']}
+                >
+                  {id === 'local' ? '本地' : '下载'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
 
-        <Text size={11} color={theme['c-500']} style={styles.tip}>
-          {tab === 'download'
-            ? '软件内下载的音乐，离线可播放'
-            : `下载目录下的「${getLocalDirName()}」文件夹，把音频放进来即可离线播放，支持同名 .lrc 歌词`}
-        </Text>
-          </>
-        }
-        body={
+          <Text size={11} color={theme['c-500']} style={styles.tip}>
+            {tab === 'download'
+              ? '软件内下载的音乐，离线可播放'
+              : `下载目录下的「${getLocalDirName()}」文件夹，把音频放进来即可离线播放，支持同名 .lrc 歌词`}
+          </Text>
+        </>
+      }
+      body={
         <View style={styles.listArea}>
           {tab === 'download' ? (
             <FlatList
@@ -408,16 +406,12 @@ export default memo(() => {
             </View>
           )}
         </View>
-        }
-      />
-    </PageContent>
+      }
+    />
   )
 })
 
 const styles = createStyle({
-  container: {
-    flex: 1,
-  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -275,6 +275,14 @@ export default () => {
 
   const handlePlay = () => {
     void getMaxTime()
+    // 立即把外推时钟切到「播放中」：play 事件（原生 'playing'）本身就代表正在播放，
+    // 这里同步把 audioClock 置为 playing（以当前外推位置为锚，通常是暂停/记忆位置），
+    // 让 rAF 在下一帧立即开始外推，避免「原生 playing 事件到达 → getPosition().then
+    // 异步重锚生效前」这段空窗里 audioClock 仍停在暂停态、歌词被钉在旧行不动，
+    // 表现为「暂停→后台→返回播放」瞬间歌词明显滞后（停在原位再突然跳）。
+    // 真实位置仍由下方 getPosition().then 重锚校准（覆盖 iOS 恢复播放的 seek 延迟）。
+    audioClock.setPlaying(true)
+    try { lrcSyncToTime(audioClock.getTime() * 1000, true) } catch {}
     startUpdateTimeout()
     // 从暂停 / 后台返回后恢复播放的瞬间，立即用引擎实时位置重锚外推时钟，
     // 避免首句高亮与音频真实位置错位，覆盖「暂停→后台→重开→播放」场景。
@@ -374,15 +382,18 @@ export default () => {
     if (state == 'active' && playerState.musicInfo.id) {
       // 从后台/挂起状态回到前台：立即用引擎实时位置重锚外推时钟，不依赖 isScreenOn 是否已清，
       // 消除回前台瞬间高亮滞后窗口，保证“播放时后台回前台”音频与歌词实时同步。
+      // 重锚完成（或取位失败）后再启动帧循环：否则会先以「退后台前陈旧的 anchorSystemMs +
+      // 后台期间 performance.now 跳跃」外推，导致后台仍在播放时回前台瞬间歌词大幅超前再闪回。
       void getPosition().then((position) => {
         if (position != null && playerState.musicInfo.id) {
           audioClock.setAnchor(position * 1000, getRate(), playerState.isPlay)
           try { lrcSyncToTime(position * 1000, playerState.isPlay) } catch {}
         }
+      }).finally(() => {
+        // 回前台重启帧循环与 1s 后台计时器（iOS 上 onScreenStateChange 为空实现，必须靠此路径重启，
+        // 否则退后台清除后回到前台不会恢复歌词同步/进度校准）。
+        startUpdateTimeout()
       })
-      // 回前台重启帧循环与 1s 后台计时器（iOS 上 onScreenStateChange 为空实现，必须靠此路径重启，
-      // 否则退后台清除后回到前台不会恢复歌词同步/进度校准）。
-      startUpdateTimeout()
     }
     // 从后台切换回软件时，若开启开关且当前有歌曲但处于暂停状态，则自动恢复播放
     if (state == 'active' && wasInBackground && settingState.setting['player.autoPlayOnReturn'] && !playerState.isPlay && playerState.musicInfo.id) {

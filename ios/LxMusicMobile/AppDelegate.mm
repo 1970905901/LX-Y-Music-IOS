@@ -4919,23 +4919,22 @@ RCT_REMAP_METHOD(sha1, sha1:(NSString *)input resolver:(RCTPromiseResolveBlock)r
 @end
 
 // ---- CarPlay（巨魔/越狱绕过 App Store 后，iPhone「设置 → 通用 → CarPlay 车载」可用 App 列表中出现本 App）----
-// 主 App 仍是 UIApplicationDelegate（RNN 非 scene 模式），这里仅为 CarPlay 单独提供一个 scene delegate。
+// 主 App 使用 RNN 7.x 的非 scene 模式（UIApplicationDelegate 自行创建 UIWindow），
+// CarPlay 使用 AppDelegate-based 集成（application:didConnectCarInterfaceController:toWindow:），
+// 二者都不依赖 UIScene，可与 RNN 的 bootstrapWithBridge: 共存。
 
 // 车机点选列表项时，向 JS 发送 LXCarPlaySelect 事件（携带 index）。
 @interface CarPlayModule : RCTEventEmitter <RCTBridgeModule>
 - (void)sendSelect:(NSInteger)index;
 @end
 
-// 单例：在原生 CarPlay scene 与 JS 桥之间共享「当前播放列表」与「interfaceController」。
+// 单例：在原生 CarPlay 与 JS 桥之间共享「当前播放列表」与「interfaceController」。
 @interface LXCarPlayManager : NSObject
 @property (nonatomic, strong) CPInterfaceController *interfaceController;
 @property (nonatomic, strong) NSArray<NSDictionary *> *playlist;
 @property (nonatomic, weak) CarPlayModule *carPlayModule;
 + (instancetype)shared;
 - (void)refreshRootTemplate;
-@end
-
-@interface LXCarPlaySceneDelegate : NSObject <CPTemplateApplicationSceneDelegate>
 @end
 
 @implementation CarPlayModule
@@ -5023,10 +5022,18 @@ RCT_EXPORT_METHOD(setPlaylist:(NSArray *)items) {
 
 @end
 
-@implementation LXCarPlaySceneDelegate
+@interface AppDelegate (CarPlay) <CPApplicationDelegate>
+@end
 
-- (void)templateApplicationScene:(CPTemplateApplicationScene *)templateApplicationScene
-     didConnectTemplateInterface:(CPInterfaceController *)interfaceController {
+@implementation AppDelegate
+
+#pragma mark - CarPlay（AppDelegate-based，兼容 RNN 7.x 非 scene 模式）
+
+- (void)application:(UIApplication *)application
+    didConnectCarInterfaceController:(CPInterfaceController *)interfaceController
+                           toWindow:(CPWindow *)window {
+  (void)application;
+  (void)window;
   [LXCarPlayManager shared].interfaceController = interfaceController;
   [[LXCarPlayManager shared] refreshRootTemplate];
 
@@ -5038,14 +5045,11 @@ RCT_EXPORT_METHOD(setPlaylist:(NSArray *)items) {
   center.previousTrackCommand.enabled = YES;
 }
 
-- (void)templateApplicationScene:(CPTemplateApplicationScene *)templateApplicationScene
-  didDisconnectTemplateInterface:(CPInterfaceController *)interfaceController {
+- (void)application:(UIApplication *)application
+    didDisconnectCarInterfaceController:(CPInterfaceController *)interfaceController {
+  (void)application;
   [LXCarPlayManager shared].interfaceController = nil;
 }
-
-@end
-
-@implementation AppDelegate
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
 {
@@ -5082,24 +5086,6 @@ RCT_EXPORT_METHOD(setPlaylist:(NSArray *)items) {
 #else
   return [[NSBundle mainBundle] URLForResource:@"main" withExtension:@"jsbundle"];
 #endif
-}
-
-// CarPlay scene 连接时返回配置（仅在车机连接且本 App 在 CarPlay 可用列表时被系统调用）。
-// CPTemplateApplicationSceneSessionRoleApplication 自 iOS 14.0 引入，需用 @available 守卫。
-// 注意：本类继承自 RCTAppDelegate，RCTAppDelegate 已为主窗口(UIWindowSceneSessionRoleApplication)
-// 实现了 scene 配置与 UIWindow 创建逻辑。重写本方法时必须把「非 CarPlay 场景」转交给 super，
-// 否则主窗口场景拿不到配置、UIWindow 无法创建，App 启动即黑屏。
-- (UISceneConfiguration *)application:(UIApplication *)application
-       configurationForConnectingSceneSession:(UISceneSession *)connectingSceneSession
-                                        options:(UISceneConnectionOptions *)options {
-  // CarPlay 车载场景
-  if (@available(iOS 14.0, *)) {
-    if ([connectingSceneSession.role isEqualToString:CPTemplateApplicationSceneSessionRoleApplication]) {
-      return [[UISceneConfiguration alloc] initWithName:@"CarPlay" sessionRole:connectingSceneSession.role];
-    }
-  }
-  // 其余场景（主 App 窗口等）交给 RCTAppDelegate 默认实现，确保主窗口正确创建
-  return [super application:application configurationForConnectingSceneSession:connectingSceneSession options:options];
 }
 
 @end

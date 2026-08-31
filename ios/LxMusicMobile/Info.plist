@@ -153,33 +153,9 @@
 	     默认在 ProMotion 设备上被限制到 60Hz；开启后侧边栏等动画可达 120Hz。 -->
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
-	<!-- CarPlay 车载：声明 CarPlay scene role，车机可加载本 App。
-	     巨魔/越狱安装后，本 App 会出现在「设置 → 通用 → CarPlay 车载」的可用 App 列表。
-	     注意：App 继承自 RCTAppDelegate（RN 0.73+ 内置 scene 支持），主窗口场景需显式声明
-	     UIWindowSceneSessionRoleApplication 并指向 AppDelegate，否则主 UIWindow 无法创建、启动黑屏。 -->
-	<key>UIApplicationSceneManifest</key>
-	<dict>
-		<key>UISceneConfigurations</key>
-		<dict>
-			<key>UIWindowSceneSessionRoleApplication</key>
-			<array>
-				<dict>
-					<key>UISceneConfigurationName</key>
-					<string>Default</string>
-					<key>UISceneDelegateClassName</key>
-					<string>AppDelegate</string>
-				</dict>
-			</array>
-			<key>CPTemplateApplicationSceneSessionRoleApplication</key>
-			<array>
-				<dict>
-					<key>UISceneConfigurationName</key>
-					<string>CarPlay</string>
-					<key>UISceneDelegateClassName</key>
-					<string>LXCarPlaySceneDelegate</string>
-				</dict>
-			</array>
-		</dict>
-	</dict>
+	<!-- CarPlay 车载：使用 AppDelegate-based 集成（application:didConnectCarInterfaceController:toWindow:），
+	     不依赖 UIScene，因此本 Info.plist 不含 UIApplicationSceneManifest。
+	     主 App 走 RNN 7.x 的非 scene 模式（bootstrapWithBridge: 自行创建 UIWindow），二者可共存。
+	     巨魔/越狱安装、且签名注入 CarPlay entitlement 后，本 App 出现在「设置 → 通用 → CarPlay 车载」可用列表，车机可加载。 -->
 </dict>
 </plist>

@@ -6,6 +6,7 @@ import { useSettingValue } from '@/store/setting/hook'
 import { useI18n } from '@/lang'
 import { updateSetting } from '@/core/common'
 import { NAV_MENUS, NAV_GROUPS, type NAV_ID_Type, getEffectiveFlatOrder, getEffectiveGroupChildren } from '@/config/constant'
+import { useTheme } from '@/store/theme/hook'
 import { Icon } from '@/components/common/Icon'
 import { acquireScrollLock, releaseScrollLock } from '@/utils/scrollLock'
 
@@ -164,6 +165,7 @@ const DraggableItem = memo(({
   item, index, isChecked, isDragging, isDragSource, translateY, scale, opacity, zIndex,
   onLayoutHeight, onLongPressStart, onDragMove, onDragRelease, onDragCancel, onToggle, dragHandleHint,
 }: any) => {
+  const theme = useTheme()
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isActivatedRef = useRef(false)
   const currentDyRef = useRef(0)

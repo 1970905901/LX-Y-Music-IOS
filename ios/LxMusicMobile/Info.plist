@@ -153,5 +153,22 @@
 	     默认在 ProMotion 设备上被限制到 60Hz；开启后侧边栏等动画可达 120Hz。 -->
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
+	<!-- CarPlay 车载：仅声明 CarPlay scene role，主 App 仍走 UIApplicationDelegate（RNN 非 scene 模式）。
+	     巨魔/越狱安装后，本 App 会出现在「设置 → 通用 → CarPlay 车载」的可用 App 列表，车机可加载。 -->
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UISceneConfigurations</key>
+		<dict>
+			<key>CPTemplateApplicationSceneSessionRoleApplication</key>
+			<array>
+				<dict>
+					<key>UISceneConfigurationName</key>
+					<string>CarPlay</string>
+					<key>UISceneDelegateClassName</key>
+					<string>LXCarPlaySceneDelegate</string>
+				</dict>
+			</array>
+		</dict>
+	</dict>
 </dict>
 </plist>

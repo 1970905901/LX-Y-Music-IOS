@@ -5016,11 +5016,9 @@ RCT_EXPORT_METHOD(setPlaylist:(NSArray *)items) {
   [sections addObject:listSection];
 
   CPListTemplate *root = [[CPListTemplate alloc] initWithTitle:@"LX-Y Music" sections:sections];
-  if (@available(iOS 14.0, *)) {
-    [ic setRootTemplate:root animated:YES completion:nil];
-  } else {
-    ic.rootTemplate = root;
-  }
+  // setRootTemplate:animated:completion: 自 iOS 12（CarPlay 起）即存在，部署目标 13.4 可直接调用；
+  // rootTemplate 是只读属性（iOS 13），不能用 `ic.rootTemplate = root` 赋值。
+  [ic setRootTemplate:root animated:YES completion:nil];
 }
 
 @end
@@ -5087,11 +5085,15 @@ RCT_EXPORT_METHOD(setPlaylist:(NSArray *)items) {
 }
 
 // CarPlay scene 连接时返回配置（仅在车机连接且本 App 在 CarPlay 可用列表时被系统调用）。
+// CPTemplateApplicationSceneSessionRoleApplication 自 iOS 14.0 引入，需用 @available 守卫，
+// 否则在部署目标 < 14 的机器上编译会触发 unguarded-availability 警告/错误。
 - (UISceneConfiguration *)application:(UIApplication *)application
        configurationForConnectingSceneSession:(UISceneSession *)connectingSceneSession
                                         options:(UISceneConnectionOptions *)options {
-  if ([connectingSceneSession.role isEqualToString:CPTemplateApplicationSceneSessionRoleApplication]) {
-    return [[UISceneConfiguration alloc] initWithName:@"CarPlay" sessionRole:connectingSceneSession.role];
+  if (@available(iOS 14.0, *)) {
+    if ([connectingSceneSession.role isEqualToString:CPTemplateApplicationSceneSessionRoleApplication]) {
+      return [[UISceneConfiguration alloc] initWithName:@"CarPlay" sessionRole:connectingSceneSession.role];
+    }
   }
   return nil;
 }

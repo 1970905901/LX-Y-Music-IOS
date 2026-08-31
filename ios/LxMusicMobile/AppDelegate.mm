@@ -5085,17 +5085,21 @@ RCT_EXPORT_METHOD(setPlaylist:(NSArray *)items) {
 }
 
 // CarPlay scene 连接时返回配置（仅在车机连接且本 App 在 CarPlay 可用列表时被系统调用）。
-// CPTemplateApplicationSceneSessionRoleApplication 自 iOS 14.0 引入，需用 @available 守卫，
-// 否则在部署目标 < 14 的机器上编译会触发 unguarded-availability 警告/错误。
+// CPTemplateApplicationSceneSessionRoleApplication 自 iOS 14.0 引入，需用 @available 守卫。
+// 注意：本类继承自 RCTAppDelegate，RCTAppDelegate 已为主窗口(UIWindowSceneSessionRoleApplication)
+// 实现了 scene 配置与 UIWindow 创建逻辑。重写本方法时必须把「非 CarPlay 场景」转交给 super，
+// 否则主窗口场景拿不到配置、UIWindow 无法创建，App 启动即黑屏。
 - (UISceneConfiguration *)application:(UIApplication *)application
        configurationForConnectingSceneSession:(UISceneSession *)connectingSceneSession
                                         options:(UISceneConnectionOptions *)options {
+  // CarPlay 车载场景
   if (@available(iOS 14.0, *)) {
     if ([connectingSceneSession.role isEqualToString:CPTemplateApplicationSceneSessionRoleApplication]) {
       return [[UISceneConfiguration alloc] initWithName:@"CarPlay" sessionRole:connectingSceneSession.role];
     }
   }
-  return nil;
+  // 其余场景（主 App 窗口等）交给 RCTAppDelegate 默认实现，确保主窗口正确创建
+  return [super application:application configurationForConnectingSceneSession:connectingSceneSession options:options];
 }
 
 @end

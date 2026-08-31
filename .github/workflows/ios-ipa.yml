@@ -122,6 +122,31 @@ jobs:
           name: ios-ipa-LX-Y-Music-v${{ env.PACKAGE_VERSION }}-unsigned
           path: build/LX-Y Music-v${{ env.PACKAGE_VERSION }}-ios-unsigned.ipa
 
+      - name: Inject CarPlay entitlement (TrollStore-ready)
+        shell: bash
+        run: |
+          # ldid 用于注入 carplay-audio 等受限 entitlement 并对 app 伪签名，供 TrollStore 安装。
+          # 普通开发者证书无权签发 carplay-audio，故走「未签名构建 + ldid 注入」路线。
+          if ! command -v ldid >/dev/null 2>&1; then
+            brew install ldid >/dev/null 2>&1 || true
+          fi
+          APP_PATH="$(find "$DERIVED_DATA_PATH/Build/Products/Release-iphoneos" -maxdepth 1 -name '*.app' -print -quit)"
+          test -n "$APP_PATH"
+          ENTS="${{ github.workspace }}/ios/LxMusicMobile/LxMusicMobile.entitlements"
+          ldid -S"$ENTS" "$APP_PATH"
+          rm -rf build/Payload
+          mkdir -p build/Payload
+          cp -R "$APP_PATH" build/Payload/
+          IPA_CARPLAY="LX-Y Music-v${PACKAGE_VERSION}-ios-carplay.ipa"
+          ( cd build && zip -qry "$IPA_CARPLAY" Payload )
+          echo "CARPLAY_IPA=build/$IPA_CARPLAY" >> "$GITHUB_ENV"
+
+      - name: Upload CarPlay IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-ipa-LX-Y-Music-v${{ env.PACKAGE_VERSION }}-carplay
+          path: build/LX-Y Music-v${{ env.PACKAGE_VERSION }}-ios-carplay.ipa
+
       - name: Publish unsigned IPA to rolling "latest" release
         if: github.ref == 'refs/heads/master'
         shell: bash
@@ -227,3 +252,21 @@ jobs:
         with:
           name: ios-ipa-LX-Y-Music-v${{ env.PACKAGE_VERSION }}-signed
           path: build/LX-Y Music-v${{ env.PACKAGE_VERSION }}-ios-signed.ipa
+
+      - name: Publish CarPlay IPA to rolling "latest" release
+        if: github.ref == 'refs/heads/master'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          IPA_CARPLAY="LX-Y Music-v${PACKAGE_VERSION}-ios-carplay.ipa"
+          gh release upload latest "build/${IPA_CARPLAY}" --clobber || true
+
+      - name: Release CarPlay IPA
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          IPA_CARPLAY="LX-Y Music-v${PACKAGE_VERSION}-ios-carplay.ipa"
+          gh release upload "v${PACKAGE_VERSION}" "build/${IPA_CARPLAY}" || true

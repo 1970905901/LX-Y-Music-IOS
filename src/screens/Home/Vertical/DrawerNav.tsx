@@ -174,17 +174,6 @@ const styles = createStyle({
   container: {
     flex: 1,
   },
-  header: {
-    paddingTop: 40,
-    paddingBottom: 50,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerText: {
-    textAlign: 'center',
-    marginLeft: 16,
-  },
   menus: {
     flex: 1,
   },
@@ -194,11 +183,8 @@ const styles = createStyle({
     paddingRight: 10,
   },
   list: {
-    paddingTop: 10,
-    // 底部避让：迷你播放器胶囊（bottom 18 + 高约 58）绝对定位悬浮在整个 Home 之上，
-    // 抽屉打开时会盖住列表末尾几项的点击区域；关闭分组后扁平列表变长，
-    // 播放历史/设置滚到底正好落在胶囊后面点不到。
-    // 加长可滚动内容，让末尾项能滚到胶囊上方（与横屏 Aside 的避让策略一致）。
+    // 顶部内边距由 ScrollView 的 contentContainerStyle 统一提供（状态栏高度 + 10），
+    // 列表可视范围从状态栏下方开始，滚动内容可延伸到顶部。
     paddingBottom: 110,
   },
   menuItem: {
@@ -227,32 +213,6 @@ const styles = createStyle({
     padding: 10,
   },
 })
-
-const Header = () => {
-  const theme = useTheme()
-  const statusBarHeight = useStatusbarHeight()
-
-  const handleLogoPress = () => {
-    global.app_event.changeMenuVisible(false)
-    setNavActiveId('nav_love')
-  }
-
-  return (
-    <View
-      style={{
-        paddingTop: statusBarHeight,
-        backgroundColor: theme['c-primary-light-700-alpha-500'],
-      }}
-    >
-      <TouchableOpacity style={styles.header} onPress={handleLogoPress}>
-        <Icon name="logo" color={theme['c-primary-dark-100-alpha-300']} size={28} />
-        <Text style={styles.headerText} size={28} color={theme['c-primary-dark-100-alpha-300']}>
-          LX-Y Music
-        </Text>
-      </TouchableOpacity>
-    </View>
-  )
-}
 
 type IdType = InitState['navActiveId'] | 'nav_exit' | 'back_home'
 
@@ -310,6 +270,7 @@ export default memo(() => {
   const pic = customBgPicPath || dynamicPic;
   const blur = useSettingValue('theme.blur');
   const picOpacity = useSettingValue('theme.picOpacity');
+  const statusBarHeight = useStatusbarHeight()
 
   const showSidebarBg = isDynamicBg && isSidebarDynamicBg && pic;
   const activeId = useNavActiveId()
@@ -413,8 +374,7 @@ export default memo(() => {
           />
         </ImageBackground>
       ) : null}
-      <Header />
-      <ScrollView style={styles.menus}>
+      <ScrollView style={styles.menus} contentContainerStyle={{ paddingTop: statusBarHeight + 10 }}>
         <View style={styles.list}>
           {menuWithGroups.map((item, idx) => {
             if (item.type === 'group') {

@@ -179,9 +179,9 @@ const styles = createStyle({
   },
   subMenuItem: {
     paddingVertical: 12,
-    paddingLeft: 25,
-    paddingRight: 25,
-    justifyContent: 'center',
+    paddingLeft: 55,
+    paddingRight: 10,
+    justifyContent: 'flex-start',
     alignItems: 'center',
   },
   list: {
@@ -194,7 +194,7 @@ const styles = createStyle({
     paddingBottom: 13,
     paddingLeft: 25,
     paddingRight: 25,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     alignItems: 'center',
   },
   iconContent: {

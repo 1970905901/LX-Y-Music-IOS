@@ -195,7 +195,11 @@ const styles = createStyle({
   },
   list: {
     paddingTop: 10,
-    paddingBottom: 10,
+    // 底部避让：迷你播放器胶囊（bottom 18 + 高约 58）绝对定位悬浮在整个 Home 之上，
+    // 抽屉打开时会盖住列表末尾几项的点击区域；关闭分组后扁平列表变长，
+    // 播放历史/设置滚到底正好落在胶囊后面点不到。
+    // 加长可滚动内容，让末尾项能滚到胶囊上方（与横屏 Aside 的避让策略一致）。
+    paddingBottom: 110,
   },
   menuItem: {
     flexDirection: 'row',

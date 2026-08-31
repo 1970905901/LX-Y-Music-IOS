@@ -52,7 +52,13 @@ jobs:
         run: |
           gem install cocoapods -v '~> 1.12' --no-document
           cd ios
-          pod install --repo-update
+          # CocoaPods trunk CDN (jsdelivr) occasionally returns 400/404 for spec files; retry on failure
+          for attempt in 1 2 3; do
+            pod install --repo-update && break
+            echo "pod install failed (attempt $attempt/3), retrying in 15s..."
+            sleep 15
+            if [ "$attempt" = "3" ]; then exit 1; fi
+          done
 
       - name: Read package version (date-based)
         shell: bash

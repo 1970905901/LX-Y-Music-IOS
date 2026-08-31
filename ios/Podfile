@@ -126,6 +126,9 @@ target 'LxMusicMobile' do
   lx_build_libflac_xcframework
   pod 'LXLibFLAC', :path => './Vendor/LXLibFLAC'
 
+  # CocoaPods trunk CDN (jsdelivr) intermittently returns 400 for this spec; pin via vendored podspec.
+  pod 'SwiftAudioEx', :podspec => './Vendor/SwiftAudioEx.podspec.json'
+
   use_react_native!(
     :path => config[:reactNativePath],
     # Enables Flipper.

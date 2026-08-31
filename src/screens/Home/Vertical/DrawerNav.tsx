@@ -185,9 +185,8 @@ const styles = createStyle({
     alignItems: 'center',
   },
   list: {
-    // 顶部内边距由 ScrollView 的 contentContainerStyle 统一提供（状态栏高度 + 10），
-    // 列表可视范围从状态栏下方开始，滚动内容可延伸到顶部。
-    paddingBottom: 110,
+    // 顶部/底部内边距与垂直居中由 ScrollView 的 contentContainerStyle 统一控制
+    // （顶部：状态栏高度 + 10；底部：避让迷你播放器胶囊 110）。
   },
   menuItem: {
     flexDirection: 'row',
@@ -377,7 +376,17 @@ export default memo(() => {
           />
         </ImageBackground>
       ) : null}
-      <ScrollView style={styles.menus} contentContainerStyle={{ paddingTop: statusBarHeight + 10 }}>
+      <ScrollView
+        style={styles.menus}
+        contentContainerStyle={{
+          paddingTop: statusBarHeight + 10,
+          // 底部避让迷你播放器胶囊（bottom 18 + 高约 58），
+          // 末尾项可滚到胶囊上方；内容不满一屏时随整体垂直居中。
+          paddingBottom: 110,
+          flexGrow: 1,
+          justifyContent: 'center',
+        }}
+      >
         <View style={styles.list}>
           {menuWithGroups.map((item, idx) => {
             if (item.type === 'group') {

@@ -38,7 +38,7 @@ const Content = () => {
   return (
     <DrawerLayoutFixed
       ref={drawer}
-      widthPercentage={0.7}
+      widthPercentage={0.85}
       widthPercentageMax={MAX_WIDTH}
       visibleNavNames={[COMPONENT_IDS.home]}
       // drawerWidth={width}

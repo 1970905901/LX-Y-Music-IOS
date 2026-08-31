@@ -4985,11 +4985,14 @@ RCT_EXPORT_METHOD(setPlaylist:(NSArray *)items) {
   NSMutableArray *sections = [NSMutableArray array];
 
   // 「正在播放」入口：进入后展示 CPNowPlayingTemplate（自动读取 MPNowPlayingInfoCenter）。
-  CPListItem *nowPlayingItem = [[CPListItem alloc] initWithText:@"正在播放" detailText:nil image:nil handler:^(CPListItem *item, dispatch_block_t completion) {
-    [ic pushTemplate:[CPNowPlayingTemplate sharedTemplate] animated:YES completion:^(BOOL success, NSError * _Nullable error) {
-      completion();
-    }];
-  }];
+  CPListItem *nowPlayingItem = [[CPListItem alloc] initWithText:@"正在播放" detailText:nil image:nil];
+  if (@available(iOS 14.0, *)) {
+    nowPlayingItem.handler = ^(CPListItem *item, dispatch_block_t completion) {
+      [ic pushTemplate:[CPNowPlayingTemplate sharedTemplate] animated:YES completion:^(BOOL success, NSError * _Nullable error) {
+        completion();
+      }];
+    };
+  }
   CPListSection *nowSection = [[CPListSection alloc] initWithItems:@[nowPlayingItem] header:@"正在播放" sectionIndexTitle:nil];
   [sections addObject:nowSection];
 
@@ -5000,10 +5003,13 @@ RCT_EXPORT_METHOD(setPlaylist:(NSArray *)items) {
     NSDictionary *m = list[i];
     NSString *title = m[@"name"] ?: @"";
     NSString *sub = m[@"singer"] ?: @"";
-    CPListItem *it = [[CPListItem alloc] initWithText:title detailText:sub image:nil handler:^(CPListItem *item, dispatch_block_t completion) {
-      [self.carPlayModule sendSelect:(NSInteger)i];
-      completion();
-    }];
+    CPListItem *it = [[CPListItem alloc] initWithText:title detailText:sub image:nil];
+    if (@available(iOS 14.0, *)) {
+      it.handler = ^(CPListItem *item, dispatch_block_t completion) {
+        [self.carPlayModule sendSelect:(NSInteger)i];
+        completion();
+      };
+    }
     [songItems addObject:it];
   }
   CPListSection *listSection = [[CPListSection alloc] initWithItems:songItems header:@"播放列表" sectionIndexTitle:nil];
@@ -5011,6 +5017,8 @@ RCT_EXPORT_METHOD(setPlaylist:(NSArray *)items) {
 
   CPListTemplate *root = [[CPListTemplate alloc] initWithTitle:@"LX-Y Music" sections:sections];
   if (@available(iOS 14.0, *)) {
+    [ic setRootTemplate:root animated:YES completion:nil];
+  } else {
     ic.rootTemplate = root;
   }
 }

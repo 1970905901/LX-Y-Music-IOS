@@ -27,6 +27,7 @@ import { filterList } from './utils'
 import { startPreload } from './preload'
 import { preloadLog } from '@/utils/preloadLog'
 import BackgroundTimer from 'react-native-background-timer'
+import { beginBackgroundTask, endBackgroundTask } from '@/utils/nativeModules/utils'
 import {
   checkIgnoringBatteryOptimization,
   checkNotificationPermission,
@@ -85,9 +86,23 @@ const ENCRYPTED_EXTENSIONS = new Set([
   'kwmv', 'kwac', 'kwring', 'kwshort',
 ])
 
+// 切歌时 setStop() 原生调用的最长等待时间，超时则跳过等待直接继续取链
+const SET_STOP_TIMEOUT = 3000
+
+// 锁屏/弱网下 RN 的 fetch 默认没有超时，可能永久 pending，把整条取链链挂死，
+// 表现为「播完当前歌，下一首取不到链接、停在暂停态不跳歌」。这里强制给一个上限，
+// 超时后 abort，走 catch 的「放行」分支（校验只是尽力而为的过滤，不作为硬性门槛）。
+const AUDIO_URL_CHECK_TIMEOUT = 5000
+
 const validateAudioUrl = async (url: string): Promise<boolean> => {
+  const controller = new AbortController()
+  const timeoutId = BackgroundTimer.setTimeout(() => controller.abort(), AUDIO_URL_CHECK_TIMEOUT)
   try {
-    const resp = await fetch(url, { method: 'HEAD', headers: { 'User-Agent': 'Mozilla/5.0' } })
+    const resp = await fetch(url, {
+      method: 'HEAD',
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+      signal: controller.signal,
+    })
     if (!resp.ok) return false
     const cl = resp.headers.get('content-length')
     if (cl && parseInt(cl) === 0) return false
@@ -103,6 +118,8 @@ const validateAudioUrl = async (url: string): Promise<boolean> => {
     return true
   } catch {
     return true
+  } finally {
+    BackgroundTimer.clearTimeout(timeoutId)
   }
 }
 
@@ -347,7 +364,10 @@ const delayRetry = async (
   return new Promise<string | null>((resolve, reject) => {
     const time = getRandom(2, 6)
     setStatusText(global.i18n.t('player__getting_url_delay_retry', { time }))
-    const tiemout = setTimeout(() => {
+    // 必须用 BackgroundTimer：锁屏时普通 setTimeout 会随 JS 线程被冻结，这个重试永不触发，
+    // 取链 Promise 也就永不 settle —— global.lx.gettingUrlId 无法复位，controller 里的
+    // 事件守卫会把后续所有播放事件（含 ended）永久吞掉，从此不再自动跳下一首。
+    const tiemout = BackgroundTimer.setTimeout(() => {
       getMusicPlayUrl(musicInfo, isRefresh, true)
         .then((result) => {
           cancelDelayRetry = null
@@ -360,7 +380,7 @@ const delayRetry = async (
         })
     }, time * 1000)
     cancelDelayRetry = () => {
-      clearTimeout(tiemout)
+      BackgroundTimer.clearTimeout(tiemout)
       cancelDelayRetry = null
       resolve(null)
     }
@@ -418,6 +438,49 @@ const getMusicPlayUrl = async (
     }) as unknown as Promise<string | null>
 }
 
+/**
+ * 取链失败的统一收口：计数并跳下一首；整列都失败则停止并提示。
+ *
+ * 关键：绝不能「静默 return」。此前 getMusicPlayUrl 返回 null 时只是 `if (!url) return`，
+ * 既不重试也不跳下一首；锁屏/后台一旦取链失败，播放器就永久停在暂停态、不再跳歌
+ * —— 这正是「播完当前歌后卡住不动」的直接表现。
+ */
+const handleLoadUrlFail = (
+  musicInfo: LX.Music.MusicInfo | LX.Download.ListItem,
+  err?: any
+) => {
+  if (err) {
+    console.log(err)
+    setStatusText(err.message as string)
+    global.app_event.error()
+  }
+  if (global.lx.isPlayedStop) return
+
+  // bug②: 连续加载失败达到当前列表长度，说明整列都无可播音源，停止并提示，避免无限循环
+  consecutiveLoadFailures++
+  const listId = playerState.playInfo.playerListId
+  const listLen = listId ? getList(listId).length : 0
+  if (listLen > 0 && consecutiveLoadFailures >= listLen) {
+    consecutiveLoadFailures = 0
+    void setStop()
+    toast(global.i18n.t('player__no_available_source'))
+    return
+  }
+  void playNext(true)
+}
+
+// 取链结束后延迟释放后台任务。取链失败会立刻 playNext 并重新申请后台任务，
+// 若同步释放就会出现「刚释放又申请」的抖动；延迟释放可让连续切歌平滑衔接。
+const BG_TASK_RELEASE_DELAY = 2000
+let bgTaskReleaseTimer: number | null = null
+const scheduleEndBackgroundTask = () => {
+  if (bgTaskReleaseTimer) BackgroundTimer.clearTimeout(bgTaskReleaseTimer)
+  bgTaskReleaseTimer = BackgroundTimer.setTimeout(() => {
+    bgTaskReleaseTimer = null
+    endBackgroundTask()
+  }, BG_TASK_RELEASE_DELAY)
+}
+
 export const setMusicUrl = (
   musicInfo: LX.Music.MusicInfo | LX.Download.ListItem,
   isRefresh?: boolean
@@ -425,10 +488,23 @@ export const setMusicUrl = (
   // addLoadTimeout()
   if (!diffCurrentMusicInfo(musicInfo)) return
   if (cancelDelayRetry) cancelDelayRetry()
+  if (bgTaskReleaseTimer) {
+    BackgroundTimer.clearTimeout(bgTaskReleaseTimer)
+    bgTaskReleaseTimer = null
+  }
+  // 锁屏切歌：音频此刻已停止，iOS 随时可能挂起 App 导致取链请求被冻结。
+  // 申请后台任务为本次取链争取执行时间，取链结束后再释放。
+  void beginBackgroundTask()
   global.lx.gettingUrlId = createGettingUrlId(musicInfo)
   void getMusicPlayUrl(musicInfo, isRefresh)
     .then((url) => {
-      if (!url) return
+      if (!url) {
+        // 返回空只可能是：已停止 / 歌曲已被切走 / 已在播放中 / 确实取链失败。
+        // 前三种属于「本次结果作废」，只有最后一种必须跳下一首，否则会卡死在暂停态。
+        const isStale = musicInfo.id != playerState.playMusicInfo.musicInfo?.id || playerState.isPlay
+        if (!global.lx.isPlayedStop && !isStale) handleLoadUrlFail(musicInfo)
+        return
+      }
       const currentMusicInfo = playerState.playMusicInfo.musicInfo
       if (musicInfo.id === currentMusicInfo?.id) {
         global.lx.gettingUrlId = ''
@@ -446,27 +522,14 @@ export const setMusicUrl = (
       }
     })
     .catch((err: any) => {
-      console.log(err)
-      setStatusText(err.message as string)
-      global.app_event.error()
-
-      // bug②: 连续加载失败达到当前列表长度，说明整列都无可播音源，停止并提示，避免无限循环
-      consecutiveLoadFailures++
-      const listId = playerState.playInfo.playerListId
-      const listLen = listId ? getList(listId).length : 0
-      if (listLen > 0 && consecutiveLoadFailures >= listLen) {
-        consecutiveLoadFailures = 0
-        void setStop()
-        toast(global.i18n.t('player__no_available_source'))
-        return
-      }
-      void playNext(true)
+      handleLoadUrlFail(musicInfo, err)
     })
     .finally(() => {
       if (musicInfo.id === playerState.playMusicInfo.musicInfo?.id && global.lx.gettingUrlId) {
         global.lx.gettingUrlId = ''
         clearLoadTimeout()
       }
+      scheduleEndBackgroundTask()
     })
 }
 
@@ -565,7 +628,25 @@ export const handlePlay = async () => {
 
   if (!musicInfo) return
 
-  await setStop()
+  // setStop() 是跨 Bridge 的原生调用（iOS 上为 TrackPlayer.stop()）。锁屏/后台时它可能
+  // 迟迟不 resolve、甚至永不 resolve；一旦卡死，后面的 debouncePlay → setMusicUrl 就永远
+  // 不会执行，表现为「播完当前歌，下一首取不到链接、停在暂停态」。
+  // 这里给它一个上限：超时不再等待，继续往下走取链流程，避免整条切歌链被一次原生调用堵死。
+  let stopTimeoutId: ReturnType<typeof BackgroundTimer.setTimeout> | null = null
+  try {
+    await Promise.race([
+      setStop(),
+      new Promise<void>(resolve => {
+        stopTimeoutId = BackgroundTimer.setTimeout(resolve, SET_STOP_TIMEOUT)
+      }),
+    ])
+  } finally {
+    // setStop 提前完成时清掉超时候补，避免每次切歌都残留一个 3s 定时器
+    if (stopTimeoutId) {
+      BackgroundTimer.clearTimeout(stopTimeoutId)
+      stopTimeoutId = null
+    }
+  }
   global.app_event.pause()
 
   clearDelayNextTimeout()

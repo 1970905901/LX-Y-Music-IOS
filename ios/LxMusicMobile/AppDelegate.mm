@@ -4684,6 +4684,11 @@ RCT_REMAP_METHOD(clearNowPlayingInfo, clearNowPlayingInfoWithResolver:(RCTPromis
 
 @end
 
+// 当前持有的后台任务（切歌取链期间申请）。放在原生侧而非依赖 JS 回传：
+// 锁屏时 JS↔原生 往返可能来不及完成，若由 JS 独家记账会出现「已 begin 但没 end」的泄漏。
+// 这里做幂等管理：重复 begin 复用同一个任务，end 一律结束当前任务。
+static UIBackgroundTaskIdentifier LXBackgroundTaskId = UIBackgroundTaskInvalid;
+
 @interface UtilsModule : RCTEventEmitter<RCTBridgeModule>
 @property (nonatomic, assign) BOOL hasListeners;
 @end
@@ -4789,6 +4794,41 @@ RCT_EXPORT_METHOD(screenkeepAwake) {
 RCT_EXPORT_METHOD(screenUnkeepAwake) {
   dispatch_async(dispatch_get_main_queue(), ^{
     [UIApplication sharedApplication].idleTimerDisabled = NO;
+  });
+}
+
+// 锁屏/后台切歌时，JS 侧需要时间请求下一首的播放链接。iOS 在音频停止后会很快挂起 App，
+// 导致取链的网络请求被冻结、播放器永久卡在暂停态不再跳歌（Info.plist 的 UIBackgroundModes
+// 只有 audio，音频一停就失去后台运行资格）。
+// 这里暴露 UIApplication 的后台任务接口：切歌开始时 begin，取链结束后 end，
+// 为 JS 争取一段额外的后台执行时间（时长由系统决定，通常约 30 秒）。
+RCT_EXPORT_METHOD(beginBackgroundTask:(RCTPromiseResolveBlock)resolve
+                             rejecter:(RCTPromiseRejectBlock)reject) {
+  dispatch_async(dispatch_get_main_queue(), ^{
+    // 已有有效任务时直接复用，避免连续切歌把系统给的后台预算重复耗光
+    if (LXBackgroundTaskId != UIBackgroundTaskInvalid) {
+      resolve(@((NSUInteger)LXBackgroundTaskId));
+      return;
+    }
+    LXBackgroundTaskId = [[UIApplication sharedApplication] beginBackgroundTaskWithName:@"LXFetchNextUrl" expirationHandler:^{
+      // 系统分配的后台时间耗尽：必须结束任务，否则 App 会被系统直接终止
+      if (LXBackgroundTaskId != UIBackgroundTaskInvalid) {
+        [[UIApplication sharedApplication] endBackgroundTask:LXBackgroundTaskId];
+        LXBackgroundTaskId = UIBackgroundTaskInvalid;
+      }
+    }];
+    // UIBackgroundTaskInvalid 为 0，JS 侧据此判断是否申请成功
+    resolve(@((NSUInteger)LXBackgroundTaskId));
+  });
+}
+
+RCT_EXPORT_METHOD(endBackgroundTask:(nonnull NSNumber *)taskId) {
+  UIBackgroundTaskIdentifier identifier = (UIBackgroundTaskIdentifier)[taskId unsignedIntegerValue];
+  if (identifier == UIBackgroundTaskInvalid) return;
+  dispatch_async(dispatch_get_main_queue(), ^{
+    if (LXBackgroundTaskId == UIBackgroundTaskInvalid) return;
+    [[UIApplication sharedApplication] endBackgroundTask:LXBackgroundTaskId];
+    LXBackgroundTaskId = UIBackgroundTaskInvalid;
   });
 }
 

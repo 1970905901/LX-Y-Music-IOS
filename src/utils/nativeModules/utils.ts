@@ -186,3 +186,29 @@ export const setScreenOrientation = (orientation: 'landscape' | 'portrait' | 'au
   if (isIOS) return
   UtilsModule.setScreenOrientation(orientation)
 }
+
+// 锁屏/后台切歌：iOS 在音频停止后会很快挂起 App（Info.plist 的 UIBackgroundModes 仅 audio），
+// 「获取下一首播放链接」的网络请求会被冻结，播放器就卡在暂停态不再跳歌。
+// 切歌期间申请 UIApplication 的后台任务，为 JS 争取一段额外的后台执行时间。
+// 同时只允许持有一个任务：连续切歌时复用，避免重复申请把系统给的预算耗光。
+let backgroundTaskId: number | null = null
+
+export const beginBackgroundTask = async (): Promise<void> => {
+  if (!isIOS || !UtilsModule?.beginBackgroundTask) return
+  if (backgroundTaskId != null) return
+  try {
+    const taskId = await (UtilsModule.beginBackgroundTask as () => Promise<number>)()
+    // UIBackgroundTaskInvalid == 0，表示系统本次未分配后台时间
+    if (typeof taskId == 'number' && taskId > 0) backgroundTaskId = taskId
+  } catch {}
+}
+
+export const endBackgroundTask = (): void => {
+  if (!isIOS || !UtilsModule?.endBackgroundTask) return
+  if (backgroundTaskId == null) return
+  const taskId = backgroundTaskId
+  backgroundTaskId = null
+  try {
+    UtilsModule.endBackgroundTask(taskId)
+  } catch {}
+}

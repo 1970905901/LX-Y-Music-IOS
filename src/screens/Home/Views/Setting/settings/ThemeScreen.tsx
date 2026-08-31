@@ -4,7 +4,6 @@ import { useI18n } from '@/lang/i18n'
 import Theme from './Theme/Theme'
 import ThemeMode from './Theme/ThemeMode'
 import IsDynamicBg from './Theme/IsDynamicBg'
-import IsSidebarDynamicBg from './Theme/IsSidebarDynamicBg'
 import IsMylistDynamicBg from './Theme/IsMylistDynamicBg'
 import IsLandscapeStretch from './Theme/IsLandscapeStretch'
 import IsFontShadow from './Theme/IsFontShadow'
@@ -23,7 +22,6 @@ export default memo(() => {
       <Theme />
       <ThemeMode />
       <IsDynamicBg />
-      <IsSidebarDynamicBg />
       <IsMylistDynamicBg />
       <IsLandscapeStretch />
       <CustomBg />

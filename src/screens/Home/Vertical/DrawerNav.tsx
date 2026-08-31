@@ -179,8 +179,10 @@ const styles = createStyle({
   },
   subMenuItem: {
     paddingVertical: 12,
-    paddingLeft: 55,
-    paddingRight: 10,
+    paddingLeft: 25,
+    paddingRight: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   list: {
     // 顶部内边距由 ScrollView 的 contentContainerStyle 统一提供（状态栏高度 + 10），
@@ -193,6 +195,7 @@ const styles = createStyle({
     paddingBottom: 13,
     paddingLeft: 25,
     paddingRight: 25,
+    justifyContent: 'center',
     alignItems: 'center',
   },
   iconContent: {

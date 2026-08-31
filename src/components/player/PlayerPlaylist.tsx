@@ -15,6 +15,7 @@ import MusicAddModal, { type MusicAddModalType } from '@/components/MusicAddModa
 import MusicDownloadModal, { type MusicDownloadModalType } from '@/screens/Home/Views/Mylist/MusicList/MusicDownloadModal';
 import { useSettingValue } from '@/store/setting/hook';
 import listState from '@/store/list/state';
+import { useWindowSize } from '@/utils/hooks';
 import { addTempPlayList, removeTempPlayList } from '@/core/player/tempPlayList';
 import { removeListMusics } from '@/core/list';
 import { Icon } from "@/components/common/Icon.tsx";
@@ -40,14 +41,38 @@ export interface PlayerPlaylistType {
   show: () => void;
 }
 
+// AnimatedSlideUpPanel 的面板高度固定为窗口高度的 50%（见其 styles.panel）
+const PANEL_HEIGHT_RATIO = 0.5
+// 面板列表头部高度：标题上下各 15 的 padding + 14 号字行高约 20 + 1px 分隔线
+const PANEL_HEADER_HEIGHT = 51
+
+const getMusicId = (item: LX.Player.PlayMusic) => ('progress' in item ? item.metadata.musicInfo.id : item.id)
+
+/**
+ * 计算 FlatList 的 initialScrollIndex。
+ * initialScrollIndex 会把目标行置于可视区顶部，这里回退「半个可视区行数」，
+ * 让当前播放歌曲大致居中，与原先 scrollToIndex({ viewPosition: 0.5 }) 的观感一致。
+ */
+const getInitialScrollIndex = (list: LX.Player.PlayMusic[], playId: string, windowHeight: number) => {
+  if (!list.length || !playId) return 0
+  const activeIndex = list.findIndex(item => getMusicId(item) === playId)
+  if (activeIndex <= 0) return 0
+  const itemHeight = scaleSizeH(LIST_ITEM_HEIGHT)
+  if (itemHeight <= 0) return 0
+  const visibleHeight = windowHeight * PANEL_HEIGHT_RATIO - PANEL_HEADER_HEIGHT
+  const halfVisibleCount = Math.floor(visibleHeight / itemHeight / 2)
+  return Math.max(0, activeIndex - halfVisibleCount)
+}
+
 export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
   const panelRef = useRef<AnimatedSlideUpPanelType>(null);
-  const flatListRef = useRef<FlatList>(null);
   const t = useI18n();
   const theme = useTheme();
   const playerInfo = usePlayInfo();
   const playerMusicInfo = usePlayerMusicInfo();
+  const { height: windowHeight } = useWindowSize();
   const [playlist, setPlaylist] = useState<LX.Player.PlayMusic[]>([]);
+  const [initialIndex, setInitialIndex] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
   const musicDownloadModalRef = useRef<MusicDownloadModalType>(null);
   const listMenuRef = useRef<ListMenuType>(null);
@@ -58,42 +83,35 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
   const showCover = useSettingValue('list.isShowCover');
   const rowInfo = useRef({ rowNum: undefined, rowWidth: '100%' } as const).current;
 
+  // 依赖必须列出，否则 ref 暴露的 show() 会永久闭包首次渲染的旧值。
   useImperativeHandle(ref, () => ({
     show() {
+      // 面板隐藏时 AnimatedSlideUpPanel 直接 return null，FlatList 每次打开都是全新挂载。
+      // 因此必须在挂载前一次性备好数据与初始滚动位置：若数据/定位留到挂载后再 setState，
+      // 首帧会先渲染上一次残留的列表并停在顶部，随后才被拉到当前播放项 —— 就是「跳一下」。
+      const list = getListMusicSync(playerInfo.playerListId);
+      setPlaylist(list);
+      setInitialIndex(getInitialScrollIndex(list, playerMusicInfo.id, windowHeight));
       setIsVisible(true);
     },
-  }));
+  }), [playerInfo.playerListId, playerMusicInfo.id, windowHeight]);
+
   const { activeIndex, totalCount } = useMemo(() => {
     if (!playlist.length) return { activeIndex: -1, totalCount: 0 };
 
-    const index = playlist.findIndex(item => ('progress' in item ? item.metadata.musicInfo.id : item.id) === playerMusicInfo.id);
+    const index = playlist.findIndex(item => getMusicId(item) === playerMusicInfo.id);
     return { activeIndex: index, totalCount: playlist.length };
   }, [playlist, playerMusicInfo.id]);
 
+  // 打开期间若播放列表来源切换（如切到另一个歌单），同步刷新数据；
+  // 数据不变时 getListMusicSync 返回同一引用，React 会自动 bail out，不会多余渲染。
   useEffect(() => {
-    if (isVisible) {
-      panelRef.current?.setVisible(true);
-      if (playerInfo.playerListId) {
-        const currentList = getListMusicSync(playerInfo.playerListId);
-        setPlaylist(currentList);
-      }
+    if (!isVisible) return;
+    panelRef.current?.setVisible(true);
+    if (playerInfo.playerListId) {
+      setPlaylist(getListMusicSync(playerInfo.playerListId));
     }
   }, [isVisible, playerInfo.playerListId]);
-
-  useEffect(() => {
-    if (isVisible && playlist.length > 0) {
-      const activeIndex = playlist.findIndex(item => ('progress' in item ? item.metadata.musicInfo.id : item.id) === playerMusicInfo.id);
-      if (activeIndex > -1) {
-        setTimeout(() => {
-          flatListRef.current?.scrollToIndex({
-            index: activeIndex,
-            viewPosition: 0.5,
-            animated: false,
-          });
-        }, 100);
-      }
-    }
-  }, [isVisible, playlist, playerMusicInfo.id]);
 
   const handlePlay = useCallback((index: number) => {
     if (playerInfo.playerListId) {
@@ -305,6 +323,9 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
 
   const handlePanelHide = () => {
     setIsVisible(false);
+    // 清空数据：本组件在面板隐藏后仍留在树中，残留数据会在下次打开的首帧闪现，
+    // 与下面的 initialScrollIndex 配合才能保证「打开即定位、无跳动」。
+    setPlaylist([]);
   };
 
   return (
@@ -325,13 +346,15 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
             </TouchableOpacity>
           </View>
           <FlatList
-            ref={flatListRef}
             style={styles.list}
             data={playlist}
             renderItem={renderItem}
             keyExtractor={(item, index) => 'progress' in item ? item.id : item.id + index}
             initialNumToRender={10}
             getItemLayout={getItemLayout}
+            // 挂载首帧就定位到当前播放歌曲，避免「先渲染在顶部、再跳到当前项」。
+            // clamp 到最后一个下标，防止列表比上次打开更短时越界。
+            initialScrollIndex={Math.min(initialIndex, Math.max(0, playlist.length - 1))}
           />
         </View>
       </AnimatedSlideUpPanel>

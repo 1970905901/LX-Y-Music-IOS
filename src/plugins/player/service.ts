@@ -9,6 +9,15 @@ import settingState from '@/store/setting/state'
 
 let isInitialized = false
 let shouldResumeAfterDuck = false
+// 中断恢复兜底定时器：begin 中断时启动，收到 ended 或超时未恢复时清除。
+let resumeTimer: ReturnType<typeof setTimeout> | null = null
+
+const clearResumeTimer = () => {
+  if (resumeTimer != null) {
+    clearTimeout(resumeTimer)
+    resumeTimer = null
+  }
+}
 
 const registerPlaybackService = async() => {
   if (isInitialized) return
@@ -63,6 +72,7 @@ const registerPlaybackService = async() => {
     // 但若本次中断开始时我们确实在播放（仅没收到 shouldResume 信号），仍恢复，
     // 满足“其他 App 没声音了自动恢复”的预期。
     if (permanent) {
+      clearResumeTimer()
       if (shouldResumeAfterDuck) {
         shouldResumeAfterDuck = false
         void play()
@@ -75,12 +85,26 @@ const registerPlaybackService = async() => {
     if (paused) {
       shouldResumeAfterDuck = true
       void pause()
+      // iOS 上其他 App 停止播放后，AVAudioSession 的 interruption ended 经常不发送给
+      // react-native-track-player（或被延迟到 ~1 分钟），导致下方「中断结束恢复」永远等不到，
+      // 表现成「被打断后很久才恢复」。这里设兜底超时：3s 内仍没收到 ended 且仍应恢复时主动 play()，
+      // 让「其他 App 没声音了就自动恢复」即时生效（前台场景下无副作用：若其他 App 仍在播，
+      // iOS 音频会话会重新 duck 我们，不会真正覆盖）。
+      clearResumeTimer()
+      resumeTimer = setTimeout(() => {
+        resumeTimer = null
+        if (shouldResumeAfterDuck) {
+          shouldResumeAfterDuck = false
+          void play()
+        }
+      }, 3000)
       return
     }
 
     // 中断结束（原生发 { paused: false } 且带 shouldResume）：按标记恢复播放。
     if (shouldResumeAfterDuck) {
       shouldResumeAfterDuck = false
+      clearResumeTimer()
       void play()
     }
   })

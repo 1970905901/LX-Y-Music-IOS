@@ -64,6 +64,8 @@ jobs:
 
       - name: Build unsigned iOS app
         shell: bash
+        env:
+          SOURCEMAP_FILE: ${{ github.workspace }}/build/main.jsbundle.map
         run: |
           mkdir -p build
           set -o pipefail
@@ -80,6 +82,13 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             clean build 2>&1 | tee build/xcodebuild.log
+
+      - name: Upload source map artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sourcemap
+          path: build/main.jsbundle.map
+          if-no-files-found: ignore
 
       - name: Show first Xcode errors
         if: failure()

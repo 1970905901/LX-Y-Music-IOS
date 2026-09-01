@@ -1,0 +1,40 @@
+name: Symbolicate iOS Stack
+
+on:
+  workflow_dispatch:
+    inputs:
+      stack:
+        description: 'Release stack trace (one frame per line, with line:column)'
+        required: true
+      run_id:
+        description: 'Build run ID that produced the source map (leave empty for latest successful iOS IPA build on ios-adaptation)'
+        required: false
+
+jobs:
+  symbolicate:
+    name: Symbolicate stack
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve run ID
+        id: resolve-run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -n "${{ github.event.inputs.run_id }}" ]; then
+            echo "run_id=${{ github.event.inputs.run_id }}" >> "$GITHUB_OUTPUT"
+          else
+            latest_run=$(gh run list --repo "${{ github.repository }}" --workflow "Build iOS IPA" --branch ios-adaptation --limit 1 --json databaseId --jq '.[0].databaseId')
+            echo "run_id=$latest_run" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download source map artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download "${{ steps.resolve-run.outputs.run_id }}" --repo "${{ github.repository }}" --name sourcemap --dir ./sourcemap
+
+      - name: Symbolicate stack
+        run: |
+          npx metro-symbolicate ./sourcemap/main.jsbundle.map <<'EOF'
+          ${{ github.event.inputs.stack }}
+          EOF

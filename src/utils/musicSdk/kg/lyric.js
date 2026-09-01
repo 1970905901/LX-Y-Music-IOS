@@ -36,7 +36,7 @@ const parseLyric = (str) => {
       .padStart(2, '0')
     time %= 60
     let s = parseInt(time).toString().padStart(2, '0')
-    time = `${m}:${s}.${ms}`
+    time = `${m}:${s}.${String(ms).padStart(3, '0')}`
     if (rlyric) rlyric[i] = `[${time}]${rlyric[i]?.join('') ?? ''}`
     if (tlyric) tlyric[i] = `[${time}]${tlyric[i]?.join('') ?? ''}`
     i++

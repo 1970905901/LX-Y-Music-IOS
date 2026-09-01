@@ -1,6 +1,5 @@
 import { httpFetch } from '../../request'
 import { b64DecodeUnicode, decodeName } from '../../index'
-import { decryptQrc } from './qrc/decode'
 
 const formatQrcTime = (ms) => {
   const m = Math.floor(ms / 60000)
@@ -9,33 +8,38 @@ const formatQrcTime = (ms) => {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(cs).padStart(3, '0')}`
 }
 
-// 将 QQ QRC(解密后的 XML) 解析为 LRC 逐字格式：
-// <Lyric_1 Time="ms"> <Word Offset="相对行首ms" Duration="ms">词</Word> ... </Lyric_1>
-const parseQrc = (xml) => {
-  if (!xml) return ''
-  const lineBlocks = xml.match(/<lyric_1[^>]*>[\s\S]*?<\/lyric_1>/gi)
-  if (!lineBlocks) return ''
+// 将 QQ QRC 解析为 LRC 逐字格式（参考 LDDC 的 qrc.py）：
+// 解密后的 QRC 为自闭合单标签 <Lyric_1 LyricType="1" LyricContent="..."/>，
+// LyricContent 内是多行文本，每行为 [行起始,行时长]字(绝对起始,时长)字(绝对起始,时长)...。
+// 注意：词时间标签在文字【之后】，且为【绝对毫秒】，需换算成相对行首。
+const parseQrc = (text) => {
+  if (!text) return ''
+  // 若为 XML，取出 LyricContent 属性内容；否则按纯文本处理
+  const contentMatch = /<Lyric_1[^>]*LyricContent="([\s\S]*?)"\s*\/>/i.exec(text)
+  const content = contentMatch ? contentMatch[1] : text
   const lines = []
-  for (const block of lineBlocks) {
-    const timeMatch = /time="(-?\d+)"/i.exec(block)
-    if (!timeMatch) continue
-    const time = parseInt(timeMatch[1])
+  for (const rawLine of content.split(/\r\n|\n|\r/)) {
+    const line = rawLine.trim()
+    const lineMatch = /^\[(\d+),(\d+)\](.*)$/.exec(line)
+    if (!lineMatch) continue
+    const lineStart = parseInt(lineMatch[1])
+    const rest = lineMatch[3]
     const words = []
     let wm
-    const wordExp = /<word\s+offset="(-?\d+)"\s+duration="(-?\d+)"[^>]*>([\s\S]*?)<\/word>/gi
-    while ((wm = wordExp.exec(block)) != null) {
-      words.push(`<${wm[1]},${wm[2]}>${wm[3]}`)
+    // 匹配「文字(绝对起始,时长)」：文字在前、时间标签在后
+    const wordExp = /((?:(?!\(\d+,\d+\)).)+)\((\d+),(\d+)\)/g
+    while ((wm = wordExp.exec(rest)) != null) {
+      const wordText = wm[1]
+      if (!wordText) continue
+      const absStart = parseInt(wm[2])
+      const duration = parseInt(wm[3])
+      const relStart = Math.max(absStart - lineStart, 0)
+      words.push(`<${relStart},${duration}>${wordText}`)
     }
     if (!words.length) continue
-    lines.push(`[${formatQrcTime(time)}]${words.join('')}`)
+    lines.push(`[${formatQrcTime(lineStart)}]${words.join('')}`)
   }
   return lines.join('\n')
-}
-
-// QQ 返回的 qrc 可能是 hex 或 base64，统一转 hex 再解密
-const toQrcHex = (qrc) => {
-  if (/^[0-9a-fA-F]+$/.test(qrc)) return qrc
-  return Buffer.from(qrc, 'base64').toString('hex')
 }
 
 const TX_MUSIC_U_FCG = 'https://u.y.qq.com/cgi-bin/musicu.fcg'
@@ -150,11 +154,11 @@ const fetchLyric = (songmid) => {
       }
     }
 
-    // 逐字歌词：解密 QQ QRC 并解析为 LRC 逐字格式（解析失败则降级为整行高亮）
+    // 逐字歌词：crypt:0 时 qrc 为 base64 明文，解码后解析为 LRC 逐字格式（失败则降级为整行高亮）
     let lxlyric = ''
     if (data.qrc) {
       try {
-        lxlyric = parseQrc(decryptQrc(toQrcHex(data.qrc)))
+        lxlyric = parseQrc(b64DecodeUnicode(data.qrc))
       } catch {
         lxlyric = ''
       }

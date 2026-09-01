@@ -71,7 +71,7 @@ const parseTools = {
       .padStart(2, '0')
     timeMs %= 60
     let s = parseInt(timeMs).toString().padStart(2, '0')
-    return `[${m}:${s}.${ms}]`
+    return `[${m}:${s}.${String(ms).padStart(3, '0')}]`
   },
   parseLyric(lines) {
     const lxlrcLines = []

@@ -4834,6 +4834,38 @@ RCT_EXPORT_METHOD(endBackgroundTask:(nonnull NSNumber *)taskId) {
   });
 }
 
+// 安全区 insets：JS 侧据此给底部面板/列表补 padding，避免最后一行被 Home 指示器
+// （iPhone 刘海/灵动岛机型底部约 34pt）或 iPad 底部区域遮挡。
+// iOS 13+ 必须走 UIWindowScene 取 keyWindow：多场景/分屏下 UIApplication.keyWindow 可能为 nil。
+RCT_REMAP_METHOD(getSafeAreaInsets,
+                 getSafeAreaInsetsWithResolver:(RCTPromiseResolveBlock)resolve
+                 rejecter:(RCTPromiseRejectBlock)reject) {
+  dispatch_async(dispatch_get_main_queue(), ^{
+    UIEdgeInsets insets = UIEdgeInsetsZero;
+    if (@available(iOS 13.0, *)) {
+      UIWindow *keyWindow = nil;
+      for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
+        if (scene.activationState != UISceneActivationStateForegroundActive) continue;
+        if (![scene isKindOfClass:[UIWindowScene class]]) continue;
+        for (UIWindow *window in ((UIWindowScene *)scene).windows) {
+          if (window.isKeyWindow) {
+            keyWindow = window;
+            break;
+          }
+        }
+        if (keyWindow != nil) break;
+      }
+      if (keyWindow != nil) insets = keyWindow.safeAreaInsets;
+    }
+    resolve(@{
+      @"top": @(insets.top),
+      @"bottom": @(insets.bottom),
+      @"left": @(insets.left),
+      @"right": @(insets.right),
+    });
+  });
+}
+
 @end
 
 @interface CryptoModule : NSObject<RCTBridgeModule>

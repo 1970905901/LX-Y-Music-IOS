@@ -10,7 +10,8 @@ import { createStyle, toast, type RowInfo } from '@/utils/tools';
 import { scaleSizeH } from '@/utils/pixelRatio';
 import { LIST_ITEM_HEIGHT } from '@/config/constant';
 import MusicAddModal, { type MusicAddModalType } from '@/components/MusicAddModal';
-import { useSettingValue } from '@/store/setting/hook';
+import { useSettingValue } from '@/store/setting/hook'
+import { useSafeAreaBottom } from '@/store/common/hook';
 import { downloadMusic } from '@/core/download';
 import { useWindowSize } from '@/utils/hooks';
 import { addTempPlayList, playTempListAt, playCurrentListAt, removeTempPlayList } from '@/core/player/tempPlayList';
@@ -76,6 +77,8 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
   const isShowAlbumName = useSettingValue('list.isShowAlbumName');
   const isShowInterval = useSettingValue('list.isShowInterval');
   const showCover = useSettingValue('list.isShowCover');
+  // 底部安全区：列表最后一行补 paddingBottom，避免被 Home 指示器 / iPad 底部区域遮挡
+  const safeAreaBottom = useSafeAreaBottom();
   const rowInfo = useRef({ rowNum: undefined, rowWidth: '100%' } as const).current;
 
   // 播放器面板展示当前播放队列：
@@ -194,6 +197,9 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
     offset: scaleSizeH(LIST_ITEM_HEIGHT) * index,
     index,
   }), []);
+
+  // 缓存容器样式：直接写字面量会每次渲染生成新对象，触发 FlatList 重复布局
+  const listContentStyle = useMemo(() => ({ paddingBottom: safeAreaBottom }), [safeAreaBottom]);
 
   const onAdd = (info: SelectInfo) => {
     musicAddModalRef.current?.show({
@@ -343,6 +349,7 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
             // 挂载首帧就定位到当前播放歌曲，避免「先渲染在顶部、再跳到当前项」。
             // clamp 到最后一个下标，防止列表比上次打开更短时越界。
             initialScrollIndex={Math.min(initialIndex, Math.max(0, playlist.length - 1))}
+            contentContainerStyle={listContentStyle}
           />
         </View>
       </AnimatedSlideUpPanel>

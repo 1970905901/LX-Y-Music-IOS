@@ -56,6 +56,10 @@ export class StateEvent extends Event {
     this.emit('statusbarHeightUpdated', size)
   }
 
+  safeAreaBottomUpdated(size: number) {
+    this.emit('safeAreaBottomUpdated', size)
+  }
+
   apiSourceUpdated(source: LX.AppSetting['common.apiSource']) {
     this.emit('apiSourceUpdated', source)
   }

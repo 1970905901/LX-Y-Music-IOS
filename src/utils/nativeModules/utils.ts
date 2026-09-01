@@ -212,3 +212,36 @@ export const endBackgroundTask = (): void => {
     UtilsModule.endBackgroundTask(taskId)
   } catch {}
 }
+
+export interface SafeAreaInsets {
+  top: number
+  bottom: number
+  left: number
+  right: number
+}
+
+const ZERO_INSETS: SafeAreaInsets = { top: 0, bottom: 0, left: 0, right: 0 }
+
+/**
+ * 获取系统安全区 insets（单位 pt）。
+ * 底部弹层/列表据此补 paddingBottom，避免最后一行被 Home 指示器
+ * （刘海/灵动岛机型底部约 34pt，横屏约 21pt，iPad 约 20pt）遮挡。
+ * iOS 原生实现见 AppDelegate.mm 的 UtilsModule.getSafeAreaInsets。
+ * 仅在 iOS 有实现，其他平台安全降级为全 0。
+ */
+export const getSafeAreaInsets = async (): Promise<SafeAreaInsets> => {
+  // 每次返回新对象，避免调用方误改共享常量影响后续调用
+  if (!isIOS || !UtilsModule?.getSafeAreaInsets) return { ...ZERO_INSETS }
+  try {
+    const insets = await (UtilsModule.getSafeAreaInsets as () => Promise<SafeAreaInsets>)()
+    return {
+      top: Number(insets?.top) || 0,
+      bottom: Number(insets?.bottom) || 0,
+      left: Number(insets?.left) || 0,
+      right: Number(insets?.right) || 0,
+    }
+  } catch {
+    // 原生未就绪（如首帧 window 尚未创建）时降级为 0，避免面板首帧抖动
+    return { ...ZERO_INSETS }
+  }
+}

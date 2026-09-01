@@ -61,6 +61,10 @@ export const setStatusbarHeight = (size: number) => {
   commonActions.setStatusbarHeight(size)
 }
 
+export const setSafeAreaBottom = (size: number) => {
+  commonActions.setSafeAreaBottom(size)
+}
+
 export const setComponentId = (name: COMPONENT_IDS, id: string) => {
   commonActions.setComponentId(name, id)
 }

@@ -33,6 +33,24 @@ export const useStatusbarHeight = () => {
   return value + STATUSBAR_TOP_OFFSET
 }
 
+/**
+ * 底部安全区高度（pt）：Home 指示器 / iPad 底部区域。
+ * 底部弹层、列表需用它补 paddingBottom，否则最后一行会被系统 UI 遮挡。
+ * 由 SizeView 在启动与窗口尺寸变化（旋转 / 分屏）时从原生侧同步。
+ */
+export const useSafeAreaBottom = () => {
+  const [value, update] = useState(state.safeAreaBottom)
+
+  useEffect(() => {
+    global.state_event.on('safeAreaBottomUpdated', update)
+    return () => {
+      global.state_event.off('safeAreaBottomUpdated', update)
+    }
+  }, [])
+
+  return value
+}
+
 export const useComponentIds = () => {
   const [value, update] = useState(state.componentIds)
 

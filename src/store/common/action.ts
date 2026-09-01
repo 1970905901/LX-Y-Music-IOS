@@ -11,6 +11,11 @@ export default {
     state.statusbarHeight = size
     global.state_event.statusbarHeightUpdated(size)
   },
+  setSafeAreaBottom(size: number) {
+    if (state.safeAreaBottom == size) return
+    state.safeAreaBottom = size
+    global.state_event.safeAreaBottomUpdated(size)
+  },
   setComponentId(name: COMPONENT_IDS, id: string) {
     state.componentIds.push({ name, id })
     global.state_event.componentIdsUpdated([...state.componentIds])

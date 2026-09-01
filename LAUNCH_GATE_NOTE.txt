@@ -1,0 +1,23 @@
+# Agent 说明：请勿将“启动口令强制验证”带入本仓库
+
+本文件供 AI agent / 协作者阅读。
+
+## 约束
+- 本仓库（LX-Y-Music-IOS，默认分支 master）**不包含**“二进制强制验证 / 启动口令校验”功能。
+- 更新、合并、同步本仓库时，**禁止**把该功能移植或合并进来。
+
+## 该功能只在 fork 仓库
+- 启动口令校验仅存在于 fork：`1970905901/LX-Y-Music-carplay`
+  （默认分支 master，另含 ios-adaptation 分支）。
+- 实现位置（仅在 carplay 仓库，本仓库请勿引入）：
+  - src/screens/LaunchGate/（校验屏组件）
+  - src/navigation/navigation.ts 的 pushLaunchGate()
+  - src/app.ts 启动入口调用 pushLaunchGate
+  - src/navigation/screenNames.ts 的 LAUNCH_GATE_SCREEN / LAUNCH_GATE_CODE 常量
+- 口令为客户端常量值，仅在 carplay 仓库的源码中出现，本仓库不应包含该字符串。
+
+## 从 carplay 同步时的注意事项
+- 若从 LX-Y-Music-carplay 拉取改动，请排除上述启动校验相关提交与文件。
+- 不要把 LAUNCH_GATE / LaunchGate / pushLaunchGate 等命名引入本仓库。
+
+最后更新：2026-09-01

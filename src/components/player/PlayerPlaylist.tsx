@@ -5,19 +5,15 @@ import { FlatList, View, TouchableOpacity } from 'react-native';
 import Text from '@/components/common/Text';
 import { useTheme } from '@/store/theme/hook';
 import playerState from '@/store/player/state';
-import { getListMusicSync } from '@/utils/listManage';
-import { usePlayInfo, usePlayerMusicInfo } from '@/store/player/hook';
-import { playList } from '@/core/player/player';
+import { usePlayerMusicInfo, useTempPlayList } from '@/store/player/hook';
 import { createStyle, toast, type RowInfo } from '@/utils/tools';
 import { scaleSizeH } from '@/utils/pixelRatio';
-import { LIST_ITEM_HEIGHT, LIST_IDS } from '@/config/constant';
+import { LIST_ITEM_HEIGHT } from '@/config/constant';
 import MusicAddModal, { type MusicAddModalType } from '@/components/MusicAddModal';
 import { useSettingValue } from '@/store/setting/hook';
 import { downloadMusic } from '@/core/download';
-import listState from '@/store/list/state';
 import { useWindowSize } from '@/utils/hooks';
-import { addTempPlayList, removeTempPlayList } from '@/core/player/tempPlayList';
-import { removeListMusics } from '@/core/list';
+import { addTempPlayList, playTempListAt, removeTempPlayList } from '@/core/player/tempPlayList';
 import { Icon } from "@/components/common/Icon.tsx";
 
 import OnlineListItem from '@/components/OnlineList/ListItem';
@@ -68,10 +64,9 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
   const panelRef = useRef<AnimatedSlideUpPanelType>(null);
   const t = useI18n();
   const theme = useTheme();
-  const playerInfo = usePlayInfo();
   const playerMusicInfo = usePlayerMusicInfo();
+  const tempPlayList = useTempPlayList();
   const { height: windowHeight } = useWindowSize();
-  const [playlist, setPlaylist] = useState<LX.Player.PlayMusic[]>([]);
   const [initialIndex, setInitialIndex] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
   const listMenuRef = useRef<ListMenuType>(null);
@@ -82,18 +77,19 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
   const showCover = useSettingValue('list.isShowCover');
   const rowInfo = useRef({ rowNum: undefined, rowWidth: '100%' } as const).current;
 
+  // 临时播放列表面板展示的是「稍后播放」队列，而不是当前歌曲来源列表。
+  const playlist = useMemo<LX.Player.PlayMusic[]>(() => tempPlayList.map(item => item.musicInfo), [tempPlayList]);
+
   // 依赖必须列出，否则 ref 暴露的 show() 会永久闭包首次渲染的旧值。
   useImperativeHandle(ref, () => ({
     show() {
       // 面板隐藏时 AnimatedSlideUpPanel 直接 return null，FlatList 每次打开都是全新挂载。
       // 因此必须在挂载前一次性备好数据与初始滚动位置：若数据/定位留到挂载后再 setState，
       // 首帧会先渲染上一次残留的列表并停在顶部，随后才被拉到当前播放项 —— 就是「跳一下」。
-      const list = getListMusicSync(playerInfo.playerListId);
-      setPlaylist(list);
-      setInitialIndex(getInitialScrollIndex(list, playerMusicInfo.id, windowHeight));
+      setInitialIndex(getInitialScrollIndex(playlist, playerMusicInfo.id, windowHeight));
       setIsVisible(true);
     },
-  }), [playerInfo.playerListId, playerMusicInfo.id, windowHeight]);
+  }), [playlist, playerMusicInfo.id, windowHeight]);
 
   const { activeIndex, totalCount } = useMemo(() => {
     if (!playlist.length) return { activeIndex: -1, totalCount: 0 };
@@ -102,21 +98,14 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
     return { activeIndex: index, totalCount: playlist.length };
   }, [playlist, playerMusicInfo.id]);
 
-  // 打开期间若播放列表来源切换（如切到另一个歌单），同步刷新数据；
-  // 数据不变时 getListMusicSync 返回同一引用，React 会自动 bail out，不会多余渲染。
   useEffect(() => {
     if (!isVisible) return;
     panelRef.current?.setVisible(true);
-    if (playerInfo.playerListId) {
-      setPlaylist(getListMusicSync(playerInfo.playerListId));
-    }
-  }, [isVisible, playerInfo.playerListId]);
+  }, [isVisible]);
 
   const handlePlay = useCallback((index: number) => {
-    if (playerInfo.playerListId) {
-      void playList(playerInfo.playerListId, index);
-    }
-  }, [playerInfo.playerListId]);
+    playTempListAt(index);
+  }, []);
 
   const handleShowMenu = useCallback((musicInfo: LX.Music.MusicInfo, index: number, position: Position) => {
     const adaptedMusicInfo = {
@@ -162,7 +151,7 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
       },
     } as LX.Music.MusicInfoOnline;
 
-    const listIdForIcon = playerInfo.playerListId === LIST_IDS.TEMP ? listState.tempListMeta.id : playerInfo.playerListId;
+    const listIdForIcon = playerState.playMusicInfo.listId ?? undefined;
 
     return (
       <OnlineListItem
@@ -305,26 +294,11 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
   }
 
   const onRemove = useCallback(async (info: SelectInfo) => {
-    const listId = playerInfo.playerListId
-    if (!listId) return
-
-    if (listId === LIST_IDS.TEMP) {
-      removeTempPlayList(info.index)
-      setPlaylist(prev => prev.filter((_, i) => i !== info.index))
-    } else if (!listId.includes('__')) {
-      // 本地歌单：默认/我喜欢/自建歌单
-      await removeListMusics(listId, [info.musicInfo.id])
-      setPlaylist(prev => prev.filter((_, i) => i !== info.index))
-    } else {
-      toast('暂不支持从该播放队列移除此来源的歌曲')
-    }
-  }, [playerInfo.playerListId])
+    removeTempPlayList(info.index)
+  }, [])
 
   const handlePanelHide = () => {
     setIsVisible(false);
-    // 清空数据：本组件在面板隐藏后仍留在树中，残留数据会在下次打开的首帧闪现，
-    // 与下面的 initialScrollIndex 配合才能保证「打开即定位、无跳动」。
-    setPlaylist([]);
   };
 
   return (
@@ -360,7 +334,7 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
 
       <ListMenu
         ref={listMenuRef}
-        listId={playerInfo.playerListId ?? undefined}
+        listId={playerState.playMusicInfo.listId ?? undefined}
         onPlay={() => {}}
         onPlayLater={onPlayLater}
         onAdd={onAdd}

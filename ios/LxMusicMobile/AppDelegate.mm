@@ -5159,3 +5159,139 @@ RCT_EXPORT_METHOD(setPlaylist:(NSArray *)items) {
 }
 
 @end
+
+
+#pragma mark - NowPlayingModule / UtilsModule bridge wrappers
+// JS 侧期望存在 NowPlayingModule 与 UtilsModule 两个原生模块：
+// NowPlayingModule 负责写入 MPNowPlayingInfoCenter；UtilsModule 作为 RCTEventEmitter
+// 把 MPRemoteCommandCenter 命令转发给 JS，并提供后台任务 / 屏幕常亮等辅助能力。
+// 这里把两个模块直接定义在同一个 .mm 文件里，避免新增文件还要去改 Xcode project.pbxproj。
+
+@interface NowPlayingModule : NSObject <RCTBridgeModule>
+@end
+
+@implementation NowPlayingModule
+
+RCT_EXPORT_MODULE(NowPlayingModule);
+
+RCT_EXPORT_METHOD(updateNowPlayingInfo:(NSDictionary *)metadata
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+{
+  dispatch_async(dispatch_get_main_queue(), ^{
+    LXSetNowPlayingInfo(metadata);
+    resolve(nil);
+  });
+}
+
+RCT_EXPORT_METHOD(playNowPlaying:(NSDictionary *)options
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+{
+  dispatch_async(dispatch_get_main_queue(), ^{
+    LXSetNowPlayingPlaybackState(MPNowPlayingPlaybackStatePlaying, options);
+    resolve(nil);
+  });
+}
+
+RCT_EXPORT_METHOD(pauseNowPlaying:(NSDictionary *)options
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+{
+  dispatch_async(dispatch_get_main_queue(), ^{
+    LXSetNowPlayingPlaybackState(MPNowPlayingPlaybackStatePaused, options);
+    resolve(nil);
+  });
+}
+
+RCT_EXPORT_METHOD(stopNowPlaying:(NSDictionary *)options
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+{
+  dispatch_async(dispatch_get_main_queue(), ^{
+    LXSetNowPlayingPlaybackState(MPNowPlayingPlaybackStateStopped, options);
+    resolve(nil);
+  });
+}
+
+RCT_EXPORT_METHOD(clearNowPlayingInfo:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+{
+  dispatch_async(dispatch_get_main_queue(), ^{
+    LXClearNowPlayingInfo();
+    resolve(nil);
+  });
+}
+
+@end
+
+@interface UtilsModule : RCTEventEmitter <RCTBridgeModule>
+@end
+
+@implementation UtilsModule
+{
+  id _remoteCommandObserver;
+}
+
+RCT_EXPORT_MODULE(UtilsModule);
+
++ (BOOL)requiresMainQueueSetup
+{
+  return NO;
+}
+
+- (NSArray<NSString *> *)supportedEvents
+{
+  return @[@"remote-command"];
+}
+
+- (instancetype)init
+{
+  self = [super init];
+  if (self) {
+    __weak typeof(self) weakSelf = self;
+    _remoteCommandObserver = [[NSNotificationCenter defaultCenter] addObserverForName:LXRemoteCommandNotificationName
+                                                                                object:nil
+                                                                                 queue:[NSOperationQueue mainQueue]
+                                                                            usingBlock:^(NSNotification *note) {
+      NSDictionary *userInfo = [note.userInfo isKindOfClass:[NSDictionary class]] ? note.userInfo : @{};
+      [weakSelf sendEventWithName:@"remote-command" body:userInfo];
+    }];
+  }
+  return self;
+}
+
+- (void)dealloc
+{
+  if (_remoteCommandObserver) {
+    [[NSNotificationCenter defaultCenter] removeObserver:_remoteCommandObserver];
+  }
+}
+
+RCT_EXPORT_METHOD(screenkeepAwake)
+{
+  dispatch_async(dispatch_get_main_queue(), ^{
+    [UIApplication sharedApplication].idleTimerDisabled = YES;
+  });
+}
+
+RCT_EXPORT_METHOD(screenUnkeepAwake)
+{
+  dispatch_async(dispatch_get_main_queue(), ^{
+    [UIApplication sharedApplication].idleTimerDisabled = NO;
+  });
+}
+
+RCT_EXPORT_METHOD(beginBackgroundTask:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+{
+  UIBackgroundTaskIdentifier taskId = [[UIApplication sharedApplication] beginBackgroundTaskWithExpirationHandler:^{}];
+  resolve(@(taskId));
+}
+
+RCT_EXPORT_METHOD(endBackgroundTask:(nonnull NSNumber *)taskId)
+{
+  [[UIApplication sharedApplication] endBackgroundTask:(UIBackgroundTaskIdentifier)taskId.integerValue];
+}
+
+@end

@@ -1,0 +1,17 @@
+# 忽略 Pods 源码与二进制（非常大，千万不能让 Codex 读取）
+ios/Pods/
+ios/build/
+ios/DerivedData/
+ios/*.xcworkspace/
+
+# 忽略 Node 依赖与打包产物
+node_modules/
+.bundle/
+coverage/
+.metro-cache/
+
+# 忽略安卓产物（只开发 iOS）
+android/
+
+# 忽略打包生成的 JS Bundle
+ios/main.jsbundle

@@ -253,13 +253,9 @@ export default () => {
 
   const handleScroll = ({ nativeEvent }: NativeSyntheticEvent<NativeScrollEvent>) => {
     scrollInfoRef.current = nativeEvent
-    if (isPauseScrollRef.current) {
-      playLineRef.current?.updateScrollInfo(nativeEvent)
-    }
   }
   const handleScrollBeginDrag = () => {
     isPauseScrollRef.current = true
-    playLineRef.current?.setVisible(true)
     if (delayScrollTimeout.current) {
       clearTimeout(delayScrollTimeout.current)
       delayScrollTimeout.current = null
@@ -278,7 +274,6 @@ export default () => {
     if (!isPauseScrollRef.current) return
     if (scrollTimoutRef.current) clearTimeout(scrollTimoutRef.current)
     scrollTimoutRef.current = setTimeout(() => {
-      playLineRef.current?.setVisible(false)
       scrollTimoutRef.current = null
       isPauseScrollRef.current = false
       if (!playerState.isPlay) return
@@ -310,7 +305,6 @@ export default () => {
       animated: false,
     })
     if (!lyricLines.length) return
-    playLineRef.current?.updateLyricLines(lyricLines)
     requestAnimationFrame(() => {
       if (isFirstSetLrc.current) {
         isFirstSetLrc.current = false
@@ -393,12 +387,10 @@ export default () => {
       isActive,
       isPlayed,
     )
-    playLineRef.current?.updateLayoutInfo(lyricScrollLayoutRef.current.getLayoutInfo())
   }, [lyricLines])
 
   const handleSpaceLayout = useCallback(({ nativeEvent }: LayoutChangeEvent) => {
     lyricScrollLayoutRef.current.setSpaceHeight(nativeEvent.layout.height)
-    playLineRef.current?.updateLayoutInfo(lyricScrollLayoutRef.current.getLayoutInfo())
   }, [])
 
   // 测量列表可视高度，供连续滚动计算居中偏移（首帧滚动前即可拿到真实高度）。

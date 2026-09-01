@@ -40,9 +40,11 @@ export default memo(
     const currentHeightRef = useRef(commonState.statusbarHeight)
     const currentSafeAreaBottomRef = useRef(commonState.safeAreaBottom)
 
-    // 底部安全区（Home 指示器）高度会随旋转 / 分屏变化（iPhone 竖屏约 34pt、横屏约 21pt，
-    // iPad 约 20pt），必须在窗口尺寸变化时重新向原生侧取一次，否则横竖屏切换后
-    // 底部弹层的避让高度会残留旧值。
+    // 底部安全区（Home 指示器）高度随机型不同：iPhone 约 34pt、全面屏 iPad 约 20pt、
+    // 带 Home 键的设备为 0。
+    // iPhone 系统层面仅支持竖屏（Info.plist 只声明 Portrait），iPad 支持竖屏 + 左右横屏，
+    // 因此旋转会改变窗口尺寸。这里在每次尺寸变化时重新向原生侧取一次，
+    // 避免旋转后底部弹层沿用旧值。
     const syncSafeAreaBottom = useCallback(() => {
       void getSafeAreaInsets().then(({ bottom }) => {
         if (currentSafeAreaBottomRef.current != bottom) {

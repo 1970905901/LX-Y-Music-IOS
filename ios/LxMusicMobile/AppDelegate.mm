@@ -811,7 +811,8 @@ static void LXRegisterTrackPlayerLifecycleObserver(void) {
     LXNowPlayingApplicationObserver = [[NSNotificationCenter defaultCenter] addObserverForName:UIApplicationDidBecomeActiveNotification object:nil queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification * _Nonnull note) {
       if (LXNowPlayingInfoCache.count == 0) return;
       // iOS 27 Beta 7 可能在应用切换/控制中心展开后丢弃当前媒体会话；
-      // 重新提交缓存并同步状态可让控制中心恢复歌曲信息和播放按钮。
+      // 重新激活音频会话并重新提交缓存，可让 iPad 控制中心/锁屏恢复歌曲信息和播放按钮。
+      [[AVAudioSession sharedInstance] setActive:YES error:nil];
       LXApplyNowPlayingInfo();
     }];
   }

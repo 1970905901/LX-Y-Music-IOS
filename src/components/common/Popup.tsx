@@ -202,6 +202,7 @@ export default forwardRef<PopupType, PopupProps>(
             ...centeredViewStyle,
             paddingBottom: keyboardShown ? keyboardHeight : 0,
           }}
+          pointerEvents="box-none"
         >
           <View
             style={{

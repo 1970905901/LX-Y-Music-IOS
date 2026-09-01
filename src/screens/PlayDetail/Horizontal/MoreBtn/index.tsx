@@ -2,6 +2,7 @@ import { createStyle } from '@/utils/tools'
 import { View } from 'react-native'
 import PlayModeBtn from './PlayModeBtn'
 import MusicAddBtn from './MusicAddBtn'
+import DownloadBtn from './DownloadBtn'
 import TimeoutExitBtn from './TimeoutExitBtn'
 
 export default () => {
@@ -9,6 +10,7 @@ export default () => {
     <View style={styles.container}>
       <TimeoutExitBtn />
       <MusicAddBtn />
+      <DownloadBtn />
       <PlayModeBtn />
     </View>
   )

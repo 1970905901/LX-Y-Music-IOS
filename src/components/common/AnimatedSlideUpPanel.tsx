@@ -86,28 +86,39 @@ const AnimatedSlideUpPanel = forwardRef<AnimatedSlideUpPanelType, Props>(({ chil
           ]}
         />
       </TouchableWithoutFeedback>
-      <Animated.View
-        style={[
-          styles.panel,
-          isHorizontal ? { maxWidth: 760, marginHorizontal: 'auto' } : null,
-          {
-            transform: [{ translateY: animatedValue }],
-          },
-        ]}
-      >
-        {children}
-      </Animated.View>
+      <View style={[styles.panelContainer, isHorizontal && styles.panelContainerHorizontal]} pointerEvents="box-none">
+        <Animated.View
+          style={[
+            styles.panel,
+            isHorizontal ? styles.panelHorizontal : null,
+            {
+              transform: [{ translateY: animatedValue }],
+            },
+          ]}
+        >
+          {children}
+        </Animated.View>
+      </View>
     </View>
   );
 });
 
 const styles = StyleSheet.create({
-  panel: {
+  panelContainer: {
     position: 'absolute',
-    bottom: 0,
     left: 0,
     right: 0,
+    bottom: 0,
+  },
+  panelContainerHorizontal: {
+    alignItems: 'center',
+  },
+  panel: {
+    width: '100%',
     height: '50%',
+  },
+  panelHorizontal: {
+    maxWidth: 760,
   },
 });
 

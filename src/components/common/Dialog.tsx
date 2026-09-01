@@ -109,7 +109,7 @@ export default forwardRef<DialogType, DialogProps>(
         bgColor="rgba(50,50,50,.3)"
         ref={modalRef}
       >
-        <View style={{ ...styles.centeredView, paddingBottom: keyboardShown ? keyboardHeight : 0 }}>
+        <View style={{ ...styles.centeredView, paddingBottom: keyboardShown ? keyboardHeight : 0 }} pointerEvents="box-none">
           <View
             style={{ ...styles.modalView, height, maxWidth: isHorizontal ? 760 : '90%', minWidth: isHorizontal ? undefined : '60%', backgroundColor: theme['c-content-background'] }}
           >

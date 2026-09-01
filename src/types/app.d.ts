@@ -28,6 +28,13 @@ interface GlobalData {
     isRegisteredService: boolean
     isIniting: boolean
     ignoreTrackPlayerLifecycle: boolean
+    // 用户主动暂停标记（App 内暂停按钮 / 控制中心 RemotePause）。
+    // 用于「返回前台自动播放」判定：true 时回前台不自动恢复，尊重用户意图；
+    // 系统音频中断（RemoteDuck）暂停不置此标记。
+    userPaused: boolean
+    // 系统音频中断（RemoteDuck）暂停前的抑制标志：避免把「被其他 App 打断的暂停」
+    // 误判为 userPaused。暂停事件处理时若为 true 则消费并跳过 userPaused 标记。
+    suppressUserPaused: boolean
   }
   restorePlayInfo: LX.Player.SavedPlayInfo | null
   isScreenKeepAwake: boolean

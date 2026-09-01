@@ -27,6 +27,8 @@ const registerPlaybackService = async() => {
   TrackPlayer.addEventListener(TPEvent.RemotePlay, () => {
     // console.log('remote-play')
     markTimeoutExitInteraction()
+    // 用户主动恢复播放：清除「用户主动暂停」标记，回前台自动播放判定才可生效。
+    global.lx.playerStatus.userPaused = false
     play()
   })
 
@@ -35,6 +37,8 @@ const registerPlaybackService = async() => {
     markTimeoutExitInteraction()
     // 用户主动暂停时清除“被中断后自动恢复”意图，避免恢复事件到达后误播
     shouldResumeAfterDuck = false
+    // 标记为用户主动暂停：回前台自动播放（autoPlayOnReturn）据此尊重用户意图，不自动恢复。
+    global.lx.playerStatus.userPaused = true
     void pause()
   })
 
@@ -53,6 +57,7 @@ const registerPlaybackService = async() => {
   TrackPlayer.addEventListener(TPEvent.RemoteStop, () => {
     // console.log('remote-stop')
     shouldResumeAfterDuck = false
+    global.lx.playerStatus.userPaused = false
     global.lx.isPlayedStop = false
     exitApp('Remote Stop')
   })
@@ -64,7 +69,10 @@ const registerPlaybackService = async() => {
     // 首选由 iOS 的 mixWithOthers（原生 setupPlayer 在 mixWithOthers 时使用 .default policy 确保生效）
     // 避免系统中断；若仍收到中断事件（兜底，如来电），立即恢复播放。
     if (!handleAudioFocus) {
-      if (paused) void play()
+      if (paused) {
+        global.lx.playerStatus.userPaused = false
+        void play()
+      }
       return
     }
 
@@ -75,6 +83,7 @@ const registerPlaybackService = async() => {
       clearResumeTimer()
       if (shouldResumeAfterDuck) {
         shouldResumeAfterDuck = false
+        global.lx.playerStatus.userPaused = false
         void play()
       }
       return
@@ -84,6 +93,9 @@ const registerPlaybackService = async() => {
     // 只要收到 began 中断必然是播放中被打断，故标记结束时要恢复。
     if (paused) {
       shouldResumeAfterDuck = true
+      // 系统音频中断的暂停：置抑制标志，使 playProgress 的 pause 事件处理不把它
+      // 误判为「用户主动暂停」，回前台自动播放时仍会恢复（被打断≠用户想停）。
+      global.lx.playerStatus.suppressUserPaused = true
       void pause()
       // iOS 上其他 App 停止播放后，AVAudioSession 的 interruption ended 经常不发送给
       // react-native-track-player（或被延迟到 ~1 分钟），导致下方「中断结束恢复」永远等不到，
@@ -95,6 +107,7 @@ const registerPlaybackService = async() => {
         resumeTimer = null
         if (shouldResumeAfterDuck) {
           shouldResumeAfterDuck = false
+          global.lx.playerStatus.userPaused = false
           void play()
         }
       }, 3000)
@@ -105,6 +118,7 @@ const registerPlaybackService = async() => {
     if (shouldResumeAfterDuck) {
       shouldResumeAfterDuck = false
       clearResumeTimer()
+      global.lx.playerStatus.userPaused = false
       void play()
     }
   })

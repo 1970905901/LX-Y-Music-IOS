@@ -182,13 +182,15 @@ export default () => {
     // 注意：此处只用探测清除窗口，不再用旧位置重锚（外推已立即对齐目标，重锚反而回归 bug）。
     seekResyncTimers.forEach(t => BackgroundTimer.clearTimeout(t))
     seekResyncTimers = []
-    const scheduleSeekSettle = (delay: number) => {
+    // 收敛探测：引擎位置落入目标 ± 容差即放开校准（用真实位置重锚）。
+    // force=true 的兜底（如 900ms）用于「本地 / 下载音乐 seek 后不触发 playing 事件」场景，
+    // 避免外推永久 hold 在 seek 目标、歌词卡住不随音频前进；即便仍未完全收敛，
+    // 也用引擎真实位置放开，保证进度 / 歌词随音频继续。
+    const scheduleSeekSettle = (delay: number, force = false) => {
       const timer = BackgroundTimer.setTimeout(() => {
         void getPosition().then((position) => {
           if (position == null || !playerState.musicInfo.id) return
-          if (Math.abs(position * 1000 - seekTargetMs) <= SEEK_CONVERGE_MS) {
-            // 兜底：若未收到 playing 事件，这里同样用真实位置放开外推（保留当前播放态），
-            // 避免歌词长时间卡在 seek 目标值而不随音频前进。
+          if (Math.abs(position * 1000 - seekTargetMs) <= SEEK_CONVERGE_MS || force) {
             audioClock.setAnchor(position * 1000, getRate(), playerState.isPlay)
             seekTargetMs = -1
           }
@@ -198,6 +200,7 @@ export default () => {
     }
     scheduleSeekSettle(150)
     scheduleSeekSettle(450)
+    scheduleSeekSettle(900, true)
     if (maxTime != null) {
       setMaxplayTime(maxTime)
       updateScrobbleTotalTime(maxTime)
@@ -254,15 +257,18 @@ export default () => {
   }
   const handlePlayerPlaying = () => {
     isEngineBuffering = false
-    // seek 已真正生效并从该位置恢复播放：立即用引擎真实位置重锚外推并放开校准，
-    // 歌词从此刻起严格跟随音频（不再死等收敛探测，消除「跳转后歌词卡在偏移位置」）。
     if (seekTargetMs >= 0) {
+      // seek 已真正生效并从该位置恢复播放：仅当引擎位置落入 seek 目标 ± 容差时，
+      // 才用真实位置重锚外推并放开校准。否则保持 hold（外推冻结在 seek 目标），
+      // 等待 setProgress 的收敛探测放开——避免用「seek 尚未落地的旧位置」resume，
+      // 导致歌词回跳 / 与音频错位（本地 / 下载音乐无 buffering 保护，最易触发）。
       void getPosition().then((position) => {
-        if (position != null && playerState.musicInfo.id) {
+        if (position == null || !playerState.musicInfo.id) return
+        if (Math.abs(position * 1000 - seekTargetMs) <= SEEK_CONVERGE_MS) {
           audioClock.resume(position * 1000, getRate())
+          seekTargetMs = -1
         }
       }).catch(() => {})
-      seekTargetMs = -1
       return
     }
     // 普通缓冲结束（非 seek）：用引擎真实位置重锚外推。
@@ -274,6 +280,9 @@ export default () => {
   }
 
   const handlePlay = () => {
+    // 播放即清除「用户主动暂停」标记：回前台自动播放判定（autoPlayOnReturn）据此
+    // 区分「被打断 / 系统暂停」与「用户主动暂停」，避免用户暂停后切回前台被误恢复。
+    global.lx.playerStatus.userPaused = false
     void getMaxTime()
     // 立即把外推时钟切到「播放中」：play 事件（原生 'playing'）本身就代表正在播放，
     // 这里同步把 audioClock 置为 playing（以当前外推位置为锚，通常是暂停/记忆位置），
@@ -307,6 +316,14 @@ export default () => {
   }
 
   const handlePause = () => {
+    // 区分暂停来源：系统音频中断（RemoteDuck）暂停前会置 suppressUserPaused=true，
+    // 此处跳过标记，避免「被其他 App 打断的暂停」被误判为用户主动暂停；
+    // 其余（App 内暂停按钮、控制中心 RemotePause）一律视为用户主动暂停，回前台不自动恢复。
+    if (global.lx.playerStatus.suppressUserPaused) {
+      global.lx.playerStatus.suppressUserPaused = false
+    } else {
+      global.lx.playerStatus.userPaused = true
+    }
     // 外推停在当前位置：仍保持 rAF 每帧 sync，使歌词（含封面页 MiniLyric）始终与音频当前位置同步，
     // 但歌词时钟不再自行前进。暂停瞬间立即持久化一次当前进度，防止杀 App 丢失位置。
     audioClock.setPlaying(false)
@@ -395,10 +412,17 @@ export default () => {
         startUpdateTimeout()
       })
     }
-    // 从后台切换回软件时，若开启开关且当前有歌曲但处于暂停状态，则自动恢复播放
-    if (state == 'active' && wasInBackground && settingState.setting['player.autoPlayOnReturn'] && !playerState.isPlay && playerState.musicInfo.id) {
+    // 从后台切换回软件时，若开启开关、当前有歌曲且处于暂停状态，则自动恢复播放。
+    // 限制条件：
+    //  - wasInBackground 为 true 仅表示「曾经退过后台」（每次退后台置 true，回前台即消费为 false），
+    //    避免重复 / 累积触发导致「关闭开关后概率自动播放」等异常。
+    //  - !userPaused：尊重用户主动暂停（App 内 / 控制中心），被打断 / 系统暂停不在此列，
+    //    消除「开了自动播放、控制中心暂停后切回有时不播 / 有时又播」的混乱。
+    if (state == 'active' && wasInBackground && settingState.setting['player.autoPlayOnReturn'] && !playerState.isPlay && playerState.musicInfo.id && !global.lx.playerStatus.userPaused) {
       play()
     }
+    // 消费：本次「退后台 → 回前台」周期结束，下一次自动播放需重新退后台再回来才触发。
+    wasInBackground = false
   })
 
   global.app_event.on('play', handlePlay)

@@ -17,6 +17,8 @@ global.lx = {
     isRegisteredService: false,
     isIniting: false,
     ignoreTrackPlayerLifecycle: false,
+    userPaused: false,
+    suppressUserPaused: false,
   },
   isCarMode: false,
 

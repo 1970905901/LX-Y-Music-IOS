@@ -1,0 +1,17 @@
+---
+description: React Native (iOS) 开发与 Agent 防自我死循环规范
+alwaysApply: true
+enabled: true
+---
+
+# React Native (iOS) 项目专属开发与 Agent 行为规范
+
+## 1. Agent 交互防护（防自我死循环）
+* **单次响应原则**：每次收到用户指令后，只需且只能提供【一轮】完整答复或代码修改。
+* **禁用自我唤起**：完成当前回复或代码编辑后，必须立即停止生成，严禁自我追问、模拟用户提问或连续触发思考循环。
+* **交付控制权**：输出答复后必须明确停下来，等待真实用户的下一个指令。
+
+## 2. 项目范围与技术栈限定
+* **仅限 React Native (iOS)**：所有代码修改、组件编写、样式适配和原生逻辑必须严格限定在 RN 及 iOS 端框架内。
+* **修改确认**：涉及 iOS 原生 Bridge、CocoaPods 依赖（Podfile）、Xcode 配置或纯 TS/JS 组件修改时，须保持现有代码风格。
+* **依赖提醒**：若涉及 Pod 依赖更新或 Xcode 工程配置变更，须主动提醒提示用户运行 `pod install` 或重启 Xcode 编译。

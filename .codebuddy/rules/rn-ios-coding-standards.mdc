@@ -1,0 +1,61 @@
+---
+description: React Native (iOS) 编码规范：TypeScript/Hook 范式、原生模块实现、iOS 样式、iPhone 与 iPad 双端适配及安全区避让
+alwaysApply: true
+enabled: true
+---
+
+# React Native (iOS) 编码规范
+
+## 1. 语言与组件范式
+- 跨端代码默认使用 **TypeScript / JavaScript**，严格遵循 **React Hook 最佳实践**
+- **禁止**新写 Class Component（维护存量代码除外），统一使用 `function + Hook`
+- 遵循 React Native 官方最新编码规范；Hook 依赖数组必须完整，避免闭包捕获陈旧值
+- 列表容器样式等对象用 `useMemo` 缓存，避免每次渲染生成新对象触发重复布局
+
+## 2. 原生模块（Native Modules / TurboModules）
+- 优先提供**可直接编译运行**的 Objective-C 或 Swift 实现
+- 必须配套 **JS 侧类型声明 + 调用示例**，兼容 RN 0.70 及以上主流版本
+- OC 侧使用 `RCT_EXPORT_MODULE` / `RCT_REMAP_METHOD`；Promise 接口用
+  `RCTPromiseResolveBlock` / `RCTPromiseRejectBlock`
+- 扩展原生能力时，**优先修改工程内已存在的编译单元**（如 `AppDelegate.mm`），
+  避免新增文件导致 `.xcodeproj` 需手动添加引用、进而让 CI 构建失败
+- iOS 13+ API 用 `@available(iOS 13.0, *)` 守卫；多场景下
+  `UIApplication.keyWindow` 可能为 `nil`，须经 `UIWindowScene` 遍历取 keyWindow
+
+## 3. 样式：仅使用 iOS 平台属性
+- **禁用 Android 特有属性**（如 `elevation`）
+- 阴影统一使用 iOS 原生支持的 `shadow*` 系列：
+  `shadowColor` / `shadowOffset` / `shadowOpacity` / `shadowRadius`
+
+## 4. 安全区与避让（强制）
+- 所有页面布局必须适配避让区：正确使用 `SafeAreaView`、`StatusBar`
+  处理刘海屏、灵动岛以及底部 Home 指示器区域
+- 底部弹层 / 列表必须为最后一行补 `paddingBottom`，否则会被 Home 指示器遮挡
+  （iPhone 约 34pt；全面屏 iPad 约 20pt；带 Home 键的 iPad 为 0）
+- 安全区高度在 iPad 旋转后会变化，必须在窗口尺寸变化时重新同步，**不能只取一次**
+- 本项目已提供 `useSafeAreaBottom()`（`@/store/common/hook`），底部容器直接复用，
+  不要另起炉灶引入新依赖
+
+## 5. iPhone + iPad 双端适配（强制）
+本项目同时支持 iPhone 与 iPad，两端方向能力不同，**禁止按同一套假设写布局**：
+
+- **iPhone：仅竖屏**。`Info.plist` 的 `UISupportedInterfaceOrientations` 只声明了
+  `UIInterfaceOrientationPortrait`，系统层面锁定，**无需处理 iPhone 横屏布局**
+- **iPad：竖屏 + 左右横屏**。`UISupportedInterfaceOrientations~ipad` 声明了
+  Portrait / LandscapeLeft / LandscapeRight，必须同时适配两种形态
+- **不支持分屏**：`UIRequiresFullScreen = true`，不启用 Split View 与 Slide Over；
+  但 iPad 旋转仍会改变窗口尺寸，布局必须能响应尺寸变化
+- **方向由 Info.plist 裁决**：RNN 侧各页面虽声明 `orientation: ['portrait', 'landscape']`，
+  实际可旋转范围由系统 `Info.plist` 决定。注意 RNN 只识别 `options.layout.orientation`，
+  写在 `options` 顶层不生效
+- **改方向配置会触发单测**：`LxMusicMobileTests` 用 `testIPhoneSupportsPortraitOnly`
+  与 `testIPadSupportsPortraitAndLandscape` 守护，修改 `Info.plist` 方向声明时
+  必须同步确认这两个用例
+- **横屏判断复用项目工具**：`useHorizontalMode()`（`@/utils/hooks`），
+  判定为 `width / height > 1.2`，不要另写一套
+- **大屏空间利用**：iPad 横屏应利用更宽的屏幕（多列列表、左右分栏），
+  优先复用项目已有的 `Horizontal` 系列布局组件
+- **弹层宽度**：iPad 横屏下底部弹层需限宽并水平居中
+  （本项目约定 `maxWidth: 760` + 父容器 `alignItems: 'center'`）
+- **验收要求**：任何布局改动必须同时说明 **iPhone 竖屏 / iPad 竖屏 / iPad 横屏**
+  三种形态的预期表现

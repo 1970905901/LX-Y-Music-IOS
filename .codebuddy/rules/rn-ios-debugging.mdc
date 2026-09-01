@@ -1,0 +1,55 @@
+---
+description: RN iOS Bug 排查流程（JS 红屏 + Xcode 日志 + Crash 交叉定位）、Windows 环境约束与替代方案、交付规范。排查 Bug、分析崩溃栈、讨论构建与验证时参考
+alwaysApply: false
+enabled: true
+---
+
+# RN iOS 排查与交付规范
+
+## 1. 双端交叉定位（禁止只看单侧）
+分析错误日志时必须同时兼顾：
+- **JS 侧**：Red Screen 红屏错误、Yellow Box 黄色警告
+- **原生侧**：Xcode 控制台日志、Crash Report 崩溃堆栈
+
+仅排查单一维度会遗漏根因，必须两端交叉比对。
+
+### Release 包 JS 崩溃的还原方法
+- Release 的 `main.jsbundle` 行号未符号化，必须配合 `main.jsbundle.map`
+  （或 Hermes sourcemap）还原到具体源文件
+- 栈帧出现 `renderWithHooks` / `updateMemo` / `updateForwardRef`，说明崩溃发生在
+  组件 render 阶段；若栈顶出现 `_callTimer`，触发源通常是定时器回调里的 `setState`
+
+## 2. Windows 环境约束（必须主动提示）
+用户在 Windows 下进行 iOS 开发 / 调试时，**必须主动说明**以下天然限制：
+- 无法在 Windows 上编译 iOS 安装包
+- 无法运行 iOS 模拟器（含 iPad 模拟器）
+
+并给出**完整可行的替代方案**：
+- Mac + Xcode 本地运行（`npx react-native run-ios --simulator="..."`）
+- 云远程编译 / CI 构建（如 GitHub Actions + macOS runner）产出 ipa 后真机安装
+- Expo Go 本地调试（仅适用于 Expo 项目）
+
+## 3. CI 构建成功 ≠ 功能正确（关键认知）
+- CI 只验证**代码能否编译**，完全不验证 UI 布局与交互
+- 本项目曾出现构建 `success`、但真机上面板错位跑到屏幕顶部的情况
+- 因此**布局类改动必须真机 / 模拟器目视确认**，不得以 CI 绿灯作为验收依据
+- Metro 使用 Babel 打包、忽略 TS 类型，类型错误不会导致构建失败；
+  真正会让 CI 失败的是**原生代码编译错误**
+
+## 4. 交付规范
+所有代码修改方案必须明确标注：
+1. 完整的**修改文件路径**
+2. 具体的**代码修改点**
+3. 修改后的**分步验证步骤**
+4. 布局类改动须列出 **iPhone 竖屏 / iPad 竖屏 / iPad 横屏** 三种形态的验收预期
+   （iPhone 仅竖屏，iPad 竖横均支持，均不支持分屏）
+
+确保用户可按指引逐步操作并确认问题修复。
+
+## 5. 本项目要点
+- 导航使用 **react-native-navigation（Wix RNN 7.x）**，不是 React Navigation
+- iOS 原生 `UtilsModule` 实现集中在 `ios/LxMusicMobile/AppDelegate.mm`
+- 顶部状态栏高度走 `commonState.statusbarHeight`（`SizeView` 通过
+  `StatusBarManager.getHeight` 同步）；底部安全区走 `commonState.safeAreaBottom`
+- 项目未引入 `react-native-safe-area-context`；需要系统能力时优先扩展
+  `UtilsModule`，而非新增第三方依赖（避免 CI 的 pod install 风险）

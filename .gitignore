@@ -66,3 +66,12 @@ buck-out/
 
 # testing
 /coverage
+
+# CodeBuddy
+# 仅共享项目规则（团队共用同一套规范），忽略其余运行时数据
+.codebuddy/*
+!.codebuddy/rules/
+
+# 本地产物：ipa 解包目录与 Hermes sourcemap，不入库
+ipa-extract/
+sourcemap/

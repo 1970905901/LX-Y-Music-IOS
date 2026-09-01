@@ -10,7 +10,6 @@
 #import <AVFoundation/AVFoundation.h>
 #import <Accelerate/Accelerate.h>
 #import <MediaPlayer/MediaPlayer.h>
-#import <CarPlay/CarPlay.h>
 #import <JavaScriptCore/JavaScriptCore.h>
 #import <math.h>
 #include <alloca.h>
@@ -504,10 +503,6 @@ static id LXTrackPlayerLifecycleObserver = nil;
 static id LXNowPlayingApplicationObserver = nil;
 static NSString * const LXRemoteCommandNotificationName = @"LXRemoteCommand";
 static BOOL LXRemoteCommandHandlersInstalled = NO;
-// CarPlay 是否已连接车机。连着车机时保持远程命令可用，
-// 避免「还没播放过歌 -> 命令被禁用 -> 车机按钮灰置、无法点播」。
-static BOOL LXCarPlayConnected = NO;
-
 static void LXBeginReceivingRemoteControlEvents(void);
 static void LXEndReceivingRemoteControlEvents(void);
 
@@ -566,7 +561,7 @@ static void LXSyncRemoteCommandAvailability(void) {
   MPRemoteCommandCenter *commandCenter = [MPRemoteCommandCenter sharedCommandCenter];
   BOOL hasInfo = LXNowPlayingInfoCache.count > 0;
 
-  if (!hasInfo && !LXCarPlayConnected) {
+  if (!hasInfo) {
     commandCenter.playCommand.enabled = NO;
     commandCenter.pauseCommand.enabled = NO;
     commandCenter.togglePlayPauseCommand.enabled = NO;
@@ -577,18 +572,6 @@ static void LXSyncRemoteCommandAvailability(void) {
     return;
   }
 
-  if (!hasInfo) {
-    // CarPlay 已连接但 App 还没播放过歌：保持「播放 / 切歌」可用，
-    // 让用户上车后能直接用车机点播，不必先掏手机。
-    commandCenter.playCommand.enabled = YES;
-    commandCenter.pauseCommand.enabled = NO;
-    commandCenter.togglePlayPauseCommand.enabled = YES;
-    commandCenter.nextTrackCommand.enabled = YES;
-    commandCenter.previousTrackCommand.enabled = YES;
-    commandCenter.changePlaybackPositionCommand.enabled = NO;
-    LXBeginReceivingRemoteControlEvents();
-    return;
-  }
 
   BOOL isPlaying = LXNowPlayingState == MPNowPlayingPlaybackStatePlaying;
   commandCenter.playCommand.enabled = !isPlaying;
@@ -4936,113 +4919,9 @@ RCT_REMAP_METHOD(sha1, sha1:(NSString *)input resolver:(RCTPromiseResolveBlock)r
 
 @end
 
-// ---- CarPlay（巨魔/越狱绕过 App Store 后，iPhone「设置 → 通用 → CarPlay 车载」可用 App 列表中出现本 App）----
-// 主 App 使用 RNN 7.x 的非 scene 模式（UIApplicationDelegate 自行创建 UIWindow），
-// CarPlay 使用 AppDelegate-based 集成（application:didConnectCarInterfaceController:toWindow:），
-// 二者都不依赖 UIScene，可与 RNN 的 bootstrapWithBridge: 共存。
-
-// 车机点选列表项时，向 JS 发送 LXCarPlaySelect 事件（携带 index）。
-@interface CarPlayModule : RCTEventEmitter <RCTBridgeModule>
-- (void)sendSelect:(NSInteger)index;
-@end
-
-// 单例：在原生 CarPlay 与 JS 桥之间共享「当前播放列表」与「interfaceController」。
-@interface LXCarPlayManager : NSObject
-@property (nonatomic, strong) CPInterfaceController *interfaceController;
-@property (nonatomic, strong) NSArray<NSDictionary *> *playlist;
-@property (nonatomic, weak) CarPlayModule *carPlayModule;
-+ (instancetype)shared;
-- (void)refreshRootTemplate;
-@end
-
-@implementation CarPlayModule
-
-RCT_EXPORT_MODULE(CarPlayModule)
-
-+ (NSArray<NSString *> *)supportedEvents {
-  return @[@"LXCarPlaySelect"];
-}
-
-- (instancetype)init {
-  if (self = [super init]) {
-    [LXCarPlayManager shared].carPlayModule = self;
-  }
-  return self;
-}
-
-- (void)dealloc {
-  [LXCarPlayManager shared].carPlayModule = nil;
-}
-
-// JS 调用：把当前播放列表同步到车机（items: [{id, name, singer, album}]）。
-RCT_EXPORT_METHOD(setPlaylist:(NSArray *)items) {
-  [LXCarPlayManager shared].playlist = items;
-  [[LXCarPlayManager shared] refreshRootTemplate];
-}
-
-- (void)sendSelect:(NSInteger)index {
-  [self sendEventWithName:@"LXCarPlaySelect" body:@{@"index": @(index)}];
-}
-
-@end
-
-@implementation LXCarPlayManager
-
-+ (instancetype)shared {
-  static LXCarPlayManager *m = nil;
-  static dispatch_once_t onceToken;
-  dispatch_once(&onceToken, ^{ m = [[LXCarPlayManager alloc] init]; });
-  return m;
-}
-
-- (void)refreshRootTemplate {
-  CPInterfaceController *ic = self.interfaceController;
-  if (!ic) return;
-
-  NSMutableArray *sections = [NSMutableArray array];
-
-  // 「正在播放」入口：进入后展示 CPNowPlayingTemplate（自动读取 MPNowPlayingInfoCenter）。
-  CPListItem *nowPlayingItem = [[CPListItem alloc] initWithText:@"正在播放" detailText:nil image:nil];
-  if (@available(iOS 14.0, *)) {
-    nowPlayingItem.handler = ^(CPListItem *item, dispatch_block_t completion) {
-      [ic pushTemplate:[CPNowPlayingTemplate sharedTemplate] animated:YES completion:^(BOOL success, NSError * _Nullable error) {
-        completion();
-      }];
-    };
-  }
-  CPListSection *nowSection = [[CPListSection alloc] initWithItems:@[nowPlayingItem] header:@"正在播放" sectionIndexTitle:nil];
-  [sections addObject:nowSection];
-
-  // 播放列表：来自 JS 通过 CarPlayModule.setPlaylist 同步过来的当前播放列表。
-  NSMutableArray *songItems = [NSMutableArray array];
-  NSArray *list = self.playlist ?: @[];
-  for (NSUInteger i = 0; i < list.count; i++) {
-    NSDictionary *m = list[i];
-    NSString *title = m[@"name"] ?: @"";
-    NSString *sub = m[@"singer"] ?: @"";
-    CPListItem *it = [[CPListItem alloc] initWithText:title detailText:sub image:nil];
-    if (@available(iOS 14.0, *)) {
-      it.handler = ^(CPListItem *item, dispatch_block_t completion) {
-        [self.carPlayModule sendSelect:(NSInteger)i];
-        completion();
-      };
-    }
-    [songItems addObject:it];
-  }
-  CPListSection *listSection = [[CPListSection alloc] initWithItems:songItems header:@"播放列表" sectionIndexTitle:nil];
-  [sections addObject:listSection];
-
-  CPListTemplate *root = [[CPListTemplate alloc] initWithTitle:@"LX-Y Music" sections:sections];
-  // setRootTemplate:animated:completion: 自 iOS 12（CarPlay 起）即存在，部署目标 13.4 可直接调用；
-  // rootTemplate 是只读属性（iOS 13），不能用 `ic.rootTemplate = root` 赋值。
-  [ic setRootTemplate:root animated:YES completion:nil];
-}
-
-@end
-
 @implementation AppDelegate
 
-#pragma mark - Scenes（iOS 13+ 强制要求 CarPlay 走 CPTemplateApplicationSceneDelegate）
+#pragma mark - Scenes（iOS 13+ Phone Scene）
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
 {
@@ -5061,9 +4940,6 @@ RCT_EXPORT_METHOD(setPlaylist:(NSArray *)items) {
 {
   (void)application;
   (void)options;
-  if (connectingSceneSession.role == CPTemplateApplicationSceneSessionRoleApplication) {
-    return [[UISceneConfiguration alloc] initWithName:@"CarPlay" sessionRole:connectingSceneSession.role];
-  }
   return [[UISceneConfiguration alloc] initWithName:@"Phone" sessionRole:UIWindowSceneSessionRoleApplication];
 }
 
@@ -5139,43 +5015,4 @@ RCT_EXPORT_METHOD(setPlaylist:(NSArray *)items) {
 }
 
 @end
-
-#pragma mark - CarPlay Scene Delegate（iOS 13+ 车载模板场景）
-
-@interface CarPlaySceneDelegate : UIResponder <CPTemplateApplicationSceneDelegate>
-@end
-
-@implementation CarPlaySceneDelegate
-
-- (void)templateApplicationScene:(CPTemplateApplicationScene *)templateApplicationScene
-      didConnectInterfaceController:(CPInterfaceController *)interfaceController
-                           toWindow:(CPWindow *)window API_AVAILABLE(ios(13.0)) {
-  (void)templateApplicationScene;
-  (void)window;
-  [LXCarPlayManager shared].interfaceController = interfaceController;
-  [[LXCarPlayManager shared] refreshRootTemplate];
-
-  // 标记 CarPlay 已连接，并统一同步远程命令可用性：
-  // 连着车机时保持「播放 / 切歌」可用（即使当前还没有播放过歌），
-  // 命令回调由 LXInstallRemoteCommandHandlers 注册后转发给 JS。
-  LXCarPlayConnected = YES;
-  LXSyncRemoteCommandAvailability();
-}
-
-- (void)templateApplicationScene:(CPTemplateApplicationScene *)templateApplicationScene
-      didDisconnectInterfaceController:(CPInterfaceController *)interfaceController
-                            fromWindow:(CPWindow *)window API_AVAILABLE(ios(13.0)) {
-  (void)templateApplicationScene;
-  (void)interfaceController;
-  (void)window;
-  [LXCarPlayManager shared].interfaceController = nil;
-
-  // 断开车机后恢复正常策略（无播放信息时禁用命令）
-  LXCarPlayConnected = NO;
-  LXSyncRemoteCommandAvailability();
-}
-
-@end
-
-
 

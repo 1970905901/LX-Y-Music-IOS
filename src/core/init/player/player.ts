@@ -6,7 +6,6 @@ import { setStop } from '@/plugins/player'
 import { delayUpdateMusicInfo } from '@/plugins/player/playList'
 import playerState from '@/store/player/state'
 import settingState from '@/store/setting/state'
-import { setCarPlaySelectHandler, syncCarPlayList } from '@/utils/nativeModules/carplay'
 
 export default async (setting: LX.AppSetting) => {
   const setPlayStatus = () => {
@@ -58,11 +57,4 @@ export default async (setting: LX.AppSetting) => {
   global.app_event.on('picUpdated', updatePic)
   global.state_event.on('configUpdated', handleConfigUpdated)
 
-  // CarPlay：车机点选歌曲 -> 播放指定列表位置；切歌时同步列表到车机
-  setCarPlaySelectHandler((index) => {
-    const listId = playerState.playInfo.playerListId
-    if (listId != null) void playList(listId, index)
-  })
-  global.app_event.on('musicToggled', syncCarPlayList)
-  syncCarPlayList()
 }

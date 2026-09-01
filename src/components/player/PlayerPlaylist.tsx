@@ -78,7 +78,7 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
   const rowInfo = useRef({ rowNum: undefined, rowWidth: '100%' } as const).current;
 
   // 临时播放列表面板展示的是「稍后播放」队列，而不是当前歌曲来源列表。
-  const playlist = useMemo<LX.Player.PlayMusic[]>(() => tempPlayList.map(item => item.musicInfo), [tempPlayList]);
+  const playlist = useMemo<LX.Player.PlayMusic[]>(() => (tempPlayList ?? []).map(item => item.musicInfo), [tempPlayList]);
 
   // 依赖必须列出，否则 ref 暴露的 show() 会永久闭包首次渲染的旧值。
   useImperativeHandle(ref, () => ({

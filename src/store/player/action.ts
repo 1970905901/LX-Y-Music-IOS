@@ -107,17 +107,17 @@ export default {
         bottomList.map(({ musicInfo, listId }) => ({ musicInfo, listId, isTempPlay: true })) as any
       )
 
-    global.state_event.playTempPlayListChanged({ ...state.tempPlayList })
+    global.state_event.playTempPlayListChanged([...state.tempPlayList])
   },
   removeTempPlayList(index: number) {
     state.tempPlayList.splice(index, 1)
 
-    global.state_event.playTempPlayListChanged({ ...state.tempPlayList })
+    global.state_event.playTempPlayListChanged([...state.tempPlayList])
   },
   clearTempPlayeList() {
     state.tempPlayList = []
 
-    global.state_event.playTempPlayListChanged({ ...state.tempPlayList })
+    global.state_event.playTempPlayListChanged([...state.tempPlayList])
   },
   setLoadErrorPicUrl(url: string) {
     state.loadErrorPicUrl = url

@@ -504,6 +504,9 @@ static id LXTrackPlayerLifecycleObserver = nil;
 static id LXNowPlayingApplicationObserver = nil;
 static NSString * const LXRemoteCommandNotificationName = @"LXRemoteCommand";
 static BOOL LXRemoteCommandHandlersInstalled = NO;
+// CarPlay 是否已连接车机。连着车机时保持远程命令可用，
+// 避免「还没播放过歌 -> 命令被禁用 -> 车机按钮灰置、无法点播」。
+static BOOL LXCarPlayConnected = NO;
 
 static void LXBeginReceivingRemoteControlEvents(void);
 static void LXEndReceivingRemoteControlEvents(void);
@@ -562,7 +565,8 @@ static void LXSyncRemoteCommandAvailability(void) {
 
   MPRemoteCommandCenter *commandCenter = [MPRemoteCommandCenter sharedCommandCenter];
   BOOL hasInfo = LXNowPlayingInfoCache.count > 0;
-  if (!hasInfo) {
+
+  if (!hasInfo && !LXCarPlayConnected) {
     commandCenter.playCommand.enabled = NO;
     commandCenter.pauseCommand.enabled = NO;
     commandCenter.togglePlayPauseCommand.enabled = NO;
@@ -570,6 +574,19 @@ static void LXSyncRemoteCommandAvailability(void) {
     commandCenter.previousTrackCommand.enabled = NO;
     commandCenter.changePlaybackPositionCommand.enabled = NO;
     LXEndReceivingRemoteControlEvents();
+    return;
+  }
+
+  if (!hasInfo) {
+    // CarPlay 已连接但 App 还没播放过歌：保持「播放 / 切歌」可用，
+    // 让用户上车后能直接用车机点播，不必先掏手机。
+    commandCenter.playCommand.enabled = YES;
+    commandCenter.pauseCommand.enabled = NO;
+    commandCenter.togglePlayPauseCommand.enabled = YES;
+    commandCenter.nextTrackCommand.enabled = YES;
+    commandCenter.previousTrackCommand.enabled = YES;
+    commandCenter.changePlaybackPositionCommand.enabled = NO;
+    LXBeginReceivingRemoteControlEvents();
     return;
   }
 
@@ -5037,18 +5054,21 @@ RCT_EXPORT_METHOD(setPlaylist:(NSArray *)items) {
   [LXCarPlayManager shared].interfaceController = interfaceController;
   [[LXCarPlayManager shared] refreshRootTemplate];
 
-  // 确保播放/暂停/上一首/下一首远程命令在车机可用（命令回调已由 AppDelegate 的 MPRemoteCommandCenter 监听转发给 JS）。
-  MPRemoteCommandCenter *center = [MPRemoteCommandCenter sharedCommandCenter];
-  center.playCommand.enabled = YES;
-  center.pauseCommand.enabled = YES;
-  center.nextTrackCommand.enabled = YES;
-  center.previousTrackCommand.enabled = YES;
+  // 标记 CarPlay 已连接，并统一同步远程命令可用性：
+  // 连着车机时保持「播放 / 切歌」可用（即使当前还没有播放信息），
+  // 命令回调由 LXInstallRemoteCommandHandlers 注册后转发给 JS。
+  LXCarPlayConnected = YES;
+  LXSyncRemoteCommandAvailability();
 }
 
 - (void)application:(UIApplication *)application
     didDisconnectCarInterfaceController:(CPInterfaceController *)interfaceController {
   (void)application;
   [LXCarPlayManager shared].interfaceController = nil;
+
+  // 断开车机后恢复正常策略（无播放信息时禁用命令）
+  LXCarPlayConnected = NO;
+  LXSyncRemoteCommandAvailability();
 }
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions

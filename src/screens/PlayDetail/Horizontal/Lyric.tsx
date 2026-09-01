@@ -8,7 +8,8 @@ import {
   type LayoutChangeEvent, TouchableOpacity,
   PanResponder,
 } from 'react-native'
-import { type Line, useLrcPlay, useLrcSet, findLineIndexByTime } from '@/plugins/lyric'
+import { type Line, useLrcPlay, useLrcSet, useLrcWordsMap, findLineIndexByTime } from '@/plugins/lyric'
+import type { LxLyricWord } from '@/plugins/lxLyricPlayer'
 import { createStyle } from '@/utils/tools'
 import { updateSetting } from '@/core/common'
 import { useTheme } from '@/store/theme/hook'
@@ -20,6 +21,7 @@ import playerState from '@/store/player/state'
 import { scrollTo } from '@/utils/scroll'
 import { LyricScrollLayout } from '@/utils/lyricScroll'
 import { audioClock } from '@/core/player/audioClock'
+import KaraokeLyric from '@/components/PlayDetail/components/KaraokeLyric'
 
 type FlatListType = FlatListProps<Line>
 
@@ -29,9 +31,10 @@ interface LineProps {
   activeLine: number
   onLayout: (lineNum: number, height: number, width: number, isPlayed: boolean, isActive: boolean) => void
   onPress: (index: number) => void;
+  wordsByIndex: readonly (LxLyricWord[] | null)[];
 }
 const LrcLine = memo(
-  ({ line, lineNum, activeLine, onLayout, onPress }: LineProps) => {
+  ({ line, lineNum, activeLine, onLayout, onPress, wordsByIndex }: LineProps) => {
     const theme = useTheme()
     const lrcFontSize = useSettingValue('playDetail.horizontal.style.lrcFontSize')
     const textAlign = useSettingValue('playDetail.style.align')
@@ -39,6 +42,8 @@ const LrcLine = memo(
     const isPlayed = lineNum < activeLine
     const size = lrcFontSize / 10
     const lineHeight = setSpText(size) * 1.3
+    // 当前激活行存在逐字时间轴时才走逐字卡拉OK渲染，否则退回整行高亮。
+    const words = isActive ? wordsByIndex[lineNum] ?? null : null
 
     const colors = useMemo(() => {
       return isActive
@@ -55,20 +60,38 @@ const LrcLine = memo(
     return (
       <TouchableOpacity activeOpacity={0.7} onPress={handlePress}>
         <View style={styles.line} onLayout={handleLayout}>
-          <AnimatedColorText
-            style={{
-              ...styles.lineText,
-              textAlign,
-              lineHeight,
-              fontWeight: isPlayed || isActive ? 'bold' : 'normal',
-            }}
-            textBreakStrategy="simple"
-            color={colors[0]}
-            opacity={colors[2]}
-            size={size}
-          >
-            {line.text}
-          </AnimatedColorText>
+          {words
+            ? (
+              <KaraokeLyric
+                style={{
+                  ...styles.lineText,
+                  textAlign,
+                  lineHeight,
+                  fontWeight: 'bold',
+                }}
+                words={words}
+                lineTime={line.time}
+                size={size}
+                playedColor={colors[0]}
+                inactiveColor={theme['c-350']}
+              />
+            )
+            : (
+              <AnimatedColorText
+                style={{
+                  ...styles.lineText,
+                  textAlign,
+                  lineHeight,
+                  fontWeight: isPlayed || isActive ? 'bold' : 'normal',
+                }}
+                textBreakStrategy="simple"
+                color={colors[0]}
+                opacity={colors[2]}
+                size={size}
+              >
+                {line.text}
+              </AnimatedColorText>
+            )}
           {line.extendedLyrics.map((lrc, index) => {
             return (
               <AnimatedColorText
@@ -96,7 +119,8 @@ const LrcLine = memo(
       prevProps.line === nextProps.line &&
       prevProps.activeLine != nextProps.lineNum &&
       nextProps.activeLine != nextProps.lineNum &&
-      prevProps.onPress === nextProps.onPress
+      prevProps.onPress === nextProps.onPress &&
+      prevProps.wordsByIndex === nextProps.wordsByIndex
     )
   }
 )
@@ -105,6 +129,11 @@ const wait = async () => new Promise((resolve) => setTimeout(resolve, 100))
 export default () => {
   const lyricLines = useLrcSet()
   const { line } = useLrcPlay()
+  // 逐字时间轴（与 lyricLines 同序）：第 i 项为第 i 行歌词的逐字数组；无逐字（纯 LRC）为 null。
+  // 激活行据此走逐字卡拉OK渲染，否则退回整行高亮。
+  const wordsByIndex = useLrcWordsMap()
+  const wordsMapRef = useRef(wordsByIndex)
+  wordsMapRef.current = wordsByIndex
   const flatListRef = useRef<FlatList>(null)
   const isPauseScrollRef = useRef(true)
   const scrollTimoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -231,8 +260,11 @@ export default () => {
     }
   }
 
-  // 连续平滑滚动：基于外推时钟的精确播放时间，在当前行与下一行「居中偏移」之间线性插值，
-  // 让歌词随演唱连续上移（卡拉OK 式），取代原来「每行到来才 scrollToIndex 跳变」的观感。
+  // 连续平滑滚动：基于外推时钟的精确播放时间计算当前应滚动到的偏移。
+  // 逐字歌词（有逐字时间轴）时采用「句内暂停、句末再滚」：
+  //   - 演唱区间 [curTime, lineEndTime]：高亮行停在【正中央】，歌词不滚动（符合“播放时暂停滚动”）。
+  //   - 句末到下一句起的间隙 [lineEndTime, nextTime]：从当前行中心平滑滚动到下一行中心（放完再滚动）。
+  // 无逐字歌词（纯 LRC）时回退为整行匀速连续滚动（卡拉OK 式顺滑上移），避免无逐字时整段硬跳。
   // 行级高亮着色仍由 useLrcPlay 的 line 驱动；本函数只负责位置连续（每帧基于精确时间计算）。
   const scrollToActiveContinuous = () => {
     const t = audioClock.getTime() * 1000 // ms
@@ -245,7 +277,32 @@ export default () => {
     let i = findLineIndexByTime(lyricLines, t)
     if (i < 0) i = 0
     // 横屏「当前行之前」全为已播放（bold）行，累计偏移统一用 bold 档，避免高亮行持续偏低。
-    const offset = layout.getContinuousOffset(i, lyricLines, t, listHeight, 0.5, 0, layout.spaceHeight, true)
+    const offsetI = layout.getTargetOffsetPrecise(i, listHeight, lyricLines, 0.5, 0, layout.spaceHeight, false, true)
+    let offset = offsetI
+    if (i + 1 < lyricLines.length) {
+      const curTime = lyricLines[i].time
+      const nextTime = lyricLines[i + 1].time
+      const offsetNext = layout.getTargetOffsetPrecise(i + 1, listHeight, lyricLines, 0.5, 0, layout.spaceHeight, false, true)
+      const words = wordsMapRef.current[i] ?? undefined
+      if (words && words.length) {
+        // 逐字歌词：以最后一个字的结束时间作为“本句唱完”的边界。
+        const lastW = words[words.length - 1]
+        const lineEndTime = curTime + lastW.startTime + lastW.duration
+        if (lineEndTime >= nextTime) {
+          // 逐字结束点晚于/等于下一句起点：没有可滚动的空闲间隔，
+          // 整段保持当前行居中（下一句到来瞬间整体切换），即“播放时暂停滚动”。
+          offset = offsetI
+        } else {
+          // 演唱区间保持居中；间隙内才滚动到下一句中心（放完再滚动）。
+          const progress = nextTime > lineEndTime ? (t - lineEndTime) / (nextTime - lineEndTime) : 0
+          offset = offsetI + Math.min(1, Math.max(0, progress)) * (offsetNext - offsetI)
+        }
+      } else {
+        // 无逐字：整行匀速连续滚动（原卡拉OK 式顺滑上移）。
+        const progress = nextTime > curTime ? (t - curTime) / (nextTime - curTime) : 0
+        offset = offsetI + progress * (offsetNext - offsetI)
+      }
+    }
     try {
       flatListRef.current.scrollToOffset({ offset, animated: false })
     } catch { }
@@ -420,7 +477,7 @@ export default () => {
   }, [isShowLyricProgressSetting, lyricLines]);
 
   const renderItem: FlatListType['renderItem'] = ({ item, index }) => {
-    return <LrcLine line={item} lineNum={index} activeLine={line} onLayout={handleLineLayout} onPress={handleLinePress} />;
+    return <LrcLine line={item} lineNum={index} activeLine={line} onLayout={handleLineLayout} onPress={handleLinePress} wordsByIndex={wordsByIndex} />;
   }
   const getkey: FlatListType['keyExtractor'] = (item, index) => `${index}${item.text}`
 

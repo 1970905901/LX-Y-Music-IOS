@@ -30,9 +30,10 @@ export const init = async () => {
  * set lyric
  * @param lyric lyric str
  * @param translation lyric translation
+ * @param lxLyric 逐字歌词（lxlyric），有则启用逐字高亮
  */
-const handleSetLyric = async (lyric: string, translation = '', romalrc = '') => {
-  lrcSetLyric(lyric, translation, romalrc)
+const handleSetLyric = async (lyric: string, translation = '', romalrc = '', lxLyric = '') => {
+  lrcSetLyric(lyric, translation, romalrc, lxLyric)
   await setDesktopLyric(lyric, translation, romalrc)
 }
 
@@ -109,7 +110,13 @@ export const setLyric = async () => {
     let rlrc = ''
     if (playerState.musicInfo.tlrc) tlrc = playerState.musicInfo.tlrc
     if (playerState.musicInfo.rlrc) rlrc = playerState.musicInfo.rlrc
-    await handleSetLyric(playerState.musicInfo.lrc, tlrc, rlrc)
+    let lxlrc = ''
+    // 逐字歌词（卡拉OK）：除咪咕(mg)与汽水(qs，跨平台播放)外，其余音源均启用
+    const source = (playerState.musicInfo as { source?: string }).source
+    if (playerState.musicInfo.lxlrc && source != 'mg' && source != 'qs') {
+      lxlrc = playerState.musicInfo.lxlrc
+    }
+    await handleSetLyric(playerState.musicInfo.lrc, tlrc, rlrc, lxlrc)
   }
 
   if (playerState.isPlay) play()

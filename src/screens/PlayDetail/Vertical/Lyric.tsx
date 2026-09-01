@@ -8,7 +8,8 @@ import {
   PanResponder,
 } from 'react-native'
 // import { useLayout } from '@/utils/hooks'
-import { type Line, useLrcPlay, useLrcSet, syncToTime as lrcSyncToTime, findLineIndexByTime } from '@/plugins/lyric'
+import { type Line, useLrcPlay, useLrcSet, useLrcWordsMap, syncToTime as lrcSyncToTime, findLineIndexByTime } from '@/plugins/lyric'
+import type { LxLyricWord } from '@/plugins/lxLyricPlayer'
 import { getPosition } from '@/plugins/player'
 import { LyricScrollLayout } from '@/utils/lyricScroll'
 import { audioClock } from '@/core/player/audioClock'
@@ -21,6 +22,7 @@ import { setSpText } from '@/utils/pixelRatio'
 import settingState from '@/store/setting/state'
 import playerState from '@/store/player/state'
 import { useWindowSize } from '@/utils/hooks'
+import KaraokeLyric from '@/components/PlayDetail/components/KaraokeLyric'
 // import { screenkeepAwake } from '@/utils/nativeModules/utils'
 // import { log } from '@/utils/log'
 // import { toast } from '@/utils/tools'
@@ -72,9 +74,10 @@ interface LineProps {
   onLayout: (lineNum: number, height: number, width: number, isActive: boolean) => void
   onPress: (index: number) => void;
   isSmallWindow?: boolean;
+  wordsByIndex: readonly (LxLyricWord[] | null)[];
 }
 const LrcLine = memo(
-  ({ line, lineNum, activeLine, onLayout, onPress, isSmallWindow }: LineProps) => {
+  ({ line, lineNum, activeLine, onLayout, onPress, isSmallWindow, wordsByIndex }: LineProps) => {
     const theme = useTheme()
     const lrcFontSize = useSettingValue('playDetail.vertical.style.lrcFontSize')
     const textAlign = useSettingValue('playDetail.style.align')
@@ -82,6 +85,8 @@ const LrcLine = memo(
     const isPlayed = lineNum < activeLine
     const size = lrcFontSize / 10
     const lineHeight = setSpText(size) * 1.3
+    // 当前激活行存在逐字时间轴时才走逐字卡拉OK渲染，否则退回整行高亮。
+    const words = isActive ? wordsByIndex[lineNum] ?? null : null
 
     const colors = useMemo(() => {
       return isActive
@@ -103,20 +108,38 @@ const LrcLine = memo(
     return (
       <TouchableOpacity activeOpacity={0.7} onPress={handlePress}>
         <View style={[styles.line, isSmallWindow && { paddingTop: 6, paddingBottom: 6 }]} onLayout={handleLayout}>
-          <AnimatedColorText
-            style={{
-              ...styles.lineText,
-              textAlign,
-              lineHeight,
-              fontWeight: isActive ? '700' : '400',
-            }}
-            textBreakStrategy="simple"
-            color={colors[0]}
-            opacity={colors[2]}
-            size={isActive ? size + 3 : size}
-          >
-            {line.text}
-          </AnimatedColorText>
+          {words
+            ? (
+              <KaraokeLyric
+                style={{
+                  ...styles.lineText,
+                  textAlign,
+                  lineHeight,
+                  fontWeight: '700',
+                }}
+                words={words}
+                lineTime={line.time}
+                size={size + 3}
+                playedColor={colors[0]}
+                inactiveColor={theme['c-450']}
+              />
+            )
+            : (
+              <AnimatedColorText
+                style={{
+                  ...styles.lineText,
+                  textAlign,
+                  lineHeight,
+                  fontWeight: isActive ? '700' : '400',
+                }}
+                textBreakStrategy="simple"
+                color={colors[0]}
+                opacity={colors[2]}
+                size={isActive ? size + 3 : size}
+              >
+                {line.text}
+              </AnimatedColorText>
+            )}
           {line.extendedLyrics.map((lrc, index) => {
             return (
               <AnimatedColorText
@@ -145,7 +168,8 @@ const LrcLine = memo(
       prevProps.line === nextProps.line &&
       prevProps.activeLine != nextProps.lineNum &&
       nextProps.activeLine != nextProps.lineNum &&
-      prevProps.onPress === nextProps.onPress
+      prevProps.onPress === nextProps.onPress &&
+      prevProps.wordsByIndex === nextProps.wordsByIndex
     )
   }
 )
@@ -153,6 +177,11 @@ const LrcLine = memo(
 export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHeight?: number }) => {
   const lyricLines = useLrcSet()
   const { line } = useLrcPlay()
+  // 逐字时间轴（与 lyricLines 同序）：第 i 项为第 i 行歌词的逐字数组；无逐字（纯 LRC）为 null。
+  // 激活行据此走逐字卡拉OK渲染，否则退回整行高亮。
+  const wordsByIndex = useLrcWordsMap()
+  const wordsMapRef = useRef(wordsByIndex)
+  wordsMapRef.current = wordsByIndex
   const { height: winHeight } = useWindowSize()
   const isSmallWindow = winHeight < 700
   // 歌词页实际可用高度由父容器（PagerView 子页面）的 onLayout 给出，
@@ -293,8 +322,11 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
     } catch { }
   }
 
-  // 连续平滑滚动：基于外推时钟的精确播放时间，在当前行与下一行「居中偏移」之间线性插值，
-  // 让歌词随演唱连续上移（卡拉OK 式），取代原来「每行到来才 scrollToOffset 跳变」的观感。
+  // 连续平滑滚动：基于外推时钟的精确播放时间计算当前应滚动到的偏移。
+  // 逐字歌词（有逐字时间轴）时采用「句内暂停、句末再滚」：
+  //   - 演唱区间 [curTime, lineEndTime]：高亮行停在【正中央】，歌词不滚动（符合“播放时暂停滚动”）。
+  //   - 句末到下一句起的间隙 [lineEndTime, nextTime]：从当前行中心平滑滚动到下一行中心（放完再滚动）。
+  // 无逐字歌词（纯 LRC）时回退为整行匀速连续滚动（卡拉OK 式顺滑上移），避免无逐字时整段硬跳。
   // 行级高亮着色仍由 useLrcPlay 的 line 驱动；本函数只负责位置连续（每帧基于精确时间计算）。
   const lastContinuousTimeRef = useRef(-1)
   const scrollToActiveContinuous = () => {
@@ -312,13 +344,29 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
     // 统一基准后插值严格连续；居中偏差恒定且仅约半个额外行高，远好于每次切行都顿一下。
     const offsetI = lyricScrollLayoutRef.current.getTargetOffsetPrecise(i, listHeight, lyricLines, 0.5, paddingV, 0, false)
     let continuousOffset = offsetI
-    // 当前行 → 下一行之间按时间进度插值：演唱点从当前行中心平滑移到下一行中心，歌词整体连续上移。
     if (i + 1 < lyricLines.length) {
       const curTime = lyricLines[i].time
       const nextTime = lyricLines[i + 1].time
-      const progress = nextTime > curTime ? (t - curTime) / (nextTime - curTime) : 0
       const offsetNext = lyricScrollLayoutRef.current.getTargetOffsetPrecise(i + 1, listHeight, lyricLines, 0.5, paddingV, 0, false)
-      continuousOffset = offsetI + progress * (offsetNext - offsetI)
+      const words = wordsMapRef.current[i] ?? undefined
+      if (words && words.length) {
+        // 逐字歌词：以最后一个字的结束时间作为“本句唱完”的边界。
+        const lastW = words[words.length - 1]
+        const lineEndTime = curTime + lastW.startTime + lastW.duration
+        if (lineEndTime >= nextTime) {
+          // 逐字结束点晚于/等于下一句起点：没有可滚动的空闲间隔，
+          // 整段保持当前行居中（下一句到来瞬间整体切换），即“播放时暂停滚动”。
+          continuousOffset = offsetI
+        } else {
+          // 演唱区间保持居中；间隙内才滚动到下一句中心（放完再滚动）。
+          const progress = nextTime > lineEndTime ? (t - lineEndTime) / (nextTime - lineEndTime) : 0
+          continuousOffset = offsetI + Math.min(1, Math.max(0, progress)) * (offsetNext - offsetI)
+        }
+      } else {
+        // 无逐字：整行匀速连续滚动（原卡拉OK 式顺滑上移）。
+        const progress = nextTime > curTime ? (t - curTime) / (nextTime - curTime) : 0
+        continuousOffset = offsetI + progress * (offsetNext - offsetI)
+      }
     }
     try {
       flatListRef.current.scrollToOffset({ offset: continuousOffset, animated: false })
@@ -580,7 +628,7 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
   }, [isShowLyricProgressSetting, lyricLines, setForceScroll, handleScrollToActive]);
 
   const renderItem: FlatListType['renderItem'] = ({ item, index }) => {
-    return <LrcLine line={item} lineNum={index} activeLine={line} onLayout={handleLineLayout} onPress={handleLinePress} isSmallWindow={isSmallWindow} />;
+    return <LrcLine line={item} lineNum={index} activeLine={line} onLayout={handleLineLayout} onPress={handleLinePress} isSmallWindow={isSmallWindow} wordsByIndex={wordsByIndex} />;
   };
   const getkey: FlatListType['keyExtractor'] = (_item, index) => `${index}`
 
@@ -622,7 +670,7 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
         // 不向 FlatList 注册 getItemLayout：改用动态测量，避免“虚拟行 + 变高行 + 估算高度”
         // 在滚动时造成的歌词行定位错乱 / 空白缺失（即用户反馈的“滑动时歌词不全载”）。
         // 滚动目标偏移由 LyricScrollLayout 的缓存累计行高计算（O(1)）。
-        extraData={line}
+        extraData={[line, wordsByIndex]}
         // 禁用 removeClippedSubviews：iOS FlatList 在动态行高下回收屏幕外行后，
         // 配合 getItemLayout 估算高度常导致歌词行重绘失败 / 出现空白缺失。
         removeClippedSubviews={false}

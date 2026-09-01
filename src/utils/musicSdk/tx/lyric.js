@@ -1,5 +1,42 @@
 import { httpFetch } from '../../request'
 import { b64DecodeUnicode, decodeName } from '../../index'
+import { decryptQrc } from './qrc/decode'
+
+const formatQrcTime = (ms) => {
+  const m = Math.floor(ms / 60000)
+  const s = Math.floor((ms % 60000) / 1000)
+  const cs = ms % 1000
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(cs).padStart(3, '0')}`
+}
+
+// 将 QQ QRC(解密后的 XML) 解析为 LRC 逐字格式：
+// <Lyric_1 Time="ms"> <Word Offset="相对行首ms" Duration="ms">词</Word> ... </Lyric_1>
+const parseQrc = (xml) => {
+  if (!xml) return ''
+  const lineBlocks = xml.match(/<lyric_1[^>]*>[\s\S]*?<\/lyric_1>/gi)
+  if (!lineBlocks) return ''
+  const lines = []
+  for (const block of lineBlocks) {
+    const timeMatch = /time="(-?\d+)"/i.exec(block)
+    if (!timeMatch) continue
+    const time = parseInt(timeMatch[1])
+    const words = []
+    let wm
+    const wordExp = /<word\s+offset="(-?\d+)"\s+duration="(-?\d+)"[^>]*>([\s\S]*?)<\/word>/gi
+    while ((wm = wordExp.exec(block)) != null) {
+      words.push(`<${wm[1]},${wm[2]}>${wm[3]}`)
+    }
+    if (!words.length) continue
+    lines.push(`[${formatQrcTime(time)}]${words.join('')}`)
+  }
+  return lines.join('\n')
+}
+
+// QQ 返回的 qrc 可能是 hex 或 base64，统一转 hex 再解密
+const toQrcHex = (qrc) => {
+  if (/^[0-9a-fA-F]+$/.test(qrc)) return qrc
+  return Buffer.from(qrc, 'base64').toString('hex')
+}
 
 const TX_MUSIC_U_FCG = 'https://u.y.qq.com/cgi-bin/musicu.fcg'
 
@@ -20,7 +57,7 @@ const fetchLyric = (songmid) => {
       param: {
         crypt: 0,
         lrc_t: 0,
-        qrc: 0,
+        qrc: 1,
         qrc_t: 0,
         roma: 0,
         roma_t: 0,
@@ -113,11 +150,21 @@ const fetchLyric = (songmid) => {
       }
     }
 
+    // 逐字歌词：解密 QQ QRC 并解析为 LRC 逐字格式（解析失败则降级为整行高亮）
+    let lxlyric = ''
+    if (data.qrc) {
+      try {
+        lxlyric = parseQrc(decryptQrc(toQrcHex(data.qrc)))
+      } catch {
+        lxlyric = ''
+      }
+    }
+
     return {
       lyric: filteredLyric,
       tlyric: alignedLines.join('\n'),
       rlyric: '',
-      lxlyric: '',
+      lxlyric,
     }
   })
 

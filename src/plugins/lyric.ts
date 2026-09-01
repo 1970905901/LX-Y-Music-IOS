@@ -1,10 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
 import Lyric, { type Lines } from 'lrc-file-parser'
 import { getPosition } from '@/plugins/player'
+import LxLyricPlayer, { type LxLyricWord } from '@/plugins/lxLyricPlayer'
 // import { getStore, subscribe } from '@/store'
 export type Line = Lines[number]
 type PlayHook = (line: number, text: string) => void
 type SetLyricHook = (lines: Lines) => void
+
+// 逐字歌词（lxlyric）解析器：仅用于把 lxlyric 解析成「逐字时间轴」数组，
+// 不依赖它内部的 ticker（项目统一由 audioClock 外推时钟驱动，保证与音频绝对同步）。
+const lxLyricParser = new LxLyricPlayer()
+
+// 逐字映射就绪钩子：setLyric 解析完逐字后触发，让组件侧刷新逐字快照（独立于行级 onSetLyric）。
+const wordMapHooks: (() => void)[] = []
 
 const lrcTools = {
   isInited: false,
@@ -19,6 +27,9 @@ const lrcTools = {
   lyricText: '',
   translationText: '' as string | null | undefined,
   romaText: '' as string | null | undefined,
+  // 与 currentLines 同序：第 i 项为第 i 行歌词的逐字时间轴；无逐字（纯 LRC）为 null。
+  // 用「索引对齐」而非「时间相等」匹配，以容忍 lrc-file-parser 与 lxlyric 在 offset 处理上的微小差异。
+  currentWordsByIndex: [] as (LxLyricWord[] | null)[],
   init() {
     if (this.isInited) return
     this.isInited = true
@@ -67,7 +78,62 @@ export const init = async() => {
   lrcTools.init()
 }
 
-export const setLyric = (lyric: string, translation?: string, romalrc?: string) => {
+// 把 lxlyric（逐字歌词）解析成与 currentLines 同序的「逐字时间轴」数组。
+// 仅做纯解析，不启动 LxLyricPlayer 内部 ticker（时钟由 audioClock 统一外推）。
+// 采用「时间就近匹配」对齐到 lrc-file-parser 的当前行，容忍两者在 offset 处理上的微小差异。
+const buildWordsMap = (lxlrc?: string | null) => {
+  const arr: (LxLyricWord[] | null)[] = []
+  const lyricLines = lrcTools.currentLines
+  if (lxlrc && lyricLines.length) {
+    try {
+      lxLyricParser.setLyric(lxlrc)
+      const lxLines = lxLyricParser.lines
+      const used = new Array(lxLines.length).fill(false)
+      for (let i = 0; i < lyricLines.length; i++) {
+        const t = lyricLines[i].time
+        let best = -1
+        let bestDiff = Infinity
+        for (let j = 0; j < lxLines.length; j++) {
+          if (used[j]) continue
+          const diff = Math.abs(lxLines[j].time - t)
+          if (diff < bestDiff) { bestDiff = diff; best = j }
+        }
+        if (best >= 0 && bestDiff <= 300 && lxLines[best].words?.length) {
+          used[best] = true
+          arr[i] = lxLines[best].words
+        } else {
+          arr[i] = null
+        }
+      }
+    } catch {}
+  }
+  lrcTools.currentWordsByIndex = arr
+  // 通知组件侧刷新逐字快照（独立于行级 onSetLyric，便于控制触发时机）。
+  for (const hook of wordMapHooks) hook()
+}
+
+/**
+ * 计算某行在某「相对行起点的已播放毫秒」下的逐字高亮状态。
+ * 返回当前正演唱的字索引与进度（0~1）。无逐字时返回 { index: -1, progress: 0 }。
+ */
+export const getWordState = (
+  words: LxLyricWord[] | undefined,
+  elapsed: number,
+): { index: number; progress: number } => {
+  if (!words || !words.length) return { index: -1, progress: 0 }
+  if (elapsed < 0) return { index: -1, progress: 0 }
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i]
+    if (elapsed < w.startTime) return { index: Math.max(i - 1, -1), progress: 1 }
+    if (elapsed <= w.startTime + w.duration) {
+      const progress = w.duration > 0 ? Math.min(Math.max((elapsed - w.startTime) / w.duration, 0), 1) : 1
+      return { index: i, progress }
+    }
+  }
+  return { index: words.length - 1, progress: 1 }
+}
+
+export const setLyric = (lyric: string, translation?: string, romalrc?: string, lxLyric?: string | null) => {
   // 歌词就绪后立即用【引擎实时位置】重锚时钟，避免“进度条已跳到记忆位置、
   // 歌词却停在顶部/第 0 行”的错位（尤其“杀死后台再点击播放”的记忆恢复场景：
   // 歌词异步加载后才就绪）。
@@ -79,7 +145,10 @@ export const setLyric = (lyric: string, translation?: string, romalrc?: string) 
   lrcTools.lyricText = lyric
   lrcTools.translationText = translation
   lrcTools.romaText = romalrc
+  // 先让 lrc-file-parser 解析出行（写入 currentLines），再据此把逐字时间轴按索引对齐，
+  // 最后触发逐字钩子刷新组件侧快照。
   lrcTools.setLyric()
+  buildWordsMap(lxLyric)
   void getPosition()
     .then((position) => {
       // 切歌/恢复瞬间用【引擎实时位置】纯镜像重锚（不启动 ticker），
@@ -235,4 +304,21 @@ export const useLrcSet = () => {
   }, [])
 
   return lines
+}
+
+// 逐字映射 hook：歌词（含逐字）就绪时返回最新「与行同序的逐字数组」快照。
+export const useLrcWordsMap = () => {
+  const [wordsByIndex, setWordsByIndex] = useState<readonly (LxLyricWord[] | null)[]>(lrcTools.currentWordsByIndex)
+  useEffect(() => {
+    const callback = () => {
+      setWordsByIndex(lrcTools.currentWordsByIndex)
+    }
+    wordMapHooks.push(callback)
+    return () => {
+      const idx = wordMapHooks.indexOf(callback)
+      if (idx >= 0) wordMapHooks.splice(idx, 1)
+    }
+  }, [])
+
+  return wordsByIndex
 }

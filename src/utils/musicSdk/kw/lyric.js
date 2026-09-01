@@ -81,9 +81,25 @@ export default {
       }
     }
     const lrcInfo = this.sortLrcArr(lrcArr)
+    // 逐字歌词：将酷我歌词行内已解码的 <起始,时长>(ms, 相对行首) 词标签
+    // 转换为 LRC 逐字格式 [时间]<起始,时长>词...；行首无词标签的词补 <0,首个词起始>。
+    let lxlyric = ''
+    try {
+      lxlyric = lrcInfo.lrc.map((item) => {
+        let text = item.text
+        if (!/^<(-?\d+),(-?\d+)>/.test(text)) {
+          const lead = /<(-?\d+),(-?\d+)>/.exec(text)
+          if (lead) text = `<0,${parseInt(lead[1])}>${text}`
+        }
+        return `[${item.time}]${text}`
+      }).join('\n')
+    } catch {
+      lxlyric = ''
+    }
     return {
       lyric: decodeName(this.transformLrc(tags, lrcInfo.lrc)),
       tlyric: lrcInfo.lrcT.length ? decodeName(this.transformLrc(tags, lrcInfo.lrcT)) : '',
+      lxlyric,
     }
   },
   getLyric(musicInfo, isGetLyricx = true) {
@@ -104,11 +120,6 @@ export default {
           return Promise.reject(new Error('Get lyric failed'))
         }
         if (lrcInfo.tlyric) lrcInfo.tlyric = lrcInfo.tlyric.replace(lrcTools.rxps.wordTimeAll, '')
-        try {
-          lrcInfo.lxlyric = lrcTools.parse(lrcInfo.lyric)
-        } catch {
-          lrcInfo.lxlyric = ''
-        }
         lrcInfo.lyric = lrcInfo.lyric.replace(lrcTools.rxps.wordTimeAll, '')
         if (!existTimeExp.test(lrcInfo.lyric)) return Promise.reject(new Error('Get lyric failed'))
         return lrcInfo

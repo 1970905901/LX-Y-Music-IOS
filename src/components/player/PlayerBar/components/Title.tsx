@@ -9,12 +9,14 @@ import Text from '@/components/common/Text'
 import { LIST_IDS } from '@/config/constant'
 import { createStyle, formatMusicName } from '@/utils/tools'
 import {useRef} from "react";
+import { useTheme } from '@/store/theme/hook'
 
 export default ({ isHome }: { isHome: boolean }) => {
   // const { t } = useTranslation()
   const musicInfo = usePlayerMusicInfo()
   const downloadFileName = useSettingValue('download.fileName')
   const longPressedRef = useRef(false)
+  const theme = useTheme()
 
   const handlePress = () => {
     if (longPressedRef.current) {
@@ -49,9 +51,8 @@ export default ({ isHome }: { isHome: boolean }) => {
       onPress={handlePress}
       activeOpacity={0.7}
     >
-      {/* 胶囊背景为固定白色磨砂（与主题无关），故文字用固定深灰保证在白底上清晰；
-          原先的 c-font-label(c-450) 在白底上偏浅，这里改用更深的 #2a2a2a 并保留加粗。 */}
-      <Text color="#2a2a2a" numberOfLines={1} style={{ fontWeight: '700' }}>
+      {/* 迷你播放器文字颜色随明暗模式变化：浅色模式黑色，深色模式白色 */}
+      <Text color={theme.isDark ? '#ffffff' : '#000000'} numberOfLines={1} style={{ fontWeight: '700' }}>
         {title}
       </Text>
     </TouchableOpacity>

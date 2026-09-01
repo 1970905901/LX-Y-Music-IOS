@@ -108,12 +108,14 @@ export default memo(({ componentId, isHome = false }: { componentId?: string, is
 
   const playerComponent = useMemo(
     () => {
-      // 迷你播放器：半透明白色背景，透明度由主题设置 theme.miniPlayerOpacity 控制（0–100）。
+      // 迷你播放器：半透明背景，透明度由主题设置 theme.miniPlayerOpacity 控制（0–100）。
       // 与页面动态背景不同源（不再用背景图做模糊），背景样式不随动态背景变化。
+      // 浅色模式保持白色磨砂；深色模式切换为暗色，与系统明暗一致。
       const opacity = (Number(miniPlayerOpacity) || 0) / 100
+      const bgRgb = theme.isDark ? '0, 0, 0' : '255, 255, 255'
       const containerStyle = {
-        backgroundColor: `rgba(255, 255, 255, ${Math.min(1, opacity)})`,
-        borderColor: `rgba(255, 255, 255, ${Math.min(0.8, opacity * 0.6 + 0.2)})`,
+        backgroundColor: `rgba(${bgRgb}, ${Math.min(1, opacity)})`,
+        borderColor: `rgba(${bgRgb}, ${Math.min(0.8, opacity * 0.6 + 0.2)})`,
       }
       return (
         <View style={styles.wrapper}>

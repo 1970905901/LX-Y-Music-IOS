@@ -5047,9 +5047,9 @@ RCT_EXPORT_METHOD(setPlaylist:(NSArray *)items) {
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
 {
   LXRegisterTrackPlayerLifecycleObserver();
-  // bridge 在这里创建，但 RNN bootstrap 放到 PhoneSceneDelegate 里，
-  // 这样主窗口能绑定到 UIWindowScene，兼容 iOS 13+ 的 Scene 模式。
-  self.bridge = [[RCTBridge alloc] initWithDelegate:self launchOptions:launchOptions];
+  // iOS 13+ 走 SceneDelegate，bridge 与 RNN bootstrap 放到 SceneDelegate 里触发，
+  // 确保 RNNBridgeManager 初始化时拿到的 mainWindow 已绑定到 UIWindowScene。
+  self.launchOptions = launchOptions;
   self.initialProps = @{};
 
   return YES;
@@ -5113,9 +5113,12 @@ RCT_EXPORT_METHOD(setPlaylist:(NSArray *)items) {
   UIWindow *window = [[UIWindow alloc] initWithWindowScene:windowScene];
   appDelegate.window = window;
   self.window = window;
-  if (appDelegate.bridge) {
-    [ReactNativeNavigation bootstrapWithBridge:appDelegate.bridge];
+  // 必须先设 window 再创建 bridge：RNN 的 extraModulesForBridge -> RNNBridgeManager
+  // 会通过 UIApplication.sharedApplication.delegate.window 拿主窗口。
+  if (!appDelegate.bridge) {
+    appDelegate.bridge = [[RCTBridge alloc] initWithDelegate:appDelegate launchOptions:appDelegate.launchOptions];
   }
+  [ReactNativeNavigation bootstrapWithBridge:appDelegate.bridge];
 }
 
 @end

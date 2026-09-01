@@ -21,7 +21,7 @@ import playerState from '@/store/player/state'
 import { scrollTo } from '@/utils/scroll'
 import { LyricScrollLayout } from '@/utils/lyricScroll'
 import { audioClock } from '@/core/player/audioClock'
-import KaraokeLyric from '@/components/PlayDetail/components/KaraokeLyric'
+import KaraokeLyric from '@/screens/PlayDetail/components/KaraokeLyric'
 
 type FlatListType = FlatListProps<Line>
 

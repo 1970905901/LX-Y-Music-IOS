@@ -20,7 +20,6 @@ import playerState from '@/store/player/state'
 import { scrollTo } from '@/utils/scroll'
 import { LyricScrollLayout } from '@/utils/lyricScroll'
 import { audioClock } from '@/core/player/audioClock'
-import PlayLine, { type PlayLineType } from '../components/PlayLine'
 
 type FlatListType = FlatListProps<Line>
 
@@ -107,7 +106,6 @@ export default () => {
   const lyricLines = useLrcSet()
   const { line } = useLrcPlay()
   const flatListRef = useRef<FlatList>(null)
-  const playLineRef = useRef<PlayLineType>(null)
   const isPauseScrollRef = useRef(true)
   const scrollTimoutRef = useRef<NodeJS.Timeout | null>(null)
   const delayScrollTimeout = useRef<NodeJS.Timeout | null>(null)
@@ -186,7 +184,7 @@ export default () => {
         // 使用缓存的累计偏移，避免长歌词列表每次滚动都从头累加行高（O(n)→O(1)）。
         const layout = lyricScrollLayoutRef.current
         const offset = layout.spaceHeight + layout.getCumulativeOffset(index) + layout.getLineHeight(index) / 2
-        const targetOffset = offset - scrollInfoRef.current.layoutMeasurement.height * 0.42
+        const targetOffset = offset - scrollInfoRef.current.layoutMeasurement.height * 0.5
         // 根据滚动距离动态计算动画时长：距离越远时间越长
         const distance = Math.abs(targetOffset - scrollInfoRef.current.contentOffset.y)
         const duration = Math.min(Math.max(distance * 0.5, 120), 300)
@@ -210,7 +208,7 @@ export default () => {
           flatListRef.current.scrollToIndex({
             index,
             animated: true,
-            viewPosition: 0.42,
+            viewPosition: 0.5,
           })
         } catch { }
       }
@@ -247,7 +245,7 @@ export default () => {
     let i = findLineIndexByTime(lyricLines, t)
     if (i < 0) i = 0
     // 横屏「当前行之前」全为已播放（bold）行，累计偏移统一用 bold 档，避免高亮行持续偏低。
-    const offset = layout.getContinuousOffset(i, lyricLines, t, listHeight, 0.42, 0, layout.spaceHeight, true)
+    const offset = layout.getContinuousOffset(i, lyricLines, t, listHeight, 0.5, 0, layout.spaceHeight, true)
     try {
       flatListRef.current.scrollToOffset({ offset, animated: false })
     } catch { }
@@ -381,13 +379,6 @@ export default () => {
     }
   }, [])
 
-  useEffect(() => {
-    requestAnimationFrame(() => {
-      playLineRef.current?.updateLayoutInfo(lyricScrollLayoutRef.current.getLayoutInfo())
-      playLineRef.current?.updateLyricLines(lyricLines)
-    })
-  }, [isShowLyricProgressSetting])
-
   const handleScrollToIndexFailed: FlatListType['onScrollToIndexFailed'] = (info) => {
     void wait().then(() => {
       handleScrollToActive(info.index)
@@ -415,10 +406,6 @@ export default () => {
     listHeightRef.current = nativeEvent.layout.height
   }, [])
 
-  const handlePlayLine = useCallback((time: number) => {
-    playLineRef.current?.setVisible(false)
-    global.app_event.setProgress(time)
-  }, [])
   const handleLinePress = useCallback((index: number) => {
     if (!isShowLyricProgressSetting) return;
     if (scrollTimoutRef.current) {
@@ -473,9 +460,6 @@ export default () => {
         onScroll={handleScroll}
         onLayout={handleListLayout}
       />
-      {isShowLyricProgressSetting ? (
-        <PlayLine ref={playLineRef} onPlayLine={handlePlayLine} />
-      ) : null}
     </View>
   )
 }

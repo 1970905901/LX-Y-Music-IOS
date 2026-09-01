@@ -22,6 +22,8 @@ const styles = createStyle({
     flexShrink: 0,
     flexGrow: 0,
     marginLeft: marginLeftRaw,
+    // 把播放控制整体上移一点，避免贴底
+    marginBottom: 18,
     // paddingRight: 15,
     // backgroundColor: 'rgba(0,0,0,0.1)',
   },

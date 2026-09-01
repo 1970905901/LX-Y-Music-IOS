@@ -73,7 +73,7 @@ export default {
   },
   sortList: [],
   limit_list: 30,
-  limit_song: 200,
+  limit_song: 1000,
 
   // 打开歌单详情：调用汽水 Luna API（POST /luna/playlist/detail），无需登录、无需签名
   async getListDetail(id, page, retryNum = 0) {
@@ -88,15 +88,18 @@ export default {
     if (!playlistId) return Promise.reject(new Error('汽水歌单链接或 ID 解析失败'))
 
     try {
-      const response = await fetch(`${LUNA_API_HOST}/luna/playlist/detail`, {
+      // 改用 httpFetch：内置超时与统一错误处理，避免 iPad 横屏/弹窗场景下裸 fetch 被挂起导致导入卡住。
+      const resp = await httpFetch(`${LUNA_API_HOST}/luna/playlist/detail`, {
         method: 'POST',
         headers: {
           'User-Agent': 'Luna/19.1.0 Android',
           'Content-Type': 'application/json; charset=utf-8',
         },
-        body: JSON.stringify({ playlist_id: playlistId, count: this.limit_song }),
-      })
-      const data = await response.json()
+        body: { playlist_id: playlistId, count: this.limit_song },
+        timeout: 30000,
+      }).promise
+      if (!resp.ok) return Promise.reject(new Error(`汽水歌单请求失败 (${resp.statusCode})`))
+      const data = JSON.parse(resp.body)
 
       const playlist = data?.playlist || {}
       const mediaResources = Array.isArray(data?.media_resources) ? data.media_resources : []

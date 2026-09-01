@@ -1,5 +1,5 @@
 import { memo, useCallback, useRef, useEffect } from 'react'
-import { type LayoutChangeEvent, StyleSheet, View, StatusBar, NativeModules, Platform } from 'react-native'
+import { type LayoutChangeEvent, StyleSheet, View, StatusBar, NativeModules, Platform, Dimensions } from 'react-native'
 import commonState from '@/store/common/state'
 import { setStatusbarHeight } from '@/core/common'
 import { windowSizeTools, getWindowSize } from '@/utils/windowSizeTools'
@@ -65,6 +65,16 @@ export default memo(
     useEffect(() => {
       // iOS 首次进入主动校准一次状态栏高度（StatusBarManager 异步）
       if (Platform.OS === 'ios') syncIosStatusbarHeight()
+
+      // 兜底：Modal/Dialog 覆盖期间设备旋转或分屏时，底层 SizeView 的 onLayout 可能不触发，
+      // 导致 windowSizeTools.size 停留在旧尺寸、横屏被卡成竖屏 sidebar。用 Dimensions 事件再同步一次。
+      const sub = Dimensions.addEventListener('change', () => {
+        void getWindowSize().then((size) => {
+          if (!size.width) return
+          windowSizeTools.setWindowSize(size.width, size.height)
+        })
+      })
+      return () => sub?.remove()
     }, [])
     return <View style={StyleSheet.absoluteFill} onLayout={handleLayout} />
   },

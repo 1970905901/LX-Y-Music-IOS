@@ -214,7 +214,7 @@
   "play_detail_setting_lrc_font_size": "歌词字体大小",
   "play_detail_setting_playback_rate": "播放速率",
   "play_detail_setting_playback_rate_reset": "重置",
-  "play_detail_setting_show_lyric_progress_setting": "允许通过拖拽歌词调整播放进度",
+  "play_detail_setting_show_lyric_progress_setting": "允许通过点击歌词调整播放进度",
   "play_detail_setting_title": "播放器设置",
   "play_detail_setting_volume": "音量大小",
   "play_detail_todo_tip": "你想干嘛？不可以的，这个功能还没有实现哦😛，不过你可以试着长按来定位当前播放的歌曲（仅对播放「我的列表」里的歌曲有效哦）",

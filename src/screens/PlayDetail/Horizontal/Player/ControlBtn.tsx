@@ -22,7 +22,7 @@ const PrevBtn = ({ size }: { size: number }) => {
       activeOpacity={0.5}
       onPress={handlePlayPrev}
     >
-      <Icon name="prevMusic" color={theme['c-button-font']} rawSize={size * 0.7} />
+      <Icon name="prevMusic" color={theme['c-button-font']} rawSize={size * 0.75} />
     </TouchableOpacity>
   )
 }
@@ -37,7 +37,7 @@ const NextBtn = ({ size }: { size: number }) => {
       activeOpacity={0.5}
       onPress={handlePlayNext}
     >
-      <Icon name="nextMusic" color={theme['c-button-font']} rawSize={size * 0.7} />
+      <Icon name="nextMusic" color={theme['c-button-font']} rawSize={size * 0.75} />
     </TouchableOpacity>
   )
 }
@@ -51,16 +51,16 @@ const TogglePlayBtn = ({ size }: { size: number }) => {
       activeOpacity={0.5}
       onPress={togglePlay}
     >
-      <Icon name={isPlay ? 'pause' : 'play'} color={theme['c-button-font']} rawSize={size * 0.7} />
+      <Icon name={isPlay ? 'pause' : 'play'} color={theme['c-button-font']} rawSize={size * 0.75} />
     </TouchableOpacity>
   )
 }
 
-const MIN_SIZE = BTN_WIDTH * 1.1
+const MIN_SIZE = BTN_WIDTH * 1.3
 export default () => {
   const { onLayout, height, width } = useLayout()
   const size = Math.max(
-    Math.min(height * 0.65, (width - marginLeft) * 0.52 * 0.3) * global.lx.fontSize,
+    Math.min(height * 0.8, (width - marginLeft) * 0.52 * 0.35) * global.lx.fontSize,
     MIN_SIZE,
   )
   return (

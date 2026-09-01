@@ -5109,16 +5109,33 @@ RCT_EXPORT_METHOD(setPlaylist:(NSArray *)items) {
   (void)connectionOptions;
   if (![scene isKindOfClass:[UIWindowScene class]]) return;
   UIWindowScene *windowScene = (UIWindowScene *)scene;
+
   AppDelegate *appDelegate = (AppDelegate *)UIApplication.sharedApplication.delegate;
+
+  // 1) 立即创建绑定到 windowScene 的窗口，先用原生 LaunchScreen 兜底并 makeKeyAndVisible，
+  //    不依赖 RNN 的 RNNSplashScreen（它用 delegate.window + initWithFrame: 兜底，scene 模式下该窗口不会被渲染导致黑屏）。
   UIWindow *window = [[UIWindow alloc] initWithWindowScene:windowScene];
-  appDelegate.window = window;
+  window.backgroundColor = [UIColor systemBackgroundColor];
   self.window = window;
-  // 必须先设 window 再创建 bridge：RNN 的 extraModulesForBridge -> RNNBridgeManager
-  // 会通过 UIApplication.sharedApplication.delegate.window 拿主窗口。
-  if (!appDelegate.bridge) {
-    appDelegate.bridge = [[RCTBridge alloc] initWithDelegate:appDelegate launchOptions:appDelegate.launchOptions];
+  appDelegate.window = window;
+
+  UIStoryboard *launchStoryboard = [UIStoryboard storyboardWithName:@"LaunchScreen" bundle:[NSBundle mainBundle]];
+  UIViewController *launchVC = [launchStoryboard instantiateInitialViewController];
+  if (launchVC == nil) {
+    launchVC = [UIViewController new];
+    launchVC.view.backgroundColor = [UIColor systemBackgroundColor];
   }
-  [ReactNativeNavigation bootstrapWithBridge:appDelegate.bridge];
+  window.rootViewController = launchVC;
+  [window makeKeyAndVisible];
+
+  // 2) 下一帧再创建 bridge 并 bootstrap，先让 scene 彻底激活；RNN 后续 setRoot 会通过
+  //    UIApplication.sharedApplication.delegate.window 拿到同一个 scene-bound window 并替换 rootViewController。
+  dispatch_async(dispatch_get_main_queue(), ^{
+    if (!appDelegate.bridge) {
+      appDelegate.bridge = [[RCTBridge alloc] initWithDelegate:appDelegate launchOptions:appDelegate.launchOptions];
+    }
+    [ReactNativeNavigation bootstrapWithBridge:appDelegate.bridge];
+  });
 }
 
 @end

@@ -32,6 +32,17 @@ export const playTempListAt = (index: number) => {
   runPlayNext()
 }
 /**
+ * 播放当前列表指定位置的歌曲（用于播放器面板展示当前播放队列时）
+ * @param listId 列表 id
+ * @param index 歌曲位置
+ */
+export const playCurrentListAt = (listId: string, index: number) => {
+  void import('./player').then(({ playList }) => {
+    void playList(listId, index)
+  })
+}
+
+/**
  * 从稍后播放列表移除歌曲
  * @param index 歌曲位置
  */

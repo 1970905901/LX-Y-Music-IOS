@@ -13,7 +13,8 @@ import MusicAddModal, { type MusicAddModalType } from '@/components/MusicAddModa
 import { useSettingValue } from '@/store/setting/hook';
 import { downloadMusic } from '@/core/download';
 import { useWindowSize } from '@/utils/hooks';
-import { addTempPlayList, playTempListAt, removeTempPlayList } from '@/core/player/tempPlayList';
+import { addTempPlayList, playTempListAt, playCurrentListAt, removeTempPlayList } from '@/core/player/tempPlayList';
+import { getList } from '@/core/player/playInfo';
 import { Icon } from "@/components/common/Icon.tsx";
 
 import OnlineListItem from '@/components/OnlineList/ListItem';
@@ -77,8 +78,16 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
   const showCover = useSettingValue('list.isShowCover');
   const rowInfo = useRef({ rowNum: undefined, rowWidth: '100%' } as const).current;
 
-  // 临时播放列表面板展示的是「稍后播放」队列，而不是当前歌曲来源列表。
-  const playlist = useMemo<LX.Player.PlayMusic[]>(() => (tempPlayList ?? []).map(item => item.musicInfo), [tempPlayList]);
+  // 播放器面板展示当前播放队列：
+  // 1. 当存在「稍后播放」队列时优先展示该队列；
+  // 2. 否则展示当前播放列表，从当前歌曲位置开始。
+  const playlist = useMemo<LX.Player.PlayMusic[]>(() => {
+    const tempItems = (tempPlayList ?? []).map(item => item.musicInfo)
+    if (tempItems.length) return tempItems
+    const listId = playerState.playInfo.playerListId
+    if (!listId) return []
+    return (getList(listId) as LX.Player.PlayMusic[])
+  }, [tempPlayList, playerMusicInfo.id]);
 
   // 依赖必须列出，否则 ref 暴露的 show() 会永久闭包首次渲染的旧值。
   useImperativeHandle(ref, () => ({
@@ -104,8 +113,14 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
   }, [isVisible]);
 
   const handlePlay = useCallback((index: number) => {
-    playTempListAt(index);
-  }, []);
+    if ((tempPlayList ?? []).length) {
+      playTempListAt(index)
+      return
+    }
+    const listId = playerState.playInfo.playerListId
+    if (!listId) return
+    playCurrentListAt(listId, index)
+  }, [tempPlayList, playerMusicInfo.id]);
 
   const handleShowMenu = useCallback((musicInfo: LX.Music.MusicInfo, index: number, position: Position) => {
     const adaptedMusicInfo = {

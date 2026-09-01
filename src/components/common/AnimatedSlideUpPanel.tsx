@@ -109,11 +109,13 @@ const AnimatedSlideUpPanel = forwardRef<AnimatedSlideUpPanelType, Props>(({ chil
 
 const styles = StyleSheet.create({
   panelContainer: {
+    // 仅用 bottom:0 锚定到屏幕底部，不设 top、不设 height。
+    // absolute + bottom:0 + left:0 + right:0 让容器紧贴父（absoluteFill 全屏）底部，
+    // 容器自身高度由内容（panel 子节点）撑开，因此 panel 默认就出现在屏幕底部。
+    // panel 自身高度在 render 处用 windowHeight * 0.5 显式数值，避免百分比 height
+    // 与 panelContainer 形成循环依赖。配合 panelContainerHorizontal.alignItems:'center'
+    // 实现 iPad 横屏水平居中。
     position: 'absolute',
-    // 关键：必须显式 top: 0，否则 absolute 子容器高度由内容决定，
-    // 与内部 panel.height:'50%' 形成循环依赖，导致整个面板坍缩到只剩 header 高度。
-    // 同时配合 panelContainerHorizontal.alignItems:'center' 实现 iPad 横屏居中。
-    top: 0,
     left: 0,
     right: 0,
     bottom: 0,
@@ -123,9 +125,9 @@ const styles = StyleSheet.create({
   },
   panel: {
     width: '100%',
-    // 具体数值由 render 处通过 windowHeight * 0.5 覆盖，
-    // 此处保留兜底，避免外部未传值时高度为 0。
-    height: '50%',
+    // 高度由 render 处显式设置 windowHeight * 0.5。
+    // 此处不写 height，避免百分比与 panelContainer 形成循环依赖
+    // （panelContainer 高度由 panel 撑开，50% 父级 = 0，导致面板坍缩）。
   },
   panelHorizontal: {
     maxWidth: 760,

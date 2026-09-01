@@ -13,6 +13,7 @@ import settingState from '@/store/setting/state'
 import { onScreenStateChange } from '@/utils/nativeModules/utils'
 import { AppState } from 'react-native'
 import { updateScrobblePlayTime, updateScrobbleTotalTime } from '@/core/player/scrobble'
+import { syncNowPlayingState } from '@/core/player/nowPlaying'
 import { LIST_IDS } from '@/config/constant.ts'
 import listState from '@/store/list/state'
 
@@ -371,6 +372,11 @@ export default () => {
       // 但保持与原行为一致，确保新速率在下一帧立即生效）。
       audioClock.setRate(getRate())
       startUpdateTimeout()
+      // 播放中调整倍速时，必须同步到控制中心/锁屏，否则系统仍按旧速率推进进度条，
+      // 导致 iPad 控制中心进度与软件内不同步。
+      if (playerState.isPlay) {
+        void syncNowPlayingState('play')
+      }
     }
   }
 
@@ -410,6 +416,9 @@ export default () => {
         // 回前台重启帧循环与 1s 后台计时器（iOS 上 onScreenStateChange 为空实现，必须靠此路径重启，
         // 否则退后台清除后回到前台不会恢复歌词同步/进度校准）。
         startUpdateTimeout()
+        // 同步最新进度与速率到控制中心/锁屏：退后台期间系统按旧参考时间推进进度条，
+        // 回前台后若只重应用缓存的 elapsedTime，iPad 控制中心进度会与软件内错位。
+        void syncNowPlayingState(playerState.isPlay ? 'play' : 'pause')
       })
     }
     // 从后台切换回软件时，若开启开关、当前有歌曲且处于暂停状态，则自动恢复播放。

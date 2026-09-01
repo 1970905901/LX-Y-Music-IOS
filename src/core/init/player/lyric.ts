@@ -20,6 +20,7 @@ import { updateNowPlayingInfo } from '@/utils/nativeModules/nowPlaying'
 import { Platform } from 'react-native'
 import { setLastLyric } from '@/core/player/playInfo'
 import { state } from '@/plugins/player/playList'
+import { audioClock } from '@/core/player/audioClock'
 
 const updateRemoteLyric = async (lrc?: string) => {
   setLastLyric(lrc)
@@ -27,8 +28,15 @@ const updateRemoteLyric = async (lrc?: string) => {
     // iOS 无 track-player 的 updateNowPlayingTitles。逐行歌词直接写入 now playing 的
     // artist 字段（与 updateMetaInfo 的 iOS 布局一致：title="歌名 - 歌手"、artist=歌词），
     // 蓝牙设备即可实时显示歌词。没有当前歌词时保留歌手名，避免 iOS 27 Beta
-    // 把缺少有效副标题的媒体项降级成“未在播放”。仅更新 artist，保留 title/album。
-    void updateNowPlayingInfo({ artist: lrc ?? playerState.musicInfo.singer ?? '' }).catch(() => {})
+    // 把缺少有效副标题的媒体项降级成“未在播放”。
+    // 同时刷新 elapsedTime 与 playbackRate：每次只更新 artist 会重置控制中心的
+    // 进度参考时间，导致 iPad 控制中心进度条与软件内不同步；带上当前真实进度后
+    // 系统才能继续正确推进进度条。
+    void updateNowPlayingInfo({
+      artist: lrc ?? playerState.musicInfo.singer ?? '',
+      elapsedTime: audioClock.getTime(),
+      playbackRate: playerState.isPlay ? settingState.setting['player.playbackRate'] : 0,
+    }).catch(() => {})
     return
   }
   if (lrc == null) {

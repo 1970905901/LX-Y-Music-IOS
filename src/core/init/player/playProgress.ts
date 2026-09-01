@@ -413,12 +413,11 @@ export default () => {
       })
     }
     // 从后台切换回软件时，若开启开关、当前有歌曲且处于暂停状态，则自动恢复播放。
-    // 限制条件：
-    //  - wasInBackground 为 true 仅表示「曾经退过后台」（每次退后台置 true，回前台即消费为 false），
-    //    避免重复 / 累积触发导致「关闭开关后概率自动播放」等异常。
-    //  - !userPaused：尊重用户主动暂停（App 内 / 控制中心），被打断 / 系统暂停不在此列，
-    //    消除「开了自动播放、控制中心暂停后切回有时不播 / 有时又播」的混乱。
-    if (state == 'active' && wasInBackground && settingState.setting['player.autoPlayOnReturn'] && !playerState.isPlay && playerState.musicInfo.id && !global.lx.playerStatus.userPaused) {
+    // 策略：暂停后切回前台「仍继续播放」——无论暂停来自用户主动（App 内 / 控制中心）
+    // 还是系统音频打断，回前台一律恢复，符合「返回软件自动播放」语义（用户要求）。
+    // 限制条件：wasInBackground 为 true 仅表示「曾经退过后台」（每次退后台置 true，
+    // 回前台即消费为 false），避免重复 / 累积触发导致「关闭开关后概率自动播放」等异常。
+    if (state == 'active' && wasInBackground && settingState.setting['player.autoPlayOnReturn'] && !playerState.isPlay && playerState.musicInfo.id) {
       play()
     }
     // 消费：本次「退后台 → 回前台」周期结束，下一次自动播放需重新退后台再回来才触发。

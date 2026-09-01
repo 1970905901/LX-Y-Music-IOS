@@ -23,7 +23,7 @@ jobs:
           if [ -n "${{ github.event.inputs.run_id }}" ]; then
             echo "run_id=${{ github.event.inputs.run_id }}" >> "$GITHUB_OUTPUT"
           else
-            latest_run=$(gh run list --repo "${{ github.repository }}" --workflow "Build iOS IPA" --branch ios-adaptation --limit 1 --json databaseId --jq '.[0].databaseId')
+            latest_run=$(gh run list --repo "${{ github.repository }}" --workflow "Build iOS IPA" --branch ios-adaptation --status completed --limit 1 --json databaseId --jq '.[0].databaseId')
             echo "run_id=$latest_run" >> "$GITHUB_OUTPUT"
           fi
 

@@ -153,9 +153,40 @@
 	     默认在 ProMotion 设备上被限制到 60Hz；开启后侧边栏等动画可达 120Hz。 -->
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
-	<!-- CarPlay 车载：使用 AppDelegate-based 集成（application:didConnectCarInterfaceController:toWindow:），
-	     不依赖 UIScene，因此本 Info.plist 不含 UIApplicationSceneManifest。
-	     主 App 走 RNN 7.x 的非 scene 模式（bootstrapWithBridge: 自行创建 UIWindow），二者可共存。
+	<!-- CarPlay 车载：使用 CPTemplateApplicationSceneDelegate 场景化集成（iOS 13+ 强制要求），
+	     主 App 走 UIWindowSceneDelegate，CarPlay 走 CPTemplateApplicationSceneDelegate。
+	     RNN 7.x 的 bootstrap 改在 PhoneSceneDelegate 的 scene:willConnectToSession: 中触发，
+	     使主窗口能绑定到 UIWindowScene。
 	     巨魔/越狱安装、且签名注入 CarPlay entitlement 后，本 App 出现在「设置 → 通用 → CarPlay 车载」可用列表，车机可加载。 -->
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<true/>
+		<key>UISceneConfigurations</key>
+		<dict>
+			<key>UIWindowSceneSessionRoleApplication</key>
+			<array>
+				<dict>
+					<key>UISceneClassName</key>
+					<string>UIWindowScene</string>
+					<key>UISceneConfigurationName</key>
+					<string>Phone</string>
+					<key>UISceneDelegateClassName</key>
+					<string>$(PRODUCT_MODULE_NAME).SceneDelegate</string>
+				</dict>
+			</array>
+			<key>CPTemplateApplicationSceneSessionRoleApplication</key>
+			<array>
+				<dict>
+					<key>UISceneClassName</key>
+					<string>CPTemplateApplicationScene</string>
+					<key>UISceneConfigurationName</key>
+					<string>CarPlay</string>
+					<key>UISceneDelegateClassName</key>
+					<string>$(PRODUCT_MODULE_NAME).CarPlaySceneDelegate</string>
+				</dict>
+			</array>
+		</dict>
+	</dict>
 </dict>
 </plist>

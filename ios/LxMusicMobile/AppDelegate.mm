@@ -5040,46 +5040,31 @@ RCT_EXPORT_METHOD(setPlaylist:(NSArray *)items) {
 
 @end
 
-@interface AppDelegate (CarPlay) <CPApplicationDelegate>
-@end
-
 @implementation AppDelegate
 
-#pragma mark - CarPlay（AppDelegate-based，兼容 RNN 7.x 非 scene 模式）
-
-- (void)application:(UIApplication *)application
-    didConnectCarInterfaceController:(CPInterfaceController *)interfaceController
-                           toWindow:(CPWindow *)window {
-  (void)application;
-  (void)window;
-  [LXCarPlayManager shared].interfaceController = interfaceController;
-  [[LXCarPlayManager shared] refreshRootTemplate];
-
-  // 标记 CarPlay 已连接，并统一同步远程命令可用性：
-  // 连着车机时保持「播放 / 切歌」可用（即使当前还没有播放信息），
-  // 命令回调由 LXInstallRemoteCommandHandlers 注册后转发给 JS。
-  LXCarPlayConnected = YES;
-  LXSyncRemoteCommandAvailability();
-}
-
-- (void)application:(UIApplication *)application
-    didDisconnectCarInterfaceController:(CPInterfaceController *)interfaceController {
-  (void)application;
-  [LXCarPlayManager shared].interfaceController = nil;
-
-  // 断开车机后恢复正常策略（无播放信息时禁用命令）
-  LXCarPlayConnected = NO;
-  LXSyncRemoteCommandAvailability();
-}
+#pragma mark - Scenes（iOS 13+ 强制要求 CarPlay 走 CPTemplateApplicationSceneDelegate）
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
 {
   LXRegisterTrackPlayerLifecycleObserver();
-  RCTBridge *bridge = [[RCTBridge alloc] initWithDelegate:self launchOptions:launchOptions];
-  [ReactNativeNavigation bootstrapWithBridge:bridge];
+  // bridge 在这里创建，但 RNN bootstrap 放到 PhoneSceneDelegate 里，
+  // 这样主窗口能绑定到 UIWindowScene，兼容 iOS 13+ 的 Scene 模式。
+  self.bridge = [[RCTBridge alloc] initWithDelegate:self launchOptions:launchOptions];
   self.initialProps = @{};
 
   return YES;
+}
+
+- (UISceneConfiguration *)application:(UIApplication *)application
+          configurationForConnectingSceneSession:(UISceneSession *)connectingSceneSession
+                                         options:(UISceneConnectionOptions *)options API_AVAILABLE(ios(13.0))
+{
+  (void)application;
+  (void)options;
+  if (connectingSceneSession.role == CPTemplateApplicationSceneSessionRoleApplication) {
+    return [[UISceneConfiguration alloc] initWithName:@"CarPlay" sessionRole:connectingSceneSession.role];
+  }
+  return [[UISceneConfiguration alloc] initWithName:@"Phone" sessionRole:UIWindowSceneSessionRoleApplication];
 }
 
 - (NSArray<id<RCTBridgeModule>> *)extraModulesForBridge:(RCTBridge *)bridge {
@@ -5107,6 +5092,67 @@ RCT_EXPORT_METHOD(setPlaylist:(NSArray *)items) {
 #else
   return [[NSBundle mainBundle] URLForResource:@"main" withExtension:@"jsbundle"];
 #endif
+}
+
+@end
+
+#pragma mark - Phone Scene Delegate（iOS 13+ 主 App 窗口）
+
+@interface SceneDelegate : UIResponder <UIWindowSceneDelegate>
+@property (strong, nonatomic) UIWindow *window;
+@end
+
+@implementation SceneDelegate
+
+- (void)scene:(UIScene *)scene willConnectToSession:(UISceneSession *)session options:(UISceneConnectionOptions *)connectionOptions API_AVAILABLE(ios(13.0)) {
+  (void)session;
+  (void)connectionOptions;
+  if (![scene isKindOfClass:[UIWindowScene class]]) return;
+  UIWindowScene *windowScene = (UIWindowScene *)scene;
+  AppDelegate *appDelegate = (AppDelegate *)UIApplication.sharedApplication.delegate;
+  UIWindow *window = [[UIWindow alloc] initWithWindowScene:windowScene];
+  appDelegate.window = window;
+  self.window = window;
+  if (appDelegate.bridge) {
+    [ReactNativeNavigation bootstrapWithBridge:appDelegate.bridge];
+  }
+}
+
+@end
+
+#pragma mark - CarPlay Scene Delegate（iOS 13+ 车载模板场景）
+
+@interface CarPlaySceneDelegate : UIResponder <CPTemplateApplicationSceneDelegate>
+@end
+
+@implementation CarPlaySceneDelegate
+
+- (void)templateApplicationScene:(CPTemplateApplicationScene *)templateApplicationScene
+      didConnectInterfaceController:(CPInterfaceController *)interfaceController
+                           toWindow:(CPWindow *)window API_AVAILABLE(ios(13.0)) {
+  (void)templateApplicationScene;
+  (void)window;
+  [LXCarPlayManager shared].interfaceController = interfaceController;
+  [[LXCarPlayManager shared] refreshRootTemplate];
+
+  // 标记 CarPlay 已连接，并统一同步远程命令可用性：
+  // 连着车机时保持「播放 / 切歌」可用（即使当前还没有播放过歌），
+  // 命令回调由 LXInstallRemoteCommandHandlers 注册后转发给 JS。
+  LXCarPlayConnected = YES;
+  LXSyncRemoteCommandAvailability();
+}
+
+- (void)templateApplicationScene:(CPTemplateApplicationScene *)templateApplicationScene
+      didDisconnectInterfaceController:(CPInterfaceController *)interfaceController
+                            fromWindow:(CPWindow *)window API_AVAILABLE(ios(13.0)) {
+  (void)templateApplicationScene;
+  (void)interfaceController;
+  (void)window;
+  [LXCarPlayManager shared].interfaceController = nil;
+
+  // 断开车机后恢复正常策略（无播放信息时禁用命令）
+  LXCarPlayConnected = NO;
+  LXSyncRemoteCommandAvailability();
 }
 
 @end

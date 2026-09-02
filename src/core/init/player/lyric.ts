@@ -21,9 +21,16 @@ import { Platform } from 'react-native'
 import { setLastLyric } from '@/core/player/playInfo'
 import { state } from '@/plugins/player/playList'
 import { audioClock } from '@/core/player/audioClock'
+import { getLyricLineTextByTime } from '@/plugins/lyric'
+
+// 记录最近一次用于蓝牙歌词/锁屏歌词的文本，供后台定时器回刷用。
+// iOS 切后台后 JS setTimeout 会被节流，导致 lrc-file-parser 的逐行回调停发；
+// 但 BackgroundTimer 每秒仍在取引擎位置，可用当前时间对应的歌词文本继续更新 NowPlaying artist。
+const lastRemoteLyricRef = { current: '' }
 
 const updateRemoteLyric = async (lrc?: string) => {
   setLastLyric(lrc)
+  lastRemoteLyricRef.current = lrc ?? ''
   if (Platform.OS == 'ios') {
     // iOS 无 track-player 的 updateNowPlayingTitles。逐行歌词直接写入 now playing 的
     // artist 字段（与 updateMetaInfo 的 iOS 布局一致：title="歌名 - 歌手"、artist=歌词），
@@ -84,4 +91,17 @@ export default async (setting: LX.AppSetting) => {
   global.app_event.on('error', pause)
   global.app_event.on('musicToggled', stop)
   global.app_event.on('lyricUpdated', setLyric)
+}
+
+/**
+ * 后台定时器调用：用当前播放时间对应的歌词行继续刷新 NowPlaying artist。
+ * 解决 iOS 切后台后 JS 歌词引擎 ticker 被节流，导致锁屏/灵动岛歌词卡住的问题。
+ */
+export const refreshRemoteLyric = () => {
+  if (!settingState.setting['player.isShowBluetoothLyric']) return
+  if (!playerState.musicInfo.id) return
+  if (Platform.OS != 'ios') return
+  const currentMs = audioClock.getTime() * 1000
+  const lineText = getLyricLineTextByTime(currentMs) || lastRemoteLyricRef.current
+  void updateRemoteLyric(lineText || undefined)
 }

@@ -14,6 +14,7 @@ import { onScreenStateChange } from '@/utils/nativeModules/utils'
 import { AppState } from 'react-native'
 import { updateScrobblePlayTime, updateScrobbleTotalTime } from '@/core/player/scrobble'
 import { syncNowPlayingMetadata, syncNowPlayingState } from '@/core/player/nowPlaying'
+import { refreshRemoteLyric } from '@/core/init/player/lyric'
 import { LIST_IDS } from '@/config/constant.ts'
 import listState from '@/store/list/state'
 
@@ -113,6 +114,11 @@ export default () => {
         ) {
           delaySavePlayInfo()
         }
+      }
+      // 后台时 JS 歌词 ticker 会被 iOS 节流，导致锁屏/灵动岛歌词不前进。
+      // 用 BackgroundTimer 每秒取到的引擎位置回刷一次 NowPlaying artist，保持歌词同步。
+      if (!isAppActive) {
+        refreshRemoteLyric()
       }
     }).catch(() => {})
   }

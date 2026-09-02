@@ -213,6 +213,18 @@ export const findLineIndexByTime = (lines: Lines, time: number): number => {
 }
 
 /**
+ * 根据时间（ms）获取当前应高亮的歌词行文本。
+ * 用于后台定时器在 JS 歌词 ticker 被节流时继续刷新 NowPlaying 歌词。
+ */
+export const getLyricLineTextByTime = (time: number): string => {
+  const lines = lrcTools.currentLines
+  if (!lines.length) return ''
+  const index = findLineIndexByTime(lines, time)
+  if (index < 0) return ''
+  return lines[index]?.text ?? ''
+}
+
+/**
  * 仅按传入时间（ms）设置当前歌词行，不启动内部 ticker。
  * 用于音频暂停/seek 等需要“歌词位置跟上播放头但不自动走字”的场景。
  * 直接根据 currentLines 查找当前行，避免调用 play() 启动 ticker 导致暂停态歌词自行前进。

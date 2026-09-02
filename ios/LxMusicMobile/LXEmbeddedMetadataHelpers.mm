@@ -76,7 +76,7 @@ static BOOL LXWriteFLACMetadata(NSString *filePath, NSDictionary *metadata, NSSt
   }
   BOOL ok = FLAC__metadata_chain_read(chain, path);
   if (!ok) {
-    FLAC__Metadata_Chain_Status status = FLAC__metadata_chain_status(chain);
+    FLAC__Metadata_ChainStatus status = FLAC__metadata_chain_status(chain);
     if (error) *error = [NSError errorWithDomain:@"LXMediaMetadata" code:2 userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"Failed to read FLAC metadata: %s", FLAC__Metadata_ChainStatusString[status]]}];
     FLAC__metadata_chain_delete(chain);
     return NO;
@@ -178,7 +178,7 @@ static BOOL LXWriteFLACMetadata(NSString *filePath, NSDictionary *metadata, NSSt
 
   ok = FLAC__metadata_chain_write(chain, /*use_padding*/ true, /*preserve_file_stats*/ false);
   if (!ok) {
-    FLAC__Metadata_Chain_Status status = FLAC__metadata_chain_status(chain);
+    FLAC__Metadata_ChainStatus status = FLAC__metadata_chain_status(chain);
     if (error) *error = [NSError errorWithDomain:@"LXMediaMetadata" code:3 userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"Failed to write FLAC metadata: %s", FLAC__Metadata_ChainStatusString[status]]}];
   }
   FLAC__metadata_iterator_delete(it);
@@ -214,7 +214,7 @@ static NSString *LXStringFromEncodingBytes(const uint8_t *bytes, NSUInteger leng
 
 static NSString *LXID3TextFrameValue(NSData *body) {
   if (body.length < 2) return nil;
-  const uint8_t *b = body.bytes;
+  const uint8_t *b = (const uint8_t *)body.bytes;
   return LXStringFromEncodingBytes(b + 1, body.length - 1, b[0]);
 }
 
@@ -230,7 +230,7 @@ static NSData *LXID3BuildTextFrame(NSString *value) {
 
 static NSString *LXID3USLTFrameValue(NSData *body) {
   if (body.length < 5) return nil;
-  const uint8_t *b = body.bytes;
+  const uint8_t *b = (const uint8_t *)body.bytes;
   uint8_t enc = b[0];
   NSUInteger offset = 4;
   if (enc == 0x03) {
@@ -279,7 +279,7 @@ static NSDictionary<NSString *, NSData *> *LXReadID3Frames(NSString *filePath, N
   if (!fh) return frames;
   NSData *header = [fh readDataOfLength:10];
   if (header.length < 10) { [fh closeFile]; return frames; }
-  const uint8_t *h = header.bytes;
+  const uint8_t *h = (const uint8_t *)header.bytes;
   if (!(h[0] == 'I' && h[1] == 'D' && h[2] == '3')) { [fh closeFile]; return frames; }
   uint8_t major = h[3];
   NSUInteger tagSize = LXID3TagSizeFromBytes(h + 6);
@@ -289,7 +289,7 @@ static NSDictionary<NSString *, NSData *> *LXReadID3Frames(NSString *filePath, N
   while (offset + 10 <= end) {
     [fh seekToFileOffset:offset];
     NSData *frameHeader = [fh readDataOfLength:10];
-    const uint8_t *fb = frameHeader.bytes;
+    const uint8_t *fb = (const uint8_t *)frameHeader.bytes;
     if (fb[0] == 0 && fb[1] == 0 && fb[2] == 0 && fb[3] == 0) break;
     NSString *fid = [[NSString alloc] initWithBytes:fb length:4 encoding:NSASCIIStringEncoding];
     NSUInteger frameSize = 0;

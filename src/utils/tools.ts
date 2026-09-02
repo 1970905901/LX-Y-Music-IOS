@@ -141,6 +141,8 @@ export const requestStoragePermission = async () => {
  */
 // 当前已展示的 Toast overlay 的 componentId（同一次只保留一个，避免堆叠）
 let currentToastId: string | null = null
+// 临时调试用：确认 toast() 是否被调用
+let toastDebugAlertShown = false
 
 export const toast = (
   message: string,
@@ -169,6 +171,11 @@ export const toast = (
   // iOS 分支：用 RNN overlay 呈现非阻塞 Toast，替代 Alert.alert
   const durationMs = duration === 'long' ? 3500 : 2000
   console.log(`[Toast] show: ${message}`)
+  // 临时调试：第一次调 toast 时弹原生 Alert，确认调用路径
+  if (!toastDebugAlertShown) {
+    toastDebugAlertShown = true
+    Alert.alert('Toast Debug', message)
+  }
   const showOverlay = () => {
     Navigation.showOverlay({
       component: {

@@ -300,9 +300,6 @@ export default memo(() => {
       header={
         <>
           <View style={styles.header}>
-            <Text size={18} color={theme['c-font']}>
-              {t('nav_local_download')}
-            </Text>
             <View style={styles.headerActions}>
               <TouchableOpacity style={styles.headerBtn} onPress={selecting ? exitSelecting : enterSelecting}>
                 <Text size={13} color={theme['c-primary-font-active']}>

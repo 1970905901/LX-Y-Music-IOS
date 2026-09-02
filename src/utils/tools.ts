@@ -141,8 +141,6 @@ export const requestStoragePermission = async () => {
  */
 // 当前已展示的 Toast overlay 的 componentId（同一次只保留一个，避免堆叠）
 let currentToastId: string | null = null
-// 临时调试用：确认 toast() 是否被调用
-let toastDebugAlertShown = false
 
 export const toast = (
   message: string,
@@ -170,14 +168,8 @@ export const toast = (
 
   // iOS 分支：用 RNN overlay 呈现非阻塞 Toast，替代 Alert.alert
   const durationMs = duration === 'long' ? 3500 : 2000
-  console.log(`[Toast] show: ${message}`)
-  // 临时调试：第一次调 toast 时弹原生 Alert，确认调用路径
-  if (!toastDebugAlertShown) {
-    toastDebugAlertShown = true
-    Alert.alert('Toast Debug', message)
-  }
   const showOverlay = () => {
-    Navigation.showOverlay({
+    void Navigation.showOverlay({
       component: {
         name: TOAST_SCREEN,
         passProps: {
@@ -196,19 +188,13 @@ export const toast = (
       },
     }).then((componentId: string) => {
       currentToastId = componentId
-      console.log(`[Toast] overlay shown: ${componentId}`)
-    }).catch((err: any) => {
-      console.error('[Toast] showOverlay failed:', err)
-      currentToastId = null
     })
   }
 
   // 若上一个 Toast 仍在，先 dismiss 再显示新的，防止多个 overlay 堆叠
   if (currentToastId) {
-    Navigation.dismissOverlay(currentToastId)
-      .catch((err: any) => {
-        console.warn('[Toast] dismissOverlay failed:', err)
-      })
+    void Navigation.dismissOverlay(currentToastId)
+      .catch(() => {})
       .finally(showOverlay)
   } else {
     showOverlay()

@@ -178,7 +178,7 @@ const startDownload = async (task: DownloadTask) => {
     void cacheLyricForOffline(task, downloadedFilePath);
 
     if (!task.isForceCookie) {
-      toast(`${task.musicInfo.name} - ${task.musicInfo.singer} - ${global.i18n.t(task.quality)} 下载完成`, 'short');
+      toast(`${task.fileName} 下载完成!`, 'short');
     }
   } finally {
     currentDownloadTask = null;

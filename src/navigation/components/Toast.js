@@ -14,7 +14,6 @@ import { shadow } from '@/utils/shadow'
 // 因此这里直接读取模块级 state.theme——setTheme 会重写它，始终反映当前真实主题。
 const Toast = ({ componentId, message = '', duration = 2000, position = 'bottom' }) => {
   const theme = state.theme
-  console.log(`[Toast] component mount: ${componentId}, message: ${message}`)
 
   useEffect(() => {
     const timer = setTimeout(() => {

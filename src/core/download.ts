@@ -185,10 +185,11 @@ const startDownload = async (task: DownloadTask) => {
   }
 };
 
-// 下载完成后缓存歌词：getLyricInfo 内部会写入歌词缓存（离线可读），同时写出同名 .lrc 文件
-// iOS 无原生嵌入写入能力，但 writeFile/.lrc 可用；Android 已由 handleMetadata 写 .lrc，这里兜底幂等
+// 下载完成后缓存歌词：仅当用户明确勾选「下载歌词文件」时才写出同名 .lrc；
+// 「写入内嵌歌词」已由 handleMetadata 把歌词嵌入音频文件内部，不再额外生成 .lrc。
 const cacheLyricForOffline = async (task: DownloadTask, filePath: string) => {
   try {
+    if (!settingState.setting['download.writeLyric']) return;
     const lyrics = await getLyricInfo({ musicInfo: task.musicInfo as LX.Music.MusicInfoOnline });
     const merged = mergeLyrics(lyrics.lyric, lyrics.tlyric, lyrics.rlyric);
     if (merged) {

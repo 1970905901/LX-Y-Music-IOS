@@ -22,6 +22,7 @@
 
 #if __has_include(<FLAC/stream_decoder.h>)
 #import <FLAC/stream_decoder.h>
+#import <FLAC/metadata.h>
 #define LX_HAS_LIBFLAC 1
 #else
 #define LX_HAS_LIBFLAC 0
@@ -4401,6 +4402,8 @@ static void LXRemoveCoverSidecars(NSString *filePath) {
   }
 }
 
+#include "LXEmbeddedMetadataHelpers.mm"
+
 @interface LocalMediaMetadata : NSObject<RCTBridgeModule>
 @end
 
@@ -4418,22 +4421,17 @@ RCT_REMAP_METHOD(readMetadata, readMetadata:(NSString *)filePath resolver:(RCTPr
   NSDictionary *sidecar = LXReadJSONFile(LXMediaMetadataSidecarPath(filePath));
   NSDictionary *attributes = [[NSFileManager defaultManager] attributesOfItemAtPath:filePath error:nil] ?: @{};
 
-  NSString *title = sidecar[@"name"];
-  if (![title isKindOfClass:[NSString class]] || !title.length) {
-    title = LXFindMetadataString(asset, @[ @"title" ], @[ @"title" ]);
-  }
+  // 优先读取音频文件内部已嵌入的元数据；内部没有时再用旧版 sidecar 兜底。
+  NSString *title = LXFindMetadataString(asset, @[ @"title" ], @[ @"title" ]);
+  if (!title.length) title = [sidecar[@"name"] isKindOfClass:[NSString class]] ? sidecar[@"name"] : nil;
   if (!title.length) title = fileURL.URLByDeletingPathExtension.lastPathComponent ?: fileURL.lastPathComponent ?: @"";
 
-  NSString *artist = sidecar[@"singer"];
-  if (![artist isKindOfClass:[NSString class]] || !artist.length) {
-    artist = LXFindMetadataString(asset, @[ @"artist", @"creator" ], @[ @"artist", @"author", @"performer" ]);
-  }
+  NSString *artist = LXFindMetadataString(asset, @[ @"artist", @"creator" ], @[ @"artist", @"author", @"performer" ]);
+  if (!artist.length) artist = [sidecar[@"singer"] isKindOfClass:[NSString class]] ? sidecar[@"singer"] : nil;
   if (!artist.length) artist = @"";
 
-  NSString *albumName = sidecar[@"albumName"];
-  if (![albumName isKindOfClass:[NSString class]] || !albumName.length) {
-    albumName = LXFindMetadataString(asset, @[ @"albumname" ], @[ @"album" ]);
-  }
+  NSString *albumName = LXFindMetadataString(asset, @[ @"albumname" ], @[ @"album" ]);
+  if (!albumName.length) albumName = [sidecar[@"albumName"] isKindOfClass:[NSString class]] ? sidecar[@"albumName"] : nil;
   if (!albumName.length) albumName = @"";
 
   AVAssetTrack *audioTrack = [asset tracksWithMediaType:AVMediaTypeAudio].firstObject;
@@ -4455,33 +4453,30 @@ RCT_REMAP_METHOD(readMetadata, readMetadata:(NSString *)filePath resolver:(RCTPr
 }
 
 RCT_REMAP_METHOD(writeMetadata, writeMetadata:(NSString *)filePath metadata:(NSDictionary *)metadata overwrite:(BOOL)isOverwrite resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
-  NSMutableDictionary *sidecar = [LXReadJSONFile(LXMediaMetadataSidecarPath(filePath)) mutableCopy];
-  if (sidecar == nil) sidecar = [NSMutableDictionary dictionary];
-
-  for (NSString *key in @[ @"name", @"singer", @"albumName" ]) {
-    NSString *value = [metadata[key] isKindOfClass:[NSString class]] ? metadata[key] : @"";
-    sidecar[key] = value;
-  }
-
-  NSError *error = nil;
-  if (!LXWriteJSONFile(LXMediaMetadataSidecarPath(filePath), sidecar, &error)) {
-    reject(@"write_metadata_failed", error.localizedDescription ?: @"Failed to write metadata", error);
-    return;
-  }
-  resolve(nil);
+  // iOS：把标签直接写入音频文件内部（MP3/FLAC），不再生成 .lxmeta.json 伴生文件。
+  // 对于不支持的格式（如 m4a）仍回退到 sidecar。
+  LXWriteEmbeddedMetadataAsync(filePath, metadata, nil, nil, @"write_metadata_failed", resolve, reject);
 }
 
 RCT_REMAP_METHOD(readPic, readPic:(NSString *)filePath targetPath:(NSString *)targetPath resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
-  NSString *sidecarCoverPath = LXFindCoverSidecarPath(filePath);
   NSData *coverData = nil;
   NSString *ext = @"jpg";
-  if (sidecarCoverPath.length) {
-    coverData = [NSData dataWithContentsOfFile:sidecarCoverPath];
-    ext = sidecarCoverPath.pathExtension.length ? sidecarCoverPath.pathExtension.lowercaseString : @"jpg";
-  } else {
-    AVURLAsset *asset = [AVURLAsset URLAssetWithURL:[NSURL fileURLWithPath:filePath] options:nil];
-    coverData = LXFindArtworkData(asset);
-    if (coverData.length) ext = LXImageExtensionForData(coverData);
+  // 1. 优先读取音频文件内部嵌入的封面
+  AVURLAsset *asset = [AVURLAsset URLAssetWithURL:[NSURL fileURLWithPath:filePath] options:nil];
+  coverData = LXFindArtworkData(asset);
+  if (coverData.length) ext = LXImageExtensionForData(coverData);
+#if LX_HAS_LIBFLAC
+  if (!coverData.length && [filePath.pathExtension.lowercaseString isEqualToString:@"flac"]) {
+    coverData = LXReadFLACPicture(filePath, &ext);
+  }
+#endif
+  // 2. 没有内嵌封面时回退到旧版 sidecar 封面
+  if (!coverData.length) {
+    NSString *sidecarCoverPath = LXFindCoverSidecarPath(filePath);
+    if (sidecarCoverPath.length) {
+      coverData = [NSData dataWithContentsOfFile:sidecarCoverPath];
+      ext = sidecarCoverPath.pathExtension.length ? sidecarCoverPath.pathExtension.lowercaseString : @"jpg";
+    }
   }
 
   if (!coverData.length) {
@@ -4506,15 +4501,8 @@ RCT_REMAP_METHOD(readPic, readPic:(NSString *)filePath targetPath:(NSString *)ta
 }
 
 RCT_REMAP_METHOD(writePic, writePic:(NSString *)filePath picPath:(NSString *)picPath resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
-  NSString *ext = picPath.pathExtension.lowercaseString.length ? picPath.pathExtension.lowercaseString : @"jpg";
-  NSString *targetPath = [NSString stringWithFormat:@"%@.%@", LXMediaCoverSidecarPrefix(filePath), ext];
-  NSError *error = nil;
-  LXRemoveCoverSidecars(filePath);
-  if (![[NSFileManager defaultManager] copyItemAtPath:picPath toPath:targetPath error:&error]) {
-    reject(@"write_pic_failed", error.localizedDescription ?: @"Failed to save picture", error);
-    return;
-  }
-  resolve(nil);
+  // iOS：把封面直接嵌入音频文件（MP3/FLAC），不生成 .lxcover 伴生文件。
+  LXWriteEmbeddedMetadataAsync(filePath, @{}, picPath, nil, @"write_pic_failed", resolve, reject);
 }
 
 RCT_REMAP_METHOD(readLyric, readLyric:(NSString *)filePath isReadLrcFile:(BOOL)isReadLrcFile resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
@@ -4529,17 +4517,17 @@ RCT_REMAP_METHOD(readLyric, readLyric:(NSString *)filePath isReadLrcFile:(BOOL)i
 
   AVURLAsset *asset = [AVURLAsset URLAssetWithURL:[NSURL fileURLWithPath:filePath] options:nil];
   NSString *lyric = LXFindMetadataString(asset, @[], @[ @"lyric", @"lyrics", @"uslt" ]);
+#if LX_HAS_LIBFLAC
+  if (!lyric.length && [filePath.pathExtension.lowercaseString isEqualToString:@"flac"]) {
+    lyric = LXReadFLACLyric(filePath) ?: @"";
+  }
+#endif
   resolve(lyric ?: @"");
 }
 
 RCT_REMAP_METHOD(writeLyric, writeLyric:(NSString *)filePath lyric:(NSString *)lyric resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
-  NSError *error = nil;
-  NSString *lrcPath = LXMediaLyricSidecarPath(filePath);
-  if (![lyric ?: @"" writeToFile:lrcPath atomically:YES encoding:NSUTF8StringEncoding error:&error]) {
-    reject(@"write_lyric_failed", error.localizedDescription ?: @"Failed to save lyric", error);
-    return;
-  }
-  resolve(nil);
+  // iOS：把歌词直接嵌入音频文件（MP3/FLAC），不生成 .lrc 伴生文件。
+  LXWriteEmbeddedMetadataAsync(filePath, @{}, nil, lyric, @"write_lyric_failed", resolve, reject);
 }
 
 @end

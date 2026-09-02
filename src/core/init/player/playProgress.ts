@@ -13,7 +13,7 @@ import settingState from '@/store/setting/state'
 import { onScreenStateChange } from '@/utils/nativeModules/utils'
 import { AppState } from 'react-native'
 import { updateScrobblePlayTime, updateScrobbleTotalTime } from '@/core/player/scrobble'
-import { syncNowPlayingState } from '@/core/player/nowPlaying'
+import { syncNowPlayingMetadata, syncNowPlayingState } from '@/core/player/nowPlaying'
 import { LIST_IDS } from '@/config/constant.ts'
 import listState from '@/store/list/state'
 
@@ -419,6 +419,9 @@ export default () => {
         // 同步最新进度与速率到控制中心/锁屏：退后台期间系统按旧参考时间推进进度条，
         // 回前台后若只重应用缓存的 elapsedTime，iPad 控制中心进度会与软件内错位。
         void syncNowPlayingState(playerState.isPlay ? 'play' : 'pause')
+        // 强制回刷一次歌曲元数据：某些 iOS 版本在 App 挂起后会清空 NowPlaying 会话，
+        // 回前台只同步状态可能导致控制中心仍空白。
+        void syncNowPlayingMetadata(true)
       })
     }
     // 从后台切换回软件时，若开启开关、当前有歌曲且处于暂停状态，则自动恢复播放。

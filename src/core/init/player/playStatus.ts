@@ -20,7 +20,9 @@ export default () => {
   const setButtons = () => {
     // setPlayerAction(buttons)
     if (!playerState.playMusicInfo.musicInfo) return
-    void updateMetaData(playerState.musicInfo, playerState.isPlay, playerState.lastLyric)
+    // force=true：切歌/恢复播放时控制中心可能保留旧会话或为空，强制刷新一次确保
+    // MPNowPlayingInfoCenter 拿到当前歌曲元数据，降低 iPad 控制中心不显示的概率。
+    void updateMetaData(playerState.musicInfo, playerState.isPlay, playerState.lastLyric, true)
   }
   // const updateCollectStatus = async() => {
   //   // let status = !!playMusicInfo.musicInfo && await checkListExistMusic(LIST_ID_LOVE, playerState.playMusicInfo.musicInfo.id)

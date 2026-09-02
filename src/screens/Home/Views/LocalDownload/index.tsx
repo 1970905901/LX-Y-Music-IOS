@@ -14,7 +14,7 @@ import { playList } from '@/core/player/player'
 import { LIST_IDS } from '@/config/constant'
 import { getDefaultDownloadPath } from '@/utils/downloadPath'
 import downloadActions from '@/store/download/action'
-import { mkdir, readDir, unlink } from '@/utils/fs'
+import { mkdir, readDir, unlink, stat } from '@/utils/fs'
 import { sizeFormate } from '@/utils'
 
 type TabId = 'local' | 'download'
@@ -140,6 +140,7 @@ export default memo(() => {
   const [tab, setTab] = useState<TabId>('download')
   const [localFiles, setLocalFiles] = useState<LocalFileItem[]>([])
   const [loading, setLoading] = useState(false)
+  const [taskSizes, setTaskSizes] = useState<Record<string, number>>({})
 
   const downloadDir = useMemo(() => getDownloadDir(downloadPathSetting), [downloadPathSetting])
   const localDir = useMemo(() => `${downloadDir}/${getLocalDirName()}`, [downloadDir])
@@ -148,6 +149,40 @@ export default memo(() => {
     () => tasks.filter(task => task.status === 'completed' && task.filePath),
     [tasks]
   )
+
+  // 读取已完成下载文件的真实大小（progress.total 在某些场景为 0，导致页面上不显示大小）
+  const completedKey = useMemo(
+    () => completedTasks.map(task => task.id).join(','),
+    [completedTasks]
+  )
+  useEffect(() => {
+    let active = true
+    if (completedTasks.length === 0) {
+      setTaskSizes({})
+      return
+    }
+    void Promise.all(
+      completedTasks.map(async task => {
+        if (!task.filePath) return null
+        try {
+          const info = await stat(task.filePath)
+          return { id: task.id, size: info.size }
+        } catch {
+          return null
+        }
+      })
+    ).then(results => {
+      if (!active) return
+      const next: Record<string, number> = {}
+      for (const r of results) {
+        if (r) next[r.id] = r.size
+      }
+      setTaskSizes(next)
+    })
+    return () => {
+      active = false
+    }
+  }, [completedKey])
 
   // 扫描下载路径下的「本地」文件夹
   const scanLocalDir = useCallback(async () => {
@@ -320,14 +355,16 @@ export default memo(() => {
               numColumns={isHorizontal ? 2 : 1}
               columnWrapperStyle={isHorizontal ? styles.columnWrapper : undefined}
               keyExtractor={item => item.id}
-              renderItem={({ item, index }) => (
+              renderItem={({ item, index }) => {
+                const fileSize = taskSizes[item.id] ?? item.progress?.total ?? 0
+                return (
                 <View style={isHorizontal ? styles.itemWrapper : null}>
                   <SongRow
                     title={item.musicInfo.name}
                     subText={[
                       item.musicInfo.singer,
                       item.quality ? item.quality.toUpperCase() : '',
-                      item.progress?.total ? sizeFormate(item.progress.total) : '',
+                      fileSize ? sizeFormate(fileSize) : '',
                     ]
                       .filter(Boolean)
                       .join(' · ')}
@@ -337,6 +374,7 @@ export default memo(() => {
                   />
                 </View>
               )}
+            }
               ListEmptyComponent={
                 <View style={styles.empty}>
                   <Text color={theme['c-500']}>{loading ? '加载中...' : t('no_item')}</Text>

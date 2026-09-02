@@ -78,11 +78,6 @@ export class LyricScrollLayout {
     this.spaceHeight = height
   }
 
-  /** 返回 PlayLine 兼容的布局信息对象 */
-  getLayoutInfo() {
-    return { spaceHeight: this.spaceHeight, lineHeights: this.lineHeights }
-  }
-
   setDefaultHeight(defaultHeight: number) {
     this.defaultHeight = defaultHeight
   }
@@ -135,7 +130,8 @@ export class LyricScrollLayout {
       }
     }
     target[lineNum] = height
-    // 已播放（bold）行的真实高度也同步给 lineHeights，供 PlayLine 进度线定位使用，
+    // 已播放（bold）行的真实高度也同步给 lineHeights，供跨行跳转定位
+    // （getLineHeight / getCumulativeOffset）读到实测高度而非估算值；
     // 但不计入 normal 平均桶（避免污染未播放区的高度估算）。
     if (isBold) this.lineHeights[lineNum] = height
     // 行高变化后对应累计偏移失效，需要重建；精确偏移缓存同样失效。

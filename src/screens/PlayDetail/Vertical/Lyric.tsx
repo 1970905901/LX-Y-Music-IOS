@@ -386,7 +386,6 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
   }, [active])
   const handleScrollBeginDrag = () => {
     isPauseScrollRef.current = true
-    // playLineRef.current?.setVisible(true)
     if (delayScrollTimeout.current) {
       clearTimeout(delayScrollTimeout.current)
       delayScrollTimeout.current = null
@@ -405,7 +404,6 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
     if (!isPauseScrollRef.current) return
     if (scrollTimoutRef.current) clearTimeout(scrollTimoutRef.current)
     scrollTimoutRef.current = setTimeout(() => {
-      // playLineRef.current?.setVisible(false)
       scrollTimoutRef.current = null
       isPauseScrollRef.current = false
       if (!playerState.isPlay) return
@@ -565,13 +563,6 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
     handleScrollToActive(lineRef.current.line, true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageHeight, active])
-
-  // useEffect(() => {
-  //   requestAnimationFrame(() => {
-  //     playLineRef.current?.updateLayoutInfo(listLayoutInfoRef.current)
-  //     playLineRef.current?.updateLyricLines(lyricLines)
-  //   })
-  // }, [isShowLyricProgressSetting])
 
   // 仅记录当前滚动偏移，供“舒适区感知滚动”判断使用；不触发重渲染。
   const handleScroll = useCallback((e: { nativeEvent: { contentOffset: { y: number } } }) => {

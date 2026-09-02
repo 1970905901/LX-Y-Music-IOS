@@ -168,8 +168,9 @@ export const toast = (
 
   // iOS 分支：用 RNN overlay 呈现非阻塞 Toast，替代 Alert.alert
   const durationMs = duration === 'long' ? 3500 : 2000
+  console.log(`[Toast] show: ${message}`)
   const showOverlay = () => {
-    void Navigation.showOverlay({
+    Navigation.showOverlay({
       component: {
         name: TOAST_SCREEN,
         passProps: {
@@ -188,13 +189,19 @@ export const toast = (
       },
     }).then((componentId: string) => {
       currentToastId = componentId
+      console.log(`[Toast] overlay shown: ${componentId}`)
+    }).catch((err: any) => {
+      console.error('[Toast] showOverlay failed:', err)
+      currentToastId = null
     })
   }
 
   // 若上一个 Toast 仍在，先 dismiss 再显示新的，防止多个 overlay 堆叠
   if (currentToastId) {
-    void Navigation.dismissOverlay(currentToastId)
-      .catch(() => {})
+    Navigation.dismissOverlay(currentToastId)
+      .catch((err: any) => {
+        console.warn('[Toast] dismissOverlay failed:', err)
+      })
       .finally(showOverlay)
   } else {
     showOverlay()

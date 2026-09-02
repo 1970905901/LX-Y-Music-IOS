@@ -1,61 +1,28 @@
-import { TouchableOpacity } from 'react-native'
-import { navigations } from '@/navigation'
+import { View } from 'react-native'
 import { usePlayerMusicInfo } from '@/store/player/hook'
-// import { toast } from '@/utils/tools'
 import { useSettingValue } from '@/store/setting/hook'
-import commonState from '@/store/common/state'
-import playerState from '@/store/player/state'
 import Text from '@/components/common/Text'
-import { LIST_IDS } from '@/config/constant'
 import { createStyle, formatMusicName } from '@/utils/tools'
-import {useRef} from "react";
 import { useTheme } from '@/store/theme/hook'
 
-export default ({ isHome }: { isHome: boolean }) => {
-  // const { t } = useTranslation()
+export default () => {
   const musicInfo = usePlayerMusicInfo()
   const downloadFileName = useSettingValue('download.fileName')
-  const longPressedRef = useRef(false)
   const theme = useTheme()
-
-  const handlePress = () => {
-    if (longPressedRef.current) {
-      longPressedRef.current = false
-      return
-    }
-    // console.log('')
-    // console.log(playMusicInfo)
-    if (!musicInfo.id) return
-    navigations.pushPlayDetailScreen(commonState.componentIds[commonState.componentIds.length - 1]?.id!)
-    // toast(global.i18n.t('play_detail_todo_tip'), 'long')
-  }
-
-  const handleLongPress = () => {
-    longPressedRef.current = true
-    const listId = playerState.playMusicInfo.listId
-    if (!listId || listId == LIST_IDS.DOWNLOAD) return
-    global.app_event.jumpListPosition()
-  }
-  // console.log('render title')
 
   const title = musicInfo.id
     ? musicInfo.singer
       ? formatMusicName(downloadFileName, musicInfo.name, musicInfo.singer)
       : musicInfo.name
     : ''
-  // console.log(playMusicInfo)
+
   return (
-    <TouchableOpacity
-      style={styles.container}
-      onLongPress={handleLongPress}
-      onPress={handlePress}
-      activeOpacity={0.7}
-    >
+    <View style={styles.container}>
       {/* 迷你播放器文字颜色随明暗模式变化：浅色模式黑色，深色模式白色 */}
       <Text color={theme.isDark ? '#ffffff' : '#000000'} numberOfLines={1} style={{ fontWeight: '700' }}>
         {title}
       </Text>
-    </TouchableOpacity>
+    </View>
   )
 }
 // const Singer = () => {

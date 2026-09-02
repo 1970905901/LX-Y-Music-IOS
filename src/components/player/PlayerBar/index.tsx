@@ -126,9 +126,9 @@ export default memo(({ componentId, isHome = false }: { componentId?: string, is
             <MiniProgressBar />
 
             <TouchableOpacity style={styles.left} onPress={handleNavigate} onLongPress={handleLongPress} activeOpacity={0.8}>
-              <Pic isHome={isHome} />
+              <Pic />
               <View style={styles.center}>
-                <Title isHome={isHome} />
+                <Title />
                 <PlayInfo isHome={isHome} />
               </View>
             </TouchableOpacity>

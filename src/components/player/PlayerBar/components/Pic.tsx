@@ -1,12 +1,8 @@
-import { StyleSheet, TouchableOpacity } from 'react-native'
-import { navigations } from '@/navigation'
+import { StyleSheet, View } from 'react-native'
 import { usePlayerMusicInfo } from '@/store/player/hook'
 import { scaleSizeH } from '@/utils/pixelRatio'
-import commonState from '@/store/common/state'
-import playerState from '@/store/player/state'
-import { LIST_IDS } from '@/config/constant'
 import Image from '@/components/common/Image'
-import { useCallback, useRef } from 'react'
+import { useCallback } from 'react'
 import { setLoadErrorPicUrl, setMusicInfo } from '@/core/player/playInfo'
 
 const PIC_HEIGHT = scaleSizeH(46)
@@ -19,26 +15,8 @@ const styles = StyleSheet.create({
   },
 })
 
-export default ({ isHome }: { isHome: boolean }) => {
+export default () => {
   const musicInfo = usePlayerMusicInfo()
-  const longPressedRef = useRef(false)
-
-  const handlePress = () => {
-    if (longPressedRef.current) {
-      longPressedRef.current = false
-      return
-    }
-    if (!musicInfo.id) return
-    navigations.pushPlayDetailScreen(commonState.componentIds[commonState.componentIds.length - 1]?.id!)
-  }
-
-  const handleLongPress = () => {
-    longPressedRef.current = true
-    if (!isHome) return
-    const listId = playerState.playMusicInfo.listId
-    if (!listId || listId == LIST_IDS.DOWNLOAD) return
-    global.app_event.jumpListPosition()
-  }
 
   const handleError = useCallback((url: string | number) => {
     setLoadErrorPicUrl(url as string)
@@ -48,13 +26,13 @@ export default ({ isHome }: { isHome: boolean }) => {
   }, [])
 
   return (
-    <TouchableOpacity onLongPress={handleLongPress} onPress={handlePress} activeOpacity={0.7}>
+    <View>
       <Image
         url={musicInfo.pic}
         style={styles.image}
         onError={handleError}
       />
-    </TouchableOpacity>
+    </View>
   )
 }
 

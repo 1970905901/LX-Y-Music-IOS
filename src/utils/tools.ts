@@ -630,6 +630,20 @@ export const isHorizontalMode = (width: number, height: number): boolean => {
   return width / height > 1.2
 }
 
+/**
+ * 把任意数值收敛到 [0, 1] 区间。
+ * 进度条的 progress / buffered 来自原生播放器与网络缓冲，可能为 NaN、Infinity
+ * 或略微越界（如缓冲位置超过总时长）。直接拼成 `${progress * 100}%` 会得到
+ * "NaN%" 这类非法宽度，导致样式被丢弃（进度条消失）甚至布局异常，
+ * 所以所有进度条在渲染与 seek 前都必须先过这道收敛。
+ */
+export const clamp01 = (value: number): number => {
+  if (!Number.isFinite(value)) return 0
+  if (value < 0) return 0
+  if (value > 1) return 1
+  return value
+}
+
 export interface RowInfo {
   rowNum: number | undefined
   rowWidth: `${number}%`

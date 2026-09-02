@@ -1,92 +1,44 @@
-import { memo, useCallback, useEffect, useRef, useState } from 'react'
-import { Animated, Easing, View, PanResponder } from 'react-native'
-import { useDrag } from '@/utils/hooks'
-import { createStyle } from '@/utils/tools'
+import { memo } from 'react'
+import { Animated, View } from 'react-native'
+
+import { ProgressTouchArea, useProgressDrag } from './progressCore'
+import { clamp01, createStyle } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
-// import { scaleSizeW } from '@/utils/pixelRatio'
-// import { AppColors } from '@/theme'
 
-const DefaultBar = memo(() => {
-  // const theme = useTheme()
+// iPad（横 / 竖屏播放页）：进度条是浮在「状态 + 时间」信息行下沿的一条细线。
+// 高度必须与信息行解耦——此前 progressBar 用 height: '100%'，在 26px 高的信息行上
+// 会渲染出约 22px 高、近乎不透明的色块，把状态文字与时间文字整条盖住。
+const progressHeight = 3
 
+const DefaultBar = memo(({ color }: { color: string }) => {
   return (
     <View
       style={{
         ...styles.progressBar,
-        // backgroundColor: theme['c-primary-light-200-alpha-900'],
+        backgroundColor: color,
         position: 'absolute',
         width: '100%',
         left: 0,
         top: 0,
       }}
-    ></View>
+    />
   )
 })
 
-const BufferedBar = memo(({ progress }: { progress: number }) => {
-  // console.log(bufferedProgress)
-  const theme = useTheme()
+const BufferedBar = memo(({ progress, color }: { progress: number, color: string }) => {
   return (
     <View
       style={{
         ...styles.progressBar,
-        backgroundColor: theme['c-primary-light-600-alpha-900'],
+        backgroundColor: color,
         position: 'absolute',
-        width: `${progress * 100}%`,
+        width: `${clamp01(progress) * 100}%`,
         left: 0,
         top: 0,
       }}
-    ></View>
+    />
   )
 })
-
-const PreassBar = memo(
-  ({
-    onDragState,
-    setDragProgress,
-    onSetProgress,
-    onPreview,
-  }: {
-    onDragState: (drag: boolean) => void
-    setDragProgress: (progress: number) => void
-    onSetProgress: (progress: number) => void
-    onPreview?: (progress: number) => void
-  }) => {
-    const { onLayout, onDragStart, onDragEnd, onDrag } = useDrag(
-      onSetProgress,
-      onDragState,
-      setDragProgress,
-      onPreview
-    )
-    // const handlePress = useCallback((event: GestureResponderEvent) => {
-    //   onPress(event.nativeEvent.locationX)
-    // }, [onPress])
-
-    const panResponder = useRef(
-      PanResponder.create({
-        onStartShouldSetPanResponderCapture: (evt, gestureState) => true,
-        onMoveShouldSetPanResponderCapture: (evt, gestureState) => true,
-
-        // onMoveShouldSetPanResponder: () => true,
-        onPanResponderMove: (evt, gestureState) => {
-          onDrag(gestureState.dx)
-        },
-        onPanResponderGrant: (evt, gestureState) => {
-          // console.log(evt.nativeEvent.locationX, gestureState)
-          onDragStart(gestureState.dx, evt.nativeEvent.locationX)
-        },
-        onPanResponderRelease: () => {
-          onDragEnd()
-        },
-        // onPanResponderTerminate: (evt, gestureState) => {
-        //   onDragEnd()
-        // },
-      })
-    ).current
-
-    return <View onLayout={onLayout} style={styles.pressBar} {...panResponder.panHandlers} />
-  }
-)
 
 const Progress = ({
   progress,
@@ -99,83 +51,48 @@ const Progress = ({
   buffered: number
   paddingTop?: number
 }) => {
-  // const { progress } = usePlayTimeBuffer()
   const theme = useTheme()
-  const [draging, setDraging] = useState(false)
-  const [dragProgress, setDragProgress] = useState(0)
-  // console.log(progress)
-  // 播放中 playProgressChanged 约每 1s 触发一次，进度条原本是秒级跳变。
-  // 非拖动时用 Animated 在两次更新之间做线性补间，让进度条连续平滑滑动。
-  const animProgress = useRef(new Animated.Value(progress)).current
-  const lastUpdateTimeRef = useRef(0)
-  const wasDragingRef = useRef(false)
-  useEffect(() => {
-    if (draging) {
-      wasDragingRef.current = true
-      return
-    }
-    const target = progress
-    const current = (animProgress as any).__getValue()
-    // 拖动刚结束：把补间值立即对齐到释放位置，避免「从拖动前旧值缓慢追到目标」
-    // 造成的进度条回退 + 慢动画（表现为手动滑动进度条动画太慢）。
-    if (wasDragingRef.current) {
-      wasDragingRef.current = false
-      animProgress.setValue(target)
-      lastUpdateTimeRef.current = 0
-      return
-    }
-    const now = Date.now()
-    const dt = lastUpdateTimeRef.current ? now - lastUpdateTimeRef.current : 1000
-    lastUpdateTimeRef.current = now
-    // 切歌 / 后退 seek 等进度回退时直接跳到目标，避免反向补间
-    if (target < current - 1e-6) {
-      animProgress.setValue(target)
-      return
-    }
-    const anim = Animated.timing(animProgress, {
-      toValue: target,
-      duration: Math.min(Math.max(dt, 250), 1500),
-      easing: Easing.linear,
-      useNativeDriver: false,
-    })
-    anim.start()
-    return () => anim.stop()
-  }, [progress, draging, animProgress])
+  const {
+    seekEnabled,
+    draging,
+    dragProgress,
+    animProgress,
+    onDragState,
+    setDragProgress,
+    onSetProgress,
+    onPreview,
+  } = useProgressDrag(progress, duration)
 
-  const durationRef = useRef(duration)
-  useEffect(() => {
-    durationRef.current = duration
-  }, [duration])
-  const onSetProgress = useCallback((progress: number) => {
-    global.app_event.setProgress(progress * durationRef.current)
-  }, [])
-  // bug③: 拖动中实时把歌词时钟重锚到手指位置（毫秒），不 seek 音频，避免高亮行错位
-  const onPreview = useCallback((progress: number) => {
-    global.app_event.progressDragPreview(progress * durationRef.current * 1000)
-  }, [])
+  // 主题里 alpha-NNN 的数值越大越淡（alpha-100 = 90% 不透明，alpha-900 = 10%）。
+  // 原实现给「已播放」用了 c-primary-alpha-900（10% 不透明），比轨道还淡，进度条几乎看不见。
+  // 这里与 iPhone 侧保持一致：已播放用实心主色，参照线用半透明主色。
+  const activeColor = theme.isDark ? theme['c-font'] : theme['c-primary']
 
   return (
     <View style={{ ...styles.progress, paddingTop }}>
-      <View style={{ flex: 1 }}>
-        <DefaultBar />
-        <BufferedBar progress={buffered} />
+      <View style={styles.progressInner}>
+        <DefaultBar color={theme['c-primary-light-300-alpha-800']} />
+        <BufferedBar progress={buffered} color={theme['c-primary-light-400-alpha-700']} />
         {draging ? (
           <>
+            {/* 底层：音频当前真实位置（半透明参照线）——拖动时仍能看出「正在播放到哪里」 */}
             <View
               style={{
                 ...styles.progressBar,
-                backgroundColor: theme['c-primary-light-200-alpha-900'],
-                width: `${progress * 100}%`,
+                backgroundColor: theme['c-primary-alpha-500'],
+                width: `${clamp01(progress) * 100}%`,
                 position: 'absolute',
                 left: 0,
                 top: 0,
               }}
             />
+            {/* 上层：手指所在位置（实心高亮），后渲染所以永远压在参照线之上，
+                左拖 / 右拖都能实时跟随手指，不会被更长的参照线盖住。 */}
             <View
               style={{
                 ...styles.progressBar,
-                backgroundColor: theme['c-primary-light-100-alpha-800'],
-                width: `${dragProgress * 100}%`,
+                backgroundColor: activeColor,
+                width: `${clamp01(dragProgress) * 100}%`,
                 position: 'absolute',
                 left: 0,
                 top: 0,
@@ -186,7 +103,7 @@ const Progress = ({
           <Animated.View
             style={{
               ...styles.progressBar,
-              backgroundColor: theme['c-primary-alpha-900'],
+              backgroundColor: activeColor,
               width: animProgress.interpolate({
                 inputRange: [0, 1],
                 outputRange: ['0%', '100%'],
@@ -198,37 +115,36 @@ const Progress = ({
           />
         )}
       </View>
-      <PreassBar
-        onDragState={setDraging}
-        setDragProgress={setDragProgress}
-        onSetProgress={onSetProgress}
-        onPreview={onPreview}
-      />
-      {/* <View style={{ ...styles.progressBar, height: '100%', width: progressStr }}><Pressable style={styles.progressDot}></Pressable></View> */}
+      {seekEnabled ? (
+        <ProgressTouchArea
+          onDragState={onDragState}
+          setDragProgress={setDragProgress}
+          onSetProgress={onSetProgress}
+          onPreview={onPreview}
+        />
+      ) : null}
     </View>
   )
 }
 
-// const progressContentPadding = 9
-// const progressHeight = 3
 const styles = createStyle({
   progress: {
     flex: 1,
-    // backgroundColor: 'rgba(0,0,0,0.2)',
+    // 细线贴在信息行下沿，不与行内文字抢空间
+    justifyContent: 'flex-end',
     zIndex: 1,
   },
-  progressBar: {
-    height: '100%',
-    borderRadius: 3,
-  },
-  pressBar: {
-    position: 'absolute',
-    // backgroundColor: 'rgba(0,0,0,0.5)',
-    left: 0,
-    top: 0,
-    // height: progressContentPadding * 2 + progressHeight,
-    height: '100%',
+  progressInner: {
     width: '100%',
+    height: progressHeight,
+    borderRadius: progressHeight / 2,
+    // 必须裁剪：进度条按百分比宽度绘制，未裁剪时圆角端点会溢出轨道，
+    // 进度越界（>1）时更会整条顶出容器。
+    overflow: 'hidden',
+  },
+  progressBar: {
+    height: progressHeight,
+    borderRadius: progressHeight / 2,
   },
 })
 

@@ -1,4 +1,5 @@
 import { arrPush, arrUnshift, formatPlayTime2 } from '@/utils'
+import { clamp01 } from '@/utils/tools'
 import state from './state'
 
 type PlayerMusicInfoKeys = keyof LX.Player.MusicInfo
@@ -64,7 +65,9 @@ export default {
     state.progress.nowPlayTimeStr = formatPlayTime2(currentTime)
     state.progress.maxPlayTime = totalTime
     state.progress.maxPlayTimeStr = formatPlayTime2(totalTime)
-    state.progress.progress = totalTime ? state.progress.nowPlayTime / currentTime : 0
+    // 进度比例必须是「已播放 / 总时长」。原写法为 nowPlayTime / currentTime（两者相等），
+    // 结果恒为 1（currentTime 为 0 时更是 NaN），切歌瞬间进度条会直接满格 / 崩成 NaN。
+    state.progress.progress = totalTime > 0 ? clamp01(currentTime / totalTime) : 0
 
     global.state_event.playProgressChanged({ ...state.progress })
   },

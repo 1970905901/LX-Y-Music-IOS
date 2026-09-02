@@ -7,6 +7,7 @@ import Language from './Language'
 import FontSize from './FontSize'
 import ShareType from './ShareType'
 import IsHomePageScroll from './IsHomePageScroll'
+import IsAllowProgressBarSeek from './IsAllowProgressBarSeek'
 import IsShowBackBtn from './IsShowBackBtn'
 import IsShowExitBtn from './IsShowExitBtn'
 import DrawerLayoutPosition from './DrawerLayoutPosition'
@@ -29,6 +30,7 @@ export default memo(() => {
       ) : null}
       <IsShowMyListSubMenu />
       <IsHomePageScroll />
+      <IsAllowProgressBarSeek />
       <DrawerLayoutPosition />
       <NavMenu />
       <Language />

@@ -11,6 +11,8 @@ const defaultSetting: LX.AppSetting = {
   'common.autoHidePlayBar': true,
   'common.drawerLayoutPosition': 'left',
   'common.homePageScroll': true,
+  // 是否允许拖动播放进度条跳转（关闭后进度条仅展示，不可点击/拖动 seek）
+  'common.allowProgressBarSeek': true,
   'common.showBackBtn': false,
   'common.showExitBtn': false,
   'common.wy_cookie': '',

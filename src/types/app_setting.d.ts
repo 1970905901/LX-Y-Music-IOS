@@ -41,6 +41,11 @@ declare global {
       'playDetail.isShowLyricProgressSetting': boolean
 
       /**
+       * 是否允许拖动播放进度条跳转（关闭后进度条仅展示，不可 seek）
+       */
+      'common.allowProgressBarSeek': boolean
+
+      /**
        * 是否启用桌面歌词
        */
       'desktopLyric.enable': boolean

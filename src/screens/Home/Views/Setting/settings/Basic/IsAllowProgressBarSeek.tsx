@@ -17,7 +17,7 @@ export default memo(() => {
 
   return (
     <View style={styles.content}>
-      <CheckBoxItem check={allowProgressBarSeek} label={t('setting_basic_allow_progress_bar_seek' as any)} onChange={setAllowProgressBarSeek} />
+      <CheckBoxItem check={allowProgressBarSeek} label={t('setting_basic_allow_progress_bar_seek')} onChange={setAllowProgressBarSeek} />
     </View>
   )
 })

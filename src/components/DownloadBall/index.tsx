@@ -6,6 +6,7 @@ import { useTheme } from '@/store/theme/hook';
 import { createStyle } from '@/utils/tools';
 import { navigations } from '@/navigation';
 import commonState from '@/store/common/state';
+import { clamp01 } from '@/utils/tools';
 import DownloadTask = LX.Download.DownloadTask;
 
 export default memo(() => {
@@ -17,13 +18,18 @@ export default memo(() => {
   const { totalProgress, isCompleted } = useMemo(() => {
     if (activeTasks.size === 0) return { totalProgress: 0, isCompleted: true };
 
+    const allFinished = Array.from(activeTasks.values()).every(t => t.status === 'completed' || t.status === 'error');
+    // 全部结束时直接画满圈：失败任务的 percent 可能停在 30%~40%，
+    // 若继续取平均值会出现「勾已完成、圆环却只画了一小截」的矛盾状态。
+    if (allFinished) return { totalProgress: 1, isCompleted: true };
+
     let currentProgress = 0;
     for (const task of activeTasks.values()) {
       currentProgress += task.progress.percent;
     }
-    const totalProgress = currentProgress / activeTasks.size;
-
-    const allFinished = Array.from(activeTasks.values()).every(t => t.status === 'completed' || t.status === 'error');
+    // 收敛到 [0,1]：原生下载回调的 percent 可能越界，react-native-progress
+    // 的插值不接受越界输入，会导致圆环画过头。
+    const totalProgress = clamp01(currentProgress / activeTasks.size);
 
     return { totalProgress, isCompleted: allFinished };
   }, [activeTasks]);

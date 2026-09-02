@@ -3,7 +3,7 @@ import { View, TouchableOpacity } from 'react-native';
 import Text from '@/components/common/Text';
 import Image from '@/components/common/Image';
 import { Icon } from '@/components/common/Icon';
-import ProgressBar from '@/components/player/ProgressBar';
+import LineProgress from '@/components/common/LineProgress';
 import { useTheme } from '@/store/theme/hook';
 import { createStyle } from '@/utils/tools';
 import {dateFormat, sizeFormate} from '@/utils/common';
@@ -64,7 +64,12 @@ export default memo(({ task: initialTask, rowWidth = '100%', onRemove }: { task:
       case 'downloading':
         return (
           <View>
-            <ProgressBar progress={task.progress.percent} duration={1} buffered={0} />
+            <LineProgress
+              progress={task.progress.percent}
+              height={3}
+              color={theme['c-primary']}
+              trackColor={theme['c-primary-light-300-alpha-800']}
+            />
             <View style={styles.progressDetails}>
               <Text size={10} color={theme['c-font-label']}>
                 {sizeFormate(task.progress.downloaded)} / {sizeFormate(task.progress.total)}

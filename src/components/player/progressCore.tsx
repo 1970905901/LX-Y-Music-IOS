@@ -159,25 +159,35 @@ export const ProgressTouchArea = memo(
       onPreview
     )
 
+    // PanResponder.create 在首次渲染时生成，闭包内直接引用 props 会得到首次渲染的回调。
+    // 用 ref 包一层，让手势回调永远读到最新函数，避免后续重渲染后 seek/preview 实际失效。
+    const handlersRef = useRef({ onDragStart, onDragEnd, onDrag })
+    handlersRef.current = { onDragStart, onDragEnd, onDrag }
+
     const panResponder = useRef(
       PanResponder.create({
+        // capture 阶段拦截：手指刚落下就抢 responder，避免 PagerView / ScrollView 在 bubble 阶段抢走。
         onStartShouldSetPanResponderCapture: () => true,
         onMoveShouldSetPanResponderCapture: () => true,
 
         onPanResponderMove: (_evt, gestureState) => {
-          onDrag(gestureState.dx)
+          handlersRef.current.onDrag(gestureState.dx)
         },
         onPanResponderGrant: (evt, gestureState) => {
           // 拖动进度条期间同步禁用 PagerView 原生横滑（直接 setNativeProps，绕过 state 异步），
           // 避免原生分页控件在左拖时抢占横向手势导致卡顿 / 误切歌词页。
           setPagerScrollEnabled(false)
           emitDragState(true)
-          onDragStart(gestureState.dx, evt.nativeEvent.locationX)
+          handlersRef.current.onDragStart(
+            gestureState.dx,
+            evt.nativeEvent.locationX,
+            evt.nativeEvent.locationY
+          )
         },
-        onPanResponderRelease: () => {
+        onPanResponderRelease: (_evt, gestureState) => {
           setPagerScrollEnabled(true)
           emitDragState(false)
-          onDragEnd()
+          handlersRef.current.onDragEnd(gestureState.dx, gestureState.dy)
         },
         // 手势被系统中断（来电 / 下拉通知 / 控制中心 / 父级接管）时必须复位：
         // 否则 isDraging 永久为 true，进度条被钉在手指位置不再随音频前进，
@@ -185,7 +195,7 @@ export const ProgressTouchArea = memo(
         onPanResponderTerminate: () => {
           setPagerScrollEnabled(true)
           emitDragState(false)
-          onDragEnd()
+          handlersRef.current.onDragEnd()
         },
         // 关键修复：拒绝被父级（播放页纵向滑动切歌）手势抢占。
         // 否则 onPanResponderRelease 不触发、onSetProgress(seek) 被丢弃，
@@ -194,7 +204,15 @@ export const ProgressTouchArea = memo(
       })
     ).current
 
-    return <View onLayout={onLayout} style={styles.pressBar} {...panResponder.panHandlers} />
+    return (
+      <View
+        onLayout={onLayout}
+        style={styles.pressBar}
+        // 扩大触控范围：进度条本身很细（iPhone 19px / iPad 3px），不扩难以命中
+        hitSlop={{ top: 18, bottom: 18, left: 0, right: 0 }}
+        {...panResponder.panHandlers}
+      />
+    )
   }
 )
 

@@ -362,6 +362,12 @@ export default () => {
       animated: false,
     })
     if (!lyricLines.length) return
+
+    // 切歌/异步歌词到达后，必须强制下一次 line 更新时立即定位到当前高亮行。
+    // 否则 play/setProgress 事件可能晚于 line 更新，forceScrollRef 仍为 false，
+    // 导致高亮行无法居中（iPad 横屏切歌后歌词不居中的主因）。
+    setForceScroll(true)
+
     requestAnimationFrame(() => {
       if (isFirstSetLrc.current) {
         isFirstSetLrc.current = false
@@ -369,12 +375,9 @@ export default () => {
           isPauseScrollRef.current = false
           handleScrollToActive()
         }, 100)
-      } else {
-        if (delayScrollTimeout.current) clearTimeout(delayScrollTimeout.current)
-        delayScrollTimeout.current = setTimeout(() => {
-          handleScrollToActive(0)
-        }, 100)
       }
+      // 后续切歌不再主动 scrollToIndex(0)，避免与 [line] effect 冲突；
+      // 由 setForceScroll(true) 触发的 [line] effect 在 line 更新后强制居中。
     })
   }, [lyricLines])
 

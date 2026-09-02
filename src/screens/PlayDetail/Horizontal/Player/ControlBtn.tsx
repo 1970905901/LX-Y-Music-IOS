@@ -56,15 +56,16 @@ const TogglePlayBtn = ({ size }: { size: number }) => {
   )
 }
 
-const MIN_SIZE = BTN_WIDTH * 1.3
+const MIN_SIZE = BTN_WIDTH * 1.8
 export default () => {
   const { onLayout, height, width } = useLayout()
+  // 继续加大按钮：高度占容器的 90%，宽度限制放宽到 48%
   const size = Math.max(
-    Math.min(height * 0.8, (width - marginLeft) * 0.52 * 0.35) * global.lx.fontSize,
+    Math.min(height * 0.9, (width - marginLeft) * 0.52 * 0.48) * global.lx.fontSize,
     MIN_SIZE,
   )
   return (
-    <View style={{ ...styles.content, gap: size * 0.5 }} onLayout={onLayout}>
+    <View style={{ ...styles.content, gap: size * 0.6 }} onLayout={onLayout}>
       <PrevBtn size={size} />
       <TogglePlayBtn size={size} />
       <NextBtn size={size} />
@@ -77,7 +78,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     flexShrink: 1,
     flexDirection: 'row',
-    // paddingVertical: 8,
+    paddingVertical: 10,
     gap: 22,
     // backgroundColor: 'rgba(0,0,0,0.1)',
     alignItems: 'center',

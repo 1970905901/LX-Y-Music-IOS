@@ -463,17 +463,25 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
   useEffect(() => {
     lyricScrollLayoutRef.current.reset()
     lastScrolledLineRef.current = -1
+    lineRef.current.prevLine = 0
+    lineRef.current.line = 0
     if (!flatListRef.current) return
     flatListRef.current.scrollToOffset({ offset: 0, animated: false })
     scrollYRef.current = 0
     if (!lyricLines.length) return
+
+    // 切歌/异步歌词到达后，必须强制下一次 line 更新时立即定位到当前高亮行。
+    // 否则 play/setProgress 事件可能晚于 line 更新，forceScrollRef 仍为 false，
+    // 导致高亮行无法居中。
+    setForceScroll(true)
 
     // 歌词内容更新后不再固定延迟 100ms；布局完成的下一帧直接按当前引擎行定位。
     // 这覆盖切歌后异步歌词到达、从封面切回歌词页等场景。
     requestAnimationFrame(() => {
       if (!active) return
       isPauseScrollRef.current = false
-      handleScrollToActive(lineRef.current.line, true)
+      // 用 line（useLrcPlay 当前行）而非 lineRef.current.line（可能残留旧歌行号）
+      handleScrollToActive(line >= 0 ? line : 0, true)
     })
   }, [lyricLines])
 

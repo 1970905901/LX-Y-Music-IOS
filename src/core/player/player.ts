@@ -278,7 +278,7 @@ export const executeFailureStrategy = async (
             triedUrls!.add(result.url)
             console.log('[播放策略] [切换音源] 成功! 插件:', (result.musicInfo as any)?.source)
             setStatusText(`切换音源成功`)
-            return { url: result.url, quality: (result.musicInfo as any)?.quality, index: i }
+            return { url: result.url, quality: result.quality, index: i }
           }
           console.log('[播放策略] [切换音源] 所有插件均失败，继续下一个策略')
         } catch (e: any) {

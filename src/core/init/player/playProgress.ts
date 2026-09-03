@@ -6,6 +6,7 @@ import { formatPlayTime2 } from '@/utils/common'
 import { savePlayInfo } from '@/utils/data'
 import { throttleBackgroundTimer } from '@/utils/tools'
 import BackgroundTimer from 'react-native-background-timer'
+import { syncLyric } from '@/core/lyric'
 import playerState from '@/store/player/state'
 import settingState from '@/store/setting/state'
 import { onScreenStateChange } from '@/utils/nativeModules/utils'
@@ -19,9 +20,18 @@ import {
   updateScrobbleTotalTime,
 } from '@/core/player/scrobble'
 
-// 需要「冻结 + 静音等待追平」的高码率音质：这些音质在 seek 后音频需要较长缓冲重排，
-// 先让歌词跳到目标行并静音，待音频位置追上目标再恢复音量并启动歌词 ticker，保证同步。
-const freezeQualities = new Set<LX.Quality>(['master', 'atmos', 'atmos_plus'])
+// 音质等级：值越大码率/规格越高。320k 及以下（含 320k）直接同步；高于 320k 的无损及以上
+// 音质（flac / flac24bit / hires / dolby / atmos / atmos_plus / master）在 seek 后音频需较长
+// 缓冲重排，启用「冻结 + 静音等待追平」：先让歌词跳到目标行并静音，待音频位置追上目标再
+// 恢复音量并启动歌词 ticker，保证歌词与音频同步。
+const qualityRank: Record<string, number> = {
+  '128k': 0, '192k': 1, '320k': 2, 'flac': 3, 'flac24bit': 4,
+  'hires': 5, 'dolby': 6, 'atmos': 7, 'atmos_plus': 8, 'master': 9,
+}
+const isQualityBeyond320k = (quality?: LX.Quality | null) => {
+  if (!quality) return false
+  return (qualityRank[quality] ?? -1) > qualityRank['320k']
+}
 
 const delaySavePlayInfo = throttleBackgroundTimer(() => {
   void savePlayInfo({
@@ -126,52 +136,48 @@ export default () => {
       if (!playerState.musicInfo.id) return
       const actualTime = targetPosition > 0 ? targetPosition : time
       if (targetPosition > 0) setNowPlayTime(targetPosition)
-      // 用引擎真实落点重锚 UI 时钟，并让歌词跳到同一位置，音频与歌词保持同步。
-      audioClock.setAnchor(actualTime * 1000, settingState.setting['player.playbackRate'], playerState.isPlay)
 
-      // 非 iOS 或暂停态：直接用实际落点启动歌词 ticker。
+      // 非 iOS 或暂停态：用真实落点直接启动歌词 ticker，无静音冻结。
       if (Platform.OS != 'ios' || !playerState.isPlay) {
+        audioClock.setAnchor(actualTime * 1000, settingState.setting['player.playbackRate'], playerState.isPlay)
         global.app_event.seekLyric(actualTime)
         return
       }
 
-      // 仅对高码率音质（臻品母带 master / atmos / atmos_plus）启用「冻结 + 静音等待追平」：
-      // 这些音质 seek 后音频需较长缓冲重排，若直接出声会与歌词错位。先让歌词跳到目标行并静音，
-      // 待音频位置追上目标后再恢复音量并启动歌词 ticker，实现“歌词先到位、音频随后跟上”。
-      if (!freezeQualities.has(playerState.quality ?? '')) {
+      // 普通音质（≤320k）：音频与歌词同一真实落点同步，直接启动歌词 ticker。
+      if (!isQualityBeyond320k(playerState.quality)) {
+        audioClock.setAnchor(actualTime * 1000, settingState.setting['player.playbackRate'], playerState.isPlay)
         global.app_event.seekLyric(actualTime)
         return
       }
 
+      // 高于 320k 的无损及以上音质：快进/快退后歌词冻结不走、音频静音，
+      // 等音频网络缓冲追平（从目标位置真正开始播放）后再恢复音量并让歌词同步走字。
       seekGeneration++
       const currentGeneration = seekGeneration
-
-      // 冻结期（仅静音、不冻结歌词）：音频缓冲追赶期间先静音，避免错位/抢跑的声音；
-      // 歌词则按音频时钟正常“走字”（实时推进），待音频位置追上歌词当前位置再放出声音，
-      // 实现“歌词正常走、音频缓冲追上后同步出声”。静音由本冻结的 catchUp 轮询持续维持，
-      // 不再依赖全局静音标志，避免标志泄漏到其它音质导致“没声音”。
+      // 冻结逐字高亮时钟（不推进），与歌词行一致停在原地。
+      audioClock.hold(time * 1000)
       void setVolume(0)
-      global.app_event.seekLyric(time)
+      // 歌词纯镜像到目标行（不启动 ticker），停在原地不走字，等待音频缓冲跟上。
+      syncLyric(time, false)
       const waitStart = Date.now()
       const catchUp = () => {
         if (seekGeneration !== currentGeneration) return
         void getPosition().then((position) => {
           if (seekGeneration !== currentGeneration) return
           const posMs = (position || 0) * 1000
-          // 歌词当前实时位置（音频时钟外推）：音频追上歌词即视为同步。
-          const lyricMs = audioClock.getTime() * 1000
-          const caught = posMs >= lyricMs - 250
+          // 歌词已冻结在 time；当音频已从目标位置前进（缓冲就绪、真正播放）即视为追平。
+          const caught = posMs >= time * 1000 + 300
           const timedOut = Date.now() - waitStart > 8000
           if (caught || timedOut) {
             seekGeneration = 0
-            // 音频已追上：恢复音量，并以音频真实落点重新锚定时钟，二者同步发声。
             void setVolume(settingState.setting['player.volume'])
             const start = position > 0 ? position : time
+            // 音频追上：恢复音量，并以音频真实落点重新锚定时钟与启动歌词 ticker，二者同步发声。
             audioClock.setAnchor(start * 1000, settingState.setting['player.playbackRate'], true)
-            // 仅超时时兜底将歌词重新对齐到音频真实落点，避免永久错位。
-            if (timedOut) global.app_event.seekLyric(start)
+            global.app_event.seekLyric(start)
           } else {
-            // 仍未追上：持续保持静音（防止 playing 事件把音量恢复导致抢跑/错位），下轮再检查。
+            // 仍未追上：持续静音，下轮再检查。
             void setVolume(0)
             BackgroundTimer.setTimeout(catchUp, 200)
           }

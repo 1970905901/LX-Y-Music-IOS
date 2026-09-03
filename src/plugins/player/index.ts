@@ -35,8 +35,12 @@ const initial = async({ volume, playRate, cacheSize, isHandleAudioFocus, isEnabl
   await migratePlayerCache()
   await TrackPlayer.setupPlayer({
     maxCacheSize: cacheSize * 1024,
-    maxBuffer: 1000,
-    waitForBuffer: true,
+    // —— 在线播放缓冲优化（作用于 iOS 原生 AVPlayer 预读策略）——
+    minBuffer: 5,                        // 起播 / seek 后至少先缓冲 5s 再播放，避免高码率开头卡顿
+    maxBuffer: 300,                      // 前向缓冲上限（秒）：保留充足预读余量，又避免无上限拉满整首
+    backBuffer: 30,                      // 保留 30s 后方缓冲，后退 seek 无需重新拉流
+    preferredForwardBufferDuration: 60,  // 引导 AVPlayer 提前预读约 60s，弱网更平滑
+    waitForBuffer: true,                 // 缓冲不足时等待而非中断播放
     handleAudioFocus: isHandleAudioFocus,
     audioOffload: isEnableAudioOffload,
     autoUpdateMetadata: false,

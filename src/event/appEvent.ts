@@ -8,7 +8,7 @@ import playerState from '@/store/player/state'
 import listState from '@/store/list/state'
 import userState from '@/store/user/state'
 import {COMPONENT_IDS, LIST_IDS, type NAV_ID_Type} from '@/config/constant'
-import {navigations} from "@/navigation";
+import {navigations, popTo} from "@/navigation";
 import {getDailyRecCache} from "@/utils/data.ts";
 import {toast} from "@/utils/tools.ts";
 
@@ -229,12 +229,22 @@ export class AppEvent extends Event {
     if (listId === LIST_IDS.TEMP) {
       listId = listState.tempListMeta.id
     }
+    if (!listId) return
 
     const currentComponentId = commonState.componentIds[commonState.componentIds.length - 1]?.id
     if (!currentComponentId) return
 
     let navigatedToDetail = false
+    let needDelayEmit = false
     const currentComponent = commonState.componentIds[commonState.componentIds.length - 1];
+    const homeComponent = commonState.componentIds.find(c => c.name === COMPONENT_IDS.home)
+    const isOnHome = currentComponent?.name === COMPONENT_IDS.home
+    const ensureHome = async () => {
+      if (!isOnHome && homeComponent) {
+        await popTo(homeComponent.id)
+        needDelayEmit = true
+      }
+    }
 
     if (listId.startsWith('artist_detail_')) {
       const artistId = listId.replace('artist_detail_', '')
@@ -256,6 +266,7 @@ export class AppEvent extends Event {
         navigatedToDetail = true
       }
     } else if (listId.includes('__')) {
+      await ensureHome()
       const [source, sourceId] = listId.split('__')
       let targetNavId: NAV_ID_Type = 'nav_songlist'
 
@@ -285,6 +296,7 @@ export class AppEvent extends Event {
         }
       }
     } else if (listId.startsWith('dailyrec_wy')) {
+      await ensureHome()
       setNavActiveId('nav_daily_rec')
     } else if (listId === 'similar_songs_list') {
       if (currentComponent?.name !== COMPONENT_IDS.SIMILAR_SONGS_SCREEN) {
@@ -299,6 +311,7 @@ export class AppEvent extends Event {
         navigatedToDetail = true;
       }
     } else {
+      await ensureHome()
       const targetNavId: NAV_ID_Type = 'nav_love'
       if (commonState.navActiveId !== targetNavId) {
         global.lx.jumpMyListPosition = true
@@ -309,7 +322,7 @@ export class AppEvent extends Event {
     setTimeout(() => {
       console.log('[appEvent] emitting jumpListPosition')
       this.emit('jumpListPosition')
-    }, navigatedToDetail ? 500 : 200)
+    }, navigatedToDetail || needDelayEmit ? 500 : 200)
   }
 
   changeLoveListVisible(visible: boolean) {

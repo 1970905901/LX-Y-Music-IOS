@@ -36,10 +36,9 @@ export default () => {
 
   let isScreenOn = true
 
-  // iOS seek 稳定期：播放态快进/快退后，在指定时间内用引擎真实位置纯镜像歌词，
-  // 避免解码器/缓冲尚未落点时歌词 ticker 提前启动导致先走。
+  // iOS seek 冻结代际：播放态快进/快退后，歌词先跳到目标行并冻结，待音频缓冲追平
+  // 目标后再启动 ticker，实现“歌词先到位、音频随后跟上”，避免歌词与音频脱节。
   let seekGeneration = 0
-  const SEEK_SETTLE_MS = 2500
 
   const isRestoringCurrentMusic = () => {
     const restorePlayInfo = global.lx.restorePlayInfo
@@ -53,14 +52,20 @@ export default () => {
     void getPosition().then(position => {
       if (!position || id != playerState.musicInfo.id) return
       setNowPlayTime(position)
+
+      // 处于 seek 冻结期（iOS 播放态快进/快退）：歌词已锁定在目标行、UI 时钟保持 hold，
+      // 此处仅更新进度条与上报，不重锚音频时钟、也不驱动歌词，避免缓冲尚未落点时画面抖动。
+      if (seekGeneration > 0) {
+        if (!playerState.isPlay) return
+        updateScrobblePlayTime(position)
+        if (settingState.setting['player.isSavePlayTime'] && !playerState.playMusicInfo.isTempPlay && isScreenOn) {
+          delaySavePlayInfo()
+        }
+        return
+      }
+
       // 用引擎真实位置重新锚定 UI 时钟：外推只在两次校准之间插值，避免长期漂移。
       audioClock.setAnchor(position * 1000, settingState.setting['player.playbackRate'], playerState.isPlay)
-
-      // iOS 播放态 seek 稳定期内：用引擎真实位置纯镜像歌词，防止解码器/缓冲尚未落点
-      // 时歌词 ticker 提前启动，导致快进/快退后歌词与音频不同步。
-      if (Platform.OS == 'ios' && playerState.isPlay && seekGeneration > 0) {
-        syncLyric(position, playerState.isPlay)
-      }
 
       if (!playerState.isPlay) return
 
@@ -113,8 +118,8 @@ export default () => {
     // seek 期间先冻结 UI 时钟在目标位置，等引擎返回真实落点后再重锚。
     audioClock.hold(time * 1000)
 
-    // iOS 播放态 seek：进入稳定期，由进度轮询用真实位置纯镜像歌词；
-    // 稳定期结束后再启动歌词 ticker，避免解码器/缓冲尚未落点时歌词先跳到目标位置。
+    // iOS 播放态 seek：歌词立即跳到目标行并冻结，待音频缓冲追平目标后再启动 ticker。
+    // 实现“歌词先到位、音频随后跟上”的体验，避免快进/快退后歌词与音频脱节。
     seekGeneration++
     const currentGeneration = seekGeneration
 
@@ -130,14 +135,29 @@ export default () => {
         return
       }
 
-      BackgroundTimer.setTimeout(() => {
+      // 立即把歌词高亮锁到目标行（暂停 ticker，不自动走字）；进度条仍按引擎真实位置刷新，
+      // 表现为“音频在缓冲追赶”，追上后下方 catchUp 再启动歌词 ticker 与之同步。
+      syncLyric(time, false)
+      const targetMs = time * 1000
+      const waitStart = Date.now()
+      const catchUp = () => {
         if (seekGeneration !== currentGeneration) return
-        seekGeneration = 0
         void getPosition().then((position) => {
-          if (position <= 0) return
-          global.app_event.seekLyric(position)
+          if (seekGeneration !== currentGeneration) return
+          const posMs = (position || 0) * 1000
+          const caught = posMs >= targetMs - 250
+          const timedOut = Date.now() - waitStart > 8000
+          if (caught || timedOut) {
+            seekGeneration = 0
+            const start = position > 0 ? position : time
+            audioClock.setAnchor(start * 1000, settingState.setting['player.playbackRate'], true)
+            global.app_event.seekLyric(start)
+          } else {
+            BackgroundTimer.setTimeout(catchUp, 200)
+          }
         })
-      }, SEEK_SETTLE_MS)
+      }
+      catchUp()
     })
 
     if (maxTime != null) setMaxplayTime(getTimelineDuration(playerState.playMusicInfo.musicInfo, maxTime))

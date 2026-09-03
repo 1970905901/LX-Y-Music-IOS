@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { Animated, View } from 'react-native'
+import { View } from 'react-native'
 
 import { ProgressTouchArea, useProgressDrag } from './progressCore'
 import { clamp01, createStyle } from '@/utils/tools'
@@ -56,7 +56,6 @@ const Progress = ({
     seekEnabled,
     draging,
     dragProgress,
-    animProgress,
     onDragState,
     setDragProgress,
     onSetProgress,
@@ -64,9 +63,9 @@ const Progress = ({
   } = useProgressDrag(progress, duration)
 
   // 主题里 alpha-NNN 的数值越大越淡（alpha-100 = 90% 不透明，alpha-900 = 10%）。
-  // 原实现给「已播放」用了 c-primary-alpha-900（10% 不透明），比轨道还淡，进度条几乎看不见。
-  // 这里与 iPhone 侧保持一致：已播放用实心主色，参照线用半透明主色。
+  // 已播放用实心主色，参照线用半透明主色。
   const activeColor = theme.isDark ? theme['c-font'] : theme['c-primary']
+  const progressStr: `${number}%` = `${clamp01(progress) * 100}%`
 
   return (
     <View style={{ ...styles.progress, paddingTop }}>
@@ -80,7 +79,7 @@ const Progress = ({
               style={{
                 ...styles.progressBar,
                 backgroundColor: theme['c-primary-alpha-500'],
-                width: `${clamp01(progress) * 100}%`,
+                width: progressStr,
                 position: 'absolute',
                 left: 0,
                 top: 0,
@@ -100,14 +99,11 @@ const Progress = ({
             />
           </>
         ) : (
-          <Animated.View
+          <View
             style={{
               ...styles.progressBar,
               backgroundColor: activeColor,
-              width: animProgress.interpolate({
-                inputRange: [0, 1],
-                outputRange: ['0%', '100%'],
-              }),
+              width: progressStr,
               position: 'absolute',
               left: 0,
               top: 0,

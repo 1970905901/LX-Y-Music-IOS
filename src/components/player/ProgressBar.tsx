@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { Animated, View } from 'react-native'
+import { View } from 'react-native'
 
 import { ProgressTouchArea, useProgressDrag } from './progressCore'
 import { clamp01, createStyle } from '@/utils/tools'
@@ -53,7 +53,6 @@ const Progress = ({
     seekEnabled,
     draging,
     dragProgress,
-    animProgress,
     onDragState,
     setDragProgress,
     onSetProgress,
@@ -61,6 +60,7 @@ const Progress = ({
   } = useProgressDrag(progress, duration)
 
   const activeColor = theme.isDark ? theme['c-font'] : theme['c-primary']
+  const progressStr: `${number}%` = `${clamp01(progress) * 100}%`
 
   return (
     <View style={styles.progress}>
@@ -68,28 +68,35 @@ const Progress = ({
         <DefaultBar color={theme['c-primary-light-300-alpha-800']} />
         <BufferedBar progress={buffered} color={theme['c-primary-light-400-alpha-700']} />
         {draging ? (
-          // 拖动期间只渲染拖动进度条：
-          // 左右拖动时进度条都会实时跟随手指；若同时显示当前进度条，左拖时拖动条会被
-          // 更长的当前进度条覆盖，表现为“直接跳到位置、没有动效”。
+          <>
+            {/* 参考项目：拖动时同时显示当前真实进度（底层浅色参照）和手指拖动进度（顶层高亮） */}
+            <View
+              style={{
+                ...styles.progressBar,
+                backgroundColor: theme['c-primary-alpha-500'],
+                width: progressStr,
+                position: 'absolute',
+                left: 0,
+                top: 0,
+              }}
+            />
+            <View
+              style={{
+                ...styles.progressBar,
+                backgroundColor: activeColor,
+                width: `${clamp01(dragProgress) * 100}%`,
+                position: 'absolute',
+                left: 0,
+                top: 0,
+              }}
+            />
+          </>
+        ) : (
           <View
             style={{
               ...styles.progressBar,
               backgroundColor: activeColor,
-              width: `${clamp01(dragProgress) * 100}%`,
-              position: 'absolute',
-              left: 0,
-              top: 0,
-            }}
-          />
-        ) : (
-          <Animated.View
-            style={{
-              ...styles.progressBar,
-              backgroundColor: activeColor,
-              width: animProgress.interpolate({
-                inputRange: [0, 1],
-                outputRange: ['0%', '100%'],
-              }),
+              width: progressStr,
               position: 'absolute',
               left: 0,
               top: 0,

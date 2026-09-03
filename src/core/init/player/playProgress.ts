@@ -203,6 +203,9 @@ export default () => {
 
   const handleStop = () => {
     clearUpdateTimeout()
+    // 彻底结束播放：清除可能残留的 seek 冻结态与静音标志，避免下次播放被静音。
+    seekGeneration = 0
+    setSeekMuting(false)
     audioClock.reset()
     setNowPlayTime(0)
     setMaxplayTime(0)

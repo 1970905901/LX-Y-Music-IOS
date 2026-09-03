@@ -21,6 +21,7 @@ import {
 } from './nativeFlac'
 import { onUnifiedPlayerEvent } from './engine'
 import playerState from '@/store/player/state'
+import { setSeekMuting } from '@/core/player/seekMute'
 // import { PlayerMusicInfo } from '@/store/modules/player/playInfo'
 
 
@@ -194,6 +195,9 @@ const playMusic = ((fn: (musicInfo: LX.Player.PlayMusic, url: string, time: numb
 
 export const setResource = (musicInfo: LX.Player.PlayMusic, url: string, duration?: number, quality?: LX.Quality | null) => {
   playerState.quality = quality ?? null
+  // 换曲即清除上一曲可能残留的 seek 静音标志，避免高码率音质冻结未收尾时
+  // 静音标志泄漏到下一曲（如 flac），导致新曲 native FLAC 音量不被恢复而“没声音”。
+  setSeekMuting(false)
   playMusic(musicInfo, url, duration ?? 0, quality)
 }
 

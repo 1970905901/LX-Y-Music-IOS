@@ -751,6 +751,13 @@ static void LXSetNowPlayingPlaybackState(MPNowPlayingPlaybackState state, NSDict
 
   info[MPNowPlayingInfoPropertyPlaybackRate] = playbackRate ?: LXDefaultNowPlayingRate();
   info[MPNowPlayingInfoPropertyDefaultPlaybackRate] = LXNowPlayingDefaultPlaybackRateValue();
+
+  // 播放状态可能早于歌曲元数据（标题）到达：先把 playbackRate / elapsedTime 写入缓存，
+  // 但暂不发布。iOS 27 Beta 7 会把“只有 playbackRate、没有标题”的空字典识别成“未在播放”，
+  // 且后续补写元数据不一定重新显示控制中心媒体卡片；等 LXSetNowPlayingInfo 写入有效标题后
+  // 统一发布（届时缓存已含正确的 playbackRate / elapsedTime），避免切歌后控制中心进度卡在“-”。
+  if (existingTitle.length == 0) return;
+
   LXApplyNowPlayingInfo();
 }
 

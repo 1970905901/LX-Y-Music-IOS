@@ -1,5 +1,6 @@
 import TrackPlayer from 'react-native-track-player'
 import { Platform } from 'react-native'
+import settingState from '@/store/setting/state'
 import {
   getNativeFlacTrackId,
   resetNativeFlacPlayback,
@@ -51,6 +52,7 @@ export const loadPlaybackResource = async({
           : (typeof musicInfo.meta.picUrl == 'string' ? musicInfo.meta.picUrl : undefined),
         duration: playbackInfo.duration,
         elapsedTime: playbackInfo.position,
+        playbackRate: settingState.setting['player.playbackRate'],
       })
       return
     } finally {

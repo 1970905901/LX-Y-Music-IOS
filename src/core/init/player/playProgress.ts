@@ -1,7 +1,7 @@
 import { updateListMusics } from '@/core/list'
 import { setMaxplayTime, setNowPlayTime } from '@/core/player/progress'
 import { getTimelineDuration } from '@/core/player/timeline'
-import { setCurrentTime, getDuration, getPosition } from '@/plugins/player/utils'
+import { setCurrentTime, getDuration, getPosition, isNativeFlacActive } from '@/plugins/player/utils'
 import { formatPlayTime2 } from '@/utils/common'
 import { savePlayInfo } from '@/utils/data'
 import { throttleBackgroundTimer } from '@/utils/tools'
@@ -18,6 +18,7 @@ import {
   updateScrobblePlayTime,
   updateScrobbleTotalTime,
 } from '@/core/player/scrobble'
+import { syncLyric } from '@/core/lyric'
 
 const delaySavePlayInfo = throttleBackgroundTimer(() => {
   void savePlayInfo({
@@ -49,6 +50,13 @@ export default () => {
       setNowPlayTime(position)
       // 用引擎真实位置重新锚定 UI 时钟：外推只在两次校准之间插值，避免长期漂移。
       audioClock.setAnchor(position * 1000, settingState.setting['player.playbackRate'], playerState.isPlay)
+
+      // native FLAC seek 会立即返回请求位置，而解码器其实正在从头重新缓冲，
+      // 所以必须每拍用真实播放位置纯镜像歌词，防止快进/快退后歌词与音频不同步。
+      if (Platform.OS == 'ios' && isNativeFlacActive()) {
+        syncLyric(position, playerState.isPlay)
+      }
+
       if (!playerState.isPlay) return
 
       updateScrobblePlayTime(position)
@@ -104,7 +112,12 @@ export default () => {
       const actualTime = targetPosition > 0 ? targetPosition : time
       if (targetPosition > 0) setNowPlayTime(targetPosition)
       audioClock.setAnchor(actualTime * 1000, settingState.setting['player.playbackRate'], playerState.isPlay)
-      global.app_event.seekLyric(actualTime)
+      // native FLAC seek 会立即返回请求位置，而解码器仍在重新缓冲；
+      // 播放状态下让进度轮询中的 syncLyric 用真实位置镜像歌词，避免歌词先跳到目标位置后脱离音频。
+      const shouldSkipSeekLyric = Platform.OS == 'ios' && isNativeFlacActive() && playerState.isPlay
+      if (!shouldSkipSeekLyric) {
+        global.app_event.seekLyric(actualTime)
+      }
     })
 
     if (maxTime != null) setMaxplayTime(getTimelineDuration(playerState.playMusicInfo.musicInfo, maxTime))

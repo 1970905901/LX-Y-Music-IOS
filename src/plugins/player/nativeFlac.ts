@@ -143,10 +143,51 @@ export const resetNativeFlacPlayback = async() => {
   if (currentMode == mode && currentTrackId == trackId) clearCurrentContext('idle')
 }
 
+const wait = async(ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
 export const seekNativeFlacPlayback = async(position: number) => {
   if (!currentTrackId) return position
   if (currentMode == 'stream') {
-    return seekStreamingFlac(position)
+    const targetTime = Math.max(0, position)
+    await seekStreamingFlac(targetTime).catch(() => {})
+
+    // FLAC streaming decoder resets and re-buffers from the beginning after seek.
+    // The native side resolves immediately with the requested position, but actual
+    // playback may still be at/before the old position. Wait briefly for the decoder
+    // to apply the seek and report a position near the target.
+    let lastPosition = targetTime
+    let stableCount = 0
+    for (const [delay, tolerance] of [
+      [80, 2.0],
+      [160, 1.2],
+      [260, 0.7],
+      [420, 0.4],
+      [650, 0.22],
+      [950, 0.12],
+    ] as const) {
+      await wait(delay)
+      const currentPosition = await getStreamingFlacPosition().catch(() => lastPosition)
+      const currentState = await getStreamingFlacState().catch(() => 'buffering')
+      const nextPosition = currentPosition > 0 ? currentPosition : lastPosition
+      lastPosition = nextPosition
+
+      if (Math.abs(lastPosition - targetTime) <= tolerance) {
+        stableCount++
+        if (stableCount > 1 || tolerance <= 0.4) break
+        continue
+      }
+
+      // If playback has not reached near the target and is not still loading/buffering,
+      // the seek may have stalled; retry once.
+      if (currentState != 'loading' && currentState != 'buffering') {
+        await seekStreamingFlac(targetTime).catch(() => {})
+        stableCount = 0
+      }
+    }
+
+    const finalPosition = await getStreamingFlacPosition().catch(() => lastPosition)
+    lastPosition = finalPosition > 0 ? finalPosition : lastPosition
+    return lastPosition
   }
   return position
 }

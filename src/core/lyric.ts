@@ -7,6 +7,7 @@ import {
   toggleTranslation as lrcToggleTranslation,
   toggleRoma as lrcToggleRoma,
   init as lrcInit,
+  syncToTime as lrcSyncToTime,
 } from '@/plugins/lyric'
 import {
   playDesktopLyric,
@@ -135,6 +136,17 @@ export const seek = (time: number) => {
       })
     }
   }, 60)
+}
+
+/**
+ * Pure mirror lyric to the given audio time without starting an independent ticker.
+ * Used for native FLAC: the decoder resolves seek immediately while still re-buffering,
+ * so the lyric must be re-anchored to the real playback position on every progress tick.
+ */
+export const syncLyric = (time: number, isPlaying: boolean) => {
+  lrcSyncToTime(time * 1000, isPlaying)
+  if (isPlaying) void playDesktopLyric(time * 1000)
+  else void pauseDesktopLyric()
 }
 
 

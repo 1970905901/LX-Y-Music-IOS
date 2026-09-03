@@ -260,10 +260,10 @@ export default () => {
     }
   }
 
-  // 拖动进度条期间接管歌词时钟，使其高亮行跟随手指位置；同时实时 seek 音频。
+  // 拖动进度条期间只更新 UI（进度条 + 歌词），不实时 seek 音频。
+  // 原因：在线音频拖动时实时 seek 会让原生播放器持续缓冲/排队，音频严重滞后于手指，
+  // 松手后反而难以同步。参考项目也是拖动只预览、松手才真正 seek。
   // 无论播放/暂停态，向左/向右拖动进度条，歌词高亮行都必须与手指实时同步。
-  let lastPreviewTime = 0
-  let lastDragSeekTime = 0
   const handleProgressDragPreview = (time: number) => {
     if (!playerState.musicInfo.id) return
     // 拖动预览：用真实手指位置 hold 住外推时钟（暂停外推、固定显示手指位置），
@@ -273,16 +273,6 @@ export default () => {
     try {
       lrcSyncToTime(time, playerState.isPlay)
     } catch {}
-    // 节流音频 seek：避免连续小幅度拖动产生大量 seek 在 iOS / 在线音频上堆积，
-    // 导致音频紊乱、与歌词/进度条脱节。
-    // 策略：跳转 >=300ms 立即 seek；小幅度移动每 300ms 最多 seek 一次。
-    const now = Date.now()
-    const timeDelta = Math.abs(time - lastPreviewTime)
-    lastPreviewTime = time
-    if (timeDelta >= 300 || (timeDelta >= 100 && now - lastDragSeekTime >= 300)) {
-      lastDragSeekTime = now
-      void setCurrentTime(time / 1000, false)
-    }
   }
   const handleProgressDragState = (drag: boolean) => {
     isDragging = drag

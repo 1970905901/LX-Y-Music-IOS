@@ -5,10 +5,11 @@ import { FlatList, View, TouchableOpacity } from 'react-native';
 import Text from '@/components/common/Text';
 import { useTheme } from '@/store/theme/hook';
 import playerState from '@/store/player/state';
+import listState from '@/store/list/state';
 import { usePlayerMusicInfo, useTempPlayList } from '@/store/player/hook';
 import { createStyle, toast, type RowInfo } from '@/utils/tools';
 import { scaleSizeH } from '@/utils/pixelRatio';
-import { LIST_ITEM_HEIGHT } from '@/config/constant';
+import { LIST_ITEM_HEIGHT, LIST_IDS } from '@/config/constant';
 import MusicAddModal, { type MusicAddModalType } from '@/components/MusicAddModal';
 import { useSettingValue } from '@/store/setting/hook'
 import { useSafeAreaBottom } from '@/store/common/hook';
@@ -86,6 +87,17 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
   // 1. 当存在「稍后播放」队列时优先展示该队列；
   // 2. 否则展示当前播放列表，从当前歌曲位置开始。
   const isTempMode = useMemo(() => (tempPlayList ?? []).length > 0, [tempPlayList])
+
+  // 面板标题需反映真实模式：临时队列显示「临时列表」，否则显示当前播放歌单名。
+  // 原实现写死 list_name_temp，会让用户误以为展示当前歌单时也在「临时列表」中。
+  const title = useMemo(() => {
+    if (isTempMode) return t('list_name_temp')
+    const id = playerState.playInfo.playerListId
+    if (id === LIST_IDS.DEFAULT) return t('list_name_default')
+    if (id === LIST_IDS.LOVE) return t('list_name_love')
+    if (id === LIST_IDS.DOWNLOAD) return t('list_name_download')
+    return listState.allList.find(l => l.id === id)?.name ?? t('list_name_play')
+  }, [isTempMode, playerMusicInfo.id])
 
   // 普通列表模式下，playlist 直接读 store 中的歌单数据（getListMusicSync）。
   // 该数据变化只通过 global.list_event 广播，不会触发组件重新计算，
@@ -358,7 +370,7 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
         <View style={{ ...styles.panelContent, backgroundColor: theme['c-content-background'] }}>
           <View style={{ ...styles.header, borderBottomColor: theme['c-border-background'] }}>
             <View style={styles.headerTitleContainer}>
-              <Text style={styles.panelTitle}>{t('list_name_temp')}</Text>
+              <Text style={styles.panelTitle}>{title}</Text>
               {activeIndex > -1 && (
                 <Text style={styles.countText} size={12} color={theme['c-font-label']}>
                   {activeIndex + 1} / {totalCount}

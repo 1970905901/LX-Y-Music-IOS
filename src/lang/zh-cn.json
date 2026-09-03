@@ -101,6 +101,8 @@
   "list_name_default": "试听列表",
   "list_name_love": "我的收藏",
   "list_name_temp": "临时列表",
+  "list_name_download": "下载列表",
+  "list_name_play": "播放列表",
   "list_remove": "移除",
   "list_remove_music_multi_tip": "你真的想要移除所选的 {num} 首歌曲吗？",
   "list_remove_tip": "你真的想要移除「{name}」吗？",

@@ -16,6 +16,7 @@ import { downloadMusic } from '@/core/download';
 import { useWindowSize } from '@/utils/hooks';
 import { addTempPlayList, playTempListAt, playCurrentListAt, removeTempPlayList } from '@/core/player/tempPlayList';
 import { getList } from '@/core/player/playInfo';
+import { removeListMusics } from '@/core/list';
 import { Icon } from "@/components/common/Icon.tsx";
 
 import OnlineListItem from '@/components/OnlineList/ListItem';
@@ -84,6 +85,8 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
   // 播放器面板展示当前播放队列：
   // 1. 当存在「稍后播放」队列时优先展示该队列；
   // 2. 否则展示当前播放列表，从当前歌曲位置开始。
+  const isTempMode = useMemo(() => (tempPlayList ?? []).length > 0, [tempPlayList])
+
   const playlist = useMemo<LX.Player.PlayMusic[]>(() => {
     const tempItems = (tempPlayList ?? []).map(item => item.musicInfo)
     if (tempItems.length) return tempItems
@@ -116,14 +119,14 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
   }, [isVisible]);
 
   const handlePlay = useCallback((index: number) => {
-    if ((tempPlayList ?? []).length) {
+    if (isTempMode) {
       playTempListAt(index)
       return
     }
     const listId = playerState.playInfo.playerListId
     if (!listId) return
     playCurrentListAt(listId, index)
-  }, [tempPlayList, playerMusicInfo.id]);
+  }, [isTempMode]);
 
   const handleShowMenu = useCallback((musicInfo: LX.Music.MusicInfo, index: number, position: Position) => {
     const adaptedMusicInfo = {
@@ -314,9 +317,14 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
     }
   }
 
-  const onRemove = useCallback(async (info: SelectInfo) => {
-    removeTempPlayList(info.index)
-  }, [])
+  const onRemove = useCallback((info: SelectInfo) => {
+    if (isTempMode) {
+      removeTempPlayList(info.index)
+    } else {
+      const listId = playerState.playInfo.playerListId
+      if (listId) void removeListMusics(listId, [info.musicInfo.id])
+    }
+  }, [isTempMode])
 
   const handlePanelHide = () => {
     setIsVisible(false);
@@ -356,7 +364,7 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
 
       <ListMenu
         ref={listMenuRef}
-        listId={playerState.playMusicInfo.listId ?? undefined}
+        listId={isTempMode ? undefined : (playerState.playInfo.playerListId ?? undefined)}
         onPlay={() => {}}
         onPlayLater={onPlayLater}
         onAdd={onAdd}

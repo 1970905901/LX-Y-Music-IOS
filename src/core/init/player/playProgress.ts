@@ -1,7 +1,7 @@
 import { updateListMusics } from '@/core/list'
 import { setMaxplayTime, setNowPlayTime } from '@/core/player/progress'
 import { getTimelineDuration } from '@/core/player/timeline'
-import { setCurrentTime, getDuration, getPosition, setVolume } from '@/plugins/player/utils'
+import { setCurrentTime, getDuration, getPosition } from '@/plugins/player/utils'
 import { formatPlayTime2 } from '@/utils/common'
 import { savePlayInfo } from '@/utils/data'
 import { throttleBackgroundTimer } from '@/utils/tools'
@@ -9,7 +9,7 @@ import BackgroundTimer from 'react-native-background-timer'
 import playerState from '@/store/player/state'
 import settingState from '@/store/setting/state'
 import { onScreenStateChange } from '@/utils/nativeModules/utils'
-import { AppState, Platform } from 'react-native'
+import { AppState } from 'react-native'
 // UI 平滑时钟：仅服务于逐字歌词高亮与歌词连续滚动的每帧插值，
 // 不参与歌词行同步（行高亮已交由歌词引擎内部 ticker 驱动）。
 import { audioClock } from '@/core/player/audioClock'
@@ -18,12 +18,6 @@ import {
   updateScrobblePlayTime,
   updateScrobbleTotalTime,
 } from '@/core/player/scrobble'
-import { syncLyric } from '@/core/lyric'
-import { setSeekMuting } from '@/core/player/seekMute'
-
-// 高于 flac 的音质集合：仅这些音质在 seek 后需要「歌词先到位、音频缓冲追平再出声」的冻结同步。
-// 普通 flac 及更低音质走常规 seekLyric，不加冻结/静音。
-const aboveFlacQualities = new Set<LX.Quality>(['flac24bit', 'hires'])
 
 const delaySavePlayInfo = throttleBackgroundTimer(() => {
   void savePlayInfo({
@@ -41,10 +35,6 @@ export default () => {
 
   let isScreenOn = true
 
-  // iOS seek 冻结代际：播放态快进/快退后，歌词先跳到目标行并冻结，待音频缓冲追平
-  // 目标后再启动 ticker，实现“歌词先到位、音频随后跟上”，避免歌词与音频脱节。
-  let seekGeneration = 0
-
   const isRestoringCurrentMusic = () => {
     const restorePlayInfo = global.lx.restorePlayInfo
     if (!restorePlayInfo) return false
@@ -57,17 +47,6 @@ export default () => {
     void getPosition().then(position => {
       if (!position || id != playerState.musicInfo.id) return
       setNowPlayTime(position)
-
-      // 处于 seek 冻结期（iOS 播放态快进/快退）：歌词已锁定在目标行、UI 时钟保持 hold，
-      // 此处仅更新进度条与上报，不重锚音频时钟、也不驱动歌词，避免缓冲尚未落点时画面抖动。
-      if (seekGeneration > 0) {
-        if (!playerState.isPlay) return
-        updateScrobblePlayTime(position)
-        if (settingState.setting['player.isSavePlayTime'] && !playerState.playMusicInfo.isTempPlay && isScreenOn) {
-          delaySavePlayInfo()
-        }
-        return
-      }
 
       // 用引擎真实位置重新锚定 UI 时钟：外推只在两次校准之间插值，避免长期漂移。
       audioClock.setAnchor(position * 1000, settingState.setting['player.playbackRate'], playerState.isPlay)
@@ -123,59 +102,15 @@ export default () => {
     // seek 期间先冻结 UI 时钟在目标位置，等引擎返回真实落点后再重锚。
     audioClock.hold(time * 1000)
 
-    // iOS 播放态 seek：歌词立即跳到目标行并冻结，待音频缓冲追平目标后再启动 ticker。
-    // 实现“歌词先到位、音频随后跟上”的体验，避免快进/快退后歌词与音频脱节。
-    seekGeneration++
-    const currentGeneration = seekGeneration
-
+    // 参考项目对齐的 seek 行为：音频与歌词用同一真实落点，保证快进/快退后二者同步，
+    // 不做冻结/静音等待（对 flac / 320k / 128k / flac24bit 等所有音质一致）。
     void setCurrentTime(time).then((targetPosition) => {
       if (!playerState.musicInfo.id) return
       const actualTime = targetPosition > 0 ? targetPosition : time
       if (targetPosition > 0) setNowPlayTime(targetPosition)
+      // 用引擎真实落点重锚 UI 时钟，并让歌词跳到同一位置，音频与歌词保持同步。
       audioClock.setAnchor(actualTime * 1000, settingState.setting['player.playbackRate'], playerState.isPlay)
-
-      // 非 iOS 或暂停态：可以直接用实际落点启动歌词 ticker。
-      if (Platform.OS != 'ios' || !playerState.isPlay) {
-        global.app_event.seekLyric(actualTime)
-        return
-      }
-
-      // 仅对高于 flac 的音质（flac24bit / hires 等）启用 seek 冻结同步逻辑；
-      // 普通 flac 及更低音质走常规 seekLyric，避免对无需长缓冲重排的音质误加冻结/静音。
-      const isAboveFlac = playerState.quality != null && aboveFlacQualities.has(playerState.quality)
-      if (!isAboveFlac) {
-        global.app_event.seekLyric(actualTime)
-        return
-      }
-
-      // 冻结期：立即静音，避免音频缓冲追赶期间（解码器重缓冲/错位）出现抢跑或错位的声音；
-      // 歌词高亮同时锁到目标行（暂停 ticker，不自动走字）。追上后再恢复音量并启动 ticker。
-      setSeekMuting(true)
-      void setVolume(0)
-      syncLyric(time, false)
-      const targetMs = time * 1000
-      const waitStart = Date.now()
-      const catchUp = () => {
-        if (seekGeneration !== currentGeneration) return
-        void getPosition().then((position) => {
-          if (seekGeneration !== currentGeneration) return
-          const posMs = (position || 0) * 1000
-          const caught = posMs >= targetMs - 250
-          const timedOut = Date.now() - waitStart > 8000
-          if (caught || timedOut) {
-            seekGeneration = 0
-            setSeekMuting(false)
-            // 音频已追上目标：先恢复音量，再启动歌词 ticker，二者同步发声。
-            void setVolume(settingState.setting['player.volume'])
-            const start = position > 0 ? position : time
-            audioClock.setAnchor(start * 1000, settingState.setting['player.playbackRate'], true)
-            global.app_event.seekLyric(start)
-          } else {
-            BackgroundTimer.setTimeout(catchUp, 200)
-          }
-        })
-      }
-      catchUp()
+      global.app_event.seekLyric(actualTime)
     })
 
     if (maxTime != null) setMaxplayTime(getTimelineDuration(playerState.playMusicInfo.musicInfo, maxTime))

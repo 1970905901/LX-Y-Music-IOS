@@ -105,8 +105,13 @@ export default () => {
       if (!isDragging && seekTargetMs < 0 && !isEngineBuffering) {
         audioClock.setAnchor(position * 1000, getRate(), playerState.isPlay)
       }
-      setNowPlayTime(position)
+      // seek 沉降期间保持 nowPlayTime 为目标值，避免 1s 校准用尚未收敛的旧位置把进度条/歌词拽回，
+      // 表现为“松手后进度条先跳到目标、下一秒又闪回旧位置”。
+      if (seekTargetMs < 0) {
+        setNowPlayTime(position)
+      }
       if (playerState.isPlay) {
+        // Scrobble 仍用引擎真实位置累计，避免 seek 期间被计为“没播放”。
         updateScrobblePlayTime(position)
         if (
           settingState.setting['player.isSavePlayTime'] &&
@@ -170,6 +175,56 @@ export default () => {
     bgInterval = BackgroundTimer.setInterval(tickCalibrate, 1000)
   }
 
+  /**
+   * seek 后主动轮询引擎位置，直到确认 seek 已生效或超时兜底。
+   * 原固定 150/450/900ms 三次探测存在缺陷：
+   * 1. 若 getPosition() 在 900ms 时返回 null，seekTargetMs 永远无法清除，外推永久 hold；
+   * 2. 若 seek 在 160ms 已生效，却要等到 450ms/900ms 才探测，窗口期内进度条/歌词停留在目标值，
+   *    用户会感到“歌词已跳到新位置、音频还没跟上”的短暂不同步。
+   * 改为每 150ms 轮询，命中即恢复，最长 1.5s 强制兜底，使音频与歌词尽快重合。
+   */
+  const startSeekSettlement = (targetMs: number) => {
+    seekResyncTimers.forEach(t => BackgroundTimer.clearTimeout(t))
+    seekResyncTimers = []
+
+    const maxAttempts = 10 // 150ms * 10 = 1.5s 兜底
+    let attempts = 0
+    const settle = () => {
+      attempts++
+      void getPosition().then((position) => {
+        if (!playerState.musicInfo.id) {
+          seekTargetMs = -1
+          return
+        }
+        const positionMs = position == null ? 0 : position * 1000
+        // seek 已生效：用真实位置重锚外推并放开校准
+        if (position != null && Math.abs(positionMs - targetMs) <= SEEK_CONVERGE_MS) {
+          audioClock.setAnchor(positionMs, getRate(), playerState.isPlay)
+          seekTargetMs = -1
+          return
+        }
+        // 超时兜底：避免外推永久 hold 在目标位置，用当前真实位置（取不到则回退目标值）恢复外推
+        if (attempts >= maxAttempts) {
+          audioClock.setAnchor(positionMs || targetMs, getRate(), playerState.isPlay)
+          seekTargetMs = -1
+          return
+        }
+        // 继续轮询
+        const timer = BackgroundTimer.setTimeout(settle, 150)
+        seekResyncTimers.push(timer)
+      }).catch(() => {
+        if (attempts >= maxAttempts || !playerState.musicInfo.id) {
+          audioClock.setAnchor(targetMs, getRate(), playerState.isPlay)
+          seekTargetMs = -1
+        } else {
+          const timer = BackgroundTimer.setTimeout(settle, 150)
+          seekResyncTimers.push(timer)
+        }
+      })
+    }
+    settle()
+  }
+
   const setProgress = (time: number, maxTime?: number) => {
     if (!playerState.musicInfo.id) return
     seekTargetMs = time * 1000 // 记录 seek 目标，开启“收敛保护”窗口，防止校准用旧位置拉回
@@ -184,30 +239,9 @@ export default () => {
     try {
       lrcSyncToTime(time * 1000, playerState.isPlay)
     } catch {}
-    // seek 后引擎真正落位常有 80~200ms 延迟（尤其 iOS / 网络缓冲）。探测收敛：仅在引擎位置
-    // 落入目标±容差时清除 seekTargetMs 放开校准，避免校准用未收敛旧位置把外推拉回造成回跳。
-    // 注意：此处只用探测清除窗口，不再用旧位置重锚（外推已立即对齐目标，重锚反而回归 bug）。
-    seekResyncTimers.forEach(t => BackgroundTimer.clearTimeout(t))
-    seekResyncTimers = []
-    // 收敛探测：引擎位置落入目标 ± 容差即放开校准（用真实位置重锚）。
-    // force=true 的兜底（如 900ms）用于「本地 / 下载音乐 seek 后不触发 playing 事件」场景，
-    // 避免外推永久 hold 在 seek 目标、歌词卡住不随音频前进；即便仍未完全收敛，
-    // 也用引擎真实位置放开，保证进度 / 歌词随音频继续。
-    const scheduleSeekSettle = (delay: number, force = false) => {
-      const timer = BackgroundTimer.setTimeout(() => {
-        void getPosition().then((position) => {
-          if (position == null || !playerState.musicInfo.id) return
-          if (Math.abs(position * 1000 - seekTargetMs) <= SEEK_CONVERGE_MS || force) {
-            audioClock.setAnchor(position * 1000, getRate(), playerState.isPlay)
-            seekTargetMs = -1
-          }
-        }).catch(() => {})
-      }, delay)
-      seekResyncTimers.push(timer)
-    }
-    scheduleSeekSettle(150)
-    scheduleSeekSettle(450)
-    scheduleSeekSettle(900, true)
+    // seek 后引擎真正落位常有 80~200ms 延迟（尤其 iOS / 网络缓冲）。
+    // 用主动轮询 settlement 替代固定 150/450/900ms 探测，更快发现 seek 生效并恢复外推。
+    startSeekSettlement(seekTargetMs)
     if (maxTime != null) {
       setMaxplayTime(maxTime)
       updateScrobbleTotalTime(maxTime)
@@ -265,17 +299,9 @@ export default () => {
   const handlePlayerPlaying = () => {
     isEngineBuffering = false
     if (seekTargetMs >= 0) {
-      // seek 已真正生效并从该位置恢复播放：仅当引擎位置落入 seek 目标 ± 容差时，
-      // 才用真实位置重锚外推并放开校准。否则保持 hold（外推冻结在 seek 目标），
-      // 等待 setProgress 的收敛探测放开——避免用「seek 尚未落地的旧位置」resume，
-      // 导致歌词回跳 / 与音频错位（本地 / 下载音乐无 buffering 保护，最易触发）。
-      void getPosition().then((position) => {
-        if (position == null || !playerState.musicInfo.id) return
-        if (Math.abs(position * 1000 - seekTargetMs) <= SEEK_CONVERGE_MS) {
-          audioClock.resume(position * 1000, getRate())
-          seekTargetMs = -1
-        }
-      }).catch(() => {})
+      // seek 已真正生效并从该位置恢复播放：复用 settlement 轮询，命中真实位置后立即恢复外推。
+      // 避免原来“未落入容差就保持 hold”导致歌词卡住不随音频前进。
+      startSeekSettlement(seekTargetMs)
       return
     }
     // 普通缓冲结束（非 seek）：用引擎真实位置重锚外推。

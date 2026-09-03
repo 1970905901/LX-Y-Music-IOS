@@ -37,7 +37,9 @@ interface NativeFlacPlaybackSnapshot extends NativeFlacPlaybackContext {
   state: NativeFlacState
 }
 
-const preferredPreciseQualities = new Set<LX.Quality>(['flac', 'flac24bit'])
+// 将 hires 也纳入 native FLAC 解码器：平台常把 hires 作为高采样率 FLAC / flac24bit 的别名，
+// 同样需要在 seek 后用真实位置同步歌词。
+const preferredPreciseQualities = new Set<LX.Quality>(['flac', 'flac24bit', 'hires'])
 const defaultUserAgent = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile'
 
 let currentTrackId = ''

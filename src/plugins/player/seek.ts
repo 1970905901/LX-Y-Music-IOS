@@ -1,4 +1,4 @@
-import TrackPlayer, { State } from 'react-native-track-player'
+import TrackPlayer from 'react-native-track-player'
 import { NativeModules, Platform } from 'react-native'
 
 const NativeTrackPlayerModule = NativeModules.TrackPlayerModule as {
@@ -14,41 +14,53 @@ export const getAccuratePosition = async() => {
   return TrackPlayer.getPosition()
 }
 
-// 防止用户连续拖动进度条时并发 seek 导致播放器状态混乱
+// 防止用户连续操作进度条时并发 seek 导致播放器状态混乱
 let isSeeking = false
 let pendingSeek: { time: number, verify: boolean } | null = null
 
-// verify=false 用于拖动预览的高频轻量 seek：只下发指令，不等待、不校验，
-// 避免拖动中每次 seek 都等待+校验重试而打断缓冲，导致音频追不上手指。
-// 松手时 setProgress 会发起 verify=true 的权威 seek 兜底到精确位置。
+// 参考 Q-1515/lx-music-mobile ios-adaptation 分支的 seekToTime 实现：
+// iOS 下多轮次逐步收紧容差，反复校验并补 seek，直到位置稳定落在目标附近，
+// 最后返回实际落点。调用方（playProgress.ts）用该真实位置同步歌词/进度条，
+// 避免在线音频 segment/keyframe 对齐导致的“歌词差一行”。
 export const seekToTime = async(targetTime: number, verify = true) => {
   if (isSeeking) {
-    // 权威 seek（verify=true）不被 pending 中的预览 seek 降级
     pendingSeek = { time: targetTime, verify: pendingSeek?.verify || verify }
     return targetTime
   }
   isSeeking = true
 
-  const runSeek = async() => {
-    await TrackPlayer.seekTo(targetTime)
-    if (!verify || Platform.OS != 'ios') return targetTime
-
-    // iOS 校验：仅当 seek 完全未生效时才补发一次。若引擎已进入缓冲/连接状态
-    // （seek 到未缓存区域时已被接受，正在等待网络数据），绝不能重试——重试会
-    // 打断进行中的缓冲并重新发起 Range 请求，音频生效时间翻倍，与已跳转到
-    // 目标位置的进度条/歌词脱节（快进快退后不同步的主因）。
-    await wait(350)
-    const state = await TrackPlayer.getState().catch(() => null)
-    if (state == State.Buffering || state == State.Connecting) return targetTime
-    const currentPosition = await getAccuratePosition().catch(() => targetTime)
-    if (currentPosition > 0 && Math.abs(currentPosition - targetTime) > 0.5) {
-      await TrackPlayer.seekTo(targetTime)
-    }
-    return targetTime
-  }
-
+  let result = targetTime
   try {
-    await runSeek()
+    await TrackPlayer.seekTo(targetTime)
+    if (!verify || Platform.OS != 'ios') {
+      result = targetTime
+    } else {
+      let position = targetTime
+      let stableCount = 0
+      const checks: Array<[number, number]> = [
+        [140, 1.2],
+        [200, 0.75],
+        [280, 0.4],
+        [360, 0.22],
+        [520, 0.12],
+      ]
+      for (const [delay, tolerance] of checks) {
+        await wait(delay)
+        const currentPosition = await getAccuratePosition().catch(() => position)
+        const nextPosition = currentPosition > 0 ? currentPosition : position
+        position = nextPosition
+        if (Math.abs(position - targetTime) <= tolerance) {
+          stableCount++
+          if (stableCount > 1 || tolerance <= 0.22) break
+          continue
+        }
+        stableCount = 0
+        await TrackPlayer.seekTo(targetTime)
+      }
+      const finalPosition = await getAccuratePosition().catch(() => position)
+      position = finalPosition > 0 ? finalPosition : position
+      result = position
+    }
   } finally {
     isSeeking = false
     if (pendingSeek) {
@@ -58,5 +70,5 @@ export const seekToTime = async(targetTime: number, verify = true) => {
     }
   }
 
-  return targetTime
+  return result
 }

@@ -12,7 +12,6 @@ import playerState from '@/store/player/state'
 import settingState from '@/store/setting/state'
 import { onScreenStateChange } from '@/utils/nativeModules/utils'
 import { AppState } from 'react-native'
-import TrackPlayer, { State } from 'react-native-track-player'
 import { updateScrobblePlayTime, updateScrobbleTotalTime } from '@/core/player/scrobble'
 import { syncNowPlayingMetadata, syncNowPlayingState } from '@/core/player/nowPlaying'
 import { refreshRemoteLyric } from '@/core/init/player/lyric'
@@ -67,16 +66,11 @@ export default () => {
   let wasInBackground = false
   // 进度条拖动进行中：此时歌词时钟由拖动预览 hold 在手指位置，进度条 UI 也跟随手指。
   let isDragging = false
-  // 最近一次 seek/点击跳转的目标位置（毫秒），-1 表示当前不在 seek 沉降窗口内。
-  // 外推时钟已在 setProgress 时立即锚到目标，这里仅用于在收敛前“保护”校准不被未到位的
-  // 引擎旧位置拉回（iOS 一次 seek 约需 80~200ms 才生效）。
+  // 最近一次 seek/点击跳转的目标位置（毫秒），-1 表示当前不在 seek 中。
+  // 用于缓冲期间把外推时钟 hold 在目标值，避免歌词超前于尚未真正跳转的音频。
   let seekTargetMs = -1
   // 引擎是否正在缓冲/加载网络数据（seek 到未缓存区域时会持续数秒）。
   let isEngineBuffering = false
-  const SEEK_CONVERGE_MS = 400 // 收敛容差（ms）：引擎位置落入目标±该值即判定 seek 已生效；在线音频 segment/keyframe 对齐允许更大偏差
-  // seek 后额外用引擎真实位置探测收敛，覆盖 iOS seek 生效延迟 / 缓冲导致的首行滞后。
-  // 仅用于“清除 seekTargetMs 放开校准”，不再用未收敛的旧位置重锚（外推已立即对齐到目标）。
-  let seekResyncTimers: ReturnType<typeof BackgroundTimer.setTimeout>[] = []
 
   // 当前播放速率（集中读取，避免多处重复）。
   const getRate = () => settingState.setting['player.playbackRate']
@@ -176,84 +170,30 @@ export default () => {
     bgInterval = BackgroundTimer.setInterval(tickCalibrate, 500)
   }
 
-  /**
-   * seek 后主动轮询引擎位置，直到确认 seek 已生效或超时兜底。
-   * 核心策略：在线音频 seek 不一定精确落到目标（受 segment/keyframe 对齐影响），
-   * 所以 settlement 期间不再把歌词/进度条“钉”在目标值，而是每轮都用引擎真实位置回刷。
-   * 这样即使实际落点与目标有偏差，歌词也始终跟着真实声音走，避免“快/退后差一行”。
-   */
-  const startSeekSettlement = (targetMs: number) => {
-    seekResyncTimers.forEach(t => BackgroundTimer.clearTimeout(t))
-    seekResyncTimers = []
-
-    const maxAttempts = 15 // 100ms * 15 = 1.5s 兜底
-    let attempts = 0
-    const settle = () => {
-      attempts++
-      void Promise.all([
-        getPosition(),
-        TrackPlayer.getState().catch(() => null),
-      ]).then(([position, state]) => {
-        if (!playerState.musicInfo.id) {
-          seekTargetMs = -1
-          return
-        }
-        const positionMs = position == null ? 0 : position * 1000
-        const isEnginePlaying = state == State.Playing
-        const nearTarget = position != null && Math.abs(positionMs - targetMs) <= SEEK_CONVERGE_MS
-
-        // 每轮都用引擎真实位置回刷歌词和进度条：
-        // 在线音频 seek 可能落到目标前后附近，死守目标会导致歌词与真实声音错位。
-        if (position != null) {
-          try { lrcSyncToTime(positionMs, isEnginePlaying || playerState.isPlay) } catch {}
-          setNowPlayTime(positionMs / 1000)
-        }
-
-        // 引擎真正在播放且位置接近目标 → seek 已真正生效，从真实位置恢复外推
-        if (isEnginePlaying && nearTarget) {
-          audioClock.setAnchor(positionMs, getRate(), true)
-          seekTargetMs = -1
-          return
-        }
-        // 超时兜底：按引擎实际状态恢复，避免永久 hold
-        if (attempts >= maxAttempts) {
-          audioClock.setAnchor(positionMs || targetMs, getRate(), isEnginePlaying)
-          seekTargetMs = -1
-          return
-        }
-        // 继续轮询
-        const timer = BackgroundTimer.setTimeout(settle, 100)
-        seekResyncTimers.push(timer)
-      }).catch(() => {
-        if (attempts >= maxAttempts || !playerState.musicInfo.id) {
-          audioClock.setAnchor(targetMs, getRate(), playerState.isPlay)
-          seekTargetMs = -1
-        } else {
-          const timer = BackgroundTimer.setTimeout(settle, 100)
-          seekResyncTimers.push(timer)
-        }
-      })
-    }
-    settle()
-  }
-
-  const setProgress = (time: number, maxTime?: number) => {
+  // 参考 Q-1515/lx-music-mobile ios-adaptation 分支：
+  // setCurrentTime 内部会反复校验/补 seek，并返回实际落点；
+  // 我们直接用该真实位置重锚 audioClock 并同步歌词，避免在线音频 segment/keyframe 对齐偏差。
+  const setProgress = async (time: number, maxTime?: number) => {
     if (!playerState.musicInfo.id) return
-    seekTargetMs = time * 1000 // 记录 seek 目标，开启“收敛保护”窗口，防止校准用旧位置拉回
-    // 立即把外推时钟【冻结】在目标位置（不从这一刻外推前进）：歌词/进度条瞬间对齐到目标，
-    // 且不会因 seek 生效延迟（80~450ms）让外推时钟漂到「目标+延迟」、使歌词跑在音频前面造成不同步。
-    // 待 seek 真正生效（playerPlaying / 收敛探测）后用引擎真实位置 resume，从准确位置继续外推。
+    seekTargetMs = time * 1000
+    // 立即把外推时钟冻结在目标位置：进度条/歌词先给用户即时反馈。
     audioClock.hold(time * 1000)
     setNowPlayTime(time)
     if (playerState.isPlay) updateScrobblePlayTime(time)
-    void setCurrentTime(time)
-    // 跳转进度时同步校正歌词：外推已锚到目标，歌词行与音频实时同步（不启动 ticker）。
     try {
       lrcSyncToTime(time * 1000, playerState.isPlay)
     } catch {}
-    // seek 后引擎真正落位常有 80~200ms 延迟（尤其 iOS / 网络缓冲）。
-    // 用主动轮询 settlement 替代固定 150/450/900ms 探测，更快发现 seek 生效并恢复外推。
-    startSeekSettlement(seekTargetMs)
+
+    // await setCurrentTime：等 seek 在校验循环中落到真实位置后，再据此同步。
+    const actualTime = await setCurrentTime(time)
+    const actualMs = actualTime * 1000
+    audioClock.setAnchor(actualMs, getRate(), playerState.isPlay)
+    try {
+      lrcSyncToTime(actualMs, playerState.isPlay)
+    } catch {}
+    setNowPlayTime(actualTime)
+    seekTargetMs = -1
+
     if (maxTime != null) {
       setMaxplayTime(maxTime)
       updateScrobbleTotalTime(maxTime)
@@ -303,9 +243,8 @@ export default () => {
   const handlePlayerPlaying = () => {
     isEngineBuffering = false
     if (seekTargetMs >= 0) {
-      // seek 已真正生效并从该位置恢复播放：复用 settlement 轮询，命中真实位置后立即恢复外推。
-      // 避免原来“未落入容差就保持 hold”导致歌词卡住不随音频前进。
-      startSeekSettlement(seekTargetMs)
+      // seek 仍在 setProgress 的 await setCurrentTime 中，由 setProgress 拿到真实位置后统一 anchor，
+      // 这里不提前恢复，避免歌词跑到音频前面。
       return
     }
     // 普通缓冲结束（非 seek）：用引擎真实位置重锚外推。
@@ -321,7 +260,7 @@ export default () => {
     // 区分「被打断 / 系统暂停」与「用户主动暂停」，避免用户暂停后切回前台被误恢复。
     global.lx.playerStatus.userPaused = false
     void getMaxTime()
-    // seek 沉降期间由 startSeekSettlement 统一恢复外推：
+    // seek 期间由 setProgress 统一恢复外推：
     // 若此处直接 setPlaying(true)，会在缓冲尚未结束时让歌词从目标位置提前跑起来，
     // 导致在线歌曲快进后歌词比音频快。
     const inSeekSettlement = seekTargetMs >= 0
@@ -373,8 +312,6 @@ export default () => {
 
   const handleStop = () => {
     clearUpdateTimeout()
-    seekResyncTimers.forEach(t => BackgroundTimer.clearTimeout(t))
-    seekResyncTimers = []
     audioClock.reset()
     setNowPlayTime(0)
     setMaxplayTime(0)

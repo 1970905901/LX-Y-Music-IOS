@@ -4,7 +4,7 @@ import {FlatList, View, RefreshControl, type FlatListProps, Keyboard} from 'reac
 import ListItem from './ListItem'
 // import { navigations } from '@/navigation'
 import { type ListInfoItem } from '@/store/songlist/state'
-import { useLayout } from '@/utils/hooks'
+import { useLayout, useHorizontalMode } from '@/utils/hooks'
 import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
 import { scaleSizeW } from '@/utils/pixelRatio'
@@ -14,7 +14,8 @@ import Text from '@/components/common/Text'
 type FlatListType = FlatListProps<ListInfoItem>
 
 // const MAX_WIDTH = scaleSizeW(110)
-const MIN_WIDTH = scaleSizeW(110)
+const MIN_WIDTH_PORTRAIT = scaleSizeW(110)
+const MIN_WIDTH_LANDSCAPE = scaleSizeW(150)
 const GAP = scaleSizeW(20)
 
 export interface ListProps {
@@ -118,9 +119,12 @@ export default forwardRef<ListType, ListProps>(({ onRefresh, onLoadMore, onOpenD
   // }, [width])
   // console.log(Math.trunc(width * 0.125), itemWidth)
   // console.log(itemWidth, MIN_WIDTH, GAP, width)
+  const isHorizontal = useHorizontalMode()
+
   const rowInfo = useMemo(() => {
+    const minWidth = isHorizontal ? MIN_WIDTH_LANDSCAPE : MIN_WIDTH_PORTRAIT
     let w = width - GAP
-    let n = width / (MIN_WIDTH + GAP)
+    let n = width / (minWidth + GAP)
     if (n > 10) n = 10
     let computedItemWidth = Math.floor(w / n)
     const num = Math.max(Math.floor(width / computedItemWidth), 2)
@@ -128,7 +132,7 @@ export default forwardRef<ListType, ListProps>(({ onRefresh, onLoadMore, onOpenD
       num,
       width: (width - GAP) / num,
     }
-  }, [width])
+  }, [width, isHorizontal])
   // console.log(rowNum)
   const list = useMemo(() => {
     const list = [...currentList]

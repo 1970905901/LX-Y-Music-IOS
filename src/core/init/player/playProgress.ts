@@ -12,6 +12,7 @@ import playerState from '@/store/player/state'
 import settingState from '@/store/setting/state'
 import { onScreenStateChange } from '@/utils/nativeModules/utils'
 import { AppState } from 'react-native'
+import TrackPlayer, { State } from 'react-native-track-player'
 import { updateScrobblePlayTime, updateScrobbleTotalTime } from '@/core/player/scrobble'
 import { syncNowPlayingMetadata, syncNowPlayingState } from '@/core/player/nowPlaying'
 import { refreshRemoteLyric } from '@/core/init/player/lyric'
@@ -187,25 +188,31 @@ export default () => {
     seekResyncTimers.forEach(t => BackgroundTimer.clearTimeout(t))
     seekResyncTimers = []
 
-    const maxAttempts = 10 // 150ms * 10 = 1.5s 兜底
+    const maxAttempts = 12 // 150ms * 12 = 1.8s 兜底（在线歌曲缓冲可能更久）
     let attempts = 0
     const settle = () => {
       attempts++
-      void getPosition().then((position) => {
+      // 同时取位置与状态：缓冲期间 getPosition 可能已经跳到目标，但音频尚未真正出声，
+      // 此时若用该位置 resume，歌词会跑到音频前面（在线歌曲快进后歌词快一行的主因）。
+      void Promise.all([
+        getPosition(),
+        TrackPlayer.getState().catch(() => null),
+      ]).then(([position, state]) => {
         if (!playerState.musicInfo.id) {
           seekTargetMs = -1
           return
         }
         const positionMs = position == null ? 0 : position * 1000
-        // seek 已生效：用真实位置重锚外推并放开校准
-        if (position != null && Math.abs(positionMs - targetMs) <= SEEK_CONVERGE_MS) {
-          audioClock.setAnchor(positionMs, getRate(), playerState.isPlay)
+        const isEnginePlaying = state == State.Playing
+        // 引擎真正在播放且位置接近目标 → seek 已真正生效，从真实位置恢复外推
+        if (isEnginePlaying && position != null && Math.abs(positionMs - targetMs) <= SEEK_CONVERGE_MS) {
+          audioClock.setAnchor(positionMs, getRate(), true)
           seekTargetMs = -1
           return
         }
-        // 超时兜底：避免外推永久 hold 在目标位置，用当前真实位置（取不到则回退目标值）恢复外推
+        // 超时兜底：按引擎实际状态恢复，避免永久 hold
         if (attempts >= maxAttempts) {
-          audioClock.setAnchor(positionMs || targetMs, getRate(), playerState.isPlay)
+          audioClock.setAnchor(positionMs || targetMs, getRate(), isEnginePlaying)
           seekTargetMs = -1
           return
         }
@@ -255,17 +262,19 @@ export default () => {
   const handleProgressDragPreview = (time: number) => {
     if (!playerState.musicInfo.id) return
     // 拖动预览：用真实手指位置 hold 住外推时钟（暂停外推、固定显示手指位置），
-    // 歌词高亮行跟随手指；rAF 每帧用 hold 值同步，达到「拖动时音频与歌词实时同步」。
+    // 歌词高亮行跟随手指；rAF 每帧用 hold 值同步，达到「拖动时歌词与进度条实时同步」。
     audioClock.hold(time)
     setNowPlayTime(time / 1000)
     try {
       lrcSyncToTime(time, playerState.isPlay)
     } catch {}
-    // 节流音频 seek：每 ~120ms 最多一次，避免连续拖动产生大量 seek 在 iOS 上堆积，
-    // 导致音频滞后于手指、与即时更新的歌词/进度条不同步。
+    // 节流音频 seek：避免连续小幅度拖动产生大量 seek 在 iOS / 在线音频上堆积，
+    // 导致音频紊乱、与歌词/进度条脱节。
+    // 策略：跳转 >=300ms 立即 seek；小幅度移动每 300ms 最多 seek 一次。
     const now = Date.now()
-    if (time !== lastPreviewTime && now - lastDragSeekTime >= 120) {
-      lastPreviewTime = time
+    const timeDelta = Math.abs(time - lastPreviewTime)
+    lastPreviewTime = time
+    if (timeDelta >= 300 || (timeDelta >= 100 && now - lastDragSeekTime >= 300)) {
       lastDragSeekTime = now
       void setCurrentTime(time / 1000, false)
     }

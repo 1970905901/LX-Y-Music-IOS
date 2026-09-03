@@ -3464,6 +3464,12 @@ RCT_REMAP_METHOD(openStream, openStream:(NSString *)urlString headers:(NSDiction
       return;
     }
 
+    // 强制从 TrackPlayer 或其他持有者手中接管音频会话：先停用再重新配置。
+    // 如果直接在已激活的会话上 setCategory，iOS 可能无法重新应用 LongFormAudio
+    // 策略，导致 AVAudioEngine 运行正常但无音频输出。
+    AVAudioSession *session = [AVAudioSession sharedInstance];
+    [session setActive:NO withOptions:AVAudioSessionSetActiveOptionNotifyOthersOnDeactivation error:nil];
+
     NSError *sessionError = nil;
     if (![self prepareAudioSession:&sessionError]) {
       [self emitErrorMessage:sessionError.localizedDescription ?: @"Failed to activate audio session"];

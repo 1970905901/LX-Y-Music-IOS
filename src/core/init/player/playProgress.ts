@@ -18,7 +18,6 @@ import {
   updateScrobblePlayTime,
   updateScrobbleTotalTime,
 } from '@/core/player/scrobble'
-import { setSeekMuting } from '@/core/player/seekMute'
 
 // 需要「冻结 + 静音等待追平」的高码率音质：这些音质在 seek 后音频需要较长缓冲重排，
 // 先让歌词跳到目标行并静音，待音频位置追上目标再恢复音量并启动歌词 ticker，保证同步。
@@ -149,8 +148,8 @@ export default () => {
 
       // 冻结期（仅静音、不冻结歌词）：音频缓冲追赶期间先静音，避免错位/抢跑的声音；
       // 歌词则按音频时钟正常“走字”（实时推进），待音频位置追上歌词当前位置再放出声音，
-      // 实现“歌词正常走、音频缓冲追上后同步出声”。
-      setSeekMuting(true)
+      // 实现“歌词正常走、音频缓冲追上后同步出声”。静音由本冻结的 catchUp 轮询持续维持，
+      // 不再依赖全局静音标志，避免标志泄漏到其它音质导致“没声音”。
       void setVolume(0)
       global.app_event.seekLyric(time)
       const waitStart = Date.now()
@@ -165,14 +164,15 @@ export default () => {
           const timedOut = Date.now() - waitStart > 8000
           if (caught || timedOut) {
             seekGeneration = 0
-            setSeekMuting(false)
-            // 音频已追上：先恢复音量，再以音频真实落点重新锚定时钟，二者同步发声。
+            // 音频已追上：恢复音量，并以音频真实落点重新锚定时钟，二者同步发声。
             void setVolume(settingState.setting['player.volume'])
             const start = position > 0 ? position : time
             audioClock.setAnchor(start * 1000, settingState.setting['player.playbackRate'], true)
             // 仅超时时兜底将歌词重新对齐到音频真实落点，避免永久错位。
             if (timedOut) global.app_event.seekLyric(start)
           } else {
+            // 仍未追上：持续保持静音（防止 playing 事件把音量恢复导致抢跑/错位），下轮再检查。
+            void setVolume(0)
             BackgroundTimer.setTimeout(catchUp, 200)
           }
         })
@@ -203,9 +203,8 @@ export default () => {
 
   const handleStop = () => {
     clearUpdateTimeout()
-    // 彻底结束播放：清除可能残留的 seek 冻结态与静音标志，避免下次播放被静音。
+    // 彻底结束播放：清除可能残留的 seek 冻结代际，避免下次播放被旧轮询干扰。
     seekGeneration = 0
-    setSeekMuting(false)
     audioClock.reset()
     setNowPlayTime(0)
     setMaxplayTime(0)

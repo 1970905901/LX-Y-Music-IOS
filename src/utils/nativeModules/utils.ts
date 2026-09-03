@@ -146,6 +146,20 @@ export const onRemoteCommand = (
   }
 }
 
+export const onHeadphonesDisconnected = (handler: () => void): (() => void) => {
+  // iOS：原生 AppDelegate 监听 AVAudioSessionRouteChange，耳机拔出时转发
+  // headphones-disconnected 事件。参考 Q-1515/lx-music-mobile ios-adaptation，
+  // 播放器侧据此自动暂停。原生未就绪时安全降级为空订阅。
+  if (!UtilsModule) return () => {}
+  const eventEmitter = new NativeEventEmitter(UtilsModule)
+  const eventListener = eventEmitter.addListener('headphones-disconnected', () => {
+    handler()
+  })
+  return () => {
+    eventListener.remove()
+  }
+}
+
 export const isIgnoringBatteryOptimization = async (): Promise<boolean> => {
   if (isIOS) return true
   return UtilsModule.isIgnoringBatteryOptimization()

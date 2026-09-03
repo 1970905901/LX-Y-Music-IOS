@@ -4,13 +4,35 @@ import { exitApp } from '@/core/common'
 import playerState from '@/store/player/state'
 import settingState from '@/store/setting/state'
 
-type Hook = (time: number, isPlayedStop: boolean) => void
+type TimeoutMode = 'off' | 'timer'
+
+export interface TimeoutExitInfo {
+  time: number
+  isPlayedStop: boolean
+  mode: TimeoutMode
+  active: boolean
+}
+
+type Hook = (info: TimeoutExitInfo) => void
+
+interface TimeoutToolsSnapshot {
+  getTime: () => number
+  mode: TimeoutMode
+}
+
+const createInfo = (tools: TimeoutToolsSnapshot): TimeoutExitInfo => ({
+  time: tools.getTime(),
+  isPlayedStop: global.lx.isPlayedStop,
+  mode: tools.mode,
+  active: tools.getTime() >= 0,
+})
 
 const timeoutTools = {
   bgTimeout: null as number | null,
-  timeout: null as NodeJS.Timer | null,
+  timeout: null as ReturnType<typeof setInterval> | null,
   startTime: 0,
   time: -1,
+  mode: 'off' as TimeoutMode,
   timeHooks: [] as Hook[],
   exit() {
     if (settingState.setting['player.timeoutExitPlayed'] && playerState.isPlay) {
@@ -24,38 +46,45 @@ const timeoutTools = {
     return Math.max(this.time - Math.round((performance.now() - this.startTime) / 1000), -1)
   },
   callHooks() {
-    const time = this.getTime()
+    const info = createInfo(this)
     for (const hook of this.timeHooks) {
-      hook(time, global.lx.isPlayedStop)
+      hook(info)
     }
   },
-  clearTimeout() {
-    if (!this.bgTimeout) return
-    BackgroundTimer.clearTimeout(this.bgTimeout)
-    clearInterval(this.timeout! as any)
-    this.bgTimeout = null
-    this.timeout = null
+  clearTimer(resetMode = true) {
+    if (this.bgTimeout) {
+      BackgroundTimer.clearTimeout(this.bgTimeout)
+      this.bgTimeout = null
+    }
+    if (this.timeout) {
+      clearInterval(this.timeout)
+      this.timeout = null
+    }
     this.time = -1
+    if (resetMode && this.mode == 'timer') this.mode = 'off'
     this.callHooks()
   },
   start(time: number) {
-    this.clearTimeout()
+    this.clearTimer(false)
+    this.mode = 'timer'
     this.time = time
     this.startTime = performance.now()
     this.bgTimeout = BackgroundTimer.setTimeout(() => {
-      this.clearTimeout()
+      this.clearTimer()
       this.exit()
     }, time * 1000)
     this.timeout = setInterval(() => {
       this.callHooks()
     }, 1000)
+    this.callHooks()
   },
   addTimeHook(hook: Hook) {
     this.timeHooks.push(hook)
-    hook(this.getTime(), global.lx.isPlayedStop)
+    hook(createInfo(this))
   },
   removeTimeHook(hook: Hook) {
-    this.timeHooks.splice(this.timeHooks.indexOf(hook), 1)
+    const index = this.timeHooks.indexOf(hook)
+    if (index > -1) this.timeHooks.splice(index, 1)
   },
 }
 
@@ -63,23 +92,20 @@ export const startTimeoutExit = (time: number) => {
   timeoutTools.start(time)
 }
 export const stopTimeoutExit = () => {
-  timeoutTools.clearTimeout()
+  timeoutTools.clearTimer()
 }
-
 export const getTimeoutExitTime = () => {
   return timeoutTools.time
 }
 
 export const useTimeoutExitTimeInfo = () => {
-  const [info, setInfo] = useState({ time: 0, isPlayedStop: false })
+  const [info, setInfo] = useState<TimeoutExitInfo>(createInfo(timeoutTools))
   useEffect(() => {
-    const hook: Hook = (time, isPlayedStop) => {
-      setInfo({ time, isPlayedStop })
+    const hook: Hook = (info) => {
+      setInfo(info)
     }
     timeoutTools.addTimeHook(hook)
-    return () => {
-      timeoutTools.removeTimeHook(hook)
-    }
+    return () => { timeoutTools.removeTimeHook(hook) }
   }, [setInfo])
 
   return info
@@ -98,8 +124,4 @@ export const cancelTimeoutExit = () => {
   timeoutTools.callHooks()
 }
 
-// 标记用户通过锁屏/控制中心进行了交互。
-// 本函数原为智能睡眠模式的"交互重置"钩子，该模式在 iOS 适配时已被移除，
-// 故此处保留为空实现，仅用于满足锁屏远程控制回调（service.ts / remoteCommand.ts）的调用，
-// 避免 undefined is not a function 崩溃。
 export const markTimeoutExitInteraction = () => {}

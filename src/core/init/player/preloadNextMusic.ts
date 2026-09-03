@@ -1,8 +1,10 @@
-import { getMusicUrl } from '@/core/music'
+import { getMusicUrlInfo } from '@/core/music'
 import { getNextPlayMusicInfo, resetRandomNextMusicInfo } from '@/core/player/player'
 import { checkUrl } from '@/utils/request'
 import playerState from '@/store/player/state'
 import { isCached } from '@/plugins/player/utils'
+import { prefetchNativeFlacPlayback } from '@/plugins/player/nativeFlac'
+
 
 const preloadMusicInfo = {
   isLoading: false,
@@ -14,27 +16,33 @@ const resetPreloadInfo = () => {
   preloadMusicInfo.info = null
   preloadMusicInfo.isLoading = false
 }
-const preloadNextMusicUrl = async (curTime: number) => {
+const warmPreloadUrl = async(musicInfo: LX.Player.PlayMusic, url: string, quality?: LX.Quality | null) => {
+  if (await prefetchNativeFlacPlayback(musicInfo, url, quality)) return
+
+  const [cached, available] = await Promise.all([
+    isCached(url),
+    checkUrl(url).then(() => true).catch(() => false),
+  ])
+  if (!cached && !available) throw new Error('preload unavailable')
+}
+const preloadNextMusicUrl = async(curTime: number) => {
   if (preloadMusicInfo.isLoading || curTime - preloadMusicInfo.preProgress < 3) return
   preloadMusicInfo.isLoading = true
   console.log('preload next music url')
   const info = await getNextPlayMusicInfo()
   if (info) {
     preloadMusicInfo.info = info
-    const url = await getMusicUrl({ musicInfo: info.musicInfo }).catch(() => '')
-    if (url) {
-      console.log('preload url', url)
-      const [cached, available] = await Promise.all([
-        isCached(url),
-        checkUrl(url)
-          .then(() => true)
-          .catch(() => false),
-      ])
-      if (!cached && !available) {
-        const url = await getMusicUrl({ musicInfo: info.musicInfo, isRefresh: true }).catch(
-          () => ''
-        )
-        console.log('preload url refresh', url)
+    const urlInfo = await getMusicUrlInfo({ musicInfo: info.musicInfo }).catch(() => null)
+    if (urlInfo?.url) {
+      console.log('preload url', urlInfo.url)
+      try {
+        await warmPreloadUrl(info.musicInfo, urlInfo.url, urlInfo.quality)
+      } catch {
+        const refreshedUrlInfo = await getMusicUrlInfo({ musicInfo: info.musicInfo, isRefresh: true }).catch(() => null)
+        console.log('preload url refresh', refreshedUrlInfo?.url ?? '')
+        if (refreshedUrlInfo?.url) {
+          await warmPreloadUrl(info.musicInfo, refreshedUrlInfo.url, refreshedUrlInfo.quality).catch(() => {})
+        }
       }
     }
   }

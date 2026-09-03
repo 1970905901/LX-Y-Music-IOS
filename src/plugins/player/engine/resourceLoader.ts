@@ -1,6 +1,5 @@
 import TrackPlayer from 'react-native-track-player'
 import { Platform } from 'react-native'
-import { toast } from '@/utils/tools'
 import {
   getNativeFlacTrackId,
   resetNativeFlacPlayback,
@@ -12,8 +11,6 @@ import {
   ensureCurrentTrackMetadata,
   loadTrackPlayerResource,
 } from '../trackPlayerCore'
-import settingState from '@/store/setting/state'
-import { enforceCacheLimit } from '@/utils/nativeModules/cache'
 
 const resolveShouldAutoStart = (currentTrackIndex: number | null) => {
   if (currentTrackIndex != null) return true
@@ -36,9 +33,7 @@ export const loadPlaybackResource = async({
   const currentTrackIndex = await TrackPlayer.getCurrentTrack()
   const shouldAutoStart = resolveShouldAutoStart(currentTrackIndex)
 
-  const useNativeFlac = Platform.OS == 'ios' && await shouldUseNativeFlacPlayer(musicInfo, url, quality)
-
-  if (useNativeFlac) {
+  if (Platform.OS == 'ios' && await shouldUseNativeFlacPlayer(musicInfo, url, quality)) {
     global.lx.playerStatus.ignoreTrackPlayerLifecycle = true
     try {
       await TrackPlayer.reset().catch(async() => {
@@ -57,16 +52,7 @@ export const loadPlaybackResource = async({
         duration: playbackInfo.duration,
         elapsedTime: playbackInfo.position,
       })
-      // 每次加载新歌后做 LRU 清理，让资源缓存管理设定的上限真正约束总大小
-      void enforceCacheLimit((settingState.setting['player.cacheLimit'] || 0) * 1024 * 1024)
       return
-    } catch (err) {
-      // 原生 FLAC 播放器不可用或启动失败（例如非远程/加密格式、原生模块异常）：
-      // 不抛出，回退到下方标准 TrackPlayer 路径，避免"播放但无声音/卡死"。
-      const errMsg = String((err as any)?.message ?? err)
-      toast(`FLAC调试: 原生启动失败→回退TrackPlayer：${errMsg}`, 'long')
-      console.warn('[FLAC] 原生 FLAC 播放失败，回退到 TrackPlayer:', err)
-      await resetNativeFlacPlayback().catch(() => {})
     } finally {
       global.lx.playerStatus.ignoreTrackPlayerLifecycle = false
     }
@@ -85,7 +71,5 @@ export const loadPlaybackResource = async({
     duration: track.duration,
     elapsedTime: time,
   })
-  // 每次加载新歌后做 LRU 清理，让资源缓存管理设定的上限真正约束总大小
-  void enforceCacheLimit((settingState.setting['player.cacheLimit'] || 0) * 1024 * 1024)
 }
 

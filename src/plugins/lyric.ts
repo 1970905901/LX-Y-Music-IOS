@@ -173,12 +173,14 @@ export const toggleRoma = (isShow: boolean) => {
   lrcTools.setLyric()
 }
 export const play = (time?: number) => {
+  // 参考 Q-1515/lx-music-mobile ios-adaptation 分支：
+  // 启动 lrc-file-parser 内部 ticker，由歌词引擎按自身时钟推进高亮行；
+  // 音频位置变化（seek / 起播）时由调用方用 handlePlay(position) 重新对齐，
+  // 不再由外部每帧强推（外推时钟在缓冲/卡顿时会脱离音频真实位置，导致快进快退后
+  // 歌词与音频不同步）。
   // 调用方统一传入【毫秒】（lrc-file-parser 的语义）。
-  // 改为【纯镜像】语义：仅把当前行锚到指定音频位置，不再启动 lrc-file-parser
-  // 内部 ticker——避免歌词时钟脱离音频真实位置自行走字（缓冲/卡顿/JS 线程繁忙
-  // 时 ticker 与音频脱节，表现为“歌词跑在音频前面”）。真正的前进由 playProgress
-  // 的 250ms 重锚循环驱动，歌词行永远等于音频真实位置（⑩ 绝对同步）。
-  syncToTime(time ?? 0, true)
+  lrcTools.isPlay = true
+  lrcTools.lrc!.play(time ?? 0)
 }
 export const pause = () => {
   // console.log('pause')
@@ -260,6 +262,14 @@ export const syncToTime = (time: number, isPlaying: boolean) => {
 // 逐行歌词 play hook：iOS 无原生 LyricModule，蓝牙歌词 / 网络歌词改用此 JS 引擎钩子驱动。
 export const addPlayHook = (hook: PlayHook) => lrcTools.addPlayHook(hook)
 export const removePlayHook = (hook: PlayHook) => lrcTools.removePlayHook(hook)
+
+// 参考 Q-1515/lx-music-mobile ios-adaptation：注册逐行播放钩子并返回取消函数。
+export const onLyricPlay = (hook: PlayHook) => {
+  lrcTools.addPlayHook(hook)
+  return () => {
+    lrcTools.removePlayHook(hook)
+  }
+}
 
 // on lyric play hook
 export const useLrcPlay = (autoUpdate = true) => {

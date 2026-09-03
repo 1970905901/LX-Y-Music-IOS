@@ -1,6 +1,5 @@
 import { Platform } from 'react-native'
 import settingState from '@/store/setting/state'
-import { toast } from '@/utils/tools'
 import {
   getStreamingFlacBufferedPosition,
   getStreamingFlacDuration,
@@ -56,41 +55,13 @@ const clearCurrentContext = (nextState: NativeFlacState) => {
 const getMusicInfo = (musicInfo: LX.Player.PlayMusic) => 'progress' in musicInfo ? musicInfo.metadata.musicInfo : musicInfo
 const isRemoteUrl = (url: string) => /^https?:\/\//i.test(url)
 
-// 这些扩展名是各音源加密格式，原生 StreamingFlac 播放器无法解码，必须走带解密的 TrackPlayer 路径。
-// 若把它们交给原生玩家，会出现"界面播放但无声音"的现象。
-const ENCRYPTED_AUDIO_EXTENSIONS = new Set([
-  'mflac', 'mflac0', 'mgg', 'mgg0', 'mgg1', 'ncm',
-  'kgm', 'kgma', 'kgg', 'vpr', 'kwm', 'kwl', 'kwb',
-  'kwmv', 'kwac', 'kwring', 'kwshort',
-])
-
-const isEncryptedAudioUrl = (url: string): boolean => {
-  try {
-    const pathname = new URL(url).pathname.toLowerCase()
-    const ext = pathname.split('.').pop() || ''
-    return ENCRYPTED_AUDIO_EXTENSIONS.has(ext)
-  } catch {
-    return false
-  }
-}
-
 export const isNativeFlacPlayerAvailable = () => Platform.OS == 'ios' && isStreamingFlacSupported
 
 export const shouldUseNativeFlacPlayer = async(musicInfo: LX.Player.PlayMusic, _url: string, quality?: LX.Quality | null) => {
   if (!isNativeFlacPlayerAvailable()) return false
 
-  // 原生 StreamingFlac 播放器在当前 iOS 构建中对所有音源均无法出声：
-  // 用户实测网易云、酷狗、酷我、咪咕、QQ 音乐（企鹅）的 FLAC 都无声/失真，
-  // 即使 URL 明确以 .flac 结尾（如 QQ 音乐 isure6.ptqqmusic.../...flac?guid=...）也播不了。
-  // 先整体禁用原生 FLAC 路径，让 FLAC 回退到经过验证的 TrackPlayer 主路径。
-  return false
-
-  // 保留原决策逻辑供后续修复原生引擎后恢复：
-  // - 本地文件走 TrackPlayer；
-  // - 加密格式（mflac/mgg/ncm/kgm 等）原生播放器无法解码，必须回退到带解密的 TrackPlayer 路径。
-  // if (!isRemoteUrl(_url) || isEncryptedAudioUrl(_url)) return false
-  // if (quality != null) return preferredPreciseQualities.has(quality)
-  // return getMusicInfo(musicInfo).source != 'local' && preferredPreciseQualities.has(settingState.setting['player.playQuality'])
+  if (quality != null) return preferredPreciseQualities.has(quality)
+  return getMusicInfo(musicInfo).source != 'local' && preferredPreciseQualities.has(settingState.setting['player.playQuality'])
 }
 
 export const prefetchNativeFlacPlayback = async(musicInfo: LX.Player.PlayMusic, url: string, quality?: LX.Quality | null) => {
@@ -129,7 +100,6 @@ export const startNativeFlacPlayback = async(musicInfo: LX.Player.PlayMusic, url
       currentTrackId = ''
       currentMode = 'none'
       currentState = 'idle'
-      toast(`FLAC调试: openStreamingFlac 抛错：${String((err as any)?.message ?? err)}`, 'long')
       throw err
     }
   }
@@ -270,7 +240,6 @@ export const onNativeFlacPlayerEvent = (listener: (event: NativeFlacEvent) => vo
         currentState = 'stopped'
         currentTrackId = ''
         currentMode = 'none'
-        toast(`FLAC调试: 播放结束`, 'long')
         listener({
           type: 'ended',
           state: 'stopped',
@@ -281,7 +250,6 @@ export const onNativeFlacPlayerEvent = (listener: (event: NativeFlacEvent) => vo
         break
       case 'error':
         currentState = 'paused'
-        toast(`FLAC 播放失败：${event.message ?? '(无错误文案)'}`, 'long')
         listener({
           type: 'error',
           message: event.message,
@@ -291,8 +259,6 @@ export const onNativeFlacPlayerEvent = (listener: (event: NativeFlacEvent) => vo
         })
         break
       case 'warning':
-        // 解码告警（如 lost-sync）往往就是"有进度但失真/没声"的直接信号，必须暴露给用户。
-        toast(`FLAC 警告：${event.message ?? '(无告警文案)'}`, 'long')
         listener({
           type: 'warning',
           message: event.message,

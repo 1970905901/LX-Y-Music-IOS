@@ -11,27 +11,6 @@ const defaultUserAgent = 'Mozilla/5.0 (Linux; Android 10; Pixel 3) AppleWebKit/5
 const httpRxp = /^(https?:\/\/.+|\/.+)/
 const wait = async(ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
-/**
- * 归一化控制中心（原生 NowPlaying）封面：
- * 原生侧用 imageWithContentsOfFile 读取本地封面，要求纯路径；
- * 网络/纯路径原样返回，file:// 去掉前缀，其余视为无效。
- */
-export const normalizeNowPlayingArtwork = (pic?: string | null): string | undefined => {
-  if (!pic) return undefined
-  if (pic.startsWith('file://')) return pic.slice('file://'.length) || undefined
-  return httpRxp.test(pic) ? pic : undefined
-}
-
-/**
- * 归一化 RNTP track 封面：RNTP 要求 uri 带协议，
- * 纯本地路径补 file://，网络与 file:// 原样返回。
- */
-const normalizeTrackArtwork = (pic?: string | null): string | undefined => {
-  if (!pic) return undefined
-  if (pic.startsWith('/')) return `file://${pic}`
-  return /^(https?:\/\/|file:\/\/)/.test(pic) ? pic : undefined
-}
-
 export const trackPlayerState = {
   isPlaying: false,
   prevDuration: -1,
@@ -56,14 +35,10 @@ const formatIOSNowPlayingMetadata = (metadata: {
   lyric?: string
 }) => {
   return {
-    // 调用方已经分别提供标准 title/artist 字段；不要再次拼接，避免切歌或
-    // 歌词更新时出现“歌名 - 歌手 - 歌手/歌词”的重复内容。
-    title: metadata.title ?? 'Unknow',
-    // 没有歌词时保留歌手名，避免 iOS 27 Beta 将缺少有效副标题的媒体项
-    // 当成空 Now Playing 会话；启用蓝牙歌词时仍以当前歌词覆盖 artist。
-    artist: metadata.lyric ?? metadata.artist ?? '',
+    title: formatNowPlayingTitleLine(metadata.title, metadata.artist),
+    artist: metadata.lyric ?? '',
     album: '',
-    artwork: metadata.artwork ?? '',
+    artwork: metadata.artwork,
     duration: metadata.duration,
     elapsedTime: metadata.elapsedTime,
     playbackRate: metadata.playbackRate,
@@ -91,7 +66,7 @@ export const buildTracks = (musicInfo: LX.Player.PlayMusic, url?: LX.Player.Trac
   const track = [] as LX.Player.Track[]
   const isShowNotificationImage = settingState.setting['player.isShowNotificationImage']
   const album = mInfo.album || undefined
-  const artwork = isShowNotificationImage && mInfo.pic ? normalizeTrackArtwork(mInfo.pic) : undefined
+  const artwork = isShowNotificationImage && mInfo.pic && httpRxp.test(mInfo.pic) ? mInfo.pic : undefined
   if (url) {
     track.push({
       id: `${mInfo.id}__//${Math.random()}__//${url}`,
@@ -158,34 +133,20 @@ export const updateCurrentTrackMetadata = async(metadata: {
   elapsedTime?: number
   playbackRate?: number
 }) => {
-  if (Platform.OS == 'ios') {
-    // iOS 上由自定义 NowPlayingModule 独占写入 MPNowPlayingInfoCenter。
-    // 不再依赖 react-native-track-player：在 iOS 27 beta 等环境下其 getCurrentTrack /
-    // updateMetadataForTrack 可能卡死或异常，会阻断自定义模块执行，导致控制中心
-    // 无音乐信息、且播放/暂停等命令被禁用（LXSyncRemoteCommandAvailability 在
-    // 缓存为空时会禁用全部命令）。解耦后元数据更新独立可靠，且避免两套系统
-    // 争抢同一个 nowPlayingInfo 造成信息被覆盖。
-    const nowPlayingMetadata: Parameters<typeof updateNowPlayingInfo>[0] = {
-      ...metadata,
-    }
-    // 仅在真正拿到封面时携带 artwork 字段：空值（封面尚未异步匹配到，如汽水 qs）
-    // 时省略该键，让原生侧走「仅重应用、不触碰封面」分支，避免把「封面未就绪」的
-    // 元数据刷新误当成「清空封面」，从而取消正在下载的封面 / 擦除已显示封面
-    // （表现为播放中控制中心封面缺失，需暂停再播放才恢复）。
-    if (metadata.artwork) {
-      nowPlayingMetadata.artwork = metadata.artwork
-    } else {
-      delete nowPlayingMetadata.artwork
-    }
-    if (metadata.playbackRate !== undefined) nowPlayingMetadata.playbackRate = metadata.playbackRate
-    await updateNowPlayingInfo(nowPlayingMetadata).catch(() => {})
-    return
-  }
   const currentTrackIndex = await TrackPlayer.getCurrentTrack().catch(() => null)
   if (currentTrackIndex != null && currentTrackIndex > -1) {
     await TrackPlayer.updateMetadataForTrack(currentTrackIndex, metadata).catch(() => {})
   }
-  await TrackPlayer.updateNowPlayingMetadata(metadata, trackPlayerState.isPlaying).catch(() => {})
+  if (Platform.OS == 'ios') {
+    const nowPlayingMetadata: Parameters<typeof updateNowPlayingInfo>[0] = {
+      ...metadata,
+      artwork: metadata.artwork ?? '',
+    }
+    if (metadata.playbackRate !== undefined) nowPlayingMetadata.playbackRate = metadata.playbackRate
+    await updateNowPlayingInfo(nowPlayingMetadata).catch(() => {})
+  } else {
+    await TrackPlayer.updateNowPlayingMetadata(metadata, trackPlayerState.isPlaying).catch(() => {})
+  }
 }
 
 export const ensureCurrentTrackMetadata = (metadata: {
@@ -222,7 +183,7 @@ export const restoreTrack = async(track: LX.Player.Track, position: number, isPl
     title: restoredTrack.title,
     artist: restoredTrack.artist,
     album: restoredTrack.album,
-    artwork: normalizeNowPlayingArtwork(typeof restoredTrack.artwork == 'string' ? restoredTrack.artwork : undefined),
+    artwork: typeof restoredTrack.artwork == 'string' ? restoredTrack.artwork : undefined,
     duration: restoredTrack.duration,
     elapsedTime: position,
   })

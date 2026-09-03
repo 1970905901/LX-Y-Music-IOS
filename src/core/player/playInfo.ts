@@ -3,10 +3,8 @@ import playerState from '@/store/player/state'
 
 import { getListMusicSync } from '@/utils/listManage'
 import { setProgress } from '@/core/player/progress'
-import { LIST_IDS, MUSIC_TOGGLE_MODE } from '@/config/constant'
-import settingState from '@/store/setting/state'
-import listState from '@/store/list/state'
-import { updateSetting } from '@/core/common'
+import { LIST_IDS } from '@/config/constant'
+
 
 export const setMusicInfo = (musicInfo: Partial<LX.Player.MusicInfo>) => {
   playerActions.setMusicInfo(musicInfo)
@@ -24,26 +22,20 @@ export const setPlayListId = (listId: string | null) => {
   playerActions.setPlayListId(listId)
 }
 
+
 /**
  * 更新播放位置
  * @returns 播放位置
  */
 export const updatePlayIndex = () => {
-  const indexInfo = getPlayIndex(
-    playerState.playMusicInfo.listId,
-    playerState.playMusicInfo.musicInfo,
-    playerState.playMusicInfo.isTempPlay
-  )
+  const indexInfo = getPlayIndex(playerState.playMusicInfo.listId, playerState.playMusicInfo.musicInfo, playerState.playMusicInfo.isTempPlay)
   // console.log('indexInfo', indexInfo)
   playerActions.updatePlayIndex(indexInfo.playIndex, indexInfo.playerPlayIndex)
   return indexInfo
 }
 
-export const getPlayIndex = (
-  listId: string | null,
-  musicInfo: LX.Download.ListItem | LX.Music.MusicInfo | null,
-  isTempPlay: boolean
-): {
+
+export const getPlayIndex = (listId: string | null, musicInfo: LX.Download.ListItem | LX.Music.MusicInfo | null, isTempPlay: boolean): {
   playIndex: number
   playerPlayIndex: number
 } => {
@@ -62,10 +54,10 @@ export const getPlayIndex = (
   const list = getListMusicSync(listId)
   if (list.length && musicInfo) {
     const currentId = musicInfo.id
-    playIndex = list.findIndex((m) => m.id == currentId)
+    playIndex = list.findIndex(m => m.id == currentId)
     if (!isTempPlay) {
       if (playIndex < 0) {
-        playerPlayIndex = playerPlayIndex < 1 ? list.length - 1 : playerPlayIndex - 1
+        playerPlayIndex = playerPlayIndex < 1 ? (list.length - 1) : (playerPlayIndex - 1)
       } else {
         playerPlayIndex = playIndex
       }
@@ -95,41 +87,29 @@ export const resetPlayerMusicInfo = () => {
 
 const setPlayerMusicInfo = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem | null) => {
   if (musicInfo) {
-    const onlineMusicInfo = 'progress' in musicInfo 
-      ? musicInfo.metadata.musicInfo 
-      : (musicInfo as LX.Music.MusicInfoOnline)
-    
-    setMusicInfo(
-      'progress' in musicInfo
-        ? {
-            id: musicInfo.id,
-            pic: musicInfo.metadata.musicInfo.meta.picUrl,
-            name: musicInfo.metadata.musicInfo.name,
-            alias: musicInfo.metadata.musicInfo.alias,
-            singer: musicInfo.metadata.musicInfo.singer,
-            album: musicInfo.metadata.musicInfo.meta.albumName ?? '',
-            artists: musicInfo.metadata.musicInfo.artists,
-            lrc: null,
-            tlrc: null,
-            rlrc: null,
-            lxlrc: null,
-            rawlrc: null,
-          }
-        : {
-            id: musicInfo.id,
-            pic: musicInfo.meta.picUrl,
-            name: musicInfo.name,
-            alias: musicInfo.alias,
-            singer: musicInfo.singer,
-            album: musicInfo.meta.albumName ?? '',
-            artists: onlineMusicInfo.artists,
-            lrc: null,
-            tlrc: null,
-            rlrc: null,
-            lxlrc: null,
-            rawlrc: null,
-          }
-    )
+    setMusicInfo('progress' in musicInfo ? {
+      id: musicInfo.id,
+      pic: musicInfo.metadata.musicInfo.meta.picUrl,
+      name: musicInfo.metadata.musicInfo.name,
+      singer: musicInfo.metadata.musicInfo.singer,
+      album: musicInfo.metadata.musicInfo.meta.albumName ?? '',
+      lrc: null,
+      tlrc: null,
+      rlrc: null,
+      lxlrc: null,
+      rawlrc: null,
+    } : {
+      id: musicInfo.id,
+      pic: musicInfo.meta.picUrl,
+      name: musicInfo.name,
+      singer: musicInfo.singer,
+      album: musicInfo.meta.albumName ?? '',
+      lrc: null,
+      tlrc: null,
+      rlrc: null,
+      lxlrc: null,
+      rawlrc: null,
+    })
   } else resetPlayerMusicInfo()
 }
 
@@ -139,19 +119,9 @@ const setPlayerMusicInfo = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem
  * @param musicInfo 歌曲信息
  * @param isTempPlay 是否临时播放
  */
-export const setPlayMusicInfo = (
-  listId: string | null,
-  musicInfo: LX.Download.ListItem | LX.Music.MusicInfo | null,
-  isTempPlay: boolean = false
-) => {
+export const setPlayMusicInfo = (listId: string | null, musicInfo: LX.Download.ListItem | LX.Music.MusicInfo | null, isTempPlay: boolean = false) => {
   playerActions.setPlayMusicInfo(listId, musicInfo, isTempPlay)
   setPlayerMusicInfo(musicInfo)
-
-  if (settingState.setting['player.togglePlayMethod'] === 'heartbeat') {
-    if (listId !== LIST_IDS.TEMP || listState.tempListMeta.id !== 'heartbeat') {
-      updateSetting({ 'player.togglePlayMethod': MUSIC_TOGGLE_MODE.listLoop })
-    }
-  }
 
   setProgress(0, 0)
 

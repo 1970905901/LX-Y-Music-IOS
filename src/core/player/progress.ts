@@ -11,3 +11,4 @@ export const setMaxplayTime = (time: number) => {
 export const setProgress = (currentTime: number, totalTime: number) => {
   playerActions.setProgress(currentTime, totalTime)
 }
+

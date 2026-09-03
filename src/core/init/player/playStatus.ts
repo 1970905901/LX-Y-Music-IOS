@@ -1,8 +1,7 @@
 // import { LIST_ID_LOVE } from '@/config/constant'
 
-import { updateMetaData } from '@/plugins/player'
+import { syncNowPlayingMetadata, syncNowPlayingState } from '@/core/player/nowPlaying'
 import playerState from '@/store/player/state'
-import { syncNowPlayingState } from '@/core/player/nowPlaying'
 
 export default () => {
   // const setVisibleDesktopLyric = useCommit('setVisibleDesktopLyric')
@@ -17,12 +16,19 @@ export default () => {
     lrc: false,
     lockLrc: false,
   }
+  let syncedDurationMusicId: string | null = null
   const setButtons = () => {
     // setPlayerAction(buttons)
     if (!playerState.playMusicInfo.musicInfo) return
-    // force=true：切歌/恢复播放时控制中心可能保留旧会话或为空，强制刷新一次确保
-    // MPNowPlayingInfoCenter 拿到当前歌曲元数据，降低 iPad 控制中心不显示的概率。
-    void updateMetaData(playerState.musicInfo, playerState.isPlay, playerState.lastLyric, true)
+    syncNowPlayingMetadata()
+  }
+  const syncPlaybackRate = () => {
+    if (!playerState.playMusicInfo.musicInfo) return
+    if (playerState.isPlay) {
+      void syncNowPlayingState('play')
+    } else if (!playerState.isPlay && buttons.play) {
+      void syncNowPlayingState('pause')
+    }
   }
   // const updateCollectStatus = async() => {
   //   // let status = !!playMusicInfo.musicInfo && await checkListExistMusic(LIST_ID_LOVE, playerState.playMusicInfo.musicInfo.id)
@@ -32,26 +38,27 @@ export default () => {
   // }
 
   const handlePlay = () => {
-    // if (buttons.empty) buttons.empty = false
-    if (buttons.play) return
-    buttons.play = true
-    setButtons()
-    // iOS 控制中心 / 锁屏需同步播放状态，否则按钮无播放态
-    void syncNowPlayingState('play')
+    void (async() => {
+      await syncNowPlayingState('play')
+      // if (buttons.empty) buttons.empty = false
+      if (buttons.play) return
+      buttons.play = true
+      setButtons()
+    })()
   }
   const handlePause = () => {
-    // if (buttons.empty) buttons.empty = false
-    if (!buttons.play) return
-    buttons.play = false
-    setButtons()
-    // iOS 控制中心 / 锁屏需同步播放状态，否则按钮无播放态
-    void syncNowPlayingState('pause')
+    void (async() => {
+      await syncNowPlayingState('pause')
+      // if (buttons.empty) buttons.empty = false
+      if (!buttons.play) return
+      buttons.play = false
+      setButtons()
+    })()
   }
   const handleStop = () => {
-    if (!buttons.play) return
+    void syncNowPlayingState('stop')
     buttons.play = false
     setButtons()
-    void syncNowPlayingState('stop')
   }
   // const handleStop = () => {
   //   // if (playerState.playMusicInfo.musicInfo != null) return
@@ -59,11 +66,22 @@ export default () => {
   //   // buttons.empty = true
   //   setButtons()
   // }
-  // const handleSetPlayInfo = () => {
-  //   void updateCollectStatus().then(isExist => {
-  //     if (isExist) setButtons()
-  //   })
-  // }
+  const handleSetPlayInfo = () => {
+    if (!playerState.playMusicInfo.musicInfo) return
+    syncedDurationMusicId = null
+    syncNowPlayingMetadata(true)
+  }
+  const handlePlayProgressChanged: typeof global.state_event.playProgressChanged = (progress) => {
+    const musicId = playerState.playMusicInfo.musicInfo?.id
+    if (!musicId || progress.maxPlayTime <= 0) return
+    if (syncedDurationMusicId == musicId) return
+    syncedDurationMusicId = musicId
+    syncNowPlayingMetadata(true)
+  }
+  const handleConfigUpdated: typeof global.state_event.configUpdated = (keys) => {
+    if (!keys.includes('player.playbackRate')) return
+    syncPlaybackRate()
+  }
   // const handleSetTaskbarThumbnailClip = (clip) => {
   //   setTaskbarThumbnailClip(clip)
   // }
@@ -79,12 +97,15 @@ export default () => {
   // }
   global.app_event.on('play', handlePlay)
   global.app_event.on('pause', handlePause)
+  global.app_event.on('error', handlePause)
   global.app_event.on('stop', handleStop)
-  // global.app_event.on('musicToggled', handleSetPlayInfo)
+  global.app_event.on('musicToggled', handleSetPlayInfo)
+  global.state_event.on('configUpdated', handleConfigUpdated)
+  global.state_event.on('playProgressChanged', handlePlayProgressChanged)
   // window.app_event.on(eventTaskbarNames.setTaskbarThumbnailClip, handleSetTaskbarThumbnailClip)
   // window.app_event.on('myListMusicUpdate', throttleListChange)
 
-  return async () => {
+  return async() => {
     // const setting = store.getters.setting
     // buttons.lrc = setting.desktopLyric.enable
     // buttons.lockLrc = setting.desktopLyric.isLock

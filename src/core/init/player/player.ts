@@ -1,18 +1,19 @@
 import { addPlayedList, clearPlayedList } from '@/core/player/playedList'
-import { pause, playNext, playList } from '@/core/player/player'
+import { pause, playNext } from '@/core/player/player'
 import { setStatusText, setIsPlay } from '@/core/player/playStatus'
 // import { resetPlayerMusicInfo } from '@/core/player/playInfo'
 import { setStop } from '@/plugins/player'
-import { delayUpdateMusicInfo } from '@/plugins/player/playList'
+import { delayUpdateMusicInfo, updateMetaData } from '@/plugins/player/playList'
+import { soundEffectController } from '@/plugins/player/soundEffect'
 import playerState from '@/store/player/state'
 import settingState from '@/store/setting/state'
+import { onHeadphonesDisconnected } from '@/utils/nativeModules/utils'
+import { Platform } from 'react-native'
 
-export default async (setting: LX.AppSetting) => {
+
+export default async(setting: LX.AppSetting) => {
   const setPlayStatus = () => {
     setIsPlay(true)
-    if (playerState.statusText === global.i18n.t('player__getting_url')) {
-      setStatusText('')
-    }
   }
   const setPauseStatus = () => {
     setIsPlay(false)
@@ -20,11 +21,16 @@ export default async (setting: LX.AppSetting) => {
   }
 
   const handleEnded = () => {
+    // setTimeout(() => {
     if (global.lx.isPlayedStop) {
       setStatusText(global.i18n.t('player__end'))
       return
     }
+    // resetPlayerMusicInfo()
+    // global.app_event.stop()
+    setStatusText(global.i18n.t('player__end'))
     void playNext(true)
+    // })
   }
 
   const setStopStatus = () => {
@@ -34,9 +40,15 @@ export default async (setting: LX.AppSetting) => {
   }
 
   const updatePic = () => {
+    if (!settingState.setting['player.isShowNotificationImage']) return
     if (playerState.playMusicInfo.musicInfo && playerState.musicInfo.pic) {
       delayUpdateMusicInfo(playerState.musicInfo, playerState.lastLyric)
     }
+  }
+
+  const refreshNowPlaying = () => {
+    if (!playerState.playMusicInfo.musicInfo) return
+    void updateMetaData(playerState.musicInfo, playerState.isPlay, playerState.lastLyric, true)
   }
 
   const handleConfigUpdated: typeof global.state_event.configUpdated = (keys, settings) => {
@@ -44,10 +56,11 @@ export default async (setting: LX.AppSetting) => {
       const newValue = settings['player.togglePlayMethod']
       if (playerState.playedList.length) clearPlayedList()
       const playMusicInfo = playerState.playMusicInfo
-      if (newValue == 'random' && playMusicInfo.musicInfo && !playMusicInfo.isTempPlay)
-        addPlayedList({ ...(playMusicInfo as LX.Player.PlayMusicInfo) })
+      if (newValue == 'random' && playMusicInfo.musicInfo && !playMusicInfo.isTempPlay) addPlayedList({ ...(playMusicInfo as LX.Player.PlayMusicInfo) })
     }
+    if (keys.some(soundEffectController.isSettingKey)) void soundEffectController.applyCurrentConfig()
   }
+
 
   global.app_event.on('play', setPlayStatus)
   global.app_event.on('pause', setPauseStatus)
@@ -55,6 +68,15 @@ export default async (setting: LX.AppSetting) => {
   global.app_event.on('stop', setStopStatus)
   global.app_event.on('playerEnded', handleEnded)
   global.app_event.on('picUpdated', updatePic)
+  global.app_event.on('musicToggled', refreshNowPlaying)
+  global.app_event.on('lyricUpdated', refreshNowPlaying)
   global.state_event.on('configUpdated', handleConfigUpdated)
+  void soundEffectController.applyCurrentConfig()
 
+  if (Platform.OS == 'ios') {
+    onHeadphonesDisconnected(() => {
+      if (!playerState.isPlay) return
+      void pause()
+    })
+  }
 }

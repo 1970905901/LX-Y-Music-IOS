@@ -77,6 +77,15 @@ export class AppEvent extends Event {
   }
 
   /**
+   * 音频 seek 完成后，用实际落点让歌词引擎重新对齐。
+   * 参考 Q-1515/lx-music-mobile ios-adaptation：歌词由引擎内部 ticker 自行推进，
+   * seek 结束后必须显式通知歌词跳转到引擎真实位置，否则快进/快退后歌词与音频脱节。
+   */
+  seekLyric(time: number) {
+    this.emit('seekLyric', time)
+  }
+
+  /**
    * Set volume level
    * @param volume volume level
    */

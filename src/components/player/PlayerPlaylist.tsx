@@ -87,13 +87,35 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
   // 2. 否则展示当前播放列表，从当前歌曲位置开始。
   const isTempMode = useMemo(() => (tempPlayList ?? []).length > 0, [tempPlayList])
 
+  // 普通列表模式下，playlist 直接读 store 中的歌单数据（getListMusicSync）。
+  // 该数据变化只通过 global.list_event 广播，不会触发组件重新计算，
+  // 因此这里订阅相关事件，在当前播放列表被改动时强制刷新。
+  const [listVersion, setListVersion] = useState(0)
+  useEffect(() => {
+    const handleListChange = (changedListId: string) => {
+      if (changedListId === playerState.playInfo.playerListId) setListVersion(v => v + 1)
+    }
+    global.list_event.on('list_music_remove', handleListChange)
+    global.list_event.on('list_music_add', handleListChange)
+    global.list_event.on('list_music_update_position', handleListChange)
+    global.list_event.on('list_music_clear', handleListChange)
+    global.list_event.on('list_music_overwrite', handleListChange)
+    return () => {
+      global.list_event.off('list_music_remove', handleListChange)
+      global.list_event.off('list_music_add', handleListChange)
+      global.list_event.off('list_music_update_position', handleListChange)
+      global.list_event.off('list_music_clear', handleListChange)
+      global.list_event.off('list_music_overwrite', handleListChange)
+    }
+  }, [])
+
   const playlist = useMemo<LX.Player.PlayMusic[]>(() => {
     const tempItems = (tempPlayList ?? []).map(item => item.musicInfo)
     if (tempItems.length) return tempItems
     const listId = playerState.playInfo.playerListId
     if (!listId) return []
     return (getList(listId) as LX.Player.PlayMusic[])
-  }, [tempPlayList, playerMusicInfo.id]);
+  }, [tempPlayList, playerMusicInfo.id, listVersion]);
 
   // 依赖必须列出，否则 ref 暴露的 show() 会永久闭包首次渲染的旧值。
   useImperativeHandle(ref, () => ({

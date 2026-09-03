@@ -20,6 +20,7 @@ import {
   stopNativeFlacPlayback,
 } from './nativeFlac'
 import { onUnifiedPlayerEvent } from './engine'
+import playerState from '@/store/player/state'
 // import { PlayerMusicInfo } from '@/store/modules/player/playInfo'
 
 
@@ -192,6 +193,7 @@ const playMusic = ((fn: (musicInfo: LX.Player.PlayMusic, url: string, time: numb
 })
 
 export const setResource = (musicInfo: LX.Player.PlayMusic, url: string, duration?: number, quality?: LX.Quality | null) => {
+  playerState.quality = quality ?? null
   playMusic(musicInfo, url, duration ?? 0, quality)
 }
 

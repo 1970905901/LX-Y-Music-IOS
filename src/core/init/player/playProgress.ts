@@ -21,6 +21,10 @@ import {
 import { syncLyric } from '@/core/lyric'
 import { setSeekMuting } from '@/core/player/seekMute'
 
+// 高于 flac 的音质集合：仅这些音质在 seek 后需要「歌词先到位、音频缓冲追平再出声」的冻结同步。
+// 普通 flac 及更低音质走常规 seekLyric，不加冻结/静音。
+const aboveFlacQualities = new Set<LX.Quality>(['flac24bit', 'hires'])
+
 const delaySavePlayInfo = throttleBackgroundTimer(() => {
   void savePlayInfo({
     time: playerState.progress.nowPlayTime,
@@ -132,6 +136,14 @@ export default () => {
 
       // 非 iOS 或暂停态：可以直接用实际落点启动歌词 ticker。
       if (Platform.OS != 'ios' || !playerState.isPlay) {
+        global.app_event.seekLyric(actualTime)
+        return
+      }
+
+      // 仅对高于 flac 的音质（flac24bit / hires 等）启用 seek 冻结同步逻辑；
+      // 普通 flac 及更低音质走常规 seekLyric，避免对无需长缓冲重排的音质误加冻结/静音。
+      const isAboveFlac = playerState.quality != null && aboveFlacQualities.has(playerState.quality)
+      if (!isAboveFlac) {
         global.app_event.seekLyric(actualTime)
         return
       }

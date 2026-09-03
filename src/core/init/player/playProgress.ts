@@ -188,12 +188,14 @@ export default () => {
     seekResyncTimers.forEach(t => BackgroundTimer.clearTimeout(t))
     seekResyncTimers = []
 
-    const maxAttempts = 12 // 150ms * 12 = 1.8s 兜底（在线歌曲缓冲可能更久）
+    const maxAttempts = 14 // 150ms * 14 = 2.1s 兜底（在线歌曲缓冲/解码可能更久）
     let attempts = 0
+    // 需要连续两次探测到「在播且位置接近目标」才恢复外推：
+    // 在线音频 getPosition() 可能提前跳到目标，但音频尚未真正出声；
+    // 连续两次稳定命中说明位置已真正落稳，避免歌词忽前忽后。
+    let lastNearTarget = false
     const settle = () => {
       attempts++
-      // 同时取位置与状态：缓冲期间 getPosition 可能已经跳到目标，但音频尚未真正出声，
-      // 此时若用该位置 resume，歌词会跑到音频前面（在线歌曲快进后歌词快一行的主因）。
       void Promise.all([
         getPosition(),
         TrackPlayer.getState().catch(() => null),
@@ -204,12 +206,14 @@ export default () => {
         }
         const positionMs = position == null ? 0 : position * 1000
         const isEnginePlaying = state == State.Playing
-        // 引擎真正在播放且位置接近目标 → seek 已真正生效，从真实位置恢复外推
-        if (isEnginePlaying && position != null && Math.abs(positionMs - targetMs) <= SEEK_CONVERGE_MS) {
+        const nearTarget = position != null && Math.abs(positionMs - targetMs) <= SEEK_CONVERGE_MS
+        // 引擎真正在播放且位置连续两次接近目标 → seek 已真正生效，从真实位置恢复外推
+        if (isEnginePlaying && nearTarget && lastNearTarget) {
           audioClock.setAnchor(positionMs, getRate(), true)
           seekTargetMs = -1
           return
         }
+        lastNearTarget = isEnginePlaying && nearTarget
         // 超时兜底：按引擎实际状态恢复，避免永久 hold
         if (attempts >= maxAttempts) {
           audioClock.setAnchor(positionMs || targetMs, getRate(), isEnginePlaying)
@@ -326,18 +330,22 @@ export default () => {
     // 区分「被打断 / 系统暂停」与「用户主动暂停」，避免用户暂停后切回前台被误恢复。
     global.lx.playerStatus.userPaused = false
     void getMaxTime()
-    // 立即把外推时钟切到「播放中」：play 事件（原生 'playing'）本身就代表正在播放，
-    // 这里同步把 audioClock 置为 playing（以当前外推位置为锚，通常是暂停/记忆位置），
-    // 让 rAF 在下一帧立即开始外推，避免「原生 playing 事件到达 → getPosition().then
-    // 异步重锚生效前」这段空窗里 audioClock 仍停在暂停态、歌词被钉在旧行不动，
-    // 表现为「暂停→后台→返回播放」瞬间歌词明显滞后（停在原位再突然跳）。
-    // 真实位置仍由下方 getPosition().then 重锚校准（覆盖 iOS 恢复播放的 seek 延迟）。
-    audioClock.setPlaying(true)
-    try { lrcSyncToTime(audioClock.getTime() * 1000, true) } catch {}
+    // seek 沉降期间由 startSeekSettlement 统一恢复外推：
+    // 若此处直接 setPlaying(true)，会在缓冲尚未结束时让歌词从目标位置提前跑起来，
+    // 导致在线歌曲快进后歌词比音频快。
+    const inSeekSettlement = seekTargetMs >= 0
+    if (!inSeekSettlement) {
+      // 立即把外推时钟切到「播放中」：play 事件（原生 'playing'）本身就代表正在播放，
+      // 这里同步把 audioClock 置为 playing（以当前外推位置为锚，通常是暂停/记忆位置），
+      // 让 rAF 在下一帧立即开始外推，避免「原生 playing 事件到达 → getPosition().then
+      // 异步重锚生效前」这段空窗里 audioClock 仍停在暂停态、歌词被钉在旧行不动。
+      audioClock.setPlaying(true)
+      try { lrcSyncToTime(audioClock.getTime() * 1000, true) } catch {}
+    }
     startUpdateTimeout()
     // 从暂停 / 后台返回后恢复播放的瞬间，立即用引擎实时位置重锚外推时钟，
     // 避免首句高亮与音频真实位置错位，覆盖「暂停→后台→重开→播放」场景。
-    if (playerState.musicInfo.id) {
+    if (playerState.musicInfo.id && !inSeekSettlement) {
       void getPosition().then((position) => {
         if (position != null && playerState.musicInfo.id) {
           audioClock.setAnchor(position * 1000, getRate(), true)

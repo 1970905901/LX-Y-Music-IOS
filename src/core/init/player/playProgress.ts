@@ -178,11 +178,9 @@ export default () => {
 
   /**
    * seek 后主动轮询引擎位置，直到确认 seek 已生效或超时兜底。
-   * 原固定 150/450/900ms 三次探测存在缺陷：
-   * 1. 若 getPosition() 在 900ms 时返回 null，seekTargetMs 永远无法清除，外推永久 hold；
-   * 2. 若 seek 在 160ms 已生效，却要等到 450ms/900ms 才探测，窗口期内进度条/歌词停留在目标值，
-   *    用户会感到“歌词已跳到新位置、音频还没跟上”的短暂不同步。
-   * 改为每 150ms 轮询，命中即恢复，最长 1.5s 强制兜底，使音频与歌词尽快重合。
+   * 核心策略：在线音频 seek 不一定精确落到目标（受 segment/keyframe 对齐影响），
+   * 所以 settlement 期间不再把歌词/进度条“钉”在目标值，而是每轮都用引擎真实位置回刷。
+   * 这样即使实际落点与目标有偏差，歌词也始终跟着真实声音走，避免“快/退后差一行”。
    */
   const startSeekSettlement = (targetMs: number) => {
     seekResyncTimers.forEach(t => BackgroundTimer.clearTimeout(t))
@@ -192,8 +190,6 @@ export default () => {
     let attempts = 0
     const settle = () => {
       attempts++
-      // 同时取位置与状态：缓冲期间 getPosition 可能已经跳到目标，但音频尚未真正出声，
-      // 必须等 State.Playing 才恢复外推，避免歌词跑到音频前面。
       void Promise.all([
         getPosition(),
         TrackPlayer.getState().catch(() => null),
@@ -205,6 +201,14 @@ export default () => {
         const positionMs = position == null ? 0 : position * 1000
         const isEnginePlaying = state == State.Playing
         const nearTarget = position != null && Math.abs(positionMs - targetMs) <= SEEK_CONVERGE_MS
+
+        // 每轮都用引擎真实位置回刷歌词和进度条：
+        // 在线音频 seek 可能落到目标前后附近，死守目标会导致歌词与真实声音错位。
+        if (position != null) {
+          try { lrcSyncToTime(positionMs, isEnginePlaying || playerState.isPlay) } catch {}
+          setNowPlayTime(positionMs / 1000)
+        }
+
         // 引擎真正在播放且位置接近目标 → seek 已真正生效，从真实位置恢复外推
         if (isEnginePlaying && nearTarget) {
           audioClock.setAnchor(positionMs, getRate(), true)

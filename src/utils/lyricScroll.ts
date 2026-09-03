@@ -71,7 +71,10 @@ export class LyricScrollLayout {
     this.playedTransSum = 0
     this.playedTransCount = 0
     this.playedBucket = []
-    this.spaceHeight = 0
+    // spaceHeight 由列表宽度决定（paddingTop: '100%'），与歌词内容无关，切歌不应清零。
+    // 若在此清零，横屏 FlatList 的 ListHeaderComponent 被 useMemo 缓存，切歌后不会重新触发
+    // onLayout，spaceHeight 将一直保持为 0，导致连续滚动的居中偏移计算少算整个 space 高度，
+    // 出现「切歌后高亮行不再居中」，只有旋转屏幕或重进歌词页才恢复。
   }
 
   setSpaceHeight(height: number) {

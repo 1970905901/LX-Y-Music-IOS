@@ -21,6 +21,12 @@ export interface InitState {
   playRate: number
   statusText: string
 
+  /**
+   * 当前实际播放的音质（如 'flac' | 'flac24bit' | 'master' | 'atmos' 等）。
+   * 用于判断 seek 冻结同步逻辑仅对高码率音质（master / atmos / atmos_plus）生效。
+   */
+  quality: LX.Quality | null
+
   playedList: LX.Player.PlayMusicInfo[]
   tempPlayList: LX.Player.PlayMusicInfo[]
 
@@ -67,6 +73,7 @@ const state: InitState = {
   volume: 1,
   playRate: 1,
   statusText: '',
+  quality: null,
   loadErrorPicUrl: '',
 
   playedList: [],

@@ -161,5 +161,23 @@ target 'LxMusicMobile' do
         build_configuration.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = min_ios_version_supported
       end
     end
+
+    # 让主工程（AppDelegate.mm）能找到 vendored 的 FLAC 头文件，从而 __has_include(<FLAC/stream_decoder.h>)
+    # 命中、LX_HAS_LIBFLAC 被定义为 1，FLAC 解码链路才会真正编译进二进制。否则 LX_HAS_LIBFLAC 为 0，
+    # StreamingFlacPlayerModule 失去解码能力，FLAC/Hi-Res 播放静音。
+    installer.aggregate_targets.each do |aggregate_target|
+      aggregate_target.user_targets.each do |target|
+        next unless target.name == 'LxMusicMobile'
+        target.build_configurations.each do |config|
+          hsp = config.build_settings['HEADER_SEARCH_PATHS'] || '$(inherited)'
+          hsp = [hsp] unless hsp.is_a?(Array)
+          vendor_inc = '"$(SRCROOT)/Vendor/LXLibFLAC/include"'
+          unless hsp.any? { |p| p.to_s.include?('LXLibFLAC/include') }
+            hsp << vendor_inc
+          end
+          config.build_settings['HEADER_SEARCH_PATHS'] = hsp
+        end
+      end
+    end
   end
 end

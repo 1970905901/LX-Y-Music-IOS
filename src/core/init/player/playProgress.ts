@@ -1,7 +1,7 @@
 import { updateListMusics } from '@/core/list'
 import { setMaxplayTime, setNowPlayTime } from '@/core/player/progress'
 import { getTimelineDuration } from '@/core/player/timeline'
-import { setCurrentTime, getDuration, getPosition, isNativeFlacActive } from '@/plugins/player/utils'
+import { setCurrentTime, getDuration, getPosition } from '@/plugins/player/utils'
 import { formatPlayTime2 } from '@/utils/common'
 import { savePlayInfo } from '@/utils/data'
 import { throttleBackgroundTimer } from '@/utils/tools'
@@ -9,7 +9,7 @@ import BackgroundTimer from 'react-native-background-timer'
 import playerState from '@/store/player/state'
 import settingState from '@/store/setting/state'
 import { onScreenStateChange } from '@/utils/nativeModules/utils'
-import { AppState } from 'react-native'
+import { AppState, Platform } from 'react-native'
 // UI 平滑时钟：仅服务于逐字歌词高亮与歌词连续滚动的每帧插值，
 // 不参与歌词行同步（行高亮已交由歌词引擎内部 ticker 驱动）。
 import { audioClock } from '@/core/player/audioClock'
@@ -36,6 +36,11 @@ export default () => {
 
   let isScreenOn = true
 
+  // iOS seek 稳定期：播放态快进/快退后，在指定时间内用引擎真实位置纯镜像歌词，
+  // 避免解码器/缓冲尚未落点时歌词 ticker 提前启动导致先走。
+  let seekGeneration = 0
+  const SEEK_SETTLE_MS = 2500
+
   const isRestoringCurrentMusic = () => {
     const restorePlayInfo = global.lx.restorePlayInfo
     if (!restorePlayInfo) return false
@@ -51,9 +56,9 @@ export default () => {
       // 用引擎真实位置重新锚定 UI 时钟：外推只在两次校准之间插值，避免长期漂移。
       audioClock.setAnchor(position * 1000, settingState.setting['player.playbackRate'], playerState.isPlay)
 
-      // native FLAC seek 会立即返回请求位置，而解码器其实正在从头重新缓冲，
-      // 所以必须每拍用真实播放位置纯镜像歌词，防止快进/快退后歌词与音频不同步。
-      if (Platform.OS == 'ios' && isNativeFlacActive()) {
+      // iOS 播放态 seek 稳定期内：用引擎真实位置纯镜像歌词，防止解码器/缓冲尚未落点
+      // 时歌词 ticker 提前启动，导致快进/快退后歌词与音频不同步。
+      if (Platform.OS == 'ios' && playerState.isPlay && seekGeneration > 0) {
         syncLyric(position, playerState.isPlay)
       }
 
@@ -107,17 +112,32 @@ export default () => {
     setNowPlayTime(time)
     // seek 期间先冻结 UI 时钟在目标位置，等引擎返回真实落点后再重锚。
     audioClock.hold(time * 1000)
+
+    // iOS 播放态 seek：进入稳定期，由进度轮询用真实位置纯镜像歌词；
+    // 稳定期结束后再启动歌词 ticker，避免解码器/缓冲尚未落点时歌词先跳到目标位置。
+    seekGeneration++
+    const currentGeneration = seekGeneration
+
     void setCurrentTime(time).then((targetPosition) => {
       if (!playerState.musicInfo.id) return
       const actualTime = targetPosition > 0 ? targetPosition : time
       if (targetPosition > 0) setNowPlayTime(targetPosition)
       audioClock.setAnchor(actualTime * 1000, settingState.setting['player.playbackRate'], playerState.isPlay)
-      // native FLAC seek 会立即返回请求位置，而解码器仍在重新缓冲；
-      // 播放状态下让进度轮询中的 syncLyric 用真实位置镜像歌词，避免歌词先跳到目标位置后脱离音频。
-      const shouldSkipSeekLyric = Platform.OS == 'ios' && isNativeFlacActive() && playerState.isPlay
-      if (!shouldSkipSeekLyric) {
+
+      // 非 iOS 或暂停态：可以直接用实际落点启动歌词 ticker。
+      if (Platform.OS != 'ios' || !playerState.isPlay) {
         global.app_event.seekLyric(actualTime)
+        return
       }
+
+      BackgroundTimer.setTimeout(() => {
+        if (seekGeneration !== currentGeneration) return
+        seekGeneration = 0
+        void getPosition().then((position) => {
+          if (position <= 0) return
+          global.app_event.seekLyric(position)
+        })
+      }, SEEK_SETTLE_MS)
     })
 
     if (maxTime != null) setMaxplayTime(getTimelineDuration(playerState.playMusicInfo.musicInfo, maxTime))

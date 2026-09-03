@@ -1,7 +1,7 @@
 import { updateListMusics } from '@/core/list'
 import { setMaxplayTime, setNowPlayTime } from '@/core/player/progress'
 import { getTimelineDuration } from '@/core/player/timeline'
-import { setCurrentTime, getDuration, getPosition } from '@/plugins/player/utils'
+import { setCurrentTime, getDuration, getPosition, setVolume } from '@/plugins/player/utils'
 import { formatPlayTime2 } from '@/utils/common'
 import { savePlayInfo } from '@/utils/data'
 import { throttleBackgroundTimer } from '@/utils/tools'
@@ -19,6 +19,7 @@ import {
   updateScrobbleTotalTime,
 } from '@/core/player/scrobble'
 import { syncLyric } from '@/core/lyric'
+import { setSeekMuting } from '@/core/player/seekMute'
 
 const delaySavePlayInfo = throttleBackgroundTimer(() => {
   void savePlayInfo({
@@ -135,8 +136,10 @@ export default () => {
         return
       }
 
-      // 立即把歌词高亮锁到目标行（暂停 ticker，不自动走字）；进度条仍按引擎真实位置刷新，
-      // 表现为“音频在缓冲追赶”，追上后下方 catchUp 再启动歌词 ticker 与之同步。
+      // 冻结期：立即静音，避免音频缓冲追赶期间（解码器重缓冲/错位）出现抢跑或错位的声音；
+      // 歌词高亮同时锁到目标行（暂停 ticker，不自动走字）。追上后再恢复音量并启动 ticker。
+      setSeekMuting(true)
+      void setVolume(0)
       syncLyric(time, false)
       const targetMs = time * 1000
       const waitStart = Date.now()
@@ -149,6 +152,9 @@ export default () => {
           const timedOut = Date.now() - waitStart > 8000
           if (caught || timedOut) {
             seekGeneration = 0
+            setSeekMuting(false)
+            // 音频已追上目标：先恢复音量，再启动歌词 ticker，二者同步发声。
+            void setVolume(settingState.setting['player.volume'])
             const start = position > 0 ? position : time
             audioClock.setAnchor(start * 1000, settingState.setting['player.playbackRate'], true)
             global.app_event.seekLyric(start)

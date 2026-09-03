@@ -13,6 +13,7 @@ import playerState from '@/store/player/state'
 import settingState from '@/store/setting/state'
 import { setNowPlayTime } from '@/core/player/progress'
 import { startPreload, stopPreload } from '@/core/player/preload'
+import { isSeekMutingActive } from '@/core/player/seekMute'
 
 let isInitialized = false
 
@@ -167,10 +168,12 @@ export const initUnifiedPlayerController = () => {
             setStatusText('')
             if (event.driver == 'nativeFlac') {
               global.lx.playerTrackId = getNativeFlacTrackId()
-              void setNativeFlacVolume(settingState.setting['player.volume'])
+              // seek 冻结期（快进/快退尚未追平目标）保持静音，待音频真正追上后再由进度模块恢复音量，
+              // 避免缓冲期间抢跑出声，保证“追上同步后才有声音”。
+              if (!isSeekMutingActive()) void setNativeFlacVolume(settingState.setting['player.volume'])
               void setNativeFlacRate(settingState.setting['player.playbackRate'])
             } else if (Platform.OS == 'ios') {
-              void TrackPlayer.setVolume(settingState.setting['player.volume'])
+              if (!isSeekMutingActive()) void TrackPlayer.setVolume(settingState.setting['player.volume'])
             }
             if (Platform.OS == 'ios' && playerState.musicInfo.id) {
               // Refresh duration/elapsed metadata after playback actually starts so the

@@ -73,7 +73,7 @@ export default () => {
   let seekTargetMs = -1
   // 引擎是否正在缓冲/加载网络数据（seek 到未缓存区域时会持续数秒）。
   let isEngineBuffering = false
-  const SEEK_CONVERGE_MS = 300 // 收敛容差（ms）：引擎位置落入目标±该值即判定 seek 已生效
+  const SEEK_CONVERGE_MS = 400 // 收敛容差（ms）：引擎位置落入目标±该值即判定 seek 已生效；在线音频 segment/keyframe 对齐允许更大偏差
   // seek 后额外用引擎真实位置探测收敛，覆盖 iOS seek 生效延迟 / 缓冲导致的首行滞后。
   // 仅用于“清除 seekTargetMs 放开校准”，不再用未收敛的旧位置重锚（外推已立即对齐到目标）。
   let seekResyncTimers: ReturnType<typeof BackgroundTimer.setTimeout>[] = []
@@ -106,7 +106,7 @@ export default () => {
       if (!isDragging && seekTargetMs < 0 && !isEngineBuffering) {
         audioClock.setAnchor(position * 1000, getRate(), playerState.isPlay)
       }
-      // seek 沉降期间保持 nowPlayTime 为目标值，避免 1s 校准用尚未收敛的旧位置把进度条/歌词拽回，
+      // seek 沉降期间保持 nowPlayTime 为目标值，避免 500ms 校准用尚未收敛的旧位置把进度条/歌词拽回，
       // 表现为“松手后进度条先跳到目标、下一秒又闪回旧位置”。
       if (seekTargetMs < 0) {
         setNowPlayTime(position)
@@ -171,9 +171,9 @@ export default () => {
     // 外推时钟只在锚点处取一次原生位置，之后纯 JS 单调时钟外推，不受 Bridge 往返延迟与
     // JS 线程排队影响，使高亮行紧贴音频真实位置（实时同步）。
     rafId = requestAnimationFrame(tickFrame)
-    // 后台计时器（1s）：前后台都跑，负责锚点校准 / 进度条 / 保存 / Scrobble。
+    // 后台计时器（500ms）：前后台都跑，负责锚点校准 / 进度条 / 保存 / Scrobble。
     // 与 rAF 分工——rAF 每帧做歌词外推（无 Bridge 延迟），BG 计时器保证后台进度不丢、外推不漂移。
-    bgInterval = BackgroundTimer.setInterval(tickCalibrate, 1000)
+    bgInterval = BackgroundTimer.setInterval(tickCalibrate, 500)
   }
 
   /**
@@ -188,14 +188,12 @@ export default () => {
     seekResyncTimers.forEach(t => BackgroundTimer.clearTimeout(t))
     seekResyncTimers = []
 
-    const maxAttempts = 14 // 150ms * 14 = 2.1s 兜底（在线歌曲缓冲/解码可能更久）
+    const maxAttempts = 15 // 100ms * 15 = 1.5s 兜底
     let attempts = 0
-    // 需要连续两次探测到「在播且位置接近目标」才恢复外推：
-    // 在线音频 getPosition() 可能提前跳到目标，但音频尚未真正出声；
-    // 连续两次稳定命中说明位置已真正落稳，避免歌词忽前忽后。
-    let lastNearTarget = false
     const settle = () => {
       attempts++
+      // 同时取位置与状态：缓冲期间 getPosition 可能已经跳到目标，但音频尚未真正出声，
+      // 必须等 State.Playing 才恢复外推，避免歌词跑到音频前面。
       void Promise.all([
         getPosition(),
         TrackPlayer.getState().catch(() => null),
@@ -207,13 +205,12 @@ export default () => {
         const positionMs = position == null ? 0 : position * 1000
         const isEnginePlaying = state == State.Playing
         const nearTarget = position != null && Math.abs(positionMs - targetMs) <= SEEK_CONVERGE_MS
-        // 引擎真正在播放且位置连续两次接近目标 → seek 已真正生效，从真实位置恢复外推
-        if (isEnginePlaying && nearTarget && lastNearTarget) {
+        // 引擎真正在播放且位置接近目标 → seek 已真正生效，从真实位置恢复外推
+        if (isEnginePlaying && nearTarget) {
           audioClock.setAnchor(positionMs, getRate(), true)
           seekTargetMs = -1
           return
         }
-        lastNearTarget = isEnginePlaying && nearTarget
         // 超时兜底：按引擎实际状态恢复，避免永久 hold
         if (attempts >= maxAttempts) {
           audioClock.setAnchor(positionMs || targetMs, getRate(), isEnginePlaying)
@@ -221,14 +218,14 @@ export default () => {
           return
         }
         // 继续轮询
-        const timer = BackgroundTimer.setTimeout(settle, 150)
+        const timer = BackgroundTimer.setTimeout(settle, 100)
         seekResyncTimers.push(timer)
       }).catch(() => {
         if (attempts >= maxAttempts || !playerState.musicInfo.id) {
           audioClock.setAnchor(targetMs, getRate(), playerState.isPlay)
           seekTargetMs = -1
         } else {
-          const timer = BackgroundTimer.setTimeout(settle, 150)
+          const timer = BackgroundTimer.setTimeout(settle, 100)
           seekResyncTimers.push(timer)
         }
       })

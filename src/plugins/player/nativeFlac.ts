@@ -37,9 +37,6 @@ interface NativeFlacPlaybackSnapshot extends NativeFlacPlaybackContext {
   state: NativeFlacState
 }
 
-// 将 hires 也纳入 native FLAC 解码器：平台常把 hires 作为高采样率 FLAC / flac24bit 的别名，
-// 同样需要在 seek 后用真实位置同步歌词。
-const preferredPreciseQualities = new Set<LX.Quality>(['flac', 'flac24bit', 'hires'])
 const defaultUserAgent = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile'
 
 let currentTrackId = ''
@@ -59,11 +56,10 @@ const isRemoteUrl = (url: string) => /^https?:\/\//i.test(url)
 
 export const isNativeFlacPlayerAvailable = () => Platform.OS == 'ios' && isStreamingFlacSupported
 
-export const shouldUseNativeFlacPlayer = async(musicInfo: LX.Player.PlayMusic, _url: string, quality?: LX.Quality | null) => {
-  if (!isNativeFlacPlayerAvailable()) return false
-
-  if (quality != null) return preferredPreciseQualities.has(quality)
-  return getMusicInfo(musicInfo).source != 'local' && preferredPreciseQualities.has(settingState.setting['player.playQuality'])
+// 当前策略：所有音质（含 flac / flac24bit / hires）统一走系统原生播放器 (TrackPlayer / AVPlayer)，
+// 不再使用自研 StreamingFlac 解码器，以保证播放稳定性与控制中心进度同步一致。
+export const shouldUseNativeFlacPlayer = async(_musicInfo: LX.Player.PlayMusic, _url: string, _quality?: LX.Quality | null) => {
+  return false
 }
 
 export const prefetchNativeFlacPlayback = async(musicInfo: LX.Player.PlayMusic, url: string, quality?: LX.Quality | null) => {

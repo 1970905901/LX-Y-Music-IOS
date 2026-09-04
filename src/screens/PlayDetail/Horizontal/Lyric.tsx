@@ -151,6 +151,8 @@ export default () => {
   const lastContinuousTimeRef = useRef(-1)
   // 列表可视高度（onLayout 测量），连续滚动按此计算居中偏移。
   const listHeightRef = useRef(0)
+  // 回正定时器：进入/切歌后布局（spaceComponent / 行高）尚未完成时，防抖在测量完成后重新精确居中一次。
+  const recentreTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   const initialDistanceRef = useRef(0)
   const initialFontSizeRef = useRef(0)
@@ -205,7 +207,7 @@ export default () => {
   // }, [playMusicInfo])
 
   // const imgWidth = useMemo(() => layout.width * 0.75, [layout.width])
-  const handleScrollToActive = (index = lineRef.current.line, force = false) => {
+  const handleScrollToActive = useCallback((index = lineRef.current.line, force = false) => {
     if (index < 0) return
     if (flatListRef.current) {
       if (scrollInfoRef.current && lineRef.current.line - lineRef.current.prevLine == 1) {
@@ -249,7 +251,7 @@ export default () => {
         } catch { }
       }
     }
-  }
+  }, [])
 
   // 拖拽 / 跳转 / 点击歌词期间强制立即定位；keep=true（长拖拽）保持 force，
   // 否则 500ms 后自动复位，交还给每帧连续滚动循环驱动平滑上移。
@@ -355,6 +357,10 @@ export default () => {
         clearTimeout(scrollTimoutRef.current)
         scrollTimoutRef.current = null
       }
+      if (recentreTimerRef.current) {
+        clearTimeout(recentreTimerRef.current)
+        recentreTimerRef.current = null
+      }
     }
   }, [])
 
@@ -380,6 +386,8 @@ export default () => {
       // 进入/切歌：立即无动画定位到【引擎当前高亮行】，让歌词与封面同步出现，
       // 避免“从顶部慢慢滚到中间”造成的加载慢观感（对齐竖屏实现）。
       handleScrollToActive(line >= 0 ? line : 0, true)
+      // 布局（spaceComponent / 行高）可能尚未完成，150ms 后再次精确回正确保高亮行居中。
+      scheduleRecentre()
     })
   }, [lyricLines])
 
@@ -442,15 +450,34 @@ export default () => {
     })
   }
 
+  // 进入/切歌后布局（spaceComponent / 行高）可能尚未完成，首跳落点可能有偏差；
+  // 等行测量 / 列表高度就位（防抖 150ms）后静默回正一次，保证高亮行最终严格居中（对齐竖屏）。
+  const scheduleRecentre = useCallback(() => {
+    if (recentreTimerRef.current) clearTimeout(recentreTimerRef.current)
+    recentreTimerRef.current = setTimeout(() => {
+      recentreTimerRef.current = null
+      if (isPauseScrollRef.current) return
+      handleScrollToActive(lineRef.current.line, true)
+    }, 150)
+  }, [handleScrollToActive])
+
   const handleLineLayout = useCallback<LineProps['onLayout']>((lineNum, height, _width, isPlayed, isActive) => {
-    lyricScrollLayoutRef.current.updateLineHeight(
+    const layout = lyricScrollLayoutRef.current
+    const wasMeasured = layout.isMeasured(lineNum)
+    layout.updateLineHeight(
       lineNum,
       height,
       !!(lyricLines[lineNum]?.extendedLyrics?.length),
       isActive,
       isPlayed,
     )
-  }, [lyricLines])
+    if (isActive) return
+    if (isPauseScrollRef.current) return
+    const current = lineRef.current.line
+    // 当前行高度变化，或当前行之前的某行“首次被测量”（会移动当前行的累计偏移）时，
+    // 防抖回正：避免进入/切歌后估算误差让高亮行一直停在非居中位置。
+    if (lineNum === current || (!wasMeasured && lineNum < current)) scheduleRecentre()
+  }, [lyricLines, scheduleRecentre])
 
   const handleSpaceLayout = useCallback(({ nativeEvent }: LayoutChangeEvent) => {
     lyricScrollLayoutRef.current.setSpaceHeight(nativeEvent.layout.height)
@@ -458,8 +485,11 @@ export default () => {
 
   // 测量列表可视高度，供连续滚动计算居中偏移（首帧滚动前即可拿到真实高度）。
   const handleListLayout = useCallback(({ nativeEvent }: LayoutChangeEvent) => {
-    listHeightRef.current = nativeEvent.layout.height
-  }, [])
+    const h = nativeEvent.layout.height
+    listHeightRef.current = h
+    // 列表高度就位（首帧 / 旋转）后回正一次，确保高亮行在真实高度下居中。
+    if (h > 0) scheduleRecentre()
+  }, [scheduleRecentre])
 
   const handleLinePress = useCallback((index: number) => {
     if (!isShowLyricProgressSetting) return;

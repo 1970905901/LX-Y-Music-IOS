@@ -139,7 +139,6 @@ export default () => {
   const scrollTimoutRef = useRef<NodeJS.Timeout | null>(null)
   const delayScrollTimeout = useRef<NodeJS.Timeout | null>(null)
   const lineRef = useRef({ line: 0, prevLine: 0 })
-  const isFirstSetLrc = useRef(true)
   const scrollInfoRef = useRef<NativeSyntheticEvent<NativeScrollEvent>['nativeEvent'] | null>(null)
   // 缓存歌词行高与累计偏移，把滚动定位从 O(n²) 降到 O(1)。
   const lyricScrollLayoutRef = useRef(new LyricScrollLayout(54))
@@ -206,7 +205,7 @@ export default () => {
   // }, [playMusicInfo])
 
   // const imgWidth = useMemo(() => layout.width * 0.75, [layout.width])
-  const handleScrollToActive = (index = lineRef.current.line) => {
+  const handleScrollToActive = (index = lineRef.current.line, force = false) => {
     if (index < 0) return
     if (flatListRef.current) {
       if (scrollInfoRef.current && lineRef.current.line - lineRef.current.prevLine == 1) {
@@ -214,20 +213,28 @@ export default () => {
         const layout = lyricScrollLayoutRef.current
         const offset = layout.spaceHeight + layout.getCumulativeOffset(index) + layout.getLineHeight(index) / 2
         const targetOffset = offset - scrollInfoRef.current.layoutMeasurement.height * 0.5
-        // 根据滚动距离动态计算动画时长：距离越远时间越长
-        const distance = Math.abs(targetOffset - scrollInfoRef.current.contentOffset.y)
-        const duration = Math.min(Math.max(distance * 0.5, 120), 300)
-        try {
-          scrollCancelRef.current = scrollTo(
-            flatListRef.current,
-            scrollInfoRef.current,
-            targetOffset,
-            duration,
-            () => {
-              scrollCancelRef.current = null
-            }
-          )
-        } catch { }
+        if (force) {
+          // 切歌 / 首次进入 / 跳转：立即无动画定位到高亮行，让歌词与封面同步出现，
+          // 避免“从顶部慢慢滚到中间”造成的加载慢观感（对齐竖屏实现）。
+          try {
+            flatListRef.current.scrollToOffset({ offset: targetOffset, animated: false })
+          } catch { }
+        } else {
+          // 根据滚动距离动态计算动画时长：距离越远时间越长
+          const distance = Math.abs(targetOffset - scrollInfoRef.current.contentOffset.y)
+          const duration = Math.min(Math.max(distance * 0.5, 120), 300)
+          try {
+            scrollCancelRef.current = scrollTo(
+              flatListRef.current,
+              scrollInfoRef.current,
+              targetOffset,
+              duration,
+              () => {
+                scrollCancelRef.current = null
+              }
+            )
+          } catch { }
+        }
       } else {
         if (scrollCancelRef.current) {
           scrollCancelRef.current()
@@ -236,7 +243,7 @@ export default () => {
         try {
           flatListRef.current.scrollToIndex({
             index,
-            animated: true,
+            animated: !force,
             viewPosition: 0.5,
           })
         } catch { }
@@ -369,15 +376,10 @@ export default () => {
     setForceScroll(true)
 
     requestAnimationFrame(() => {
-      if (isFirstSetLrc.current) {
-        isFirstSetLrc.current = false
-        setTimeout(() => {
-          isPauseScrollRef.current = false
-          handleScrollToActive()
-        }, 100)
-      }
-      // 后续切歌不再主动 scrollToIndex(0)，避免与 [line] effect 冲突；
-      // 由 setForceScroll(true) 触发的 [line] effect 在 line 更新后强制居中。
+      isPauseScrollRef.current = false
+      // 进入/切歌：立即无动画定位到【引擎当前高亮行】，让歌词与封面同步出现，
+      // 避免“从顶部慢慢滚到中间”造成的加载慢观感（对齐竖屏实现）。
+      handleScrollToActive(line >= 0 ? line : 0, true)
     })
   }, [lyricLines])
 
@@ -387,10 +389,10 @@ export default () => {
     lineRef.current.line = line
     if (!flatListRef.current || isPauseScrollRef.current) return
 
-    // 拖动进度条 / 跳转 / 点击歌词（force）期间立即定位；普通播放推进交给每帧连续
+    // 拖动进度条 / 跳转 / 点击歌词（force）期间立即无动画定位；普通播放推进交给每帧连续
     // 滚动循环（scrollToActiveContinuous），实现平滑上移而非逐行跳变。
     if (forceScrollRef.current) {
-      handleScrollToActive()
+      handleScrollToActive(lineRef.current.line, true)
     }
   }, [line])
 
@@ -435,7 +437,8 @@ export default () => {
 
   const handleScrollToIndexFailed: FlatListType['onScrollToIndexFailed'] = (info) => {
     void wait().then(() => {
-      handleScrollToActive(info.index)
+      // 重试时强制无动画立即定位，避免“动画滚动 + 二次延迟”进一步拖慢歌词出现。
+      handleScrollToActive(info.index, true)
     })
   }
 
@@ -503,7 +506,7 @@ export default () => {
         onScrollBeginDrag={handleScrollBeginDrag}
         onScrollEndDrag={onScrollEndDrag}
         fadingEdgeLength={100}
-        initialNumToRender={Math.max(line + 20, 20)}
+        initialNumToRender={Math.min(Math.max(line + 20, 20), 100)}
         windowSize={15}
         maxToRenderPerBatch={20}
         updateCellsBatchingPeriod={50}
@@ -511,6 +514,7 @@ export default () => {
         onScrollToIndexFailed={handleScrollToIndexFailed}
         onScroll={handleScroll}
         onLayout={handleListLayout}
+        extraData={[line, wordsByIndex]}
       />
     </View>
   )

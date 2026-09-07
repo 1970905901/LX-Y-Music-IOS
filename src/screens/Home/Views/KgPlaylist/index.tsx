@@ -285,14 +285,15 @@ export default memo(() => {
           key={`cols-${numColumns}`}
           onScrollBeginDrag={Keyboard.dismiss}
           data={playlists}
-          contentContainerStyle={{ paddingBottom: 80 }}
+          contentContainerStyle={{ paddingBottom: 80, paddingRight: 0 }}
           numColumns={numColumns}
           renderItem={({ item }) => (
-            <ListItem item={item} rowWidth={rowInfo.rowWidth} onPress={handleItemPress} onMenuPress={handleMenuPress} />
+            <View style={numColumns > 1 ? styles.itemWrapper : undefined}>
+              <ListItem item={item} onPress={handleItemPress} onMenuPress={handleMenuPress} />
+            </View>
           )}
           keyExtractor={item => `${item.id}-${item.isCollected ? 'collected' : 'created'}`}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingRight: 0 }}
           refreshControl={
             <RefreshControl
               colors={[theme['c-primary']]}
@@ -344,6 +345,10 @@ export default memo(() => {
 })
 
 const styles = StyleSheet.create({
+  itemWrapper: {
+    flex: 1,
+    maxWidth: '50%',
+  },
   tabBar: {
     flexDirection: 'row',
     borderBottomWidth: 1,

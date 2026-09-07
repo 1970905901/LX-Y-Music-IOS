@@ -193,21 +193,29 @@ export const getListDetailAll = async (
     if (pageCache) return pageCache.data
     return getListLimit(source, bangId, page)
   }
-  return loadData(1)
-    .then(async (result) => {
-      if (result.total <= result.limit) return result.list
 
-      let maxPage = Math.ceil(result.total / result.limit)
-      const loadDetail = async (loadPage = 2): Promise<LX.Music.MusicInfoOnline[]> => {
-        return loadPage == maxPage
-          ? loadData(loadPage).then((result) => result.list)
-          : loadData(loadPage).then((result1) =>
-              loadDetail(++loadPage).then((result2) => [...result1.list, ...result2])
-            )
+  const result = await loadData(1)
+  if (result.list.length >= result.total) return deduplicationList(result.list)
+
+  const allSongs = [...result.list]
+  const seenIds = new Set(allSongs.map(m => m.id))
+  let maxPage = Math.max(2, Math.ceil(result.total / result.limit))
+
+  for (let page = 2; page <= maxPage; page++) {
+    const pageResult = await loadData(page)
+    if (!pageResult.list.length) break
+    let addedCount = 0
+    for (const song of pageResult.list) {
+      if (!seenIds.has(song.id)) {
+        seenIds.add(song.id)
+        allSongs.push(song)
+        addedCount++
       }
-      return loadDetail().then((result2) => [...result.list, ...result2])
-    })
-    .then((list) => deduplicationList(list))
+    }
+    if (addedCount === 0) break
+  }
+
+  return deduplicationList(allSongs)
 }
 
 /**

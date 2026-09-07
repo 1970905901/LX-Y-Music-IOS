@@ -17,7 +17,6 @@ export const handlePlay = async (
 ) => {
   const listId = getListId(id, source)
   let isPlayingList = false
-  // console.log(list)
   if (!list?.length) {
     try {
       list = (await getListDetail(id, source, 1)).list
@@ -36,7 +35,8 @@ export const handlePlay = async (
     const fullList = await getListDetailAll(source, id)
     if (!fullList.length) return
     if (isPlayingList) {
-      if (listState.tempListMeta.id == listId) {
+      if (listState.tempListMeta.id == listId && fullList.length > (list?.length ?? 0)) {
+        console.log(`[handlePlay] 完整歌单已加载：${fullList.length} 首，更新临时列表`)
         await setTempList(listId, [...fullList])
       }
     } else {

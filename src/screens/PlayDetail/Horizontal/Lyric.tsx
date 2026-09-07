@@ -14,6 +14,7 @@ import { createStyle } from '@/utils/tools'
 import { updateSetting } from '@/core/common'
 import { useTheme } from '@/store/theme/hook'
 import { useSettingValue } from '@/store/setting/hook'
+import { useSafeAreaBottom } from '@/store/common/hook'
 import { AnimatedColorText } from '@/components/common/Text'
 import { setSpText } from '@/utils/pixelRatio'
 import settingState from '@/store/setting/state'
@@ -127,6 +128,7 @@ const LrcLine = memo(
 const wait = async () => new Promise((resolve) => setTimeout(resolve, 100))
 
 export default () => {
+  const safeAreaBottom = useSafeAreaBottom()
   const lyricLines = useLrcSet()
   const { line } = useLrcPlay()
   // 逐字时间轴（与 lyricLines 同序）：第 i 项为第 i 行歌词的逐字数组；无逐字（纯 LRC）为 null。
@@ -208,50 +210,43 @@ export default () => {
 
   // const imgWidth = useMemo(() => layout.width * 0.75, [layout.width])
   const handleScrollToActive = useCallback((index = lineRef.current.line, force = false) => {
-    if (index < 0) return
-    if (flatListRef.current) {
-      if (scrollInfoRef.current && lineRef.current.line - lineRef.current.prevLine == 1) {
-        // 使用缓存的累计偏移，避免长歌词列表每次滚动都从头累加行高（O(n)→O(1)）。
-        const layout = lyricScrollLayoutRef.current
-        const offset = layout.spaceHeight + layout.getCumulativeOffset(index) + layout.getLineHeight(index) / 2
-        const targetOffset = offset - scrollInfoRef.current.layoutMeasurement.height * 0.5
-        if (force) {
-          // 切歌 / 首次进入 / 跳转：立即无动画定位到高亮行，让歌词与封面同步出现，
-          // 避免“从顶部慢慢滚到中间”造成的加载慢观感（对齐竖屏实现）。
-          try {
-            flatListRef.current.scrollToOffset({ offset: targetOffset, animated: false })
-          } catch { }
-        } else {
-          // 根据滚动距离动态计算动画时长：距离越远时间越长
-          const distance = Math.abs(targetOffset - scrollInfoRef.current.contentOffset.y)
-          const duration = Math.min(Math.max(distance * 0.5, 120), 300)
-          try {
-            scrollCancelRef.current = scrollTo(
-              flatListRef.current,
-              scrollInfoRef.current,
-              targetOffset,
-              duration,
-              () => {
-                scrollCancelRef.current = null
-              }
-            )
-          } catch { }
-        }
-      } else {
-        if (scrollCancelRef.current) {
-          scrollCancelRef.current()
-          scrollCancelRef.current = null
-        }
-        try {
-          flatListRef.current.scrollToIndex({
-            index,
-            animated: !force,
-            viewPosition: 0.5,
-          })
-        } catch { }
-      }
+    if (index < 0 || !flatListRef.current || isPauseScrollRef.current) return
+    if (scrollCancelRef.current) {
+      scrollCancelRef.current()
+      scrollCancelRef.current = null
     }
-  }, [])
+    const layout = lyricScrollLayoutRef.current
+    const listHeight = listHeightRef.current || scrollInfoRef.current?.layoutMeasurement.height || 0
+    // 首帧或异常情况下无滚动信息，只能走 scrollToIndex fallback；
+    // 此时虽不能精确居中，但总比完全不滚动好。
+    if (!scrollInfoRef.current || listHeight <= 0) {
+      try {
+        flatListRef.current.scrollToIndex({ index, animated: !force, viewPosition: 0.5 })
+      } catch { }
+      return
+    }
+    // 横屏已播放/当前行都是 bold 档，累计偏移须用 played 档估算，否则未测量区域会系统性偏低。
+    // force 定位使用激活高度（当前行可能被 bold 字号挤高），保证居中准确。
+    const targetOffset = layout.getTargetOffsetPrecise(index, listHeight, lyricLines, 0.5, 0, layout.spaceHeight, true, true)
+    if (force) {
+      try {
+        flatListRef.current.scrollToOffset({ offset: targetOffset, animated: false })
+      } catch { }
+    } else {
+      const currentOffset = scrollInfoRef.current.contentOffset.y
+      const distance = Math.abs(targetOffset - currentOffset)
+      const duration = Math.min(Math.max(distance * 0.5, 120), 300)
+      try {
+        scrollCancelRef.current = scrollTo(
+          flatListRef.current,
+          scrollInfoRef.current,
+          targetOffset,
+          duration,
+          () => { scrollCancelRef.current = null }
+        )
+      } catch { }
+    }
+  }, [lyricLines])
 
   // 拖拽 / 跳转 / 点击歌词期间强制立即定位；keep=true（长拖拽）保持 force，
   // 否则 500ms 后自动复位，交还给每帧连续滚动循环驱动平滑上移。
@@ -517,13 +512,20 @@ export default () => {
   }
   const getkey: FlatListType['keyExtractor'] = (item, index) => `${index}${item.text}`
 
-  const spaceComponent = useMemo(
-    () => <View style={styles.space} onLayout={handleSpaceLayout}></View>,
+  // FlatList 的 ListHeaderComponent / ListFooterComponent 必须是两个独立的 React 元素，
+  // 共用同一个 element 实例会导致 React 把同一节点挂到两个父节点下，轻则渲染异常、
+  // 重则在更新/旋转时触发 hooks 数量不一致的红屏。
+  const headerSpace = useMemo(
+    () => <View style={styles.space} onLayout={handleSpaceLayout} />,
+    [handleSpaceLayout]
+  )
+  const footerSpace = useMemo(
+    () => <View style={styles.space} onLayout={handleSpaceLayout} />,
     [handleSpaceLayout]
   )
 
   return (
-    <View style={styles.container} {...panResponder.panHandlers}>
+    <View style={[styles.container, { paddingBottom: safeAreaBottom }]} {...panResponder.panHandlers}>
       <FlatList
         data={lyricLines}
         renderItem={renderItem}
@@ -531,11 +533,10 @@ export default () => {
         style={{ flex: 1 }}
         ref={flatListRef}
         showsVerticalScrollIndicator={false}
-        ListHeaderComponent={spaceComponent}
-        ListFooterComponent={spaceComponent}
+        ListHeaderComponent={headerSpace}
+        ListFooterComponent={footerSpace}
         onScrollBeginDrag={handleScrollBeginDrag}
         onScrollEndDrag={onScrollEndDrag}
-        fadingEdgeLength={100}
         initialNumToRender={Math.min(Math.max(line + 20, 20), 100)}
         windowSize={15}
         maxToRenderPerBatch={20}
@@ -544,6 +545,7 @@ export default () => {
         onScrollToIndexFailed={handleScrollToIndexFailed}
         onScroll={handleScroll}
         onLayout={handleListLayout}
+        removeClippedSubviews={false}
         extraData={[line, wordsByIndex]}
       />
     </View>

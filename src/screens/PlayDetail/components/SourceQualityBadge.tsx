@@ -30,6 +30,8 @@ function getQualityBadge(quality: string, t: (k: string) => string): { label: st
     case 'atmos':
       return { label: t('quality_lossless_atmos'), type: 'secondary' }
     case 'hires':
+      return { label: t('quality_hires'), type: 'secondary' }
+    case 'flac24bit':
       return { label: t('quality_lossless_24bit'), type: 'secondary' }
     case 'flac':
       return { label: t('quality_lossless'), type: 'sq' }

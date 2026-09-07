@@ -75,15 +75,7 @@ export const toNewMusicInfo = (oldMusicInfo: any): LX.Music.MusicInfo | null => 
         })
       }
 
-      if (meta._qualitys.flac24bit && !meta._qualitys.hires) {
-        meta._qualitys.hires = meta._qualitys.flac24bit
-        delete meta._qualitys.flac24bit
-
-        meta.qualitys = meta.qualitys.map((quality: any) => {
-          if (quality.type == 'flac24bit') quality.type = 'hires'
-          return quality
-        })
-      }
+      // flac24bit 与 hires 已拆分为独立音质档位，不再合并。
 
       if (meta._qualitys.effect && !meta._qualitys.atmos) {
         meta._qualitys.atmos = meta._qualitys.effect
@@ -203,15 +195,7 @@ export const fixNewMusicInfoQuality = (musicInfo: LX.Music.MusicInfo) => {
     })
   }
 
-  if (musicInfo.meta?._qualitys?.flac24bit && !musicInfo.meta?._qualitys?.hires) {
-    musicInfo.meta._qualitys.hires = musicInfo.meta._qualitys.flac24bit
-    delete musicInfo.meta._qualitys.flac24bit
-
-    musicInfo.meta.qualitys = musicInfo.meta.qualitys.map((quality) => {
-      if (quality.type == 'flac24bit') quality.type = 'hires'
-      return quality
-    })
-  }
+  // flac24bit 与 hires 已拆分为独立音质档位，不再合并。
 
   // @ts-expect-error
   if (musicInfo.meta?._qualitys?.effect && !musicInfo.meta?._qualitys?.atmos) {

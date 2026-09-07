@@ -3,7 +3,7 @@ import { prefetch } from '@/components/common/ImageBackground'
 import { setBgPic, updateSetting } from '@/core/common'
 import wyUserApi from '@/utils/musicSdk/wy/user';
 import txUserApi from '@/utils/musicSdk/tx/user';
-import { setWyFollowedArtists, setWyLikedSongs, setWySubscribedAlbums, setTxLikedSongs, setKgLikedSongs } from '@/store/user/action';
+import { setWyFollowedArtists, setWyLikedSongs, setWySubscribedAlbums, setWyUid, setTxLikedSongs, setKgLikedSongs } from '@/store/user/action';
 import { getUserPlaylists, getPlaylistSongs } from '@/utils/musicSdk/kg/utils/api';
 import { toast } from '@/utils/tools';
 
@@ -54,11 +54,16 @@ export default async (setting: LX.AppSetting) => {
     if (cookie) {
       console.log('正在刷新网易云数据...');
       wyUserApi.getUid(cookie)
-        .then((uid: any) => Promise.all([
-          wyUserApi.getLikedSongList(uid, cookie),
-          wyUserApi.getAllSublist(),
-          wyUserApi.getAllSubAlbumList(),
-        ]))
+        .then((uid: any) => {
+          // 必须同步设置 UID，否则依赖 useWyUid 的「我的歌单」页面在 cookie 更新后
+          // 因 uid 为空而不会触发歌单加载（iPad 常驻/预挂载场景尤其明显）。
+          setWyUid(uid)
+          return Promise.all([
+            wyUserApi.getLikedSongList(uid, cookie),
+            wyUserApi.getAllSublist(),
+            wyUserApi.getAllSubAlbumList(),
+          ])
+        })
         .then(([likedIds, followedArtists, subscribedAlbums]: any[]) => {
           setWyLikedSongs(likedIds);
           setWyFollowedArtists(followedArtists);

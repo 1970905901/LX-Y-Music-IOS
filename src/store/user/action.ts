@@ -2,6 +2,7 @@ import state, {FollowedArtistInfo, SubscribedAlbumInfo, SubscribedPlaylistInfo, 
 
 export const setWyUid = (uid: string) => {
   state.wy_uid = uid
+  global.state_event.wyUidChanged()
 }
 export const setWyVipType = (type: number) => {
   state.wy_vip_type = type

@@ -2,7 +2,20 @@ import { useEffect, useState } from 'react'
 import state from './state'
 
 export const useWyUid = () => {
-  return state.wy_uid;
+  const [uid, setUid] = useState(() => state.wy_uid)
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      setUid(state.wy_uid)
+    }
+    global.state_event.on('wyUidChanged', handleUpdate)
+    handleUpdate()
+    return () => {
+      global.state_event.off('wyUidChanged', handleUpdate)
+    }
+  }, [])
+
+  return uid
 }
 
 export const useIsWyLiked = (songId: string | number) => {

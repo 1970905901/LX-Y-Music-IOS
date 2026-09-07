@@ -22,6 +22,9 @@ export class StateEvent extends Event {
   wyLikedListChanged() {
     this.emit('wyLikedListChanged')
   }
+  wyUidChanged() {
+    this.emit('wyUidChanged')
+  }
   txLikedListChanged() {
     this.emit('txLikedListChanged')
   }

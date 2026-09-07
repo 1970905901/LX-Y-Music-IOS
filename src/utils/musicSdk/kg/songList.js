@@ -76,30 +76,47 @@ export default {
   async getListDetailBySpecialId(id, page, tryNum = 0) {
     if (tryNum > 2) throw new Error('try max num')
 
-    const { body } = await httpFetch(this.getSongListDetailUrl(id)).promise
-    let listData = body.match(this.regExps.listData)
-    let listInfo = body.match(this.regExps.listInfo)
-    if (!listData) return this.getListDetailBySpecialId(id, page, ++tryNum)
-    let list = await this.getMusicInfos(JSON.parse(listData[1]))
-    let name
-    let pic
-    if (listInfo) {
-      name = listInfo[1]
-      pic = listInfo[2]
-    }
-    let desc = this.parseHtmlDesc(body)
+    const limit = this.listDetailLimit
+    try {
+      const { list, total } = await this.getUserListDetailById(id, page, limit)
+      return {
+        list,
+        page,
+        limit,
+        total,
+        source: 'kg',
+        info: {
+          name: '',
+          img: '',
+          desc: '',
+        },
+      }
+    } catch (err) {
+      const { body } = await httpFetch(this.getSongListDetailUrl(id)).promise
+      let listData = body.match(this.regExps.listData)
+      let listInfo = body.match(this.regExps.listInfo)
+      if (!listData) return this.getListDetailBySpecialId(id, page, ++tryNum)
+      let list = await this.getMusicInfos(JSON.parse(listData[1]))
+      let name
+      let pic
+      if (listInfo) {
+        name = listInfo[1]
+        pic = listInfo[2]
+      }
+      let desc = this.parseHtmlDesc(body)
 
-    return {
-      list,
-      page: 1,
-      limit: 10000,
-      total: list.length,
-      source: 'kg',
-      info: {
-        name,
-        img: pic,
-        desc,
-      },
+      return {
+        list,
+        page: 1,
+        limit: 10000,
+        total: list.length,
+        source: 'kg',
+        info: {
+          name,
+          img: pic,
+          desc,
+        },
+      }
     }
   },
   getInfoUrl(tagId) {
@@ -324,7 +341,7 @@ export default {
       list,
       page: 1,
       limit: info.count,
-      total: list.length,
+      total: info.count ?? list.length,
       source: 'kg',
       info: {
         name: info.name,
@@ -359,7 +376,7 @@ export default {
       list,
       page: 1,
       limit: this.listDetailLimit,
-      total: list.length,
+      total: songInfo.info?.count ?? songInfo.total ?? list.length,
       source: 'kg',
       info: {
         name: songInfo.info.name,
@@ -438,7 +455,7 @@ export default {
       list: result,
       page,
       limit: this.listDetailLimit,
-      total: result.length,
+      total: listInfo.count ?? result.length,
       source: 'kg',
       info: {
         name: listInfo.name,
@@ -540,7 +557,7 @@ export default {
       list,
       page: 1,
       limit: this.listDetailLimit,
-      total: list.length,
+      total: totalSongs || list.length,
       source: 'kg',
       info: {
         name: info.specialname,
@@ -584,15 +601,16 @@ export default {
 
   async getUserListDetail4(songInfo, chain, page) {
     const limit = 100
-    const [listInfo, list] = await Promise.all([
+    const [listInfo, listData] = await Promise.all([
       this.getListInfoByChain(chain),
       this.getUserListDetailById(songInfo.id, page, limit),
     ])
+    const list = listData?.list || []
     return {
-      list: list || [],
+      list,
       page,
       limit,
-      total: list.length ?? 0,
+      total: listData?.total ?? listInfo.songcount ?? list.length ?? 0,
       source: 'kg',
       info: {
         name: listInfo.specialname,
@@ -611,7 +629,7 @@ export default {
       list: list || [],
       page: 1,
       limit: this.listDetailLimit,
-      total: list.length ?? 0,
+      total: listInfo.songcount ?? list.length ?? 0,
       source: 'kg',
       info: {
         name: listInfo.specialname,
@@ -635,7 +653,10 @@ export default {
       }
     )
     let result = await this.getMusicInfos(info.info)
-    return result
+    return {
+      list: result,
+      total: info.total ?? info.count ?? result.length,
+    }
   },
 
   async getUserListDetail(link, page, retryNum = 0) {

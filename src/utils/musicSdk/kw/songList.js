@@ -199,7 +199,7 @@ export default {
   getListDetailDigest5Music(id, page, tryNum = 0) {
     if (tryNum > 2) return Promise.reject(new Error('try max num'))
     const requestObj = httpFetch(
-      `http://nplserver.kuwo.cn/pl.svc?op=getlistinfo&pid=${id}&pn=${page - 1}}&rn=${
+      `http://nplserver.kuwo.cn/pl.svc?op=getlistinfo&pid=${id}&pn=${page - 1}&rn=${
         this.limit_song
       }&encode=utf-8&keyset=pl2012&identity=kuwo&pcmp4=1`
     )

@@ -284,9 +284,12 @@ export default {
     return p.then((period) => {
       return this.listDetailRequest(bangid, period, this.limit).then((resp) => {
         if (resp.body.code !== 0) return this.getList(bangid, page, retryNum)
+        const toplistData = resp.body.toplist?.data || {}
+        const songInfoList = toplistData.songInfoList || []
+        const totalNum = toplistData.totalNum ?? songInfoList.length
         return {
-          total: resp.body.toplist.data.songInfoList.length,
-          list: this.filterData(resp.body.toplist.data.songInfoList),
+          total: totalNum,
+          list: this.filterData(songInfoList),
           limit: this.limit,
           page: 1,
           source: 'tx',

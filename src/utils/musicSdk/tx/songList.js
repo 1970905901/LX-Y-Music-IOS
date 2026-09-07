@@ -208,16 +208,18 @@ export default {
     }
     return id
   },
-  async getListDetailNew(id, tryNum = 0) {
-    log.info(`[TX SongList] getListDetailNew 开始`, { id, tryNum })
-    
+  async getListDetailNew(id, page = 1, tryNum = 0) {
+    log.info(`[TX SongList] getListDetailNew 开始`, { id, page, tryNum })
+
     if (tryNum > 2) {
-      log.error(`[TX SongList] getListDetailNew 重试次数超限`, { id, tryNum })
+      log.error(`[TX SongList] getListDetailNew 重试次数超限`, { id, page, tryNum })
       return Promise.reject(new Error('try max num'))
     }
 
     id = await this.getListId(id)
 
+    const pageSize = 30
+    const songBegin = (page - 1) * pageSize
     const payload = {
       comm: { ct: 24, cv: 1800 },
       req_0: {
@@ -227,8 +229,8 @@ export default {
           disstid: parseInt(id),
           dirid: 0,
           tag: true,
-          song_begin: 0,
-          song_num: 999999,
+          song_begin: songBegin,
+          song_num: pageSize,
           userinfo: true,
           orderlist: true,
           onlysonglist: false,
@@ -258,15 +260,15 @@ export default {
 
     if (!body || !body.req_0) {
       log.error(`[TX SongList] getListDetailNew 响应体无效`, { body: JSON.stringify(body)?.substring(0, 200) })
-      return this.getListDetailNew(id, ++tryNum)
+      return this.getListDetailNew(id, page, ++tryNum)
     }
 
     const retCode = body.req_0.data?.retCode
     log.info(`[TX SongList] getListDetailNew retCode`, { retCode })
-    
+
     if (retCode !== undefined && retCode !== 0 && tryNum < 2) {
       log.warn(`[TX SongList] getListDetailNew retCode非0，重试`, { retCode, tryNum })
-      return this.getListDetailNew(id, ++tryNum)
+      return this.getListDetailNew(id, page, ++tryNum)
     }
 
     const data = body.req_0.data
@@ -345,11 +347,14 @@ export default {
 
     log.info(`[TX SongList] getListDetailNew 最终返回歌单信息`, { dissname, logo, visitnum, descLen: desc?.length, nickname })
 
+    const totalSongNum = data.dissinfo?.songnum ?? data.songnum ?? data.total_song_num ?? data.songlist.length
+    log.info(`[TX SongList] getListDetailNew 分页信息`, { page, pageSize, returned: data.songlist.length, total: totalSongNum })
+
     return {
       list: await this.filterListDetailNew(data.songlist),
-      page: 1,
-      limit: data.songlist.length + 1,
-      total: data.songlist.length,
+      page,
+      limit: pageSize,
+      total: totalSongNum,
       source: 'tx',
       info: {
         name: dissname,
@@ -407,11 +412,11 @@ export default {
     return result
   },
 
-  async getListDetail(id, tryNum = 0) {
-    log.info(`[TX SongList] getListDetail 开始`, { id, tryNum })
-    
+  async getListDetail(id, page = 1, tryNum = 0) {
+    log.info(`[TX SongList] getListDetail 开始`, { id, page, tryNum })
+
     if (tryNum > 2) {
-      log.error(`[TX SongList] getListDetail 重试次数超限`, { id, tryNum })
+      log.error(`[TX SongList] getListDetail 重试次数超限`, { id, page, tryNum })
       return Promise.reject(new Error('try max num'))
     }
 
@@ -470,12 +475,12 @@ export default {
 
     log.info(`[TX SongList] getListDetail 使用 musicu.fcg 接口`)
     try {
-      const result = await this.getListDetailNew(id)
+      const result = await this.getListDetailNew(id, page)
       log.info(`[TX SongList] getListDetail 获取成功`, { songCount: result.list.length })
       return result
     } catch (error) {
       log.error(`[TX SongList] getListDetail 获取失败`, { error: error.message })
-      return this.getListDetail(id, ++tryNum)
+      return this.getListDetail(id, page, ++tryNum)
     }
   },
   async filterListDetail(rawList) {

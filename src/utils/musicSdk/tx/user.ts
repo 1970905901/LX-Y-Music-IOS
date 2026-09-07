@@ -222,8 +222,8 @@ export default {
       throw new Error('未设置QQ音乐Cookie');
     }
 
-    try {
-      const bodyData = `type=1&utf8=1&disstid=${disstid}&loginUin=0&hostUin=0&format=json&inCharset=utf8`;
+    const fetchPage = async (begin: number, num: number): Promise<any> => {
+      const bodyData = `type=1&utf8=1&disstid=${disstid}&loginUin=0&hostUin=0&format=json&inCharset=utf8&song_begin=${begin}&num=${num}`;
 
       const requestObj = httpFetch(`https://${TX_API_HOST}/qzone/fcg-bin/fcg_ucc_getcdinfo_byids_cp.fcg`, {
         method: 'POST',
@@ -238,30 +238,45 @@ export default {
       });
 
       const { body } = (await requestObj.promise) as any;
-
       txLog.debug('歌单详情响应:', JSON.stringify(body).substring(0, 500));
 
       if (!body.cdlist || !body.cdlist[0]) {
         throw new Error('获取歌单详情失败');
       }
+      return body.cdlist[0];
+    };
 
-      const playlist = body.cdlist[0];
+    try {
+      const pageSize = 30;
+      const firstPage = await fetchPage(0, pageSize);
+      const totalSongs = firstPage.songnum ?? firstPage.songlist?.length ?? 0;
+      const allSongs = [...(firstPage.songlist || [])];
+
+      if (totalSongs > allSongs.length) {
+        for (let begin = allSongs.length; begin < totalSongs; begin += pageSize) {
+          const page = await fetchPage(begin, pageSize);
+          const songs = page.songlist || [];
+          if (songs.length === 0) break;
+          allSongs.push(...songs);
+        }
+      }
 
       txLog.info('获取歌单详情成功:', {
-        name: playlist.dissname || playlist.title,
-        songCount: playlist.songlist?.length || 0,
+        name: firstPage.dissname || firstPage.title,
+        songCount: allSongs.length,
+        total: totalSongs,
       });
 
       return {
-        id: playlist.dissid || disstid,
-        name: playlist.dissname || playlist.title || '未知歌单',
-        cover: playlist.logo || playlist.cover || '',
-        desc: playlist.desc || '',
+        id: firstPage.dissid || disstid,
+        name: firstPage.dissname || firstPage.title || '未知歌单',
+        cover: firstPage.logo || firstPage.cover || '',
+        desc: firstPage.desc || '',
         creator: {
-          name: playlist.nick || playlist.creator?.name || '',
-          avatar: playlist.creator?.avatar || '',
+          name: firstPage.nick || firstPage.creator?.name || '',
+          avatar: firstPage.creator?.avatar || '',
         },
-        songs: (playlist.songlist || []).map((song: any) => ({
+        songs: allSongs.map((song: any) => ({
           id: song.songid || song.id,
           name: song.title || song.songname || song.name || '',
           artists: (song.singer || []).map((s: any) => ({

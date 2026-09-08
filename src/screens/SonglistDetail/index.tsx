@@ -277,20 +277,22 @@ export default ({ info, onBack, initialScrollToInfo }: { info: ListInfoItem, onB
     }))
   }, [])
 
-  return (
-    // 包裹 PageContent：与 AlbumDetail/ArtistDetail 同构——
-    // 提供 iPad 竖屏（宽 ≥700pt）限宽居中兜底与全局背景图层，横屏仍由 LandscapeDetailLayout 分栏
-    <PageContent>
-      <LandscapeDetailLayout
-        header={ListHeaderComponent}
-        body={
-          <ListInfoContext.Provider value={info}>
-            <MusicList ref={musicListRef} playingId={playerMusicInfo.id} componentId={commonState.componentIds[commonState.componentIds.length - 1]?.id} isCreator={true} searchText={searchText} isFuzzySearch={isFuzzySearch} onListUpdate={handleListUpdate} />
-          </ListInfoContext.Provider>
-        }
-      />
-    </PageContent>
+  const detailContent = (
+    <LandscapeDetailLayout
+      header={ListHeaderComponent}
+      body={
+        <ListInfoContext.Provider value={info}>
+          <MusicList ref={musicListRef} playingId={playerMusicInfo.id} componentId={commonState.componentIds[commonState.componentIds.length - 1]?.id} isCreator={true} searchText={searchText} isFuzzySearch={isFuzzySearch} onListUpdate={handleListUpdate} />
+        </ListInfoContext.Provider>
+      }
+    />
   )
+
+  // 作为独立页面 push 时（无 onBack）需要 PageContent 提供全局背景与窗口尺寸测量；
+  // 内嵌在 SongList/Search/TxPlaylist 等 Home 子页面时，外部已由 Home 的 PageContent 兜底，
+  // 若再包一层 PageContent，其 SizeView 会按右侧面板尺寸覆写 windowSizeTools，
+  // 导致 useHorizontalMode 误判为竖屏，iPad 横屏下详情页布局异常/跳动。
+  return onBack ? detailContent : <PageContent>{detailContent}</PageContent>
 }
 
 const styles = createStyle({

@@ -37,6 +37,12 @@ const FULLWIDTH_LANDSCAPE_IDS = new Set([
   'nav_love',
   // 「歌单列表」横屏下标签常驻左栏 + 歌单列表右栏（master-detail），需铺满右栏
   'nav_songlist',
+  // 「我的歌单 / QQ 音乐歌单 / 酷狗音乐歌单」点击后内嵌 SonglistDetail（ LandscapeDetailLayout 分栏），需铺满右栏
+  'nav_my_playlist',
+  'nav_tx_playlist',
+  'nav_kg_playlist',
+  // 「搜索」结果页点击歌单后内嵌 SonglistDetail 分栏，需铺满右栏
+  'nav_search',
 ])
 
 const Main = () => {

@@ -466,10 +466,9 @@ export default () => {
       isActive,
       isPlayed,
     )
-    if (isActive) return
     if (isPauseScrollRef.current) return
     const current = lineRef.current.line
-    // 当前行高度变化，或当前行之前的某行“首次被测量”（会移动当前行的累计偏移）时，
+    // 当前行首次测量（切歌/跳转后激活行真实高度就位），或非激活行首次测量导致累计偏移变化时，
     // 防抖回正：避免进入/切歌后估算误差让高亮行一直停在非居中位置。
     if (lineNum === current || (!wasMeasured && lineNum < current)) scheduleRecentre()
   }, [lyricLines, scheduleRecentre])

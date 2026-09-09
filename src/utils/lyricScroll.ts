@@ -183,7 +183,7 @@ export class LyricScrollLayout {
    * @param paddingV 上下额外留白
    */
   getTargetOffset(index: number, listHeight: number, viewPosition = 0.5, paddingV = 0): number {
-    if (index <= 0) return 0
+    if (index < 0) return 0
     const itemTop = this.getCumulativeOffset(index)
     const itemHeight = this.getActiveLineHeight(index)
     const target = paddingV + itemTop + itemHeight * viewPosition - listHeight * viewPosition
@@ -250,7 +250,7 @@ export class LyricScrollLayout {
     useActiveHeight = true,
     usePlayed = false,
   ): number {
-    if (index <= 0) return 0
+    if (index < 0) return 0
     // 复用基于 lines 引用的累计偏移缓存：同一份歌词、行高无变化时每帧复用，摊销 O(1)
     // （原实现每帧对前 index 行做一次 O(n) 循环，连续滚动每秒约 120 次调用）。
     this.ensurePreciseOffsets(index, lines, usePlayed)

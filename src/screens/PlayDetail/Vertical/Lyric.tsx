@@ -584,11 +584,9 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
     // 避免快进/快退到中后段时高亮行偏高/偏低一行。
     // isActive：激活态高度只用于该行自身定位，不计入累计偏移（见 LyricScrollLayout 说明）。
     layout.updateLineHeight(lineNum, height, !!(lyricLines[lineNum]?.extendedLyrics?.length), isActive)
-    // 激活行高度变化不会移动后续行，因此无需回正；此处回正会在连续滚动中造成一次瞬间跳变。
-    if (isActive) return
     if (!active || isPauseScrollRef.current) return
     const current = lineRef.current.line
-    // 当前行高度变化，或当前行之前的某行“首次被测量”（会移动当前行的累计偏移）时，
+    // 当前行首次测量（切歌/跳转后激活行真实高度就位），或非激活行首次测量导致累计偏移变化时，
     // 防抖回正：避免跳到中段后估算误差让高亮行一直停在非居中位置。
     if (lineNum === current || (!wasMeasured && lineNum < current)) {
       scheduleRecentre()

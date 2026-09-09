@@ -54,7 +54,7 @@ export default forwardRef<WebLoginModalType, {}>((props, ref) => {
       // 验证码登录多为页面内 AJAX，不会触发 onNavigationStateChange，
       // 通过轮询主动注入 JS 获取 document.cookie 兜底。
       webViewRef.current?.injectJavaScript('window.ReactNativeWebView.postMessage(document.cookie);');
-    }, 2000);
+    }, 1500);
   }, [stopPolling]);
 
   const handleClose = useCallback(() => {
@@ -71,9 +71,11 @@ export default forwardRef<WebLoginModalType, {}>((props, ref) => {
     },
   }));
 
+  const LOGIN_COOKIE_FLAGS = ['MUSIC_U=', 'S_INFO=', 'MUSIC_A=', '__csrf=', 'NMTID='];
   const isValidLoginCookie = (cookie: string) => {
-    // 手机号验证码登录后不一定立刻存在 S_INFO，以 MUSIC_U 作为更普适的登录凭证判断
-    return cookie.includes('S_INFO=') || cookie.includes('MUSIC_U=');
+    // 手机号验证码登录后字段可能只有 MUSIC_A/__csrf/NMTID，先放行再由接口验证
+    if (!cookie || cookie.length < 10) return false;
+    return LOGIN_COOKIE_FLAGS.some(flag => cookie.includes(flag));
   };
 
   const extractAndCheckCookies = async (url: string) => {
@@ -104,15 +106,24 @@ export default forwardRef<WebLoginModalType, {}>((props, ref) => {
       }
     }
   };
+  const logCookiePreview = (cookie: string) => {
+    const flags = LOGIN_COOKIE_FLAGS.filter(flag => cookie.includes(flag)).join(', ') || '无识别字段';
+    console.log(`Web登录: Cookie 预览 length=${cookie.length}, flags=[${flags}]`);
+  };
+
   const handleMessage = async (event: any) => {
-    console.log('Web登录: 收到消息:', event.nativeEvent.data);
+    const cookie = event.nativeEvent.data;
+    console.log('Web登录: 收到消息');
     if (loggedInRef.current || isCheckingRef.current) return;
 
-    const cookie = event.nativeEvent.data;
-    if (!cookie || !isValidLoginCookie(cookie)) return;
+    if (!cookie || !isValidLoginCookie(cookie)) {
+      logCookiePreview(cookie || '');
+      return;
+    }
 
     isCheckingRef.current = true;
     try {
+      logCookiePreview(cookie);
       await wyApi.getUid(cookie);
 
       loggedInRef.current = true;
@@ -121,6 +132,7 @@ export default forwardRef<WebLoginModalType, {}>((props, ref) => {
       handleClose();
     } catch (error) {
       console.log('Web登录: Cookie验证失败:', (error as Error).message);
+      toast('Cookie 验证失败，请手动点击“获取Cookie”重试', 'long');
     } finally {
       isCheckingRef.current = false;
     }
@@ -195,19 +207,38 @@ export default forwardRef<WebLoginModalType, {}>((props, ref) => {
   `;
   const injectedJavaScript = `true;`;
 
+  const handleManualGetCookie = useCallback(() => {
+    if (loggedInRef.current || isCheckingRef.current) return;
+    console.log('Web登录: 用户手动获取Cookie');
+    webViewRef.current?.injectJavaScript('window.ReactNativeWebView.postMessage(document.cookie);');
+  }, []);
+
   return (
     <Modal ref={modalRef} onHide={stopPolling} statusBarPadding={false} bgHide={false}>
       <View style={[styles.container, { backgroundColor: theme['c-content-background'] }]}>
         <Header onClose={handleClose} />
-        <WebView
-          ref={webViewRef}
-          source={{ uri: LOGIN_URL }}
-          onMessage={handleMessage}
-          injectedJavaScriptBeforeContentLoaded={injectedJavaScriptBeforeContentLoaded}
-          injectedJavaScript={injectedJavaScript}
-          onNavigationStateChange={handleNavigationStateChange}
-          userAgent="Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
-        />
+        <View style={styles.webViewContainer}>
+          <WebView
+            ref={webViewRef}
+            source={{ uri: LOGIN_URL }}
+            onMessage={handleMessage}
+            injectedJavaScriptBeforeContentLoaded={injectedJavaScriptBeforeContentLoaded}
+            injectedJavaScript={injectedJavaScript}
+            onNavigationStateChange={handleNavigationStateChange}
+            userAgent="Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+            style={styles.webView}
+          />
+        </View>
+        <View style={[styles.footer, { backgroundColor: theme['c-content-background'] }]}>
+          <Text size={13} color={theme['c-font-label']}>若登录完成后未自动获取 Cookie，请点击下方按钮</Text>
+          <TouchableOpacity
+            onPress={handleManualGetCookie}
+            style={[styles.getCookieBtn, { backgroundColor: theme['c-primary'] }]}
+            activeOpacity={0.8}
+          >
+            <Text size={16} color="#ffffff">获取Cookie</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </Modal>
   );
@@ -229,5 +260,23 @@ const styles = StyleSheet.create({
   backButton: {
     padding: 5,
     width: 40,
+  },
+  webViewContainer: {
+    flex: 1,
+  },
+  webView: {
+    flex: 1,
+  },
+  footer: {
+    padding: 16,
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+  },
+  getCookieBtn: {
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

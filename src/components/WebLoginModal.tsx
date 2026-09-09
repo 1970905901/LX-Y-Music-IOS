@@ -1,4 +1,4 @@
-import { forwardRef, useImperativeHandle, useRef, useCallback } from 'react';
+import { forwardRef, useImperativeHandle, useRef, useCallback, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import Modal, { type ModalType } from '@/components/common/Modal';
 import WebView, { type WebViewNavigation } from 'react-native-webview';
@@ -37,21 +37,58 @@ export default forwardRef<WebLoginModalType, {}>((props, ref) => {
   const webViewRef = useRef<any>(null);
   const loggedInRef = useRef(false);
   const isCheckingRef = useRef(false);
+  const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const theme = useTheme();
+
+  const stopPolling = useCallback(() => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+  }, []);
+
+  const startPolling = useCallback(() => {
+    stopPolling();
+    pollingIntervalRef.current = setInterval(() => {
+      if (loggedInRef.current || isCheckingRef.current) return;
+      // 验证码登录多为页面内 AJAX，不会触发 onNavigationStateChange，
+      // 通过轮询主动注入 JS 获取 document.cookie 兜底。
+      webViewRef.current?.injectJavaScript('window.ReactNativeWebView.postMessage(document.cookie);');
+    }, 2000);
+  }, [stopPolling]);
+
+  const handleClose = useCallback(() => {
+    stopPolling();
+    modalRef.current?.setVisible(false);
+  }, [stopPolling]);
 
   useImperativeHandle(ref, () => ({
     show() {
       loggedInRef.current = false;
       isCheckingRef.current = false;
       modalRef.current?.setVisible(true);
+      startPolling();
     },
   }));
 
-  const handleClose = useCallback(() => {
-    modalRef.current?.setVisible(false);
-  }, []);
+  const isValidLoginCookie = (cookie: string) => {
+    // 手机号验证码登录后不一定立刻存在 S_INFO，以 MUSIC_U 作为更普适的登录凭证判断
+    return cookie.includes('S_INFO=') || cookie.includes('MUSIC_U=');
+  };
 
-  const stopPolling = () => {
+  const extractAndCheckCookies = async (url: string) => {
+    if (loggedInRef.current || isCheckingRef.current) return;
+    try {
+      const cookies = await CookieManager.get(url, true);
+      const cookieString = Object.values(cookies)
+        .map(c => `${c.name}=${c.value}`)
+        .join('; ');
+      console.log('Web登录: CookieManager captured cookies');
+      if (cookieString) handleMessage({ nativeEvent: { data: cookieString } });
+    } catch (err) {
+      console.error('Web登录: CookieManager extraction failed, falling back to document.cookie', err);
+      webViewRef.current?.injectJavaScript('window.ReactNativeWebView.postMessage(document.cookie);');
+    }
   };
 
   const handleNavigationStateChange = async (navState: WebViewNavigation) => {
@@ -60,16 +97,10 @@ export default forwardRef<WebLoginModalType, {}>((props, ref) => {
     const isLoggedIn = url.includes(SUCCESS_URL_FLAG) && !url.includes('/login') && !url.includes('/m/login');
     if (isLoggedIn) {
       console.log('Web登录: extracting cookies via CookieManager');
-      try {
-        const cookies = await CookieManager.get(navState.url, true);
-        const cookieString = Object.values(cookies)
-          .map(c => `${c.name}=${c.value}`)
-          .join('; ');
-        console.log('Web登录: CookieManager captured cookies');
-        handleMessage({ nativeEvent: { data: cookieString } });
-      } catch (err) {
-        console.error('Web登录: CookieManager extraction failed, falling back to document.cookie', err);
-        webViewRef.current?.injectJavaScript('window.ReactNativeWebView.postMessage(document.cookie);');
+      // 验证码登录后 Cookie 可能尚未同步到原生，首次失败后延迟重试
+      await extractAndCheckCookies(url);
+      if (!loggedInRef.current) {
+        setTimeout(() => extractAndCheckCookies(url), 1000);
       }
     }
   };
@@ -78,7 +109,7 @@ export default forwardRef<WebLoginModalType, {}>((props, ref) => {
     if (loggedInRef.current || isCheckingRef.current) return;
 
     const cookie = event.nativeEvent.data;
-    if (!cookie || !cookie.includes('S_INFO=')) return;
+    if (!cookie || !isValidLoginCookie(cookie)) return;
 
     isCheckingRef.current = true;
     try {
@@ -94,6 +125,10 @@ export default forwardRef<WebLoginModalType, {}>((props, ref) => {
       isCheckingRef.current = false;
     }
   };
+
+  useEffect(() => {
+    return () => stopPolling();
+  }, [stopPolling]);
 
   const injectedJavaScriptBeforeContentLoaded = `
     (function() {

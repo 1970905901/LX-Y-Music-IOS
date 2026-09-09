@@ -78,22 +78,28 @@ export default memo(() => {
     }
   }, [playlists])
 
+  // 记录上一次加载的 cookie+uid 组合，避免重复请求；cookie 或 uid 变化时强制刷新。
+  const lastLoadKeyRef = useRef('')
   useEffect(() => {
     if (!cookie || !uid) {
+      lastLoadKeyRef.current = ''
       setLoading(false)
       setWySubscribedPlaylists([])
       return
     }
-    if (playlists.length > 0) {
+    const loadKey = `${uid}:${cookie}`
+    if (lastLoadKeyRef.current === loadKey) {
       setLoading(false)
       return
     }
+    lastLoadKeyRef.current = loadKey
     setLoading(true)
     wyApi.getUserPlaylists(uid, cookie)
       .then((playlists: any[]) => {
         setWySubscribedPlaylists(playlists)
       })
       .catch((err: any) => {
+        lastLoadKeyRef.current = ''
         toast(`获取歌单失败: ${err.message}`)
       })
       .finally(() => {
@@ -238,7 +244,7 @@ export default memo(() => {
           numColumns={isHorizontal ? 2 : 1}
           columnWrapperStyle={isHorizontal ? { paddingHorizontal: 8 } : undefined}
           renderItem={({ item }) => (
-            <View style={isHorizontal ? { flex: 1, maxWidth: '50%' } : null}>
+            <View style={isHorizontal ? { flex: 1 } : null}>
               <ListItem item={item} onPress={handleItemPress} onHeartbeatPress={handleHeartbeatPress} onMenuPress={handleMenuPress} />
             </View>
           )}

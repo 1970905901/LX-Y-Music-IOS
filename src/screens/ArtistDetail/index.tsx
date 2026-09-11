@@ -8,6 +8,9 @@ import txApi from '@/utils/musicSdk/tx/artist';
 import kgApi from '@/utils/musicSdk/kg/artist';
 import { toast } from '@/utils/tools';
 import {setComponentId, updateSetting} from '@/core/common';
+import { playOnlineList } from '@/core/list';
+import { pop } from '@/navigation';
+import DetailActionBar from '@/components/DetailActionBar';
 import PlayerBar from '@/components/player/PlayerBar';
 import LandscapeDetailLayout from '@/components/LandscapeDetailLayout';
 import { getArtistCache, setArtistCache,
@@ -324,10 +327,29 @@ export default memo(({ componentId, artistInfo }: { componentId: string, artistI
   const apiHasPic = artistDetail?.artist && (artistDetail.artist.avatar || artistDetail.artist.cover || artistDetail.artist.picUrl || artistDetail.artist.singerPic)
   const displayArtist = apiHasPic ? artistDetail.artist : artistInfo
 
+  // iPad 上 iOS 左滑返回手势不可用，必须提供显式返回入口（pop 回上一级）
+  const handleBack = useCallback(() => {
+    void pop(componentIdRef.current)
+  }, [])
+
+  const handlePlayAll = useCallback(() => {
+    if (!songs.list.length) {
+      toast('歌曲列表加载中，请稍后再试')
+      return
+    }
+    // listId 与 SongList.onPlayList / jumpListPosition 保持一致
+    void playOnlineList(`artist_detail_${artistInfo.id}`, songs.list, 0)
+  }, [songs.list, artistInfo.id])
+
   return (
     <PageContent>
       <LandscapeDetailLayout
-        header={<Header artist={displayArtist} componentId={componentIdRef.current} />}
+        header={
+          <>
+            <Header artist={displayArtist} componentId={componentIdRef.current} />
+            <DetailActionBar onPlayAll={handlePlayAll} onBack={handleBack} />
+          </>
+        }
         body={
           <SongList
             componentId={componentId}

@@ -12,6 +12,8 @@ import PlayerBar from '@/components/player/PlayerBar'
 import LandscapeDetailLayout from '@/components/LandscapeDetailLayout'
 
 import { playOnlineList } from '@/core/list'
+import { pop } from '@/navigation'
+import DetailActionBar from '@/components/DetailActionBar'
 import {COMPONENT_IDS, LIST_IDS} from "@/config/constant.ts"
 import playerState from '@/store/player/state'
 import listState from '@/store/list/state'
@@ -174,10 +176,28 @@ export default memo(({ componentId, albumInfo }: { componentId: string; albumInf
     timestamp: new Date().toISOString(),
   })
 
+  // iPad 上 iOS 左滑返回手势不可用，必须提供显式返回入口（pop 回上一级）
+  const handleBack = useCallback(() => {
+    void pop(componentId)
+  }, [componentId])
+
+  const handlePlayAll = useCallback(() => {
+    if (!albumDetail.list.length) {
+      toast('专辑歌曲加载中，请稍后再试')
+      return
+    }
+    onPlayList(0)
+  }, [albumDetail.list.length, onPlayList])
+
   return (
     <PageContent>
       <LandscapeDetailLayout
-        header={<Header albumInfo={displayAlbumInfo} componentId={componentId} />}
+        header={
+          <>
+            <Header albumInfo={displayAlbumInfo} componentId={componentId} />
+            <DetailActionBar onPlayAll={handlePlayAll} onBack={handleBack} />
+          </>
+        }
         body={
           <OnlineList componentId={componentId}
             ref={listRef}

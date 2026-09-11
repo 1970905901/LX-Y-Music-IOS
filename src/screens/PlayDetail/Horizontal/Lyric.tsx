@@ -1,4 +1,4 @@
-import { memo, useMemo, useEffect, useRef, useCallback } from 'react'
+import { memo, useMemo, useState, useEffect, useRef, useCallback } from 'react'
 import {
   View,
   FlatList,
@@ -153,6 +153,9 @@ export default () => {
   const lastContinuousTimeRef = useRef(-1)
   // 列表可视高度（onLayout 测量），连续滚动按此计算居中偏移。
   const listHeightRef = useRef(0)
+  // 列表可视高度 state：同时驱动 contentContainerStyle 的上下留白（50% 视高），
+  // 保证歌词第一行/最后一行也能滚动到正中央。
+  const [listHeight, setListHeight] = useState(0)
   // 回正定时器：进入/切歌后布局（spaceComponent / 行高）尚未完成时，防抖在测量完成后重新精确居中一次。
   const recentreTimerRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -227,7 +230,11 @@ export default () => {
     }
     // 横屏已播放/当前行都是 bold 档，累计偏移须用 played 档估算，否则未测量区域会系统性偏低。
     // force 定位使用激活高度（当前行可能被 bold 字号挤高），保证居中准确。
-    const targetOffset = layout.getTargetOffsetPrecise(index, listHeight, lyricLines, 0.5, 0, layout.spaceHeight, true, true)
+    // 上下留白（paddingV）与 FlatList contentContainerStyle 的 paddingTop/Bottom 用同一个值
+    // （50% 视高）：布局端与计算端天然一致，不再依赖 space 组件的 onLayout 异步实测，
+    // 消除 iPad 横屏限宽/旋转/窗口尺寸变化时 spaceHeight 与实际布局脱节导致的不居中。
+    const paddingV = listHeight * 0.5
+    const targetOffset = layout.getTargetOffsetPrecise(index, listHeight, lyricLines, 0.5, paddingV, 0, true, true)
     if (force) {
       try {
         flatListRef.current.scrollToOffset({ offset: targetOffset, animated: false })
@@ -281,12 +288,14 @@ export default () => {
     let i = findLineIndexByTime(lyricLines, t)
     if (i < 0) i = 0
     // 横屏「当前行之前」全为已播放（bold）行，累计偏移统一用 bold 档，避免高亮行持续偏低。
-    const offsetI = layout.getTargetOffsetPrecise(i, listHeight, lyricLines, 0.5, 0, layout.spaceHeight, false, true)
+    // 留白与 contentContainerStyle 同源（50% 视高），与 handleScrollToActive 保持同一居中基准。
+    const paddingV = listHeight * 0.5
+    const offsetI = layout.getTargetOffsetPrecise(i, listHeight, lyricLines, 0.5, paddingV, 0, false, true)
     let offset = offsetI
     if (i + 1 < lyricLines.length) {
       const curTime = lyricLines[i].time
       const nextTime = lyricLines[i + 1].time
-      const offsetNext = layout.getTargetOffsetPrecise(i + 1, listHeight, lyricLines, 0.5, 0, layout.spaceHeight, false, true)
+      const offsetNext = layout.getTargetOffsetPrecise(i + 1, listHeight, lyricLines, 0.5, paddingV, 0, false, true)
       const words = wordsMapRef.current[i] ?? undefined
       if (words && words.length) {
         // 逐字歌词：以最后一个字的结束时间作为“本句唱完”的边界。
@@ -473,16 +482,17 @@ export default () => {
     if (lineNum === current || (!wasMeasured && lineNum < current)) scheduleRecentre()
   }, [lyricLines, scheduleRecentre])
 
-  const handleSpaceLayout = useCallback(({ nativeEvent }: LayoutChangeEvent) => {
-    lyricScrollLayoutRef.current.setSpaceHeight(nativeEvent.layout.height)
-  }, [])
-
-  // 测量列表可视高度，供连续滚动计算居中偏移（首帧滚动前即可拿到真实高度）。
+  // 测量列表可视高度，供连续滚动计算居中偏移（首帧滚动前即可拿到真实高度）；
+  // 同时同步 state 驱动 contentContainerStyle 上下留白（50% 视高）。
   const handleListLayout = useCallback(({ nativeEvent }: LayoutChangeEvent) => {
     const h = nativeEvent.layout.height
-    listHeightRef.current = h
-    // 列表高度就位（首帧 / 旋转）后回正一次，确保高亮行在真实高度下居中。
-    if (h > 0) scheduleRecentre()
+    if (h <= 0) return
+    if (listHeightRef.current !== h) {
+      listHeightRef.current = h
+      setListHeight(h)
+    }
+    // 列表高度就位（首帧 / 旋转 / 分栏宽度变化）后回正一次，确保高亮行在真实高度下居中。
+    scheduleRecentre()
   }, [scheduleRecentre])
 
   const handleLinePress = useCallback((index: number) => {
@@ -511,16 +521,13 @@ export default () => {
   }
   const getkey: FlatListType['keyExtractor'] = (item, index) => `${index}${item.text}`
 
-  // FlatList 的 ListHeaderComponent / ListFooterComponent 必须是两个独立的 React 元素，
-  // 共用同一个 element 实例会导致 React 把同一节点挂到两个父节点下，轻则渲染异常、
-  // 重则在更新/旋转时触发 hooks 数量不一致的红屏。
-  const headerSpace = useMemo(
-    () => <View style={styles.space} onLayout={handleSpaceLayout} />,
-    [handleSpaceLayout]
-  )
-  const footerSpace = useMemo(
-    () => <View style={styles.space} onLayout={handleSpaceLayout} />,
-    [handleSpaceLayout]
+  // 上下留白 50% 视高（与滚动定位的 paddingV 同一个值）：
+  // 高亮行能严格滚到正中央，且歌词第一行/最后一行也不例外。
+  // 不再用 ListHeader/Footer space + paddingTop:'100%'（相对列表宽度，iPad 横屏限宽/
+  // 旋转时实测值与计算脱节，是高亮行不居中的根源）。
+  const listPadding = useMemo(
+    () => ({ paddingTop: listHeight * 0.5, paddingBottom: listHeight * 0.5 }),
+    [listHeight]
   )
 
   return (
@@ -532,8 +539,7 @@ export default () => {
         style={{ flex: 1 }}
         ref={flatListRef}
         showsVerticalScrollIndicator={false}
-        ListHeaderComponent={headerSpace}
-        ListFooterComponent={footerSpace}
+        contentContainerStyle={listPadding}
         onScrollBeginDrag={handleScrollBeginDrag}
         onScrollEndDrag={onScrollEndDrag}
         initialNumToRender={Math.min(Math.max(line + 20, 20), 100)}
@@ -556,9 +562,6 @@ const styles = createStyle({
     flex: 1,
     paddingLeft: 20,
     paddingRight: 20,
-  },
-  space: {
-    paddingTop: '100%',
   },
   line: {
     paddingTop: 10,

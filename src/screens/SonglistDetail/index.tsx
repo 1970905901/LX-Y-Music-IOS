@@ -280,6 +280,11 @@ export default ({ info, onBack, initialScrollToInfo }: { info: ListInfoItem, onB
   const detailContent = (
     <LandscapeDetailLayout
       header={ListHeaderComponent}
+      // 歌单详情内嵌在 Home 右栏（左侧已让出导航栏/标签栏宽度），
+      // 横屏若再左右分栏，列表会被挤到 ~400pt 还要拆两列，歌曲名/来源显示不全。
+      // 改为上下堆叠：header（封面/简介/收藏歌单·播放全部·返回）全宽在上，
+      // 歌曲列表占满下方整行宽度并延伸到最右侧，两列各自获得充足宽度。
+      stackOnLandscape
       body={
         <ListInfoContext.Provider value={info}>
           <MusicList ref={musicListRef} playingId={playerMusicInfo.id} componentId={commonState.componentIds[commonState.componentIds.length - 1]?.id} isCreator={true} searchText={searchText} isFuzzySearch={isFuzzySearch} onListUpdate={handleListUpdate} />

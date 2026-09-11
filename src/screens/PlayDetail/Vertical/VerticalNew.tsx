@@ -16,18 +16,13 @@ import { registerPager } from '@/utils/pagerScrollControl'
 import { scaleSizeW } from '@/utils/pixelRatio'
 import { COMPONENT_IDS } from '@/config/constant'
 
-const LyricPage = ({ activeIndex, pagerHeight = 0, isComingLyric = false }: { activeIndex: number; pagerHeight?: number; isComingLyric?: boolean }) => {
-  const initedRef = useRef(false)
-  switch (activeIndex) {
-    case 1:
-      if (!initedRef.current) initedRef.current = true
-      return <Lyric key="lyric" active={true} pagerHeight={pagerHeight} />
-    default:
-      // 用户在封面页时：如果正在从左往右滑向歌词页（isComingLyric=true），
-      // 提前让歌词页开始定位高亮行；否则保持默认 active=false 抑制滚动。
-      const isActive = initedRef.current && isComingLyric
-      return initedRef.current ? <Lyric key="lyric" active={isActive} pagerHeight={pagerHeight} /> : null
-  }
+const LyricPage = ({ pagerHeight = 0, isActive = false }: { pagerHeight?: number; isActive?: boolean }) => {
+  // 歌词页始终预挂载（pagerHeight 就绪后），isActive 只控制滚动/定位：
+  // 若等首次滑到歌词页才挂载，FlatList 需在现场渲染大量歌词行 + 布局测量 + 无动画定位，
+  // 全部挤在滑动完成的一帧里，PagerView 切页会出现明显顿挫（iPhone/iPad 竖屏“顿一下”的主因）。
+  // active=false 时 Lyric 内部不启动滚动循环、不定位，常驻成本仅是一次性的初始行渲染。
+  if (pagerHeight <= 0) return null
+  return <Lyric key="lyric" active={isActive} pagerHeight={pagerHeight} />
 }
 
 const VerticalNew = memo(({ componentId }: { componentId: string }) => {
@@ -153,7 +148,7 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
             </View>
           </View>
           <View collapsable={false} style={{ flex: 1, width: '100%', height: '100%' }}>
-            <LyricPage activeIndex={pageIndex} pagerHeight={pagerHeight} isComingLyric={isComingLyricRef.current} />
+            <LyricPage pagerHeight={pagerHeight} isActive={pageIndex === 1 || isComingLyricRef.current} />
           </View>
         </PagerView>
         {/* Progress bar must live OUTSIDE the PagerView so its horizontal drag never

@@ -59,7 +59,12 @@ const LrcLine = memo(
       onPress(lineNum);
     }, [onPress, lineNum]);
     return (
-      <TouchableOpacity activeOpacity={0.7} onPress={handlePress}>
+      <TouchableOpacity
+        activeOpacity={0.7}
+        onPress={handlePress}
+        accessibilityRole="button"
+        accessibilityLabel={line.text || undefined}
+      >
         <View style={styles.line} onLayout={handleLayout}>
           {words
             ? (
@@ -161,6 +166,11 @@ export default () => {
 
   const initialDistanceRef = useRef(0)
   const initialFontSizeRef = useRef(0)
+  // 缩放节流：updateSetting 每次调用都会全量序列化 setting 并写 AsyncStorage，
+  // 缩放手势每帧触发会造成连串写盘掉帧；move 中按 120ms 节流提交，
+  // 最新期望值暂存 pending，松手/被接管时补交终值（对齐竖屏实现）。
+  const lastZoomCommitRef = useRef(0)
+  const pendingZoomSizeRef = useRef<number | null>(null)
 
   const panResponder = useMemo(() => PanResponder.create({
     // 仅当两根手指同时按下时才接管手势（双指缩放歌词字号），
@@ -175,6 +185,8 @@ export default () => {
       const dy = touches[0].pageY - touches[1].pageY
       initialDistanceRef.current = Math.sqrt(dx * dx + dy * dy)
       initialFontSizeRef.current = settingState.setting['playDetail.horizontal.style.lrcFontSize']
+      lastZoomCommitRef.current = 0
+      pendingZoomSizeRef.current = null
     },
     onPanResponderMove: (evt) => {
       const touches = evt.nativeEvent.touches ?? evt.nativeEvent.changedTouches
@@ -187,15 +199,32 @@ export default () => {
       let newSize = Math.round((initialFontSizeRef.current * scale) / 2) * 2
       newSize = Math.max(100, Math.min(newSize, 300))
 
-      if (settingState.setting['playDetail.horizontal.style.lrcFontSize'] !== newSize) {
+      if (settingState.setting['playDetail.horizontal.style.lrcFontSize'] === newSize) return
+      // 节流提交：间隔内的帧只更新 pending，松手时补交终值，避免每帧写盘。
+      pendingZoomSizeRef.current = newSize
+      const now = Date.now()
+      if (now - lastZoomCommitRef.current >= 120) {
+        lastZoomCommitRef.current = now
         updateSetting({ 'playDetail.horizontal.style.lrcFontSize': newSize })
       }
     },
     onPanResponderRelease: () => {
       initialDistanceRef.current = 0
+      // 松手补交：把节流期间暂存的最终字号落盘，保证手势结束后的字号与用户预期一致。
+      const pending = pendingZoomSizeRef.current
+      pendingZoomSizeRef.current = null
+      if (pending != null && settingState.setting['playDetail.horizontal.style.lrcFontSize'] !== pending) {
+        updateSetting({ 'playDetail.horizontal.style.lrcFontSize': pending })
+      }
     },
     onPanResponderTerminate: () => {
       initialDistanceRef.current = 0
+      // 手势被系统接管时同样补交终值，避免缩放结果丢失。
+      const pending = pendingZoomSizeRef.current
+      pendingZoomSizeRef.current = null
+      if (pending != null && settingState.setting['playDetail.horizontal.style.lrcFontSize'] !== pending) {
+        updateSetting({ 'playDetail.horizontal.style.lrcFontSize': pending })
+      }
     }
   }), [])
 
@@ -519,7 +548,9 @@ export default () => {
   const renderItem: FlatListType['renderItem'] = ({ item, index }) => {
     return <LrcLine line={item} lineNum={index} activeLine={line} onLayout={handleLineLayout} onPress={handleLinePress} wordsByIndex={wordsByIndex} />;
   }
-  const getkey: FlatListType['keyExtractor'] = (item, index) => `${index}${item.text}`
+  // 与竖屏一致用行索引作 key：切歌时行组件按 key 复用、仅 props 更新，
+  // 避免把 text 拼进 key 导致切歌时整表卸载重建（行内动画状态也要重挂）。
+  const getkey: FlatListType['keyExtractor'] = (_item, index) => `${index}`
 
   // 上下留白 50% 视高（与滚动定位的 paddingV 同一个值）：
   // 高亮行能严格滚到正中央，且歌词第一行/最后一行也不例外。

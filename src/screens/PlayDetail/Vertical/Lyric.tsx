@@ -106,7 +106,12 @@ const LrcLine = memo(
     }, [onPress, lineNum]);
 
     return (
-      <TouchableOpacity activeOpacity={0.7} onPress={handlePress}>
+      <TouchableOpacity
+        activeOpacity={0.7}
+        onPress={handlePress}
+        accessibilityRole="button"
+        accessibilityLabel={line.text || undefined}
+      >
         <View style={[styles.line, isSmallWindow && { paddingTop: 6, paddingBottom: 6 }]} onLayout={handleLayout}>
           {words
             ? (
@@ -169,7 +174,10 @@ const LrcLine = memo(
       prevProps.activeLine != nextProps.lineNum &&
       nextProps.activeLine != nextProps.lineNum &&
       prevProps.onPress === nextProps.onPress &&
-      prevProps.wordsByIndex === nextProps.wordsByIndex
+      prevProps.wordsByIndex === nextProps.wordsByIndex &&
+      // onLayout 引用稳定（useCallback），无需比较；isSmallWindow 变化时必须放行更新，
+      // 否则小屏/大屏切换后行内边距不刷新。
+      prevProps.isSmallWindow === nextProps.isSmallWindow
     )
   }
 )
@@ -233,6 +241,12 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
 
   const initialDistanceRef = useRef(0)
   const initialFontSizeRef = useRef(0)
+  // 缩放节流：updateSetting 每次调用都会全量序列化 setting 并写 AsyncStorage，
+  // 缩放手势每帧触发会导致连串写盘 + configUpdated 广播，造成掉帧。
+  // move 中按 120ms 节流提交（UI 仍平滑跟随），最新期望值暂存 pending，
+  // 松手时一次性提交终值，保证最终字号准确落盘。
+  const lastZoomCommitRef = useRef(0)
+  const pendingZoomSizeRef = useRef<number | null>(null)
 
   const panResponder = useMemo(() => PanResponder.create({
     // 仅当两根手指同时按下时才接管手势（双指缩放歌词字号），
@@ -248,6 +262,8 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
       const dy = touches[0].pageY - touches[1].pageY
       initialDistanceRef.current = Math.sqrt(dx * dx + dy * dy)
       initialFontSizeRef.current = settingState.setting['playDetail.vertical.style.lrcFontSize']
+      lastZoomCommitRef.current = 0
+      pendingZoomSizeRef.current = null
     },
     onPanResponderMove: (evt) => {
       const touches = evt.nativeEvent.touches ?? evt.nativeEvent.changedTouches
@@ -260,15 +276,32 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
       let newSize = Math.round((initialFontSizeRef.current * scale) / 2) * 2
       newSize = Math.max(100, Math.min(newSize, 300)) // ensure within bounds
 
-      if (settingState.setting['playDetail.vertical.style.lrcFontSize'] !== newSize) {
+      if (settingState.setting['playDetail.vertical.style.lrcFontSize'] === newSize) return
+      // 节流提交：间隔内的帧只更新 pending，松手时补交终值，避免每帧写盘。
+      pendingZoomSizeRef.current = newSize
+      const now = Date.now()
+      if (now - lastZoomCommitRef.current >= 120) {
+        lastZoomCommitRef.current = now
         updateSetting({ 'playDetail.vertical.style.lrcFontSize': newSize })
       }
     },
     onPanResponderRelease: () => {
       initialDistanceRef.current = 0
+      // 松手补交：把节流期间暂存的最终字号落盘，保证手势结束后的字号与用户预期一致。
+      const pending = pendingZoomSizeRef.current
+      pendingZoomSizeRef.current = null
+      if (pending != null && settingState.setting['playDetail.vertical.style.lrcFontSize'] !== pending) {
+        updateSetting({ 'playDetail.vertical.style.lrcFontSize': pending })
+      }
     },
     onPanResponderTerminate: () => {
       initialDistanceRef.current = 0
+      // 手势被系统接管（如来电/通知下拉）时同样补交终值，避免缩放结果丢失。
+      const pending = pendingZoomSizeRef.current
+      pendingZoomSizeRef.current = null
+      if (pending != null && settingState.setting['playDetail.vertical.style.lrcFontSize'] !== pending) {
+        updateSetting({ 'playDetail.vertical.style.lrcFontSize': pending })
+      }
     }
   }), [])
 
@@ -295,7 +328,10 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
   // 同一行重锚时再用“舒适区 15%”节流，避免逐秒重锚把歌词列表反复微滚动造成抖动。
   // force=true 时无视舒适区，用于切回歌词页 / 切歌 / 拖动进度条 / 点击歌词 / 恢复播放等需要立即定位的场景。
   const lastScrolledLineRef = useRef(-1)
-  const handleScrollToActive = (index = lineRef.current.line, force = false) => {
+  // useCallback 稳定引用：handleLinePress / scheduleRecentre / 各 effect 依赖它，
+  // 若每次渲染重建会让 handleLinePress 引用跟着变，LrcLine 的 memo 比较器
+  // （onPress 引用比较）将永远失效，行切换时全部可见行都被迫重渲染。
+  const handleScrollToActive = useCallback((index = lineRef.current.line, force = false) => {
     if (index < 0 || !flatListRef.current || isPauseScrollRef.current) return
     if (scrollCancelRef.current) {
       scrollCancelRef.current()
@@ -320,7 +356,7 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
       flatListRef.current.scrollToOffset({ offset: targetOffset, animated: !force })
       lastScrolledLineRef.current = index
     } catch { }
-  }
+  }, [lyricLines, pagerHeight])
 
   // 连续平滑滚动：基于外推时钟的精确播放时间计算当前应滚动到的偏移。
   // 逐字歌词（有逐字时间轴）时采用「句内暂停、句末再滚」：
@@ -382,8 +418,7 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
       if (!active || isPauseScrollRef.current) return
       handleScrollToActive(lineRef.current.line, true)
     }, 150)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active])
+  }, [active, handleScrollToActive])
   const handleScrollBeginDrag = () => {
     isPauseScrollRef.current = true
     if (delayScrollTimeout.current) {
@@ -624,9 +659,11 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
     handleScrollToActive(index, true);
   }, [isShowLyricProgressSetting, lyricLines, setForceScroll, handleScrollToActive]);
 
-  const renderItem: FlatListType['renderItem'] = ({ item, index }) => {
+  // useCallback 稳定 renderItem：依赖项均为稳定引用或低频变化值（line 每行切换变化一次），
+  // 配合 LrcLine 的 memo 比较器，行切换时只有新旧激活两行重渲染。
+  const renderItem: FlatListType['renderItem'] = useCallback(({ item, index }) => {
     return <LrcLine line={item} lineNum={index} activeLine={line} onLayout={handleLineLayout} onPress={handleLinePress} isSmallWindow={isSmallWindow} wordsByIndex={wordsByIndex} />;
-  };
+  }, [line, handleLineLayout, handleLinePress, isSmallWindow, wordsByIndex]);
   const getkey: FlatListType['keyExtractor'] = (_item, index) => `${index}`
 
   const handlePageLayout = useCallback(({ nativeEvent }: LayoutChangeEvent) => {

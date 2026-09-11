@@ -92,6 +92,14 @@ export default forwardRef<ModalType, ModalProps>(
       <Modal
         animationType="fade"
         transparent={true}
+        // presentationStyle 仅在 iPad/Plus 等大屏设备上生效（iPhone 上被系统忽略，
+        // 始终全屏覆盖）。必须显式钉死 overFullScreen：iOS 13+ 未显式声明时，
+        // iPad 上透明 Modal 存在 pageSheet/formSheet 回退呈现路径，叠加本项目
+        // UIRequiresFullScreen=true，会导致呈现异常——表现为 iPad 上菜单/弹层
+        // 「点击没反应」（iPhone 正常）。
+        presentationStyle="overFullScreen"
+        // 允许 iPad 竖屏/横屏双方向呈现；iPhone 系统锁定竖屏，不受影响。
+        supportedOrientations={['portrait', 'landscape']}
         hardwareAccelerated={true}
         statusBarTranslucent={true}
         visible={visible}

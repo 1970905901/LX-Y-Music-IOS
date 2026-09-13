@@ -4,7 +4,7 @@ import { getTimelineDuration } from '@/core/player/timeline'
 import { setCurrentTime, getDuration, getPosition } from '@/plugins/player/utils'
 import { formatPlayTime2 } from '@/utils/common'
 import { savePlayInfo } from '@/utils/data'
-import { throttleBackgroundTimer } from '@/utils/tools'
+import { setCurrentTime, getDuration, getPosition, isNativeFlacActive } from '@/plugins/player/utils'
 import BackgroundTimer from 'react-native-background-timer'
 import playerState from '@/store/player/state'
 import settingState from '@/store/setting/state'
@@ -114,7 +114,7 @@ export default () => {
       // 直接以该落点锚定 UI 时钟并同步歌词，由每秒 getCurrentTime 校准防止长期漂移。
       audioClock.setAnchor(actualTime * 1000, settingState.setting['player.playbackRate'], playerState.isPlay)
       syncLyric(actualTime, playerState.isPlay)
-      global.app_event.seekLyric(actualTime)
+      if (!isNativeFlacActive()) global.app_event.seekLyric(actualTime)
     })
 
     if (maxTime != null) setMaxplayTime(getTimelineDuration(playerState.playMusicInfo.musicInfo, maxTime))

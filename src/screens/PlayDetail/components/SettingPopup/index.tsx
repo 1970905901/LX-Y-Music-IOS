@@ -10,7 +10,6 @@ import SettingLrcFontSize from './settings/SettingLrcFontSize'
 import SettingLrcAlign from './settings/SettingLrcAlign'
 import SettingMiniLyricAlign from './settings/SettingMiniLyricAlign'
 import SettingCoverSpin from "@/screens/PlayDetail/components/SettingPopup/settings/SettingCoverSpin.tsx";
-import SoundEffectControl from '@/components/player/SoundEffectControl'
 import SettingCoverSize from './settings/SettingCoverSize'
 
 export interface SettingPopupProps extends Omit<PopupProps, 'children'> {
@@ -51,7 +50,6 @@ export default forwardRef<SettingPopupType, SettingPopupProps>(({ direction, ...
           <SettingLrcAlign />
           <SettingMiniLyricAlign />
           <SettingCoverSpin />
-          <SoundEffectControl showTip={false} layoutMode={direction} />
         </View>
       </ScrollView>
     </Popup>

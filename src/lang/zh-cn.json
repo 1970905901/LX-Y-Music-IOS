@@ -712,5 +712,8 @@
   "setting_basic_tx_cookie_placeholder": "在此处粘贴你的 QQ音乐 Cookie",
   "setting_basic_kg_cookie": "酷狗音乐 Cookie",
   "setting_basic_kg_cookie_placeholder": "在此处粘贴你的酷狗音乐 Cookie",
-  "setting_play_sound_effect": "音效"
+  "setting_play_sound_effect": "音效",
+  "setting_play_use_native_flac": "启用原生 FLAC 解码器",
+  "setting_play_use_native_flac_desc": "使用 libFLAC 自研解码器代替 AVPlayer 播放无损音质（FLAC / Hi-Res / 母带 / 全景声）。开启后可获得完整位深输出和更强的音频处理能力（均衡器、混响、空间音效）。AVPlayer 走系统级解码，更稳定但音效处理能力有限。",
+  "setting_play_use_native_flac_tip": "解码器设置已更新，重新播放后生效。"
 }

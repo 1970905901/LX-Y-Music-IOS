@@ -13,6 +13,7 @@ import { AppState } from 'react-native'
 // UI 平滑时钟：仅服务于逐字歌词高亮与歌词连续滚动的每帧插值，
 // 不参与歌词行同步（行高亮已交由歌词引擎内部 ticker 驱动）。
 import { audioClock } from '@/core/player/audioClock'
+import { syncLyric } from '@/core/lyric'
 import {
   updateScrobbleInfo,
   updateScrobblePlayTime,
@@ -101,6 +102,7 @@ export default () => {
     setNowPlayTime(time)
     // seek 期间先冻结 UI 时钟在目标位置，等引擎返回真实落点后再重锚。
     audioClock.hold(time * 1000)
+    syncLyric(time, playerState.isPlay)
 
     // 参考项目对齐的 seek：音频与歌词用同一真实落点，保证普通音质快进/快退后二者同步。
     void setCurrentTime(time).then((targetPosition) => {
@@ -111,6 +113,7 @@ export default () => {
       // 所有音质统一走 AVPlayer 系统级 seek：TrackPlayer 准确报告真实落点，
       // 直接以该落点锚定 UI 时钟并同步歌词，由每秒 getCurrentTime 校准防止长期漂移。
       audioClock.setAnchor(actualTime * 1000, settingState.setting['player.playbackRate'], playerState.isPlay)
+      syncLyric(actualTime, playerState.isPlay)
       global.app_event.seekLyric(actualTime)
     })
 

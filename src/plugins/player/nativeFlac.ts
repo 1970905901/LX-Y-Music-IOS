@@ -59,8 +59,8 @@ export const isNativeFlacPlayerAvailable = () => Platform.OS == 'ios' && isStrea
 const FLAC_QUALITIES = new Set<LX.Quality>(['flac', 'flac24bit', 'hires', 'master', 'atmos', 'atmos_plus'])
 
 export const shouldUseNativeFlacPlayer = async(_musicInfo: LX.Player.PlayMusic, _url: string, quality?: LX.Quality | null) => {
+  if (!settingState.setting['player.useNativeFlacPlayer']) return false
   return quality != null && FLAC_QUALITIES.has(quality)
-}
 
 export const prefetchNativeFlacPlayback = async(musicInfo: LX.Player.PlayMusic, url: string, quality?: LX.Quality | null) => {
   if (!await shouldUseNativeFlacPlayer(musicInfo, url, quality)) return false

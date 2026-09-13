@@ -11,6 +11,7 @@ import { setStatusText } from '@/core/player/playStatus'
 import { isActive } from '@/utils/tools'
 import playerState from '@/store/player/state'
 import settingState from '@/store/setting/state'
+import { playNowPlaying, pauseNowPlaying } from '@/utils/nativeModules/nowPlaying'
 import { setNowPlayTime } from '@/core/player/progress'
 import { startPreload, stopPreload } from '@/core/player/preload'
 
@@ -171,6 +172,7 @@ export const initUnifiedPlayerController = () => {
               // 轮询持续维持，不再依赖全局静音标志，避免标志泄漏到其它音质导致“没声音”。
               void setNativeFlacVolume(settingState.setting['player.volume'])
               void setNativeFlacRate(settingState.setting['player.playbackRate'])
+              void playNowPlaying({ elapsedTime: await getPosition().catch(() => 0), playbackRate: settingState.setting['player.playbackRate'] })
             } else if (Platform.OS == 'ios') {
               void TrackPlayer.setVolume(settingState.setting['player.volume'])
             }
@@ -189,6 +191,7 @@ export const initUnifiedPlayerController = () => {
             clearLoadingTimeout()
             if (event.driver == 'nativeFlac' && event.state != 'paused') global.lx.playerTrackId = ''
             global.app_event.playerPause()
+            if (event.driver == 'nativeFlac') void pauseNowPlaying({ elapsedTime: await getPosition().catch(() => 0) })
             global.app_event.pause()
             break
         }

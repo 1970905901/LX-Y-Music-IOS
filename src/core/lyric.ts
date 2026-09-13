@@ -127,15 +127,12 @@ export const play = () => {
 }
 
 export const seek = (time: number) => {
-  pause()
-  setTimeout(() => {
-    handlePlay(time * 1000)
-    if (!playerState.isPlay) {
-      setTimeout(() => {
-        pause()
-      })
-    }
-  }, 60)
+  handlePlay(time * 1000)
+  if (!playerState.isPlay) {
+    setTimeout(() => {
+    pause()
+  })
+  }
 }
 
 /**

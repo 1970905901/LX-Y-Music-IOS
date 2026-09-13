@@ -4036,11 +4036,10 @@ RCT_REMAP_METHOD(selectFolder, selectFolderWithResolver:(RCTPromiseResolveBlock)
   BOOL isRNModalVC = controller != nil && [NSStringFromClass([controller class]) isEqualToString:@"RCTModalHostViewController"];
   BOOL isBeingDismissed = controller != nil && controller.isBeingDismissed;
   if (controller == nil || controller.presentedViewController != nil || isRNModalVC || isBeingDismissed || LXAnotherRNModalWindowPresent()) {
-    __weak typeof(self) weakSelf = self;
+    // 本文件是 Objective-C++（.mm），C++ 模式下没有 typeof 关键字，因此这里与
+    // presentDocumentPickerWhenReady 保持一致，直接捕获 self（延迟 50ms 即释放，无实际影响）。
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(50 * NSEC_PER_MSEC)), dispatch_get_main_queue(), ^{
-      __strong typeof(weakSelf) strongSelf = weakSelf;
-      if (strongSelf == nil) return;
-      [strongSelf presentShareSheetWhenReady:activityViewController attempts:attempts + 1];
+      [self presentShareSheetWhenReady:activityViewController attempts:attempts + 1];
     });
     return;
   }
@@ -4075,11 +4074,10 @@ RCT_REMAP_METHOD(shareFile, shareFile:(NSString *)filePath resolver:(RCTPromiseR
     NSURL *fileURL = [NSURL fileURLWithPath:targetPath];
     UIActivityViewController *activityViewController = [[UIActivityViewController alloc] initWithActivityItems:@[fileURL] applicationActivities:nil];
     // 分享面板关闭后恢复主窗口为 key 并重新开启交互（兜底，真正修复依赖 JS 侧先卸载 RN Modal）。
-    __weak typeof(self) weakSelf = self;
+    // 同样避免 typeof：直接捕获 self，由下面的 self.shareController = nil 在面板关闭时打破引用环。
     activityViewController.completionWithItemsHandler = ^(UIActivityType __nullable activityType, BOOL completed, NSArray * __nullable returnedItems, NSError * __nullable activityError) {
       LXEnsureKeyWindow();
-      __strong typeof(weakSelf) strongSelf = weakSelf;
-      if (strongSelf != nil) strongSelf.shareController = nil;
+      self.shareController = nil;
     };
     self.shareController = activityViewController;
     self.shareResolve = resolve;

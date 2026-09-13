@@ -42,7 +42,7 @@ const initial = async({ volume, playRate, cacheSize, isHandleAudioFocus, isEnabl
     preferredForwardBufferDuration: 60,  // 引导 AVPlayer 提前预读约 60s，弱网更平滑
     waitForBuffer: true,                 // 缓冲不足时等待而非中断播放
     handleAudioFocus: isHandleAudioFocus,
-    audioOffload: isEnableAudioOffload,
+    audioOffload: false,
     autoUpdateMetadata: false,
     // iOS 音频焦点：关闭时允许与其他 App 混音，避免被系统强制中断；
     // 开启时使用标准 Playback 分类，其他 App 出声时系统会发起中断。

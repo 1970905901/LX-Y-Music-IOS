@@ -337,8 +337,6 @@
   "setting_basic_source_test_unknown": "未知",
   "setting_basic_wy_cookie": "网易云音乐 Cookie",
   "setting_basic_wy_cookie_placeholder": "在此处粘贴你的 Cookie",
-  "setting_basic_tx_cookie": "QQ音乐 Cookie",
-  "setting_basic_tx_cookie_placeholder": "在此处粘贴你的 QQ音乐 Cookie",
   "setting_basic_show_my_list_sub_menu": "我的列表子菜单",
   "setting_basic_new_list_ui": "我的列表新UI",
   "setting_common_bilibili_multi_page": "哔哩哔哩搜索显示多P结果",
@@ -713,5 +711,6 @@
   "setting_basic_tx_cookie": "QQ音乐 Cookie",
   "setting_basic_tx_cookie_placeholder": "在此处粘贴你的 QQ音乐 Cookie",
   "setting_basic_kg_cookie": "酷狗音乐 Cookie",
-  "setting_basic_kg_cookie_placeholder": "在此处粘贴你的酷狗音乐 Cookie"
+  "setting_basic_kg_cookie_placeholder": "在此处粘贴你的酷狗音乐 Cookie",
+  "setting_play_sound_effect": "音效"
 }

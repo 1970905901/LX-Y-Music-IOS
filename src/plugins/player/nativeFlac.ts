@@ -56,10 +56,10 @@ const isRemoteUrl = (url: string) => /^https?:\/\//i.test(url)
 
 export const isNativeFlacPlayerAvailable = () => Platform.OS == 'ios' && isStreamingFlacSupported
 
-// 当前策略：所有音质（含 flac / flac24bit / hires）统一走系统原生播放器 (TrackPlayer / AVPlayer)，
-// 不再使用自研 StreamingFlac 解码器，以保证播放稳定性与控制中心进度同步一致。
-export const shouldUseNativeFlacPlayer = async(_musicInfo: LX.Player.PlayMusic, _url: string, _quality?: LX.Quality | null) => {
-  return false
+const FLAC_QUALITIES = new Set<LX.Quality>(['flac', 'flac24bit', 'hires', 'master', 'atmos', 'atmos_plus'])
+
+export const shouldUseNativeFlacPlayer = async(_musicInfo: LX.Player.PlayMusic, _url: string, quality?: LX.Quality | null) => {
+  return quality != null && FLAC_QUALITIES.has(quality)
 }
 
 export const prefetchNativeFlacPlayback = async(musicInfo: LX.Player.PlayMusic, url: string, quality?: LX.Quality | null) => {

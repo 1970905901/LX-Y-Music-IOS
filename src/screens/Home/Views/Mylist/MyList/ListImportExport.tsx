@@ -2,8 +2,8 @@ import ChoosePath, { type ChoosePathType } from '@/components/common/ChoosePath'
 import { LXM_FILE_EXT_RXP } from '@/config/constant'
 import { forwardRef, useImperativeHandle, useRef, useState, type MutableRefObject } from 'react'
 import { Platform } from 'react-native'
-import { selectFile, selectFolder, shareFile, temporaryDirectoryPath } from '@/utils/fs'
-import { handleExport, handleImport, handleImportMediaFile, exportListToFile } from './listAction'
+import { selectFile, shareFile, temporaryDirectoryPath } from '@/utils/fs'
+import { handleExport, handleImport, exportListToFile } from './listAction'
 import { toast } from '@/utils/tools'
 import { log } from '@/utils/log'
 
@@ -13,7 +13,7 @@ export interface SelectInfo {
   index: number
   // listId: string
   // single: boolean
-  action: 'import' | 'export' | 'selectFile'
+  action: 'import' | 'export'
 }
 const initSelectInfo = {}
 
@@ -27,7 +27,6 @@ const initSelectInfo = {}
 export interface ListImportExportType {
   import: (listInfo: LX.List.MyListInfo, index: number) => void
   export: (listInfo: LX.List.MyListInfo, index: number) => void
-  selectFile: (listInfo: LX.List.MyListInfo, index: number) => void
 }
 
 const showChoosePath = (
@@ -112,31 +111,6 @@ export default forwardRef<ListImportExportType, {}>((props, ref) => {
         filter: LXM_FILE_EXT_RXP,
       })
     },
-    selectFile(listInfo, index) {
-      selectInfoRef.current = {
-        action: 'selectFile',
-        listInfo,
-        index,
-      }
-      // iOS：选择本地音乐文件夹使用系统原生文件夹选择器（UIDocumentPicker 目录模式）
-      if (Platform.OS === 'ios') {
-        void selectFolder()
-          .then((res) => {
-            const path = res?.path
-            if (!path) return
-            void handleImportMediaFile(listInfo, path)
-          })
-          .catch((err: any) => {
-            if (err?.code === 'picker_cancelled') return
-          })
-        return
-      }
-      showChoosePath(choosePathRef, visible, setVisible, {
-        title: global.i18n.t('list_select_local_file_desc'),
-        dirOnly: true,
-        isPersist: true,
-      })
-    },
   }))
 
   const onConfirmPath = (path: string) => {
@@ -146,9 +120,6 @@ export default forwardRef<ListImportExportType, {}>((props, ref) => {
         break
       case 'export':
         handleExport(selectInfoRef.current.listInfo, path)
-        break
-      case 'selectFile':
-        void handleImportMediaFile(selectInfoRef.current.listInfo, path)
         break
     }
   }

@@ -346,8 +346,15 @@ export default memo(() => {
       let cover = first?.meta?.picUrl || ''
       // meta.picUrl 为空（WebDAV 同步 / 备份导入的歌单首曲常无封面）时按需动态补全，
       // 复用列表项同一套 getPicPath 分发（带缓存 + 并发限制），与「歌曲列表有封面」保持一致。
+      // 在线获取偶发超时/失败会导致封面概率性空白，这里失败后短暂延迟再重试一次。
       if (!cover && first) {
         cover = await fetchCoverUrl(first)
+        if (!cover) {
+          await new Promise<void>((resolve) => {
+            setTimeout(resolve, 800)
+          })
+          cover = await fetchCoverUrl(first)
+        }
       }
       return { cover, total: musics.length }
     } catch {
@@ -362,12 +369,23 @@ export default memo(() => {
     }
     setHasError(false)
     try {
-      const newMap = new Map<string, { cover: string; total: number }>()
+      const fetched = new Map<string, { cover: string; total: number }>()
       for (const list of allList) {
-        const info = await fetchListInfo(list.id)
-        newMap.set(list.id, info)
+        fetched.set(list.id, await fetchListInfo(list.id))
       }
-      setListInfoMap(newMap)
+      // 合并旧值：单次获取失败（网络抖动/接口超时）时新封面可能为空，
+      // 此时保留上一次成功的结果，避免刷新反而把已有封面洗掉。
+      setListInfoMap((prev) => {
+        const next = new Map<string, { cover: string; total: number }>()
+        for (const list of allList) {
+          const fresh = fetched.get(list.id)
+          next.set(list.id, {
+            cover: fresh?.cover || prev.get(list.id)?.cover || '',
+            total: fresh?.total ?? 0,
+          })
+        }
+        return next
+      })
     } catch {
       setHasError(true)
     } finally {
@@ -661,9 +679,6 @@ export default memo(() => {
             onExport={(info, position) => listImportExportRef.current?.export(info, position)}
             onRemove={(info) => handleRemove(info)}
             onSync={(info) => handleSync(info)}
-            onSelectLocalFile={(info, position) =>
-              listImportExportRef.current?.selectFile(info, position)
-            }
           />
         </>
       )}

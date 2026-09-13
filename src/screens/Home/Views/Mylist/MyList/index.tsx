@@ -53,9 +53,6 @@ export default () => {
         onSync={(info) => {
           handleSync(info)
         }}
-        onSelectLocalFile={(info, position) =>
-          listImportExportRef.current?.selectFile(info, position)
-        }
       />
       {/* <ImportExport actionType={actionType} visible={isShowChoosePath} hide={() => setShowChoosePath(false)} selectedListRef={selectedListRef} /> */}
     </>

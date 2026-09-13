@@ -3822,6 +3822,11 @@ static NSString *LXStreamingFlacDecoderErrorStatusName(FLAC__StreamDecoderErrorS
 @property (nonatomic, strong) UIDocumentPickerViewController *pickerController;
 @property (nonatomic, assign) BOOL pickerPresenting;
 @property (nonatomic, assign) BOOL pickerIsFolder;
+// 分享面板（UIActivityViewController）的独立状态。不复用 picker 状态机，
+// 避免与 UIDocumentPicker / 目录选择器的 busy 判断互相干扰。
+@property (nonatomic, copy) RCTPromiseResolveBlock shareResolve;
+@property (nonatomic, copy) RCTPromiseRejectBlock shareReject;
+@property (nonatomic, strong) UIActivityViewController *shareController;
 @end
 
 @implementation FilePickerModule
@@ -4010,35 +4015,83 @@ RCT_REMAP_METHOD(selectFolder, selectFolderWithResolver:(RCTPromiseResolveBlock)
   });
 }
 
+// 超时/失败时统一收敛 share 状态并 reject，避免状态卡死导致后续导出全部无响应。
+- (void)finishShareSheetWithErrorCode:(NSString *)code message:(NSString *)message {
+  RCTPromiseRejectBlock reject = self.shareReject;
+  self.shareController = nil;
+  self.shareResolve = nil;
+  self.shareReject = nil;
+  if (reject != nil) reject(code, message, LXError(code, message));
+}
+
+- (void)presentShareSheetWhenReady:(UIActivityViewController *)activityViewController attempts:(NSInteger)attempts {
+  if (attempts >= 40) {
+    [self finishShareSheetWithErrorCode:@"share_present" message:@"Timed out waiting for previous modal to dismiss before showing share sheet"];
+    return;
+  }
+  UIViewController *controller = LXTopViewController();
+  // 与 openDocument 同理，以下情况必须继续等待：
+  // ① 取不到 VC；② 顶层 VC 仍持有上一个 modal；③ 顶层 VC 本身就是 RN Modal 的
+  // RCTModalHostViewController；④ 顶层 VC 正在 dismiss；⑤ 仍有 Modal 独立 window 残留。
+  BOOL isRNModalVC = controller != nil && [NSStringFromClass([controller class]) isEqualToString:@"RCTModalHostViewController"];
+  BOOL isBeingDismissed = controller != nil && controller.isBeingDismissed;
+  if (controller == nil || controller.presentedViewController != nil || isRNModalVC || isBeingDismissed || LXAnotherRNModalWindowPresent()) {
+    __weak typeof(self) weakSelf = self;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(50 * NSEC_PER_MSEC)), dispatch_get_main_queue(), ^{
+      __strong typeof(weakSelf) strongSelf = weakSelf;
+      if (strongSelf == nil) return;
+      [strongSelf presentShareSheetWhenReady:activityViewController attempts:attempts + 1];
+    });
+    return;
+  }
+  if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad && controller.view != nil) {
+    activityViewController.popoverPresentationController.sourceView = controller.view;
+    activityViewController.popoverPresentationController.sourceRect = CGRectMake(CGRectGetMidX(controller.view.bounds), CGRectGetMaxY(controller.view.bounds), 0, 0);
+    activityViewController.popoverPresentationController.permittedArrowDirections = UIPopoverArrowDirectionDown;
+  }
+  RCTPromiseResolveBlock resolve = self.shareResolve;
+  self.shareResolve = nil;
+  self.shareReject = nil;
+  [controller presentViewController:activityViewController animated:YES completion:^{
+    if (resolve != nil) resolve(nil);
+  }];
+}
+
 // 系统分享面板（UIActivityViewController），用于"导出/保存"场景
 RCT_REMAP_METHOD(shareFile, shareFile:(NSString *)filePath resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
   dispatch_async(dispatch_get_main_queue(), ^{
+    NSString *targetPath = [filePath isKindOfClass:[NSString class]] ? [filePath stringByStandardizingPath] : @"";
     NSFileManager *fileManager = [NSFileManager defaultManager];
-    if (![fileManager fileExistsAtPath:filePath]) {
+    if (!targetPath.length || ![fileManager fileExistsAtPath:targetPath]) {
       reject(@"file_not_found", @"File not found", LXError(@"file_not_found", @"File not found"));
       return;
     }
-    NSURL *fileURL = [NSURL fileURLWithPath:filePath];
-    UIActivityViewController *activityViewController = [[UIActivityViewController alloc] initWithActivityItems:@[fileURL] applicationActivities:nil];
-    UIViewController *controller = LXTopViewController();
-    if (controller == nil) {
-      reject(@"share_present", @"Unable to find a view controller to present share sheet", LXError(@"share_present", @"Unable to find a view controller to present share sheet"));
+    // 面板已在展示：忽略重复请求，避免连点导出叠加多层面板。
+    if (self.shareController != nil && self.shareController.presentingViewController != nil) {
+      resolve(nil);
       return;
     }
-    if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad) {
-      activityViewController.popoverPresentationController.sourceView = controller.view;
-      activityViewController.popoverPresentationController.sourceRect = CGRectMake(CGRectGetMidX(controller.view.bounds), CGRectGetMaxY(controller.view.bounds), 0, 0);
-      activityViewController.popoverPresentationController.permittedArrowDirections = UIPopoverArrowDirectionDown;
-    }
+
+    NSURL *fileURL = [NSURL fileURLWithPath:targetPath];
+    UIActivityViewController *activityViewController = [[UIActivityViewController alloc] initWithActivityItems:@[fileURL] applicationActivities:nil];
     // 分享面板关闭后恢复主窗口为 key 并重新开启交互（兜底，真正修复依赖 JS 侧先卸载 RN Modal）。
+    __weak typeof(self) weakSelf = self;
     activityViewController.completionWithItemsHandler = ^(UIActivityType __nullable activityType, BOOL completed, NSArray * __nullable returnedItems, NSError * __nullable activityError) {
       LXEnsureKeyWindow();
+      __strong typeof(weakSelf) strongSelf = weakSelf;
+      if (strongSelf != nil) strongSelf.shareController = nil;
     };
-    [controller presentViewController:activityViewController animated:YES completion:^{
-      resolve(nil);
-    }];
+    self.shareController = activityViewController;
+    self.shareResolve = resolve;
+    self.shareReject = reject;
+    // 导出入口（歌单 / 备份 / 音源菜单项）都由 RN Modal 承载，点击菜单项时 Modal 仍在
+    // 关闭动画中，此时 LXTopViewController() 返回的是 RCTModalHostViewController，
+    // 面板会被 present 到正在消失的 VC 上并随之销毁，表现为"点了导出没任何反应"。
+    // 这里轮询等到底层 Modal 彻底消失后再 present，最多等待约 2s。
+    [self presentShareSheetWhenReady:activityViewController attempts:0];
   });
 }
+
 
 
 @end

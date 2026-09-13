@@ -352,6 +352,7 @@ export default memo(() => {
     <View style={{ ...styles.container, backgroundColor: bgColorWithOpacity }}>
       <ScrollView
         style={styles.menus}
+        showsVerticalScrollIndicator={false}
         contentContainerStyle={{
           paddingTop: statusBarHeight,
           paddingBottom: 110,

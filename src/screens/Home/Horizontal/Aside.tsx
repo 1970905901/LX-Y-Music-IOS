@@ -340,7 +340,7 @@ export default memo(() => {
   return (
     <View style={{ ...styles.container, width: layout.asideWidth, marginLeft: cutoutLeft, borderRightColor: theme['c-border-background'], backgroundColor: bgColorWithOpacity }}>
       <Header />
-      <ScrollView style={styles.menus}>
+      <ScrollView style={styles.menus} showsVerticalScrollIndicator={false}>
         <View style={styles.list}>
           {menuWithGroups.map((item) => {
             if (item.type === 'group') {

@@ -114,8 +114,7 @@ export default () => {
       // 直接以该落点锚定 UI 时钟并同步歌词，由每秒 getCurrentTime 校准防止长期漂移。
       audioClock.setAnchor(actualTime * 1000, settingState.setting['player.playbackRate'], playerState.isPlay)
       syncLyric(actualTime, playerState.isPlay)
-      // 统一不在此处启动歌词 ticker：seek 后音频需短暂缓冲才能真正出声，
-      // 由 playing 事件的 play() 以真实音频位置重启 ticker，避免歌词先行。
+      global.app_event.seekLyric(actualTime)
     })
 
     if (maxTime != null) setMaxplayTime(getTimelineDuration(playerState.playMusicInfo.musicInfo, maxTime))

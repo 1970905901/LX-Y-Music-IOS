@@ -5,7 +5,7 @@ import { pop, navigations } from '@/navigation'
 import { useTheme } from '@/store/theme/hook'
 import { usePlayMusicInfo } from '@/store/player/hook'
 import Text from '@/components/common/Text'
-import { scaleSizeH } from '@/utils/pixelRatio'
+import { scaleSizeH, scaleSizeW } from '@/utils/pixelRatio'
 import { HEADER_HEIGHT as _HEADER_HEIGHT, NAV_SHEAR_NATIVE_IDS } from '@/config/constant'
 import commonState from '@/store/common/state'
 import CommentBtn from './CommentBtn'
@@ -14,6 +14,14 @@ import SettingPopup, { type SettingPopupType } from '../../components/SettingPop
 import { handleShowArtistDetail } from '@/components/OnlineList/listAction'
 
 export const HEADER_HEIGHT = scaleSizeH(_HEADER_HEIGHT)
+// 返回按钮在原有 42pt 宽的基础上再向外扩一圈触控范围，
+// 避免 iPad 横屏下贴栏顶/左边缘点击落空（与竖屏保持一致的手感）。
+const BACK_BTN_HIT_SLOP = {
+  top: scaleSizeH(10),
+  bottom: scaleSizeH(10),
+  left: scaleSizeW(10),
+  right: scaleSizeW(10),
+}
 
 const Title = () => {
   const theme = useTheme()
@@ -113,7 +121,11 @@ export default memo(() => {
   return (
     <View style={{ height: HEADER_HEIGHT }} nativeID={NAV_SHEAR_NATIVE_IDS.playDetail_header}>
       <View style={styles.container}>
-        <TouchableOpacity onPress={back} style={{ ...styles.button, width: HEADER_HEIGHT }}>
+        <TouchableOpacity
+          onPress={back}
+          style={{ ...styles.button, width: HEADER_HEIGHT }}
+          hitSlop={BACK_BTN_HIT_SLOP}
+        >
           <Icon name="chevron-left" size={18} />
         </TouchableOpacity>
         <Title />

@@ -1,7 +1,7 @@
 import ChoosePath, { type ChoosePathType } from '@/components/common/ChoosePath'
 import { LXM_FILE_EXT_RXP } from '@/config/constant'
 import { forwardRef, useImperativeHandle, useRef, useState, type MutableRefObject } from 'react'
-import { Alert, Platform } from 'react-native'
+import { Platform } from 'react-native'
 import { selectFile, selectFolder, shareFile, temporaryDirectoryPath } from '@/utils/fs'
 import { handleExport, handleImport, handleImportMediaFile, exportListToFile } from './listAction'
 import { toast } from '@/utils/tools'
@@ -90,44 +90,20 @@ export default forwardRef<ListImportExportType, {}>((props, ref) => {
       }
       // iOS：导出歌单使用系统原生分享面板（UIActivityViewController）
       if (Platform.OS === 'ios') {
-        // ===== 临时诊断探针：定位「点导出无反应」卡在哪一步，问题解决后移除 =====
-        const probe: string[] = []
-        const showProbe = (tag: string) => {
-          probe.push(`=> ${tag}`)
-          Alert.alert('导出诊断', probe.join('\n'))
-        }
-        const probeTimer = setTimeout(() => showProbe('超时 5s：流程未走完（原生 Promise 可能挂起）'), 5000)
-        probe.push(`1 进入 export  name=${listInfo?.name ?? '?'} id=${listInfo?.id ?? '?'}`)
-        // 原来的 toast 是同步调用且位于链路最前，一旦它抛错就会整条中断，这里单独兜住并记录
-        try {
-          toast(global.i18n.t('setting_backup_part_export_list_tip_zip'))
-          probe.push('2 toast 已调用，未抛错')
-        } catch (e: any) {
-          probe.push(`X toast 抛异常：${e?.message ?? e}`)
-        }
-        try {
-          probe.push(`3 开始写文件  dir=${temporaryDirectoryPath ?? 'undefined'}`)
-          void exportListToFile(listInfo, temporaryDirectoryPath)
-            .then((filePath) => {
-              probe.push(`4 文件已生成：${filePath}`)
-              probe.push('5 调用原生 shareFile')
-              return shareFile(filePath)
-            })
-            .then(() => {
-              clearTimeout(probeTimer)
-              showProbe('6 原生已 resolve（面板应已呈现）')
-            })
-            .catch((err: any) => {
-              clearTimeout(probeTimer)
-              log.error(err)
-              probe.push(`X 失败 code=${err?.code ?? '-'} msg=${err?.message ?? '-'}`)
-              showProbe('失败')
-            })
-        } catch (e: any) {
-          clearTimeout(probeTimer)
-          probe.push(`X 同步异常：${e?.message ?? e}`)
-          showProbe('同步异常')
-        }
+        toast(global.i18n.t('setting_backup_part_export_list_tip_zip'))
+        void exportListToFile(listInfo, temporaryDirectoryPath)
+          .then((filePath) => shareFile(filePath))
+          .then(() => toast(global.i18n.t('setting_backup_part_export_list_tip_success')))
+          .catch((err: any) => {
+            if (err?.code === 'file_not_found') {
+              toast(global.i18n.t('setting_backup_part_export_list_tip_failed'))
+              return
+            }
+            log.error(err)
+            toast(
+              global.i18n.t('setting_backup_part_export_list_tip_failed') + ': ' + (err?.message ?? '')
+            )
+          })
         return
       }
       showChoosePath(choosePathRef, visible, setVisible, {

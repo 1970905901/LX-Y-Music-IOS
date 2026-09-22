@@ -67,7 +67,7 @@ export default () => {
       const engineState = await getPlaybackEngineState()
       if (engineState === 'buffering' || engineState === 'loading') return
 
-      lrcSyncToTime(position * 1000 + 150, playerState.isPlay)
+      lrcSyncToTime(position * 1000, playerState.isPlay)
 
       updateScrobblePlayTime(position)
 

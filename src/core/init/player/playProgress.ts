@@ -15,6 +15,7 @@ import { AppState } from 'react-native'
 import { audioClock } from '@/core/player/audioClock'
 import { syncLyric } from '@/core/lyric'
 import { syncToTime as lrcSyncToTime } from '@/plugins/lyric'
+import { isNativeFlacActive, getNativeFlacState } from '@/plugins/player/nativeFlac'
 import {
   updateScrobbleInfo,
   updateScrobblePlayTime,
@@ -59,6 +60,15 @@ export default () => {
       // 避免 seek/恢复后 ticker 内部状态与音频位置脱节导致高亮行错位。
       // lrc-file-parser offset=100ms 补偿 + Bridge 异步延迟(~50ms)：
       // 不加偏移时歌词高亮比音频滞后约 100-150ms，快节奏歌词下表现为差一行。
+      // Native FLAC seek 后 getPosition() 立即返回目标位置，但解码器实际还在
+      // buffering（音频仍在播放旧缓冲或静默）。此时同步歌词会让高亮行跑在
+      // 音频前面（快进快一行）或后面（快退慢一行）。等 state 变为 playing
+      // （解码器真正从目标位置渲染）后再同步歌词。
+      if (isNativeFlacActive()) {
+        const flacState = await getNativeFlacState().catch(() => 'playing')
+        if (flacState === 'buffering' || flacState === 'loading') return
+      }
+
       lrcSyncToTime(position * 1000 + 150, playerState.isPlay)
 
       updateScrobblePlayTime(position)

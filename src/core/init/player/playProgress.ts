@@ -15,7 +15,7 @@ import { AppState } from 'react-native'
 import { audioClock } from '@/core/player/audioClock'
 import { syncLyric } from '@/core/lyric'
 import { syncToTime as lrcSyncToTime } from '@/plugins/lyric'
-import { isNativeFlacActive, getNativeFlacState } from '@/plugins/player/nativeFlac'
+import { getUnifiedPlaybackState } from '@/plugins/player/engine'
 import {
   updateScrobbleInfo,
   updateScrobblePlayTime,
@@ -64,10 +64,8 @@ export default () => {
       // buffering（音频仍在播放旧缓冲或静默）。此时同步歌词会让高亮行跑在
       // 音频前面（快进快一行）或后面（快退慢一行）。等 state 变为 playing
       // （解码器真正从目标位置渲染）后再同步歌词。
-      if (isNativeFlacActive()) {
-        const flacState = await getNativeFlacState().catch(() => 'playing')
-        if (flacState === 'buffering' || flacState === 'loading') return
-      }
+      const engineState = await getUnifiedPlaybackState().catch(() => 'playing' as const)
+      if (engineState === 'buffering' || engineState === 'loading') return
 
       lrcSyncToTime(position * 1000 + 150, playerState.isPlay)
 

@@ -23,6 +23,7 @@ import { getDefaultDownloadPath } from '@/utils/downloadPath'
 import { updateSetting } from '@/core/common'
 import { getDownloadTasks, saveDownloadTasks } from '@/utils/data/download'
 import downloadActions from '@/store/download/action'
+import { startCookieKeepAlive } from '@/utils/cookieKeepAlive'
 
 let isFirstPush = true
 const handlePushedHomeScreen = async() => {
@@ -85,6 +86,9 @@ export default async() => {
 
   void initSync(setting)
   bootLog('Sync inited.')
+
+  startCookieKeepAlive()
+  bootLog('Cookie keepalive inited.')
 
   // syncSetting()
 

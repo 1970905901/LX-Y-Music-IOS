@@ -181,6 +181,11 @@ export const play = (time?: number) => {
   // 调用方统一传入【毫秒】（lrc-file-parser 的语义）。
   lrcTools.isPlay = true
   lrcTools.lrc!.play(time ?? 0)
+  // play(time) 触发一次 onPlay 设当前行后启动内部 timer 自行推进。
+  // 立即 pause 掉 timer：行高亮完全由 playProgress 250ms 轮询通过
+  // lrcSyncToTime(setPlayTime) 驱动，避免 ticker 在 seek/暂停恢复后
+  // 内部时钟与音频真实位置脱节，反复覆盖轮询校正导致高亮行错位。
+  lrcTools.lrc!.pause()
 }
 export const pause = () => {
   // console.log('pause')

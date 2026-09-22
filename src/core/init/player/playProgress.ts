@@ -14,6 +14,7 @@ import { AppState } from 'react-native'
 // 不参与歌词行同步（行高亮已交由歌词引擎内部 ticker 驱动）。
 import { audioClock } from '@/core/player/audioClock'
 import { syncLyric } from '@/core/lyric'
+import { syncToTime as lrcSyncToTime } from '@/plugins/lyric'
 import {
   updateScrobbleInfo,
   updateScrobblePlayTime,
@@ -54,8 +55,9 @@ export default () => {
 
       if (!playerState.isPlay) return
 
-      syncLyric(position, playerState.isPlay)
-      global.app_event.seekLyric(position)
+      // 直接用引擎真实位置驱动歌词行高亮，不经过 lrc-file-parser ticker，
+      // 避免 seek/恢复后 ticker 内部状态与音频位置脱节导致高亮行错位。
+      lrcSyncToTime(position * 1000, playerState.isPlay)
 
       updateScrobblePlayTime(position)
 
@@ -95,7 +97,7 @@ export default () => {
     clearUpdateTimeout()
     updateTimeout = BackgroundTimer.setInterval(() => {
       getCurrentTime()
-    }, 1000 / settingState.setting['player.playbackRate'])
+    }, 250 / settingState.setting['player.playbackRate'])
     getCurrentTime()
   }
 
@@ -145,6 +147,18 @@ export default () => {
     // handleSetTaskBarState(playProgress.progress, prevProgressStatus)
     audioClock.setPlaying(true)
     startUpdateTimeout()
+
+    // 暂停期间轮询停止，恢复时 progress.nowPlayTime 可能过期；
+    // lyric.play() 用 getReliableLyricPosition 启动 ticker 可能用了旧值。
+    // 300ms 后用引擎真实位置强制重锚，覆盖所有音质的暂停恢复不同步。
+    setTimeout(() => {
+      void getPosition().then((position) => {
+        if (!position || !playerState.musicInfo.id || !playerState.isPlay) return
+        audioClock.setAnchor(position * 1000, settingState.setting['player.playbackRate'], true)
+        syncLyric(position, true)
+        global.app_event.seekLyric(position)
+      })
+    }, 300)
   }
   const handlePause = () => {
     // prevProgressStatus = 'paused'

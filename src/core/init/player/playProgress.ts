@@ -47,7 +47,7 @@ export default () => {
 
   const getCurrentTime = () => {
     let id = playerState.musicInfo.id
-    void getPosition().then(position => {
+    void getPosition().then(async position => {
       if (!position || id != playerState.musicInfo.id) return
       setNowPlayTime(position)
 

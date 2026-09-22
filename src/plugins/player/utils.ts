@@ -205,6 +205,24 @@ export const getPosition = async() => {
   if (Platform.OS == 'ios' && isNativeFlacActive()) return getNativeFlacPosition()
   return getAccuratePosition()
 }
+
+export const getPlaybackEngineState = async(): Promise<'idle' | 'loading' | 'buffering' | 'playing' | 'paused' | 'stopped'> => {
+  if (Platform.OS == 'ios' && isNativeFlacActive()) {
+    return getNativeFlacState().catch(() => 'playing' as const)
+  }
+  try {
+    const state = await TrackPlayer.getState()
+    switch (state) {
+      case State.Playing: return 'playing'
+      case State.Buffering: return 'buffering'
+      case State.Connecting: return 'loading'
+      case State.Paused: return 'paused'
+      case State.Stopped: return 'stopped'
+      default: return 'idle'
+    }
+  } catch { return 'playing' }
+}
+
 export const getDuration = async() => {
   if (Platform.OS == 'ios' && isNativeFlacActive()) return getNativeFlacDuration()
   if (Platform.OS == 'ios' && typeof NativeTrackPlayerModule?.getDuration == 'function') {

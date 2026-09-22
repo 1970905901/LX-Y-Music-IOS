@@ -59,10 +59,15 @@ export default () => {
       const engineState = await getPlaybackEngineState()
       const isBuffering = engineState === 'buffering' || engineState === 'loading'
 
-      audioClock.setAnchor(position * 1000, settingState.setting['player.playbackRate'], playerState.isPlay && !isBuffering)
-
       if (!playerState.isPlay) return
-      if (isBuffering) return
+
+      if (isBuffering) {
+        // 解码器还在 buffering：硬冻结时钟，不外推、不同步歌词。
+        audioClock.hold(position * 1000)
+        return
+      }
+
+      audioClock.setAnchor(position * 1000, settingState.setting['player.playbackRate'], playerState.isPlay)
 
       lrcSyncToTime(position * 1000, playerState.isPlay)
 
@@ -125,20 +130,12 @@ export default () => {
 
       // 所有音质统一走 AVPlayer 系统级 seek：TrackPlayer 准确报告真实落点，
       // 直接以该落点锚定 UI 时钟并同步歌词，由每秒 getCurrentTime 校准防止长期漂移。
-      audioClock.setAnchor(actualTime * 1000, settingState.setting['player.playbackRate'], playerState.isPlay)
-      syncLyric(actualTime, playerState.isPlay)
+      // 不在这里 setAnchor / syncLyric：native FLAC seekTo 立即 resolve 但解码器
+      // 还在 buffering，此时解冻时机会让 scrollToActiveContinuous 外推超前。
+      // 完全交给 250ms 轮询：等引擎 state 变为 playing 后统一解冻 + 同步。
 
       // FLAC native seekTo 立即 resolve 请求位置，解码器实际落点可能有偏差；
       // 300ms 后取引擎真实位置校正歌词 ticker，避免等 1s 轮询才纠正。
-      setTimeout(() => {
-        void getPosition().then((realPosition) => {
-          if (!realPosition || !playerState.musicInfo.id) return
-          if (Math.abs(realPosition - actualTime) > 0.15) {
-            audioClock.setAnchor(realPosition * 1000, settingState.setting['player.playbackRate'], playerState.isPlay)
-            syncLyric(realPosition, playerState.isPlay)
-          }
-        })
-      }, 300)
     })
 
     if (maxTime != null) setMaxplayTime(getTimelineDuration(playerState.playMusicInfo.musicInfo, maxTime))
@@ -157,13 +154,6 @@ export default () => {
     // 暂停期间轮询停止，恢复时 progress.nowPlayTime 可能过期；
     // lyric.play() 用 getReliableLyricPosition 启动 ticker 可能用了旧值。
     // 300ms 后用引擎真实位置强制重锚，覆盖所有音质的暂停恢复不同步。
-    setTimeout(() => {
-      void getPosition().then((position) => {
-        if (!position || !playerState.musicInfo.id || !playerState.isPlay) return
-        audioClock.setAnchor(position * 1000, settingState.setting['player.playbackRate'], true)
-        syncLyric(position, true)
-      })
-    }, 300)
   }
   const handlePause = () => {
     // prevProgressStatus = 'paused'

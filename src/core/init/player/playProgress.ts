@@ -51,23 +51,21 @@ export default () => {
       if (!position || id != playerState.musicInfo.id) return
       setNowPlayTime(position)
 
-      // 用引擎真实位置重新锚定 UI 时钟：外推只在两次校准之间插值，避免长期漂移。
-      audioClock.setAnchor(position * 1000, settingState.setting['player.playbackRate'], playerState.isPlay)
+      // 先检查引擎状态：buffering 期间音频没有真正渲染，getPosition() 返回的是
+      // seek 目标而非实际播放位置。此时必须：
+      // 1. 冻结 audioClock（playing=false）→ scrollToActiveContinuous 不会外推超前
+      // 2. 跳过歌词行同步 → 高亮行不会跑到音频前面
+      // 等 state 变为 playing（解码器真正从目标位置渲染）后再恢复同步。
+      const engineState = await getPlaybackEngineState()
+      const isBuffering = engineState === 'buffering' || engineState === 'loading'
+
+      audioClock.setAnchor(position * 1000, settingState.setting['player.playbackRate'], playerState.isPlay && !isBuffering)
 
       if (!playerState.isPlay) return
-
-      // 直接用引擎真实位置驱动歌词行高亮，不经过 lrc-file-parser ticker，
-      // 避免 seek/恢复后 ticker 内部状态与音频位置脱节导致高亮行错位。
-      // lrc-file-parser offset=100ms 补偿 + Bridge 异步延迟(~50ms)：
-      // 不加偏移时歌词高亮比音频滞后约 100-150ms，快节奏歌词下表现为差一行。
-      // Native FLAC seek 后 getPosition() 立即返回目标位置，但解码器实际还在
-      // buffering（音频仍在播放旧缓冲或静默）。此时同步歌词会让高亮行跑在
-      // 音频前面（快进快一行）或后面（快退慢一行）。等 state 变为 playing
-      // （解码器真正从目标位置渲染）后再同步歌词。
-      const engineState = await getPlaybackEngineState()
-      if (engineState === 'buffering' || engineState === 'loading') return
+      if (isBuffering) return
 
       lrcSyncToTime(position * 1000, playerState.isPlay)
+
 
       updateScrobblePlayTime(position)
 

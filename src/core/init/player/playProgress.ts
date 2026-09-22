@@ -121,7 +121,6 @@ export default () => {
       // 直接以该落点锚定 UI 时钟并同步歌词，由每秒 getCurrentTime 校准防止长期漂移。
       audioClock.setAnchor(actualTime * 1000, settingState.setting['player.playbackRate'], playerState.isPlay)
       syncLyric(actualTime, playerState.isPlay)
-      global.app_event.seekLyric(actualTime)
 
       // FLAC native seekTo 立即 resolve 请求位置，解码器实际落点可能有偏差；
       // 300ms 后取引擎真实位置校正歌词 ticker，避免等 1s 轮询才纠正。
@@ -131,7 +130,6 @@ export default () => {
           if (Math.abs(realPosition - actualTime) > 0.15) {
             audioClock.setAnchor(realPosition * 1000, settingState.setting['player.playbackRate'], playerState.isPlay)
             syncLyric(realPosition, playerState.isPlay)
-            global.app_event.seekLyric(realPosition)
           }
         })
       }, 300)
@@ -158,7 +156,6 @@ export default () => {
         if (!position || !playerState.musicInfo.id || !playerState.isPlay) return
         audioClock.setAnchor(position * 1000, settingState.setting['player.playbackRate'], true)
         syncLyric(position, true)
-        global.app_event.seekLyric(position)
       })
     }, 300)
   }

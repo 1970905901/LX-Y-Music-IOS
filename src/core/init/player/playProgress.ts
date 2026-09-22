@@ -57,7 +57,9 @@ export default () => {
 
       // 直接用引擎真实位置驱动歌词行高亮，不经过 lrc-file-parser ticker，
       // 避免 seek/恢复后 ticker 内部状态与音频位置脱节导致高亮行错位。
-      lrcSyncToTime(position * 1000, playerState.isPlay)
+      // lrc-file-parser offset=100ms 补偿 + Bridge 异步延迟(~50ms)：
+      // 不加偏移时歌词高亮比音频滞后约 100-150ms，快节奏歌词下表现为差一行。
+      lrcSyncToTime(position * 1000 + 150, playerState.isPlay)
 
       updateScrobblePlayTime(position)
 

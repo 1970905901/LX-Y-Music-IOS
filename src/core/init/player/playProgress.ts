@@ -54,6 +54,9 @@ export default () => {
 
       if (!playerState.isPlay) return
 
+      syncLyric(position, playerState.isPlay)
+      global.app_event.seekLyric(position)
+
       updateScrobblePlayTime(position)
 
       if (settingState.setting['player.isSavePlayTime'] && !playerState.playMusicInfo.isTempPlay && isScreenOn) {
@@ -115,6 +118,19 @@ export default () => {
       audioClock.setAnchor(actualTime * 1000, settingState.setting['player.playbackRate'], playerState.isPlay)
       syncLyric(actualTime, playerState.isPlay)
       global.app_event.seekLyric(actualTime)
+
+      // FLAC native seekTo 立即 resolve 请求位置，解码器实际落点可能有偏差；
+      // 300ms 后取引擎真实位置校正歌词 ticker，避免等 1s 轮询才纠正。
+      setTimeout(() => {
+        void getPosition().then((realPosition) => {
+          if (!realPosition || !playerState.musicInfo.id) return
+          if (Math.abs(realPosition - actualTime) > 0.15) {
+            audioClock.setAnchor(realPosition * 1000, settingState.setting['player.playbackRate'], playerState.isPlay)
+            syncLyric(realPosition, playerState.isPlay)
+            global.app_event.seekLyric(realPosition)
+          }
+        })
+      }, 300)
     })
 
     if (maxTime != null) setMaxplayTime(getTimelineDuration(playerState.playMusicInfo.musicInfo, maxTime))

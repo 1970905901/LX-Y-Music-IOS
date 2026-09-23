@@ -7,12 +7,13 @@ import { useTheme } from '@/store/theme/hook'
 import { createStyle } from '@/utils/tools'
 import Text from '@/components/common/Text'
 import { scaleSizeH } from '@/utils/pixelRatio'
+import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
 import { SETTING_SCREENS, type SettingScreenIds } from '../Main'
 import { useI18n } from '@/lang'
 
 type FlatListType = FlatListProps<SettingScreenIds>
 
-const ITEM_HEIGHT = scaleSizeH(40)
+const ITEM_HEIGHT = scaleSizeH(44)
 
 const ListItem = memo(
   ({
@@ -34,7 +35,14 @@ const ListItem = memo(
     }
 
     return (
-      <View style={{ ...styles.listItem, height: ITEM_HEIGHT }}>
+      <View
+        style={{
+          ...styles.listItem,
+          height: ITEM_HEIGHT,
+          borderRadius: designRadius.sm,
+          backgroundColor: active ? theme['c-primary-background-active'] : 'transparent',
+        }}
+      >
         {active ? (
           <Icon
             style={styles.listActiveIcon}
@@ -46,8 +54,9 @@ const ListItem = memo(
         <TouchableOpacity style={styles.listName} onPress={handlePress}>
           <Text
             numberOfLines={1}
-            size={16}
+            size={designTypography.body}
             color={active ? theme['c-primary-font'] : theme['c-font']}
+            style={active ? styles.listActiveText : undefined}
           >
             {t(`setting_${id}`)}
           </Text>
@@ -110,11 +119,11 @@ const styles = createStyle({
   // },
 
   listItem: {
-    height: 'auto',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingRight: 10,
-    paddingLeft: 10,
+    marginBottom: designSpacing.xs,
+    paddingRight: designSpacing.sm,
+    paddingLeft: designSpacing.sm,
     // borderBottomWidth: BorderWidths.normal,
   },
   listActiveIcon: {
@@ -131,7 +140,10 @@ const styles = createStyle({
     justifyContent: 'center',
     flexGrow: 1,
     flexShrink: 1,
-    paddingLeft: 5,
+    paddingLeft: designSpacing.xs,
+  },
+  listActiveText: {
+    fontWeight: '600',
     // backgroundColor: 'rgba(0,0,0,0.1)',
   },
 })

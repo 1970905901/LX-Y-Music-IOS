@@ -3,6 +3,7 @@ import { memo, useState, useEffect, useRef, useCallback } from 'react'
 import { StyleSheet, View, Keyboard } from 'react-native'
 import type { InputType, InputProps } from '@/components/common/Input'
 import Input from '@/components/common/Input'
+import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
 import { useTheme } from '@/store/theme/hook'
 import Text from '@/components/common/Text'
 
@@ -71,7 +72,7 @@ export default memo(({ value, label, onChanged, ...props }: InputItemProps) => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label} size={14}>
+      <Text style={styles.label} size={designTypography.body}>
         {label}
       </Text>
       <Input
@@ -88,19 +89,19 @@ export default memo(({ value, label, onChanged, ...props }: InputItemProps) => {
 
 const styles = StyleSheet.create({
   container: {
-    paddingLeft: 25,
-    marginBottom: 15,
+    paddingLeft: designSpacing.md,
+    marginBottom: designSpacing.sm,
   },
   label: {
-    marginBottom: 2,
+    marginBottom: designSpacing.xs,
   },
   input: {
-    backgroundColor: 'rgba(0,0,0,0.2)',
+    backgroundColor: 'rgba(0,0,0,0.18)',
     flexGrow: 1,
     flexShrink: 1,
-    borderRadius: 4,
-    // paddingTop: 3,
-    // paddingBottom: 3,
+    height: 36,
+    paddingLeft: designSpacing.sm,
+    borderRadius: designRadius.sm,
     maxWidth: 300,
   },
 })

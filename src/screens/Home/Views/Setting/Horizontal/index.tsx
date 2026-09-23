@@ -4,6 +4,7 @@ import NavList from './NavList'
 import Main, { type MainType } from '../Main'
 import { createStyle } from '@/utils/tools'
 import { BorderWidths } from '@/theme'
+import { designSpacing } from '@/theme/DesignTokens'
 import { useTheme } from '@/store/theme/hook'
 import { subscribeScrollLock } from '@/utils/scrollLock'
 
@@ -21,10 +22,7 @@ const styles = createStyle({
     backgroundColor: 'transparent',
   },
   main: {
-    paddingLeft: 15,
-    paddingRight: 15,
-    paddingTop: 15,
-    paddingBottom: 15,
+    padding: designSpacing.md,
     flex: 0,
     backgroundColor: 'transparent',
   },

@@ -48,6 +48,17 @@ if (__DEV__) {
   console.warn = (...args) => remoteLog('warn', ...args);
   console.error = (...args) => remoteLog('error', ...args);
 }
+
+if (__DEV__) {
+  const globalWithErrorUtils = global as typeof global & {
+    ErrorUtils?: {
+      setGlobalHandler: (handler: (error: Error, isFatal: boolean) => void) => void
+    }
+  }
+  globalWithErrorUtils.ErrorUtils?.setGlobalHandler((error, isFatal) => {
+    console.error('###FATAL_DIAGNOSTIC###', isFatal, error?.stack ?? error?.message ?? error)
+  })
+}
 // --- END: CONSOLE LOG PATCH (v2) ---
 
 console.log('starting app...')

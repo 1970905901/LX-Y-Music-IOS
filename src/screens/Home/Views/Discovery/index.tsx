@@ -10,13 +10,17 @@ import { setNavActiveId } from '@/core/common'
 import { createStyle, toast } from '@/utils/tools'
 import { designSpacing, designTypography } from '@/theme/DesignTokens'
 import songlistState, { type ListInfoItem, type Source } from '@/store/songlist/state'
+import boardState from '@/store/leaderboard/state'
 import { getList } from '@/core/songlist'
+import { getBoardsList, getListDetail } from '@/core/leaderboard'
+import { handlePlay as playLeaderboard } from '../Leaderboard/listAction'
 import { Icon } from '@/components/common/Icon'
 import Text from '@/components/common/Text'
 import AnnouncementCard from '@/components/home/AnnouncementCard'
 import PlatformChips from '@/components/home/PlatformChips'
 import DailyRecommendCard from '@/components/home/DailyRecommendCard'
 import HorizontalShelf from '@/components/home/HorizontalShelf'
+import HotSongList from '@/components/home/HotSongList'
 
 const SOURCE_LABELS: Partial<Record<Source, string>> = {
   kw: '酷我',
@@ -83,6 +87,10 @@ export default memo(() => {
   const [playlists, setPlaylists] = useState<ListInfoItem[]>([])
   const [loading, setLoading] = useState(true)
   const loadIdRef = useRef(0)
+  const [hotSongs, setHotSongs] = useState<LX.Music.MusicInfoOnline[]>([])
+  const [hotBoardId, setHotBoardId] = useState('')
+  const [hotLoading, setHotLoading] = useState(true)
+  const hotLoadIdRef = useRef(0)
 
   const platformOptions = useMemo(
     () => supportedSources.map((source) => ({
@@ -108,14 +116,48 @@ export default memo(() => {
     }
   }, [t])
 
+  const loadHotSongs = useCallback(async (source: Source) => {
+    const currentLoadId = ++hotLoadIdRef.current
+    setHotLoading(true)
+    try {
+      const boards = await getBoardsList(source)
+      if (currentLoadId !== hotLoadIdRef.current) return
+      const board = boards.find(({ name }) => name.includes('热歌')) ?? boards[0]
+      if (!board) return
+      const result = await getListDetail(board.id, 1)
+      if (currentLoadId !== hotLoadIdRef.current) return
+      setHotSongs(result.list.slice(0, 6))
+      setHotBoardId(board.id)
+    } catch {
+      if (currentLoadId !== hotLoadIdRef.current) return
+      setHotSongs([])
+      setHotBoardId('')
+    } finally {
+      if (currentLoadId === hotLoadIdRef.current) setHotLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     void loadPlaylists(selectedSource)
   }, [loadPlaylists, selectedSource])
+
+  const leaderboardSource = boardState.sources.includes(selectedSource)
+    ? selectedSource
+    : boardState.sources[0] ?? 'kw'
+
+  useEffect(() => {
+    void loadHotSongs(leaderboardSource)
+  }, [leaderboardSource, loadHotSongs])
 
   const handleOpenDetail = useCallback((item: ListInfoItem) => {
     const homeComponentId = commonState.componentIds.find(({ name }) => name === COMPONENT_IDS.home)?.id
     if (homeComponentId) navigations.pushSonglistDetailScreen(homeComponentId, item)
   }, [])
+
+  const handlePlayHotSong = useCallback((index: number) => {
+    if (!hotBoardId) return
+    void playLeaderboard(hotBoardId, hotSongs, index)
+  }, [hotBoardId, hotSongs])
 
   const headerStyle = useMemo(
     () => StyleSheet.compose(styles.header, {
@@ -194,6 +236,28 @@ export default memo(() => {
             cardWidth={150}
             onPressItem={handleOpenDetail}
           />
+        </View>
+
+        <View style={styles.sectionGap}>
+          {hotSongs.length ? (
+            <HotSongList
+              title={`${SOURCE_LABELS[selectedSource] ?? selectedSource}${t('discovery_hot_title')}`}
+              actionLabel={t('discovery_hot_more')}
+              onPressAction={() => setNavActiveId('nav_top')}
+              songs={hotSongs}
+              onSongPress={handlePlayHotSong}
+            />
+          ) : null}
+          {hotLoading ? (
+            <Text style={styles.status} size={designTypography.caption} color={theme['c-font-label']}>
+              {t('list_loading')}
+            </Text>
+          ) : null}
+          {!hotLoading && !hotSongs.length ? (
+            <Text style={styles.status} size={designTypography.caption} color={theme['c-font-label']}>
+              {t('list_empty')}
+            </Text>
+          ) : null}
         </View>
 
         {loading ? (

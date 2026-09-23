@@ -41,8 +41,8 @@ const styles = createStyle({
     flexShrink: 0,
     flexGrow: 1,
     // width: '100%',
-    maxWidth: 300,
-    height: 40,
-    marginTop: -6,
+    maxWidth: 320,
+    height: 36,
+    marginTop: -2,
   },
 })

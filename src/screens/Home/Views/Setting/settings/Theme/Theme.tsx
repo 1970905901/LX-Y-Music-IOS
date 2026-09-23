@@ -10,6 +10,7 @@ import { BG_IMAGES, getAllThemes, type LocalTheme } from '@/theme/themes'
 import Text from '@/components/common/Text'
 import { createStyle } from '@/utils/tools'
 import { scaleSizeH } from '@/utils/pixelRatio'
+import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
 import { Icon } from '@/components/common/Icon'
 import ImageBackground from '@/components/common/ImageBackground'
 
@@ -59,7 +60,7 @@ const ThemeItem = ({
               width: scaleSizeH(IMAGE_HEIGHT),
               backgroundColor: color,
             }}
-            imageStyle={{ borderRadius: 4 }}
+            imageStyle={{ borderRadius: designRadius.pill }}
             source={image}
           />
         ) : (
@@ -74,7 +75,7 @@ const ThemeItem = ({
       </View>
       <Text
         style={styles.name}
-        size={12}
+        size={designTypography.caption}
         color={isActive ? color : theme['c-font']}
         numberOfLines={1}
       >
@@ -96,13 +97,13 @@ const MoreBtn = ({
 
   return showAll ? null : (
     <TouchableOpacity
-      style={styles.moreBtn}
+      style={{ ...styles.moreBtn, backgroundColor: theme['c-primary-background-active'] }}
       activeOpacity={0.5}
       onPress={() => {
         setShowAll(!showAll)
       }}
     >
-      <Text size={14} color={theme['c-primary-font']} numberOfLines={1}>
+      <Text size={designTypography.caption} color={theme['c-primary-font']} numberOfLines={1}>
         {t('setting_basic_theme_more_btn_show')}
       </Text>
       <Icon name="chevron-right" size={12} color={theme['c-primary-font']} />
@@ -165,15 +166,15 @@ export default memo(() => {
   )
 })
 
-const ITEM_HEIGHT = 62
-const COLOR_ITEM_HEIGHT = 36
-const IMAGE_HEIGHT = 29
+const ITEM_HEIGHT = 64
+const COLOR_ITEM_HEIGHT = 38
+const IMAGE_HEIGHT = 30
 const styles = createStyle({
   list: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
-    marginTop: 5,
+    gap: designSpacing.sm,
+    marginTop: designSpacing.xs,
   },
   item: {
     // marginRight: 15,
@@ -183,25 +184,27 @@ const styles = createStyle({
   },
   colorContent: {
     height: COLOR_ITEM_HEIGHT,
-    borderRadius: 4,
-    borderWidth: 1.6,
+    borderRadius: designRadius.pill,
+    borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
     // backgroundColor: 'rgba(0,0,0,0.2)',
   },
   imageContent: {
     height: IMAGE_HEIGHT,
-    borderRadius: 4,
+    borderRadius: designRadius.pill,
     // elevation: 1,
   },
   name: {
-    marginTop: 2,
+    marginTop: 4,
   },
   moreBtn: {
-    marginLeft: 10,
+    height: 32,
+    marginLeft: designSpacing.xs,
     flexDirection: 'row',
     alignItems: 'center',
-    // justifyContent: 'center',
-    gap: 8,
+    paddingHorizontal: designSpacing.sm,
+    gap: 6,
+    borderRadius: designRadius.pill,
   },
 })

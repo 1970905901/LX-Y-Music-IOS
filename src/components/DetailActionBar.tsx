@@ -1,10 +1,12 @@
 import { memo } from 'react'
-import { View } from 'react-native'
+import { StyleSheet, View } from 'react-native'
 import Button from '@/components/common/Button'
 import Text from '@/components/common/Text'
+import { Icon } from '@/components/common/Icon'
 import { createStyle } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
+import { designRadius, designSpacing } from '@/theme/DesignTokens'
 
 /**
  * 详情类页面（歌手详情 / 专辑详情等）通用操作栏：播放全部 + 返回。
@@ -18,13 +20,29 @@ export default memo(({ onPlayAll, onBack }: { onPlayAll: () => void, onBack: () 
 
   return (
     <View style={styles.container}>
-      <Button onPress={onPlayAll} style={styles.controlBtn}>
-        <Text style={{ ...styles.controlBtnText, color: theme['c-button-font'] }}>
-          {t('play_all')}
-        </Text>
+      <Button
+        onPress={onPlayAll}
+        style={StyleSheet.compose(styles.controlBtn, {
+          flexGrow: 1.45,
+          backgroundColor: theme['c-primary'],
+        })}
+      >
+        <View style={styles.primaryContent}>
+          <Icon name="play" size={15} color={theme['c-primary-light-1000']} />
+          <Text style={{ ...styles.controlBtnText, color: theme['c-primary-light-1000'] }}>
+            {t('play_all')}
+          </Text>
+        </View>
       </Button>
-      <Button onPress={onBack} style={styles.controlBtn}>
-        <Text style={{ ...styles.controlBtnText, color: theme['c-button-font'] }}>{t('back')}</Text>
+      <Button
+        onPress={onBack}
+        style={StyleSheet.compose(styles.controlBtn, {
+          backgroundColor: theme['c-primary-background'],
+        })}
+      >
+        <Text style={{ ...styles.controlBtnText, color: theme['c-primary-font'] }}>
+          {t('back')}
+        </Text>
       </Button>
     </View>
   )
@@ -36,18 +54,26 @@ const styles = createStyle({
     width: '100%',
     flexGrow: 0,
     flexShrink: 0,
+    paddingHorizontal: designSpacing.md,
+    gap: designSpacing.sm,
+    paddingBottom: designSpacing.md,
   },
   controlBtn: {
     flexGrow: 1,
     flexShrink: 1,
-    width: '50%',
-    paddingTop: 12,
-    paddingBottom: 12,
-    paddingLeft: 10,
-    paddingRight: 10,
+    height: 44,
+    borderRadius: designRadius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   controlBtnText: {
-    fontSize: 13,
+    marginLeft: 6,
+    fontSize: 14,
+    fontWeight: '600',
     textAlign: 'center',
   },
 })

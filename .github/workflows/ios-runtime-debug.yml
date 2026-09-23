@@ -65,18 +65,27 @@ jobs:
           xcrun simctl install "$SIM_UDID" "$APP_PATH"
 
           set +e
+          xcrun simctl spawn "$SIM_UDID" log stream --level debug --style compact --predicate 'process == "LxMusicMobile" OR eventMessage CONTAINS "LxMusicMobile"' > build/system-runtime.log 2>&1 &
+          SYSTEM_LOG_PID=$!
+          sleep 3
           xcrun simctl launch --console "$SIM_UDID" "$IOS_BUNDLE_IDENTIFIER" > build/runtime-console.log 2>&1 &
           LAUNCH_PID=$!
           sleep 60
           kill "$LAUNCH_PID" 2>/dev/null || true
           wait "$LAUNCH_PID" 2>/dev/null || true
           LAUNCH_EXIT=$?
+          kill "$SYSTEM_LOG_PID" 2>/dev/null || true
+          wait "$SYSTEM_LOG_PID" 2>/dev/null || true
           set -e
 
           cat build/runtime-console.log
           echo "LAUNCH_EXIT=$LAUNCH_EXIT"
+          echo "--- SYSTEM RUNTIME LOG ---"
+          cat build/system-runtime.log
           xcrun simctl io "$SIM_UDID" screenshot build/runtime-screenshot.png 2>/dev/null || true
           xcrun simctl terminate "$SIM_UDID" "$IOS_BUNDLE_IDENTIFIER" 2>/dev/null || true
+          mkdir -p build/crashes
+          find "$HOME/Library/Logs/DiagnosticReports" -maxdepth 1 -type f -name 'LxMusicMobile-*' -mmin -10 -exec cp {} build/crashes/ \; 2>/dev/null || true
 
       - name: Upload runtime log
         if: always()
@@ -85,6 +94,8 @@ jobs:
           name: ios-runtime-console
           path: |
             build/runtime-console.log
+            build/system-runtime.log
             build/runtime-screenshot.png
+            build/crashes
             build/simulator-build.log
           if-no-files-found: ignore

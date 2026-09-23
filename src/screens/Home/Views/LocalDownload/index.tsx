@@ -16,6 +16,8 @@ import { getDefaultDownloadPath } from '@/utils/downloadPath'
 import downloadActions from '@/store/download/action'
 import { mkdir, readDir, unlink, stat } from '@/utils/fs'
 import { sizeFormate } from '@/utils'
+import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
+import { useSafeAreaBottom } from '@/store/common/hook'
 
 type TabId = 'local' | 'download'
 
@@ -105,21 +107,35 @@ const SongRow = memo(
       <TouchableOpacity
         style={{
           ...styles.songItem,
-          backgroundColor: isPlaying || selected ? theme['c-primary-background-hover'] : 'transparent',
+          backgroundColor: isPlaying || selected
+            ? theme['c-primary-background-hover']
+            : theme['c-content-background'],
+          borderColor: isPlaying || selected
+            ? theme['c-primary-background-active']
+            : theme['c-border-background'],
         }}
         onPress={onPress}
       >
         <View style={styles.itemInfo}>
-          <Text color={isPlaying ? theme['c-primary-font'] : theme['c-font']} numberOfLines={1}>
+          <Text
+            size={designTypography.body}
+            style={styles.songTitle}
+            color={isPlaying ? theme['c-primary-font'] : theme['c-font']}
+            numberOfLines={1}
+          >
             {title}
           </Text>
-          <Text size={11} color={isPlaying ? theme['c-primary-alpha-200'] : theme['c-500']} numberOfLines={1}>
+          <Text
+            size={designTypography.caption}
+            color={isPlaying ? theme['c-primary-alpha-200'] : theme['c-500']}
+            numberOfLines={1}
+          >
             {subText}
           </Text>
         </View>
         {selected && (
-          <View style={styles.selectedMark}>
-            <Text size={12} color={theme['c-primary-font-active']}>
+          <View style={{ ...styles.selectedMark, borderColor: theme['c-primary-background-active'] }}>
+            <Text size={13} color={theme['c-primary-font-active']}>
               ✓
             </Text>
           </View>
@@ -301,13 +317,19 @@ export default memo(() => {
         <>
           <View style={styles.header}>
             <View style={styles.headerActions}>
-              <TouchableOpacity style={styles.headerBtn} onPress={selecting ? exitSelecting : enterSelecting}>
-                <Text size={13} color={theme['c-primary-font-active']}>
+              <TouchableOpacity
+                style={{ ...styles.headerBtn, backgroundColor: theme['c-primary-background'] }}
+                onPress={selecting ? exitSelecting : enterSelecting}
+              >
+                <Text size={designTypography.caption} color={theme['c-primary-font']}>
                   {selecting ? '取消' : '批量管理'}
                 </Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.refreshBtn} onPress={handleRefresh}>
-                <Text size={13} color={theme['c-primary-font-active']}>
+              <TouchableOpacity
+                style={{ ...styles.refreshBtn, backgroundColor: theme['c-primary-background'] }}
+                onPress={handleRefresh}
+              >
+                <Text size={designTypography.caption} color={theme['c-primary-font']}>
                   刷新
                 </Text>
               </TouchableOpacity>
@@ -320,13 +342,13 @@ export default memo(() => {
                 key={id}
                 style={[
                   styles.tabItem,
-                  tab === id && { ...styles.tabItemActive, backgroundColor: theme['c-primary-background-hover'] },
+                  tab === id && { ...styles.tabItemActive, backgroundColor: theme['c-primary'] },
                 ]}
                 onPress={() => setTab(id)}
               >
                 <Text
-                  size={13}
-                  color={tab === id ? theme['c-primary-font-active'] : theme['c-500']}
+                  size={designTypography.caption}
+                  color={tab === id ? theme['c-primary-light-1000'] : theme['c-font-label']}
                 >
                   {id === 'local' ? '本地' : '下载'}
                 </Text>
@@ -347,7 +369,7 @@ export default memo(() => {
             <FlatList
               style={styles.list}
               data={completedTasks}
-              contentContainerStyle={{ paddingBottom: 80 }}
+              contentContainerStyle={{ paddingBottom: 180 + safeAreaBottom }}
               key={isHorizontal ? 'horizontal' : 'vertical'}
               numColumns={isHorizontal ? 2 : 1}
               columnWrapperStyle={isHorizontal ? styles.columnWrapper : undefined}
@@ -382,7 +404,7 @@ export default memo(() => {
             <FlatList
               style={styles.list}
               data={localFiles}
-              contentContainerStyle={{ paddingBottom: 80 }}
+              contentContainerStyle={{ paddingBottom: 180 + safeAreaBottom }}
               key={isHorizontal ? 'horizontal' : 'vertical'}
               numColumns={isHorizontal ? 2 : 1}
               columnWrapperStyle={isHorizontal ? styles.columnWrapper : undefined}
@@ -410,11 +432,15 @@ export default memo(() => {
             <View
               style={[
                 styles.selectBar,
-                { borderTopWidth: StyleSheet.hairlineWidth, borderColor: theme['c-border-background'] },
+                {
+                  borderWidth: StyleSheet.hairlineWidth,
+                  borderColor: theme['c-border-background'],
+                  backgroundColor: theme['c-content-background'],
+                },
               ]}
             >
               <TouchableOpacity style={styles.selectBarBtn} onPress={toggleSelectAll}>
-                <Text size={13} color={theme['c-primary-font-active']}>
+                <Text size={designTypography.caption} color={theme['c-primary-font']}>
                   {tab === 'download'
                     ? completedTasks.length > 0 && completedTasks.every(t => selectedIds.has(t.id))
                       ? '取消全选'
@@ -424,7 +450,7 @@ export default memo(() => {
                       : '全选'}
                 </Text>
               </TouchableOpacity>
-              <Text size={13} color={theme['c-500']} style={{ marginLeft: 'auto' }}>
+              <Text size={designTypography.caption} color={theme['c-font-label']} style={{ marginLeft: 'auto' }}>
                 已选 {selectedIds.size} 项
               </Text>
               <TouchableOpacity
@@ -432,8 +458,8 @@ export default memo(() => {
                 onPress={handleDeleteSelected}
               >
                 <Text
-                  size={13}
-                  color={selectedIds.size === 0 ? theme['c-500'] : theme['c-primary-font-active']}
+                  size={designTypography.caption}
+                  color={selectedIds.size === 0 ? theme['c-500'] : theme['c-primary-font']}
                 >
                   删除
                 </Text>
@@ -450,10 +476,10 @@ const styles = createStyle({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: 10,
-    paddingBottom: 6,
-    paddingLeft: 14,
-    paddingRight: 14,
+    paddingTop: designSpacing.sm,
+    paddingBottom: designSpacing.xs,
+    paddingLeft: designSpacing.md,
+    paddingRight: designSpacing.md,
   },
   headerActions: {
     marginLeft: 'auto',
@@ -461,31 +487,36 @@ const styles = createStyle({
     alignItems: 'center',
   },
   headerBtn: {
-    paddingVertical: 4,
-    paddingHorizontal: 10,
+    height: 32,
+    paddingHorizontal: designSpacing.sm,
+    borderRadius: designRadius.pill,
+    justifyContent: 'center',
   },
   refreshBtn: {
-    paddingVertical: 4,
-    paddingHorizontal: 10,
+    height: 32,
+    paddingHorizontal: designSpacing.sm,
+    borderRadius: designRadius.pill,
+    justifyContent: 'center',
   },
   tabs: {
     flexDirection: 'row',
-    marginHorizontal: 14,
-    marginBottom: 6,
+    height: 38,
+    marginHorizontal: designSpacing.md,
+    marginBottom: designSpacing.sm,
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 6,
+    borderRadius: designRadius.pill,
     overflow: 'hidden',
   },
   tabItem: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 8,
+    justifyContent: 'center',
   },
   tabItemActive: {},
   tip: {
-    paddingLeft: 14,
-    paddingRight: 14,
-    paddingBottom: 6,
+    paddingLeft: designSpacing.md,
+    paddingRight: designSpacing.md,
+    paddingBottom: designSpacing.sm,
   },
   columnWrapper: {
     paddingHorizontal: 8,
@@ -497,10 +528,15 @@ const styles = createStyle({
   songItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingLeft: 14,
-    paddingRight: 6,
-    paddingTop: 10,
-    paddingBottom: 10,
+    minHeight: 62,
+    marginHorizontal: designSpacing.md,
+    marginBottom: designSpacing.sm,
+    paddingHorizontal: designSpacing.md,
+    borderWidth: 1,
+    borderRadius: designRadius.lg,
+  },
+  songTitle: {
+    fontWeight: '600',
   },
   itemInfo: {
     flex: 1,
@@ -519,8 +555,10 @@ const styles = createStyle({
   selectBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    marginHorizontal: designSpacing.md,
+    paddingVertical: designSpacing.sm,
+    paddingHorizontal: designSpacing.sm,
+    borderRadius: designRadius.lg,
     // 批量操作栏原贴在页面底部，会被底部浮动的迷你播放器胶囊遮住；
     // 抬到胶囊上方：胶囊底部 18 + 内容约 60 + 间距，与列表 paddingBottom:80 的预留一致。
     marginBottom: 88,
@@ -533,7 +571,12 @@ const styles = createStyle({
     opacity: 0.5,
   },
   selectedMark: {
-    paddingLeft: 12,
-    paddingRight: 8,
+    width: 22,
+    height: 22,
+    marginLeft: designSpacing.sm,
+    borderRadius: 999,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 })

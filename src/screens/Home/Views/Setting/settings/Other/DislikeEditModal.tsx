@@ -7,6 +7,7 @@ import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
 import Dialog, { type DialogType } from '@/components/common/Dialog'
 import Button from '@/components/common/Button'
+import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
 
 interface RuleInputType {
   setText: (text: string) => void
@@ -43,9 +44,8 @@ const RuleInput = forwardRef<RuleInputType, {}>((props, ref) => {
         value={text}
         onChangeText={setText}
         multiline
-        textAlignVertical="top"
         placeholder={t('setting_dislike_list_input_tip')}
-        size={13}
+        size={designTypography.caption}
         style={{ ...styles.input, height, backgroundColor: theme['c-primary-input-background'] }}
       />
     </View>
@@ -103,7 +103,7 @@ export default forwardRef<DislikeEditModalType, DislikeEditModalProps>(({ onSave
     <Dialog height="80%" ref={dialogRef} bgHide={false}>
       <View style={styles.content}>
         <RuleInput ref={inputRef} />
-        <Text style={styles.inputTipText} size={13} color={theme['c-600']}>
+        <Text style={styles.inputTipText} size={designTypography.caption} color={theme['c-600']}>
           {t('setting_dislike_list_tips')}
         </Text>
       </View>
@@ -112,15 +112,15 @@ export default forwardRef<DislikeEditModalType, DislikeEditModalProps>(({ onSave
           style={{ ...styles.btn, backgroundColor: theme['c-button-background'] }}
           onPress={handleCancel}
         >
-          <Text size={14} color={theme['c-button-font']}>
+          <Text size={designTypography.body} color={theme['c-button-font']}>
             {t('cancel')}
           </Text>
         </Button>
         <Button
-          style={{ ...styles.btn, backgroundColor: theme['c-button-background'] }}
+          style={{ ...styles.btn, backgroundColor: theme['c-primary'] }}
           onPress={handleConfirm}
         >
-          <Text size={14} color={theme['c-button-font']}>
+          <Text size={designTypography.body} color={theme['c-000']}>
             {t('confirm')}
           </Text>
         </Button>
@@ -133,9 +133,9 @@ const styles = createStyle({
   content: {
     flexGrow: 1,
     flexShrink: 1,
-    paddingHorizontal: 15,
-    paddingTop: 15,
-    paddingBottom: 10,
+    paddingHorizontal: designSpacing.sm,
+    paddingTop: designSpacing.md,
+    paddingBottom: designSpacing.xs,
     flexDirection: 'column',
   },
   col: {
@@ -152,15 +152,15 @@ const styles = createStyle({
     // backgroundColor: 'rgba(0, 0, 0, 0.2)',
   },
   input: {
-    minWidth: 290,
+    minWidth: 280,
     // borderRadius: 4,
     // borderTopRightRadius: 4,
     // borderBottomRightRadius: 4,
-    paddingTop: 5,
-    paddingBottom: 5,
+    paddingTop: designSpacing.xs,
+    paddingBottom: designSpacing.xs,
   },
   inputTipText: {
-    marginTop: 8,
+    marginTop: designSpacing.xs,
     // lineHeight: 18,
     // backgroundColor: 'rgba(0, 0, 0, 0.2)',
   },
@@ -168,15 +168,17 @@ const styles = createStyle({
   btns: {
     flexDirection: 'row',
     justifyContent: 'center',
-    paddingBottom: 15,
-    paddingLeft: 15,
+    paddingBottom: designSpacing.sm,
+    paddingLeft: designSpacing.sm,
     // paddingRight: 15,
   },
   btn: {
     flex: 1,
-    padding: 10,
+    height: 36,
+    paddingHorizontal: designSpacing.sm,
     alignItems: 'center',
-    borderRadius: 4,
-    marginRight: 15,
+    justifyContent: 'center',
+    borderRadius: designRadius.pill,
+    marginRight: designSpacing.sm,
   },
 })

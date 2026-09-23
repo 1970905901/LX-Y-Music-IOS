@@ -9,6 +9,7 @@ import Button from '@/components/common/Button'
 import List from './List'
 import ImportBtn from './ImportBtn'
 import ScriptImportExport, { type ScriptImportExportType } from './ScriptImportExport'
+import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
 
 // interface UrlInputType {
 //   setText: (text: string) => void
@@ -125,25 +126,25 @@ export default forwardRef<UserApiEditModalType, {}>((props, ref) => {
   return visible ? (
     <Dialog ref={dialogRef} bgHide={false}>
       <View style={styles.content}>
-        <Text size={16} style={styles.title}>
+        <Text size={designTypography.title} style={styles.title}>
           {t('user_api_title')}
         </Text>
         <List onExport={handleExport} />
         <View style={styles.tips}>
-          <Text style={styles.tipsText} size={12}>
+          <Text style={styles.tipsText} size={designTypography.caption}>
             {t('user_api_readme')}
           </Text>
           <TouchableOpacity onPress={openFAQPage}>
             <Text
               style={{ ...styles.tipsText, textDecorationLine: 'underline' }}
-              size={12}
+              size={designTypography.caption}
               color={theme['c-primary-font']}
             >
               FAQ
             </Text>
           </TouchableOpacity>
           <View>
-            <Text style={styles.tipsText} size={12}>
+            <Text style={styles.tipsText} size={designTypography.caption}>
               {t('user_api_note')}
             </Text>
           </View>
@@ -154,7 +155,7 @@ export default forwardRef<UserApiEditModalType, {}>((props, ref) => {
           style={{ ...styles.btn, backgroundColor: theme['c-button-background'] }}
           onPress={handleCancel}
         >
-          <Text size={14} color={theme['c-button-font']}>
+          <Text size={designTypography.body} color={theme['c-button-font']}>
             {t('close')}
           </Text>
         </Button>
@@ -177,40 +178,41 @@ const styles = createStyle({
   content: {
     // flexGrow: 1,
     flexShrink: 1,
-    paddingHorizontal: 8,
-    paddingTop: 15,
-    paddingBottom: 10,
+    paddingHorizontal: designSpacing.sm,
+    paddingTop: designSpacing.md,
+    paddingBottom: designSpacing.xs,
     flexDirection: 'column',
   },
   title: {
-    marginBottom: 15,
+    marginBottom: designSpacing.sm,
     textAlign: 'center',
     // backgroundColor: 'rgba(0, 0, 0, 0.2)',
   },
   tips: {
-    paddingHorizontal: 7,
-    marginTop: 15,
+    paddingHorizontal: designSpacing.xs,
+    marginTop: designSpacing.sm,
     flexDirection: 'row',
     flexWrap: 'wrap',
   },
   tipsText: {
-    marginTop: 8,
-    textAlignVertical: 'bottom',
-    // lineHeight: 18,
+    marginTop: designSpacing.xs,
+    lineHeight: 20,
     // backgroundColor: 'rgba(0, 0, 0, 0.2)',
   },
   btns: {
     flexDirection: 'row',
     justifyContent: 'center',
-    paddingBottom: 15,
-    paddingLeft: 15,
+    paddingBottom: designSpacing.sm,
+    paddingLeft: designSpacing.sm,
     // paddingRight: 15,
   },
   btn: {
     flex: 1,
-    padding: 10,
+    height: 36,
+    paddingHorizontal: designSpacing.sm,
     alignItems: 'center',
-    borderRadius: 4,
-    marginRight: 15,
+    justifyContent: 'center',
+    borderRadius: designRadius.pill,
+    marginRight: designSpacing.sm,
   },
 })

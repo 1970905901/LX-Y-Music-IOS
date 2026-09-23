@@ -8,6 +8,7 @@ import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
 import { httpFetch } from '@/utils/request'
 import { handleImportScript } from './action'
+import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
 
 interface UrlInputType {
   setText: (text: string) => void
@@ -114,7 +115,9 @@ export default forwardRef<ScriptImportOnlineType, {}>((props, ref) => {
       confirmText={btn.text}
     >
       <View style={styles.reurlContent}>
-        <Text style={{ marginBottom: 5 }}>{t('user_api_btn_import_online')}</Text>
+        <Text style={styles.inputLabel} size={designTypography.body}>
+          {t('user_api_btn_import_online')}
+        </Text>
         <UrlInput ref={urlInputRef} />
       </View>
     </ConfirmAlert>
@@ -127,12 +130,15 @@ const styles = createStyle({
     flexShrink: 1,
     flexDirection: 'column',
   },
+  inputLabel: {
+    marginBottom: designSpacing.xs,
+  },
   input: {
     flexGrow: 1,
     flexShrink: 1,
-    minWidth: 290,
-    borderRadius: 4,
-    // paddingTop: 2,
-    // paddingBottom: 2,
+    minWidth: 280,
+    height: 36,
+    paddingHorizontal: designSpacing.sm,
+    borderRadius: designRadius.sm,
   },
 })

@@ -1,6 +1,9 @@
 name: iOS Runtime Debug
 
 on:
+  push:
+    branches:
+      - ios-adaptation
   workflow_dispatch:
 
 jobs:

@@ -9,6 +9,7 @@ import settingState from '@/store/setting/state'
 import { scaleSizeH } from '@/utils/pixelRatio'
 import { LIST_ITEM_HEIGHT } from '@/config/constant'
 import { createStyle, type RowInfo } from '@/utils/tools'
+import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
 import Image from '@/components/common/Image'
 import PlayingIcon from '@/components/common/PlayingIcon'
 import { useIsWyLiked, useIsTxLiked, useIsKgLiked } from '@/store/user/hook'
@@ -166,13 +167,18 @@ export default memo(
             ) : isPlaying ? (
               <PlayingIcon />
             ) : (
-              <Text color={theme['c-font']} size={12}>
+              <Text color={theme['c-font']} size={14} style={styles.indexText}>
                 {index + 1}
               </Text>
             )}
           </View>
           <View style={styles.itemInfo}>
-            <Text numberOfLines={1} color={isPlaying ? theme['c-primary-font'] : theme['c-font']}>
+            <Text
+              numberOfLines={1}
+              size={designTypography.body}
+              style={styles.songName}
+              color={isPlaying ? theme['c-primary-font'] : theme['c-font']}
+            >
               {item.name}
               {item.alias ? <Text color={theme['c-font-label']}> ({item.alias})</Text> : null}
             </Text>
@@ -184,7 +190,7 @@ export default memo(
               {historySource ? <Badge type="normal">{historySource}</Badge> : null}
               <Text
                 style={styles.listItemSingleText}
-                size={11}
+                size={12}
                 color={isPlaying ? theme['c-primary-alpha-200'] : theme['c-500']}
                 numberOfLines={1}
               >
@@ -193,7 +199,11 @@ export default memo(
             </View>
           </View>
           {isShowInterval ? (
-            <Text size={11} color={isPlaying ? theme['c-primary-alpha-200'] : theme['c-500']} numberOfLines={1}>
+            <Text
+              size={12}
+              color={isPlaying ? theme['c-primary-alpha-200'] : theme['c-500']}
+              numberOfLines={1}
+            >
               {item.interval}
             </Text>
           ) : null}
@@ -201,13 +211,17 @@ export default memo(
 
         {showLikeButton ? (
           <TouchableOpacity onPress={handleLike} style={styles.likeButton}>
-            <Icon name={isLiked ? "love-filled" : "love"} size={16} color={isLiked ? theme['c-liked'] : theme['c-350']} />
+            <Icon
+              name={isLiked ? "love-filled" : "love"}
+              size={17}
+              color={isLiked ? theme['c-liked'] : theme['c-350']}
+            />
           </TouchableOpacity>
         ) : null}
 
         {hideMenu ? null : (
           <TouchableOpacity onPress={handleShowMenu} ref={moreButtonRef} style={styles.moreButton}>
-            <Icon name="dots-vertical" style={{ color: theme['c-350'] }} size={12} />
+            <Icon name="dots-vertical" style={{ color: theme['c-350'] }} size={17} />
           </TouchableOpacity>
         )}
       </View>
@@ -235,7 +249,7 @@ const styles = createStyle({
   listItem: {
     flexDirection: 'row',
     flexWrap: 'nowrap',
-    paddingRight: 2,
+    paddingRight: designSpacing.xs,
     alignItems: 'center',
   },
   listItemLeft: {
@@ -249,8 +263,8 @@ const styles = createStyle({
     width: 70,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingLeft: 5,
-    paddingRight: 5,
+    paddingLeft: designSpacing.sm,
+    paddingRight: designSpacing.sm,
   },
   snIndex: {
     width: 40,
@@ -260,15 +274,21 @@ const styles = createStyle({
     paddingRight: 5,
   },
   albumArt: {
-    width: 52,
-    height: 52,
-    borderRadius: 4,
+    width: 54,
+    height: 54,
+    borderRadius: designRadius.md,
   },
   itemInfo: {
     flexGrow: 1,
     flexShrink: 1,
-    paddingLeft: 2,
-    paddingRight: 2,
+    paddingLeft: designSpacing.xs,
+    paddingRight: designSpacing.xs,
+  },
+  songName: {
+    fontWeight: '600',
+  },
+  indexText: {
+    fontWeight: '700',
   },
   listItemSingle: {
     paddingTop: 2,
@@ -296,15 +316,19 @@ const styles = createStyle({
     justifyContent: 'center',
   },
   likeButton: {
-    height: '80%',
-    paddingHorizontal: 8,
+    width: 40,
+    height: 40,
+    marginHorizontal: designSpacing.xs,
+    borderRadius: 999,
     justifyContent: 'center',
     alignItems: 'center',
   },
   moreButton: {
-    height: '80%',
-    paddingLeft: 10,
-    paddingRight: 16,
+    width: 40,
+    height: 40,
+    marginRight: designSpacing.xs,
+    borderRadius: 999,
     justifyContent: 'center',
+    alignItems: 'center',
   },
 })

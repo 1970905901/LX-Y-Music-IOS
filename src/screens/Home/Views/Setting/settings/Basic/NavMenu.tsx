@@ -1,11 +1,11 @@
 import { memo, useMemo, useState, useCallback, useRef, useEffect } from 'react'
-import { StyleSheet, View, Text, Animated, PanResponder, TouchableOpacity } from 'react-native'
+import { StyleSheet, View, Text, Animated, PanResponder } from 'react-native'
 import SubTitle from '../../components/SubTitle'
 import CheckBox from '@/components/common/CheckBox'
 import { useSettingValue } from '@/store/setting/hook'
 import { useI18n } from '@/lang'
 import { updateSetting } from '@/core/common'
-import { NAV_MENUS, NAV_GROUPS, type NAV_ID_Type, getEffectiveFlatOrder, getEffectiveGroupChildren } from '@/config/constant'
+import { NAV_MENUS, type NAV_ID_Type, getEffectiveFlatOrder } from '@/config/constant'
 import { useTheme } from '@/store/theme/hook'
 import { Icon } from '@/components/common/Icon'
 import { acquireScrollLock, releaseScrollLock } from '@/utils/scrollLock'
@@ -18,7 +18,6 @@ const TextAny = Text as any
 interface MenuItemData {
   id: string
   name: string
-  isGroup?: boolean
 }
 
 interface DragAnim {
@@ -33,11 +32,10 @@ const createAnim = (): DragAnim => ({
   opacity: new Animated.Value(1),
 })
 
-const SortableList = ({ items: initialItems, onReorder, dragHint, navGroupVisible }: {
+const SortableList = ({ items: initialItems, onReorder, dragHint }: {
   items: MenuItemData[]
   onReorder: (from: number, to: number) => void
   dragHint?: string
-  navGroupVisible?: Record<string, boolean>
 }) => {
   const subContainerOpacity = useSettingValue('theme.subContainerOpacity')
   const navStatus = useSettingValue('common.navStatus')
@@ -140,19 +138,15 @@ const SortableList = ({ items: initialItems, onReorder, dragHint, navGroupVisibl
         {displayItems.map((item, idx) => {
           const anim = animsRef.current[idx] ?? createAnim()
           const isDragSource = draggingIndex === idx
-          const groupChecked = item.isGroup ? ((navGroupVisible ?? {})[item.id] ?? true) : undefined
-          const groupToggle = item.isGroup ? (_id: string, check: boolean) => {
-            updateSetting({ 'common.navGroupVisible': { ...(navGroupVisible ?? {}), [item.id]: check } })
-          } : undefined
           return (
             <DraggableItem key={item.id + idx} item={item} index={idx}
-              isChecked={item.isGroup ? groupChecked : (navStatus[item.id as NAV_ID_Type] ?? true)}
+              isChecked={navStatus[item.id as NAV_ID_Type] ?? true}
               isDragging={draggingIndex != null} isDragSource={isDragSource}
               translateY={anim.translateY} scale={anim.scale} opacity={anim.opacity}
               zIndex={isDragSource ? 10 : 1}
               onLayoutHeight={handleLayoutHeight} onLongPressStart={handleLongPressStart}
               onDragMove={handleDragMove} onDragRelease={handleDragRelease} onDragCancel={handleDragCancel}
-              onToggle={groupToggle || ((id: string, check: boolean) => { updateSetting({ 'common.navStatus': { ...navStatus, [id as NAV_ID_Type]: check } }) })}
+              onToggle={(id: string, check: boolean) => { updateSetting({ 'common.navStatus': { ...navStatus, [id as NAV_ID_Type]: check } }) }}
               dragHandleHint={dragHint || ''} />
           )
         })}
@@ -223,7 +217,7 @@ const DraggableItem = memo(({
         <View style={styles.dragHandle} {...panResponder.panHandlers}>
           <Icon name="menu" color={theme['c-font-label']} size={16} />
         </View>
-        <Text style={[styles.menuName, { color: item.isGroup ? theme['c-primary-font'] : theme['c-font'] }]}>{item.name}</Text>
+        <Text style={[styles.menuName, { color: theme['c-font'] }]}>{item.name}</Text>
         {isChecked !== undefined && (
           <CheckBox check={isChecked} label="" disabled={item.id === 'nav_setting'}
             onChange={(check) => onToggle(item.id, check)} />
@@ -236,142 +230,43 @@ const DraggableItem = memo(({
 
 export default memo(() => {
   const t = useI18n()
-  const navGroupEnabled = useSettingValue('common.navGroupEnabled')
-  const navGroupOrder = useSettingValue('common.navGroupOrder')
   const navOrder = useSettingValue('common.navOrder')
   const navFlatOrder = useSettingValue('common.navFlatOrder')
-  const navGroupVisible = useSettingValue('common.navGroupVisible')
-  const [selectedGroup, setSelectedGroup] = useState<string | null>(null)
 
   const effectiveFlatOrder = useMemo(() => {
     return getEffectiveFlatOrder(navFlatOrder, navOrder)
   }, [navFlatOrder, navOrder])
 
   const topLevelItems = useMemo((): MenuItemData[] => {
-    const order: NAV_ID_Type[] = navGroupEnabled ? (navOrder || NAV_MENUS.map(m => m.id)) : effectiveFlatOrder
-    if (!navGroupEnabled) {
-      return order
-        .map(id => {
-          const menu = NAV_MENUS.find(m => m.id === id)
-          if (!menu) return null
-          return { id, name: t(id as any), isGroup: false }
-        })
-        .filter((item): item is NonNullable<typeof item> => item !== null)
-    }
-    const groupChildIds = new Set(NAV_GROUPS.flatMap(g => g.children))
-    const items: MenuItemData[] = []
-    const insertedGroupIds = new Set<string>()
-    for (const id of order) {
-      if (groupChildIds.has(id as NAV_ID_Type)) {
-        const group = NAV_GROUPS.find(g => g.children.includes(id as NAV_ID_Type))
-        if (group && !insertedGroupIds.has(group.id)) {
-          items.push({ id: group.id, name: t(group.label as any), isGroup: true })
-          insertedGroupIds.add(group.id)
-        }
-        continue
-      }
-      const menu = NAV_MENUS.find(m => m.id === id)
-      if (menu) {
-        items.push({ id, name: t(id as any), isGroup: false })
-      }
-    }
-    for (const group of NAV_GROUPS) {
-      if (!insertedGroupIds.has(group.id)) {
-        const firstChildIdx = order.findIndex(id => group.children.includes(id as NAV_ID_Type))
-        let insertIdx = items.length
-        if (firstChildIdx >= 0) {
-          for (let i = 0; i < items.length; i++) {
-            const item = items[i]
-            const itemOrderIdx = order.indexOf(item.isGroup ? (NAV_GROUPS.find(g => g.id === item.id)?.children[0]!) : item.id as NAV_ID_Type)
-            if (itemOrderIdx > firstChildIdx) { insertIdx = i; break }
-          }
-        }
-        items.splice(insertIdx, 0, { id: group.id, name: t(group.label as any), isGroup: true })
-      }
-    }
+    return effectiveFlatOrder
+      .map(id => {
+        const menu = NAV_MENUS.find(m => m.id === id)
+        if (!menu) return null
+        return { id, name: t(id as any) }
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null)
+  }, [effectiveFlatOrder, t])
+
+  const topLevelItemsWithSetting = useMemo((): MenuItemData[] => {
+    const items = [...topLevelItems]
     if (!items.some(i => i.id === 'nav_setting')) {
-      items.push({ id: 'nav_setting', name: t('nav_setting'), isGroup: false })
+      items.push({ id: 'nav_setting', name: t('nav_setting') })
     }
     return items
-    // 注意：计算逻辑不读取 navStatus，绝不能把它放进依赖数组——
-    // 否则点击列表项勾选（更新 navStatus）会重建整个列表，屏幕跳动。
-  }, [navGroupEnabled, navOrder, navFlatOrder, t])
-
-  const groupItems = useMemo((): MenuItemData[] => {
-    if (!selectedGroup) return []
-    const group = NAV_GROUPS.find(g => g.id === selectedGroup)
-    if (!group) return []
-    return getEffectiveGroupChildren(group, navGroupOrder[group.id])
-      .map(id => ({ id, name: t(id as any), isGroup: false }))
-    // 同 topLevelItems：计算不依赖 navStatus，放入依赖数组会导致勾选时列表重建跳动
-  }, [selectedGroup, navGroupOrder, t])
+  }, [topLevelItems, t])
 
   const handleTopLevelReorder = useCallback((from: number, to: number) => {
     const items = [...topLevelItems]
     const [moved] = items.splice(from, 1)
     if (!moved) return
     items.splice(to, 0, moved)
-    if (navGroupEnabled) {
-      const newNavOrder: NAV_ID_Type[] = []
-      for (const item of items) {
-        if (item.isGroup) {
-          const group = NAV_GROUPS.find(g => g.id === item.id)
-          if (group) group.children.forEach(c => newNavOrder.push(c as NAV_ID_Type))
-        } else {
-          newNavOrder.push(item.id as NAV_ID_Type)
-        }
-      }
-      updateSetting({ 'common.navOrder': newNavOrder })
-    } else {
-      updateSetting({ 'common.navFlatOrder': items.map(i => i.id as NAV_ID_Type) })
-    }
-  }, [topLevelItems, navGroupEnabled])
-
-  const handleGroupReorder = useCallback((from: number, to: number) => {
-    if (!selectedGroup) return
-    const items = [...groupItems]
-    const [moved] = items.splice(from, 1)
-    if (!moved) return
-    items.splice(to, 0, moved)
-    updateSetting({ 'common.navGroupOrder': { ...navGroupOrder, [selectedGroup]: items.map(i => i.id) } })
-  }, [selectedGroup, groupItems, navGroupOrder])
-
-  const handleGroupPress = useCallback((groupId: string) => {
-    setSelectedGroup(prev => prev === groupId ? null : groupId)
-  }, [])
+    updateSetting({ 'common.navFlatOrder': items.map(i => i.id as NAV_ID_Type) })
+  }, [topLevelItems])
 
   return (
     <SubTitle title={t('setting_basic_nav_menu')} collapsible sectionId="setting_basic_nav_menu">
       <View style={styles.container}>
-        <View style={styles.toggleRow}>
-          <CheckBox marginRight={8} check={navGroupEnabled} label={t('setting_basic_nav_menu_group_toggle')}
-            onChange={() => { updateSetting({ 'common.navGroupEnabled': !navGroupEnabled }); setSelectedGroup(null) }} />
-        </View>
-
-        {navGroupEnabled && (
-          <View style={styles.tabBar}>
-            {NAV_GROUPS.map(g => (
-              <TouchableOpacity key={g.id} style={[styles.tab, selectedGroup === g.id && styles.tabActive]}
-                onPress={() => { handleGroupPress(g.id) }}>
-                <TextAny size={13} color={selectedGroup === g.id ? '#1677ff' : '#666'}>{t(g.label as any)}</TextAny>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-
-        {navGroupEnabled && selectedGroup ? (
-          <View>
-            <TouchableOpacity style={styles.backBtn} onPress={() => { setSelectedGroup(null) }}>
-              <Icon name="chevron-left" size={14} color="#666" />
-              <TextAny size={13} color="#666" style={{ marginLeft: 4 }}>{t('setting_basic_nav_menu_back_top')}</TextAny>
-            </TouchableOpacity>
-            {/* 不套内层 ScrollView：设置页本身已是滚动容器，嵌套滚动会在点按开关时
-                把手势冒泡到外层导致整页滚动一下。拖拽排序靠全局 scrollLock 锁定外层滚动。 */}
-            <SortableList key={`group-${selectedGroup}`} items={groupItems} onReorder={handleGroupReorder} dragHint={t('setting_basic_nav_menu_reorder_tip')} navGroupVisible={navGroupVisible} />
-          </View>
-        ) : (
-          <SortableList key={`top-${navGroupEnabled}`} items={topLevelItems} onReorder={handleTopLevelReorder} dragHint={t('setting_basic_nav_menu_reorder_tip')} navGroupVisible={navGroupVisible} />
-        )}
+        <SortableList key="flat" items={topLevelItemsWithSetting} onReorder={handleTopLevelReorder} dragHint={t('setting_basic_nav_menu_reorder_tip')} />
       </View>
     </SubTitle>
   )

@@ -5,6 +5,7 @@ import IsSavePlayTime from './IsSavePlayTime'
 import IsSwipeToShowPlaylist from './IsSwipeToShowPlaylist'
 import PlayHighQuality from './PlayHighQuality'
 import IsHandleAudioFocus from './IsHandleAudioFocus'
+import IsEnableAudioOffload from './IsEnableAudioOffload'
 import IsEnableAudioPreload from './IsEnableAudioPreload'
 import UseNativeFlacPlayer from './UseNativeFlacPlayer'
 import IsAutoCleanPlayedList from './IsAutoCleanPlayedList'
@@ -31,6 +32,7 @@ export default memo(() => {
       <IsSwipeToShowPlaylist />
       <IsAutoCleanPlayedList />
       <IsHandleAudioFocus />
+      <IsEnableAudioOffload />
       <IsEnableAudioPreload />
       <UseNativeFlacPlayer />
       <IsShowBluetoothLyric />

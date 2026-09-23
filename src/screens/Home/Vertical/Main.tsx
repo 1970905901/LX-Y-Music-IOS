@@ -18,7 +18,7 @@ import TXDailyRec from '../Views/DailyRec/TXDailyRec'
 import MyPlaylist from '../Views/MyPlaylist'
 import FollowedArtists from '../Views/FollowedArtists'
 import SubscribedAlbums from '../Views/SubscribedAlbums';
-import {NAV_MENUS, NAV_GROUPS, type NAV_ID_Type, getEffectiveFlatOrder} from "@/config/constant.ts";
+import {NAV_MENUS, type NAV_ID_Type, getEffectiveFlatOrder} from "@/config/constant.ts";
 import {useSettingValue} from "@/store/setting/hook.ts";
 import PlayHistory from '../Views/PlayHistory'
 import { useTheme } from '@/store/theme/hook'
@@ -589,22 +589,10 @@ const Main = () => {
   const navStatus = useSettingValue('common.navStatus');
   const navOrder = useSettingValue('common.navOrder');
   const navFlatOrder = useSettingValue('common.navFlatOrder');
-  const navGroupEnabled = useSettingValue('common.navGroupEnabled');
 
   // 与侧边栏（DrawerNav）保持同一套“有效顺序”，否则二者不一致时点击侧边栏项会跳错页面。
-  // 分组开启用 navOrder；否则优先用用户在“侧边栏导航”里自定义过的扁平顺序 navFlatOrder，
-  // 都没有再回退 navOrder。
-  // 注意：分组开启时 DrawerNav 会通过 NAV_GROUPS 显示 group children（如云盘下的 WebDAV），
-  // 如果老用户的 navOrder 里缺少这些子项，必须补进 PagerView 页面列表，否则点击会 fallback 到第一页。
-  const effectiveOrder = useMemo(() => {
-    if (!navGroupEnabled) return getEffectiveFlatOrder(navFlatOrder, navOrder);
-    const allMenuIds = NAV_MENUS.map(m => m.id)
-    // 过滤已废弃的菜单 id，避免老用户持久化顺序里的残留项渲染成未知页面
-    const baseOrder = (navOrder || []).filter((id: string) => allMenuIds.includes(id as NAV_ID_Type)) as NAV_ID_Type[];
-    const groupChildIds = NAV_GROUPS.flatMap(g => g.children) as NAV_ID_Type[];
-    const missing = groupChildIds.filter(id => !baseOrder.includes(id));
-    return missing.length ? [...baseOrder, ...missing] : baseOrder;
-  }, [navGroupEnabled, navFlatOrder, navOrder]);
+  // 优先使用用户自定义的扁平顺序 navFlatOrder，否则回退 navOrder。
+  const effectiveOrder = useMemo(() => getEffectiveFlatOrder(navFlatOrder, navOrder), [navFlatOrder, navOrder]);
 
   const visibleNavs = useMemo(() => {
     return effectiveOrder.filter((id: NAV_ID_Type) => isMenuVisible(id, navStatus)).map((id: NAV_ID_Type) => {
@@ -635,7 +623,7 @@ const Main = () => {
   // iOS 上对运行中的 PagerView 原位重排子页面并立即 setPage，存在原生侧
   // “index out of bounds” 崩溃（release 下表现为整个 App 白屏）。用 key 让
   // 页面集变化时整体重建 PagerView 实例，initialPage 直接落到当前页，彻底避开该竞争。
-  const pagerKey = useMemo(() => `${navGroupEnabled ? 'g' : 'f'}|${visibleNavs.map(n => n.id).join('|')}`, [visibleNavs, navGroupEnabled]);
+  const pagerKey = useMemo(() => `flat|${visibleNavs.map(n => n.id).join('|')}`, [visibleNavs]);
   // remount 时的初始页：以当前导航 id 在新顺序中的位置为准
   const initialPageIndex = useMemo(() => viewMap[commonState.navActiveId] ?? 0, [viewMap]);
 

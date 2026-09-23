@@ -8,10 +8,13 @@ import { soundEffectController } from '@/plugins/player/soundEffect'
 import playerState from '@/store/player/state'
 import settingState from '@/store/setting/state'
 import { onHeadphonesDisconnected } from '@/utils/nativeModules/utils'
+import { enforceCacheLimit } from '@/utils/nativeModules/cache'
 import { Platform } from 'react-native'
 
 
 export default async(setting: LX.AppSetting) => {
+  void enforceCacheLimit((setting['player.cacheLimit'] || 0) * 1024 * 1024)
+
   const setPlayStatus = () => {
     setIsPlay(true)
   }

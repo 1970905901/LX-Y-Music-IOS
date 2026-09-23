@@ -103,37 +103,24 @@ export const APP_PROVIDER_NAME = 'com.lxwalnut.music.mobile.provider'
 
 export const NAV_MENUS = [
   { id: 'nav_search', icon: 'search-2' },
+  { id: 'nav_play_history', icon: 'music_time' },
+  { id: 'nav_songlist', icon: 'album' },
+  { id: 'nav_top', icon: 'leaderboard' },
   { id: 'nav_love', icon: 'love' },
-  { id: 'nav_my_playlist', icon: 'album' },
   { id: 'nav_daily_rec', icon: 'svg:calendar' },
+  { id: 'nav_my_playlist', icon: 'album' },
   { id: 'nav_kg_playlist', icon: 'album' },
   { id: 'nav_kg_daily_rec', icon: 'svg:calendar' },
   { id: 'nav_tx_playlist', icon: 'album' },
   { id: 'nav_tx_daily_rec', icon: 'svg:calendar' },
-  { id: 'nav_songlist', icon: 'album' },
-  { id: 'nav_top', icon: 'leaderboard' },
   { id: 'nav_followed_artists', icon: 'svg:artist' },
   { id: 'nav_subscribed_albums', icon: 'svg:album-disc' },
-  { id: 'nav_webdav', icon: 'svg:onedrive' },
+  { id: 'nav_webdav', icon: 'svg:webdav' },
   { id: 'nav_local_download', icon: 'download-2' },
-  { id: 'nav_play_history', icon: 'music_time' },
   { id: 'nav_setting', icon: 'setting' },
 ] as const
 
 export type NAV_ID_Type = (typeof NAV_MENUS)[number]['id']
-
-export interface NavGroup {
-  id: string
-  label: string
-  icon: string
-  children: NAV_ID_Type[]
-}
-
-export const NAV_GROUPS: NavGroup[] = [
-  { id: 'group_online', label: 'group_online', icon: 'album', children: ['nav_tx_playlist', 'nav_my_playlist', 'nav_kg_playlist', 'nav_followed_artists', 'nav_subscribed_albums'] },
-  { id: 'group_daily', label: 'group_daily', icon: 'svg:calendar', children: ['nav_tx_daily_rec', 'nav_daily_rec', 'nav_kg_daily_rec'] },
-  { id: 'group_cloud', label: 'group_cloud', icon: 'svg:onedrive', children: ['nav_webdav'] },
-]
 
 /**
  * 扁平模式（关闭侧边栏分组）下的有效导航顺序。
@@ -157,25 +144,6 @@ export const getEffectiveFlatOrder = (
   const set = new Set(validBase)
   const extra = allMenuIds.filter(id => !set.has(id))
   return extra.length ? [...validBase, ...extra] : validBase
-}
-
-/**
- * 分组模式下某分组的最终子项顺序。
- * 以用户自定义的 navGroupOrder[group.id] 为主，缺失时回退到 group.children。
- * 最后以 group.children 为权威来源，追加保存顺序中缺失的新增子项（如百度网盘），
- * 避免老用户持久化的分组顺序不完整导致侧边栏分组内漏项。
- */
-export const getEffectiveGroupChildren = (
-  group: NavGroup,
-  savedOrder: string[] | undefined | null,
-): NAV_ID_Type[] => {
-  const base: NAV_ID_Type[] =
-    Array.isArray(savedOrder) && savedOrder.length > 0
-      ? (savedOrder.filter(id => group.children.includes(id as NAV_ID_Type)) as NAV_ID_Type[])
-      : ([...group.children] as NAV_ID_Type[])
-  const set = new Set(base)
-  const extra = (group.children.filter(id => !set.has(id as NAV_ID_Type)) as NAV_ID_Type[])
-  return extra.length ? [...base, ...extra] : base
 }
 
 export const LXM_FILE_EXT_RXP = ['json', 'lxmc', 'bin']

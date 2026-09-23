@@ -1,4 +1,4 @@
-import { storageDataPrefix, storageDataPrefixOld, NAV_MENUS, NAV_GROUPS } from '@/config/constant'
+import { storageDataPrefix, storageDataPrefixOld, NAV_MENUS } from '@/config/constant'
 import defaultSetting from '@/config/defaultSetting'
 import { getData, removeData, saveData } from '@/plugins/storage'
 import migrateSetting from './migrateSetting'
@@ -17,7 +17,7 @@ const arraysEqual = (a: any[], b: any[]): boolean => {
   return true
 }
 
-const DEEP_KEYS = ['common.navStatus', 'common.navOrder', 'common.sectionExpandedStatus', 'player.failureStrategy', 'search.enabledSources', 'common.navGroupExpanded', 'common.navGroupOrder', 'common.navFlatOrder', 'common.navGroupVisible']
+const DEEP_KEYS = ['common.navStatus', 'common.navOrder', 'common.sectionExpandedStatus', 'player.failureStrategy', 'search.enabledSources', 'common.navFlatOrder']
 
 const mergeSetting = (
   originSetting: LX.AppSetting,
@@ -121,8 +121,8 @@ export const initSetting = async () => {
 
   const updatedSetting = updateSetting(setting, true)
 
-  // 导航顺序迁移：以当前 NAV_MENUS / NAV_GROUPS 为权威来源，把后续新增的菜单项
-  // （如百度网盘）补进老用户持久化的 navOrder、navFlatOrder 与 navGroupOrder 末尾，
+  // 导航顺序迁移：以当前 NAV_MENUS 为权威来源，把后续新增的菜单项
+  // 补进老用户持久化的 navOrder 与 navFlatOrder 末尾，
   // 避免侧边栏、自定义排序列表、播放页 PagerView 在任何模式下丢失新增项。
   const allMenuIds = NAV_MENUS.map(m => m.id)
   const patchOrder = (key: 'common.navOrder' | 'common.navFlatOrder') => {
@@ -148,23 +148,6 @@ export const initSetting = async () => {
     if (missing.length) {
       updatedSetting.setting['common.navFlatOrder'] = [...navFlatOrder, ...missing]
     }
-  }
-
-  // 分组顺序迁移：每个分组补全缺失的当前子项。
-  const navGroupOrder = (updatedSetting.setting['common.navGroupOrder'] as Record<string, string[]> | undefined) ?? {}
-  let patchedGroupOrder: Record<string, string[]> | null = null
-  for (const group of NAV_GROUPS) {
-    const saved = navGroupOrder[group.id] ?? []
-    if (!Array.isArray(saved)) continue
-    const set = new Set(saved)
-    const missing = group.children.filter(id => !set.has(id))
-    if (missing.length) {
-      patchedGroupOrder = patchedGroupOrder ?? { ...navGroupOrder }
-      patchedGroupOrder[group.id] = [...saved, ...missing]
-    }
-  }
-  if (patchedGroupOrder) {
-    updatedSetting.setting['common.navGroupOrder'] = patchedGroupOrder
   }
 
   void saveData(storageDataPrefix.setting, updatedSetting.setting)

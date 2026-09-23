@@ -65,14 +65,15 @@ export default memo(() => {
 
   const handleSetCacheLimit = (value: number) => {
     updateSetting({ 'player.cacheLimit': value })
-    // 选择后立即按新上限对全部应用缓存做 LRU 清理，使 getAppCacheSize 显示的
-    // 总大小真正收敛到上限内（0 = 不限制，跳过清理）。
-    void enforceCacheLimit(value * 1024 * 1024).finally(() => handleGetCacheSize())
   }
 
   useEffect(() => {
-    handleGetCacheSize()
-  }, [])
+    if (Number(cacheLimit) > 0) {
+      void enforceCacheLimit(Number(cacheLimit) * 1024 * 1024).finally(() => handleGetCacheSize())
+    } else {
+      handleGetCacheSize()
+    }
+  }, [cacheLimit])
 
   return (
     <SubTitle title={t('setting__other_resource_cache')}>

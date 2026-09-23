@@ -4,6 +4,8 @@ import {
   FlatList,
   type FlatListProps,
   type LayoutChangeEvent,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
   TouchableOpacity,
   PanResponder,
 } from 'react-native'
@@ -23,6 +25,7 @@ import settingState from '@/store/setting/state'
 import playerState from '@/store/player/state'
 import { useWindowSize } from '@/utils/hooks'
 import KaraokeLyric from '@/screens/PlayDetail/components/KaraokeLyric'
+import PlayLine, { type PlayLineType } from '@/screens/PlayDetail/components/PlayLine'
 // import { screenkeepAwake } from '@/utils/nativeModules/utils'
 // import { log } from '@/utils/log'
 // import { toast } from '@/utils/tools'
@@ -213,6 +216,8 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
   const activeRef = useRef(active)
   // 缓存歌词行高与累计偏移，把滚动定位从 O(n²) 降到 O(1)。
   const lyricScrollLayoutRef = useRef(new LyricScrollLayout(isSmallWindow ? 40 : 54))
+  const playLineRef = useRef<PlayLineType>(null)
+  const playLineLayoutRef = useRef({ spaceHeight: 0, lineHeights: [] as number[] })
   const scrollCancelRef = useRef<(() => void) | null>(null)
   const scrollYRef = useRef(0)
   // 跳转/首开时大量行尚未测量，定位落地后需在新行完成测量时静默回正一次。
@@ -421,6 +426,7 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
   }, [active, handleScrollToActive])
   const handleScrollBeginDrag = () => {
     isPauseScrollRef.current = true
+    if (isShowLyricProgressSetting) playLineRef.current?.setVisible(true)
     if (delayScrollTimeout.current) {
       clearTimeout(delayScrollTimeout.current)
       delayScrollTimeout.current = null
@@ -440,6 +446,7 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
     if (scrollTimoutRef.current) clearTimeout(scrollTimoutRef.current)
     scrollTimoutRef.current = setTimeout(() => {
       scrollTimoutRef.current = null
+      playLineRef.current?.setVisible(false)
       isPauseScrollRef.current = false
       if (!playerState.isPlay) return
       handleScrollToActive()
@@ -497,6 +504,8 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
   // 否则进入歌词页时缓存被清空、当前行之前的行退化为估算，高亮行会偶发不居中。
   useEffect(() => {
     lyricScrollLayoutRef.current.reset()
+    playLineLayoutRef.current.lineHeights = []
+    playLineRef.current?.updateLayoutInfo({ ...playLineLayoutRef.current })
     lastScrolledLineRef.current = -1
     lineRef.current.prevLine = 0
     lineRef.current.line = 0
@@ -509,6 +518,7 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
     // 否则 play/setProgress 事件可能晚于 line 更新，forceScrollRef 仍为 false，
     // 导致高亮行无法居中。
     setForceScroll(true)
+    playLineRef.current?.updateLyricLines(lyricLines)
 
     // 歌词内容更新后不再固定延迟 100ms；布局完成的下一帧直接按当前引擎行定位。
     // 这覆盖切歌后异步歌词到达、从封面切回歌词页等场景。
@@ -608,8 +618,9 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
   }, [pageHeight, active])
 
   // 仅记录当前滚动偏移，供“舒适区感知滚动”判断使用；不触发重渲染。
-  const handleScroll = useCallback((e: { nativeEvent: { contentOffset: { y: number } } }) => {
+  const handleScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
     scrollYRef.current = e.nativeEvent.contentOffset.y
+    playLineRef.current?.updateScrollInfo(e)
   }, [])
 
   const handleLineLayout = useCallback<LineProps['onLayout']>((lineNum, height, _width, isActive) => {
@@ -619,6 +630,8 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
     // 避免快进/快退到中后段时高亮行偏高/偏低一行。
     // isActive：激活态高度只用于该行自身定位，不计入累计偏移（见 LyricScrollLayout 说明）。
     layout.updateLineHeight(lineNum, height, !!(lyricLines[lineNum]?.extendedLyrics?.length), isActive)
+    playLineLayoutRef.current.lineHeights[lineNum] = height
+    playLineRef.current?.updateLayoutInfo({ ...playLineLayoutRef.current })
     if (!active || isPauseScrollRef.current) return
     const current = lineRef.current.line
     // 当前行首次测量（切歌/跳转后激活行真实高度就位），或非激活行首次测量导致累计偏移变化时，
@@ -671,6 +684,8 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
     if (h > 0) {
       pageHeightRef.current = h
       if (h !== pageHeight) setPageHeight(h)
+      playLineLayoutRef.current.spaceHeight = h * 0.12
+      playLineRef.current?.updateLayoutInfo({ ...playLineLayoutRef.current })
     }
   }, [pageHeight])
 
@@ -710,6 +725,15 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
         removeClippedSubviews={false}
         {...panResponder.panHandlers}
       />
+      {isShowLyricProgressSetting ? (
+        <PlayLine
+          ref={playLineRef}
+          onPlayLine={(time) => {
+            playLineRef.current?.setVisible(false)
+            global.app_event.setProgress(time)
+          }}
+        />
+      ) : null}
     </View>
   )
 }

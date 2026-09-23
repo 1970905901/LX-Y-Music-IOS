@@ -5010,10 +5010,18 @@ RCT_REMAP_METHOD(sha1, sha1:(NSString *)input resolver:(RCTPromiseResolveBlock)r
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
 {
   LXRegisterTrackPlayerLifecycleObserver();
-  // iOS 13+ 走 SceneDelegate，bridge 与 RNN bootstrap 放到 SceneDelegate 里触发，
-  // 确保 RNNBridgeManager 初始化时拿到的 mainWindow 已绑定到 UIWindowScene。
+  self.window = [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
+
+  UIStoryboard *launchStoryboard = [UIStoryboard storyboardWithName:@"LaunchScreen" bundle:[NSBundle mainBundle]];
+  UIViewController *launchVC = [launchStoryboard instantiateInitialViewController];
+  if (launchVC == nil) launchVC = [UIViewController new];
+  self.window.rootViewController = launchVC;
+  [self.window makeKeyAndVisible];
+
   self.launchOptions = launchOptions;
   self.initialProps = @{};
+  self.bridge = [[RCTBridge alloc] initWithDelegate:self launchOptions:launchOptions];
+  [ReactNativeNavigation bootstrapWithBridge:self.bridge];
 
   return YES;
 }

@@ -1,10 +1,12 @@
 import { memo, useMemo } from 'react';
-import { type StyleProp, type TextStyle, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, type StyleProp, type TextStyle, TouchableOpacity, View } from 'react-native';
 import { useLrcPlay, useLrcSet } from '@/plugins/lyric';
 import { createStyle } from '@/utils/tools';
 import { useTheme } from '@/store/theme/hook';
 import Text from '@/components/common/Text';
 import { useSettingValue } from '@/store/setting/hook';
+import { designRadius, designSpacing } from '@/theme/DesignTokens';
+import { shadow } from '@/utils/shadow';
 
 const MiniLyric = ({ onPress, style }: { onPress?: () => void, style?: any }) => {
   const theme = useTheme();
@@ -24,6 +26,16 @@ const MiniLyric = ({ onPress, style }: { onPress?: () => void, style?: any }) =>
   }, [activeLine, lyricLines]);
 
   const activeColor = theme.isDark ? theme['c-font'] : theme['c-primary'];
+  const containerStyle = useMemo(
+    () => StyleSheet.compose(styles.container, {
+      backgroundColor: theme['c-primary-light-900-alpha-200'],
+      borderColor: theme['c-primary-alpha-300'],
+      borderRadius: designRadius.md,
+      borderWidth: 1,
+      ...shadow(5),
+    }),
+    [theme],
+  );
   // 容器与行内样式用 useMemo 缓存，避免每次渲染生成新对象（对齐项目样式规范）。
   const contentStyle = useMemo<StyleProp<TextStyle>>(() => ({ textAlign }), [textAlign]);
   const translationStyle = useMemo<StyleProp<TextStyle>>(() => ({ textAlign, marginTop: 4 }), [textAlign]);
@@ -32,7 +44,7 @@ const MiniLyric = ({ onPress, style }: { onPress?: () => void, style?: any }) =>
     <TouchableOpacity
       onPress={onPress}
       activeOpacity={0.7}
-      style={[styles.container, style]}
+      style={[containerStyle, style]}
       accessibilityRole="button"
       accessibilityLabel={currentLine ?? undefined}
     >
@@ -68,9 +80,9 @@ const MiniLyric = ({ onPress, style }: { onPress?: () => void, style?: any }) =>
 
 const styles = createStyle({
   container: {
-    paddingVertical: 10,
-    paddingLeft: 20,
-    paddingRight: 20,
+    paddingVertical: designSpacing.sm,
+    paddingLeft: designSpacing.md,
+    paddingRight: designSpacing.md,
     alignItems: 'stretch',
   },
 });

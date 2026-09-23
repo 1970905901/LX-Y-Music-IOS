@@ -14,7 +14,9 @@ const ControlBtnNew = () => {
   const theme = useTheme()
   const winSize = useWindowSize()
   const isPlay = useIsPlay()
-  const iconColor = theme.isDark ? theme['c-font'] : theme['c-primary']
+  const iconColor = theme['c-font']
+  const sideIconColor = theme['c-font-label']
+  const playIconColor = theme['c-primary-light-1000']
 
   const { toggleNextPlayMode, playModeIcon } = usePlayModeToggle()
 
@@ -43,14 +45,19 @@ const ControlBtnNew = () => {
         onPress={toggleNextPlayMode}
       >
         {playModeIcon?.startsWith('svg:') ? (
-          <SvgIcon name={playModeIcon.slice(4)} rawSize={sideIconSize} color={iconColor} />
+          <SvgIcon name={playModeIcon.slice(4)} rawSize={sideIconSize} color={sideIconColor} />
         ) : (
-          <Icon name={playModeIcon} color={iconColor} rawSize={sideIconSize} />
+        <Icon name={playModeIcon} color={sideIconColor} rawSize={sideIconSize} />
         )}
       </TouchableOpacity>
 
       <TouchableOpacity
-        style={[styles.controlBtn, { width: size, height: size }]}
+        style={[styles.controlBtn, styles.playButton, {
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: theme['c-primary'],
+        }]}
         activeOpacity={0.5}
         onPress={() => void playPrev()}
       >
@@ -62,7 +69,7 @@ const ControlBtnNew = () => {
         activeOpacity={0.5}
         onPress={togglePlay}
       >
-        <Icon name={isPlay ? 'pause' : 'play'} color={iconColor} rawSize={iconSize} />
+        <Icon name={isPlay ? 'pause' : 'play'} color={playIconColor} rawSize={iconSize} />
       </TouchableOpacity>
 
       <TouchableOpacity
@@ -78,7 +85,7 @@ const ControlBtnNew = () => {
         activeOpacity={0.5}
         onPress={handleShowPlaylist}
       >
-        <Icon name="menu" color={iconColor} rawSize={sideIconSize} />
+        <Icon name="menu" color={sideIconColor} rawSize={sideIconSize} />
       </TouchableOpacity>
     </View>
   )
@@ -90,6 +97,9 @@ const styles = createStyle({
   controlBtn: {
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  playButton: {
+    backgroundColor: 'transparent',
   },
   newContainer: {
     flexDirection: 'row',

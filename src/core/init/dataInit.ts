@@ -26,14 +26,30 @@ import {getDownloadTasks} from "@/utils/data/download.ts";
 import { cleanOneDriveDirtyData } from '@/utils/data';
 import downloadActions from '@/store/download/action';
 
+const withInitTimeout = <T,>(promise: Promise<T>, label: string, fallback: T): Promise<T> =>
+  Promise.race([
+    promise,
+    new Promise<T>(resolve => {
+      setTimeout(() => {
+        bootLog(`${label} timeout, using fallback.`)
+        resolve(fallback)
+      }, 3000)
+    }),
+  ])
+
 export default async (appSetting: LX.AppSetting) => {
   void musicSdkInit()
   bootLog('User list init...')
-  const userLists = await getUserLists()
+  const userLists = await withInitTimeout(getUserLists(), 'User list', [])
   bootLog('User list data loaded.')
   setUserList(userLists)
   bootLog('User list state set.')
-  const dislikeInfo = await getDislikeInfo()
+  const dislikeInfo = await withInitTimeout(getDislikeInfo(), 'Dislike info', {
+    names: new Set<string>(),
+    musicNames: new Set<string>(),
+    singerNames: new Set<string>(),
+    rules: '',
+  })
   bootLog('Dislike info data loaded.')
   setDislikeInfo(dislikeInfo)
   bootLog('User list inited.')
@@ -42,7 +58,7 @@ export default async (appSetting: LX.AppSetting) => {
 
 
   bootLog('Download tasks init...');
-  const savedTasks = await getDownloadTasks();
+  const savedTasks = await withInitTimeout(getDownloadTasks(), 'Download tasks', []);
   bootLog('Download task data loaded.');
   downloadActions.setTasks(savedTasks);
   bootLog('Download tasks inited.');

@@ -11,6 +11,7 @@ import { createStyle, toast } from '@/utils/tools'
 import { scaleSizeW } from '@/utils/pixelRatio'
 import { useTheme } from '@/store/theme/hook'
 import { BorderWidths } from '@/theme'
+import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
 
 import commonState from '@/store/common/state'
 import { Icon } from '@/components/common/Icon'
@@ -29,7 +30,7 @@ import listState from '@/store/list/state'
 import {usePlayerMusicInfo} from "@/store/player/hook.ts"
 import MusicInfoOnline = LX.Music.MusicInfoOnline
 
-const IMAGE_WIDTH = scaleSizeW(70)
+const IMAGE_WIDTH = scaleSizeW(104)
 
 const ListHeader = ({ detailInfo, info, onBack, showSearchBar, searchText, isFuzzySearch, onToggleSearch, onSearchTextChanged, onToggleSearchMode }: { detailInfo: DetailInfo, info: ListInfoItem, onBack: () => void, showSearchBar: boolean, searchText: string, isFuzzySearch: boolean, onToggleSearch: () => void, onSearchTextChanged: (text: string) => void, onToggleSearchMode: () => void }) => {
   const theme = useTheme()
@@ -69,17 +70,17 @@ const ListHeader = ({ detailInfo, info, onBack, showSearchBar, searchText, isFuz
   return (
     <>
       <View style={{ ...styles.listHeaderContainer, borderBottomColor: theme['c-border-background'] }}>
-        <View style={{ flexDirection: 'row', flexGrow: 0, flexShrink: 0, padding: 10 }}>
+        <View style={styles.headerContent}>
           <View style={{ ...styles.listItemImg, width: IMAGE_WIDTH, height: IMAGE_WIDTH }}>
             {info.isFavorites ? (
-              <View style={styles.favoritesPlaceholder}>
+              <View style={{ ...styles.favoritesPlaceholder, backgroundColor: theme['c-primary-background'] }}>
                 <Icon name="love-filled" color="#FF4D6A" size={36} />
               </View>
             ) : (
               <Image
                 nativeID={`${NAV_SHEAR_NATIVE_IDS.songlistDetail_pic}_to_${info.id}`}
                 url={detailInfo.imgUrl}
-                style={{ flex: 1, borderRadius: 4 }}
+                style={styles.cover}
               />
             )}
             {detailInfo.playCount ? (
@@ -89,15 +90,15 @@ const ListHeader = ({ detailInfo, info, onBack, showSearchBar, searchText, isFuz
             ) : null}
           </View>
           <View
-            style={{ flexDirection: 'column', flexGrow: 1, flexShrink: 1, paddingLeft: 5 }}
+            style={styles.titleContent}
             nativeID={NAV_SHEAR_NATIVE_IDS.songlistDetail_title}
           >
-            <Text size={14} numberOfLines={1}>
+            <Text size={designTypography.title} style={{ ...styles.name, color: theme['c-font'] }} numberOfLines={2}>
               {detailInfo.name}
             </Text>
             <View style={styles.descContainer}>
               <View style={{ flexGrow: 1, flexShrink: 1 }}>
-                <Text size={13} color={theme['c-font-label']} numberOfLines={4}>
+                <Text size={designTypography.caption} color={theme['c-font-label']} numberOfLines={3}>
                   {detailInfo.desc}
                 </Text>
               </View>
@@ -108,7 +109,10 @@ const ListHeader = ({ detailInfo, info, onBack, showSearchBar, searchText, isFuz
               )}
             </View>
           </View>
-          <TouchableOpacity style={styles.searchIcon} onPress={onToggleSearch}>
+          <TouchableOpacity
+            style={{ ...styles.searchIcon, backgroundColor: theme['c-primary-background'] }}
+            onPress={onToggleSearch}
+          >
             <Icon name="search-2" size={20} color={theme['c-font-label']} />
           </TouchableOpacity>
         </View>
@@ -306,23 +310,43 @@ const styles = createStyle({
     flexWrap: 'nowrap',
     borderBottomWidth: BorderWidths.normal,
   },
+  headerContent: {
+    flexDirection: 'row',
+    flexGrow: 0,
+    flexShrink: 0,
+    paddingHorizontal: designSpacing.md,
+    paddingTop: designSpacing.md,
+  },
   listItemImg: {
     flexGrow: 0,
     flexShrink: 0,
     overflow: 'hidden',
   },
+  cover: {
+    flex: 1,
+    borderRadius: designRadius.md,
+  },
+  titleContent: {
+    flexDirection: 'column',
+    flexGrow: 1,
+    flexShrink: 1,
+    paddingLeft: designSpacing.md,
+  },
+  name: {
+    fontWeight: '800',
+  },
   playCount: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    width: '100%',
-    fontSize: 12,
-    paddingLeft: 3,
-    paddingRight: 3,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    bottom: 8,
+    right: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    fontSize: 11,
+    fontWeight: '600',
+    borderRadius: 999,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(0,0,0,0.55)',
     color: '#fff',
-    borderBottomLeftRadius: 4,
-    borderBottomRightRadius: 4,
   },
   descContainer: {
     flexDirection: 'row',
@@ -331,10 +355,12 @@ const styles = createStyle({
     flexShrink: 1,
   },
   searchIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 999,
+    marginLeft: designSpacing.sm,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 10,
-    padding: 5,
   },
   searchBarContainer: {
     flexDirection: 'row',
@@ -365,7 +391,6 @@ const styles = createStyle({
   },
   favoritesPlaceholder: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 4,

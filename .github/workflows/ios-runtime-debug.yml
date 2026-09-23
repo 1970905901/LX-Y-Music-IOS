@@ -12,6 +12,7 @@ jobs:
     runs-on: macos-14
     env:
       NO_FLIPPER: 1
+      SOURCEMAP_FILE: ${{ github.workspace }}/build/main.jsbundle.map
       IOS_SCHEME: LxMusicMobile
       IOS_WORKSPACE: ios/LxMusicMobile.xcworkspace
       IOS_BUNDLE_IDENTIFIER: com.LX-YMusic.shuhao
@@ -89,6 +90,7 @@ jobs:
             build/runtime-console.log
             build/system-runtime.log
             build/runtime-screenshot.png
+            build/main.jsbundle.map
             build/crashes
             build/simulator-build.log
           if-no-files-found: ignore

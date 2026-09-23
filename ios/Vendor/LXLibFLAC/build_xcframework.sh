@@ -29,6 +29,7 @@ SOURCES=(
   "src/metadata_iterators.c"
   "src/metadata_object.c"
   "src/stream_decoder.c"
+  "src/stream_encoder_framing.c"
   "src/window.c"
 )
 

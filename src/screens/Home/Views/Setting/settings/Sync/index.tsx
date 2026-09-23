@@ -13,6 +13,7 @@ import { createStyle, toast } from '@/utils/tools'
 import { dateFormat } from '@/utils/common'
 import { useTheme } from '@/store/theme/hook'
 import Text from '@/components/common/Text'
+import { designSpacing } from '@/theme/DesignTokens'
 import { getSyncHost } from '@/utils/data'
 import { testConnection, resetClient } from '@/utils/webdav'
 import {
@@ -240,12 +241,13 @@ export default memo(() => {
 const styles = createStyle({
   btnRow: {
     flexDirection: 'row',
-    paddingLeft: 25,
-    marginTop: 5,
-    marginBottom: 10,
+    flexWrap: 'wrap',
+    paddingLeft: designSpacing.md,
+    marginTop: designSpacing.xs,
+    marginBottom: designSpacing.sm,
   },
   lastSyncText: {
-    paddingLeft: 25,
-    marginTop: 5,
+    paddingLeft: designSpacing.md,
+    marginTop: designSpacing.xs,
   },
 })

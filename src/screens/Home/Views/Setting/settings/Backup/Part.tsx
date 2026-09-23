@@ -8,6 +8,7 @@ import Button from '../../components/Button'
 import Text from '@/components/common/Text'
 import { useI18n } from '@/lang'
 import { useTheme } from '@/store/theme/hook'
+import { designSpacing } from '@/theme/DesignTokens'
 import ListImportExport, { type ListImportExportType } from './ListImportExport'
 
 export default memo(() => {
@@ -48,9 +49,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
+    paddingLeft: designSpacing.md,
+    marginTop: designSpacing.xs,
   },
   tip: {
     flexShrink: 1,
-    marginLeft: 12,
+    marginLeft: designSpacing.sm,
   },
 })

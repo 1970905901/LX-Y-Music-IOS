@@ -16,6 +16,7 @@ import { useSettingValue } from '@/store/setting/hook'
 import { useTheme } from '@/store/theme/hook'
 import { useStatus } from '@/store/sync/hook'
 import Text from '@/components/common/Text'
+import { designRadius, designSpacing } from '@/theme/DesignTokens'
 import { SYNC_CODE } from '@/plugins/sync/constants'
 
 const addressRxp = /^https?:\/\/\S+/i
@@ -197,17 +198,17 @@ export default memo(({ host, setHost }: { host: string; setHost: (host: string) 
 
 const styles = createStyle({
   infoContent: {
-    marginTop: 5,
+    marginTop: designSpacing.xs,
   },
   textAddr: {
-    marginLeft: 25,
-    marginTop: 5,
+    marginLeft: designSpacing.md,
+    marginTop: designSpacing.xs,
   },
   text: {
-    marginLeft: 25,
+    marginLeft: designSpacing.md,
   },
   inputContent: {
-    marginTop: 8,
+    marginTop: designSpacing.xs,
   },
   authCodeContent: {
     flexGrow: 1,
@@ -215,13 +216,13 @@ const styles = createStyle({
     flexDirection: 'column',
   },
   authCodeLabel: {
-    marginBottom: 5,
+    marginBottom: designSpacing.xs,
   },
   authCodeInput: {
     flexGrow: 1,
     flexShrink: 1,
     minWidth: 260,
-    borderRadius: 4,
+    borderRadius: designRadius.sm,
     // paddingTop: 2,
     // paddingBottom: 2,
     // fontSize: 14,

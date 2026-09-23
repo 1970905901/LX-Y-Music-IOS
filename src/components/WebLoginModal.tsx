@@ -9,6 +9,7 @@ import Text from '@/components/common/Text';
 import { toast } from '@/utils/tools';
 import wyApi from '@/utils/musicSdk/wy/user';
 import CookieManager from '@react-native-cookies/cookies';
+import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens';
 
 
 const LOGIN_URL = 'https://music.163.com/m/login';
@@ -23,11 +24,21 @@ const Header = ({ onClose }: { onClose: () => void }) => {
   const statusBarHeight = useStatusbarHeight();
 
   return (
-    <View style={[styles.header, { height: 50 + statusBarHeight, paddingTop: statusBarHeight, backgroundColor: theme['c-content-background'] }]}>
+    <View
+      style={[
+        styles.header,
+        {
+          height: 50 + statusBarHeight,
+          paddingTop: statusBarHeight,
+          backgroundColor: theme['c-content-background'],
+          borderBottomColor: theme['c-border-background'],
+        },
+      ]}
+    >
       <TouchableOpacity onPress={onClose} style={styles.backButton}>
         <Icon name="chevron-left" size={24} color={theme['c-font']} />
       </TouchableOpacity>
-      <Text size={18}>网易云音乐登录</Text>
+      <Text size={designTypography.title}>网易云音乐登录</Text>
       <View style={styles.backButton} />
     </View>
   );
@@ -229,14 +240,19 @@ export default forwardRef<WebLoginModalType, {}>((props, ref) => {
             style={styles.webView}
           />
         </View>
-        <View style={[styles.footer, { backgroundColor: theme['c-content-background'] }]}>
+        <View
+          style={[
+            styles.footer,
+            { backgroundColor: theme['c-content-background'], borderTopColor: theme['c-border-background'] },
+          ]}
+        >
           <Text size={13} color={theme['c-font-label']}>若登录完成后未自动获取 Cookie，请点击下方按钮</Text>
           <TouchableOpacity
             onPress={handleManualGetCookie}
             style={[styles.getCookieBtn, { backgroundColor: theme['c-primary'] }]}
             activeOpacity={0.8}
           >
-            <Text size={16} color="#ffffff">获取Cookie</Text>
+            <Text size={designTypography.body} color={theme['c-000']}>获取Cookie</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -253,12 +269,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 10,
+    paddingHorizontal: designSpacing.xs,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
   },
   backButton: {
-    padding: 5,
+    padding: designSpacing.xs,
     width: 40,
   },
   webViewContainer: {
@@ -268,14 +283,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   footer: {
-    padding: 16,
-    gap: 12,
+    padding: designSpacing.md,
+    gap: designSpacing.sm,
     borderTopWidth: 1,
-    borderTopColor: '#eee',
   },
   getCookieBtn: {
-    paddingVertical: 14,
-    borderRadius: 12,
+    height: 44,
+    borderRadius: designRadius.pill,
     alignItems: 'center',
     justifyContent: 'center',
   },

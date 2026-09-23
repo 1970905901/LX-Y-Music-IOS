@@ -8,6 +8,7 @@ import { Icon } from '@/components/common/Icon';
 import Text from '@/components/common/Text';
 import { toast } from '@/utils/tools';
 import CookieManager from '@react-native-cookies/cookies';
+import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens';
 
 const LOGIN_URL = 'https://y.qq.com/n/ryqq/login';
 
@@ -20,11 +21,21 @@ const Header = ({ onClose, onLogout }: { onClose: () => void; onLogout: () => vo
   const statusBarHeight = useStatusbarHeight();
 
   return (
-    <View style={[styles.header, { height: 56 + statusBarHeight, paddingTop: statusBarHeight, backgroundColor: theme['c-content-background'] }]}>
+    <View
+      style={[
+        styles.header,
+        {
+          height: 56 + statusBarHeight,
+          paddingTop: statusBarHeight,
+          backgroundColor: theme['c-content-background'],
+          borderBottomColor: theme['c-border-background'],
+        },
+      ]}
+    >
       <TouchableOpacity onPress={onClose} style={styles.backButton} activeOpacity={0.7}>
         <Icon name="chevron-left" size={26} color={theme['c-font']} />
       </TouchableOpacity>
-      <Text size={18}>QQ音乐登录</Text>
+      <Text size={designTypography.title}>QQ音乐登录</Text>
       <TouchableOpacity onPress={onLogout} style={styles.logoutButton} activeOpacity={0.8}>
         <Icon name="exit" size={14} color="#ffffff" />
         <Text size={14} color="#ffffff">退出登录</Text>
@@ -35,6 +46,7 @@ const Header = ({ onClose, onLogout }: { onClose: () => void; onLogout: () => vo
 
 const LoadingSpinner = () => {
   const spinAnim = useRef(new Animated.Value(0)).current;
+  const theme = useTheme();
 
   useEffect(() => {
     Animated.loop(
@@ -52,7 +64,16 @@ const LoadingSpinner = () => {
   });
 
   return (
-    <Animated.View style={[styles.loadingSpinner, { transform: [{ rotate: spin }] }]} />
+    <Animated.View
+      style={[
+        styles.loadingSpinner,
+        {
+          borderColor: theme['c-border-background'],
+          borderTopColor: theme['c-primary'],
+          transform: [{ rotate: spin }],
+        },
+      ]}
+    />
   );
 };
 
@@ -130,7 +151,7 @@ const QQWebLoginModal = forwardRef<QQWebLoginModalType, object>((props, ref) => 
     <Modal ref={modalRef} statusBarPadding={false} bgHide={false}>
       <View style={[styles.container, { backgroundColor: theme['c-content-background'] }]}>
         <Header onClose={handleClose} onLogout={handleLogout} />
-        <View style={styles.webViewContainer}>
+        <View style={[styles.webViewContainer, { backgroundColor: theme['c-content-background'] }]}>
           <WebView
             ref={webViewRef}
             source={{ uri: LOGIN_URL }}
@@ -141,23 +162,23 @@ const QQWebLoginModal = forwardRef<QQWebLoginModalType, object>((props, ref) => 
             style={styles.webView}
           />
           {isLoading && (
-            <View style={styles.loadingOverlay}>
+            <View style={[styles.loadingOverlay, { backgroundColor: theme['c-content-background'] }]}>
               <LoadingSpinner />
-              <Text size={14} style={{ color: theme['c-font-label'], marginTop: 12 }}>正在加载登录页面...</Text>
+              <Text size={designTypography.body} style={{ color: theme['c-font-label'], marginTop: designSpacing.xs }}>正在加载登录页面...</Text>
             </View>
           )}
         </View>
-        <View style={[styles.footer, { backgroundColor: theme['c-content-background'], borderTopColor: (theme as any)['c-border'] }]}>
+        <View style={[styles.footer, { backgroundColor: theme['c-content-background'], borderTopColor: theme['c-border-background'] }]}>
           <View style={[styles.footerCard, { backgroundColor: '#fff5f5', borderColor: '#ffd6d6' }]}>
             <Icon name="help" size={14} color="#ff6b6b" />
             <Text style={[styles.tip, { color: '#ff6b6b' }]} size={13}>请等待登录完全完成后再获取Cookie，否则会获取错误（约等待3秒）</Text>
           </View>
           <TouchableOpacity
             onPress={handleGetCookie}
-            style={[styles.getCookieBtn, { backgroundColor: '#1677ff' }]}
+            style={[styles.getCookieBtn, { backgroundColor: theme['c-primary'] }]}
             activeOpacity={0.8}
           >
-            <Text size={16} color="#ffffff">获取Cookie</Text>
+            <Text size={designTypography.body} color={theme['c-000']}>获取Cookie</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -176,43 +197,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: designSpacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
   },
   backButton: {
-    padding: 8,
+    padding: designSpacing.xs,
     width: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 12,
+    borderRadius: designRadius.sm,
   },
   logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    height: 32,
+    paddingHorizontal: designSpacing.sm,
     backgroundColor: '#ff6b6b',
-    borderRadius: 16,
-  },
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  qqIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: '#1677ff',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderRadius: designRadius.pill,
   },
   webViewContainer: {
     flex: 1,
-    backgroundColor: '#ffffff',
     position: 'relative',
   },
   webView: {
@@ -226,28 +232,25 @@ const styles = StyleSheet.create({
     bottom: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#ffffff',
     zIndex: 100,
   },
   loadingSpinner: {
     width: 40,
     height: 40,
     borderWidth: 3,
-    borderColor: '#e8e8e8',
-    borderTopColor: '#1677ff',
-    borderRadius: 20,
+    borderRadius: designRadius.pill,
   },
   footer: {
-    padding: 16,
-    gap: 12,
+    padding: designSpacing.md,
+    gap: designSpacing.sm,
     borderTopWidth: 1,
   },
   footerCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    padding: 12,
-    borderRadius: 12,
+    padding: designSpacing.sm,
+    borderRadius: designRadius.sm,
     borderWidth: 1,
     backgroundColor: '#fff5f5',
   },
@@ -255,13 +258,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   getCookieBtn: {
-    paddingVertical: 14,
-    borderRadius: 16,
+    height: 44,
+    borderRadius: designRadius.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#1677ff',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
   },
 });

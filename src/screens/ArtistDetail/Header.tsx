@@ -13,6 +13,7 @@ import { useIsWyArtistFollowed } from '@/store/user/hook'
 import { addWyFollowedArtist, removeWyFollowedArtist } from '@/store/user/action'
 import { type FollowedArtistInfo } from '@/store/user/state'
 import SimilarArtistsModal, { type SimilarArtistsModalType } from './SimilarArtistsModal'
+import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
 
 interface Props {
   artist: any
@@ -74,7 +75,7 @@ export default memo(({ artist, onFollow, componentId }: Props) => {
             <Image url={artistPic} style={styles.avatar} />
           </TouchableOpacity>
           <View style={styles.infoContainer}>
-            <Text style={styles.name} size={18} color="#FFF" numberOfLines={2}>
+            <Text style={styles.name} size={22} color="#FFFFFF" numberOfLines={2}>
               {artistName}
               {artistAlias ? <Text size={12} color="rgba(255,255,255,0.8)">{artistAlias}</Text> : null}
             </Text>
@@ -83,7 +84,7 @@ export default memo(({ artist, onFollow, componentId }: Props) => {
               <View style={styles.descWrapper}>
                 <ScrollView nestedScrollEnabled={true}>
                   <TouchableOpacity activeOpacity={0.8} onPress={() => setDescExpanded(!isDescExpanded)}>
-                    <Text size={12} color="rgba(255,255,255,0.8)">
+                    <Text size={designTypography.caption} color="rgba(255,255,255,0.82)">
                       {truncatedDesc}
                     </Text>
                   </TouchableOpacity>
@@ -94,10 +95,16 @@ export default memo(({ artist, onFollow, componentId }: Props) => {
             {(artist.albumSize > 0 || artist.songNum > 0) && (
               <View style={styles.statsContainer}>
                 {artist.songNum > 0 && (
-                  <Text size={11} color="rgba(255,255,255,0.7)">歌曲: {artist.songNum}</Text>
+                <Text size={designTypography.caption} color="rgba(255,255,255,0.75)">歌曲: {artist.songNum}</Text>
                 )}
                 {artist.albumSize > 0 && (
-                  <Text size={11} color="rgba(255,255,255,0.7)" style={{ marginLeft: artist.songNum > 0 ? 10 : 0 }}>专辑: {artist.albumSize}</Text>
+                <Text
+                  size={designTypography.caption}
+                  color="rgba(255,255,255,0.75)"
+                  style={{ marginLeft: artist.songNum > 0 ? 10 : 0 }}
+                >
+                  专辑: {artist.albumSize}
+                </Text>
                 )}
               </View>
             )}
@@ -114,8 +121,8 @@ export default memo(({ artist, onFollow, componentId }: Props) => {
               style={styles.similarButton}
               onPress={() => similarArtistsModalRef.current?.show({ id: artist?.mid || artist?.id, name: artistName, source: artist?.source })}
             >
-              <Text size={12} color="#fff" numberOfLines={1}>相似歌手</Text>
-              <Icon name="chevron-right" color="#fff" size={12} />
+              <Text size={designTypography.caption} color="#FFFFFF" numberOfLines={1}>相似歌手</Text>
+              <Icon name="chevron-right" color="#FFFFFF" size={13} />
             </TouchableOpacity>
           )}
         </View>
@@ -133,7 +140,7 @@ export default memo(({ artist, onFollow, componentId }: Props) => {
 
 const styles = createStyle({
   headerContainer: {
-    height: 200,
+    height: 216,
     justifyContent: 'center',
     backgroundColor: 'rgba(0,0,0,0.2)',
   },
@@ -142,11 +149,11 @@ const styles = createStyle({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 15,
+    paddingHorizontal: designSpacing.md,
   },
   avatar: {
-    width: 80,
-    height: 80,
+    width: 88,
+    height: 88,
     borderRadius: 40,
   },
   infoContainer: {
@@ -157,8 +164,8 @@ const styles = createStyle({
     height: '100%',
   },
   name: {
-    fontWeight: 'bold',
-    marginBottom: 8,
+    fontWeight: '800',
+    marginBottom: designSpacing.xs,
   },
   descWrapper: {
     flexShrink: 1,
@@ -169,23 +176,24 @@ const styles = createStyle({
     marginTop: 4,
   },
   followButton: {
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    marginLeft: 10,
+    width: 44,
+    height: 44,
+    borderRadius: designRadius.pill,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    marginLeft: designSpacing.sm,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   similarButton: {
     position: 'absolute',
-    right: 15,
-    bottom: 12,
+    right: designSpacing.md,
+    bottom: designSpacing.sm,
     minWidth: 82,
-    height: 30,
-    paddingHorizontal: 10,
-    borderRadius: 15,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    height: 34,
+    paddingHorizontal: designSpacing.sm,
+    borderRadius: designRadius.pill,
+    backgroundColor: 'rgba(255,255,255,0.24)',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

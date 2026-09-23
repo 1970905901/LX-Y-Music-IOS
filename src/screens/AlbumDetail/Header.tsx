@@ -14,6 +14,7 @@ import wyApi from '@/utils/musicSdk/wy/user';
 import { addWySubscribedAlbum, removeWySubscribedAlbum } from '@/store/user/action';
 import { type SubscribedAlbumInfo } from '@/store/user/state';
 import { log } from '@/utils/log';
+import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens';
 
 interface Props {
   albumInfo: any
@@ -71,28 +72,38 @@ export default memo(({ albumInfo, componentId }: Props) => {
 
   const artists = albumInfo.artists?.map((artist: any, index: number) => (
       <TouchableOpacity key={artist.id || `${artist.name}_${index}`} onPress={() => handleArtistPress(artist)}>
-        <Text style={styles.artistName} size={14} color="rgba(255,255,255,0.9)">
+      <Text style={styles.artistName} size={designTypography.body} color={theme['c-primary-font']}>
           {artist.name}{index < albumInfo.artists.length - 1 ? ' / ' : ''}
         </Text>
       </TouchableOpacity>
   ))
 
   return (
-    <View style={{ paddingTop: statusBarHeight, backgroundColor: 'rgba(0,0,0,0.2)' }}>
+    <View style={{ paddingTop: statusBarHeight, backgroundColor: theme['c-content-background'] }}>
       <View style={styles.headerContainer}>
         <TouchableOpacity activeOpacity={0.85} disabled={!albumPic} onPress={() => setPreviewVisible(true)}>
-          <Image url={albumPic} style={styles.albumArt} />
+          <Image
+            url={albumPic}
+            style={{ ...styles.albumArt, backgroundColor: theme['c-primary-light-900-alpha-200'] }}
+          />
         </TouchableOpacity>
         <View style={styles.infoContainer}>
-          <Text style={styles.albumName} size={18} color="#FFF" numberOfLines={2}>{albumInfo.name}</Text>
+          <Text style={styles.albumName} size={20} color={theme['c-font']} numberOfLines={2}>{albumInfo.name}</Text>
           <View style={styles.artistContainer}>{artists}</View>
-          <Text style={styles.metaInfo} size={12} color="rgba(255,255,255,0.8)">
+          <Text style={styles.metaInfo} size={designTypography.caption} color={theme['c-font-label']}>
             {albumInfo.publishTime ? `${dateFormat(albumInfo.publishTime, 'Y.M.D') || albumInfo.publishTime} • ` : ''}{albumInfo.size || albumInfo.total} 首
           </Text>
         </View>
         {albumInfo.source !== 'tx' && albumInfo.source !== 'kg' && (
-          <TouchableOpacity style={styles.followButton} onPress={toggleSubscribe}>
-            <Icon name={isSubscribed ? 'love-filled' : 'love'} color={isSubscribed ? theme['c-liked'] : '#fff'} size={18} />
+          <TouchableOpacity
+            style={{ ...styles.followButton, backgroundColor: theme['c-primary-background'] }}
+            onPress={toggleSubscribe}
+          >
+              <Icon
+                name={isSubscribed ? 'love-filled' : 'love'}
+                color={isSubscribed ? theme['c-liked'] : theme['c-primary']}
+                size={19}
+              />
           </TouchableOpacity>
         )}
       </View>
@@ -115,14 +126,16 @@ const styles = createStyle({
     padding: 5,
   },
   headerContainer: {
-    padding: 20,
+    paddingHorizontal: designSpacing.md,
+    paddingTop: designSpacing.md,
+    paddingBottom: designSpacing.md,
     flexDirection: 'row',
     alignItems: 'center',
   },
   albumArt: {
-    width: 96,
-    height: 96,
-    borderRadius: 8,
+    width: 104,
+    height: 104,
+    borderRadius: designRadius.lg,
   },
   infoContainer: {
     flex: 1,
@@ -138,16 +151,17 @@ const styles = createStyle({
     marginTop: 8,
   },
   artistName: {
-    textDecorationLine: 'underline',
+    fontWeight: '600',
   },
   metaInfo: {
     marginTop: 8,
   },
   followButton: {
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    marginLeft: 10,
+    width: 44,
+    height: 44,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: designSpacing.sm,
   },
 });

@@ -15,6 +15,7 @@ jobs:
       IOS_SCHEME: LxMusicMobile
       IOS_WORKSPACE: ios/LxMusicMobile.xcworkspace
       IOS_BUNDLE_IDENTIFIER: com.LX-YMusic.shuhao
+      FORCE_BUNDLING: true
     steps:
       - name: Check out git repository
         uses: actions/checkout@v4
@@ -74,6 +75,7 @@ jobs:
 
           cat build/runtime-console.log
           echo "LAUNCH_EXIT=$LAUNCH_EXIT"
+          xcrun simctl io "$SIM_UDID" screenshot build/runtime-screenshot.png 2>/dev/null || true
           xcrun simctl terminate "$SIM_UDID" "$IOS_BUNDLE_IDENTIFIER" 2>/dev/null || true
 
       - name: Upload runtime log
@@ -83,5 +85,6 @@ jobs:
           name: ios-runtime-console
           path: |
             build/runtime-console.log
+            build/runtime-screenshot.png
             build/simulator-build.log
           if-no-files-found: ignore

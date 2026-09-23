@@ -5100,9 +5100,13 @@ RCT_REMAP_METHOD(sha1, sha1:(NSString *)input resolver:(RCTPromiseResolveBlock)r
 
   self.didBootstrap = YES;
   if (!appDelegate.bridge) {
+    NSLog(@"###NATIVE_DEBUG### creating RCTBridge");
     appDelegate.bridge = [[RCTBridge alloc] initWithDelegate:appDelegate launchOptions:appDelegate.launchOptions];
+    NSLog(@"###NATIVE_DEBUG### RCTBridge created");
   }
+  NSLog(@"###NATIVE_DEBUG### bootstrapping ReactNativeNavigation");
   [ReactNativeNavigation bootstrapWithBridge:appDelegate.bridge];
+  NSLog(@"###NATIVE_DEBUG### ReactNativeNavigation bootstrap returned");
 }
 
 @end

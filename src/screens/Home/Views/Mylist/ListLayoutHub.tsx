@@ -1,4 +1,3 @@
-import { memo, useEffect, useMemo, useState } from 'react'
 import { ScrollView, TouchableOpacity, View } from 'react-native'
 
 import { NAV_MENUS, type ListLayoutMode, type NAV_ID_Type } from '@/config/constant'

@@ -14,6 +14,7 @@ import { useBgPic } from '@/store/common/hook'
 import ImageBackground from '@/components/common/ImageBackground'
 import { defaultHeaders } from '@/components/common/Image'
 import { createStyle, toast } from '@/utils/tools'
+import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
 
 type HistoryMusicInfo = LX.Music.MusicInfoOnline & {
   playHistoryId: string
@@ -236,14 +237,40 @@ export default memo(() => {
         </ImageBackground>
       ) : null}
       <View style={{ ...styles.header, borderBottomColor: theme['c-border-background'] }}>
-        <TouchableOpacity style={styles.iconBtn} disabled={isRange} onPress={() => changeDay(-1)}>
-          <Icon name="chevron-left" size={18} color={isRange ? theme['c-300'] : theme['c-font']} />
+        <TouchableOpacity
+          style={{ ...styles.iconBtn, backgroundColor: theme['c-primary-background'] }}
+          disabled={isRange}
+          onPress={() => changeDay(-1)}
+        >
+          <Icon
+            name="chevron-left"
+            size={19}
+            color={isRange ? theme['c-300'] : theme['c-primary']}
+          />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.titleBtn} onPress={openDateSelector}>
-          <Text numberOfLines={1} style={styles.title}>{title}</Text>
+        <TouchableOpacity
+          style={{ ...styles.titleBtn, backgroundColor: theme['c-primary-background'] }}
+          onPress={openDateSelector}
+        >
+          <Text
+            numberOfLines={1}
+            size={designTypography.body}
+            style={styles.title}
+            color={theme['c-primary-font']}
+          >
+            {title}
+          </Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.iconBtn} disabled={isRange || startDate >= getTodayText()} onPress={() => changeDay(1)}>
-          <Icon name="chevron-right" size={18} color={isRange || startDate >= getTodayText() ? theme['c-300'] : theme['c-font']} />
+        <TouchableOpacity
+          style={{ ...styles.iconBtn, backgroundColor: theme['c-primary-background'] }}
+          disabled={isRange || startDate >= getTodayText()}
+          onPress={() => changeDay(1)}
+        >
+          <Icon
+            name="chevron-right"
+            size={19}
+            color={isRange || startDate >= getTodayText() ? theme['c-300'] : theme['c-primary']}
+          />
         </TouchableOpacity>
       </View>
 
@@ -284,23 +311,33 @@ export default memo(() => {
             <TouchableOpacity
               style={{
                 ...styles.modeBtn,
-                backgroundColor: pickerMode === 'single' ? theme['c-primary-background-hover'] : 'transparent',
+                backgroundColor: pickerMode === 'single' ? theme['c-primary'] : 'transparent',
               }}
               onPress={() => {
                 setPickerMode('single')
                 setPickerEndDate('')
               }}
             >
-              <Text color={pickerMode === 'single' ? theme['c-primary-font'] : theme['c-font']}>单日</Text>
+                <Text
+                  size={designTypography.caption}
+                  color={pickerMode === 'single' ? theme['c-primary-light-1000'] : theme['c-font-label']}
+                >
+                  单日
+                </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={{
                 ...styles.modeBtn,
-                backgroundColor: pickerMode === 'range' ? theme['c-primary-background-hover'] : 'transparent',
+                backgroundColor: pickerMode === 'range' ? theme['c-primary'] : 'transparent',
               }}
               onPress={() => setPickerMode('range')}
             >
-              <Text color={pickerMode === 'range' ? theme['c-primary-font'] : theme['c-font']}>范围</Text>
+                <Text
+                  size={designTypography.caption}
+                  color={pickerMode === 'range' ? theme['c-primary-light-1000'] : theme['c-font-label']}
+                >
+                  范围
+                </Text>
             </TouchableOpacity>
           </View>
 
@@ -360,11 +397,23 @@ export default memo(() => {
           </Text>
 
           <View style={styles.popupActions}>
-            <TouchableOpacity style={styles.actionBtn} onPress={() => applyDate(getTodayText())}>
-              <Text color={theme['c-primary-font']}>今天</Text>
+            <TouchableOpacity
+              style={{
+                ...styles.actionBtn,
+                backgroundColor: theme['c-primary-background'],
+              }}
+              onPress={() => applyDate(getTodayText())}
+            >
+              <Text size={designTypography.caption} color={theme['c-primary-font']}>今天</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.actionBtn} onPress={handleApplyPicker}>
-              <Text color={theme['c-primary-font']}>确定</Text>
+            <TouchableOpacity
+              style={{
+                ...styles.actionBtn,
+                backgroundColor: theme['c-primary'],
+              }}
+              onPress={handleApplyPicker}
+            >
+              <Text size={designTypography.caption} color={theme['c-primary-light-1000']}>确定</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -378,25 +427,28 @@ const styles = createStyle({
     flex: 1,
   },
   header: {
-    height: 46,
+    height: 56,
     flexDirection: 'row',
     alignItems: 'center',
-    borderBottomWidth: 1,
+    paddingHorizontal: designSpacing.sm,
+    gap: designSpacing.xs,
   },
   iconBtn: {
-    width: 48,
-    height: 46,
+    width: 38,
+    height: 38,
+    borderRadius: designRadius.pill,
     alignItems: 'center',
     justifyContent: 'center',
   },
   titleBtn: {
     flex: 1,
-    height: 46,
+    height: 38,
+    borderRadius: designRadius.pill,
     alignItems: 'center',
     justifyContent: 'center',
   },
   title: {
-    fontSize: 14,
+    fontWeight: '700',
   },
   historyPager: {
     flex: 1,
@@ -420,8 +472,9 @@ const styles = createStyle({
   modeBtn: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 9,
-    borderRadius: 6,
+    height: 34,
+    justifyContent: 'center',
+    borderRadius: designRadius.pill,
   },
   calendarHeader: {
     height: 42,
@@ -436,7 +489,8 @@ const styles = createStyle({
     justifyContent: 'center',
   },
   monthTitle: {
-    fontSize: 15,
+    fontSize: designTypography.body,
+    fontWeight: '700',
   },
   weekRow: {
     flexDirection: 'row',
@@ -456,7 +510,7 @@ const styles = createStyle({
     height: 38,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 6,
+    borderRadius: designRadius.sm,
   },
   rangeText: {
     paddingTop: 10,
@@ -465,10 +519,14 @@ const styles = createStyle({
   popupActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    paddingTop: 14,
+    gap: designSpacing.xs,
+    paddingTop: designSpacing.md,
   },
   actionBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    height: 36,
+    paddingHorizontal: designSpacing.md,
+    borderRadius: designRadius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 })

@@ -19,6 +19,8 @@ import { Icon } from '@/components/common/Icon'
 import { reorderUserApi } from '@/core/userApi'
 import { state as userApiState } from '@/store/userApi'
 import { acquireScrollLock, releaseScrollLock } from '@/utils/scrollLock'
+import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
+import { applyOpacity } from '@/utils/colorOpacity'
 
 const apiSourceList = apiSourceInfo.map((api) => ({
   id: api.id,
@@ -193,11 +195,12 @@ const UserApiItem = memo(({
         styles.userApiItem,
         {
           backgroundColor: isDragSource ? theme['c-primary-background-active'] : 'transparent',
+          borderBottomColor: theme['c-border-background'],
           opacity,
           transform,
           zIndex,
           shadowOpacity,
-          shadowColor: '#000',
+          shadowColor: theme['c-000'],
           shadowOffset: { width: 0, height: 2 },
           shadowRadius: 4,
         },
@@ -210,13 +213,13 @@ const UserApiItem = memo(({
         <Text style={[styles.userApiItemName, { color: theme['c-font'] }]}>
           {item.name}
           {item.desc ? (
-            <Text style={styles.userApiItemDesc} color={theme['c-500']} size={13}>
+            <Text style={styles.userApiItemDesc} color={theme['c-500']} size={designTypography.caption}>
               {' '}
               {item.desc}
             </Text>
           ) : null}
           {item.statusLabel ? (
-            <Text style={styles.userApiItemStatus} size={13}>
+            <Text style={styles.userApiItemStatus} size={designTypography.caption}>
               {' '}
               {item.statusLabel}
             </Text>
@@ -239,6 +242,7 @@ const UserApiItem = memo(({
 
 export default memo(() => {
   const t = useI18n()
+  const theme = useTheme()
   const subContainerOpacity = useSettingValue('theme.subContainerOpacity')
   const list = useMemo(
     () =>
@@ -458,7 +462,12 @@ export default memo(() => {
         ))}
       </View>
       {userApiList.length > 0 && (
-        <View style={{ ...styles.userApiContainer, backgroundColor: `rgba(255, 255, 255, ${subContainerOpacity / 100})` }}>
+        <View
+          style={{
+            ...styles.userApiContainer,
+            backgroundColor: applyOpacity(theme['c-main-background'], subContainerOpacity),
+          }}
+        >
           <ScrollView
             style={styles.userApiScrollView}
             keyboardShouldPersistTaps={'always'}
@@ -509,10 +518,9 @@ const styles = createStyle({
     flexShrink: 1,
   },
   userApiContainer: {
-    marginTop: 10,
-    borderRadius: 8,
+    marginTop: designSpacing.xs,
+    borderRadius: designRadius.sm,
     overflow: 'hidden',
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
   },
   userApiScrollView: {
     flexGrow: 0,
@@ -521,11 +529,10 @@ const styles = createStyle({
     overflow: 'hidden',
   },
   userApiItem: {
-    paddingVertical: 12,
-    paddingHorizontal: 12,
+    paddingVertical: designSpacing.sm,
+    paddingHorizontal: designSpacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(128, 128, 128, 0.2)',
-    borderRadius: 8,
+    borderRadius: designRadius.sm,
   },
   userApiItemInfo: {
     flex: 1,
@@ -534,15 +541,15 @@ const styles = createStyle({
     alignItems: 'center',
   },
   userApiItemName: {
-    fontSize: 16,
+    fontSize: designTypography.body,
     flex: 1,
-    paddingLeft: 10,
+    paddingLeft: designSpacing.xs,
   },
   userApiItemDesc: {},
   userApiItemStatus: {},
   dragHandle: {
-    paddingHorizontal: 6,
-    paddingVertical: 6,
+    paddingHorizontal: designSpacing.xs,
+    paddingVertical: designSpacing.xs,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -551,7 +558,7 @@ const styles = createStyle({
     textAlign: 'center',
   },
   btn: {
-    marginTop: 10,
+    marginTop: designSpacing.xs,
     flexDirection: 'row',
   },
   sourceLabel: {},

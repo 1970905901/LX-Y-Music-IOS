@@ -7,13 +7,13 @@ import { useI18n } from '@/lang'
 import { useUserApiList, state as userApiState } from '@/store/userApi'
 import { useSettingValue } from '@/store/setting/hook'
 import { removeUserApi, setUserApiAllowShowUpdateAlert } from '@/core/userApi'
-import { BorderRadius } from '@/theme'
 import CheckBox from '@/components/common/CheckBox'
 import { Icon } from '@/components/common/Icon'
 import { SvgIcon } from '@/components/common/SvgIcon'
 import settingState from '@/store/setting/state'
 import apiSourceInfo from '@/utils/musicSdk/api-source-info'
 import { setApiSource } from '@/core/apiSource'
+import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
 
 const formatVersionName = (version: string) => {
   return /^\d/.test(version) ? `v${version}` : version
@@ -51,21 +51,21 @@ const ListItem = ({
       }}
     >
       <View style={styles.listItemLeft}>
-        <Text size={14}>
+        <Text size={designTypography.body}>
           {item.name}
           {item.version ? (
-            <Text size={12} color={theme['c-font-label']}>
+            <Text size={designTypography.caption} color={theme['c-font-label']}>
               {'   ' + formatVersionName(item.version)}
             </Text>
           ) : null}
           {item.author ? (
-            <Text size={12} color={theme['c-font-label']}>
+            <Text size={designTypography.caption} color={theme['c-font-label']}>
               {'   ' + item.author}
             </Text>
           ) : null}
         </Text>
         {item.description ? (
-          <Text size={12} color={theme['c-font-label']}>
+          <Text size={designTypography.caption} color={theme['c-font-label']}>
             {item.description}
           </Text>
         ) : null}
@@ -147,34 +147,39 @@ export default ({ onExport }: UserApiEditModalProps) => {
 
 const styles = createStyle({
   scrollView: {
-    paddingHorizontal: 7,
+    paddingHorizontal: designSpacing.xs,
     flexGrow: 0,
   },
   list: {
-    paddingBottom: 15,
+    paddingBottom: designSpacing.sm,
     flexDirection: 'column',
   },
   listItem: {
-    padding: 10,
-    borderRadius: BorderRadius.normal,
+    padding: designSpacing.sm,
+    borderRadius: designRadius.sm,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   listItemLeft: {
-    paddingRight: 10,
+    paddingRight: designSpacing.xs,
     flex: 1,
-    gap: 2,
+    gap: designSpacing.xs,
   },
   listItemRight: {
     flex: 0,
   },
   btn: {
-    padding: 10,
+    height: 32,
+    width: 32,
+    padding: designSpacing.xs,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: designRadius.pill,
   },
   tipText: {
     textAlign: 'center',
-    marginTop: 25,
-    marginBottom: 15,
+    marginTop: designSpacing.md,
+    marginBottom: designSpacing.sm,
   },
 })

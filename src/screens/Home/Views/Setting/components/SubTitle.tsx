@@ -7,6 +7,7 @@ import { SvgIcon } from '@/components/common/SvgIcon'
 import { useTheme } from '@/store/theme/hook'
 import { useSettingValue } from '@/store/setting/hook'
 import settingAction from '@/store/setting/action'
+import { designSpacing } from '@/theme/DesignTokens'
 
 interface Props {
   title: string
@@ -94,18 +95,18 @@ export default memo(
 
 const styles = createStyle({
   container: {
-    paddingLeft: 25,
-    marginBottom: 18,
+    paddingLeft: designSpacing.md,
+    marginBottom: designSpacing.lg,
   },
   titleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: designSpacing.sm,
   },
   title: {
-    marginLeft: -10,
-    marginBottom: 10,
+    fontSize: 15,
+    fontWeight: '700',
     flex: 1,
   },
   iconContainer: {

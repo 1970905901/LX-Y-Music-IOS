@@ -8,6 +8,7 @@ import settingAction from '@/store/setting/action'
 import Text from '@/components/common/Text'
 import { scaleSizeH } from '@/utils/pixelRatio'
 import { SvgIcon } from '@/components/common/SvgIcon'
+import { designRadius, designSpacing } from '@/theme/DesignTokens'
 
 interface Props {
   title: string
@@ -98,7 +99,13 @@ export default ({ title, children, sectionId }: Props) => {
 
   return (
     <View style={styles.container}>
-      <View style={{ ...styles.contentContainer, backgroundColor: adjustColorOpacity(theme['c-main-background'], sectionOpacity) }}>
+      <View
+        style={{
+          ...styles.contentContainer,
+          backgroundColor: adjustColorOpacity(theme['c-main-background'], sectionOpacity),
+          borderColor: theme['c-border-background'],
+        }}
+      >
         <TouchableOpacity style={styles.titleContainer} onPress={toggleExpanded} activeOpacity={0.7}>
           <Text style={{ ...styles.title, borderLeftColor: theme['c-primary'] }} size={16}>
             {title}
@@ -124,11 +131,10 @@ const styles = createStyle({
     marginBottom: scaleSizeH(12),
   },
   contentContainer: {
-    borderRadius: scaleSizeH(16),
-    paddingHorizontal: scaleSizeH(12),
-    paddingVertical: scaleSizeH(14),
-    borderWidth: 0.5,
-    borderColor: 'rgba(255, 255, 255, 0.6)',
+    borderRadius: designRadius.lg,
+    paddingHorizontal: designSpacing.md,
+    paddingVertical: designSpacing.md,
+    borderWidth: 1,
     shadowColor: 'rgba(0, 0, 0, 0.15)',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
@@ -138,11 +144,11 @@ const styles = createStyle({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: designSpacing.sm,
   },
   title: {
-    borderLeftWidth: 5,
-    paddingLeft: 12,
+    borderLeftWidth: 4,
+    paddingLeft: designSpacing.sm,
     fontWeight: '600',
     flex: 1,
   },

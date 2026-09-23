@@ -30,6 +30,7 @@ const defaultSetting: LX.AppSetting = {
   'common.quality_show_highest': false,
 
   'common.navStatus': {
+    nav_discovery: true,
     nav_songlist: true,
     nav_top: true,
     nav_love: true,
@@ -43,6 +44,7 @@ const defaultSetting: LX.AppSetting = {
   },
 
   'common.navOrder': [
+    'nav_discovery',
     'nav_search',
     'nav_play_history',
     'nav_songlist',

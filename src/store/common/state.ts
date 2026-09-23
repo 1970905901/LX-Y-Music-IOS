@@ -20,8 +20,8 @@ const state: InitState = {
   statusbarHeight: 0,
   safeAreaBottom: 0,
   componentIds: [],
-  navActiveId: 'nav_love',
-  lastNavActiveId: 'nav_love',
+  navActiveId: 'nav_discovery',
+  lastNavActiveId: 'nav_discovery',
   sourceNames: initData as InitState['sourceNames'],
   bgPic: null,
 }

@@ -1,5 +1,5 @@
 import { memo, useMemo, useRef, useState, useCallback } from 'react'
-import { ScrollView, TouchableOpacity, View } from 'react-native'
+import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native'
 import { useI18n } from '@/lang'
 import { useNavActiveId, useStatusbarHeight } from '@/store/common/hook'
 import { useTheme } from '@/store/theme/hook'
@@ -15,6 +15,7 @@ import { Animated as AnimatedType, Easing } from 'react-native'
 import { useMyList } from '@/store/list/hook'
 import { setActiveList } from '@/core/list'
 import { applyOpacity } from '@/utils/colorOpacity'
+import { designRadius, designSpacing } from '@/theme/DesignTokens'
 
 
 
@@ -129,10 +130,12 @@ const styles = createStyle({
   },
   menuItem: {
     flexDirection: 'row',
-    paddingTop: 13,
-    paddingBottom: 13,
-    paddingLeft: 25,
-    paddingRight: 25,
+    height: 48,
+    marginHorizontal: designSpacing.sm,
+    marginBottom: designSpacing.xs,
+    borderRadius: designRadius.md,
+    paddingLeft: designSpacing.lg,
+    paddingRight: designSpacing.md,
     justifyContent: 'flex-start',
     alignItems: 'center',
   },
@@ -141,7 +144,7 @@ const styles = createStyle({
     alignItems: 'center',
   },
   text: {
-    paddingLeft: 20,
+    paddingLeft: designSpacing.md,
   },
   footer: {
     paddingVertical: 5,
@@ -170,8 +173,15 @@ const MenuItem = ({
   const activeId = useNavActiveId()
   const theme = useTheme()
 
+  const activeItemStyle = useMemo(
+    () => StyleSheet.compose(styles.menuItem, {
+      backgroundColor: theme['c-primary-background-hover'],
+    }),
+    [theme],
+  )
+
   return activeId == id ? (
-    <View style={{ ...styles.menuItem, backgroundColor: theme['c-primary-background-hover'] }}>
+    <View style={activeItemStyle}>
       <View style={styles.iconContent}>
         {renderIcon(icon, 20, theme['c-primary-font-active'])}
       </View>

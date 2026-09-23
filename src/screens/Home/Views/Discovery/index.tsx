@@ -1,0 +1,212 @@
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Keyboard, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native'
+import commonState from '@/store/common/state'
+import { COMPONENT_IDS } from '@/config/constant'
+import { navigations } from '@/navigation'
+import { useTheme } from '@/store/theme/hook'
+import { useI18n } from '@/lang'
+import { useStatusbarHeight } from '@/store/common/hook'
+import { setNavActiveId } from '@/core/common'
+import { createStyle, toast } from '@/utils/tools'
+import { designSpacing, designTypography } from '@/theme/DesignTokens'
+import songlistState, { type ListInfoItem, type Source } from '@/store/songlist/state'
+import { getList } from '@/core/songlist'
+import { Icon } from '@/components/common/Icon'
+import Text from '@/components/common/Text'
+import AnnouncementCard from '@/components/home/AnnouncementCard'
+import PlatformChips from '@/components/home/PlatformChips'
+import DailyRecommendCard from '@/components/home/DailyRecommendCard'
+import HorizontalShelf from '@/components/home/HorizontalShelf'
+
+const SOURCE_LABELS: Partial<Record<Source, string>> = {
+  kw: '酷我',
+  kg: '酷狗',
+  tx: 'QQ音乐',
+  wy: '网易云',
+  mg: '咪咕',
+}
+
+const supportedSources = songlistState.sources.filter(
+  (source): source is Source => !!SOURCE_LABELS[source] && !!songlistState.sortList[source]?.length
+)
+
+const getSortId = (source: Source) => songlistState.sortList[source]?.[0]?.id ?? ''
+
+const styles = createStyle({
+  container: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 180,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: designSpacing.lg,
+    marginBottom: designSpacing.md,
+  },
+  title: {
+    fontWeight: '800',
+  },
+  historyButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sectionGap: {
+    marginTop: designSpacing.lg,
+  },
+  chips: {
+    marginTop: designSpacing.md,
+  },
+  daily: {
+    marginTop: designSpacing.lg,
+    paddingHorizontal: designSpacing.lg,
+  },
+  status: {
+    paddingHorizontal: designSpacing.lg,
+    marginTop: designSpacing.lg,
+  },
+  platformTitle: {
+    paddingHorizontal: designSpacing.lg,
+  },
+})
+
+export default memo(() => {
+  const theme = useTheme()
+  const t = useI18n()
+  const statusBarHeight = useStatusbarHeight()
+  const [selectedSource, setSelectedSource] = useState<Source>(supportedSources[0] ?? 'kw')
+  const [playlists, setPlaylists] = useState<ListInfoItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const loadIdRef = useRef(0)
+
+  const platformOptions = useMemo(
+    () => supportedSources.map((source) => ({
+      id: source,
+      label: SOURCE_LABELS[source] ?? source,
+    })),
+    []
+  )
+
+  const loadPlaylists = useCallback(async (source: Source) => {
+    const currentLoadId = ++loadIdRef.current
+    setLoading(true)
+    try {
+      const result = await getList(source, '', getSortId(source), 1)
+      if (currentLoadId !== loadIdRef.current) return
+      setPlaylists(result.list.map((item) => ({ ...item, source })))
+    } catch (error: any) {
+      if (currentLoadId !== loadIdRef.current) return
+      setPlaylists([])
+      toast(error?.message || t('load_failed'))
+    } finally {
+      if (currentLoadId === loadIdRef.current) setLoading(false)
+    }
+  }, [t])
+
+  useEffect(() => {
+    void loadPlaylists(selectedSource)
+  }, [loadPlaylists, selectedSource])
+
+  const handleOpenDetail = useCallback((item: ListInfoItem) => {
+    const homeComponentId = commonState.componentIds.find(({ name }) => name === COMPONENT_IDS.home)?.id
+    if (homeComponentId) navigations.pushSonglistDetailScreen(homeComponentId, item)
+  }, [])
+
+  const headerStyle = useMemo(
+    () => StyleSheet.compose(styles.header, {
+      paddingTop: statusBarHeight,
+    }),
+    [statusBarHeight],
+  )
+
+  const titleStyle = useMemo(
+    () => StyleSheet.compose(styles.title, {
+      color: theme['c-font'],
+    }),
+    [theme],
+  )
+
+  const historyButtonStyle = useMemo(
+    () => StyleSheet.compose(styles.historyButton, {
+      backgroundColor: theme['c-primary-background'],
+    }),
+    [theme],
+  )
+
+  const shelfData = playlists.slice(0, 12)
+
+  return (
+    <View style={styles.container}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        onScrollBeginDrag={Keyboard.dismiss}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={headerStyle}>
+          <Text style={titleStyle} size={34}>{t('nav_discovery')}</Text>
+          <TouchableOpacity
+            style={historyButtonStyle}
+            onPress={() => setNavActiveId('nav_play_history')}
+          >
+            <Icon name="music_time" size={21} color={theme['c-primary']} />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.status}>
+          <AnnouncementCard
+            title={t('discovery_notice_title')}
+            message={t('discovery_notice_body')}
+          />
+        </View>
+
+        <View style={styles.chips}>
+          <Text
+            style={styles.platformTitle}
+            size={designTypography.caption}
+            color={theme['c-font-label']}
+          >
+            {t('discovery_platform_title')}
+          </Text>
+          <PlatformChips
+            options={platformOptions}
+            selectedId={selectedSource}
+            onChange={setSelectedSource}
+          />
+        </View>
+
+        <View style={styles.daily}>
+          <DailyRecommendCard
+            title={t('discovery_daily_title')}
+            subtitle={t('discovery_daily_subtitle')}
+            onPress={() => setNavActiveId('nav_daily_rec')}
+          />
+        </View>
+
+        <View style={styles.sectionGap}>
+          <HorizontalShelf
+            title={t('discovery_playlists_title')}
+            data={shelfData}
+            cardWidth={150}
+            onPressItem={handleOpenDetail}
+          />
+        </View>
+
+        {loading ? (
+          <Text style={styles.status} size={designTypography.caption} color={theme['c-font-label']}>
+            {t('list_loading')}
+          </Text>
+        ) : null}
+        {!loading && !playlists.length ? (
+          <Text style={styles.status} size={designTypography.caption} color={theme['c-font-label']}>
+            {t('list_empty')}
+          </Text>
+        ) : null}
+      </ScrollView>
+    </View>
+  )
+})

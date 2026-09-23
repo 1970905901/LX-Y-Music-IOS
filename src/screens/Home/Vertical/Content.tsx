@@ -3,8 +3,10 @@ import { useEffect, useRef } from 'react'
 import DrawerNav from './DrawerNav'
 import Header from './Header'
 import Main from './Main'
+import ModernTabBar from '@/components/layout/ModernTabBar'
 import { useSettingValue } from '@/store/setting/hook'
 import { COMPONENT_IDS } from '@/config/constant'
+import { useNavActiveId } from '@/store/common/hook'
 import DrawerLayoutFixed, {
   type DrawerLayoutFixedType,
 } from '@/components/common/DrawerLayoutFixed'
@@ -18,6 +20,7 @@ const MAX_WIDTH = scaleSizeW(188)
 const Content = () => {
   const drawer = useRef<DrawerLayoutFixedType>(null)
   const drawerLayoutPosition = useSettingValue('common.drawerLayoutPosition')
+  const activeNavId = useNavActiveId()
 
   useEffect(() => {
     const changeVisible = (visible: boolean) => {
@@ -48,8 +51,9 @@ const Content = () => {
       drawerPosition={drawerLayoutPosition}
       renderNavigationView={navigationView}
     >
-      <Header />
+      {activeNavId === 'nav_discovery' || activeNavId === 'nav_play_history' ? null : <Header />}
       <Main />
+      <ModernTabBar />
       {/* <View style={styles.container}>
       </View> */}
     </DrawerLayoutFixed>

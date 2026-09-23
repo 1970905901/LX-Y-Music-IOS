@@ -1,6 +1,6 @@
 import { memo, useCallback, useMemo, useRef } from 'react'
 import { PanResponder, View, TouchableOpacity } from 'react-native'
-import { useKeyboard } from '@/utils/hooks'
+import { useHorizontalMode, useKeyboard } from '@/utils/hooks'
 import Pic from './components/Pic'
 import Title from './components/Title'
 import PlayInfo from './components/PlayInfo'
@@ -12,14 +12,18 @@ import { Icon } from '@/components/common/Icon'
 import { navigations } from '@/navigation'
 import { PLAY_DETAIL_SCREEN } from '@/navigation/screenNames'
 import commonState from '@/store/common/state'
+import { useSafeAreaBottom } from '@/store/common/hook'
 import { usePlayerMusicInfo } from '@/store/player/hook'
 import PlayerPlaylist, { PlayerPlaylistType } from '@/components/player/PlayerPlaylist.tsx'
 import MiniProgressBar from "@/components/player/PlayerBar/components/MiniProgressBar.tsx"
 import playerState from '@/store/player/state'
 import { LIST_IDS } from '@/config/constant'
+import { designRadius, designSpacing } from '@/theme/DesignTokens'
+import { shadow } from '@/utils/shadow'
 
 export default memo(({ componentId, isHome = false }: { componentId?: string, isHome?: boolean }) => {
   const { keyboardShown } = useKeyboard()
+  const isHorizontalMode = useHorizontalMode()
   const theme = useTheme()
   const musicInfo = usePlayerMusicInfo()
   const longPressedRef = useRef(false)
@@ -28,6 +32,7 @@ export default memo(({ componentId, isHome = false }: { componentId?: string, is
   const drawerLayoutPosition = useSettingValue('common.drawerLayoutPosition')
   const miniPlayerOpacity = useSettingValue('theme.miniPlayerOpacity')
   const isSwipeToShowPlaylist = useSettingValue('player.isSwipeToShowPlaylist')
+  const safeAreaBottom = useSafeAreaBottom()
 
   const handleLongPress = useCallback(() => {
     longPressedRef.current = true
@@ -115,12 +120,20 @@ export default memo(({ componentId, isHome = false }: { componentId?: string, is
       const bgRgb = theme.isDark ? '0, 0, 0' : '255, 255, 255'
       const containerStyle = {
         backgroundColor: `rgba(${bgRgb}, ${Math.min(1, opacity)})`,
-        borderColor: `rgba(${bgRgb}, ${Math.min(0.8, opacity * 0.6 + 0.2)})`,
+        borderColor: `rgba(${bgRgb}, ${Math.min(0.8, opacity * 0.7 + 0.15)})`,
+        ...shadow(8),
       }
       return (
-        <View style={styles.wrapper}>
+        <View
+          style={[
+            styles.wrapper,
+            {
+              bottom: safeAreaBottom + (isHome && !isHorizontalMode ? designSpacing.xl + 56 : designSpacing.sm),
+            },
+          ]}
+        >
           <View
-            style={[styles.container, containerStyle]}
+            style={[styles.container, containerStyle, isHorizontalMode ? styles.horizontalContainer : null]}
             {...panResponder.panHandlers}
           >
             <MiniProgressBar />
@@ -142,7 +155,7 @@ export default memo(({ componentId, isHome = false }: { componentId?: string, is
         </View>
       )
     },
-    [theme, isHome, handleShowPlaylist, panResponder.panHandlers, drawerLayoutPosition, miniPlayerOpacity],
+    [theme, isHome, handleShowPlaylist, panResponder.panHandlers, drawerLayoutPosition, miniPlayerOpacity, safeAreaBottom, isHorizontalMode],
   )
 
   return (
@@ -160,29 +173,23 @@ const styles = createStyle({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 18,
-    paddingHorizontal: 24,
-    paddingTop: 4,
+    paddingHorizontal: designSpacing.lg,
   },
   container: {
     width: '100%',
     // 缩小：垂直内边距从 10 收到 8，整体高度更紧凑
-    paddingVertical: 8,
-    paddingLeft: 12,
-    paddingRight: 12,
-    // 缩小：圆角从 28 收到 24
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    paddingVertical: 9,
+    paddingLeft: designSpacing.sm,
+    paddingRight: designSpacing.sm,
+    borderRadius: designRadius.xl,
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 0.5,
-    shadowColor: 'rgba(0, 0, 0, 0.12)',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
+    borderWidth: 0.8,
     overflow: 'hidden',
+  },
+  horizontalContainer: {
+    maxWidth: 760,
+    alignSelf: 'center',
   },
   left: {
     flexGrow: 1,
@@ -209,8 +216,9 @@ const styles = createStyle({
     paddingRight: 5,
   },
   menuBtn: {
-    width: 42,
-    height: 42,
+    width: 40,
+    height: 40,
+    borderRadius: 999,
     justifyContent: 'center',
     alignItems: 'center',
   },

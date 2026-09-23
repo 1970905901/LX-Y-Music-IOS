@@ -3,6 +3,7 @@ import { Animated, Easing, View } from 'react-native'
 import { useProgress } from '@/store/player/hook'
 import { useTheme } from '@/store/theme/hook'
 import { clamp01, createStyle } from '@/utils/tools'
+import { designRadius } from '@/theme/DesignTokens'
 
 // Animated.Value 没有公开的读取接口，__getValue() 是内部实现。
 // 这里包一层兜底，避免读到 undefined / NaN 让后续动画失效。
@@ -82,8 +83,8 @@ const styles = createStyle({
   },
   progress: {
     height: '100%',
-    borderTopLeftRadius: 2,
-    borderTopRightRadius: 2,
+    borderTopLeftRadius: designRadius.pill,
+    borderTopRightRadius: designRadius.pill,
   },
 })
 

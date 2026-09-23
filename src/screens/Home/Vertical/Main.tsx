@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentRef, type ReactNode } from 'react'
 import {Keyboard, View} from 'react-native'
 import Search from '../Views/Search'
+import Discovery from '../Views/Discovery'
 import SongList from '../Views/SongList'
 import Mylist from '../Views/Mylist'
 import Leaderboard from '../Views/Leaderboard'
@@ -719,6 +720,7 @@ const Main = () => {
 
   const pages = useMemo(() => {
     const pageComponents: Partial<Record<NAV_ID_Type, ReactNode>> = {
+      nav_discovery: <Discovery />,
       nav_search: <SearchPage />,
       nav_songlist: <SongListPage />,
       nav_top: <LeaderboardPage />,

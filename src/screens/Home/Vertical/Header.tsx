@@ -1,4 +1,4 @@
-import {View, TouchableOpacity, PanResponder} from 'react-native'
+import {StyleSheet, View, TouchableOpacity, PanResponder} from 'react-native'
 // import Button from '@/components/common/Button'
 // import { navigations } from '@/navigation'
 // import { BorderWidths } from '@/theme'
@@ -12,10 +12,11 @@ import StatusBar from '@/components/common/StatusBar'
 import { useSettingValue } from '@/store/setting/hook'
 import { scaleSizeH } from '@/utils/pixelRatio'
 import { HEADER_HEIGHT } from '@/config/constant'
+import { designSpacing } from '@/theme/DesignTokens'
 import { type InitState as CommonState } from '@/store/common/state'
 import SearchTypeSelector from '@/screens/Home/Views/Search/SearchTypeSelector'
 import GlobalSearch from '@/components/GlobalSearch'
-import React, {useRef} from "react";
+import React, {useMemo, useRef} from "react";
 
 const headerComponents: Partial<Record<CommonState['navActiveId'], React.ReactNode>> = {
   nav_search: <SearchTypeSelector />,
@@ -51,6 +52,13 @@ const LeftHeader = () => {
       },
     }),
   ).current;
+  const menuBtnStyle = useMemo(
+    () => StyleSheet.compose(styles.btn, {
+      backgroundColor: theme['c-primary-background'],
+    }),
+    [theme],
+  )
+
   return (
     <View
       style={{
@@ -61,18 +69,18 @@ const LeftHeader = () => {
       {...panResponder.panHandlers}
     >
       <View style={styles.left}>
-        <TouchableOpacity style={styles.btn} onPress={openMenu}>
+        <TouchableOpacity style={menuBtnStyle} onPress={openMenu}>
           <Icon color={theme['c-font']} name="menu" size={18} />
         </TouchableOpacity>
         <TouchableOpacity style={styles.titleBtn} onPress={openMenu}>
-          <Text style={styles.leftTitle} size={18}>
+          <Text style={styles.leftTitle} size={20}>
             {t(id)}
           </Text>
         </TouchableOpacity>
       </View>
       {isSearchPage ? headerComponents[id] : <GlobalSearch />}
 
-      {/* <TouchableOpacity style={styles.btn} onPress={openSetting}>
+      {/* <TouchableOpacity style={menuBtnStyle} onPress={openSetting}>
         <Icon style={{ ...styles.btnText, color: theme['c-font'] }} name="setting" size={styles.btnText.fontSize} />
       </TouchableOpacity> */}
     </View>
@@ -108,6 +116,13 @@ const RightHeader = () => {
       },
     }),
   ).current;
+  const menuBtnStyle = useMemo(
+    () => StyleSheet.compose(styles.btn, {
+      backgroundColor: theme['c-primary-background'],
+    }),
+    [theme],
+  )
+
   return (
     <View
       style={{
@@ -119,17 +134,17 @@ const RightHeader = () => {
     >
       <View style={styles.left}>
         <TouchableOpacity style={styles.titleBtn} onPress={openMenu}>
-          <Text style={styles.rightTitle} size={18}>
+          <Text style={styles.rightTitle} size={20}>
             {t(id)}
           </Text>
         </TouchableOpacity>
       </View>
 
       {isSearchPage ? headerComponents[id] : <GlobalSearch />}
-      <TouchableOpacity style={styles.btn} onPress={openMenu}>
+      <TouchableOpacity style={menuBtnStyle} onPress={openMenu}>
         <Icon color={theme['c-font']} name="menu" size={18} />
       </TouchableOpacity>
-      {/* <TouchableOpacity style={styles.btn} onPress={openSetting}>
+      {/* <TouchableOpacity style={menuBtnStyle} onPress={openSetting}>
         <Icon style={{ ...styles.btnText, color: theme['c-font'] }} name="setting" size={styles.btnText.fontSize} />
       </TouchableOpacity> */}
     </View>
@@ -167,10 +182,11 @@ const styles = createStyle({
   btn: {
     // flex: 1,
     width: HEADER_HEIGHT,
-    // backgroundColor: 'rgba(0,0,0,0.1)',
+    height: HEADER_HEIGHT,
+    borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
-    height: '100%',
+    marginHorizontal: designSpacing.xs,
   },
   titleBtn: {
     flex: 1,
@@ -179,12 +195,14 @@ const styles = createStyle({
     justifyContent: 'center',
   },
   leftTitle: {
-    paddingLeft: 14,
-    paddingRight: 16,
+    paddingLeft: designSpacing.xs,
+    paddingRight: designSpacing.sm,
+    fontWeight: '700',
   },
   rightTitle: {
-    paddingLeft: 16,
-    paddingRight: 16,
+    paddingLeft: designSpacing.sm,
+    paddingRight: designSpacing.sm,
+    fontWeight: '700',
   },
 })
 

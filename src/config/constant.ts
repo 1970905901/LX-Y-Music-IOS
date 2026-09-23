@@ -102,6 +102,7 @@ export const storageDataPrefixOld = {
 export const APP_PROVIDER_NAME = 'com.lxwalnut.music.mobile.provider'
 
 export const NAV_MENUS = [
+  { id: 'nav_discovery', icon: 'home' },
   { id: 'nav_search', icon: 'search-2' },
   { id: 'nav_play_history', icon: 'music_time' },
   { id: 'nav_songlist', icon: 'album' },
@@ -140,7 +141,10 @@ export const getEffectiveFlatOrder = (
   const allMenuIds = NAV_MENUS.map(m => m.id)
   // 过滤已废弃的菜单 id（如合并前的 nav_download_music / nav_local_music），
   // 避免老用户持久化顺序里的残留项渲染成未知页面
-  const validBase = base.filter(id => allMenuIds.includes(id))
+  const validBase = [
+    'nav_discovery',
+    ...base.filter(id => allMenuIds.includes(id) && id !== 'nav_discovery'),
+  ]
   const set = new Set(validBase)
   const extra = allMenuIds.filter(id => !set.has(id))
   return extra.length ? [...validBase, ...extra] : validBase
@@ -186,6 +190,6 @@ export const DEFAULT_SETTING = {
   },
 
   viewPrevState: {
-    id: 'nav_search' as NAV_ID_Type,
+    id: 'nav_discovery' as NAV_ID_Type,
   },
 }

@@ -2,7 +2,7 @@ import { useRef, forwardRef, useImperativeHandle } from 'react'
 import { View } from 'react-native'
 
 // import music from '@/utils/musicSdk'
-import { BorderWidths } from '@/theme'
+import { designSpacing } from '@/theme/DesignTokens'
 // import InsetShadow from 'react-native-inset-shadow'
 import SourceSelector, {
   type SourceSelectorType as _SourceSelectorType,
@@ -59,8 +59,14 @@ export default forwardRef<HeaderBarType, HeaderBarProps>(
     )
 
     return (
-      <View style={{ ...styles.searchBar, borderBottomColor: theme['c-border-background'] }}>
-        <View style={styles.selector}>
+      <View
+        style={{
+          ...styles.searchBar,
+          backgroundColor: theme['c-primary-light-900-alpha-300'],
+          borderColor: theme['c-border-background'],
+        }}
+      >
+        <View style={{ ...styles.selector, borderRightColor: theme['c-border-background'] }}>
           <SourceSelector ref={sourceSelectorRef} onSourceChange={onSourceChange} center />
         </View>
         <SearchInput
@@ -78,12 +84,17 @@ export default forwardRef<HeaderBarType, HeaderBarProps>(
 const styles = createStyle({
   searchBar: {
     flexDirection: 'row',
-    height: 38,
+    height: 46,
+    marginHorizontal: designSpacing.lg,
+    marginTop: designSpacing.sm,
+    marginBottom: designSpacing.sm,
+    borderRadius: 999,
+    borderWidth: 1,
     zIndex: 2,
-    paddingRight: 10,
-    borderBottomWidth: BorderWidths.normal,
   },
   selector: {
-    // width: 86,
+    justifyContent: 'center',
+    borderRightWidth: 1,
+    maxWidth: 110,
   },
 })

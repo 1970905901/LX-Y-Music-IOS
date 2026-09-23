@@ -4,6 +4,7 @@ import { type InitState } from '@/store/hotSearch/state'
 import Button from '@/components/common/Button'
 import Text from '@/components/common/Text'
 import { createStyle } from '@/utils/tools'
+import { designSpacing, designTypography } from '@/theme/DesignTokens'
 import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
 import { clearHistoryList, getSearchHistory, removeHistoryWord } from '@/core/search/search'
@@ -89,8 +90,11 @@ export default forwardRef<HistorySearchType, HistorySearchProps>((props, ref) =>
   return list.length ? (
     <View>
       <View style={styles.titleContent}>
-        <Text size={16}>{t('search_history_search')}</Text>
-        <TouchableOpacity onPress={handleClear} style={styles.titleBtn}>
+        <Text size={designTypography.title} style={styles.title}>{t('search_history_search')}</Text>
+        <TouchableOpacity
+          onPress={handleClear}
+          style={{ ...styles.titleBtn, backgroundColor: theme['c-primary-background'] }}
+        >
           <Icon name="eraser" color={theme['c-300']} size={14} />
         </TouchableOpacity>
       </View>
@@ -110,33 +114,32 @@ export default forwardRef<HistorySearchType, HistorySearchProps>((props, ref) =>
 
 const styles = createStyle({
   titleContent: {
-    paddingTop: 15,
+    paddingTop: designSpacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
   },
   title: {
-    // paddingLeft: 15,
-    // paddingBottom: 5,
+    fontWeight: '700',
   },
   titleBtn: {
-    marginLeft: 10,
-    padding: 5,
+    marginLeft: designSpacing.sm,
+    width: 32,
+    height: 32,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.04)',
   },
   list: {
-    // paddingLeft: 15,
-    // paddingRight: 15,
     flexDirection: 'row',
     flexWrap: 'wrap',
-    // paddingBottom: 15,
+    rowGap: designSpacing.sm,
   },
   button: {
-    textAlign: 'center',
-    paddingLeft: 10,
-    paddingRight: 10,
-    paddingTop: 5,
-    paddingBottom: 5,
-    borderRadius: 4,
-    marginRight: 10,
-    marginTop: 8,
+    height: 36,
+    justifyContent: 'center',
+    paddingHorizontal: designSpacing.md,
+    borderRadius: 999,
+    marginRight: designSpacing.sm,
   },
 })

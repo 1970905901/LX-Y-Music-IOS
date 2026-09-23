@@ -5,6 +5,7 @@ import Button from '@/components/common/Button'
 import { getList } from '@/core/hotSearch'
 import Text from '@/components/common/Text'
 import { createStyle } from '@/utils/tools'
+import { designSpacing, designTypography } from '@/theme/DesignTokens'
 import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
 
@@ -83,25 +84,19 @@ export default forwardRef<HotSearchType, ListProps>((props, ref) => {
 
 const styles = createStyle({
   title: {
-    // paddingLeft: 15,
-    paddingTop: 15,
-    // paddingBottom: 10,
+    paddingTop: designSpacing.lg,
+    fontWeight: '700',
   },
   list: {
-    // paddingLeft: 15,
-    // paddingRight: 15,
     flexDirection: 'row',
     flexWrap: 'wrap',
-    // paddingBottom: 15,
+    rowGap: designSpacing.sm,
   },
   button: {
-    textAlign: 'center',
-    paddingLeft: 10,
-    paddingRight: 10,
-    paddingTop: 5,
-    paddingBottom: 5,
-    borderRadius: 4,
-    marginRight: 10,
-    marginTop: 8,
+    height: 36,
+    justifyContent: 'center',
+    paddingHorizontal: designSpacing.md,
+    borderRadius: 999,
+    marginRight: designSpacing.sm,
   },
 })

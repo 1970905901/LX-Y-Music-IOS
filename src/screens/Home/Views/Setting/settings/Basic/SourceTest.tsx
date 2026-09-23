@@ -17,6 +17,7 @@ import LogConfirmAlert, { type LogConfirmAlertType } from '@/components/common/L
 import { SvgIcon } from '@/components/common/SvgIcon'
 import settingAction from '@/store/setting/action'
 import { useStatus } from '@/store/userApi'
+import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
 
 const sources = [
   { id: 'kw', name: '酷我' },
@@ -1409,7 +1410,10 @@ export default memo(() => {
                 onPress={() => handleTestSingleSource(source)}
                 disabled={testingSourceId === source.id || !keywords[source.id as keyof SourceKeywords].trim()}
                 ripple={{ borderless: true, radius: 20 }}
-                style={[styles.singleTestBtn, testingSourceId === source.id && styles.singleTestBtnDisabled]}
+                style={[
+                  { ...styles.singleTestBtn, backgroundColor: theme['c-primary'] },
+                  testingSourceId === source.id && styles.singleTestBtnDisabled,
+                ]}
               >
                 测试
               </Button>
@@ -1423,7 +1427,7 @@ export default memo(() => {
           onPress={handleTest}
           disabled={isTesting || !Object.values(keywords).some(k => k.trim())}
           ripple={{ borderless: true, radius: 22 }}
-          style={[styles.startTestBtn, isTesting && styles.disabledBtn]}
+          style={[{ ...styles.startTestBtn, backgroundColor: theme['c-primary'] }, isTesting && styles.disabledBtn]}
         >
           开始测试
         </Button>
@@ -1431,14 +1435,14 @@ export default memo(() => {
           onPress={handleStop}
           disabled={!isTesting}
           ripple={{ borderless: true, radius: 22 }}
-          style={[styles.stopTestBtn, !isTesting && styles.disabledBtn]}
+          style={[{ ...styles.stopTestBtn, backgroundColor: '#E74C3C' }, !isTesting && styles.disabledBtn]}
         >
           终止测试
         </Button>
         <Button
           onPress={() => faqModalRef.current?.setVisible(true)}
           ripple={{ borderless: true, radius: 18 }}
-          style={styles.logBtn}
+          style={{ ...styles.logBtn, backgroundColor: theme['c-button-background'] }}
         >
           常见问题
         </Button>
@@ -1449,7 +1453,7 @@ export default memo(() => {
       </Text>
 
       <View style={styles.settingsRow}>
-        <Text style={styles.settingsLabel}>
+        <Text style={{ ...styles.settingsLabel, color: theme['c-font-label'] }}>
           测试超时(秒):
         </Text>
         <TextInput
@@ -1465,7 +1469,7 @@ export default memo(() => {
       </View>
 
       <View style={styles.settingsRow}>
-        <Text style={styles.settingsLabel}>
+        <Text style={{ ...styles.settingsLabel, color: theme['c-font-label'] }}>
           音质测试超时(秒):
         </Text>
         <TextInput
@@ -1481,7 +1485,7 @@ export default memo(() => {
       </View>
 
       <View style={styles.settingsRow}>
-        <Text style={styles.settingsLabel}>
+        <Text style={{ ...styles.settingsLabel, color: theme['c-font-label'] }}>
           平台测试间隔(秒):
         </Text>
         <TextInput
@@ -1497,7 +1501,7 @@ export default memo(() => {
       </View>
 
       <View style={styles.settingsRow}>
-        <Text style={styles.settingsLabel}>
+        <Text style={{ ...styles.settingsLabel, color: theme['c-font-label'] }}>
           音质测试间隔(秒):
         </Text>
         <TextInput
@@ -1530,7 +1534,7 @@ export default memo(() => {
         <Button
           onPress={openLogModal}
           ripple={{ borderless: true, radius: 18 }}
-          style={styles.logBtn}
+          style={{ ...styles.logBtn, backgroundColor: theme['c-button-background'] }}
         >
           测试日志
         </Button>
@@ -1730,9 +1734,9 @@ export default memo(() => {
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: 16,
-    padding: 16,
-    borderRadius: 12,
+    marginTop: designSpacing.md,
+    padding: designSpacing.md,
+    borderRadius: designRadius.md,
   },
   titleRow: {
     flexDirection: 'row',
@@ -1741,7 +1745,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   title: {
-    fontSize: 18,
+    fontSize: designTypography.title,
     fontWeight: '600',
     letterSpacing: 0.3,
     flex: 1,
@@ -1750,27 +1754,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   desc: {
-    fontSize: 13,
+    fontSize: designTypography.caption,
     opacity: 0.6,
     marginBottom: 16,
     lineHeight: 18,
   },
   keywordsSection: {
-    marginBottom: 16,
+    marginBottom: designSpacing.md,
   },
   sectionTitle: {
-    fontSize: 14,
-    marginBottom: 10,
+    fontSize: designTypography.body,
+    marginBottom: designSpacing.xs,
     fontWeight: '600',
     letterSpacing: 0.2,
   },
   keywordRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: designSpacing.xs,
     backgroundColor: 'rgba(128, 128, 128, 0.05)',
-    borderRadius: 10,
-    padding: 6,
+    borderRadius: designRadius.sm,
+    padding: designSpacing.xs,
     flexWrap: 'nowrap',
   },
 
@@ -1784,15 +1788,15 @@ const styles = StyleSheet.create({
   keywordContainer: {
     flex: 1,
     minWidth: 0,
-    marginRight: 6,
+    marginRight: designSpacing.xs,
     zIndex: 1,
   },
 
   keywordInput: {
     width: '100%',
     height: 40,
-    paddingHorizontal: 4,
-    fontSize: 14,
+    paddingHorizontal: designSpacing.xs,
+    fontSize: designTypography.body,
     backgroundColor: 'transparent',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(128, 128, 128, 0.3)',
@@ -1805,10 +1809,9 @@ const styles = StyleSheet.create({
   },
 
   singleTestBtn: {
-    paddingHorizontal: 10,
-    height: 30,
-    backgroundColor: '#4A90D9',
-    borderRadius: 6,
+    height: 32,
+    paddingHorizontal: designSpacing.sm,
+    borderRadius: designRadius.pill,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
@@ -1821,23 +1824,21 @@ const styles = StyleSheet.create({
   buttonRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 16,
+    gap: designSpacing.sm,
+    marginBottom: designSpacing.md,
   },
 
   startTestBtn: {
     flex: 1,
     height: 44,
-    backgroundColor: '#4A90D9',
-    borderRadius: 10,
+    borderRadius: designRadius.md,
     overflow: 'hidden',
   },
 
   stopTestBtn: {
     flex: 1,
     height: 44,
-    backgroundColor: '#E74C3C',
-    borderRadius: 10,
+    borderRadius: designRadius.md,
     overflow: 'hidden',
   },
 
@@ -1848,31 +1849,29 @@ const styles = StyleSheet.create({
   settingsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginTop: 10,
+    gap: designSpacing.sm,
+    marginTop: designSpacing.xs,
   },
 
   checkboxRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginTop: 12,
+    gap: designSpacing.xs,
+    marginTop: designSpacing.sm,
     flexWrap: 'nowrap',
   },
 
   settingsLabel: {
-    fontSize: 13,
-    color: '#666666',
+    fontSize: designTypography.caption,
     width: 104,
   },
 
   settingsInput: {
     width: 70,
     height: 36,
-    paddingHorizontal: 4,
-    fontSize: 14,
+    paddingHorizontal: designSpacing.xs,
+    fontSize: designTypography.body,
     textAlign: 'left',
-    textAlignVertical: 'center',
     backgroundColor: 'transparent',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(128, 128, 128, 0.3)',
@@ -1881,16 +1880,16 @@ const styles = StyleSheet.create({
 
   logBtn: {
     height: 36,
-    paddingHorizontal: 14,
-    backgroundColor: '#7F8C8D',
-    borderRadius: 10,
+    height: 36,
+    paddingHorizontal: designSpacing.sm,
+    borderRadius: designRadius.pill,
     overflow: 'hidden',
   },
   progressContainer: {
-    padding: 10,
+    padding: designSpacing.sm,
     backgroundColor: 'rgba(255, 193, 7, 0.1)',
-    borderRadius: 6,
-    marginBottom: 12,
+    borderRadius: designRadius.sm,
+    marginBottom: designSpacing.sm,
   },
   progressRow: {
     flexDirection: 'row',
@@ -1898,37 +1897,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   progressText: {
-    fontSize: 13,
+    fontSize: designTypography.caption,
   },
   elapsedTimeText: {
     fontSize: 12,
     opacity: 0.6,
   },
   resultSection: {
-    marginTop: 24,
+    marginTop: designSpacing.lg,
   },
   resultHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: designSpacing.xs,
   },
   clearResultBtn: {
-    height: 28,
-    paddingHorizontal: 12,
+    height: 32,
+    paddingHorizontal: designSpacing.sm,
     backgroundColor: 'transparent',
     borderWidth: 1,
     borderColor: '#E74C3C',
-    borderRadius: 4,
+    borderRadius: designRadius.pill,
   },
   resultList: {
     backgroundColor: 'rgba(128, 128, 128, 0.05)',
-    borderRadius: 10,
-    padding: 10,
+    borderRadius: designRadius.sm,
+    padding: designSpacing.sm,
   },
   resultItem: {
-    paddingVertical: 12,
-    paddingHorizontal: 10,
+    paddingVertical: designSpacing.sm,
+    paddingHorizontal: designSpacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: 'rgba(128, 128, 128, 0.12)',
   },
@@ -1936,71 +1935,71 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: designSpacing.xs,
   },
   resultName: {
-    fontSize: 15,
+    fontSize: designTypography.body,
     fontWeight: '600',
   },
   resultStatus: {
-    fontSize: 14,
+    fontSize: designTypography.body,
     fontWeight: '700',
   },
   resultSong: {
     fontSize: 12,
-    marginBottom: 3,
+    marginBottom: 4,
     opacity: 0.65,
   },
   resultMessage: {
-    fontSize: 13,
+    fontSize: designTypography.caption,
     marginBottom: 6,
   },
   qualityBadge: {
-    paddingHorizontal: 10,
+    paddingHorizontal: designSpacing.sm,
     paddingVertical: 4,
-    borderRadius: 6,
+    borderRadius: designRadius.pill,
   },
   qualityBadgeText: {
-    fontSize: 13,
+    fontSize: designTypography.caption,
     color: '#fff',
     fontWeight: '600',
   },
   warningContainer: {
-    marginTop: 8,
-    padding: 10,
+    marginTop: designSpacing.xs,
+    padding: designSpacing.sm,
     backgroundColor: 'rgba(255, 193, 7, 0.12)',
-    borderRadius: 8,
+    borderRadius: designRadius.sm,
     borderLeftWidth: 4,
     borderLeftColor: '#F39C12',
   },
   warningText: {
-    fontSize: 12,
+    fontSize: designTypography.caption,
     lineHeight: 18,
     color: '#D35400',
   },
   errorContainer: {
-    marginTop: 8,
-    padding: 10,
+    marginTop: designSpacing.xs,
+    padding: designSpacing.sm,
     backgroundColor: 'rgba(231, 76, 60, 0.1)',
-    borderRadius: 8,
+    borderRadius: designRadius.sm,
     borderLeftWidth: 4,
     borderLeftColor: '#E74C3C',
   },
   errorText: {
-    fontSize: 12,
+    fontSize: designTypography.caption,
     lineHeight: 18,
     color: '#C0392B',
   },
   testingContainer: {
-    marginTop: 8,
-    padding: 10,
+    marginTop: designSpacing.xs,
+    padding: designSpacing.sm,
     backgroundColor: 'rgba(255, 193, 7, 0.12)',
-    borderRadius: 8,
+    borderRadius: designRadius.sm,
     borderLeftWidth: 4,
     borderLeftColor: '#F39C12',
   },
   testingText: {
-    fontSize: 12,
+    fontSize: designTypography.caption,
     lineHeight: 18,
     color: '#D35400',
   },

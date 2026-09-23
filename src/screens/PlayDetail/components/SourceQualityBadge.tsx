@@ -1,9 +1,8 @@
 import { memo, useMemo } from 'react'
 import { View } from 'react-native'
-import { usePlayMusicInfo } from '@/store/player/hook'
+import { usePlayMusicInfo, usePlayerQuality, usePlayerSource } from '@/store/player/hook'
 import { useSettingValue } from '@/store/setting/hook'
 import { useI18n } from '@/lang'
-import { getPlayQuality } from '@/core/music/utils'
 import Badge, { type BadgeType } from '@/components/common/Badge'
 import { createStyle } from '@/utils/tools'
 
@@ -49,7 +48,10 @@ function getQualityBadge(quality: string, t: (k: string) => string): { label: st
 export default memo(() => {
   const t = useI18n()
   const playMusicInfo = usePlayMusicInfo()
-  const playQuality = useSettingValue('player.playQuality')
+  const actualQuality = usePlayerQuality()
+  const actualSource = usePlayerSource()
+  const showActualQuality = useSettingValue('player.showActualQuality')
+  const showActualPlatform = useSettingValue('player.showActualPlatform')
 
   const musicInfo = playMusicInfo.musicInfo
     ? 'progress' in playMusicInfo.musicInfo
@@ -57,23 +59,19 @@ export default memo(() => {
       : playMusicInfo.musicInfo
     : null
 
-  const abbr = musicInfo ? (SOURCE_ABBR[musicInfo.source] ?? musicInfo.source.toUpperCase()) : ''
+  const source = actualSource ?? (musicInfo ? musicInfo.source : null)
+  const abbr = source ? (SOURCE_ABBR[source] ?? source.toUpperCase()) : ''
 
   const qualityBadge = useMemo(() => {
-    if (!musicInfo || musicInfo.source === 'local') return null
-    try {
-      const quality = getPlayQuality(playQuality as LX.Quality, musicInfo as LX.Music.MusicInfoOnline)
-      return getQualityBadge(quality, t)
-    } catch {
-      return null
-    }
-  }, [musicInfo, playQuality, t])
+    if (!showActualQuality || !musicInfo || musicInfo.source === 'local' || !actualQuality) return null
+    return getQualityBadge(actualQuality, t)
+  }, [actualQuality, musicInfo, showActualQuality, t])
 
   if (!musicInfo) return null
 
   return (
     <View style={styles.row}>
-      <Badge type="tertiary">{abbr}</Badge>
+      {showActualPlatform && abbr ? <Badge type="tertiary">{abbr}</Badge> : null}
       {qualityBadge ? <Badge type={qualityBadge.type}>{qualityBadge.label}</Badge> : null}
     </View>
   )

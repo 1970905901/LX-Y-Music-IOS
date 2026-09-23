@@ -7,6 +7,7 @@ import {writeFile, unlink, downloadFile, mkdir, moveFile, stopDownload} from '@/
 import { getDefaultDownloadPath } from '@/utils/downloadPath';
 import { writeMetadata, writePic, writeLyric, isWriteSupported } from '@/utils/localMediaMetadata';
 import settingState from '@/store/setting/state';
+import { getQualityName } from '@/utils/quality';
 import downloadState from '@/store/download/state';
 import downloadActions from '@/store/download/action';
 import {filterFileName, sizeFormate} from "@/utils";
@@ -531,7 +532,7 @@ export const downloadMusic = (musicInfo: LX.Music.MusicInfo) => {
   const quality = settingState.setting['download.quality'] as LX.Quality
   addTask(musicInfo, quality)
   toast(
-    global.i18n.t('download_added_tip', { name: musicInfo.name, quality: global.i18n.t(quality) }),
+    global.i18n.t('download_added_tip', { name: musicInfo.name, quality: getQualityName(quality, global.i18n.t) }),
     'short',
   )
 }

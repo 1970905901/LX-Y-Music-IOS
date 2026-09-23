@@ -4,6 +4,8 @@ import Section from '../../components/Section'
 import IsSavePlayTime from './IsSavePlayTime'
 import IsSwipeToShowPlaylist from './IsSwipeToShowPlaylist'
 import PlayHighQuality from './PlayHighQuality'
+import ShowActualQuality from './ShowActualQuality'
+import ShowActualPlatform from './ShowActualPlatform'
 import IsHandleAudioFocus from './IsHandleAudioFocus'
 import IsEnableAudioOffload from './IsEnableAudioOffload'
 import IsEnableAudioPreload from './IsEnableAudioPreload'
@@ -44,6 +46,8 @@ export default memo(() => {
       <ToggleSourceMaxRetry />
       <IsEnableFailureStrategy />
       <FailureStrategy />
+      <ShowActualQuality />
+      <ShowActualPlatform />
       <PlayHighQuality />
     </Section>
   )

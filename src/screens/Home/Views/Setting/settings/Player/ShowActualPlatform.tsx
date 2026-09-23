@@ -1,25 +1,22 @@
+import { memo } from 'react'
+import { View } from 'react-native'
+
 import { updateSetting } from '@/core/common'
 import { useI18n } from '@/lang'
 import { createStyle } from '@/utils/tools'
-import { memo } from 'react'
-import { View } from 'react-native'
 import { useSettingValue } from '@/store/setting/hook'
-
 import CheckBoxItem from '../../components/CheckBoxItem'
 
 export default memo(() => {
   const t = useI18n()
-  const isShowMyListSubMenu = useSettingValue('list.isShowMyListSubMenu')
-  const setShowMyListSubMenu = (isShowMyListSubMenu: boolean) => {
-    updateSetting({ 'list.isShowMyListSubMenu': isShowMyListSubMenu })
-  }
+  const showActualPlatform = useSettingValue('player.showActualPlatform')
 
   return (
     <View style={styles.content}>
       <CheckBoxItem
-        check={isShowMyListSubMenu}
-        label={t('setting_basic_show_my_list_sub_menu')}
-        onChange={setShowMyListSubMenu}
+        check={showActualPlatform}
+        label={t('setting_player_show_actual_platform')}
+        onChange={(value) => updateSetting({ 'player.showActualPlatform': value })}
       />
     </View>
   )

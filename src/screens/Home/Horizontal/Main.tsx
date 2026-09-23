@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Search from '../Views/Search'
 import SongList from '../Views/SongList'
 import Mylist from '../Views/Mylist'
+import ListLayoutHub from '../Views/Mylist/ListLayoutHub'
 import Leaderboard from '../Views/Leaderboard'
 import Setting from '../Views/Setting'
 import commonState, { type InitState as CommonState } from '@/store/common/state'
@@ -18,6 +19,7 @@ import TXPlaylist from '../Views/TxPlaylist'
 import KgPlaylist from '../Views/KgPlaylist'
 import KgDailyRec from '../Views/KgDailyRec'
 import LandscapeCentered from '@/components/LandscapeCentered'
+import { useSettingValue } from '@/store/setting/hook'
 
 // 以下子页面在 iPad 横屏右栏内保持原样（铺满右栏）：
 //  - 已做精细横屏（Leaderboard/Setting）或自带 useHorizontalMode 处理（SubscribedAlbums/FollowedArtists）
@@ -47,6 +49,7 @@ const FULLWIDTH_LANDSCAPE_IDS = new Set([
 
 const Main = () => {
   const [id, setId] = useState(commonState.navActiveId)
+  const listLayoutMode = useSettingValue('list.layoutMode')
 
   useEffect(() => {
     const handleUpdate = (id: CommonState['navActiveId']) => {
@@ -89,14 +92,14 @@ const Main = () => {
       case 'nav_kg_daily_rec':
         return <KgDailyRec />
       case 'nav_love':
-        return <Mylist />
+        return listLayoutMode === 'classic' ? <Mylist /> : <ListLayoutHub mode={listLayoutMode} />
       case 'nav_setting':
         return <Setting />
       case 'nav_search':
       default:
         return <Search />
     }
-  }, [id])
+  }, [id, listLayoutMode])
 
   return FULLWIDTH_LANDSCAPE_IDS.has(id) ? component : <LandscapeCentered>{component}</LandscapeCentered>
 }

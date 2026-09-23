@@ -193,7 +193,7 @@ const playMusic = ((fn: (musicInfo: LX.Player.PlayMusic, url: string, time: numb
 })
 
 export const setResource = (musicInfo: LX.Player.PlayMusic, url: string, duration?: number, quality?: LX.Quality | null) => {
-  playerState.quality = quality ?? null
+  playerState.quality = quality ?? playerState.quality
   playMusic(musicInfo, url, duration ?? 0, quality)
 }
 

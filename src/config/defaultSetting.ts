@@ -83,6 +83,8 @@ const defaultSetting: LX.AppSetting = {
   'player.startupPushPlayDetailScreen': false,
   'player.togglePlayMethod': 'listLoop',
   'player.playQuality': '320k',
+  'player.showActualQuality': true,
+  'player.showActualPlatform': true,
   'player.isSavePlayTime': true,
   'player.isSwipeToShowPlaylist': true,
   'player.volume': 1,
@@ -144,7 +146,7 @@ const defaultSetting: LX.AppSetting = {
   'list.isShowMyListSubMenu': false,
   'list.isAutoSaveDailyRec': true,
   'list.isShowCover': true,
-  'list.isNewListUI': true,
+  'list.layoutMode': 'classic',
 
   'menu.playLater': true,
   'menu.addTo': true,

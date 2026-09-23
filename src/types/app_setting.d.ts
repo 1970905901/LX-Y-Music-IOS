@@ -17,6 +17,16 @@ declare global {
       'version.autoCheckUpdate': boolean
 
       /**
+       * 是否显示实际播放音质
+       */
+      'player.showActualQuality': boolean
+
+      /**
+       * 是否显示实际播放平台
+       */
+      'player.showActualPlatform': boolean
+
+      /**
        * 播放详情页-封面大小
        */
       'playDetail.style.coverSize': number
@@ -168,6 +178,11 @@ declare global {
 
       'list.isShowMyListSubMenu': boolean
       'list.isAutoSaveDailyRec': boolean
+
+      /**
+       * 列表布局样式
+       */
+      'list.layoutMode': 'classic' | 'card' | 'library'
 
       'menu.playLater': boolean
       'menu.addTo': boolean

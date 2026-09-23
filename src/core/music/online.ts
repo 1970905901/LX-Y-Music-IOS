@@ -1,6 +1,7 @@
 import { saveLyric, saveMusicUrl, clearMusicUrl, getMusicUrl as getStoreMusicUrl, storageDataPrefix } from '@/utils/data'
 import { updateListMusics } from '@/core/list'
 import settingState from '@/store/setting/state'
+import playerState from '@/store/player/state'
 
 import wySdk from '@/utils/musicSdk/wy'
 import {
@@ -81,6 +82,8 @@ export const getMusicUrl = async ({
   }
 
   const targetQuality = quality ?? getPlayQuality(preferredQuality, currentMusicInfo);
+  playerState.quality = targetQuality
+  global.state_event.playerQualityChanged(playerState.quality)
 
   // 如果不是刷新请求，先检查缓存
   if (!isRefresh) {
@@ -110,6 +113,12 @@ export const getMusicUrl = async ({
       if (!silent) console.log('Custom API request succeeded', result);
       if (!silent) console.log("### [WHITEBOX_API_URL] 异步 URL 真正就绪 ###", { title: currentMusicInfo.name, songId: currentMusicInfo.id, url: result.url });
       void saveMusicUrl(currentMusicInfo, result.quality, result.url);
+      playerState.quality = result.quality
+      global.state_event.playerQualityChanged(playerState.quality)
+      if (result.musicInfo.source !== currentMusicInfo.source) {
+        playerState.source = result.musicInfo.source
+        global.state_event.playerSourceChanged(playerState.source)
+      }
       return result.url;
     } catch (apiError) {
       if (!silent) console.log('Custom API request failed', apiError);
@@ -123,6 +132,8 @@ export const getMusicUrl = async ({
       if (url) {
         void saveMusicUrl(currentMusicInfo, targetQuality, url);
         if (currentMusicInfo.id !== musicInfo.id) void saveMusicUrl(musicInfo, targetQuality, url);
+        playerState.quality = targetQuality
+        global.state_event.playerQualityChanged(playerState.quality)
         return url;
       }
     } catch (error) {

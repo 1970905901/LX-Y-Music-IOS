@@ -122,6 +122,20 @@ export const NAV_MENUS = [
 
 export type NAV_ID_Type = (typeof NAV_MENUS)[number]['id']
 
+export type ListLayoutMode = 'classic' | 'card' | 'library'
+
+const LIST_LAYOUT_HIDDEN_NAVS: Record<Exclude<ListLayoutMode, 'classic'>, NAV_ID_Type[]> = {
+  card: ['nav_songlist', 'nav_top', 'nav_local_download'],
+  library: [
+    'nav_songlist',
+    'nav_top',
+    'nav_local_download',
+    'nav_my_playlist',
+    'nav_tx_playlist',
+    'nav_kg_playlist',
+  ],
+}
+
 /**
  * 扁平模式（关闭侧边栏分组）下的有效导航顺序。
  * 以用户自定义的 navFlatOrder 为主；都没有时回退到 navOrder；再回退到 NAV_MENUS 默认顺序。
@@ -144,6 +158,20 @@ export const getEffectiveFlatOrder = (
   const set = new Set(validBase)
   const extra = allMenuIds.filter(id => !set.has(id))
   return extra.length ? [...validBase, ...extra] : validBase
+}
+
+export const getVisibleNavIds = (
+  navIds: NAV_ID_Type[],
+  navStatus: Partial<Record<NAV_ID_Type, boolean>>,
+  layoutMode: ListLayoutMode = 'classic',
+  options: { includePlayHistory?: boolean } = {},
+): NAV_ID_Type[] => {
+  const hiddenNavs = layoutMode === 'classic' ? [] : LIST_LAYOUT_HIDDEN_NAVS[layoutMode]
+  return navIds.filter(id => {
+    if (id === 'nav_play_history' && !options.includePlayHistory) return false
+    if (layoutMode !== 'classic' && id === 'nav_love') return true
+    return (id === 'nav_setting' || (navStatus[id] ?? true)) && !hiddenNavs.includes(id)
+  })
 }
 
 export const LXM_FILE_EXT_RXP = ['json', 'lxmc', 'bin']

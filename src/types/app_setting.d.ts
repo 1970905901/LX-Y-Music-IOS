@@ -27,6 +27,11 @@ declare global {
       'player.showActualPlatform': boolean
 
       /**
+       * 是否缓存歌曲播放链接
+       */
+      'player.isEnableUrlCache': boolean
+
+      /**
        * 播放详情页-封面大小
        */
       'playDetail.style.coverSize': number

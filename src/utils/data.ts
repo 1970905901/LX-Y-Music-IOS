@@ -9,6 +9,7 @@ import {
 } from '@/plugins/storage'
 import { DEFAULT_SETTING, LIST_IDS, storageDataPrefix, type NAV_ID_Type } from '@/config/constant'
 export { storageDataPrefix }
+import settingState from '@/store/setting/state'
 import { throttle } from './common'
 // import { gzip, ungzip } from '@/utils/nativeModules/gzip'
 // import { readFile, writeFile, temporaryDirectoryPath, unlink } from '@/utils/fs'
@@ -365,10 +366,17 @@ export const removeListMusics = async (ids: string[]): Promise<void> => {
   // delaySaveListScrollPosition(global.lx.listScrollPosition)
 }
 
-export const getMusicUrl = async (musicInfo: LX.Music.MusicInfo, type: LX.Quality) =>
-  getData<string>(`${storageDataPrefix.musicUrl}${musicInfo.id}_${type}`).then((url) => url ?? '')
-export const saveMusicUrl = async (musicInfo: LX.Music.MusicInfo, type: LX.Quality, url: string) =>
-  saveData(`${storageDataPrefix.musicUrl}${musicInfo.id}_${type}`, url)
+const isMusicUrlCacheEnabled = () => settingState.setting['player.isEnableUrlCache'] ?? true
+
+export const getMusicUrl = async (musicInfo: LX.Music.MusicInfo, type: LX.Quality) => {
+  if (!isMusicUrlCacheEnabled()) return ''
+  return getData<string>(`${storageDataPrefix.musicUrl}${musicInfo.id}_${type}`).then((url) => url ?? '')
+}
+
+export const saveMusicUrl = async (musicInfo: LX.Music.MusicInfo, type: LX.Quality, url: string) => {
+  if (!isMusicUrlCacheEnabled()) return
+  await saveData(`${storageDataPrefix.musicUrl}${musicInfo.id}_${type}`, url)
+}
 export const clearMusicUrl = async (keys?: string[]) => {
   if (!keys) keys = (await getAllKeys()).filter((key) => key.startsWith(storageDataPrefix.musicUrl))
   await removeDataMultiple(keys)

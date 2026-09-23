@@ -9,6 +9,7 @@ import ShowActualPlatform from './ShowActualPlatform'
 import IsHandleAudioFocus from './IsHandleAudioFocus'
 import IsEnableAudioOffload from './IsEnableAudioOffload'
 import IsEnableAudioPreload from './IsEnableAudioPreload'
+import UrlCache from './UrlCache'
 import UseNativeFlacPlayer from './UseNativeFlacPlayer'
 import IsAutoCleanPlayedList from './IsAutoCleanPlayedList'
 import IsShowBluetoothLyric from './IsShowBluetoothLyric'
@@ -36,6 +37,7 @@ export default memo(() => {
       <IsHandleAudioFocus />
       <IsEnableAudioOffload />
       <IsEnableAudioPreload />
+      <UrlCache />
       <UseNativeFlacPlayer />
       <IsShowBluetoothLyric />
       <IsShowLyricTranslation />

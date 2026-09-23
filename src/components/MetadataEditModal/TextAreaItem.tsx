@@ -6,6 +6,7 @@ import Input from '@/components/common/Input'
 import { useTheme } from '@/store/theme/hook'
 import Text from '@/components/common/Text'
 import { createStyle } from '@/utils/tools'
+import { designRadius, designSpacing } from '@/theme/DesignTokens'
 
 export interface TextAreaItemProps extends InputProps {
   value: string
@@ -46,7 +47,6 @@ export default memo(
           value={value}
           onChangeText={onChanged}
           scrollEnabled={false}
-          textAlignVertical="top"
           multiline
           style={StyleSheet.compose(
             { ...styles.textarea, backgroundColor: theme['c-primary-input-background'] },
@@ -62,7 +62,7 @@ export default memo(
 const styles = createStyle({
   container: {
     // paddingLeft: 25,
-    marginBottom: 15,
+    marginBottom: designSpacing.sm,
   },
   header: {
     flexDirection: 'row',
@@ -71,17 +71,18 @@ const styles = createStyle({
     gap: 30,
   },
   label: {
-    marginBottom: 2,
+    marginBottom: designSpacing.xs,
   },
   btns: {
     flexDirection: 'row',
-    gap: 15,
+    gap: designSpacing.sm,
   },
   textarea: {
     flexGrow: 1,
     flexShrink: 1,
-    paddingTop: 3,
-    paddingBottom: 3,
+    paddingTop: designSpacing.xs,
+    paddingBottom: designSpacing.xs,
+    borderRadius: designRadius.sm,
     height: 'auto',
     // height: 300,
     // maxWidth: 300,

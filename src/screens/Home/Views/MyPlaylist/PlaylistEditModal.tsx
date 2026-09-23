@@ -8,6 +8,7 @@ import { useTheme } from '@/store/theme/hook'
 import wyApi from '@/utils/musicSdk/wy/user'
 import { updateWySubscribedPlaylist } from '@/store/user/action'
 import {SubscribedPlaylistInfo} from "@/store/user/state.ts";
+import { designRadius, designSpacing } from '@/theme/DesignTokens'
 
 interface PlaylistInfo {
   id: string
@@ -101,8 +102,7 @@ export default forwardRef<PlaylistEditModalType, {}>((props, ref) => {
           onChangeText={setDesc}
           placeholder="请输入描述"
           multiline
-          textAlignVertical="top"
-          style={{ height: 100, backgroundColor: theme['c-primary-input-background'] }}
+          style={{ height: 100, borderRadius: designRadius.sm, backgroundColor: theme['c-primary-input-background'] }}
         />
       </View>
     </ConfirmAlert>
@@ -111,11 +111,11 @@ export default forwardRef<PlaylistEditModalType, {}>((props, ref) => {
 
 const styles = createStyle({
   content: {
-    paddingHorizontal: 15,
-    paddingTop: 10,
-    paddingBottom: 15,
+    paddingHorizontal: designSpacing.sm,
+    paddingTop: designSpacing.xs,
+    paddingBottom: designSpacing.sm,
   },
   label: {
-    marginBottom: 5,
+    marginBottom: designSpacing.xs,
   },
 })

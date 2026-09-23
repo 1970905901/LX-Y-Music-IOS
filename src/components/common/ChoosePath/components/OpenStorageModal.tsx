@@ -11,6 +11,7 @@ import Button from '@/components/common/Button'
 import ButtonPrimary from '@/components/common/ButtonPrimary'
 import { useUnmounted } from '@/utils/hooks'
 import { Icon } from '@/components/common/Icon'
+import { designRadius, designSpacing } from '@/theme/DesignTokens'
 import type { PathItem } from './ListItem'
 const filterFileName = /[\\:*?#"<>|]/
 
@@ -44,7 +45,6 @@ const PathInput = forwardRef<PathInputType, {}>((props, ref) => {
       onChangeText={setText}
       multiline
       numberOfLines={3}
-      textAlignVertical="top"
       style={{ ...styles.input, backgroundColor: theme['c-primary-input-background'] }}
     />
   )
@@ -185,7 +185,7 @@ const styles = createStyle({
     flexDirection: 'column',
   },
   newFolderTitle: {
-    marginBottom: 5,
+    marginBottom: designSpacing.xs,
     width: 300,
     maxWidth: '100%',
   },
@@ -193,36 +193,36 @@ const styles = createStyle({
     flexGrow: 1,
     flexShrink: 1,
     minWidth: 240,
-    borderRadius: 4,
-    paddingTop: 3,
-    paddingBottom: 3,
+    borderRadius: designRadius.sm,
+    paddingTop: designSpacing.xs,
+    paddingBottom: designSpacing.xs,
     height: 'auto',
   },
   list: {
     flexGrow: 1,
     flexShrink: 1,
-    marginVertical: 10,
+    marginVertical: designSpacing.sm,
   },
   listContentItem: {
-    paddingVertical: 10,
+    paddingVertical: designSpacing.xs,
     flexDirection: 'row',
   },
   pathBtn: {
-    paddingHorizontal: 5,
-    paddingVertical: 10,
+    paddingHorizontal: designSpacing.xs,
+    paddingVertical: designSpacing.xs,
     flex: 1,
   },
   removeBtn: {
     flex: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 15,
+    paddingVertical: designSpacing.xs,
+    paddingHorizontal: designSpacing.sm,
   },
   tips: {
     flexDirection: 'column',
     alignItems: 'flex-start',
-    gap: 10,
+    gap: designSpacing.sm,
   },
   tip: {
     flex: 1,

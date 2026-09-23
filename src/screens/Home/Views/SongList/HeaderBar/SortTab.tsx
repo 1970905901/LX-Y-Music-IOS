@@ -43,6 +43,7 @@ export default forwardRef<SortTabType, SortTabProps>(({ onSortChange }, ref) => 
     <ScrollView
       ref={scrollViewRef}
       style={styles.container}
+      contentContainerStyle={styles.content}
       keyboardShouldPersistTaps={'always'}
       horizontal
     >
@@ -86,6 +87,9 @@ const styles = createStyle({
     paddingRight: designSpacing.sm,
     marginRight: designSpacing.xs,
     borderRadius: designRadius.pill,
+  },
+  content: {
+    alignItems: 'center',
   },
   buttonText: {
     textAlign: 'center',

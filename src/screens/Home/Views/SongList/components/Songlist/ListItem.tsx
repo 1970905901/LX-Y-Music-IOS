@@ -7,6 +7,7 @@ import { scaleSizeW } from '@/utils/pixelRatio'
 import { NAV_SHEAR_NATIVE_IDS } from '@/config/constant'
 import { useTheme } from '@/store/theme/hook'
 import Image from '@/components/common/Image'
+import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
 
 const gap = scaleSizeW(15)
 export default memo(
@@ -35,11 +36,20 @@ export default memo(
             <Image
               url={item.img}
               nativeID={`${NAV_SHEAR_NATIVE_IDS.songlistDetail_pic}_from_${item.id}`}
-              style={{ width: itemWidth, height: itemWidth, borderRadius: 4 }}
+              style={{
+                width: itemWidth,
+                height: itemWidth,
+                borderRadius: designRadius.lg,
+              }}
             />
             {showSource ? (
-              <Text style={styles.sourceLabel} size={9} color="#fff">
+              <Text style={styles.sourceLabel} size={11} color="#FFFFFF">
                 {item.source}
+              </Text>
+            ) : null}
+            {item.play_count ? (
+              <Text style={styles.playCount} size={11} color="#FFFFFF" numberOfLines={1}>
+                {item.play_count}
               </Text>
             ) : null}
           </TouchableOpacity>
@@ -63,9 +73,8 @@ const styles = createStyle({
     margin: 10,
   },
   listItemImg: {
-    // backgroundColor: '#eee',
-    borderRadius: 4,
-    marginBottom: 5,
+    borderRadius: designRadius.lg,
+    marginBottom: designSpacing.sm,
     overflow: 'hidden',
     // iOS 专属阴影（仅 iPhone/iPad）
     shadowColor: '#000',
@@ -77,17 +86,30 @@ const styles = createStyle({
     shadowRadius: 1.41,
   },
   sourceLabel: {
-    paddingLeft: 4,
-    paddingBottom: 2,
-    paddingRight: 4,
+    paddingLeft: 8,
+    paddingTop: 3,
+    paddingBottom: 3,
+    paddingRight: 8,
     position: 'absolute',
-    top: 0,
-    right: 0,
-    borderBottomLeftRadius: 3,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    left: 8,
+    bottom: 8,
+    borderRadius: 999,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+  },
+  playCount: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    borderRadius: 999,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
   },
   listItemTitle: {
-    fontSize: 12,
+    fontSize: designTypography.caption,
+    fontWeight: '600',
     // overflow: 'hidden',
     marginBottom: 5,
   },

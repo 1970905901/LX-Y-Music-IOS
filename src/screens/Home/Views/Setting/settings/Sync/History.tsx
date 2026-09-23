@@ -12,6 +12,7 @@ import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
 import { useSettingValue } from '@/store/setting/hook'
 import { createStyle } from '@/utils/tools'
+import { designSpacing } from '@/theme/DesignTokens'
 
 type SyncHistoryItem = Awaited<ReturnType<typeof getSyncHostHistory>>[number]
 
@@ -158,30 +159,30 @@ export default memo(({ setHost }: { setHost: (host: string) => void }) => {
 const styles = createStyle({
   btn: {
     flexDirection: 'row',
-    marginLeft: 25,
-    marginBottom: 15,
+    marginLeft: designSpacing.md,
+    marginBottom: designSpacing.sm,
   },
   tipText: {
     textAlign: 'center',
-    marginTop: 15,
+    marginTop: designSpacing.sm,
   },
   list: {
     flexShrink: 1,
     flexGrow: 0,
-    paddingLeft: 15,
-    paddingRight: 15,
+    paddingHorizontal: designSpacing.md,
+    paddingBottom: designSpacing.sm,
   },
   listItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: 8,
-    paddingBottom: 8,
+    paddingTop: designSpacing.xs,
+    paddingBottom: designSpacing.xs,
     borderBottomWidth: BorderWidths.normal,
   },
   listName: {
     flex: 1,
   },
   listBtn: {
-    padding: 5,
+    padding: designSpacing.xs,
   },
 })

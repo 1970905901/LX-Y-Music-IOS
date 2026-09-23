@@ -8,7 +8,8 @@ import { createStyle } from '@/utils/tools'
 import { shadow } from '@/utils/shadow'
 import { useTheme } from '@/store/theme/hook'
 import Text from './Text'
-import { useStatusbarHeight } from '@/store/common/hook'
+import { useStatusbarHeight, useSafeAreaBottom } from '@/store/common/hook'
+import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
 
 const styles = createStyle({
   centeredView: {
@@ -25,15 +26,16 @@ const styles = createStyle({
   header: {
     flex: 0,
     flexDirection: 'row',
-    borderTopLeftRadius: 8,
-    borderTopRightRadius: 8,
+    borderTopLeftRadius: designRadius.lg,
+    borderTopRightRadius: designRadius.lg,
   },
   title: {
-    paddingLeft: 10,
-    paddingRight: 25,
-    paddingTop: 10,
-    paddingBottom: 10,
-    // lineHeight: 20,
+    flex: 1,
+    paddingLeft: designSpacing.md,
+    paddingRight: designSpacing.xl,
+    paddingTop: designSpacing.sm,
+    paddingBottom: designSpacing.sm,
+    fontWeight: '600',
   },
   closeBtn: {
     position: 'absolute',
@@ -41,8 +43,8 @@ const styles = createStyle({
     // borderTopRightRadius: 8,
     flexGrow: 0,
     flexShrink: 0,
-    height: 30,
-    width: 30,
+    height: 36,
+    width: 36,
     justifyContent: 'center',
     alignItems: 'center',
     // backgroundColor: '#eee',
@@ -80,6 +82,7 @@ export default forwardRef<PopupType, PopupProps>(
     const { keyboardShown, keyboardHeight } = useKeyboard()
     const statusBarHeight = useStatusbarHeight()
     const isHorizontal = useHorizontalMode()
+    const safeAreaBottom = useSafeAreaBottom()
 
     const modalRef = useRef<ModalType>(null)
 
@@ -181,8 +184,8 @@ export default forwardRef<PopupType, PopupProps>(
               maxHeight: '78%',
               minHeight: '20%',
               // backgroundColor: 'white',
-              borderTopLeftRadius: 8,
-              borderTopRightRadius: 8,
+              borderTopLeftRadius: designRadius.lg,
+              borderTopRightRadius: designRadius.lg,
             },
           ] as const
       }
@@ -200,7 +203,7 @@ export default forwardRef<PopupType, PopupProps>(
           style={{
             ...styles.centeredView,
             ...centeredViewStyle,
-            paddingBottom: keyboardShown ? keyboardHeight : 0,
+            paddingBottom: keyboardShown ? keyboardHeight : position === 'bottom' ? safeAreaBottom : 0,
           }}
           pointerEvents="box-none"
         >
@@ -213,7 +216,7 @@ export default forwardRef<PopupType, PopupProps>(
             onStartShouldSetResponder={() => true}
           >
             <View style={styles.header}>
-              <Text size={13} style={styles.title} numberOfLines={1}>
+              <Text size={designTypography.body} style={styles.title} numberOfLines={1}>
                 {title}
               </Text>
               {closeBtnComponent}

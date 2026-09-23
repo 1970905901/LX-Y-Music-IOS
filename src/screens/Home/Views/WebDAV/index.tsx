@@ -35,6 +35,8 @@ import {
   updateWebDAVMusicMeta,
 } from '@/core/webdavMusic/drive'
 import settingState from '@/store/setting/state'
+import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
+import { useSafeAreaBottom } from '@/store/common/hook'
 import WebDAVListMenu, { type WebDAVListMenuType, type SelectInfo as WebDAVSelectInfo } from './WebDAVListMenu'
 import WebDAVDownloadPath from './components/WebDAVDownloadPath'
 import MetadataEditModal from '@/components/MetadataEditModal'
@@ -57,13 +59,19 @@ const TabButton = ({ label, tab, activeTab, onPress }: {
 }) => {
   const theme = useTheme()
   return (
-    <TouchableOpacity style={styles.tab} onPress={onPress}>
+    <TouchableOpacity
+      style={{
+        ...styles.tab,
+        backgroundColor: activeTab === tab ? theme['c-primary'] : theme['c-primary-light-900-alpha-300'],
+        borderColor: activeTab === tab ? theme['c-primary'] : theme['c-border-background'],
+      }}
+      onPress={onPress}
+    >
       <Text
         style={{
           ...styles.tabText,
-          borderBottomColor: activeTab === tab ? theme['c-primary-font-active'] : 'transparent',
+          color: activeTab === tab ? theme['c-primary-light-1000'] : theme['c-font-label'],
         }}
-        color={activeTab === tab ? theme['c-primary-font'] : theme['c-font']}
       >
         {label}
       </Text>
@@ -138,7 +146,12 @@ const SongItem = memo(
         style={{
           ...styles.songItem,
           width: rowWidth,
-          backgroundColor: isPlaying ? theme['c-primary-background-hover'] : 'transparent',
+          backgroundColor: isPlaying
+            ? theme['c-primary-background-hover']
+            : theme['c-content-background'],
+          borderColor: isPlaying
+            ? theme['c-primary-background-active']
+            : theme['c-border-background'],
         }}
       >
         <TouchableOpacity style={styles.songItemLeft} onPress={() => onPress(item)}>
@@ -150,13 +163,18 @@ const SongItem = memo(
             )}
           </View>
           <View style={styles.itemInfo}>
-            <Text color={isPlaying ? theme['c-primary-font'] : theme['c-font']} numberOfLines={1}>
+            <Text
+              size={designTypography.body}
+              style={styles.songTitle}
+              color={isPlaying ? theme['c-primary-font'] : theme['c-font']}
+              numberOfLines={1}
+            >
               {item.name || item.meta.fileName}
             </Text>
             <View style={styles.listItemSingle}>
               <Text
                 style={styles.listItemSingleText}
-                size={11}
+                size={designTypography.caption}
                 color={isPlaying ? theme['c-primary-alpha-200'] : theme['c-500']}
                 numberOfLines={1}
               >
@@ -164,14 +182,18 @@ const SongItem = memo(
               </Text>
             </View>
             {detailText ? (
-              <Text size={10} color={isPlaying ? theme['c-primary-alpha-200'] : theme['c-500']} numberOfLines={1}>
+              <Text
+                size={designTypography.caption}
+                color={isPlaying ? theme['c-primary-alpha-200'] : theme['c-500']}
+                numberOfLines={1}
+              >
                 {detailText}
               </Text>
             ) : null}
           </View>
         </TouchableOpacity>
         <TouchableOpacity onPress={handleShowMenu} ref={moreButtonRef} style={styles.moreButton}>
-          <Icon name="dots-vertical" style={{ color: theme['c-350'] }} size={12} />
+          <Icon name="dots-vertical" style={{ color: theme['c-350'] }} size={17} />
         </TouchableOpacity>
       </View>
     )
@@ -627,6 +649,7 @@ export default memo(() => {
   // 被拉得过长、左右留白；竖屏保持单列零回归。
   // numColumns 变更时 FlatList 必须重挂载（RN 不支持运行中改列数），故加 key。
   const isHorizontal = useHorizontalMode()
+  const safeAreaBottom = useSafeAreaBottom()
   const rowInfo = useMemo(() => getRowInfo(), [isHorizontal])
   const numColumns = rowInfo.rowNum ?? 1
 
@@ -855,7 +878,7 @@ export default memo(() => {
         key={`cols-${numColumns}`}
         ref={listRef}
         data={filteredSongs}
-        contentContainerStyle={{ paddingBottom: 80 }}
+        contentContainerStyle={{ paddingBottom: 180 + safeAreaBottom }}
         numColumns={numColumns}
         renderItem={renderSong}
         keyExtractor={item => item.id}
@@ -917,16 +940,21 @@ const styles = createStyle({
   },
   tabs: {
     flexDirection: 'row',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 12,
+    height: 44,
+    paddingHorizontal: designSpacing.md,
+    alignItems: 'center',
+    gap: designSpacing.xs,
   },
   tab: {
-    paddingRight: 18,
+    height: 32,
+    paddingHorizontal: designSpacing.sm,
+    borderWidth: 1,
+    borderRadius: designRadius.pill,
+    justifyContent: 'center',
   },
   tabText: {
-    paddingTop: 10,
-    paddingBottom: 8,
-    borderBottomWidth: 2,
+    fontSize: designTypography.caption,
+    fontWeight: '600',
   },
   scroll: {
     flex: 1,
@@ -1008,7 +1036,11 @@ const styles = createStyle({
     flexDirection: 'row',
     flexWrap: 'nowrap',
     alignItems: 'center',
-    paddingRight: 2,
+    paddingLeft: designSpacing.sm,
+    paddingRight: designSpacing.sm,
+    marginBottom: designSpacing.sm,
+    borderWidth: 1,
+    borderRadius: designRadius.lg,
   },
   songItemLeft: {
     flex: 1,
@@ -1018,22 +1050,22 @@ const styles = createStyle({
     alignItems: 'center',
   },
   sn: {
-    width: 70,
+    width: 74,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingLeft: 5,
-    paddingRight: 5,
+    paddingLeft: designSpacing.xs,
+    paddingRight: designSpacing.xs,
   },
   albumArtPlaceholder: {
-    width: 52,
-    height: 52,
-    borderRadius: 4,
-    backgroundColor: 'rgba(0,0,0,0.1)',
+    width: 54,
+    height: 54,
+    borderRadius: designRadius.md,
+    backgroundColor: 'rgba(0,0,0,0.08)',
   },
   albumArt: {
-    width: 52,
-    height: 52,
-    borderRadius: 4,
+    width: 54,
+    height: 54,
+    borderRadius: designRadius.md,
   },
   itemInfo: {
     flexGrow: 1,
@@ -1047,12 +1079,15 @@ const styles = createStyle({
   listItemSingleText: {
     flexGrow: 0,
     flexShrink: 1,
-    fontWeight: '300',
+    fontWeight: '400',
+  },
+  songTitle: {
+    fontWeight: '600',
   },
   moreButton: {
     height: '80%',
-    paddingLeft: 10,
-    paddingRight: 16,
+    paddingLeft: designSpacing.sm,
+    paddingRight: designSpacing.sm,
     justifyContent: 'center',
   },
   empty: {

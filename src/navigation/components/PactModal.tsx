@@ -12,6 +12,7 @@ import { exitApp } from '@/utils/nativeModules/utils'
 import { updateSetting } from '@/core/common'
 import { initDeeplink } from '@/core/init/deeplink'
 import settingState from '@/store/setting/state'
+import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
 
 const Content = () => {
   const theme = useTheme()
@@ -32,7 +33,7 @@ const Content = () => {
 
   return (
     <View style={styles.main}>
-      <Text style={styles.title} size={18}>
+      <Text style={styles.title} size={designTypography.title}>
         许可协议
       </Text>
       <ScrollView style={styles.content} keyboardShouldPersistTaps={'always'}>
@@ -228,7 +229,7 @@ const Footer = ({ componentId }: { componentId: string }) => {
   return (
     <>
       {isAgreePact ? null : (
-        <Text selectable style={styles.tip} size={13}>
+        <Text selectable style={styles.tip} size={designTypography.caption}>
           若你（使用者）接受以上协议，请点击下面的“接受”按钮签署本协议；若不接受，请点击“不接受”后退出软件并清除本软件的所有数据。
         </Text>
       )}
@@ -266,68 +267,67 @@ const styles = createStyle({
   main: {
     // flexGrow: 0,
     flexShrink: 1,
-    marginTop: 15,
-    marginBottom: 10,
+    marginTop: designSpacing.sm,
+    marginBottom: designSpacing.xs,
   },
   content: {
     flexGrow: 0,
-    marginLeft: 5,
-    marginRight: 5,
-    paddingLeft: 10,
-    paddingRight: 10,
+    marginLeft: designSpacing.xs,
+    marginRight: designSpacing.xs,
+    paddingLeft: designSpacing.sm,
+    paddingRight: designSpacing.sm,
   },
   title: {
     textAlign: 'center',
-    marginBottom: 15,
+    marginBottom: designSpacing.sm,
   },
   part: {
-    marginBottom: 10,
+    marginBottom: designSpacing.xs,
   },
   text: {
-    fontSize: 14,
-    textAlignVertical: 'bottom',
-    marginBottom: 5,
+    fontSize: designTypography.body,
+    lineHeight: 22,
+    marginBottom: designSpacing.xs,
   },
   bold: {
-    fontSize: 14,
-    textAlignVertical: 'bottom',
+    fontSize: designTypography.body,
+    lineHeight: 22,
     fontWeight: 'bold',
   },
   tip: {
-    textAlignVertical: 'bottom',
     fontWeight: 'bold',
-    paddingLeft: 15,
-    paddingRight: 15,
-    paddingBottom: 15,
+    paddingLeft: designSpacing.sm,
+    paddingRight: designSpacing.sm,
+    paddingBottom: designSpacing.sm,
   },
   rewardWrap: {
-    marginTop: 15,
-    paddingLeft: 10,
-    paddingRight: 10,
-    paddingBottom: 10,
+    marginTop: designSpacing.sm,
+    paddingLeft: designSpacing.sm,
+    paddingRight: designSpacing.sm,
+    paddingBottom: designSpacing.sm,
   },
   rewardImage: {
     width: 200,
     height: 200,
-    marginTop: 10,
+    marginTop: designSpacing.xs,
+    borderRadius: designRadius.md,
     alignSelf: 'center',
   },
   btns: {
     flexDirection: 'row',
     justifyContent: 'center',
-    paddingBottom: 15,
-    paddingLeft: 15,
+    paddingBottom: designSpacing.sm,
+    paddingLeft: designSpacing.sm,
     // paddingRight: 15,
   },
   btn: {
     flex: 1,
-    paddingTop: 10,
-    paddingBottom: 10,
-    paddingLeft: 10,
-    paddingRight: 10,
+    height: 36,
+    paddingHorizontal: designSpacing.sm,
     alignItems: 'center',
-    borderRadius: 4,
-    marginRight: 15,
+    justifyContent: 'center',
+    borderRadius: designRadius.pill,
+    marginRight: designSpacing.sm,
   },
 })
 

@@ -6,48 +6,48 @@ import { createStyle } from '@/utils/tools'
 import { useI18n } from '@/lang/index'
 import { useTheme } from '@/store/theme/hook'
 import Text from './Text'
+import { designRadius, designSpacing } from '@/theme/DesignTokens'
 
 const styles = createStyle({
   main: {
     // flexGrow: 0,
     flexShrink: 1,
-    marginTop: 15,
-    marginLeft: 5,
-    marginRight: 5,
-    marginBottom: 25,
+    marginTop: designSpacing.sm,
+    marginLeft: designSpacing.xs,
+    marginRight: designSpacing.xs,
+    marginBottom: designSpacing.md,
   },
   content: {
     flexGrow: 0,
-    paddingLeft: 10,
-    paddingRight: 10,
+    paddingLeft: designSpacing.sm,
+    paddingRight: designSpacing.sm,
   },
   btns: {
     flexDirection: 'row',
     justifyContent: 'center',
-    paddingBottom: 15,
+    paddingBottom: designSpacing.sm,
     // paddingRight: 15,
   },
   btnsDirection: {
-    paddingLeft: 15,
+    paddingLeft: designSpacing.sm,
   },
   btnsReversedDirection: {
-    paddingLeft: 15,
+    paddingLeft: designSpacing.sm,
     flexDirection: 'row-reverse',
   },
   btn: {
     flex: 1,
-    paddingTop: 9,
-    paddingBottom: 9,
-    paddingLeft: 10,
-    paddingRight: 10,
+    height: 36,
+    paddingHorizontal: designSpacing.sm,
     alignItems: 'center',
-    borderRadius: 4,
+    justifyContent: 'center',
+    borderRadius: designRadius.pill,
   },
   btnDirection: {
-    marginRight: 15,
+    marginRight: designSpacing.sm,
   },
   btnReversedDirection: {
-    marginLeft: 15,
+    marginLeft: designSpacing.sm,
   },
 })
 

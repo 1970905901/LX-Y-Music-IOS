@@ -2,8 +2,9 @@ import { View } from 'react-native'
 import { useTheme } from '@/store/theme/hook'
 import { createStyle } from '@/utils/tools'
 import { shadow } from '@/utils/shadow'
+import { designRadius } from '@/theme/DesignTokens'
 // import { useWindowSize } from '@/utils/hooks'
-const HEADER_HEIGHT = 20
+const HEADER_HEIGHT = 36
 
 interface Props {
   children: React.ReactNode
@@ -36,7 +37,7 @@ const styles = createStyle({
     minWidth: 260,
     maxHeight: '78%',
     // backgroundColor: 'white',
-    borderRadius: 4,
+    borderRadius: designRadius.md,
     // iOS 浮层阴影（仅 iPhone/iPad；原 shadow 属性曾被注释导致 iOS 无投影）
     ...shadow(3),
   },
@@ -44,8 +45,8 @@ const styles = createStyle({
     flexGrow: 0,
     flexShrink: 0,
     flexDirection: 'row',
-    borderTopLeftRadius: 4,
-    borderTopRightRadius: 4,
+    borderTopLeftRadius: designRadius.md,
+    borderTopRightRadius: designRadius.md,
     height: HEADER_HEIGHT,
   },
 })

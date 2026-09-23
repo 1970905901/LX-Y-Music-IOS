@@ -15,7 +15,6 @@ import { apis } from '@/utils/musicSdk/api-source'
 import wySdk from '@/utils/musicSdk/wy'
 import { log } from '@/utils/log'
 import { state as userApiState } from '@/store/userApi'
-import playerState from '@/store/player/state'
 
 const isEnableUserApiLog = () => global.lx.isEnableUserApiLog
 
@@ -533,10 +532,6 @@ export const getOnlineOtherSourceMusicUrl = async ({
     userApiLog.info(`[换源播放] ========== 换源成功 ==========`)
     userApiLog.info(`[换源播放] 最终音源: "${musicInfo.source}"`)
     userApiLog.info(`[换源播放] 音质: ${itemQuality}`)
-    playerState.source = musicInfo.source
-    playerState.quality = itemQuality
-    global.state_event.playerSourceChanged(playerState.source)
-    global.state_event.playerQualityChanged(playerState.quality)
     return { url: cachedUrl, musicInfo, quality: itemQuality, isFromCache: true }
   }
 
@@ -600,10 +595,6 @@ export const getOnlineOtherSourceMusicUrl = async ({
       userApiLog.info(`[换源播放] 最终音源: "${musicInfo.source}"`)
       userApiLog.info(`[换源播放] 歌曲: "${musicInfo.name}" - "${musicInfo.singer}"`)
       userApiLog.info(`[换源播放] 音质: ${type}`)
-      playerState.source = musicInfo.source
-      playerState.quality = type
-      global.state_event.playerSourceChanged(playerState.source)
-      global.state_event.playerQualityChanged(playerState.quality)
       return { musicInfo, url, quality: type, isFromCache: false }
     })
     .catch((err: any) => {
@@ -885,8 +876,6 @@ export const handleGetOnlineMusicUrl = async ({
 
   return tryGetMusicUrlWithFallback(fallbackQualities)
     .then(({ url, type }) => {
-      playerState.quality = type
-      global.state_event.playerQualityChanged(playerState.quality)
       return { musicInfo, url, quality: type, isFromCache: false }
     })
     .catch(async (err: any) => {

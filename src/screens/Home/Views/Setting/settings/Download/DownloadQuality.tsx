@@ -6,8 +6,7 @@ import CheckBox from '@/components/common/CheckBox'
 import { useSettingValue } from '@/store/setting/hook'
 import { updateSetting } from '@/core/common'
 import { useI18n } from '@/lang'
-import { QUALITY_RANK } from '@/core/music/utils'
-import { getQualityName } from '@/utils/quality'
+import { TRY_QUALITYS_LIST } from '@/core/music/utils'
 
 const useActive = (id: LX.Quality) => {
   const q = useSettingValue('download.quality')
@@ -33,14 +32,14 @@ const Item = ({ id, name }: { id: LX.Quality; name: string }) => {
 export default memo(() => {
   const t = useI18n()
   const qualityList = useMemo(() => {
-    return [...QUALITY_RANK] as LX.Quality[]
+    return [...TRY_QUALITYS_LIST, '128k'].reverse() as LX.Quality[]
   }, [])
 
   return (
     <SubTitle title={t('setting_download_quality')}>
       <View style={styles.list}>
         {qualityList.map((q) => (
-          <Item name={getQualityName(q, t)} id={q} key={q} />
+          <Item name={t(q)} id={q} key={q} />
         ))}
       </View>
     </SubTitle>

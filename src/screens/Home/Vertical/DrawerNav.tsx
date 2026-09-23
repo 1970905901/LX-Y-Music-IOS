@@ -6,7 +6,7 @@ import { useTheme } from '@/store/theme/hook'
 import { Icon } from '@/components/common/Icon'
 import { SvgIcon } from '@/components/common/SvgIcon'
 import { confirmDialog, createStyle, exitApp as backHome } from '@/utils/tools'
-import { NAV_MENUS, type NAV_ID_Type, getEffectiveFlatOrder, getVisibleNavIds } from '@/config/constant'
+import { NAV_MENUS, type NAV_ID_Type, getEffectiveFlatOrder } from '@/config/constant'
 import type { InitState } from '@/store/common/state'
 import { exitApp, setNavActiveId } from '@/core/common'
 import Text from '@/components/common/Text'
@@ -202,7 +202,6 @@ export default memo(() => {
   const navOrder = useSettingValue('common.navOrder');
   const isShowMyListSubMenu = useSettingValue('list.isShowMyListSubMenu');
   const navFlatOrder = useSettingValue('common.navFlatOrder');
-  const listLayoutMode = useSettingValue('list.layoutMode');
   const sidebarOpacity = useSettingValue('theme.sidebarOpacity');
   const statusBarHeight = useStatusbarHeight()
   const activeId = useNavActiveId()
@@ -233,15 +232,13 @@ export default memo(() => {
 
   const filteredNavMenus = useMemo(() => {
     const order: NAV_ID_Type[] = getEffectiveFlatOrder(navFlatOrder, navOrder)
-    if (!order?.length) {
-      return getVisibleNavIds(NAV_MENUS.map(menu => menu.id), navStatus, listLayoutMode)
-        .map(id => NAV_MENUS.find(menu => menu.id === id))
-        .filter((menu): menu is typeof NAV_MENUS[number] => menu !== undefined)
-    }
-    return getVisibleNavIds(order, navStatus, listLayoutMode)
+    if (!order?.length) return NAV_MENUS.filter(
+      menu => menu.id === 'nav_setting' || (navStatus[menu.id] ?? true)
+    )
+    return order
       .map(id => NAV_MENUS.find(menu => menu.id === id))
-      .filter((menu): menu is typeof NAV_MENUS[number] => menu !== undefined)
-  }, [navStatus, navOrder, navFlatOrder, listLayoutMode])
+      .filter((menu): menu is typeof NAV_MENUS[number] => menu !== undefined && (menu.id === 'nav_setting' || (navStatus[menu.id] ?? true)))
+  }, [navStatus, navOrder, navFlatOrder])
 
   return (
     <View style={{ ...styles.container, backgroundColor: bgColorWithOpacity }}>

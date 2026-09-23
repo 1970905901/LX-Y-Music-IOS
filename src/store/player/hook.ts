@@ -54,32 +54,6 @@ export const useStatusText = () => {
   return value
 }
 
-export const usePlayerQuality = () => {
-  const [value, update] = useState(state.quality)
-
-  useEffect(() => {
-    global.state_event.on('playerQualityChanged', update)
-    return () => {
-      global.state_event.off('playerQualityChanged', update)
-    }
-  }, [])
-
-  return value
-}
-
-export const usePlayerSource = () => {
-  const [value, update] = useState(state.source)
-
-  useEffect(() => {
-    global.state_event.on('playerSourceChanged', update)
-    return () => {
-      global.state_event.off('playerSourceChanged', update)
-    }
-  }, [])
-
-  return value
-}
-
 export const useIsPlay = () => {
   const [value, update] = useState(state.isPlay)
 

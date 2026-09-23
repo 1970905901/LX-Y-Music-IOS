@@ -5,7 +5,6 @@ import SongList from '../Views/SongList'
 import Mylist from '../Views/Mylist'
 import Leaderboard from '../Views/Leaderboard'
 import Setting from '../Views/Setting'
-import ListLayoutHub from '../Views/Mylist/ListLayoutHub'
 import commonState, { type InitState as CommonState } from '@/store/common/state'
 import { createStyle } from '@/utils/tools'
 import PagerView, {
@@ -19,7 +18,7 @@ import TXDailyRec from '../Views/DailyRec/TXDailyRec'
 import MyPlaylist from '../Views/MyPlaylist'
 import FollowedArtists from '../Views/FollowedArtists'
 import SubscribedAlbums from '../Views/SubscribedAlbums';
-import {NAV_MENUS, type NAV_ID_Type, getEffectiveFlatOrder, getVisibleNavIds} from "@/config/constant.ts";
+import {NAV_MENUS, type NAV_ID_Type, getEffectiveFlatOrder} from "@/config/constant.ts";
 import {useSettingValue} from "@/store/setting/hook.ts";
 import PlayHistory from '../Views/PlayHistory'
 import { useTheme } from '@/store/theme/hook'
@@ -128,6 +127,9 @@ const PlayHistoryOverlay = () => {
   ) : null
 }
 
+const isMenuVisible = (id: NAV_ID_Type, navStatus: Partial<Record<NAV_ID_Type, boolean>>) => (
+  id !== 'nav_play_history' && (id === 'nav_setting' || (navStatus[id] ?? true))
+)
 const LeaderboardPage = () => {
   const [visible, setVisible] = useState(commonState.navActiveId == 'nav_top')
   const component = useMemo(() => <Leaderboard />, [])
@@ -587,18 +589,17 @@ const Main = () => {
   const navStatus = useSettingValue('common.navStatus');
   const navOrder = useSettingValue('common.navOrder');
   const navFlatOrder = useSettingValue('common.navFlatOrder');
-  const listLayoutMode = useSettingValue('list.layoutMode');
 
   // 与侧边栏（DrawerNav）保持同一套“有效顺序”，否则二者不一致时点击侧边栏项会跳错页面。
   // 优先使用用户自定义的扁平顺序 navFlatOrder，否则回退 navOrder。
   const effectiveOrder = useMemo(() => getEffectiveFlatOrder(navFlatOrder, navOrder), [navFlatOrder, navOrder]);
 
   const visibleNavs = useMemo(() => {
-    return getVisibleNavIds(effectiveOrder, navStatus, listLayoutMode, { includePlayHistory: false }).map((id: NAV_ID_Type) => {
+    return effectiveOrder.filter((id: NAV_ID_Type) => isMenuVisible(id, navStatus)).map((id: NAV_ID_Type) => {
       const menuInfo = NAV_MENUS.find(menu => menu.id === id);
       return menuInfo || { id, icon: 'unknown' };
     });
-  }, [navStatus, effectiveOrder, listLayoutMode]);
+  }, [navStatus, effectiveOrder]);
 
   const { viewMap, indexMap } = useMemo(() => {
     const viewMap: Partial<Record<NAV_ID_Type, number>> = {};
@@ -721,7 +722,7 @@ const Main = () => {
       nav_search: <SearchPage />,
       nav_songlist: <SongListPage />,
       nav_top: <LeaderboardPage />,
-      nav_love: listLayoutMode === 'classic' ? <MylistPage /> : <ListLayoutHub mode={listLayoutMode} />,
+      nav_love: <MylistPage />,
       nav_daily_rec: <DailyRecPage />,
       nav_tx_daily_rec: <TXDailyRecPage />,
       nav_followed_artists: <FollowedArtistsPage />,
@@ -740,7 +741,7 @@ const Main = () => {
         {pageComponents[nav.id] ?? null}
       </View>
     ));
-  }, [visibleNavs, listLayoutMode]);
+  }, [visibleNavs]);
 
   return (
     <View style={styles.container}>

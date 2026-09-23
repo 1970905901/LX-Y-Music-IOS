@@ -1,0 +1,785 @@
+import { memo, useCallback, useMemo, useState, useEffect, useRef } from 'react'
+import {View, TouchableOpacity, FlatList, ActivityIndicator, RefreshControl, Animated, PanResponder, BackHandler} from 'react-native'
+import { useMyList, useActiveListId, useListFetching } from '@/store/list/hook'
+import { setActiveList, updateUserListPosition } from '@/core/list'
+import { fetchCoverUrl } from '@/core/music/coverUrl'
+import {getListMusics} from '@/utils/data'
+import { useTheme } from '@/store/theme/hook'
+import Text from '@/components/common/Text'
+import Image from '@/components/common/Image'
+import { Icon } from '@/components/common/Icon'
+import { createStyle } from '@/utils/tools'
+import commonState from '@/store/common/state'
+import MusicList from './MusicList'
+import { useHorizontalMode } from '@/utils/hooks'
+import ListMenu, { type ListMenuType, type Position } from './MyList/ListMenu'
+import ListNameEdit, { type ListNameEditType } from './MyList/ListNameEdit'
+import ListMusicSort, { type ListMusicSortType } from './MyList/ListMusicSort'
+import DuplicateMusic, { type DuplicateMusicType } from './MyList/DuplicateMusic'
+import ListImportExport, { type ListImportExportType } from './MyList/ListImportExport'
+import { handleRemove, handleSync } from './MyList/listAction'
+import { LIST_IDS } from '@/config/constant'
+import { scaleSizeH } from '@/utils/pixelRatio'
+import Loading from '@/components/common/Loading'
+import { Navigation } from 'react-native-navigation'
+
+const CARD_HEIGHT = scaleSizeH(90)
+const LONG_PRESS_MS = 350
+
+interface ListItemInfo {
+  id: string
+  name: string
+  cover: string
+  total: number
+  isFixed: boolean
+}
+
+interface DragAnim {
+  translateY: Animated.Value
+  scale: Animated.Value
+  opacity: Animated.Value
+}
+
+const createAnim = (): DragAnim => ({
+  translateY: new Animated.Value(0),
+  scale: new Animated.Value(1),
+  opacity: new Animated.Value(1),
+})
+
+type MenuPosition = { x: number; y: number; w: number; h: number }
+
+const FixedPlaylistCard = memo(({
+  item,
+  onPress,
+  onShowMenu,
+}: {
+  item: ListItemInfo
+  onPress: () => void
+  onShowMenu: (item: ListItemInfo, position: MenuPosition) => void
+}) => {
+  const theme = useTheme()
+  const fetching = useListFetching(item.id)
+  const moreButtonRef = useRef<TouchableOpacity>(null)
+
+  const handleShowMenu = () => {
+    if (moreButtonRef.current?.measure) {
+      moreButtonRef.current.measure((fx, fy, width, height, px, py) => {
+        onShowMenu(item, {
+          x: Math.ceil(px),
+          y: Math.ceil(py),
+          w: Math.ceil(width),
+          h: Math.ceil(height),
+        })
+      })
+    }
+  }
+
+  return (
+    <Animated.View style={[styles.cardContainer, { height: CARD_HEIGHT }]}>
+      <TouchableOpacity onPress={onPress} style={styles.cardContent}>
+        <Image url={item.cover} style={styles.artwork} />
+        <View style={styles.info}>
+          <Text size={16} numberOfLines={2} color={theme['c-font']}>{item.name}</Text>
+          {item.total > 0 ? (
+            <Text size={12} color={theme['c-font-label']}>{item.total} 首</Text>
+          ) : null}
+        </View>
+        {fetching ? (
+          <Loading color={theme['c-font']} style={styles.loading} />
+        ) : null}
+      </TouchableOpacity>
+      <TouchableOpacity onPress={handleShowMenu} ref={moreButtonRef} style={styles.moreBtn}>
+        <Icon name="dots-vertical" color={theme['c-350']} size={12} />
+      </TouchableOpacity>
+    </Animated.View>
+  )
+})
+
+const PlaylistCard = memo(({
+  item,
+  userListIndex,
+  onPress,
+  onShowMenu,
+  isDragging,
+  isDragSource,
+  translateY,
+  scale,
+  opacity,
+  zIndex,
+  onLayoutHeight,
+  onLongPressStart,
+  onDragMove,
+  onDragRelease,
+  onDragCancel,
+  onTouchStart,
+  onTouchEnd,
+}: {
+  item: ListItemInfo
+  userListIndex: number
+  onPress: () => void
+  onShowMenu: (item: ListItemInfo, index: number, position: MenuPosition) => void
+  isDragging: boolean
+  isDragSource: boolean
+  translateY: Animated.Value
+  scale: Animated.Value
+  opacity: Animated.Value
+  zIndex: number
+  onLayoutHeight: (index: number, height: number) => void
+  onLongPressStart: (index: number) => void
+  onDragMove: (dy: number) => void
+  onDragRelease: () => void
+  onDragCancel: () => void
+  onTouchStart: () => void
+  onTouchEnd: () => void
+}) => {
+  const theme = useTheme()
+  const fetching = useListFetching(item.id)
+  const moreButtonRef = useRef<TouchableOpacity>(null)
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isActivatedRef = useRef(false)
+  const currentDyRef = useRef(0)
+  const activationDyRef = useRef(0)
+
+  const clearLongPressTimer = () => {
+    if (longPressTimer.current != null) {
+      clearTimeout(longPressTimer.current)
+      longPressTimer.current = null
+    }
+  }
+
+  useEffect(() => {
+    return () => {
+      clearLongPressTimer()
+    }
+  }, [])
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onStartShouldSetPanResponderCapture: () => true,
+        // 关键修复：长按时立即接管手势，避免父级 ScrollView 抢占导致整页随拖动滚动。
+        onMoveShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponderCapture: () => true,
+        onPanResponderGrant: () => {
+          onTouchStart()
+          clearLongPressTimer()
+          isActivatedRef.current = false
+          currentDyRef.current = 0
+          longPressTimer.current = setTimeout(() => {
+            longPressTimer.current = null
+            isActivatedRef.current = true
+            // 记录激活瞬间的位移作为基准，避免松开/激活时条目突跳。
+            activationDyRef.current = currentDyRef.current
+            onLongPressStart(userListIndex)
+          }, LONG_PRESS_MS)
+        },
+        onPanResponderMove: (_e, gs) => {
+          currentDyRef.current = gs.dy
+          if (!isActivatedRef.current) {
+            // 激活前仅消费手势（防止 ScrollView 滚动），不触发拖动。
+            return
+          }
+          onDragMove(gs.dy - activationDyRef.current)
+        },
+        onPanResponderRelease: () => {
+          onTouchEnd()
+          clearLongPressTimer()
+          if (isActivatedRef.current) {
+            isActivatedRef.current = false
+            onDragRelease()
+          }
+        },
+        onPanResponderTerminate: () => {
+          onTouchEnd()
+          clearLongPressTimer()
+          if (isActivatedRef.current) {
+            isActivatedRef.current = false
+            onDragCancel()
+          }
+        },
+        // 一旦接管手势就不再释放给 ScrollView，避免整页被滚动。
+        onPanResponderTerminationRequest: () => false,
+      }),
+    [userListIndex, onLongPressStart, onDragMove, onDragRelease, onDragCancel, onTouchStart, onTouchEnd]
+  )
+
+  const handleShowMenu = () => {
+    if (moreButtonRef.current?.measure) {
+      moreButtonRef.current.measure((fx, fy, width, height, px, py) => {
+        onShowMenu(item, userListIndex, {
+          x: Math.ceil(px),
+          y: Math.ceil(py),
+          w: Math.ceil(width),
+          h: Math.ceil(height),
+        })
+      })
+    }
+  }
+
+  const transform = isDragSource
+    ? [{ translateY }, { scale }]
+    : [{ translateY }]
+  const shadowOpacity = isDragSource ? 0.25 : 0
+  const backgroundColor = isDragSource
+    ? theme['c-primary-background-active']
+    : 'transparent'
+
+  return (
+    <Animated.View
+      onLayout={(e) => onLayoutHeight(userListIndex, e.nativeEvent.layout.height)}
+      style={[
+        styles.cardContainer,
+        {
+          height: CARD_HEIGHT,
+          backgroundColor,
+          opacity,
+          transform,
+          zIndex,
+          shadowOpacity,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowRadius: 4,
+        },
+      ]}
+    >
+      <TouchableOpacity onPress={onPress} style={styles.cardContent}>
+        <Image
+          url={item.cover}
+          style={styles.artwork}
+        />
+        <View style={styles.info}>
+          <Text size={16} numberOfLines={2} color={theme['c-font']}>
+            {item.name}
+          </Text>
+          {item.total > 0 ? (
+            <Text size={12} color={theme['c-font-label']}>
+              {item.total} 首
+            </Text>
+          ) : null}
+        </View>
+        {fetching ? (
+          <Loading color={theme['c-font']} style={styles.loading} />
+        ) : null}
+      </TouchableOpacity>
+      {!item.isFixed && (
+        <View style={styles.dragHandle} {...panResponder.panHandlers}>
+          <Icon name="menu" color={theme['c-font-label']} size={14} />
+        </View>
+      )}
+      <TouchableOpacity onPress={handleShowMenu} ref={moreButtonRef} style={styles.moreBtn}>
+        <Icon name="dots-vertical" color={theme['c-350']} size={12} />
+      </TouchableOpacity>
+    </Animated.View>
+  )
+})
+
+export default memo(() => {
+  const theme = useTheme()
+  const allList = useMyList()
+  const activeListId = useActiveListId()
+  const isHorizontal = useHorizontalMode()
+
+  const [listInfoMap, setListInfoMap] = useState<Map<string, { cover: string; total: number }>>(new Map())
+  const [isLoading, setIsLoading] = useState(true)
+  const [hasError, setHasError] = useState(false)
+  const [showMusicList, setShowMusicList] = useState(false)
+  const [isTouchingDragHandle, setIsTouchingDragHandle] = useState(false)
+  const isFirstLoadRef = useRef(true)
+
+  const showMusicListRef = useRef(false)
+  useEffect(() => {
+    showMusicListRef.current = showMusicList
+  }, [showMusicList])
+
+  const handleBackToList = useCallback(() => {
+    setShowMusicList(false)
+    setActiveList(LIST_IDS.DEFAULT)
+  }, [])
+
+  useEffect(() => {
+    const onBackPress = () => {
+      if (showMusicListRef.current) {
+        if (commonState.componentIds.length > 1) {
+          return false
+        }
+        handleBackToList()
+        return true
+      }
+      return false
+    }
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress)
+    return () => subscription.remove()
+  }, [handleBackToList])
+
+  const heightsRef = useRef<number[]>([])
+  const animsRef = useRef<DragAnim[]>([])
+  const [draggingIndex, setDraggingIndex] = useState<number | null>(null)
+  const draggingIndexRef = useRef<number | null>(null)
+  const targetIndexRef = useRef<number | null>(null)
+  const lastTargetRef = useRef<number | null>(null)
+
+  const listMenuRef = useRef<ListMenuType>(null)
+  const listNameEditRef = useRef<ListNameEditType>(null)
+  const listMusicSortRef = useRef<ListMusicSortType>(null)
+  const duplicateMusicRef = useRef<DuplicateMusicType>(null)
+  const listImportExportRef = useRef<ListImportExportType>(null)
+
+  const userLists = useMemo(() => allList.filter(l => l.id !== LIST_IDS.DEFAULT && l.id !== LIST_IDS.LOVE), [allList])
+
+  if (animsRef.current.length !== userLists.length) {
+    if (animsRef.current.length < userLists.length) {
+      for (let i = animsRef.current.length; i < userLists.length; i++) {
+        animsRef.current.push(createAnim())
+      }
+    } else {
+      animsRef.current.length = userLists.length
+    }
+    heightsRef.current.length = userLists.length
+  }
+
+  const fetchListInfo = useCallback(async (listId: string) => {
+    try {
+      const musics = await getListMusics(listId)
+      const first = musics[0]
+      let cover = first?.meta?.picUrl || ''
+      // meta.picUrl 为空（WebDAV 同步 / 备份导入的歌单首曲常无封面）时按需动态补全，
+      // 复用列表项同一套 getPicPath 分发（带缓存 + 并发限制），与「歌曲列表有封面」保持一致。
+      // 在线获取偶发超时/失败会导致封面概率性空白，这里失败后短暂延迟再重试一次。
+      if (!cover && first) {
+        cover = await fetchCoverUrl(first)
+        if (!cover) {
+          await new Promise<void>((resolve) => {
+            setTimeout(resolve, 800)
+          })
+          cover = await fetchCoverUrl(first)
+        }
+      }
+      return { cover, total: musics.length }
+    } catch {
+      return { cover: '', total: 0 }
+    }
+  }, [])
+
+  const refreshListInfo = useCallback(async (isBackgroundRefresh = false) => {
+    // 首次加载显示 loading，后台刷新保留已有数据避免闪烁
+    if (!isBackgroundRefresh) {
+      setIsLoading(true)
+    }
+    setHasError(false)
+    try {
+      const fetched = new Map<string, { cover: string; total: number }>()
+      for (const list of allList) {
+        fetched.set(list.id, await fetchListInfo(list.id))
+      }
+      // 合并旧值：单次获取失败（网络抖动/接口超时）时新封面可能为空，
+      // 此时保留上一次成功的结果，避免刷新反而把已有封面洗掉。
+      setListInfoMap((prev) => {
+        const next = new Map<string, { cover: string; total: number }>()
+        for (const list of allList) {
+          const fresh = fetched.get(list.id)
+          next.set(list.id, {
+            cover: fresh?.cover || prev.get(list.id)?.cover || '',
+            total: fresh?.total ?? 0,
+          })
+        }
+        return next
+      })
+    } catch {
+      setHasError(true)
+    } finally {
+      setIsLoading(false)
+      isFirstLoadRef.current = false
+    }
+  }, [allList, fetchListInfo])
+
+  useEffect(() => {
+    void refreshListInfo()
+  }, [refreshListInfo])
+
+
+  useEffect(() => {
+    const subscription = Navigation.events().registerComponentDidAppearListener(({ componentId: appearedId }) => {
+      const homeId = commonState.componentIds.find(c => c.name === 'home')?.id
+      if (appearedId === homeId && !isFirstLoadRef.current) {
+        void refreshListInfo(true)
+      }
+    })
+    return () => subscription.remove()
+  }, [refreshListInfo])
+
+  const resetAllAnims = useCallback(() => {
+    for (const anim of animsRef.current) {
+      anim.translateY.stopAnimation()
+      anim.scale.stopAnimation()
+      anim.opacity.stopAnimation()
+      anim.translateY.setValue(0)
+      anim.scale.setValue(1)
+      anim.opacity.setValue(1)
+    }
+  }, [])
+
+  useEffect(() => {
+    resetAllAnims()
+  }, [resetAllAnims])
+
+  useEffect(() => {
+    const userListCount = userLists.length
+    while (animsRef.current.length < userListCount) {
+      animsRef.current.push(createAnim())
+    }
+    while (animsRef.current.length > userListCount) {
+      animsRef.current.pop()
+    }
+    resetAllAnims()
+  }, [allList, userLists, resetAllAnims])
+
+  useEffect(() => {
+    if (activeListId && activeListId !== LIST_IDS.DEFAULT) {
+      setShowMusicList(true)
+    }
+  }, [activeListId])
+
+  const handleItemPress = useCallback((item: ListItemInfo) => {
+    setActiveList(item.id)
+    setShowMusicList(true)
+  }, [])
+
+  const listItems = useMemo(() => {
+    return allList.map(list => {
+      const info = listInfoMap.get(list.id)
+      return {
+        id: list.id,
+        name: list.name,
+        cover: info?.cover || '',
+        total: info?.total || 0,
+        isFixed: list.id === LIST_IDS.DEFAULT || list.id === LIST_IDS.LOVE,
+      }
+    })
+  }, [allList, listInfoMap])
+
+  const handleLayoutHeight = useCallback((index: number, height: number) => {
+    heightsRef.current[index] = height
+  }, [])
+
+  const handleLongPressStart = useCallback((index: number) => {
+    draggingIndexRef.current = index
+    targetIndexRef.current = index
+    lastTargetRef.current = index
+    setDraggingIndex(index)
+    setIsTouchingDragHandle(true)
+    const anim = animsRef.current[index]
+    if (!anim) return
+    Animated.parallel([
+      Animated.spring(anim.scale, { toValue: 1.03, useNativeDriver: true, friction: 7 }),
+      Animated.timing(anim.opacity, { toValue: 0.92, duration: 120, useNativeDriver: true }),
+    ]).start()
+  }, [])
+
+  const computeTargetIndex = useCallback((from: number, dy: number) => {
+    const heights = heightsRef.current
+    const n = heights.length
+    if (n === 0) return from
+
+    const cumulative: number[] = []
+    let acc = 0
+    for (let i = 0; i < n; i++) {
+      cumulative.push(acc)
+      acc += heights[i] ?? 0
+    }
+    const draggedHeight = heights[from] ?? 0
+    const originalTop = cumulative[from] ?? 0
+    const newCenter = originalTop + dy + draggedHeight / 2
+
+    let target = from
+    let minDist = Infinity
+    for (let i = 0; i < n; i++) {
+      const itemCenter = (cumulative[i] ?? 0) + (heights[i] ?? 0) / 2
+      const dist = Math.abs(itemCenter - newCenter)
+      if (dist < minDist) {
+        minDist = dist
+        target = i
+      }
+    }
+    return target
+  }, [])
+
+  const animateLayout = useCallback((from: number, to: number) => {
+    const heights = heightsRef.current
+    const draggedHeight = heights[from] ?? 0
+    if (draggedHeight <= 0) return
+    for (let i = 0; i < animsRef.current.length; i++) {
+      if (i === from) continue
+      const anim = animsRef.current[i]
+      let target = 0
+      if (from < to) {
+        if (i > from && i <= to) target = -draggedHeight
+      } else if (from > to) {
+        if (i >= to && i < from) target = draggedHeight
+      }
+      Animated.spring(anim.translateY, {
+        toValue: target,
+        useNativeDriver: true,
+        friction: 9,
+        tension: 70,
+      }).start()
+    }
+  }, [])
+
+  const handleDragMove = useCallback(
+    (dy: number) => {
+      const from = draggingIndexRef.current
+      if (from == null) return
+      const anim = animsRef.current[from]
+      if (anim) anim.translateY.setValue(dy)
+      const target = computeTargetIndex(from, dy)
+      targetIndexRef.current = target
+      if (target !== lastTargetRef.current) {
+        lastTargetRef.current = target
+        animateLayout(from, target)
+      }
+    },
+    [computeTargetIndex, animateLayout]
+  )
+
+  const persistReorder = useCallback((from: number, to: number) => {
+    if (from === to) return
+    const next = [...userLists]
+    const [moved] = next.splice(from, 1)
+    if (!moved) return
+    next.splice(to, 0, moved)
+    updateUserListPosition(to, [moved.id])
+  }, [userLists])
+
+  const handleDragRelease = useCallback(() => {
+    const from = draggingIndexRef.current
+    const to = targetIndexRef.current ?? from
+    draggingIndexRef.current = null
+    targetIndexRef.current = null
+    lastTargetRef.current = null
+    setDraggingIndex(null)
+    setIsTouchingDragHandle(false)
+    if (from == null) return
+    resetAllAnims()
+    if (to != null && to !== from) {
+      persistReorder(from, to)
+    }
+  }, [persistReorder, resetAllAnims])
+
+  const handleDragCancel = useCallback(() => {
+    draggingIndexRef.current = null
+    targetIndexRef.current = null
+    lastTargetRef.current = null
+    setDraggingIndex(null)
+    setIsTouchingDragHandle(false)
+    resetAllAnims()
+  }, [resetAllAnims])
+
+  const handleTouchStart = useCallback(() => {
+    setIsTouchingDragHandle(true)
+  }, [])
+
+  const handleTouchEnd = useCallback(() => {
+    setIsTouchingDragHandle(false)
+  }, [])
+
+  const showMenu = useCallback((item: ListItemInfo, index: number, position: Position) => {
+    const listInfo = allList.find(l => l.id === item.id)
+    if (listInfo) {
+      listMenuRef.current?.show({ listInfo, index }, position)
+    }
+  }, [allList])
+
+  if (!isHorizontal && showMusicList) {
+    return <MusicList onBack={handleBackToList} />
+  }
+
+  const renderItem = ({ item }: { item: ListItemInfo }) => {
+    const userListIndex = userLists.findIndex(l => l.id === item.id)
+
+    if (item.isFixed) {
+      return (
+        <FixedPlaylistCard
+          item={item}
+          onPress={() => handleItemPress(item)}
+          onShowMenu={(itemInfo, position) => showMenu(itemInfo, -1, position)}
+        />
+      )
+    }
+
+    const anim = animsRef.current[userListIndex] ?? createAnim()
+    const isDragSource = draggingIndex === userListIndex
+
+    return (
+      <PlaylistCard
+        item={item}
+        userListIndex={userListIndex}
+        onPress={() => handleItemPress(item)}
+        onShowMenu={showMenu}
+        isDragging={draggingIndex != null}
+        isDragSource={isDragSource}
+        translateY={anim.translateY}
+        scale={anim.scale}
+        opacity={anim.opacity}
+        zIndex={isDragSource ? 10 : 1}
+        onLayoutHeight={handleLayoutHeight}
+        onLongPressStart={handleLongPressStart}
+        onDragMove={handleDragMove}
+        onDragRelease={handleDragRelease}
+        onDragCancel={handleDragCancel}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      />
+    )
+  }
+
+  const listPanel = (
+    <View style={styles.content}>
+      {hasError ? (
+        <View style={styles.errorContainer}>
+          <Text size={16} color={theme['c-font']} style={styles.errorText}>加载失败</Text>
+          <TouchableOpacity onPress={() => void refreshListInfo()} style={styles.retryButton}>
+            <Text size={14} color={theme['c-primary-font']}>点击尝试重新加载</Text>
+          </TouchableOpacity>
+        </View>
+      ) : isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator color={theme['c-primary-font']} size="large" />
+        </View>
+      ) : (
+        <>
+          <FlatList
+            data={listItems}
+            contentContainerStyle={{ paddingBottom: 80 }}
+            renderItem={renderItem}
+            keyExtractor={item => item.id}
+            style={styles.listContainer}
+            scrollEnabled={draggingIndex == null}
+            refreshControl={
+              <RefreshControl
+                refreshing={isLoading}
+                onRefresh={() => refreshListInfo(false)}
+                colors={[theme['c-primary-font']]}
+                enabled={!isTouchingDragHandle}
+              />
+            }
+          />
+          <ListNameEdit ref={listNameEditRef} />
+          <ListMusicSort ref={listMusicSortRef} />
+          <DuplicateMusic ref={duplicateMusicRef} />
+          <ListImportExport ref={listImportExportRef} />
+          <ListMenu
+            ref={listMenuRef}
+            onNew={(index) => listNameEditRef.current?.showCreate(index)}
+            onRename={(info) => listNameEditRef.current?.show(info)}
+            onSort={(info) => listMusicSortRef.current?.show(info)}
+            onDuplicateMusic={(info) => duplicateMusicRef.current?.show(info)}
+            onImport={(info, position) => listImportExportRef.current?.import(info, position)}
+            onExport={(info, position) => listImportExportRef.current?.export(info, position)}
+            onRemove={(info) => handleRemove(info)}
+            onSync={(info) => handleSync(info)}
+          />
+        </>
+      )}
+    </View>
+  )
+
+  // iPad 横屏：左栏列表名卡片 + 右栏歌曲列表（master-detail 分栏），竖屏走上面的整屏切换。
+  if (isHorizontal) {
+    const hasActiveList = showMusicList || (activeListId != null && activeListId !== LIST_IDS.DEFAULT)
+    return (
+      <View style={{ flex: 1, flexDirection: 'row' }}>
+        <View
+          style={{
+            // 百分比宽度：iPad 分屏 / Slide Over 下窗口宽度不定，
+            // 写死 360 且禁止收缩会把右栏挤到接近 0（Slide Over 时内容不可用）
+            width: '38%',
+            borderRightWidth: 1,
+            borderRightColor: theme['c-border-background'],
+          }}
+        >
+          {listPanel}
+        </View>
+        <View style={{ flex: 1, overflow: 'hidden' }}>
+          {hasActiveList ? (
+            <MusicList />
+          ) : (
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+              <Text size={13} color={theme['c-500']}>点击左侧列表查看歌曲</Text>
+            </View>
+          )}
+        </View>
+      </View>
+    )
+  }
+
+  return listPanel
+})
+
+const styles = createStyle({
+  content: {
+    flex: 1,
+  },
+  listContainer: {
+    flex: 1,
+  },
+  cardContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
+    overflow: 'hidden',
+  },
+  cardContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  artwork: {
+    width: 70,
+    height: 70,
+    borderRadius: 8,
+  },
+  info: {
+    flex: 1,
+    marginLeft: 15,
+  },
+  loading: {
+    marginLeft: 10,
+  },
+  dragHandle: {
+    paddingHorizontal: 6,
+    paddingVertical: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  moreBtn: {
+    height: '100%',
+    width: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    marginTop: 16,
+    marginBottom: 20,
+  },
+  retryButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    backgroundColor: 'rgba(0,0,0,0.1)',
+    borderRadius: 8,
+  },
+})

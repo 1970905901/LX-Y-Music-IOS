@@ -27,11 +27,6 @@ export interface InitState {
    */
   quality: LX.Quality | null
 
-  /**
-   * 当前播放平台（源）
-   */
-  source: LX.Source | null
-
   playedList: LX.Player.PlayMusicInfo[]
   tempPlayList: LX.Player.PlayMusicInfo[]
 
@@ -79,7 +74,6 @@ const state: InitState = {
   playRate: 1,
   statusText: '',
   quality: null,
-  source: null,
   loadErrorPicUrl: '',
 
   playedList: [],

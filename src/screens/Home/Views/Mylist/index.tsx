@@ -3,6 +3,7 @@ import { View } from 'react-native'
 import settingState from '@/store/setting/state'
 import MusicList from './MusicList'
 import MyList from './MyList'
+import NewListUI from './NewListUI'
 import { useTheme } from '@/store/theme/hook'
 import { shadow } from '@/utils/shadow'
 import DrawerLayoutFixed, {
@@ -21,6 +22,7 @@ const MAX_WIDTH = scaleSizeW(400)
 export default () => {
   const drawer = useRef<DrawerLayoutFixedType>(null)
   const theme = useTheme()
+  const isNewListUI = useSettingValue('list.isNewListUI')
   const isDynamicBg = useSettingValue('theme.dynamicBg')
   const isMylistDynamicBg = useSettingValue('theme.mylistDynamicBg')
   const dynamicPic = useBgPic()
@@ -83,6 +85,10 @@ export default () => {
     </View>
   )
   // console.log('render drawer content')
+
+  if (isNewListUI) {
+    return <NewListUI />
+  }
 
   return (
     <DrawerLayoutFixed

@@ -11,6 +11,8 @@ import IsAllowProgressBarSeek from './IsAllowProgressBarSeek'
 import IsShowBackBtn from './IsShowBackBtn'
 import IsShowExitBtn from './IsShowExitBtn'
 import DrawerLayoutPosition from './DrawerLayoutPosition'
+import IsShowMyListSubMenu from './IsShowMyListSubMenu'
+import IsNewListUI from './IsNewListUI'
 import { useI18n } from '@/lang/i18n'
 import NavMenu from "@/screens/Home/Views/Setting/settings/Basic/NavMenu.tsx";
 
@@ -19,12 +21,14 @@ export default memo(() => {
 
   return (
     <Section title={t('setting_basic')} sectionId="setting_basic">
+      <IsNewListUI />
       {global.lx.isCarMode ? (
         <>
           <IsShowBackBtn />
           <IsShowExitBtn />
         </>
       ) : null}
+      <IsShowMyListSubMenu />
       <IsHomePageScroll />
       <IsAllowProgressBarSeek />
       <DrawerLayoutPosition />

@@ -86,12 +86,7 @@ export const resetPlayerMusicInfo = () => {
 }
 
 const setPlayerMusicInfo = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem | null) => {
-  playerState.quality = null
   if (musicInfo) {
-    const currentMusicInfo = 'progress' in musicInfo ? musicInfo.metadata.musicInfo : musicInfo
-    playerState.source = 'source' in currentMusicInfo ? currentMusicInfo.source : null
-    global.state_event.playerQualityChanged(playerState.quality)
-    global.state_event.playerSourceChanged(playerState.source)
     setMusicInfo('progress' in musicInfo ? {
       id: musicInfo.id,
       pic: musicInfo.metadata.musicInfo.meta.picUrl,
@@ -116,10 +111,6 @@ const setPlayerMusicInfo = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem
       rawlrc: null,
     })
   } else resetPlayerMusicInfo()
-  if (musicInfo == null) {
-    playerState.source = null
-    global.state_event.playerSourceChanged(playerState.source)
-  }
 }
 
 /**

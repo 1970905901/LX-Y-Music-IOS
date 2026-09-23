@@ -1,7 +1,9 @@
 import Button from '@/components/common/Button'
 import Text from '@/components/common/Text'
+import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
 import { createStyle } from '@/utils/tools'
+import { designRadius, designSpacing } from '@/theme/DesignTokens'
 import { forwardRef, useImperativeHandle, useState } from 'react'
 
 export interface CurrentTagBtnProps {
@@ -14,6 +16,7 @@ export interface CurrentTagBtnType {
 
 export default forwardRef<CurrentTagBtnType, CurrentTagBtnProps>(({ onShowList }, ref) => {
   const t = useI18n()
+  const theme = useTheme()
   const [name, setName] = useState('')
 
   useImperativeHandle(ref, () => ({
@@ -24,24 +27,23 @@ export default forwardRef<CurrentTagBtnType, CurrentTagBtnProps>(({ onShowList }
   }))
 
   return (
-    <Button style={styles.btn} onPress={onShowList}>
-      <Text style={styles.sourceMenu}>{name}</Text>
+    <Button style={{ ...styles.btn, backgroundColor: theme['c-primary-background'] }} onPress={onShowList}>
+      <Text style={{ ...styles.sourceMenu, color: theme['c-primary-font'] }}>{name}</Text>
     </Button>
   )
 })
 
 const styles = createStyle({
   btn: {
-    paddingLeft: 15,
-    paddingRight: 15,
+    height: 32,
+    paddingHorizontal: designSpacing.sm,
+    borderRadius: designRadius.pill,
     justifyContent: 'center',
+    alignItems: 'center',
   },
   sourceMenu: {
-    // height: 38,
-    // lineHeight: 38,
     textAlign: 'center',
-    // minWidth: 70,
-    // paddingTop: 10,
-    // paddingBottom: 10,
+    fontSize: 13,
+    fontWeight: '600',
   },
 })

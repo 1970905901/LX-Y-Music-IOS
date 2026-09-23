@@ -12,6 +12,7 @@ import {ListInfoItem, type Source} from '@/store/songlist/state'
 // import { useTheme } from '@/store/theme/hook'
 import Tag, { type TagType, type TagProps } from './Tag'
 import OpenList, { type OpenListType } from './OpenList'
+import { designSpacing } from '@/theme/DesignTokens'
 // import { BorderWidths } from '@/theme'
 
 export interface HeaderBarProps {
@@ -60,8 +61,13 @@ export default forwardRef<HeaderBarType, HeaderBarProps>(
 const styles = createStyle({
   searchBar: {
     flexDirection: 'row',
-    height: 38,
+    height: 44,
     zIndex: 2,
+    paddingHorizontal: designSpacing.md,
+    marginTop: designSpacing.xs,
+    marginBottom: designSpacing.xs,
+    alignItems: 'center',
+    gap: designSpacing.sm,
     // paddingRight: 10,
     // borderBottomWidth: BorderWidths.normal,
   },

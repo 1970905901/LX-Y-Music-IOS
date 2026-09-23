@@ -1,6 +1,7 @@
 import { useRef, forwardRef, useImperativeHandle, useEffect } from 'react'
 // import { Icon } from '@/components/common/Icon'
 import Button from '@/components/common/Button'
+import { useTheme } from '@/store/theme/hook'
 // import { navigations } from '@/navigation'
 import Modal, { type ModalType } from './Modal'
 import {ListInfoItem, type Source} from '@/store/songlist/state'
@@ -9,6 +10,7 @@ import Text from '@/components/common/Text'
 import { useI18n } from '@/lang'
 import { navigations } from '@/navigation'
 import commonState from '@/store/common/state'
+import { designRadius, designSpacing } from '@/theme/DesignTokens'
 
 // export interface OpenListProps {
 //   onTagChange: (name: string, id: string) => void
@@ -24,6 +26,7 @@ export interface OpenListType {
 
 export default forwardRef<OpenListType, OpenListProps>(({ onOpenDetail }, ref) => {
   const t = useI18n()
+  const theme = useTheme()
   const modalRef = useRef<ModalType>(null)
   const songlistInfoRef = useRef<{ source: Source }>({ source: 'kw' })
 
@@ -73,10 +76,12 @@ export default forwardRef<OpenListType, OpenListProps>(({ onOpenDetail }, ref) =
   return (
     <>
       <Button
-        style={styles.button}
+        style={{ ...styles.button, backgroundColor: theme['c-button-background'] }}
         onPress={() => modalRef.current?.show(songlistInfoRef.current.source)}
       >
-        <Text>{t('songlist_open')}</Text>
+        <Text style={{ color: theme['c-primary-font'], fontSize: 13, fontWeight: '600' }}>
+          {t('songlist_open')}
+        </Text>
       </Button>
       <Modal ref={modalRef} onOpenId={handleOpenSonglist} />
     </>
@@ -85,10 +90,10 @@ export default forwardRef<OpenListType, OpenListProps>(({ onOpenDetail }, ref) =
 
 const styles = createStyle({
   button: {
-    // backgroundColor: '#ccc',
+    height: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingLeft: 12,
-    paddingRight: 12,
+    paddingHorizontal: designSpacing.sm,
+    borderRadius: designRadius.pill,
   },
 })

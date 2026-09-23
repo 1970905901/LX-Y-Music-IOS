@@ -33,13 +33,11 @@ import DownloadManager from "@/screens/DownloadManager";
 import ToastOverlay from './components/Toast'
 function WrappedComponent(Component: any) {
   return function inject(props: Record<string, any>) {
-    const EnhancedComponent = () => (
+    return (
       <Provider>
         <Component {...props} />
       </Provider>
     )
-
-    return <EnhancedComponent />
   }
 }
 

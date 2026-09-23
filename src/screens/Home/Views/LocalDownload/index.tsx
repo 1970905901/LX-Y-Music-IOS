@@ -149,6 +149,7 @@ export default memo(() => {
   const t = useI18n()
   const theme = useTheme()
   const isHorizontal = useHorizontalMode()
+  const safeAreaBottom = useSafeAreaBottom()
   const downloadPathSetting = useSettingValue('download.path')
   const tasks = useDownloadTasks()
   const playMusicInfo = usePlayMusicInfo()

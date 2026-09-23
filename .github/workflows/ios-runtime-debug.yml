@@ -64,7 +64,11 @@ jobs:
           xcrun simctl install "$SIM_UDID" "$APP_PATH"
 
           set +e
-          timeout 60 xcrun simctl launch --console-pty "$SIM_UDID" "$IOS_BUNDLE_IDENTIFIER" > build/runtime-console.log 2>&1
+          xcrun simctl launch --console "$SIM_UDID" "$IOS_BUNDLE_IDENTIFIER" > build/runtime-console.log 2>&1 &
+          LAUNCH_PID=$!
+          sleep 60
+          kill "$LAUNCH_PID" 2>/dev/null || true
+          wait "$LAUNCH_PID" 2>/dev/null || true
           LAUNCH_EXIT=$?
           set -e
 

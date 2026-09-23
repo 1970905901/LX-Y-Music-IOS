@@ -7,6 +7,7 @@ import CheckBox from '@/components/common/CheckBox'
 import { useSettingValue } from '@/store/setting/hook'
 import { useI18n } from '@/lang'
 import { updateSetting } from '@/core/common'
+import { designSpacing } from '@/theme/DesignTokens'
 
 const setAddMusicLocationType = (type: LX.AddMusicLocationType) => {
   updateSetting({ 'list.addMusicLocationType': type })
@@ -51,5 +52,8 @@ const styles = StyleSheet.create({
   list: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    marginTop: designSpacing.xs,
+    gap: designSpacing.xs,
+    alignItems: 'flex-start',
   },
 })

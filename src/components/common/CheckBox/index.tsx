@@ -7,6 +7,7 @@ import { scaleSizeH, scaleSizeW } from '@/utils/pixelRatio'
 import { useTheme } from '@/store/theme/hook'
 import Text from '../Text'
 import { Icon } from '../Icon'
+import { designSpacing } from '@/theme/DesignTokens'
 
 export interface CheckBoxProps {
   check: boolean
@@ -128,7 +129,8 @@ const styles = createStyle({
   content: {
     flexGrow: 0,
     flexShrink: 1,
-    marginRight: 15,
+    minHeight: 40,
+    marginRight: designSpacing.sm,
     alignItems: 'center',
     flexDirection: 'row',
     // backgroundColor: 'rgba(0,0,0,0.2)',
@@ -143,14 +145,15 @@ const styles = createStyle({
     // marginRight: 15,
     // alignItems: 'center',
     // backgroundColor: 'rgba(0,0,0,0.2)',
-    paddingRight: 3,
+    paddingRight: designSpacing.xs,
   },
   name: {
-    marginTop: 2,
+    fontWeight: '500',
   },
   helpBtn: {
-    // backgroundColor: 'rgba(0, 0, 0, 0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    height: 32,
+    width: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 })

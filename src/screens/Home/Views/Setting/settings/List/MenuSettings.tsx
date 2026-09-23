@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View } from 'react-native';
 import SubTitle from '../../components/SubTitle';
 import CheckBox from '@/components/common/CheckBox';
 import { useI18n } from '@/lang';
@@ -7,6 +7,7 @@ import { useSettingValue } from '@/store/setting/hook';
 import { updateSetting } from '@/core/common';
 import { createStyle } from '@/utils/tools';
 import { useTheme } from '@/store/theme/hook';
+import { designRadius, designSpacing } from '@/theme/DesignTokens';
 
 type MenuSettingKey =
   | 'menu.playLater'
@@ -30,20 +31,11 @@ const SettingItem = ({ settingKey, label }: { settingKey: MenuSettingKey; label:
 
 export default memo(() => {
   const t = useI18n();
-  
+  const theme = useTheme();
+
   return (
     <SubTitle title="菜单设置">
-      <View 
-        style={[
-          styles.content,
-          { 
-            backgroundColor: 'transparent',
-            borderWidth: StyleSheet.hairlineWidth,
-            borderColor: 'rgba(128, 128, 128, 0.2)',
-            borderRadius: 8,
-          }
-        ]}
-      >
+      <View style={{ ...styles.content, borderColor: theme['c-border-background'] }}>
         <SettingItem settingKey="menu.playLater" label={t('play_later')} />
         <SettingItem settingKey="menu.playMV" label={'播放MV'} />
         <SettingItem settingKey="menu.dislike" label={t('dislike')} />
@@ -54,9 +46,12 @@ export default memo(() => {
 
 const styles = createStyle({
   content: {
-    marginTop: 5,
+    marginTop: designSpacing.xs,
+    padding: designSpacing.sm,
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingLeft: -25,
+    gap: designSpacing.xs,
+    borderWidth: 1,
+    borderRadius: designRadius.sm,
   },
 });

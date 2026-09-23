@@ -2,7 +2,7 @@ import { forwardRef, useCallback, useImperativeHandle, useRef, useState } from '
 import { View } from 'react-native'
 
 import Popup, { type PopupType } from '@/components/common/Popup'
-import OnlineList, { type OnlineListType } from '@/components/OnlineList'
+import type { OnlineListProps, OnlineListType } from '@/components/OnlineList'
 import { playOnlineList } from '@/core/list'
 import { usePlayerMusicInfo } from '@/store/player/hook'
 import { useWindowSize } from '@/utils/hooks'
@@ -19,6 +19,9 @@ export interface SimilarSongsModalType {
 }
 
 export default forwardRef<SimilarSongsModalType, {}>((props, ref) => {
+  const OnlineListComponent = require('@/components/OnlineList').default as React.ComponentType<
+    OnlineListProps & { ref?: React.Ref<OnlineListType> }
+  >
   const popupRef = useRef<PopupType>(null)
   const listRef = useRef<OnlineListType>(null)
   const currentMusicInfoRef = useRef<LX.Music.MusicInfoOnline | null>(null)
@@ -143,7 +146,7 @@ export default forwardRef<SimilarSongsModalType, {}>((props, ref) => {
   return visible ? (
     <Popup ref={popupRef} title={title} position="bottom" onHide={handleHide}>
       <View style={{ ...styles.content, height: contentHeight }}>
-        <OnlineList
+        <OnlineListComponent
           ref={listRef}
           listId={LIST_ID}
           forcePlayList

@@ -20,6 +20,7 @@ import ListImportExport, { type ListImportExportType } from './MyList/ListImport
 import { handleRemove, handleSync } from './MyList/listAction'
 import { LIST_IDS } from '@/config/constant'
 import { scaleSizeH } from '@/utils/pixelRatio'
+import { designRadius, designSpacing } from '@/theme/DesignTokens'
 import Loading from '@/components/common/Loading'
 import { Navigation } from 'react-native-navigation'
 
@@ -58,6 +59,7 @@ const FixedPlaylistCard = memo(({
   onShowMenu: (item: ListItemInfo, position: MenuPosition) => void
 }) => {
   const theme = useTheme()
+  const activeId = useActiveListId()
   const fetching = useListFetching(item.id)
   const moreButtonRef = useRef<TouchableOpacity>(null)
 
@@ -75,11 +77,24 @@ const FixedPlaylistCard = memo(({
   }
 
   return (
-    <Animated.View style={[styles.cardContainer, { height: CARD_HEIGHT }]}>
+    <Animated.View
+      style={[
+        styles.cardContainer,
+        {
+          height: CARD_HEIGHT,
+          backgroundColor: activeId == item.id
+            ? theme['c-primary-background-hover']
+            : theme['c-content-background'],
+          borderColor: activeId == item.id
+            ? theme['c-primary-background-active']
+            : theme['c-border-background'],
+        },
+      ]}
+    >
       <TouchableOpacity onPress={onPress} style={styles.cardContent}>
         <Image url={item.cover} style={styles.artwork} />
         <View style={styles.info}>
-          <Text size={16} numberOfLines={2} color={theme['c-font']}>{item.name}</Text>
+          <Text size={16} numberOfLines={2} style={styles.listName} color={theme['c-font']}>{item.name}</Text>
           {item.total > 0 ? (
             <Text size={12} color={theme['c-font-label']}>{item.total} 首</Text>
           ) : null}
@@ -89,7 +104,7 @@ const FixedPlaylistCard = memo(({
         ) : null}
       </TouchableOpacity>
       <TouchableOpacity onPress={handleShowMenu} ref={moreButtonRef} style={styles.moreBtn}>
-        <Icon name="dots-vertical" color={theme['c-350']} size={12} />
+        <Icon name="dots-vertical" color={theme['c-350']} size={17} />
       </TouchableOpacity>
     </Animated.View>
   )
@@ -133,6 +148,7 @@ const PlaylistCard = memo(({
   onTouchEnd: () => void
 }) => {
   const theme = useTheme()
+  const activeId = useActiveListId()
   const fetching = useListFetching(item.id)
   const moreButtonRef = useRef<TouchableOpacity>(null)
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -223,7 +239,12 @@ const PlaylistCard = memo(({
   const shadowOpacity = isDragSource ? 0.25 : 0
   const backgroundColor = isDragSource
     ? theme['c-primary-background-active']
-    : 'transparent'
+    : activeId == item.id
+      ? theme['c-primary-background-hover']
+      : theme['c-content-background']
+  const borderColor = activeId == item.id
+    ? theme['c-primary-background-active']
+    : theme['c-border-background']
 
   return (
     <Animated.View
@@ -233,6 +254,7 @@ const PlaylistCard = memo(({
         {
           height: CARD_HEIGHT,
           backgroundColor,
+          borderColor,
           opacity,
           transform,
           zIndex,
@@ -249,7 +271,7 @@ const PlaylistCard = memo(({
           style={styles.artwork}
         />
         <View style={styles.info}>
-          <Text size={16} numberOfLines={2} color={theme['c-font']}>
+          <Text size={16} numberOfLines={2} style={styles.listName} color={theme['c-font']}>
             {item.name}
           </Text>
           {item.total > 0 ? (
@@ -268,7 +290,7 @@ const PlaylistCard = memo(({
         </View>
       )}
       <TouchableOpacity onPress={handleShowMenu} ref={moreButtonRef} style={styles.moreBtn}>
-        <Icon name="dots-vertical" color={theme['c-350']} size={12} />
+        <Icon name="dots-vertical" color={theme['c-350']} size={17} />
       </TouchableOpacity>
     </Animated.View>
   )
@@ -727,9 +749,11 @@ const styles = createStyle({
   cardContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
+    paddingHorizontal: designSpacing.md,
+    marginHorizontal: designSpacing.md,
+    marginBottom: designSpacing.sm,
+    borderWidth: 1,
+    borderRadius: designRadius.lg,
     overflow: 'hidden',
   },
   cardContent: {
@@ -738,13 +762,16 @@ const styles = createStyle({
     alignItems: 'center',
   },
   artwork: {
-    width: 70,
-    height: 70,
-    borderRadius: 8,
+    width: 64,
+    height: 64,
+    borderRadius: designRadius.md,
   },
   info: {
     flex: 1,
-    marginLeft: 15,
+    marginLeft: designSpacing.md,
+  },
+  listName: {
+    fontWeight: '700',
   },
   loading: {
     marginLeft: 10,
@@ -756,8 +783,10 @@ const styles = createStyle({
     justifyContent: 'center',
   },
   moreBtn: {
-    height: '100%',
-    width: 36,
+    width: 40,
+    height: 40,
+    marginLeft: designSpacing.xs,
+    borderRadius: 999,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -780,6 +809,6 @@ const styles = createStyle({
     paddingVertical: 10,
     paddingHorizontal: 20,
     backgroundColor: 'rgba(0,0,0,0.1)',
-    borderRadius: 8,
+    borderRadius: designRadius.pill,
   },
 })

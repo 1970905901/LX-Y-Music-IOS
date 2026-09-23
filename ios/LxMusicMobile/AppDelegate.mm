@@ -5060,6 +5060,7 @@ RCT_REMAP_METHOD(sha1, sha1:(NSString *)input resolver:(RCTPromiseResolveBlock)r
 
 @interface SceneDelegate : UIResponder <UIWindowSceneDelegate>
 @property (strong, nonatomic) UIWindow *window;
+@property (nonatomic, assign) BOOL didBootstrap;
 @end
 
 @implementation SceneDelegate
@@ -5087,15 +5088,21 @@ RCT_REMAP_METHOD(sha1, sha1:(NSString *)input resolver:(RCTPromiseResolveBlock)r
   }
   window.rootViewController = launchVC;
   [window makeKeyAndVisible];
+}
 
-  // 2) 下一帧再创建 bridge 并 bootstrap，先让 scene 彻底激活；RNN 后续 setRoot 会通过
-  //    UIApplication.sharedApplication.delegate.window 拿到同一个 scene-bound window 并替换 rootViewController。
-  dispatch_async(dispatch_get_main_queue(), ^{
-    if (!appDelegate.bridge) {
-      appDelegate.bridge = [[RCTBridge alloc] initWithDelegate:appDelegate launchOptions:appDelegate.launchOptions];
-    }
-    [ReactNativeNavigation bootstrapWithBridge:appDelegate.bridge];
-  });
+- (void)sceneDidActivate:(UIScene *)scene API_AVAILABLE(ios(13.0)) {
+  if (self.didBootstrap) return;
+  if (![scene isKindOfClass:[UIWindowScene class]]) return;
+  if (!self.window) return;
+
+  AppDelegate *appDelegate = (AppDelegate *)UIApplication.sharedApplication.delegate;
+  if (!appDelegate) return;
+
+  self.didBootstrap = YES;
+  if (!appDelegate.bridge) {
+    appDelegate.bridge = [[RCTBridge alloc] initWithDelegate:appDelegate launchOptions:appDelegate.launchOptions];
+  }
+  [ReactNativeNavigation bootstrapWithBridge:appDelegate.bridge];
 }
 
 @end

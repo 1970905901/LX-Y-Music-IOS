@@ -7,6 +7,9 @@ import { useI18n } from '@/lang'
 import { type TagInfo, type Source } from '@/store/songlist/state'
 import { getTags } from '@/core/songlist'
 import Text from '@/components/common/Text'
+import { useTheme } from '@/store/theme/hook'
+import { useSafeAreaBottom } from '@/store/common/hook'
+import { designSpacing } from '@/theme/DesignTokens'
 // import { BorderWidths } from '@/theme'
 
 export interface ListProps {
@@ -18,6 +21,8 @@ export interface ListType {
 }
 
 export default forwardRef<ListType, ListProps>(({ onTagChange }, ref) => {
+  const theme = useTheme()
+  const safeAreaBottom = useSafeAreaBottom()
   // const theme = useTheme()
   const [activeId, setActiveId] = useState('')
   const [list, setList] = useState<TagInfo['tags']>([])
@@ -76,8 +81,15 @@ export default forwardRef<ListType, ListProps>(({ onTagChange }, ref) => {
   }))
 
   return (
-    <ScrollView style={{ flexShrink: 1, flexGrow: 0 }} keyboardShouldPersistTaps={'always'}>
-      <View style={styles.tagContainer} onStartShouldSetResponder={() => true}>
+    <ScrollView
+      style={styles.list}
+      contentContainerStyle={[
+        styles.tagContainer,
+        { paddingBottom: 80 + safeAreaBottom },
+      ]}
+      keyboardShouldPersistTaps={'always'}
+    >
+      <View onStartShouldSetResponder={() => true}>
         {list.map((type, index) => (
           <TagGroup
             key={index}
@@ -89,7 +101,7 @@ export default forwardRef<ListType, ListProps>(({ onTagChange }, ref) => {
         ))}
         {list.length == 1 ? (
           <View style={styles.blankView}>
-            <Text>{t('list_loading')}</Text>
+            <Text color={theme['c-font-label']}>{t('list_loading')}</Text>
           </View>
         ) : null}
       </View>
@@ -98,10 +110,14 @@ export default forwardRef<ListType, ListProps>(({ onTagChange }, ref) => {
 })
 
 const styles = createStyle({
+  list: {
+    flexShrink: 1,
+    flexGrow: 0,
+  },
   tagContainer: {
-    paddingTop: 15,
-    paddingLeft: 15,
-    paddingBottom: 15,
+    paddingTop: designSpacing.md,
+    paddingLeft: designSpacing.md,
+    paddingRight: designSpacing.md,
   },
   blankView: {
     paddingTop: '15%',

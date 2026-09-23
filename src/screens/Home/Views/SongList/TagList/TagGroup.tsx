@@ -5,6 +5,7 @@ import { type TagInfoItem } from '@/store/songlist/state'
 import { useTheme } from '@/store/theme/hook'
 import { createStyle } from '@/utils/tools'
 import Text from '@/components/common/Text'
+import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
 
 export interface TagGroupProps {
   name: string
@@ -18,7 +19,7 @@ export default ({ name, list, onTagChange, activeId }: TagGroupProps) => {
   return (
     <View>
       {name ? (
-        <Text style={styles.tagTypeTitle} color={theme['c-font-label']}>
+        <Text style={styles.tagTypeTitle} size={designTypography.caption} color={theme['c-font-label']}>
           {name}
         </Text>
       ) : null}
@@ -26,16 +27,24 @@ export default ({ name, list, onTagChange, activeId }: TagGroupProps) => {
         {list.map((item) =>
           activeId == item.id ? (
             <View
-              style={{ ...styles.tagButton, backgroundColor: theme['c-button-background'] }}
+              style={{
+                ...styles.tagButton,
+                backgroundColor: theme['c-primary'],
+                borderColor: theme['c-primary'],
+              }}
               key={item.id}
             >
-              <Text style={styles.tagButtonText} color={theme['c-primary-font-active']}>
+              <Text style={styles.tagButtonText} color={theme['c-primary-light-1000']}>
                 {item.name}
               </Text>
             </View>
           ) : (
             <Button
-              style={{ ...styles.tagButton, backgroundColor: theme['c-button-background'] }}
+              style={{
+                ...styles.tagButton,
+                backgroundColor: theme['c-primary-light-900-alpha-300'],
+                borderColor: theme['c-border-background'],
+              }}
               key={item.id}
               onPress={() => {
                 onTagChange(item.name, item.id)
@@ -54,24 +63,26 @@ export default ({ name, list, onTagChange, activeId }: TagGroupProps) => {
 
 const styles = createStyle({
   tagTypeTitle: {
-    marginTop: 15,
-    marginBottom: 10,
+    marginTop: designSpacing.md,
+    marginBottom: designSpacing.sm,
+    fontWeight: '600',
   },
   tagTypeList: {
     flexDirection: 'row',
     flexWrap: 'wrap',
   },
   tagButton: {
-    // marginRight: 10,
-    borderRadius: 4,
-    marginRight: 10,
-    marginBottom: 10,
+    height: 34,
+    borderWidth: 1,
+    borderRadius: designRadius.pill,
+    marginRight: designSpacing.sm,
+    marginBottom: designSpacing.sm,
+    justifyContent: 'center',
   },
   tagButtonText: {
-    fontSize: 13,
-    paddingLeft: 12,
-    paddingRight: 12,
-    paddingTop: 8,
-    paddingBottom: 8,
+    fontSize: designTypography.caption,
+    fontWeight: '600',
+    paddingLeft: designSpacing.sm,
+    paddingRight: designSpacing.sm,
   },
 })

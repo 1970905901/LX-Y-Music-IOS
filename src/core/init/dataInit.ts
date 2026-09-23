@@ -29,8 +29,13 @@ import downloadActions from '@/store/download/action';
 export default async (appSetting: LX.AppSetting) => {
   void musicSdkInit()
   bootLog('User list init...')
-  setUserList(await getUserLists())
-  setDislikeInfo(await getDislikeInfo())
+  const userLists = await getUserLists()
+  bootLog('User list data loaded.')
+  setUserList(userLists)
+  bootLog('User list state set.')
+  const dislikeInfo = await getDislikeInfo()
+  bootLog('Dislike info data loaded.')
+  setDislikeInfo(dislikeInfo)
   bootLog('User list inited.')
 
   void cleanOneDriveDirtyData().then(() => bootLog('OneDrive dirty data cleaned.')).catch((err) => bootLog(`OneDrive dirty data clean failed: ${err?.message ?? err}`))
@@ -38,6 +43,7 @@ export default async (appSetting: LX.AppSetting) => {
 
   bootLog('Download tasks init...');
   const savedTasks = await getDownloadTasks();
+  bootLog('Download task data loaded.');
   downloadActions.setTasks(savedTasks);
   bootLog('Download tasks inited.');
 

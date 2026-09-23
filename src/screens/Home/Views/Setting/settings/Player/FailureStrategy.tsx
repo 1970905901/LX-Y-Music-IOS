@@ -9,6 +9,8 @@ import { acquireScrollLock, releaseScrollLock } from '@/utils/scrollLock'
 import { Icon } from '@/components/common/Icon'
 import Text from '@/components/common/Text'
 import SubTitle from '../../components/SubTitle'
+import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
+import { applyOpacity } from '@/utils/colorOpacity'
 
 const DEFAULT_STRATEGY = [
   'lowerQuality',
@@ -148,11 +150,12 @@ const StrategyItem = memo(({
         styles.item,
         {
           backgroundColor: isDragSource ? theme['c-primary-background-active'] : 'transparent',
+          borderBottomColor: theme['c-border-background'],
           opacity,
           transform,
           zIndex,
           shadowOpacity,
-          shadowColor: '#000',
+          shadowColor: theme['c-000'],
           shadowOffset: { width: 0, height: 2 },
           shadowRadius: 4,
         },
@@ -185,6 +188,7 @@ const StrategyItem = memo(({
 
 export default memo(() => {
   const t = useI18n()
+  const theme = useTheme()
   const failureStrategy = useSettingValue('player.failureStrategy')
   const isEnableAutoToggleSource = useSettingValue('player.enableAutoToggleSource')
   const subContainerOpacity = useSettingValue('theme.subContainerOpacity')
@@ -350,7 +354,16 @@ export default memo(() => {
 
   return (
     <SubTitle title={t('setting_play_failure_strategy')} collapsible sectionId="setting_play_failure_strategy">
-      <View style={[styles.list, { backgroundColor: `rgba(255, 255, 255, ${subContainerOpacity / 100})`, padding: 8, borderRadius: 8 }]}>
+      <View
+        style={[
+          styles.list,
+          {
+            backgroundColor: applyOpacity(theme['c-main-background'], subContainerOpacity),
+            padding: designSpacing.sm,
+            borderRadius: designRadius.sm,
+          },
+        ]}
+      >
         {strategyList.map((item, idx) => {
           const anim = animsRef.current[idx] ?? createAnim()
           const isDragSource = draggingIndex === idx
@@ -385,11 +398,10 @@ const styles = createStyle({
     flexShrink: 1,
   },
   item: {
-    paddingVertical: 12,
-    paddingHorizontal: 12,
+    paddingVertical: designSpacing.sm,
+    paddingHorizontal: designSpacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(128, 128, 128, 0.2)',
-    borderRadius: 8,
+    borderRadius: designRadius.sm,
   },
   itemInfo: {
     flex: 1,
@@ -397,17 +409,17 @@ const styles = createStyle({
     alignItems: 'center',
   },
   dragHandle: {
-    paddingHorizontal: 6,
-    paddingVertical: 6,
+    paddingHorizontal: designSpacing.xs,
+    paddingVertical: designSpacing.xs,
     alignItems: 'center',
     justifyContent: 'center',
   },
   itemIndex: {
-    fontSize: 16,
-    marginRight: 8,
+    fontSize: designTypography.body,
+    marginRight: designSpacing.xs,
   },
   itemLabel: {
-    fontSize: 16,
+    fontSize: designTypography.body,
     flex: 1,
   },
 })

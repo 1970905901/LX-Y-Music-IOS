@@ -9,6 +9,8 @@ import { NAV_MENUS, type NAV_ID_Type, getEffectiveFlatOrder } from '@/config/con
 import { useTheme } from '@/store/theme/hook'
 import { Icon } from '@/components/common/Icon'
 import { acquireScrollLock, releaseScrollLock } from '@/utils/scrollLock'
+import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
+import { applyOpacity } from '@/utils/colorOpacity'
 
 const LONG_PRESS_MS = 350
 
@@ -39,6 +41,7 @@ const SortableList = ({ items: initialItems, onReorder, dragHint }: {
 }) => {
   const subContainerOpacity = useSettingValue('theme.subContainerOpacity')
   const navStatus = useSettingValue('common.navStatus')
+  const theme = useTheme()
 
   const itemsRef = useRef(initialItems)
   const [displayItems, setDisplayItems] = useState(initialItems)
@@ -133,7 +136,13 @@ const SortableList = ({ items: initialItems, onReorder, dragHint }: {
   useEffect(() => () => { releaseScrollLock() }, [])
 
   return (
-    <View style={{ overflow: 'hidden', borderRadius: 8, backgroundColor: `rgba(255, 255, 255, ${(subContainerOpacity ?? 100) / 100})` }}>
+    <View
+      style={{
+        overflow: 'hidden',
+        borderRadius: designRadius.sm,
+        backgroundColor: applyOpacity(theme['c-main-background'], subContainerOpacity ?? 100),
+      }}
+    >
       <View style={styles.menuList}>
         {displayItems.map((item, idx) => {
           const anim = animsRef.current[idx] ?? createAnim()
@@ -205,11 +214,12 @@ const DraggableItem = memo(({
     <Animated.View onLayout={(e) => onLayoutHeight(index, e.nativeEvent.layout.height)}
       style={[styles.menuItem, {
         backgroundColor: isDragSource ? theme['c-primary-background-active'] : 'transparent',
+        borderBottomColor: theme['c-border-background'],
         opacity,
         transform,
         zIndex,
         shadowOpacity: isDragSource ? 0.25 : 0,
-        shadowColor: '#000',
+        shadowColor: theme['c-000'],
         shadowOffset: { width: 0, height: 2 },
         shadowRadius: 4,
       }]}>
@@ -276,9 +286,9 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   toggleRow: { marginBottom: 8 },
   menuList: { overflow: 'hidden' },
-  menuItem: { paddingVertical: 12, paddingHorizontal: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(128, 128, 128, 0.2)', borderRadius: 8 },
+  menuItem: { paddingVertical: designSpacing.sm, paddingHorizontal: designSpacing.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderRadius: designRadius.sm },
   menuInfo: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  menuName: { fontSize: 16, flex: 1, paddingLeft: 10 },
+  menuName: { fontSize: designTypography.body, flex: 1, paddingLeft: designSpacing.xs },
   dragHandle: { paddingHorizontal: 6, paddingVertical: 6, alignItems: 'center', justifyContent: 'center' },
   dragHint: { marginTop: 2, textAlign: 'center' },
   tabBar: { flexDirection: 'row', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(128, 128, 128, 0.3)', marginBottom: 12 },

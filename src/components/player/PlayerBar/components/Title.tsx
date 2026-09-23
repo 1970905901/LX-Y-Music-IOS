@@ -18,8 +18,7 @@ export default () => {
 
   return (
     <View style={styles.container}>
-      {/* 迷你播放器文字颜色随明暗模式变化：浅色模式黑色，深色模式白色 */}
-      <Text color={theme.isDark ? '#ffffff' : '#000000'} numberOfLines={1} style={{ fontWeight: '700' }}>
+      <Text color={theme['c-font']} numberOfLines={1} style={{ fontWeight: '700' }}>
         {title}
       </Text>
     </View>

@@ -19,7 +19,7 @@ const PlayPrevBtn = () => {
 
   return (
     <TouchableOpacity style={styles.cotrolBtn} activeOpacity={0.5} onPress={handlePlayPrev}>
-      <Icon name="prevMusic" color={theme['c-button-font']} size={BTN_SIZE} />
+      <Icon name="prevMusic" color={theme['c-font']} size={BTN_SIZE} />
     </TouchableOpacity>
   )
 }
@@ -29,7 +29,7 @@ const PlayNextBtn = () => {
 
   return (
     <TouchableOpacity style={styles.cotrolBtn} activeOpacity={0.5} onPress={handlePlayNext}>
-      <Icon name="nextMusic" color={theme['c-button-font']} size={BTN_SIZE} />
+      <Icon name="nextMusic" color={theme['c-font']} size={BTN_SIZE} />
     </TouchableOpacity>
   )
 }
@@ -39,8 +39,16 @@ const TogglePlayBtn = () => {
   const theme = useTheme()
 
   return (
-    <TouchableOpacity style={styles.cotrolBtn} activeOpacity={0.5} onPress={togglePlay}>
-      <Icon name={isPlay ? 'pause' : 'play'} color={theme['c-button-font']} size={BTN_SIZE} />
+    <TouchableOpacity
+      style={{ ...styles.cotrolBtn, ...styles.playButton, backgroundColor: theme['c-primary'] }}
+      activeOpacity={0.5}
+      onPress={togglePlay}
+    >
+      <Icon
+        name={isPlay ? 'pause' : 'play'}
+        color={theme['c-primary-light-1000']}
+        size={18}
+      />
     </TouchableOpacity>
   )
 }
@@ -65,11 +73,12 @@ export default () => {
 
 const styles = createStyle({
   cotrolBtn: {
-    width: 46,
-    height: 46,
+    width: 40,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
-
-    // backgroundColor: '#ccc',
+  },
+  playButton: {
+    borderRadius: 999,
   },
 })

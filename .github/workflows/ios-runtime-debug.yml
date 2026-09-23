@@ -1,0 +1,80 @@
+name: iOS Runtime Debug
+
+on:
+  workflow_dispatch:
+
+jobs:
+  launch-simulator:
+    name: Launch iOS Simulator
+    runs-on: macos-14
+    env:
+      NO_FLIPPER: 1
+      IOS_SCHEME: LxMusicMobile
+      IOS_WORKSPACE: ios/LxMusicMobile.xcworkspace
+      IOS_BUNDLE_IDENTIFIER: com.LX-YMusic.shuhao
+    steps:
+      - name: Check out git repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install CocoaPods dependencies
+        shell: bash
+        run: |
+          gem install cocoapods -v '~> 1.12' --no-document
+          cd ios
+          pod install --repo-update
+
+      - name: Build simulator app
+        shell: bash
+        run: |
+          mkdir -p build
+          set -o pipefail
+          xcodebuild \
+            -workspace "$IOS_WORKSPACE" \
+            -scheme "$IOS_SCHEME" \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build/SimDerived \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            build 2>&1 | tee build/simulator-build.log
+
+      - name: Boot and launch app
+        shell: bash
+        run: |
+          APP_PATH="$(find build/SimDerived/Build/Products/Debug-iphonesimulator -maxdepth 1 -name '*.app' -print -quit)"
+          test -n "$APP_PATH"
+          SIM_UDID="$(xcrun simctl list devices available | grep -m1 -E 'iPhone' | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')"
+          test -n "$SIM_UDID"
+          echo "Simulator: $SIM_UDID"
+          xcrun simctl boot "$SIM_UDID" 2>/dev/null || true
+          xcrun simctl bootstatus "$SIM_UDID" -b
+          xcrun simctl install "$SIM_UDID" "$APP_PATH"
+
+          set +e
+          timeout 60 xcrun simctl launch --console-pty "$SIM_UDID" "$IOS_BUNDLE_IDENTIFIER" > build/runtime-console.log 2>&1
+          LAUNCH_EXIT=$?
+          set -e
+
+          cat build/runtime-console.log
+          echo "LAUNCH_EXIT=$LAUNCH_EXIT"
+          xcrun simctl terminate "$SIM_UDID" "$IOS_BUNDLE_IDENTIFIER" 2>/dev/null || true
+
+      - name: Upload runtime log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-runtime-console
+          path: |
+            build/runtime-console.log
+            build/simulator-build.log
+          if-no-files-found: ignore

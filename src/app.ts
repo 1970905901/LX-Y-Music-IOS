@@ -102,7 +102,7 @@ void Promise.all([getFontSize(), windowSizeTools.init()])
         .catch((err: any) => {
           void tipDialog({
             title: 'Error',
-            message: err.message,
+            message: (err.stack ?? err.message) as string,
             btnText: 'Exit',
             bgClose: false,
           }).then(() => {

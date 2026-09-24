@@ -11,7 +11,9 @@ import SourceSelector, {
 import SearchInput, { type SearchInputType, type SearchInputProps } from './SearchInput'
 import { createStyle } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
+import { useStatusbarHeight } from '@/store/common/hook'
 import { Icon } from '@/components/common/Icon'
+import Text from '@/components/common/Text'
 import { type Source as MusicSource } from '@/store/search/music/state'
 import { type Source as SonglistSource } from '@/store/search/songlist/state'
 
@@ -20,6 +22,7 @@ type SourceSelectorProps = _SourceSelectorProps<Sources>
 type SourceSelectorType = _SourceSelectorType<Sources>
 
 export interface HeaderBarProps {
+  title: string
   onSourceChange: SourceSelectorProps['onSourceChange']
   onTipSearch: SearchInputProps['onChangeText']
   onSearch: SearchInputProps['onSubmit']
@@ -35,10 +38,11 @@ export interface HeaderBarType {
 }
 
 export default forwardRef<HeaderBarType, HeaderBarProps>(
-  ({ onSourceChange, onTipSearch, onSearch, onHideTipList, onShowTipList }, ref) => {
+  ({ title, onSourceChange, onTipSearch, onSearch, onHideTipList, onShowTipList }, ref) => {
     const sourceSelectorRef = useRef<SourceSelectorType>(null)
     const searchInputRef = useRef<SearchInputType>(null)
     const theme = useTheme()
+    const statusBarHeight = useStatusbarHeight()
 
     useImperativeHandle(
       ref,
@@ -60,38 +64,48 @@ export default forwardRef<HeaderBarType, HeaderBarProps>(
     )
 
     return (
-      <View
-        style={{
-          ...styles.searchBar,
-          backgroundColor: theme['c-primary-light-900-alpha-300'],
-          borderColor: theme['c-border-background'],
-        }}
-      >
-        <View style={{ ...styles.selector, borderRightColor: theme['c-border-background'] }}>
-          <SourceSelector ref={sourceSelectorRef} onSourceChange={onSourceChange} center />
+      <View style={[styles.container, { paddingTop: statusBarHeight }]}>
+        <Text style={styles.title} size={34} color={theme['c-font']}>{title}</Text>
+        <View
+          style={{
+            ...styles.searchBar,
+            backgroundColor: theme['c-primary-light-900-alpha-300'],
+            borderColor: theme['c-border-background'],
+          }}
+        >
+          <View style={{ ...styles.selector, borderRightColor: theme['c-border-background'] }}>
+            <SourceSelector ref={sourceSelectorRef} onSourceChange={onSourceChange} center />
+          </View>
+          <View style={styles.searchIcon}>
+            <Icon name="search-2" size={17} color={theme['c-font-label']} />
+          </View>
+          <SearchInput
+            ref={searchInputRef}
+            onChangeText={onTipSearch}
+            onSubmit={onSearch}
+            onBlur={onHideTipList}
+            onTouchStart={onShowTipList}
+          />
         </View>
-        <View style={styles.searchIcon}>
-          <Icon name="search-2" size={17} color={theme['c-font-label']} />
-        </View>
-        <SearchInput
-          ref={searchInputRef}
-          onChangeText={onTipSearch}
-          onSubmit={onSearch}
-          onBlur={onHideTipList}
-          onTouchStart={onShowTipList}
-        />
       </View>
     )
   },
 )
 
 const styles = createStyle({
+  container: {
+    zIndex: 2,
+    marginBottom: designSpacing.xs,
+  },
+  title: {
+    paddingHorizontal: designSpacing.lg,
+    fontWeight: '800',
+  },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
     height: 48,
     marginHorizontal: designSpacing.lg,
-    marginTop: designSpacing.sm,
     marginBottom: designSpacing.sm,
     borderRadius: 999,
     borderWidth: 1,

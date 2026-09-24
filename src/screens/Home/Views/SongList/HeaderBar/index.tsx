@@ -10,13 +10,16 @@ import { createStyle } from '@/utils/tools'
 import SourceSelector, { type SourceSelectorType, type SourceSelectorProps } from './SourceSelector'
 import { type ListInfoItem, type Source } from '@/store/songlist/state'
 import { useTheme } from '@/store/theme/hook'
+import { useStatusbarHeight } from '@/store/common/hook'
 import Tag, { type TagType, type TagProps } from './Tag'
 import OpenList, { type OpenListType } from './OpenList'
 import { designRadius, designSpacing } from '@/theme/DesignTokens'
 import { Icon } from '@/components/common/Icon'
+import Text from '@/components/common/Text'
 // import { BorderWidths } from '@/theme'
 
 export interface HeaderBarProps {
+  title: string
   onSortChange: SortTabProps['onSortChange']
   onTagChange: TagProps['onTagChange']
   onSourceChange: SourceSelectorProps['onSourceChange']
@@ -28,12 +31,13 @@ export interface HeaderBarType {
 }
 
 export default forwardRef<HeaderBarType, HeaderBarProps>(
-  ({ onSortChange, onTagChange, onSourceChange, onOpenDetail }, ref) => {
+  ({ title, onSortChange, onTagChange, onSourceChange, onOpenDetail }, ref) => {
     const sortTabRef = useRef<SortTabType>(null)
     const tagRef = useRef<TagType>(null)
     const openListRef = useRef<OpenListType>(null)
     const sourceSelectorRef = useRef<SourceSelectorType>(null)
     const theme = useTheme()
+    const statusBarHeight = useStatusbarHeight()
     // const theme = useTheme()
 
     useImperativeHandle(
@@ -50,7 +54,8 @@ export default forwardRef<HeaderBarType, HeaderBarProps>(
     )
 
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { paddingTop: statusBarHeight }]}>
+        <Text style={styles.title} size={34} color={theme['c-font']}>{title}</Text>
         <View style={styles.actions}>
           <OpenList ref={openListRef} onOpenDetail={onOpenDetail} />
           <View
@@ -85,8 +90,10 @@ const styles = createStyle({
   container: {
     zIndex: 2,
     paddingHorizontal: designSpacing.lg,
-    marginTop: designSpacing.xs,
     marginBottom: designSpacing.xs,
+  },
+  title: {
+    fontWeight: '800',
   },
   actions: {
     flexDirection: 'row',

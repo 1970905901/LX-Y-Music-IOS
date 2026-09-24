@@ -13,6 +13,7 @@ import { LIST_IDS } from '@/config/constant'
 import listState from '@/store/list/state'
 import { useWySubscribedPlaylists } from '@/store/user/hook'
 import { useHorizontalMode } from '@/utils/hooks'
+import { useI18n } from '@/lang'
 import MusicInfoOnline = LX.Music.MusicInfoOnline
 
 interface SonglistInfo {
@@ -23,6 +24,7 @@ interface SonglistInfo {
 
 export default () => {
   const headerBarRef = useRef<HeaderBarType>(null)
+  const t = useI18n()
   const listRef = useRef<ListType>(null)
   const isHorizontal = useHorizontalMode()
   const [selectedList, setSelectedList] = useState<ListInfoItem | null>(null)
@@ -182,6 +184,7 @@ export default () => {
       <HeaderBar
         key={headerKey}
         ref={headerBarRef}
+        title={t('nav_songlist')}
         onSortChange={handleSortChange}
         onTagChange={handleTagChange}
         onSourceChange={handleSourceChange}

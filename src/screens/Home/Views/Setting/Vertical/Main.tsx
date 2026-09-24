@@ -65,35 +65,12 @@ export default memo(() => {
 
   const contentContainer = useMemo(() => ({
     paddingHorizontal: designSpacing.lg,
+    paddingTop: designSpacing.sm,
     paddingBottom: designSpacing.xl + safeAreaBottom,
   }), [safeAreaBottom])
 
   return (
     <View style={styles.container}>
-      <PageHeader title={t('nav_setting')} />
-      <ScrollView
-        style={styles.navScroll}
-        contentContainerStyle={styles.navContent}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        keyboardShouldPersistTaps="always"
-      >
-        {SETTING_SCREENS.map((id) => {
-          const isActive = id === activeId
-          return (
-            <Text
-              key={id}
-              size={designTypography.caption}
-              color={isActive ? theme['c-primary-light-1000'] : theme['c-font']}
-              style={[styles.navItem, chipStyle(isActive)]}
-              onPress={() => { handleChangeId(id) }}
-            >
-              {t(`setting_${id}`)}
-            </Text>
-          )
-        })}
-      </ScrollView>
-
       <ScrollView
         style={styles.content}
         contentContainerStyle={contentContainer}
@@ -101,6 +78,29 @@ export default memo(() => {
         scrollEnabled={!scrollLocked}
         showsVerticalScrollIndicator={false}
       >
+        <PageHeader title={t('nav_setting')} />
+        <ScrollView
+          style={styles.navScroll}
+          contentContainerStyle={styles.navContent}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          keyboardShouldPersistTaps="always"
+        >
+          {SETTING_SCREENS.map((id) => {
+            const isActive = id === activeId
+            return (
+              <Text
+                key={id}
+                size={designTypography.caption}
+                color={isActive ? theme['c-primary-light-1000'] : theme['c-font']}
+                style={[styles.navItem, chipStyle(isActive)]}
+                onPress={() => { handleChangeId(id) }}
+              >
+                {t(`setting_${id}`)}
+              </Text>
+            )
+          })}
+        </ScrollView>
         <ActiveScreen />
       </ScrollView>
     </View>

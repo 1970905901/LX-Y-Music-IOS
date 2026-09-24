@@ -18,7 +18,6 @@ import { COMPONENT_IDS } from '@/config/constant'
 import { useSettingValue } from '@/store/setting/hook'
 import { designSpacing } from '@/theme/DesignTokens'
 import { useI18n } from '@/lang'
-import PageHeader from '@/components/common/PageHeader'
 
 interface SearchInfo {
   temp_source: LX.OnlineSource
@@ -249,18 +248,16 @@ export default () => {
       behavior={Platform.OS == 'ios' ? 'padding' : undefined}
     >
       { !selectedList && (
-        <>
-          <PageHeader title={t('nav_search')} />
-          <HeaderBar
-            key={headerKey}
-            ref={headerBarRef}
-            onSourceChange={handleSourceChange}
-            onTipSearch={handleTipSearch}
-            onSearch={handleSearch}
-            onHideTipList={handleHideTipList}
-            onShowTipList={handleShowTipList}
-          />
-        </>
+        <HeaderBar
+          key={headerKey}
+          ref={headerBarRef}
+          title={t('nav_search')}
+          onSourceChange={handleSourceChange}
+          onTipSearch={handleTipSearch}
+          onSearch={handleSearch}
+          onHideTipList={handleHideTipList}
+          onShowTipList={handleShowTipList}
+        />
       )}
       <View style={styles.content} onLayout={handleLayout}>
         { selectedList

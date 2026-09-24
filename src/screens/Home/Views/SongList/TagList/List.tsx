@@ -8,7 +8,7 @@ import { type TagInfo, type Source } from '@/store/songlist/state'
 import { getTags } from '@/core/songlist'
 import Text from '@/components/common/Text'
 import { useTheme } from '@/store/theme/hook'
-import { useSafeAreaBottom } from '@/store/common/hook'
+import { useSafeAreaBottom, useStatusbarHeight } from '@/store/common/hook'
 import { designSpacing } from '@/theme/DesignTokens'
 // import { BorderWidths } from '@/theme'
 
@@ -23,6 +23,7 @@ export interface ListType {
 export default forwardRef<ListType, ListProps>(({ onTagChange }, ref) => {
   const theme = useTheme()
   const safeAreaBottom = useSafeAreaBottom()
+  const statusBarHeight = useStatusbarHeight()
   // const theme = useTheme()
   const [activeId, setActiveId] = useState('')
   const [list, setList] = useState<TagInfo['tags']>([])
@@ -69,7 +70,7 @@ export default forwardRef<ListType, ListProps>(({ onTagChange }, ref) => {
                 },
                 { name: t('songlist_tag_hot'), list: [...tagInfo.hotTag] },
                 ...tagInfo.tags,
-              ].filter((t) => t.list.length)
+              ].filter((t) => t.list.length),
             )
           })
           .catch(() => {
@@ -85,7 +86,7 @@ export default forwardRef<ListType, ListProps>(({ onTagChange }, ref) => {
       style={styles.list}
       contentContainerStyle={[
         styles.tagContainer,
-        { paddingBottom: 80 + safeAreaBottom },
+        { paddingTop: statusBarHeight + designSpacing.md, paddingBottom: 80 + safeAreaBottom },
       ]}
       keyboardShouldPersistTaps={'always'}
     >

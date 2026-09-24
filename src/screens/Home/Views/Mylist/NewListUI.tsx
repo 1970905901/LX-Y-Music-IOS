@@ -667,9 +667,10 @@ export default memo(() => {
     )
   }
 
+  const listHeader = !isHorizontal ? <PageHeader title={t('nav_love')} /> : null
+
   const listPanel = (
     <View style={styles.content}>
-      {!isHorizontal ? <PageHeader title={t('nav_love')} /> : null}
       {hasError ? (
         <View style={styles.errorContainer}>
           <Text size={16} color={theme['c-font']} style={styles.errorText}>加载失败</Text>
@@ -685,8 +686,9 @@ export default memo(() => {
         <>
           <FlatList
             data={listItems}
-            contentContainerStyle={{ paddingTop: designSpacing.sm, paddingBottom: 80 + safeAreaBottom }}
+            contentContainerStyle={{ paddingBottom: 80 + safeAreaBottom }}
             renderItem={renderItem}
+            ListHeaderComponent={listHeader}
             keyExtractor={item => item.id}
             style={styles.listContainer}
             scrollEnabled={draggingIndex == null}

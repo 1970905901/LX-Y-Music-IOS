@@ -7,6 +7,7 @@ export interface SearchInputProps {
   onChangeText: (text: string) => void
   onSubmit: (text: string) => void
   onBlur: () => void
+  onFocus: () => void
   onTouchStart: () => void
 }
 
@@ -18,7 +19,7 @@ export interface SearchInputType {
 }
 
 export default forwardRef<SearchInputType, SearchInputProps>(
-  ({ onChangeText, onSubmit, onBlur, onTouchStart }, ref) => {
+  ({ onChangeText, onSubmit, onBlur, onFocus, onTouchStart }, ref) => {
     // const theme = useTheme()
     const [text, setText] = useState('')
     const inputRef = useRef<InputType>(null)
@@ -64,6 +65,7 @@ export default forwardRef<SearchInputType, SearchInputProps>(
         onChangeText={handleChangeText}
         style={styles.input}
         onBlur={onBlur}
+        onFocus={onFocus}
         onSubmitEditing={handleSubmit}
         onClearText={handleClearText}
         onTouchStart={onTouchStart}

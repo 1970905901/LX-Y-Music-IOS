@@ -259,6 +259,8 @@
   "quality_lossless_atmos_plus": "Atmos2.0",
   "quality_lossless_master": "Master",
   "search__welcome": "搜我所想~~😉",
+  "search_empty_title": "搜索歌曲、歌手、专辑或歌单",
+  "search_empty_description": "使用底部搜索框开始，聚合搜索也可以切换到单个平台。",
   "search_history_search": "历史搜索",
   "search_hot_search": "热门搜索",
   "search_type_music": "歌曲",

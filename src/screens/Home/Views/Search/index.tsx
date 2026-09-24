@@ -34,6 +34,7 @@ export default () => {
   const searchInfo = useRef<SearchInfo>({ temp_source: 'kw', source: 'kw', searchType: 'music' })
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
   const [selectedList, setSelectedList] = useState<ListInfoItem | null>(null)
+  const [searchOpen, setSearchOpen] = useState(!!searchState.searchText)
   const selectedListRef = useRef(selectedList)
   selectedListRef.current = selectedList
 
@@ -95,6 +96,7 @@ export default () => {
   }, [selectedList])
 
   const handleSearch: HeaderBarProps['onSearch'] = useCallback((text) => {
+    setSearchOpen(true)
     handleHideTipList()
     setSelectedList(null)
     setSearchState(text)
@@ -158,6 +160,7 @@ export default () => {
         }
       }
       if (keyword) {
+        setSearchOpen(true)
         listRef.current?.loadList(
           keyword,
           searchInfo.current.source,
@@ -187,6 +190,7 @@ export default () => {
           void listRef.current?.loadList(searchState.searchText, info.source, info.type)
         }
         if (consumePendingAction('searchFocus')) {
+          setSearchOpen(true)
           void InteractionManager.runAfterInteractions(() => {
             headerBarRef.current?.focus()
           })
@@ -196,6 +200,7 @@ export default () => {
     global.state_event.on('navActiveIdUpdated', handleNavChange)
 
     if (consumePendingAction('searchFocus')) {
+      setSearchOpen(true)
       void InteractionManager.runAfterInteractions(() => {
         headerBarRef.current?.focus()
       })
@@ -230,6 +235,15 @@ export default () => {
     }
     searchTipListRef.current?.hide()
   }
+  const handleCancelSearch = useCallback(() => {
+    handleHideTipList()
+    setSelectedList(null)
+    setSearchState('')
+    headerBarRef.current?.setText('')
+    headerBarRef.current?.blur()
+    void listRef.current?.loadList('', searchInfo.current.source, searchInfo.current.searchType)
+    setSearchOpen(false)
+  }, [])
   const handleShowTipList: HeaderBarProps['onShowTipList'] = () => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current)
     timeoutRef.current = setTimeout(() => {
@@ -252,10 +266,13 @@ export default () => {
           key={headerKey}
           ref={headerBarRef}
           title={t('nav_search')}
+          isSearchOpen={searchOpen}
           onSourceChange={handleSourceChange}
           onTipSearch={handleTipSearch}
           onSearch={handleSearch}
           onHideTipList={handleHideTipList}
+          onOpenSearch={() => { setSearchOpen(true) }}
+          onCancelSearch={handleCancelSearch}
           onShowTipList={handleShowTipList}
         />
       )}
@@ -266,10 +283,12 @@ export default () => {
           />
           : (
             <>
-              <View style={styles.typeRow}>
-                <SearchTypeSelector />
-              </View>
-              <TipList ref={searchTipListRef} onSearch={handleSearch} />
+              {searchOpen ? (
+                <View style={styles.typeRow}>
+                  <SearchTypeSelector />
+                </View>
+              ) : null}
+              {searchOpen ? <TipList ref={searchTipListRef} onSearch={handleSearch} /> : null}
               <List ref={listRef} onSearch={handleSearch} onOpenDetail={handleOpenDetail} />
             </>
             )

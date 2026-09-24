@@ -1,5 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { View } from 'react-native'
+import { Icon } from '@/components/common/Icon'
 import { type Source, type InitState } from '@/store/hotSearch/state'
 import Button from '@/components/common/Button'
 import { getList } from '@/core/hotSearch'
@@ -20,11 +21,9 @@ export type List = NonNullable<InitState['sourceList'][keyof InitState['sourceLi
 
 const ListItem = ({
   keyword,
-  rank,
   onSearch,
 }: {
   keyword: string
-  rank: number
   onSearch: (keyword: string) => void
 }) => {
   const theme = useTheme()
@@ -39,10 +38,10 @@ const ListItem = ({
         onSearch(keyword)
       }}
     >
-      <Text color={theme['c-button-font']} size={13}>
+      <Icon name="search-2" size={16} color={theme['c-primary']} style={styles.icon} />
+      <Text color={theme['c-font']} size={13}>
         {keyword}
       </Text>
-      <Text color={theme['c-font-label']} size={11}>{rank}</Text>
     </Button>
   )
 }
@@ -84,7 +83,6 @@ export default forwardRef<HotSearchType, ListProps>((props, ref) => {
         {list.slice(0, 12).map((keyword, index) => (
           <ListItem
             keyword={keyword}
-            rank={index + 1}
             key={keyword}
             onSearch={props.onSearch}
           />
@@ -103,14 +101,23 @@ const styles = createStyle({
     flexDirection: 'row',
     flexWrap: 'wrap',
     rowGap: designSpacing.sm,
+    columnGap: designSpacing.sm,
   },
   button: {
-    height: 36,
+    width: '48%',
+    height: 44,
+    flexDirection: 'row',
     justifyContent: 'center',
+    alignItems: 'center',
     paddingHorizontal: designSpacing.md,
-    borderRadius: 999,
-    marginRight: designSpacing.sm,
+    borderRadius: 22,
     marginBottom: designSpacing.sm,
     borderWidth: 1,
+  },
+  icon: {
+    marginRight: designSpacing.sm,
+  },
+  keyword: {
+    flexShrink: 1,
   },
 })

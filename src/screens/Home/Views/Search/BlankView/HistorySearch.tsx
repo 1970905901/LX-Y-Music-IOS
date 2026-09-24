@@ -40,7 +40,7 @@ const ListItem = ({
       </Text>
       <TouchableOpacity
         hitSlop={8}
-        style={styles.removeButton}
+        style={{ ...styles.removeButton, backgroundColor: theme['c-primary-background-active'] }}
         onPress={() => {
           onRemove(keyword)
         }}
@@ -105,7 +105,7 @@ export default forwardRef<HistorySearchType, HistorySearchProps>((props, ref) =>
         <Text size={designTypography.title} style={styles.title}>{t('search_history_search')}</Text>
         <TouchableOpacity
           onPress={handleClear}
-          style={{ ...styles.titleBtn, backgroundColor: theme['c-primary-background'] }}
+          style={{ ...styles.titleBtn, backgroundColor: theme['c-primary-background-hover'] }}
         >
           <Icon name="eraser" color={theme['c-300']} size={14} />
         </TouchableOpacity>
@@ -140,7 +140,6 @@ const styles = createStyle({
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.04)',
   },
   list: {
     flexDirection: 'row',
@@ -165,6 +164,5 @@ const styles = createStyle({
     borderRadius: 9,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.06)',
   },
 })

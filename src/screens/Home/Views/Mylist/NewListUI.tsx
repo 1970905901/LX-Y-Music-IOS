@@ -23,6 +23,8 @@ import { scaleSizeH } from '@/utils/pixelRatio'
 import { designRadius, designSpacing } from '@/theme/DesignTokens'
 import { shadow } from '@/utils/shadow'
 import { useSafeAreaBottom } from '@/store/common/hook'
+import { useI18n } from '@/lang'
+import PageHeader from '@/components/common/PageHeader'
 import Loading from '@/components/common/Loading'
 import { Navigation } from 'react-native-navigation'
 
@@ -300,6 +302,7 @@ const PlaylistCard = memo(({
 
 export default memo(() => {
   const theme = useTheme()
+  const t = useI18n()
   const safeAreaBottom = useSafeAreaBottom()
   const allList = useMyList()
   const activeListId = useActiveListId()
@@ -617,7 +620,12 @@ export default memo(() => {
   }, [allList])
 
   if (!isHorizontal && showMusicList) {
-    return <MusicList onBack={handleBackToList} />
+    return (
+      <View style={styles.content}>
+        <PageHeader title={t('nav_love')} />
+        <MusicList onBack={handleBackToList} />
+      </View>
+    )
   }
 
   const renderItem = ({ item }: { item: ListItemInfo }) => {
@@ -661,6 +669,7 @@ export default memo(() => {
 
   const listPanel = (
     <View style={styles.content}>
+      {!isHorizontal ? <PageHeader title={t('nav_love')} /> : null}
       {hasError ? (
         <View style={styles.errorContainer}>
           <Text size={16} color={theme['c-font']} style={styles.errorText}>加载失败</Text>
@@ -714,26 +723,29 @@ export default memo(() => {
   if (isHorizontal) {
     const hasActiveList = showMusicList || (activeListId != null && activeListId !== LIST_IDS.DEFAULT)
     return (
-      <View style={{ flex: 1, flexDirection: 'row' }}>
-        <View
-          style={{
-            // 百分比宽度：iPad 分屏 / Slide Over 下窗口宽度不定，
-            // 写死 360 且禁止收缩会把右栏挤到接近 0（Slide Over 时内容不可用）
-            width: '38%',
-            borderRightWidth: 1,
-            borderRightColor: theme['c-border-background'],
-          }}
-        >
-          {listPanel}
-        </View>
-        <View style={{ flex: 1, overflow: 'hidden' }}>
-          {hasActiveList ? (
-            <MusicList />
-          ) : (
-            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-              <Text size={13} color={theme['c-500']}>点击左侧列表查看歌曲</Text>
-            </View>
-          )}
+      <View style={{ flex: 1 }}>
+        <PageHeader title={t('nav_love')} />
+        <View style={{ flex: 1, flexDirection: 'row' }}>
+          <View
+            style={{
+              // 百分比宽度：iPad 分屏 / Slide Over 下窗口宽度不定，
+              // 写死 360 且禁止收缩会把右栏挤到接近 0（Slide Over 时内容不可用）
+              width: '38%',
+              borderRightWidth: 1,
+              borderRightColor: theme['c-border-background'],
+            }}
+          >
+            {listPanel}
+          </View>
+          <View style={{ flex: 1, overflow: 'hidden' }}>
+            {hasActiveList ? (
+              <MusicList />
+            ) : (
+              <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                <Text size={13} color={theme['c-500']}>点击左侧列表查看歌曲</Text>
+              </View>
+            )}
+          </View>
         </View>
       </View>
     )

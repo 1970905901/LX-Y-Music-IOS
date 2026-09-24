@@ -20,6 +20,7 @@ import { useI18n } from '@/lang'
 import { SETTING_SCREENS, type SettingScreenIds } from '../Main'
 import { useSafeAreaBottom } from '@/store/common/hook'
 import Text from '@/components/common/Text'
+import PageHeader from '@/components/common/PageHeader'
 
 const SETTING_COMPONENTS: Record<SettingScreenIds, ComponentType> = {
   theme: ThemeScreen,
@@ -69,6 +70,7 @@ export default memo(() => {
 
   return (
     <View style={styles.container}>
+      <PageHeader title={t('nav_setting')} />
       <ScrollView
         style={styles.navScroll}
         contentContainerStyle={styles.navContent}

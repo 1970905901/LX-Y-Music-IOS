@@ -17,6 +17,8 @@ import SonglistDetail from '../../../SonglistDetail'
 import { COMPONENT_IDS } from '@/config/constant'
 import { useSettingValue } from '@/store/setting/hook'
 import { designSpacing } from '@/theme/DesignTokens'
+import { useI18n } from '@/lang'
+import PageHeader from '@/components/common/PageHeader'
 
 interface SearchInfo {
   temp_source: LX.OnlineSource
@@ -26,6 +28,7 @@ interface SearchInfo {
 
 export default () => {
   const headerBarRef = useRef<HeaderBarType>(null)
+  const t = useI18n()
   const searchTipListRef = useRef<TipListType>(null)
   const listRef = useRef<ListType>(null)
   const layoutHeightRef = useRef<number>(0)
@@ -246,15 +249,18 @@ export default () => {
       behavior={Platform.OS == 'ios' ? 'padding' : undefined}
     >
       { !selectedList && (
-        <HeaderBar
-          key={headerKey}
-          ref={headerBarRef}
-          onSourceChange={handleSourceChange}
-          onTipSearch={handleTipSearch}
-          onSearch={handleSearch}
-          onHideTipList={handleHideTipList}
-          onShowTipList={handleShowTipList}
-        />
+        <>
+          <PageHeader title={t('nav_search')} />
+          <HeaderBar
+            key={headerKey}
+            ref={headerBarRef}
+            onSourceChange={handleSourceChange}
+            onTipSearch={handleTipSearch}
+            onSearch={handleSearch}
+            onHideTipList={handleHideTipList}
+            onShowTipList={handleShowTipList}
+          />
+        </>
       )}
       <View style={styles.content} onLayout={handleLayout}>
         { selectedList

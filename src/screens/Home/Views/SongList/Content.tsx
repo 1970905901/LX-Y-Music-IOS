@@ -13,7 +13,7 @@ import { LIST_IDS } from '@/config/constant'
 import listState from '@/store/list/state'
 import { useWySubscribedPlaylists } from '@/store/user/hook'
 import { useHorizontalMode } from '@/utils/hooks'
-import MusicInfoOnline = LX.Music.MusicInfoOnline;
+import MusicInfoOnline = LX.Music.MusicInfoOnline
 
 interface SonglistInfo {
   source: InitState['sources'][number]
@@ -40,19 +40,19 @@ export default () => {
     const onBackPress = () => {
       if (selectedListRef.current) {
         if (commonState.componentIds.length > 1) {
-          return false;
+          return false
         }
 
-        setSelectedList(null);
-        return true;
+        setSelectedList(null)
+        return true
       }
 
-      return false;
-    };
+      return false
+    }
 
-    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
-    return () => subscription.remove();
-  }, []);
+    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress)
+    return () => { subscription.remove() }
+  }, [])
 
   useEffect(() => {
     void getSongListSetting().then((info) => {
@@ -134,7 +134,7 @@ export default () => {
       source,
       songlistInfo.current.sortId,
       '',
-      songlistInfo.current.tagId
+      songlistInfo.current.tagId,
     )
     listRef.current?.loadList(source, songlistInfo.current.sortId, songlistInfo.current.tagId)
     // 横屏下标签列表常驻左栏，切源后同步标签数据源
@@ -158,14 +158,14 @@ export default () => {
         songlistInfo.current.source,
         songlistInfo.current.sortId,
         '',
-        songlistInfo.current.tagId
-      )
+        songlistInfo.current.tagId,
+      );
       (global.app_event as any).emit('_openSonglistModal', songlistInfo.current.source)
     }
     global.app_event.on('openSonglistImport', handleOpenImport)
 
     if (consumePendingAction('songlistImport')) {
-      setTimeout(() => handleOpenImport(), 300)
+      setTimeout(() => { handleOpenImport() }, 300)
     }
 
     return () => {

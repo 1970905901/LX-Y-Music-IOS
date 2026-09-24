@@ -23,8 +23,7 @@ import { scaleSizeH } from '@/utils/pixelRatio'
 import { designRadius, designSpacing } from '@/theme/DesignTokens'
 import { shadow } from '@/utils/shadow'
 import { useSafeAreaBottom } from '@/store/common/hook'
-import { useI18n } from '@/lang'
-import PageHeader from '@/components/common/PageHeader'
+import PageTopInset from '@/components/common/PageTopInset'
 import Loading from '@/components/common/Loading'
 import { Navigation } from 'react-native-navigation'
 
@@ -302,7 +301,6 @@ const PlaylistCard = memo(({
 
 export default memo(() => {
   const theme = useTheme()
-  const t = useI18n()
   const safeAreaBottom = useSafeAreaBottom()
   const allList = useMyList()
   const activeListId = useActiveListId()
@@ -622,7 +620,7 @@ export default memo(() => {
   if (!isHorizontal && showMusicList) {
     return (
       <View style={styles.content}>
-        <PageHeader title={t('nav_love')} />
+        <PageTopInset />
         <MusicList onBack={handleBackToList} />
       </View>
     )
@@ -667,7 +665,7 @@ export default memo(() => {
     )
   }
 
-  const listHeader = !isHorizontal ? <PageHeader title={t('nav_love')} /> : null
+  const listHeader = !isHorizontal ? <PageTopInset /> : null
 
   const listPanel = (
     <View style={styles.content}>
@@ -726,7 +724,7 @@ export default memo(() => {
     const hasActiveList = showMusicList || (activeListId != null && activeListId !== LIST_IDS.DEFAULT)
     return (
       <View style={{ flex: 1 }}>
-        <PageHeader title={t('nav_love')} />
+        <PageTopInset />
         <View style={{ flex: 1, flexDirection: 'row' }}>
           <View
             style={{

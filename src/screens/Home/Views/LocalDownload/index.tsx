@@ -18,7 +18,7 @@ import { mkdir, readDir, unlink, stat } from '@/utils/fs'
 import { sizeFormate } from '@/utils'
 import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
 import { useSafeAreaBottom } from '@/store/common/hook'
-import PageHeader from '@/components/common/PageHeader'
+import PageTopInset from '@/components/common/PageTopInset'
 
 type TabId = 'local' | 'download'
 
@@ -315,7 +315,7 @@ export default memo(() => {
 
   return (
     <>
-      <PageHeader title={t('nav_local_download')} />
+      <PageTopInset />
       <LandscapeDetailLayout
         header={
         <>

@@ -5,13 +5,11 @@ import { createStyle } from '@/utils/tools'
 import LeftBar, { type LeftBarType, type LeftBarProps } from './LeftBar'
 import MusicList, { type MusicListType } from '../MusicList'
 import { getLeaderboardSetting, saveLeaderboardSetting } from '@/utils/data'
-import PageHeader from '@/components/common/PageHeader'
-import { useI18n } from '@/lang'
+import PageTopInset from '@/components/common/PageTopInset'
 // import { BorderWidths } from '@/theme'
 // import { useTheme } from '@/store/theme/hook'
 
 export default () => {
-  const t = useI18n()
   const leftBarRef = useRef<LeftBarType>(null)
   const musicListRef = useRef<MusicListType>(null)
   const isUnmountedRef = useRef(false)
@@ -39,7 +37,7 @@ export default () => {
 
   return (
     <View style={{ flex: 1 }}>
-      <PageHeader title={t('nav_top')} />
+      <PageTopInset />
       <View style={styles.container}>
         <LeftBar ref={leftBarRef} onChangeList={handleChangeBound} />
         <MusicList ref={musicListRef} />

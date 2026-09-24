@@ -37,8 +37,7 @@ import {
 import settingState from '@/store/setting/state'
 import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
 import { useSafeAreaBottom } from '@/store/common/hook'
-import { useI18n } from '@/lang'
-import PageHeader from '@/components/common/PageHeader'
+import PageTopInset from '@/components/common/PageTopInset'
 import WebDAVListMenu, { type WebDAVListMenuType, type SelectInfo as WebDAVSelectInfo } from './WebDAVListMenu'
 import WebDAVDownloadPath from './components/WebDAVDownloadPath'
 import MetadataEditModal from '@/components/MetadataEditModal'
@@ -203,7 +202,6 @@ const SongItem = memo(
 )
 
 export default memo(() => {
-  const t = useI18n()
   const theme = useTheme()
   const playMusicInfo = usePlayMusicInfo()
   const [activeTab, setActiveTab] = useState<ActiveTab>('list')
@@ -916,7 +914,7 @@ export default memo(() => {
 
   return (
     <View style={styles.container}>
-      <PageHeader title={t('nav_webdav')} />
+      <PageTopInset />
       <View style={{ ...styles.tabs, borderBottomColor: theme['c-border-background'] }}>
         <TabButton label="列表" tab="list" activeTab={activeTab} onPress={() => setActiveTab('list')} />
         <TabButton label="文件列表" tab="folders" activeTab={activeTab} onPress={() => setActiveTab('folders')} />

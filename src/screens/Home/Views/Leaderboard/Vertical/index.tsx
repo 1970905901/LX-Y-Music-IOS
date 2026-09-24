@@ -20,14 +20,12 @@ import { getBoardsList } from '@/core/leaderboard'
 import { COMPONENT_IDS } from '@/config/constant'
 import { handleCollect, handlePlay } from '../listAction'
 import boardState, { type BoardItem } from '@/store/leaderboard/state'
-import PageHeader from '@/components/common/PageHeader'
-import { useI18n } from '@/lang'
+import PageTopInset from '@/components/common/PageTopInset'
 
 const MAX_WIDTH = scaleSizeW(200)
 
 export default () => {
   const drawer = useRef<DrawerLayoutFixedType>(null)
-  const t = useI18n()
   const theme = useTheme()
   const musicListRef = useRef<MusicListType>(null)
   const isUnmountedRef = useRef(false)
@@ -145,7 +143,7 @@ export default () => {
       style={{ ...shadow(1) }}
     >
       <View style={styles.container}>
-        <PageHeader title={t('nav_top')} />
+        <PageTopInset />
         <HeaderBar ref={headerBarRef} onShowBound={onShowBound} onSourceChange={onSourceChange} />
         <MusicList ref={musicListRef} />
       </View>

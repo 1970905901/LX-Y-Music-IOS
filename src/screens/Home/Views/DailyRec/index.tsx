@@ -15,8 +15,7 @@ import { COMPONENT_IDS, NAV_MENUS } from '@/config/constant'
 import { useSettingValue } from '@/store/setting/hook'
 import { useNavActiveId } from '@/store/common/hook'
 import { setNavActiveId } from '@/core/common'
-import { useI18n } from '@/lang'
-import PageHeader from '@/components/common/PageHeader'
+import PageTopInset from '@/components/common/PageTopInset'
 
 const Tabs = ({
   activeTab,
@@ -85,7 +84,6 @@ const Tabs = ({
 
 export default memo(() => {
   const [activeTab, setActiveTab] = useState<'songs' | 'playlists'>('songs')
-  const t = useI18n()
   const [isStylized, setIsStylized] = useState(false)
   const [showStylizedModal, setShowStylizedModal] = useState(false)
   const [stylizedSelection, setStylizedSelection] = useState<StylizedSelection>(null)
@@ -168,7 +166,7 @@ export default memo(() => {
 
   return (
     <View style={{ flex: 1 }}>
-      <PageHeader title={t('nav_daily_rec')} />
+      <PageTopInset />
       <View style={[{ flex: 1 }, selectedPlaylist ? { opacity: 0 } : null]} pointerEvents={selectedPlaylist ? 'none' : 'auto'} {...(isHomePageScrollEnabled ? panResponder.panHandlers : {})}>
         <Tabs
           activeTab={activeTab}

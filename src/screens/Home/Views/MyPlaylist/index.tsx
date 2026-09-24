@@ -9,8 +9,7 @@ import { MUSIC_TOGGLE_MODE } from '@/config/constant'
 import { updateSetting } from '@/core/common'
 import { useWySubscribedPlaylists, useWyUid } from '@/store/user/hook.ts'
 import { useHorizontalMode } from '@/utils/hooks'
-import { useI18n } from '@/lang'
-import PageHeader from '@/components/common/PageHeader'
+import PageTopInset from '@/components/common/PageTopInset'
 import userState from '@/store/user/state'
 import { useSettingValue } from '@/store/setting/hook'
 import { toast, confirmDialog } from '@/utils/tools'
@@ -28,7 +27,6 @@ import PlaylistEditModal, { type PlaylistEditModalType } from './PlaylistEditMod
 import MusicInfoOnline = LX.Music.MusicInfoOnline;
 
 export default memo(() => {
-  const t = useI18n()
   const playlists = useWySubscribedPlaylists()
   const uid = useWyUid()
   const [loading, setLoading] = useState(true)
@@ -238,7 +236,7 @@ export default memo(() => {
   }, [])
   return (
     <View style={{ flex: 1 }}>
-      <PageHeader title={t('nav_my_playlist')} />
+      <PageTopInset />
       <View style={[{ flex: 1 }, selectedPlaylist ? { opacity: 0 } : null]} pointerEvents={selectedPlaylist ? 'none' : 'auto'}>
         <FlatList
           onScrollBeginDrag={Keyboard.dismiss}

@@ -7,11 +7,9 @@ import { setWyFollowedArtists } from '@/store/user/action'
 import { createStyle, toast } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
 import { useHorizontalMode } from '@/utils/hooks'
-import { useI18n } from '@/lang'
-import PageHeader from '@/components/common/PageHeader'
+import PageTopInset from '@/components/common/PageTopInset'
 
 export default memo(() => {
-  const t = useI18n()
   const followedArtists = useWyFollowedArtists()
   const [loading, setLoading] = useState(false)
   const theme = useTheme()
@@ -32,7 +30,7 @@ export default memo(() => {
 
   return (
     <View style={{ flex: 1 }}>
-      <PageHeader title={t('nav_followed_artists')} />
+      <PageTopInset />
       <FlatList
         onScrollBeginDrag={Keyboard.dismiss}
         data={followedArtists}

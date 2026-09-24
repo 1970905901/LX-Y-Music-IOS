@@ -15,8 +15,7 @@ import ImageBackground from '@/components/common/ImageBackground'
 import { defaultHeaders } from '@/components/common/Image'
 import { createStyle, toast } from '@/utils/tools'
 import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
-import { useI18n } from '@/lang'
-import PageHeader from '@/components/common/PageHeader'
+import PageTopInset from '@/components/common/PageTopInset'
 
 type HistoryMusicInfo = LX.Music.MusicInfoOnline & {
   playHistoryId: string
@@ -89,7 +88,6 @@ const normalizeHistoryMusic = (item: LX.Player.PlayHistoryItem): HistoryMusicInf
 }
 
 export default memo(() => {
-  const t = useI18n()
   const listRef = useRef<OnlineListType>(null)
   const pagerRef = useRef<PagerView>(null)
   const popupRef = useRef<PopupType>(null)
@@ -239,7 +237,7 @@ export default memo(() => {
           <View style={{ flex: 1, backgroundColor: theme['c-content-background'], opacity: picOpacity / 100 }} />
         </ImageBackground>
       ) : null}
-      <PageHeader title={t('nav_play_history')} />
+      <PageTopInset />
       <View style={{ ...styles.header, borderBottomColor: theme['c-border-background'] }}>
         <TouchableOpacity
           style={{ ...styles.iconBtn, backgroundColor: theme['c-primary-background'] }}

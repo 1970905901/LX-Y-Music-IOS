@@ -53,6 +53,7 @@ export const exitApp = (reason: string) => {
 }
 
 export const setFontSize = (size: number) => {
+  global.lx.fontSize = size
   commonActions.setFontSize(size)
   void saveFontSize(size)
 }

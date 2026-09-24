@@ -35,7 +35,7 @@ const startPush = (id: COMPONENT_IDS, allowSameTop = false) => {
   pendingPushes.add(id)
   // 安全兜底：即使 push 的 Promise 始终不结算（如 RNN 返回 undefined 或原生转场挂起），
   // 也确保锁最终释放，避免界面永久卡死只能重启。
-  setTimeout(() => { endPush(id) }, 3000)
+  setTimeout(() => { endPush(id) }, 800)
   return true
 }
 const endPush = (id: COMPONENT_IDS) => { pendingPushes.delete(id) }

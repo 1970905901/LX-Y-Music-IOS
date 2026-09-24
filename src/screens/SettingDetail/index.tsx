@@ -92,7 +92,7 @@ const styles = createStyle({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 52,
+    paddingBottom: designSpacing.sm,
     paddingHorizontal: designSpacing.sm,
   },
   backButton: {

@@ -11,7 +11,6 @@ import Blur from './Theme/Blur'
 import CustomBg from './Theme/CustomBg'
 import PicOpacity from './Theme/PicOpacity'
 import MiniPlayerOpacity from './Theme/MiniPlayerOpacity'
-import SectionOpacity from './Theme/SectionOpacity'
 import SubContainerOpacity from './Theme/SubContainerOpacity'
 
 export default memo(() => {
@@ -28,7 +27,6 @@ export default memo(() => {
       <PicOpacity />
       <Blur />
       <MiniPlayerOpacity />
-      <SectionOpacity />
       <SubContainerOpacity />
       <IsFontShadow />
     </Section>

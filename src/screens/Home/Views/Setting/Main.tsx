@@ -1,4 +1,4 @@
-import { forwardRef, useImperativeHandle, useMemo, useState } from 'react'
+import { forwardRef, useImperativeHandle, useMemo, useState, type ComponentType } from 'react'
 
 import Basic from './settings/Basic'
 import Player from './settings/Player'
@@ -27,6 +27,20 @@ export const SETTING_SCREENS = [
 ] as const
 
 export type SettingScreenIds = (typeof SETTING_SCREENS)[number]
+
+export const SETTING_COMPONENTS: Record<SettingScreenIds, ComponentType> = {
+  theme: ThemeScreen,
+  platform: PlatformScreen,
+  player: Player,
+  search: Search,
+  list: List,
+  download: Download,
+  sync: Sync,
+  backup: Backup,
+  other: Other,
+  about: About,
+  basic: Basic,
+}
 
 export interface MainType {
   setActiveId: (id: SettingScreenIds) => void

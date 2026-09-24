@@ -2,7 +2,7 @@ import { memo } from 'react'
 
 import Button, { type BtnProps } from '@/components/common/Button'
 import Text from '@/components/common/Text'
-import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
+import { designRadius, designSpacing } from '@/theme/DesignTokens'
 import { useTheme } from '@/store/theme/hook'
 import { createStyle } from '@/utils/tools'
 
@@ -17,7 +17,7 @@ export default memo(({ disabled, onPress, children }: ButtonProps) => {
       onPress={onPress}
       disabled={disabled}
     >
-      <Text size={designTypography.caption} color={theme['c-button-font']}>
+      <Text size={14} color={theme['c-button-font']}>
         {children}
       </Text>
     </Button>

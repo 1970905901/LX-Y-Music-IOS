@@ -26,7 +26,9 @@ export default memo(() => {
 
   const contentContainer = useMemo(() => ({
     paddingHorizontal: designSpacing.lg,
-    paddingBottom: designSpacing.xl + safeAreaBottom,
+    // 底部悬浮的迷你播放器胶囊 + tab 栏最高约到 safeAreaBottom+150pt，
+    // 参照 Discovery 页的 180 底部留白并叠加安全区，保证最后一项滚到底后完全脱离悬浮区可点。
+    paddingBottom: 180 + safeAreaBottom,
   }), [safeAreaBottom])
 
   return (
@@ -48,7 +50,7 @@ export default memo(() => {
                 onPress={() => { handlePress(id) }}
               >
                 <Text
-                  size={16}
+                  size={17}
                   color={theme['c-font']}
                 >
                   {t(`setting_${id}`)}

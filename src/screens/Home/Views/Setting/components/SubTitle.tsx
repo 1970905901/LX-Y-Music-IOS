@@ -4,7 +4,7 @@ import { View } from 'react-native'
 import { createStyle } from '@/utils/tools'
 import Text from '@/components/common/Text'
 import { useTheme } from '@/store/theme/hook'
-import { designSpacing, designTypography } from '@/theme/DesignTokens'
+import { designSpacing } from '@/theme/DesignTokens'
 
 interface Props {
   title: string
@@ -19,7 +19,7 @@ export default memo(({ title, children }: Props) => {
   return (
     <View style={styles.container}>
       <View style={styles.titleRow}>
-        <Text style={{ ...styles.title, color: theme['c-font-label'] }} size={designTypography.caption}>
+        <Text style={{ ...styles.title, color: theme['c-font-label'] }} size={14}>
           {title}
         </Text>
       </View>

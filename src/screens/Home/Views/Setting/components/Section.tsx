@@ -20,7 +20,7 @@ export default ({ title, children }: Props) => {
       <View style={styles.titleContainer}>
         <Text
           style={{ ...styles.title, borderLeftColor: theme['c-primary'], color: theme['c-font'] }}
-          size={16}
+          size={17}
         >
           {title}
         </Text>

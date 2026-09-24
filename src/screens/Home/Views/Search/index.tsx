@@ -2,19 +2,21 @@ import { useRef, useEffect, useState, useCallback, useMemo } from 'react'
 import { InteractionManager } from 'react-native'
 import { type LayoutChangeEvent, View, BackHandler, KeyboardAvoidingView, Platform } from 'react-native'
 import HeaderBar, { type HeaderBarProps, type HeaderBarType } from './HeaderBar'
+import SearchTypeSelector from './SearchTypeSelector'
 import searchState, { type SearchType } from '@/store/search/state'
 import commonState from '@/store/common/state'
 import searchMusicState from '@/store/search/music/state'
 import searchSonglistState, { type ListInfoItem } from '@/store/search/songlist/state'
 import { getSearchSetting, saveSearchSetting } from '@/utils/data'
 import { consumePendingAction } from '@/core/pendingAction'
-import {createStyle} from '@/utils/tools'
+import { createStyle } from '@/utils/tools'
 import TipList, { type TipListType } from './TipList'
 import List, { type ListType } from './List'
 import { addHistoryWord, setSearchText as setSearchState } from '@/core/search/search'
 import SonglistDetail from '../../../SonglistDetail'
-import {COMPONENT_IDS} from "@/config/constant.ts"
+import { COMPONENT_IDS } from '@/config/constant'
 import { useSettingValue } from '@/store/setting/hook'
+import { designSpacing } from '@/theme/DesignTokens'
 
 interface SearchInfo {
   temp_source: LX.OnlineSource
@@ -35,11 +37,11 @@ export default () => {
 
   const enabledSources = useSettingValue('search.enabledSources')
   const filteredMusicSources = useMemo(
-    () => searchMusicState.sources.filter(s => enabledSources[s] !== false),
+    () => searchMusicState.sources.filter(s => enabledSources[s]),
     [enabledSources],
   )
   const filteredSonglistSources = useMemo(
-    () => searchSonglistState.sources.filter(s => enabledSources[s] !== false),
+    () => searchSonglistState.sources.filter(s => enabledSources[s]),
     [enabledSources],
   )
 
@@ -53,7 +55,7 @@ export default () => {
     if (sources.length > 0 && searchInfo.current.source) {
       headerBarRef.current?.setSourceList(sources, searchInfo.current.source)
     }
-  }, [filteredMusicSources, filteredSonglistSources])
+  }, [])
 
   const [headerKey, setHeaderKey] = useState(Date.now())
 
@@ -74,7 +76,7 @@ export default () => {
 
     const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress)
 
-    return () => subscription.remove()
+    return () => { subscription.remove() }
   }, [])
 
   useEffect(() => {
@@ -98,7 +100,7 @@ export default () => {
     headerBarRef.current?.setText(text)
     headerBarRef.current?.blur()
     void addHistoryWord(text)
-    listRef.current?.loadList(text, searchInfo.current.source, searchInfo.current.searchType)
+    void listRef.current?.loadList(text, searchInfo.current.source, searchInfo.current.searchType)
   }, [])
 
   useEffect(() => {
@@ -117,7 +119,7 @@ export default () => {
           break
       }
       headerBarRef.current?.setText(searchState.searchText)
-      listRef.current?.loadList(
+      void listRef.current?.loadList(
         searchState.searchText,
         searchInfo.current.source,
         searchInfo.current.searchType,
@@ -134,7 +136,7 @@ export default () => {
     }
     global.app_event.on('searchTypeChanged', handleTypeChange)
 
-    const handleSearchDeepLink = async (keyword: string, source: string, type: string) => {
+    const handleSearchDeepLink = async(keyword: string, source: string, type: string) => {
       const info = await getSearchSetting()
       searchInfo.current.source = (source || info.source) as LX.OnlineSource
       searchInfo.current.searchType = (type || info.type) as SearchType
@@ -171,7 +173,7 @@ export default () => {
   }, [headerKey])
 
   useEffect(() => {
-    const handleNavChange = async (id: string) => {
+    const handleNavChange = async(id: string) => {
       if (id === 'nav_search') {
         const info = await getSearchSetting()
         searchInfo.current.source = info.source
@@ -180,10 +182,10 @@ export default () => {
         const sources = info.type === 'songlist' ? filteredSonglistSourcesRef.current : filteredMusicSourcesRef.current
         headerBarRef.current?.setSourceList(sources, info.source)
         if (searchState.searchText) {
-          listRef.current?.loadList(searchState.searchText, info.source, info.type)
+          void listRef.current?.loadList(searchState.searchText, info.source, info.type)
         }
         if (consumePendingAction('searchFocus')) {
-          InteractionManager.runAfterInteractions(() => {
+          void InteractionManager.runAfterInteractions(() => {
             headerBarRef.current?.focus()
           })
         }
@@ -192,7 +194,7 @@ export default () => {
     global.state_event.on('navActiveIdUpdated', handleNavChange)
 
     if (consumePendingAction('searchFocus')) {
-      InteractionManager.runAfterInteractions(() => {
+      void InteractionManager.runAfterInteractions(() => {
         headerBarRef.current?.focus()
       })
     }
@@ -257,14 +259,17 @@ export default () => {
       <View style={styles.content} onLayout={handleLayout}>
         { selectedList
           ? <SonglistDetail
-            info={selectedList} onBack={() => setSelectedList(null)} initialScrollToInfo={null}
+            info={selectedList} onBack={() => { setSelectedList(null) }} initialScrollToInfo={null}
           />
           : (
             <>
+              <View style={styles.typeRow}>
+                <SearchTypeSelector />
+              </View>
               <TipList ref={searchTipListRef} onSearch={handleSearch} />
               <List ref={listRef} onSearch={handleSearch} onOpenDetail={handleOpenDetail} />
             </>
-          )
+            )
         }
       </View>
     </KeyboardAvoidingView>
@@ -279,5 +284,10 @@ const styles = createStyle({
   },
   content: {
     flex: 1,
+  },
+  typeRow: {
+    height: 42,
+    paddingHorizontal: designSpacing.lg,
+    justifyContent: 'center',
   },
 })

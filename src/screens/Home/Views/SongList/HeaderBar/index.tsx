@@ -8,18 +8,21 @@ import SortTab, { type SortTabProps, type SortTabType } from './SortTab'
 import { createStyle } from '@/utils/tools'
 // import { BorderWidths } from '@/theme'
 import SourceSelector, { type SourceSelectorType, type SourceSelectorProps } from './SourceSelector'
-import {ListInfoItem, type Source} from '@/store/songlist/state'
-// import { useTheme } from '@/store/theme/hook'
+import { type ListInfoItem, type Source } from '@/store/songlist/state'
+import { useTheme } from '@/store/theme/hook'
 import Tag, { type TagType, type TagProps } from './Tag'
 import OpenList, { type OpenListType } from './OpenList'
-import { designSpacing } from '@/theme/DesignTokens'
+import { designRadius, designSpacing } from '@/theme/DesignTokens'
+import Text from '@/components/common/Text'
+import { Icon } from '@/components/common/Icon'
+import { useI18n } from '@/lang'
 // import { BorderWidths } from '@/theme'
 
 export interface HeaderBarProps {
   onSortChange: SortTabProps['onSortChange']
   onTagChange: TagProps['onTagChange']
   onSourceChange: SourceSelectorProps['onSourceChange']
-  onOpenDetail: (item: ListInfoItem) => void;
+  onOpenDetail: (item: ListInfoItem) => void
 }
 
 export interface HeaderBarType {
@@ -32,6 +35,8 @@ export default forwardRef<HeaderBarType, HeaderBarProps>(
     const tagRef = useRef<TagType>(null)
     const openListRef = useRef<OpenListType>(null)
     const sourceSelectorRef = useRef<SourceSelectorType>(null)
+    const t = useI18n()
+    const theme = useTheme()
     // const theme = useTheme()
 
     useImperativeHandle(
@@ -44,34 +49,83 @@ export default forwardRef<HeaderBarType, HeaderBarProps>(
           openListRef.current?.setInfo(source)
         },
       }),
-      []
+      [],
     )
 
     return (
-      <View style={styles.searchBar}>
-        <SortTab ref={sortTabRef} onSortChange={onSortChange} />
-        <Tag ref={tagRef} onTagChange={onTagChange} />
-        <OpenList ref={openListRef} onOpenDetail={onOpenDetail} />
-        <SourceSelector ref={sourceSelectorRef} onSourceChange={onSourceChange} />
+      <View style={styles.container}>
+        <View style={styles.titleRow}>
+          <Text style={styles.title} size={24}>{t('nav_songlist')}</Text>
+          <View style={styles.actions}>
+            <OpenList ref={openListRef} onOpenDetail={onOpenDetail} />
+            <View
+              style={[styles.sourcePill, {
+                backgroundColor: theme['c-primary-light-900-alpha-200'],
+                borderColor: theme['c-border-background'],
+              }]}
+            >
+              <SourceSelector ref={sourceSelectorRef} onSourceChange={onSourceChange} />
+            </View>
+          </View>
+        </View>
+
+        <View
+          style={[styles.filterRow, {
+            backgroundColor: theme['c-primary-light-900-alpha-200'],
+            borderColor: theme['c-border-background'],
+          }]}
+        >
+          <Icon name="checkbox-marked" size={16} color={theme['c-primary']} />
+          <Tag ref={tagRef} onTagChange={onTagChange} />
+        </View>
+
+        <View style={styles.sortRow}>
+          <SortTab ref={sortTabRef} onSortChange={onSortChange} />
+        </View>
       </View>
     )
-  }
+  },
 )
 
 const styles = createStyle({
-  searchBar: {
-    flexDirection: 'row',
-    height: 44,
+  container: {
     zIndex: 2,
-    paddingHorizontal: designSpacing.md,
+    paddingHorizontal: designSpacing.lg,
     marginTop: designSpacing.xs,
     marginBottom: designSpacing.xs,
-    alignItems: 'center',
-    gap: designSpacing.sm,
-    // paddingRight: 10,
-    // borderBottomWidth: BorderWidths.normal,
   },
-  selector: {
-    width: 86,
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: designSpacing.md,
+  },
+  title: {
+    fontWeight: '800',
+  },
+  actions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  sourcePill: {
+    height: 36,
+    justifyContent: 'center',
+    borderRadius: designRadius.pill,
+    borderWidth: 1,
+    overflow: 'hidden',
+    marginLeft: designSpacing.sm,
+  },
+  filterRow: {
+    minHeight: 42,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: designSpacing.sm,
+    borderRadius: designRadius.lg,
+    borderWidth: 1,
+  },
+  sortRow: {
+    marginTop: designSpacing.sm,
+    minHeight: 36,
+    justifyContent: 'center',
   },
 })

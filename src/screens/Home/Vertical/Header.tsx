@@ -14,12 +14,10 @@ import { scaleSizeH } from '@/utils/pixelRatio'
 import { HEADER_HEIGHT } from '@/config/constant'
 import { designSpacing } from '@/theme/DesignTokens'
 import { type InitState as CommonState } from '@/store/common/state'
-import SearchTypeSelector from '@/screens/Home/Views/Search/SearchTypeSelector'
 import GlobalSearch from '@/components/GlobalSearch'
 import React, {useMemo, useRef} from "react";
 
 const headerComponents: Partial<Record<CommonState['navActiveId'], React.ReactNode>> = {
-  nav_search: <SearchTypeSelector />,
 }
 
 // const LeftTitle = () => {

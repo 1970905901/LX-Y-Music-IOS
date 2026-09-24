@@ -1,9 +1,9 @@
 import { memo, useCallback, useMemo, useState, useEffect, useRef } from 'react'
-import {View, TouchableOpacity, FlatList, ActivityIndicator, RefreshControl, Animated, PanResponder, BackHandler} from 'react-native'
+import { View, TouchableOpacity, FlatList, ActivityIndicator, RefreshControl, Animated, PanResponder, BackHandler } from 'react-native'
 import { useMyList, useActiveListId, useListFetching } from '@/store/list/hook'
 import { setActiveList, updateUserListPosition } from '@/core/list'
 import { fetchCoverUrl } from '@/core/music/coverUrl'
-import {getListMusics} from '@/utils/data'
+import { getListMusics } from '@/utils/data'
 import { useTheme } from '@/store/theme/hook'
 import Text from '@/components/common/Text'
 import Image from '@/components/common/Image'
@@ -21,6 +21,9 @@ import { handleRemove, handleSync } from './MyList/listAction'
 import { LIST_IDS } from '@/config/constant'
 import { scaleSizeH } from '@/utils/pixelRatio'
 import { designRadius, designSpacing } from '@/theme/DesignTokens'
+import { shadow } from '@/utils/shadow'
+import { useI18n } from '@/lang'
+import { useSafeAreaBottom } from '@/store/common/hook'
 import Loading from '@/components/common/Loading'
 import { Navigation } from 'react-native-navigation'
 
@@ -47,7 +50,7 @@ const createAnim = (): DragAnim => ({
   opacity: new Animated.Value(1),
 })
 
-type MenuPosition = { x: number; y: number; w: number; h: number }
+interface MenuPosition { x: number, y: number, w: number, h: number }
 
 const FixedPlaylistCard = memo(({
   item,
@@ -217,7 +220,7 @@ const PlaylistCard = memo(({
         // 一旦接管手势就不再释放给 ScrollView，避免整页被滚动。
         onPanResponderTerminationRequest: () => false,
       }),
-    [userListIndex, onLongPressStart, onDragMove, onDragRelease, onDragCancel, onTouchStart, onTouchEnd]
+    [userListIndex, onLongPressStart, onDragMove, onDragRelease, onDragCancel, onTouchStart, onTouchEnd],
   )
 
   const handleShowMenu = () => {
@@ -248,7 +251,7 @@ const PlaylistCard = memo(({
 
   return (
     <Animated.View
-      onLayout={(e) => onLayoutHeight(userListIndex, e.nativeEvent.layout.height)}
+      onLayout={(e) => { onLayoutHeight(userListIndex, e.nativeEvent.layout.height) }}
       style={[
         styles.cardContainer,
         {
@@ -298,11 +301,13 @@ const PlaylistCard = memo(({
 
 export default memo(() => {
   const theme = useTheme()
+  const t = useI18n()
+  const safeAreaBottom = useSafeAreaBottom()
   const allList = useMyList()
   const activeListId = useActiveListId()
   const isHorizontal = useHorizontalMode()
 
-  const [listInfoMap, setListInfoMap] = useState<Map<string, { cover: string; total: number }>>(new Map())
+  const [listInfoMap, setListInfoMap] = useState<Map<string, { cover: string, total: number }>>(new Map())
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
   const [showMusicList, setShowMusicList] = useState(false)
@@ -332,7 +337,7 @@ export default memo(() => {
     }
 
     const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress)
-    return () => subscription.remove()
+    return () => { subscription.remove() }
   }, [handleBackToList])
 
   const heightsRef = useRef<number[]>([])
@@ -361,11 +366,11 @@ export default memo(() => {
     heightsRef.current.length = userLists.length
   }
 
-  const fetchListInfo = useCallback(async (listId: string) => {
+  const fetchListInfo = useCallback(async(listId: string) => {
     try {
       const musics = await getListMusics(listId)
       const first = musics[0]
-      let cover = first?.meta?.picUrl || ''
+      let cover = first?.meta?.picUrl ?? ''
       // meta.picUrl 为空（WebDAV 同步 / 备份导入的歌单首曲常无封面）时按需动态补全，
       // 复用列表项同一套 getPicPath 分发（带缓存 + 并发限制），与「歌曲列表有封面」保持一致。
       // 在线获取偶发超时/失败会导致封面概率性空白，这里失败后短暂延迟再重试一次。
@@ -384,25 +389,25 @@ export default memo(() => {
     }
   }, [])
 
-  const refreshListInfo = useCallback(async (isBackgroundRefresh = false) => {
+  const refreshListInfo = useCallback(async(isBackgroundRefresh = false) => {
     // 首次加载显示 loading，后台刷新保留已有数据避免闪烁
     if (!isBackgroundRefresh) {
       setIsLoading(true)
     }
     setHasError(false)
     try {
-      const fetched = new Map<string, { cover: string; total: number }>()
+      const fetched = new Map<string, { cover: string, total: number }>()
       for (const list of allList) {
         fetched.set(list.id, await fetchListInfo(list.id))
       }
       // 合并旧值：单次获取失败（网络抖动/接口超时）时新封面可能为空，
       // 此时保留上一次成功的结果，避免刷新反而把已有封面洗掉。
       setListInfoMap((prev) => {
-        const next = new Map<string, { cover: string; total: number }>()
+        const next = new Map<string, { cover: string, total: number }>()
         for (const list of allList) {
           const fresh = fetched.get(list.id)
           next.set(list.id, {
-            cover: fresh?.cover || prev.get(list.id)?.cover || '',
+            cover: fresh?.cover ?? prev.get(list.id)?.cover ?? '',
             total: fresh?.total ?? 0,
           })
         }
@@ -428,7 +433,7 @@ export default memo(() => {
         void refreshListInfo(true)
       }
     })
-    return () => subscription.remove()
+    return () => { subscription.remove() }
   }, [refreshListInfo])
 
   const resetAllAnims = useCallback(() => {
@@ -474,8 +479,8 @@ export default memo(() => {
       return {
         id: list.id,
         name: list.name,
-        cover: info?.cover || '',
-        total: info?.total || 0,
+        cover: info?.cover ?? '',
+        total: info?.total ?? 0,
         isFixed: list.id === LIST_IDS.DEFAULT || list.id === LIST_IDS.LOVE,
       }
     })
@@ -562,7 +567,7 @@ export default memo(() => {
         animateLayout(from, target)
       }
     },
-    [computeTargetIndex, animateLayout]
+    [computeTargetIndex, animateLayout],
   )
 
   const persistReorder = useCallback((from: number, to: number) => {
@@ -571,7 +576,7 @@ export default memo(() => {
     const [moved] = next.splice(from, 1)
     if (!moved) return
     next.splice(to, 0, moved)
-    updateUserListPosition(to, [moved.id])
+    void updateUserListPosition(to, [moved.id])
   }, [userLists])
 
   const handleDragRelease = useCallback(() => {
@@ -624,8 +629,8 @@ export default memo(() => {
       return (
         <FixedPlaylistCard
           item={item}
-          onPress={() => handleItemPress(item)}
-          onShowMenu={(itemInfo, position) => showMenu(itemInfo, -1, position)}
+          onPress={() => { handleItemPress(item) }}
+          onShowMenu={(itemInfo, position) => { showMenu(itemInfo, -1, position) }}
         />
       )
     }
@@ -637,7 +642,7 @@ export default memo(() => {
       <PlaylistCard
         item={item}
         userListIndex={userListIndex}
-        onPress={() => handleItemPress(item)}
+        onPress={() => { handleItemPress(item) }}
         onShowMenu={showMenu}
         isDragging={draggingIndex != null}
         isDragSource={isDragSource}
@@ -658,10 +663,13 @@ export default memo(() => {
 
   const listPanel = (
     <View style={styles.content}>
+      <View style={styles.header}>
+        <Text size={24} style={styles.title}>{t('nav_love')}</Text>
+      </View>
       {hasError ? (
         <View style={styles.errorContainer}>
           <Text size={16} color={theme['c-font']} style={styles.errorText}>加载失败</Text>
-          <TouchableOpacity onPress={() => void refreshListInfo()} style={styles.retryButton}>
+          <TouchableOpacity onPress={() => { void refreshListInfo() }} style={styles.retryButton}>
             <Text size={14} color={theme['c-primary-font']}>点击尝试重新加载</Text>
           </TouchableOpacity>
         </View>
@@ -673,7 +681,7 @@ export default memo(() => {
         <>
           <FlatList
             data={listItems}
-            contentContainerStyle={{ paddingBottom: 80 }}
+            contentContainerStyle={{ paddingBottom: 80 + safeAreaBottom }}
             renderItem={renderItem}
             keyExtractor={item => item.id}
             style={styles.listContainer}
@@ -681,7 +689,7 @@ export default memo(() => {
             refreshControl={
               <RefreshControl
                 refreshing={isLoading}
-                onRefresh={() => refreshListInfo(false)}
+                onRefresh={() => { void refreshListInfo(false) }}
                 colors={[theme['c-primary-font']]}
                 enabled={!isTouchingDragHandle}
               />
@@ -699,8 +707,8 @@ export default memo(() => {
             onDuplicateMusic={(info) => duplicateMusicRef.current?.show(info)}
             onImport={(info, position) => listImportExportRef.current?.import(info, position)}
             onExport={(info, position) => listImportExportRef.current?.export(info, position)}
-            onRemove={(info) => handleRemove(info)}
-            onSync={(info) => handleSync(info)}
+            onRemove={(info) => { handleRemove(info) }}
+            onSync={(info) => { handleSync(info) }}
           />
         </>
       )}
@@ -743,6 +751,14 @@ const styles = createStyle({
   content: {
     flex: 1,
   },
+  header: {
+    paddingHorizontal: designSpacing.md,
+    paddingTop: designSpacing.sm,
+    paddingBottom: designSpacing.md,
+  },
+  title: {
+    fontWeight: '800',
+  },
   listContainer: {
     flex: 1,
   },
@@ -754,6 +770,7 @@ const styles = createStyle({
     marginBottom: designSpacing.sm,
     borderWidth: 1,
     borderRadius: designRadius.lg,
+    ...shadow(4),
     overflow: 'hidden',
   },
   cardContent: {

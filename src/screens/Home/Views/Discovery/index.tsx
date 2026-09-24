@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Keyboard, ScrollView, StyleSheet, TouchableOpacity, View, useWindowDimensions } from 'react-native'
+import { Keyboard, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native'
 import commonState from '@/store/common/state'
 import { COMPONENT_IDS } from '@/config/constant'
 import { navigations } from '@/navigation'
@@ -16,14 +16,11 @@ import { getBoardsList, getListDetail } from '@/core/leaderboard'
 import { handlePlay as playLeaderboard } from '../Leaderboard/listAction'
 import { Icon } from '@/components/common/Icon'
 import Text from '@/components/common/Text'
-import SectionHeader from '@/components/common/SectionHeader'
 import AnnouncementCard from '@/components/home/AnnouncementCard'
 import PlatformChips from '@/components/home/PlatformChips'
-import CategoryChips from '@/components/home/CategoryChips'
 import DailyRecommendCard from '@/components/home/DailyRecommendCard'
 import HorizontalShelf from '@/components/home/HorizontalShelf'
 import HotSongList from '@/components/home/HotSongList'
-import PlaylistCard from '@/components/home/PlaylistCard'
 
 const SOURCE_LABELS: Partial<Record<Source, string>> = {
   kw: '酷我',
@@ -34,8 +31,10 @@ const SOURCE_LABELS: Partial<Record<Source, string>> = {
 }
 
 const supportedSources = songlistState.sources.filter(
-  (source): source is Source => !!SOURCE_LABELS[source] && !!songlistState.sortList[source]?.length,
+  (source): source is Source => !!SOURCE_LABELS[source] && !!songlistState.sortList[source]?.length
 )
+
+const getSortId = (source: Source) => songlistState.sortList[source]?.[0]?.id ?? ''
 
 const styles = createStyle({
   container: {
@@ -78,17 +77,6 @@ const styles = createStyle({
   platformTitle: {
     paddingHorizontal: designSpacing.lg,
   },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    paddingHorizontal: designSpacing.lg,
-  },
-  gridRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: designSpacing.sm,
-  },
 })
 
 export default memo(() => {
@@ -96,9 +84,6 @@ export default memo(() => {
   const t = useI18n()
   const statusBarHeight = useStatusbarHeight()
   const [selectedSource, setSelectedSource] = useState<Source>(supportedSources[0] ?? 'kw')
-  const [selectedSortId, setSelectedSortId] = useState(
-    songlistState.sortList[supportedSources[0] ?? 'kw']?.[0]?.id ?? '',
-  )
   const [playlists, setPlaylists] = useState<ListInfoItem[]>([])
   const [loading, setLoading] = useState(true)
   const loadIdRef = useRef(0)
@@ -112,28 +97,26 @@ export default memo(() => {
       id: source,
       label: SOURCE_LABELS[source] ?? source,
     })),
-    [],
+    []
   )
 
-  const sortOptions = songlistState.sortList[selectedSource] ?? []
-
-  const loadPlaylists = useCallback(async(source: Source, sortId: string) => {
+  const loadPlaylists = useCallback(async (source: Source) => {
     const currentLoadId = ++loadIdRef.current
     setLoading(true)
     try {
-      const result = await getList(source, '', sortId, 1)
+      const result = await getList(source, '', getSortId(source), 1)
       if (currentLoadId !== loadIdRef.current) return
       setPlaylists(result.list.map((item) => ({ ...item, source })))
-    } catch (error: unknown) {
+    } catch (error: any) {
       if (currentLoadId !== loadIdRef.current) return
       setPlaylists([])
-      toast(error instanceof Error && error.message ? error.message : t('load_failed'))
+      toast(error?.message || t('load_failed'))
     } finally {
       if (currentLoadId === loadIdRef.current) setLoading(false)
     }
   }, [t])
 
-  const loadHotSongs = useCallback(async(source: Source) => {
+  const loadHotSongs = useCallback(async (source: Source) => {
     const currentLoadId = ++hotLoadIdRef.current
     setHotLoading(true)
     try {
@@ -155,9 +138,8 @@ export default memo(() => {
   }, [])
 
   useEffect(() => {
-    if (!selectedSortId) return
-    void loadPlaylists(selectedSource, selectedSortId)
-  }, [loadPlaylists, selectedSortId, selectedSource])
+    void loadPlaylists(selectedSource)
+  }, [loadPlaylists, selectedSource])
 
   const leaderboardSource = boardState.sources.includes(selectedSource)
     ? selectedSource
@@ -172,16 +154,10 @@ export default memo(() => {
     if (homeComponentId) navigations.pushSonglistDetailScreen(homeComponentId, item)
   }, [])
 
-  const handlePlayHotSong = useCallback((_song: LX.Music.MusicInfoOnline, index: number) => {
+  const handlePlayHotSong = useCallback((index: number) => {
     if (!hotBoardId) return
     void playLeaderboard(hotBoardId, hotSongs, index)
   }, [hotBoardId, hotSongs])
-
-  const handleSourceChange = useCallback((source: string) => {
-    const typedSource = source as Source
-    setSelectedSource(typedSource)
-    setSelectedSortId(songlistState.sortList[typedSource]?.[0]?.id ?? '')
-  }, [])
 
   const headerStyle = useMemo(
     () => StyleSheet.compose(styles.header, {
@@ -204,17 +180,7 @@ export default memo(() => {
     [theme],
   )
 
-  const shelfData = playlists.slice(0, 6)
-  const { width } = useWindowDimensions()
-  const gridColumnCount = width > 900 ? 4 : width > 650 ? 3 : 2
-  const gridData = playlists.slice(0, 12)
-  const gridRows = Array.from(
-    { length: Math.ceil(gridData.length / gridColumnCount) },
-    (_, rowIndex) => gridData.slice(rowIndex * gridColumnCount, (rowIndex + 1) * gridColumnCount),
-  )
-  const gridItemWidth = (
-    width - designSpacing.lg * 2 - (gridColumnCount - 1) * designSpacing.sm
-  ) / gridColumnCount
+  const shelfData = playlists.slice(0, 12)
 
   return (
     <View style={styles.container}>
@@ -227,7 +193,7 @@ export default memo(() => {
           <Text style={titleStyle} size={34}>{t('nav_discovery')}</Text>
           <TouchableOpacity
             style={historyButtonStyle}
-            onPress={() => { setNavActiveId('nav_play_history') }}
+            onPress={() => setNavActiveId('nav_play_history')}
           >
             <Icon name="music_time" size={21} color={theme['c-primary']} />
           </TouchableOpacity>
@@ -251,18 +217,7 @@ export default memo(() => {
           <PlatformChips
             options={platformOptions}
             selectedId={selectedSource}
-            onChange={handleSourceChange}
-          />
-        </View>
-
-        <View style={styles.chips}>
-          <CategoryChips
-            options={sortOptions.map((sort) => ({
-              id: sort.id,
-              label: t(`songlist_${sort.tid}`),
-            }))}
-            selectedId={selectedSortId}
-            onChange={setSelectedSortId}
+            onChange={setSelectedSource}
           />
         </View>
 
@@ -270,7 +225,7 @@ export default memo(() => {
           <DailyRecommendCard
             title={t('discovery_daily_title')}
             subtitle={t('discovery_daily_subtitle')}
-            onPress={() => { setNavActiveId('nav_daily_rec') }}
+            onPress={() => setNavActiveId('nav_daily_rec')}
           />
         </View>
 
@@ -288,7 +243,7 @@ export default memo(() => {
             <HotSongList
               title={`${SOURCE_LABELS[selectedSource] ?? selectedSource}${t('discovery_hot_title')}`}
               actionLabel={t('discovery_hot_more')}
-              onPressAction={() => { setNavActiveId('nav_top') }}
+              onPressAction={() => setNavActiveId('nav_top')}
               songs={hotSongs}
               onSongPress={handlePlayHotSong}
             />
@@ -304,26 +259,6 @@ export default memo(() => {
             </Text>
           ) : null}
         </View>
-
-        {gridRows.length ? (
-          <View style={styles.sectionGap}>
-            <SectionHeader title={t('nav_songlist')} />
-            <View style={styles.grid}>
-              {gridRows.map((row, rowIndex) => (
-                <View key={`grid-row-${rowIndex}`} style={styles.gridRow}>
-                  {row.map((item) => (
-                    <PlaylistCard
-                      key={`${item.source}-${item.id}`}
-                      item={item}
-                      width={gridItemWidth}
-                      onPress={handleOpenDetail}
-                    />
-                  ))}
-                </View>
-              ))}
-            </View>
-          </View>
-        ) : null}
 
         {loading ? (
           <Text style={styles.status} size={designTypography.caption} color={theme['c-font-label']}>

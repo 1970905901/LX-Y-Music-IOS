@@ -191,7 +191,6 @@ export default () => {
             onSortChange={handleSortChange}
             onTagChange={handleTagChange}
             onSourceChange={handleSourceChange}
-            onOpenDetail={handleOpenDetail}
           />
         )}
         onOpenDetail={handleOpenDetail}

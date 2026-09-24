@@ -8,11 +8,10 @@ import SortTab, { type SortTabProps, type SortTabType } from './SortTab'
 import { createStyle } from '@/utils/tools'
 // import { BorderWidths } from '@/theme'
 import SourceSelector, { type SourceSelectorType, type SourceSelectorProps } from './SourceSelector'
-import { type ListInfoItem, type Source } from '@/store/songlist/state'
+import { type Source } from '@/store/songlist/state'
 import { useTheme } from '@/store/theme/hook'
 import { useStatusbarHeight } from '@/store/common/hook'
 import Tag, { type TagType, type TagProps } from './Tag'
-import OpenList, { type OpenListType } from './OpenList'
 import { designRadius, designSpacing } from '@/theme/DesignTokens'
 import { Icon } from '@/components/common/Icon'
 import Text from '@/components/common/Text'
@@ -23,7 +22,6 @@ export interface HeaderBarProps {
   onSortChange: SortTabProps['onSortChange']
   onTagChange: TagProps['onTagChange']
   onSourceChange: SourceSelectorProps['onSourceChange']
-  onOpenDetail: (item: ListInfoItem) => void
 }
 
 export interface HeaderBarType {
@@ -31,10 +29,9 @@ export interface HeaderBarType {
 }
 
 export default forwardRef<HeaderBarType, HeaderBarProps>(
-  ({ title, onSortChange, onTagChange, onSourceChange, onOpenDetail }, ref) => {
+  ({ title, onSortChange, onTagChange, onSourceChange }, ref) => {
     const sortTabRef = useRef<SortTabType>(null)
     const tagRef = useRef<TagType>(null)
-    const openListRef = useRef<OpenListType>(null)
     const sourceSelectorRef = useRef<SourceSelectorType>(null)
     const theme = useTheme()
     const statusBarHeight = useStatusbarHeight()
@@ -47,7 +44,6 @@ export default forwardRef<HeaderBarType, HeaderBarProps>(
           sortTabRef.current?.setSource(source, sortId)
           tagRef.current?.setSelectedTagInfo(source, tagName, tagId)
           sourceSelectorRef.current?.setSource(source)
-          openListRef.current?.setInfo(source)
         },
       }),
       [],
@@ -65,7 +61,6 @@ export default forwardRef<HeaderBarType, HeaderBarProps>(
           >
             <SourceSelector ref={sourceSelectorRef} onSourceChange={onSourceChange} />
           </View>
-          <OpenList ref={openListRef} onOpenDetail={onOpenDetail} />
         </View>
 
         <View

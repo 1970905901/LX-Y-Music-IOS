@@ -6,6 +6,8 @@
 #import <React/RCTEventEmitter.h>
 #import <React/RCTLinkingManager.h>
 #import <ReactNativeNavigation/ReactNativeNavigation.h>
+
+@class SceneDelegate;
 #import <Security/Security.h>
 #import <AVFoundation/AVFoundation.h>
 #import <Accelerate/Accelerate.h>

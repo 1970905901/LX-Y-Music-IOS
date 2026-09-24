@@ -26,7 +26,7 @@ export default memo(({ disabled, onPress, children }: ButtonProps) => {
 
 const styles = createStyle({
   button: {
-    height: 32,
+    minHeight: 36,
     paddingHorizontal: designSpacing.sm,
     borderRadius: designRadius.pill,
     marginRight: 10,

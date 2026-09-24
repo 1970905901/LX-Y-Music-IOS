@@ -89,7 +89,6 @@ export default memo(({ value, label, onChanged, ...props }: InputItemProps) => {
 
 const styles = StyleSheet.create({
   container: {
-    paddingLeft: designSpacing.md,
     marginBottom: designSpacing.sm,
   },
   label: {
@@ -102,6 +101,6 @@ const styles = StyleSheet.create({
     height: 36,
     paddingLeft: designSpacing.sm,
     borderRadius: designRadius.sm,
-    maxWidth: 300,
+    maxWidth: '100%',
   },
 })

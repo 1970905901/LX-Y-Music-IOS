@@ -6,7 +6,7 @@ import { createStyle } from '@/utils/tools'
 import Text from '@/components/common/Text'
 import { SETTING_SCREENS, type SettingScreenIds } from '../Main'
 import { useI18n } from '@/lang'
-import { BorderRadius, BorderWidths } from '@/theme'
+import { designRadius, designSpacing } from '@/theme/DesignTokens'
 
 const ListItem = memo(
   ({
@@ -31,11 +31,18 @@ const ListItem = memo(
       <View
         style={{
           ...styles.listItem,
-          backgroundColor: active ? theme['c-primary-background-active'] : 'transparent',
+          backgroundColor: active
+            ? theme['c-primary']
+            : theme['c-primary-light-900-alpha-200'],
+          borderColor: active ? theme['c-primary'] : theme['c-border-background'],
+          borderWidth: 1,
         }}
       >
         <TouchableOpacity style={styles.listName} onPress={handlePress}>
-          <Text numberOfLines={1} color={active ? theme['c-primary-font'] : theme['c-font']}>
+          <Text
+            numberOfLines={1}
+            color={active ? theme['c-primary-light-1000'] : theme['c-font']}
+          >
             {t(`setting_${id}`)}
           </Text>
         </TouchableOpacity>
@@ -48,7 +55,7 @@ const ListItem = memo(
       prevProps.activeId != nextProps.id &&
       nextProps.activeId != nextProps.id
     )
-  }
+  },
 )
 
 export default ({ onChangeId }: { onChangeId: (id: SettingScreenIds) => void }) => {
@@ -80,8 +87,7 @@ const styles = createStyle({
     height: 50,
     flexGrow: 0,
     flexShrink: 0,
-    borderBottomWidth: BorderWidths.normal,
-    opacity: 0.7,
+    paddingHorizontal: designSpacing.sm,
   },
   contentContainer: {
     flexDirection: 'row',
@@ -96,14 +102,12 @@ const styles = createStyle({
   listItem: {
     // width: '33.33%',
     height: 40,
-    paddingLeft: 15,
-    paddingRight: 15,
     // height: 'auto',
     // flexDirection: 'row',
     // alignItems: 'center',
-    paddingHorizontal: 5,
     // paddingVertical: 10,
-    borderRadius: BorderRadius.normal,
+    borderRadius: designRadius.pill,
+    paddingHorizontal: designSpacing.md,
     marginBottom: 5,
     // backgroundColor: 'rgba(0,0,0,0.1)',
   },

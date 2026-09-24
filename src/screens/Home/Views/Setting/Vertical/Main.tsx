@@ -1,5 +1,5 @@
 import { memo, useEffect, useState } from 'react'
-import {FlatList, type FlatListProps, ScrollView} from 'react-native'
+import { ScrollView } from 'react-native'
 import { subscribeScrollLock } from '@/utils/scrollLock'
 
 import Basic from '../settings/Basic'
@@ -14,16 +14,15 @@ import About from '../settings/About'
 import ThemeScreen from '../settings/ThemeScreen'
 import PlatformScreen from '../settings/PlatformScreen'
 import { createStyle } from '@/utils/tools'
+import { designSpacing } from '@/theme/DesignTokens'
 import { SETTING_SCREENS, type SettingScreenIds } from '../Main'
-
-type FlatListType = FlatListProps<SettingScreenIds>
 
 const styles = createStyle({
   content: {
-    paddingLeft: 15,
-    paddingRight: 15,
-    paddingTop: 15,
-    paddingBottom: 15,
+    paddingLeft: designSpacing.md,
+    paddingRight: designSpacing.md,
+    paddingTop: designSpacing.md,
+    paddingBottom: designSpacing.lg,
     flex: 0,
     backgroundColor: 'transparent',
   },
@@ -56,14 +55,12 @@ const ListItem = memo(
         return <Basic />
     }
   },
-  () => true
+  () => true,
 )
 
 export default () => {
   const [scrollLocked, setScrollLocked] = useState(false)
   useEffect(() => subscribeScrollLock(setScrollLocked), [])
-  const renderItem: FlatListType['renderItem'] = ({ item }) => <ListItem id={item} />
-  const getkey: FlatListType['keyExtractor'] = (item) => item
 
   return (
     <ScrollView keyboardShouldPersistTaps={'always'} contentContainerStyle={styles.content} scrollEnabled={!scrollLocked}>

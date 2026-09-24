@@ -24,7 +24,7 @@ const adjustColorOpacity = (color: string, opacity: number) => {
     const b = parseInt(rgbaMatch[3])
     return `rgba(${r}, ${g}, ${b}, ${opacity / 100})`
   }
-  
+
   const rgbMatch = color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/)
   if (rgbMatch) {
     const r = parseInt(rgbMatch[1])
@@ -32,7 +32,7 @@ const adjustColorOpacity = (color: string, opacity: number) => {
     const b = parseInt(rgbMatch[3])
     return `rgba(${r}, ${g}, ${b}, ${opacity / 100})`
   }
-  
+
   const hexMatch = color.match(/#([0-9a-fA-F]{6})/)
   if (hexMatch) {
     const r = parseInt(hexMatch[1].slice(0, 2), 16)
@@ -40,7 +40,7 @@ const adjustColorOpacity = (color: string, opacity: number) => {
     const b = parseInt(hexMatch[1].slice(4, 6), 16)
     return `rgba(${r}, ${g}, ${b}, ${opacity / 100})`
   }
-  
+
   const hexMatch3 = color.match(/#([0-9a-fA-F]{3})/)
   if (hexMatch3) {
     const r = parseInt(hexMatch3[1][0] + hexMatch3[1][0], 16)
@@ -48,7 +48,7 @@ const adjustColorOpacity = (color: string, opacity: number) => {
     const b = parseInt(hexMatch3[1][2] + hexMatch3[1][2], 16)
     return `rgba(${r}, ${g}, ${b}, ${opacity / 100})`
   }
-  
+
   return color
 }
 
@@ -56,22 +56,23 @@ export default ({ title, children, sectionId }: Props) => {
   const theme = useTheme()
   const sectionOpacity = useSettingValue('theme.sectionOpacity')
   const expandedStatus = useSettingValue('common.sectionExpandedStatus')
-  
+  const normalizedSectionOpacity = typeof sectionOpacity === 'number' ? sectionOpacity : 100
+
   const initialExpanded = expandedStatus[sectionId] ?? true
-  
+
   const rotateAnimRef = useRef(new Animated.Value(initialExpanded ? 0 : 1))
-  const rotateInterpolate = useMemo(() => 
+  const rotateInterpolate = useMemo(() =>
     rotateAnimRef.current.interpolate({
       inputRange: [0, 1],
       outputRange: ['0deg', '180deg'],
     }),
-  []
+  [],
   )
-  
+
   const isInitializedRef = useRef(false)
-  
+
   const [expanded, setExpanded] = useState(initialExpanded)
-  
+
   useEffect(() => {
     if (isInitializedRef.current) return
     isInitializedRef.current = true
@@ -102,20 +103,26 @@ export default ({ title, children, sectionId }: Props) => {
       <View
         style={{
           ...styles.contentContainer,
-          backgroundColor: adjustColorOpacity(theme['c-main-background'], sectionOpacity),
           borderColor: theme['c-border-background'],
+          backgroundColor: adjustColorOpacity(
+            theme['c-content-background'],
+            normalizedSectionOpacity,
+          ),
         }}
       >
         <TouchableOpacity style={styles.titleContainer} onPress={toggleExpanded} activeOpacity={0.7}>
-          <Text style={{ ...styles.title, borderLeftColor: theme['c-primary'] }} size={16}>
+          <Text
+            style={{ ...styles.title, borderLeftColor: theme['c-primary'], color: theme['c-font'] }}
+            size={16}
+          >
             {title}
           </Text>
           <View style={styles.iconContainer}>
             <Animated.View style={{ transform: [{ rotate: rotateInterpolate }] }}>
-              <SvgIcon 
-                name="collapse" 
-                size={18} 
-                color={theme['c-font-label']} 
+              <SvgIcon
+                name="collapse"
+                size={18}
+                color={theme['c-font-label']}
               />
             </Animated.View>
           </View>
@@ -135,10 +142,11 @@ const styles = createStyle({
     paddingHorizontal: designSpacing.md,
     paddingVertical: designSpacing.md,
     borderWidth: 1,
+    overflow: 'hidden',
     shadowColor: 'rgba(0, 0, 0, 0.15)',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
+    shadowOpacity: 0.16,
+    shadowRadius: 10,
   },
   titleContainer: {
     flexDirection: 'row',

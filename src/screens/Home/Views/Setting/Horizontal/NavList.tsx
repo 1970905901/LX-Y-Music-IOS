@@ -40,7 +40,11 @@ const ListItem = memo(
           ...styles.listItem,
           height: ITEM_HEIGHT,
           borderRadius: designRadius.sm,
-          backgroundColor: active ? theme['c-primary-background-active'] : 'transparent',
+          backgroundColor: active
+            ? theme['c-primary']
+            : theme['c-primary-light-900-alpha-200'],
+          borderColor: active ? theme['c-primary'] : theme['c-border-background'],
+          borderWidth: 1,
         }}
       >
         {active ? (
@@ -55,7 +59,7 @@ const ListItem = memo(
           <Text
             numberOfLines={1}
             size={designTypography.body}
-            color={active ? theme['c-primary-font'] : theme['c-font']}
+            color={active ? theme['c-primary-light-1000'] : theme['c-font']}
             style={active ? styles.listActiveText : undefined}
           >
             {t(`setting_${id}`)}
@@ -70,7 +74,7 @@ const ListItem = memo(
       prevProps.activeId != nextProps.id &&
       nextProps.activeId != nextProps.id
     )
-  }
+  },
 )
 
 export default ({ onChangeId }: { onChangeId: (id: SettingScreenIds) => void }) => {

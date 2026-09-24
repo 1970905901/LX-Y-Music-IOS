@@ -30,5 +30,8 @@ const styles = createStyle({
     paddingHorizontal: designSpacing.sm,
     borderRadius: designRadius.pill,
     marginRight: 10,
+    // minHeight 撑高后，RN 默认纵向排列会把文字顶到胶囊上沿，必须显式双向居中
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 })

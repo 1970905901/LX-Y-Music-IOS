@@ -2,9 +2,10 @@ import { memo, useMemo } from 'react'
 import { Pressable, StyleSheet, View } from 'react-native'
 import { useTheme } from '@/store/theme/hook'
 import { createStyle } from '@/utils/tools'
-import { designRadius, designTypography } from '@/theme/DesignTokens'
+import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
 import { NAV_SHEAR_NATIVE_IDS } from '@/config/constant'
 import type { ListInfoItem } from '@/store/songlist/state'
+import { formatPlayCount } from '@/utils'
 import Image from '@/components/common/Image'
 import Text from '@/components/common/Text'
 
@@ -15,10 +16,14 @@ interface PlaylistCardProps {
 }
 
 const styles = createStyle({
+  card: {
+    borderRadius: designRadius.md,
+    overflow: 'hidden',
+  },
   cover: {
     width: '100%',
     aspectRatio: 1,
-    borderRadius: designRadius.md,
+    borderRadius: designRadius.sm,
     overflow: 'hidden',
   },
   playCount: {
@@ -32,13 +37,26 @@ const styles = createStyle({
     overflow: 'hidden',
   },
   title: {
-    marginTop: designRadius.sm,
+    marginTop: designSpacing.sm,
     fontWeight: '600',
+  },
+  subtitle: {
+    marginTop: 3,
   },
 })
 
 const PlaylistCard = memo(({ item, width, onPress }: PlaylistCardProps) => {
   const theme = useTheme()
+  const playCount = Number(item.play_count)
+
+  const cardStyle = useMemo(
+    () => StyleSheet.compose(styles.card, {
+      backgroundColor: theme['c-content-background'],
+      borderColor: theme['c-border-background'],
+      borderWidth: 1,
+    }),
+    [theme],
+  )
 
   const coverStyle = useMemo(
     () => StyleSheet.compose(styles.cover, {
@@ -54,23 +72,40 @@ const PlaylistCard = memo(({ item, width, onPress }: PlaylistCardProps) => {
     [theme],
   )
 
+  const subtitleStyle = useMemo(
+    () => StyleSheet.compose(styles.subtitle, {
+      color: theme['c-font-label'],
+    }),
+    [theme],
+  )
+
+  const subtitle = [item.source.toUpperCase(), item.author].filter(Boolean).join(' · ')
+
   return (
-    <Pressable style={{ width }} onPress={() => onPress(item)}>
+    <Pressable
+      style={[cardStyle, { width, padding: designSpacing.sm }]}
+      onPress={() => { onPress(item) }}
+    >
       <View>
         <Image
           style={coverStyle}
           url={item.img}
           nativeID={`${NAV_SHEAR_NATIVE_IDS.songlistDetail_pic}_from_${item.id}`}
         />
-        {item.play_count ? (
+        {Number.isFinite(playCount) && playCount > 0 ? (
           <View style={styles.playCount}>
-            <Text size={11} color="#FFFFFF" numberOfLines={1}>{item.play_count}</Text>
+            <Text size={11} color="#FFFFFF" numberOfLines={1}>{formatPlayCount(playCount)}</Text>
           </View>
         ) : null}
       </View>
       <Text style={titleStyle} size={designTypography.body} numberOfLines={2}>
         {item.name}
       </Text>
+      {subtitle ? (
+        <Text style={subtitleStyle} size={designTypography.caption} numberOfLines={1}>
+          {subtitle}
+        </Text>
+      ) : null}
     </Pressable>
   )
 })

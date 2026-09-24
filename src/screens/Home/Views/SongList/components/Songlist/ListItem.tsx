@@ -41,15 +41,6 @@ export default memo(({
     onPress(item, index)
   }
 
-  const cardStyle = useMemo(
-    () => StyleSheet.compose(styles.card, {
-      backgroundColor: theme['c-content-background'],
-      borderColor: theme['c-border-background'],
-      borderWidth: 1,
-    }),
-    [theme],
-  )
-
   const coverStyle = useMemo(
     () => StyleSheet.compose(styles.cover, {
       backgroundColor: theme['c-primary-light-900-alpha-200'],
@@ -72,7 +63,7 @@ export default memo(({
   )
 
   return item.source ? (
-    <Pressable style={[cardStyle, { width: itemWidth, margin: 10 }]} onPress={handlePress}>
+    <Pressable style={[styles.card, { width: itemWidth, margin: 10 }]} onPress={handlePress}>
       <View style={styles.coverWrapper}>
         <Image
           url={item.img}
@@ -107,7 +98,6 @@ export default memo(({
 const styles = createStyle({
   card: {
     borderRadius: designRadius.md,
-    padding: designSpacing.sm,
     overflow: 'hidden',
   },
   coverWrapper: {
@@ -116,7 +106,7 @@ const styles = createStyle({
   cover: {
     width: '100%',
     aspectRatio: 1,
-    borderRadius: designRadius.sm,
+    borderRadius: designRadius.md,
     overflow: 'hidden',
   },
   sourceLabel: {

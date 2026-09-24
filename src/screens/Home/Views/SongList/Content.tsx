@@ -187,7 +187,7 @@ export default () => {
           <HeaderBar
             key={headerKey}
             ref={headerBarRef}
-            title={t('nav_songlist')}
+            title={t('discovery_tab_discover')}
             onSortChange={handleSortChange}
             onTagChange={handleTagChange}
             onSourceChange={handleSourceChange}

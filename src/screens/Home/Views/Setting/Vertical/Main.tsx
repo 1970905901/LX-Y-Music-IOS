@@ -65,7 +65,6 @@ export default memo(() => {
 
   const contentContainer = useMemo(() => ({
     paddingHorizontal: designSpacing.lg,
-    paddingTop: designSpacing.sm,
     paddingBottom: designSpacing.xl + safeAreaBottom,
   }), [safeAreaBottom])
 

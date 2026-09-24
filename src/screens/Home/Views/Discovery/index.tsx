@@ -162,7 +162,7 @@ export default memo(() => {
 
   const headerStyle = useMemo(
     () => StyleSheet.compose(styles.header, {
-      paddingTop: statusBarHeight,
+      paddingTop: Math.max(0, statusBarHeight - designSpacing.xs),
     }),
     [statusBarHeight],
   )
@@ -170,6 +170,7 @@ export default memo(() => {
   const titleStyle = useMemo(
     () => StyleSheet.compose(styles.title, {
       color: theme['c-font'],
+      lineHeight: 36,
     }),
     [theme],
   )

@@ -73,7 +73,7 @@ export default memo(({
           </Text>
         ) : null}
       </View>
-      <Text style={titleStyle} size={designTypography.body} numberOfLines={2}>
+      <Text style={titleStyle} size={designTypography.body}>
         {item.name}
       </Text>
     </Pressable>
@@ -86,6 +86,7 @@ const styles = createStyle({
   card: {
     borderRadius: designRadius.md,
     overflow: 'hidden',
+    paddingBottom: 2,
   },
   coverWrapper: {
     position: 'relative',
@@ -119,6 +120,7 @@ const styles = createStyle({
   title: {
     marginTop: designSpacing.sm,
     fontWeight: '600',
+    lineHeight: designTypography.body * 1.3,
   },
   placeholder: {
     margin: 10,

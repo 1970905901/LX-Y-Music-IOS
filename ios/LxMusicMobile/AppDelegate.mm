@@ -5097,7 +5097,7 @@ RCT_REMAP_METHOD(sha1, sha1:(NSString *)input resolver:(RCTPromiseResolveBlock)r
   [window makeKeyAndVisible];
 }
 
-- (void)sceneDidActivate:(UIScene *)scene API_AVAILABLE(ios(13.0)) {
+- (void)sceneDidBecomeActive:(UIScene *)scene API_AVAILABLE(ios(13.0)) {
   fprintf(stderr, "###NATIVE_DEBUG### scene didActivate\n");
   if (self.didBootstrap) return;
   if (![scene isKindOfClass:[UIWindowScene class]]) return;

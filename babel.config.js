@@ -4,7 +4,10 @@ module.exports = {
     {
       visitor: {
         ImportDeclaration(path) {
-          if (path.node.source.value === 'react/jsx-runtime') {
+          if (
+            path.node.source.value === 'react/jsx-runtime' &&
+            !path.filename.endsWith('jsxRuntimeProbe.ts')
+          ) {
             path.node.source.value = '@/utils/jsxRuntimeProbe'
           }
         },

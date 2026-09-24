@@ -17,8 +17,6 @@ import { type Source as SonglistSource } from '@/store/search/songlist/state'
 type Sources = Readonly<Array<MusicSource | SonglistSource>>
 
 export interface HeaderBarProps {
-  title: string
-  isSearchOpen: boolean
   onSourceChange: (source: MusicSource | SonglistSource) => void
   onTipSearch: SearchInputProps['onChangeText']
   onSearch: SearchInputProps['onSubmit']
@@ -37,8 +35,6 @@ export interface HeaderBarType {
 
 export default forwardRef<HeaderBarType, HeaderBarProps>(
   ({
-    title,
-    isSearchOpen,
     onSourceChange,
     onTipSearch,
     onSearch,
@@ -74,97 +70,70 @@ export default forwardRef<HeaderBarType, HeaderBarProps>(
       [],
     )
 
-    if (isSearchOpen) {
-      return (
-        <View style={[styles.container, { paddingTop: Math.max(0, statusBarHeight - designSpacing.xs) }]}>
-          <View style={styles.openHeader}>
-            <View
-              style={{
-                ...styles.searchBar,
-                flexShrink: 1,
-                backgroundColor: theme['c-primary-light-900-alpha-300'],
-                borderColor: theme['c-border-background'],
-              }}
-            >
-              <View style={styles.searchIcon}>
-                <Icon name="search-2" size={17} color={theme['c-font-label']} />
-              </View>
-              <SearchInput
-                ref={searchInputRef}
-                onChangeText={onTipSearch}
-                onSubmit={onSearch}
-                onBlur={onHideTipList}
-                onFocus={onOpenSearch}
-                onTouchStart={onShowTipList}
-              />
-            </View>
-            <Text style={styles.cancelButton} color={theme['c-primary']} onPress={onCancelSearch}>
-              取消
-            </Text>
-          </View>
-          <View style={styles.platformHeader}>
-            <Text size={17} color={theme['c-font']}>搜索平台</Text>
-            <Text size={13} color={theme['c-primary']}>{t(`source_${source}`)}</Text>
-          </View>
-          <ScrollView
-            style={styles.platformScroll}
-            contentContainerStyle={styles.platformContent}
-            horizontal
-            keyboardShouldPersistTaps="always"
-            showsHorizontalScrollIndicator={false}
-          >
-            {sources.map((sourceId) => {
-              const isActive = sourceId == source
-              return (
-                <TouchableOpacity
-                  key={sourceId}
-                  style={{
-                    ...styles.platformItem,
-                    backgroundColor: isActive
-                      ? theme['c-primary']
-                      : theme['c-primary-light-900-alpha-200'],
-                  }}
-                  onPress={() => {
-                    setSource(sourceId)
-                    onSourceChange(sourceId)
-                  }}
-                >
-                  <Text
-                    size={15}
-                    color={isActive ? theme['c-primary-light-1000'] : theme['c-font']}
-                  >
-                    {t(`source_${sourceId}`)}
-                  </Text>
-                </TouchableOpacity>
-              )
-            })}
-          </ScrollView>
-        </View>
-      )
-    }
-
     return (
       <View style={[styles.container, { paddingTop: Math.max(0, statusBarHeight - designSpacing.xs) }]}>
-        <Text style={styles.title} size={34} color={theme['c-font']}>{title}</Text>
-        <View
-          style={{
-            ...styles.searchBar,
-            backgroundColor: theme['c-primary-light-900-alpha-300'],
-            borderColor: theme['c-border-background'],
-          }}
-        >
-          <View style={styles.searchIcon}>
-            <Icon name="search-2" size={17} color={theme['c-font-label']} />
+        <View style={styles.openHeader}>
+          <View
+            style={{
+              ...styles.searchBar,
+              flexShrink: 1,
+              backgroundColor: theme['c-primary-light-900-alpha-300'],
+              borderColor: theme['c-border-background'],
+            }}
+          >
+            <View style={styles.searchIcon}>
+              <Icon name="search-2" size={17} color={theme['c-font-label']} />
+            </View>
+            <SearchInput
+              ref={searchInputRef}
+              onChangeText={onTipSearch}
+              onSubmit={onSearch}
+              onBlur={onHideTipList}
+              onFocus={onOpenSearch}
+              onTouchStart={onShowTipList}
+            />
           </View>
-          <SearchInput
-            ref={searchInputRef}
-            onChangeText={onTipSearch}
-            onSubmit={onSearch}
-            onBlur={onHideTipList}
-            onFocus={onOpenSearch}
-            onTouchStart={onShowTipList}
-          />
+          <Text style={styles.cancelButton} color={theme['c-primary']} onPress={onCancelSearch}>
+            取消
+          </Text>
         </View>
+        <View style={styles.platformHeader}>
+          <Text size={17} color={theme['c-font']}>搜索平台</Text>
+          <Text size={13} color={theme['c-primary']}>{t(`source_${source}`)}</Text>
+        </View>
+        <ScrollView
+          style={styles.platformScroll}
+          contentContainerStyle={styles.platformContent}
+          horizontal
+          keyboardShouldPersistTaps="always"
+          showsHorizontalScrollIndicator={false}
+        >
+          {sources.map((sourceId) => {
+            const isActive = sourceId == source
+            return (
+              <TouchableOpacity
+                key={sourceId}
+                style={{
+                  ...styles.platformItem,
+                  backgroundColor: isActive
+                    ? theme['c-primary']
+                    : theme['c-primary-light-900-alpha-200'],
+                }}
+                onPress={() => {
+                  setSource(sourceId)
+                  onSourceChange(sourceId)
+                }}
+              >
+                <Text
+                  size={15}
+                  color={isActive ? theme['c-primary-light-1000'] : theme['c-font']}
+                >
+                  {t(`source_${sourceId}`)}
+                </Text>
+              </TouchableOpacity>
+            )
+          })}
+        </ScrollView>
       </View>
     )
   },
@@ -174,11 +143,6 @@ const styles = createStyle({
   container: {
     zIndex: 2,
     marginBottom: designSpacing.xs,
-  },
-  title: {
-    paddingHorizontal: designSpacing.lg,
-    fontWeight: '800',
-    lineHeight: 36,
   },
   openHeader: {
     flexDirection: 'row',

@@ -17,7 +17,6 @@ import SonglistDetail from '../../../SonglistDetail'
 import { COMPONENT_IDS } from '@/config/constant'
 import { useSettingValue } from '@/store/setting/hook'
 import { designSpacing } from '@/theme/DesignTokens'
-import { useI18n } from '@/lang'
 
 interface SearchInfo {
   temp_source: LX.OnlineSource
@@ -27,14 +26,12 @@ interface SearchInfo {
 
 export default () => {
   const headerBarRef = useRef<HeaderBarType>(null)
-  const t = useI18n()
   const searchTipListRef = useRef<TipListType>(null)
   const listRef = useRef<ListType>(null)
   const layoutHeightRef = useRef<number>(0)
   const searchInfo = useRef<SearchInfo>({ temp_source: 'kw', source: 'kw', searchType: 'music' })
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
   const [selectedList, setSelectedList] = useState<ListInfoItem | null>(null)
-  const [searchOpen, setSearchOpen] = useState(!!searchState.searchText)
   const selectedListRef = useRef(selectedList)
   selectedListRef.current = selectedList
 
@@ -96,7 +93,6 @@ export default () => {
   }, [selectedList])
 
   const handleSearch: HeaderBarProps['onSearch'] = useCallback((text) => {
-    setSearchOpen(true)
     handleHideTipList()
     setSelectedList(null)
     setSearchState(text)
@@ -160,7 +156,6 @@ export default () => {
         }
       }
       if (keyword) {
-        setSearchOpen(true)
         listRef.current?.loadList(
           keyword,
           searchInfo.current.source,
@@ -190,7 +185,6 @@ export default () => {
           void listRef.current?.loadList(searchState.searchText, info.source, info.type)
         }
         if (consumePendingAction('searchFocus')) {
-          setSearchOpen(true)
           void InteractionManager.runAfterInteractions(() => {
             headerBarRef.current?.focus()
           })
@@ -200,7 +194,6 @@ export default () => {
     global.state_event.on('navActiveIdUpdated', handleNavChange)
 
     if (consumePendingAction('searchFocus')) {
-      setSearchOpen(true)
       void InteractionManager.runAfterInteractions(() => {
         headerBarRef.current?.focus()
       })
@@ -242,7 +235,6 @@ export default () => {
     headerBarRef.current?.setText('')
     headerBarRef.current?.blur()
     void listRef.current?.loadList('', searchInfo.current.source, searchInfo.current.searchType)
-    setSearchOpen(false)
   }, [])
   const handleShowTipList: HeaderBarProps['onShowTipList'] = () => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current)
@@ -265,13 +257,11 @@ export default () => {
         <HeaderBar
           key={headerKey}
           ref={headerBarRef}
-          title={t('nav_search')}
-          isSearchOpen={searchOpen}
           onSourceChange={handleSourceChange}
           onTipSearch={handleTipSearch}
           onSearch={handleSearch}
           onHideTipList={handleHideTipList}
-          onOpenSearch={() => { setSearchOpen(true) }}
+          onOpenSearch={() => {}}
           onCancelSearch={handleCancelSearch}
           onShowTipList={handleShowTipList}
         />
@@ -283,12 +273,10 @@ export default () => {
           />
           : (
             <>
-              {searchOpen ? (
-                <View style={styles.typeRow}>
-                  <SearchTypeSelector />
-                </View>
-              ) : null}
-              {searchOpen ? <TipList ref={searchTipListRef} onSearch={handleSearch} /> : null}
+              <View style={styles.typeRow}>
+                <SearchTypeSelector />
+              </View>
+              <TipList ref={searchTipListRef} onSearch={handleSearch} />
               <List ref={listRef} onSearch={handleSearch} onOpenDetail={handleOpenDetail} />
             </>
             )

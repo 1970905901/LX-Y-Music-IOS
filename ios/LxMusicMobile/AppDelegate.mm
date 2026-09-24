@@ -5025,7 +5025,7 @@ RCT_REMAP_METHOD(sha1, sha1:(NSString *)input resolver:(RCTPromiseResolveBlock)r
   (void)application;
   (void)options;
   UISceneConfiguration *configuration = [[UISceneConfiguration alloc] initWithName:@"Phone" sessionRole:UIWindowSceneSessionRoleApplication];
-  configuration.delegateClass = [SceneDelegate class];
+  configuration.delegateClass = NSClassFromString(@"SceneDelegate");
   return configuration;
 }
 

@@ -11,6 +11,7 @@ import SourceSelector, {
 import SearchInput, { type SearchInputType, type SearchInputProps } from './SearchInput'
 import { createStyle } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
+import { Icon } from '@/components/common/Icon'
 import { type Source as MusicSource } from '@/store/search/music/state'
 import { type Source as SonglistSource } from '@/store/search/songlist/state'
 
@@ -55,7 +56,7 @@ export default forwardRef<HeaderBarType, HeaderBarProps>(
           searchInputRef.current?.blur()
         },
       }),
-      []
+      [],
     )
 
     return (
@@ -69,6 +70,9 @@ export default forwardRef<HeaderBarType, HeaderBarProps>(
         <View style={{ ...styles.selector, borderRightColor: theme['c-border-background'] }}>
           <SourceSelector ref={sourceSelectorRef} onSourceChange={onSourceChange} center />
         </View>
+        <View style={styles.searchIcon}>
+          <Icon name="search-2" size={17} color={theme['c-font-label']} />
+        </View>
         <SearchInput
           ref={searchInputRef}
           onChangeText={onTipSearch}
@@ -78,13 +82,14 @@ export default forwardRef<HeaderBarType, HeaderBarProps>(
         />
       </View>
     )
-  }
+  },
 )
 
 const styles = createStyle({
   searchBar: {
     flexDirection: 'row',
-    height: 46,
+    alignItems: 'center',
+    height: 48,
     marginHorizontal: designSpacing.lg,
     marginTop: designSpacing.sm,
     marginBottom: designSpacing.sm,
@@ -96,5 +101,10 @@ const styles = createStyle({
     justifyContent: 'center',
     borderRightWidth: 1,
     maxWidth: 110,
+  },
+  searchIcon: {
+    paddingLeft: designSpacing.sm,
+    paddingRight: 4,
+    justifyContent: 'center',
   },
 })

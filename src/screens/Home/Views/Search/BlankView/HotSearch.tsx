@@ -1,5 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
-import { ScrollView, View } from 'react-native'
+import { View } from 'react-native'
 import { type Source, type InitState } from '@/store/hotSearch/state'
 import Button from '@/components/common/Button'
 import { getList } from '@/core/hotSearch'
@@ -20,15 +20,21 @@ export type List = NonNullable<InitState['sourceList'][keyof InitState['sourceLi
 
 const ListItem = ({
   keyword,
+  rank,
   onSearch,
 }: {
   keyword: string
+  rank: number
   onSearch: (keyword: string) => void
 }) => {
   const theme = useTheme()
   return (
     <Button
-      style={{ ...styles.button, backgroundColor: theme['c-button-background'] }}
+      style={{
+        ...styles.button,
+        backgroundColor: theme['c-primary-light-900-alpha-200'],
+        borderColor: theme['c-border-background'],
+      }}
       onPress={() => {
         onSearch(keyword)
       }}
@@ -36,6 +42,7 @@ const ListItem = ({
       <Text color={theme['c-button-font']} size={13}>
         {keyword}
       </Text>
+      <Text color={theme['c-font-label']} size={11}>{rank}</Text>
     </Button>
   )
 }
@@ -65,26 +72,31 @@ export default forwardRef<HotSearchType, ListProps>((props, ref) => {
         })
       },
     }),
-    []
+    [],
   )
 
   return list.length ? (
-    <ScrollView>
-      <Text style={styles.title} size={16}>
+    <View>
+      <Text style={styles.title} size={designTypography.title}>
         {t('search_hot_search')}
       </Text>
       <View style={styles.list}>
-        {list.map((keyword) => (
-          <ListItem keyword={keyword} key={keyword} onSearch={props.onSearch} />
+        {list.slice(0, 12).map((keyword, index) => (
+          <ListItem
+            keyword={keyword}
+            rank={index + 1}
+            key={keyword}
+            onSearch={props.onSearch}
+          />
         ))}
       </View>
-    </ScrollView>
+    </View>
   ) : null
 })
 
 const styles = createStyle({
   title: {
-    paddingTop: designSpacing.lg,
+    marginBottom: designSpacing.sm,
     fontWeight: '700',
   },
   list: {
@@ -98,5 +110,7 @@ const styles = createStyle({
     paddingHorizontal: designSpacing.md,
     borderRadius: 999,
     marginRight: designSpacing.sm,
+    marginBottom: designSpacing.sm,
+    borderWidth: 1,
   },
 })

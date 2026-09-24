@@ -1,10 +1,9 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
-import { TouchableOpacity, View } from 'react-native'
+import { Pressable, TouchableOpacity, View } from 'react-native'
 import { type InitState } from '@/store/hotSearch/state'
-import Button from '@/components/common/Button'
 import Text from '@/components/common/Text'
 import { createStyle } from '@/utils/tools'
-import { designSpacing, designTypography } from '@/theme/DesignTokens'
+import { designSpacing, designTypography, designRadius } from '@/theme/DesignTokens'
 import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
 import { clearHistoryList, getSearchHistory, removeHistoryWord } from '@/core/search/search'
@@ -22,20 +21,33 @@ const ListItem = ({
   onRemove: (keyword: string) => void
 }) => {
   const theme = useTheme()
+
+  const chipStyle = {
+    ...styles.button,
+    backgroundColor: theme['c-primary-light-900-alpha-200'],
+    borderColor: theme['c-border-background'],
+  }
+
   return (
-    <Button
-      style={{ ...styles.button, backgroundColor: theme['c-button-background'] }}
+    <Pressable
+      style={chipStyle}
       onPress={() => {
         onSearch(keyword)
       }}
-      onLongPress={() => {
-        onRemove(keyword)
-      }}
     >
-      <Text color={theme['c-button-font']} size={13}>
+      <Text color={theme['c-font']} size={13}>
         {keyword}
       </Text>
-    </Button>
+      <TouchableOpacity
+        hitSlop={8}
+        style={styles.removeButton}
+        onPress={() => {
+          onRemove(keyword)
+        }}
+      >
+        <Icon name="close" color={theme['c-font-label']} size={10} />
+      </TouchableOpacity>
+    </Pressable>
   )
 }
 
@@ -69,7 +81,7 @@ export default forwardRef<HistorySearchType, HistorySearchProps>((props, ref) =>
         })
       },
     }),
-    []
+    [],
   )
 
   const handleClear = () => {
@@ -114,7 +126,7 @@ export default forwardRef<HistorySearchType, HistorySearchProps>((props, ref) =>
 
 const styles = createStyle({
   titleContent: {
-    paddingTop: designSpacing.lg,
+    marginBottom: designSpacing.sm,
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -139,7 +151,20 @@ const styles = createStyle({
     height: 36,
     justifyContent: 'center',
     paddingHorizontal: designSpacing.md,
-    borderRadius: 999,
     marginRight: designSpacing.sm,
+    marginBottom: designSpacing.sm,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: designRadius.pill,
+  },
+  removeButton: {
+    marginLeft: 6,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.06)',
   },
 })

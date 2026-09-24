@@ -3,8 +3,8 @@ import { useI18n } from '@/lang'
 import { useSettingValue } from '@/store/setting/hook'
 import { useTheme } from '@/store/theme/hook'
 import { createStyle } from '@/utils/tools'
-import { designSpacing } from '@/theme/DesignTokens'
-import { forwardRef, useImperativeHandle, useRef, useState } from 'react'
+import { designRadius, designSpacing } from '@/theme/DesignTokens'
+import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { ScrollView, View } from 'react-native'
 import HistorySearch, { type HistorySearchType } from './HistorySearch'
 import HotSearch, { type HotSearchType } from './HotSearch'
@@ -28,6 +28,18 @@ export default forwardRef<BlankViewType, BlankViewProps>(({ onSearch }, ref) => 
   const t = useI18n()
   const theme = useTheme()
 
+  const cardStyle = useMemo(
+    () => ({
+      backgroundColor: theme['c-content-background'],
+      borderColor: theme['c-border-background'],
+      borderWidth: 1,
+      borderRadius: designRadius.lg,
+      padding: designSpacing.md,
+      marginBottom: designSpacing.md,
+    }),
+    [theme],
+  )
+
   const handleShow = (source: Source) => {
     hotSearchRef.current?.show(source)
     historySearchRef.current?.show()
@@ -46,16 +58,22 @@ export default forwardRef<BlankViewType, BlankViewProps>(({ onSearch }, ref) => 
         }
       },
     }),
-    [visible]
+    [visible],
   )
 
   return visible ? (
     isShowHotSearch || isShowHistorySearch ? (
       <ScrollView>
         <View style={styles.content}>
-          {isShowHotSearch ? <HotSearch ref={hotSearchRef} onSearch={onSearch} /> : null}
+          {isShowHotSearch ? (
+            <View style={cardStyle}>
+              <HotSearch ref={hotSearchRef} onSearch={onSearch} />
+            </View>
+          ) : null}
           {isShowHistorySearch ? (
-            <HistorySearch ref={historySearchRef} onSearch={onSearch} />
+            <View style={cardStyle}>
+              <HistorySearch ref={historySearchRef} onSearch={onSearch} />
+            </View>
           ) : null}
         </View>
       </ScrollView>

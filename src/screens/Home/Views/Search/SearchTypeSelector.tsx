@@ -45,7 +45,11 @@ export default () => {
         <TouchableOpacity
           style={{
             ...styles.button,
-            backgroundColor: type == item.id ? theme['c-primary-background'] : 'rgba(0,0,0,0)',
+            backgroundColor: type == item.id
+              ? theme['c-primary']
+              : theme['c-primary-light-900-alpha-200'],
+            borderColor: type == item.id ? theme['c-primary'] : theme['c-border-background'],
+            borderWidth: 1,
           }}
           onPress={() => {
             handleTypeChange(item.id)
@@ -55,7 +59,7 @@ export default () => {
           <Text
             style={{
               ...styles.buttonText,
-              color: type == item.id ? theme['c-primary-font'] : theme['c-font-label'],
+              color: type == item.id ? theme['c-primary-light-1000'] : theme['c-font-label'],
             }}
           >
             {item.label}
@@ -82,6 +86,7 @@ const styles = createStyle({
     paddingRight: designSpacing.sm,
     marginLeft: designSpacing.xs,
     borderRadius: designRadius.pill,
+    borderWidth: 1,
   },
   buttonText: {
     textAlign: 'center',

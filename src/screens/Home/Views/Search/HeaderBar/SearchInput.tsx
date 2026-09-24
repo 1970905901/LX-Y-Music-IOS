@@ -53,7 +53,7 @@ export default forwardRef<SearchInputType, SearchInputProps>(
       ({ nativeEvent: { text } }) => {
         onSubmit(text)
       },
-      [onSubmit]
+      [onSubmit],
     )
 
     return (
@@ -70,7 +70,7 @@ export default forwardRef<SearchInputType, SearchInputProps>(
         clearBtn
       />
     )
-  }
+  },
 )
 
 const styles = StyleSheet.create({
@@ -78,7 +78,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     height: 40,
     borderRadius: 999,
-    paddingLeft: 10,
+    paddingLeft: 6,
     paddingRight: 10,
     fontSize: designTypography.body,
   },

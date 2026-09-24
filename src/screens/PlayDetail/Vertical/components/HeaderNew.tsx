@@ -35,13 +35,7 @@ const DOT_INACTIVE_WIDTH = scaleSizeW(8)
 const DOT_HEIGHT = scaleSizeW(8)
 const DOT_BORDER_RADIUS = DOT_HEIGHT / 2
 
-const AnimatedIndicatorDot = ({
-  isActive,
-  activeColor,
-}: {
-  isActive: boolean
-  activeColor: string
-}) => {
+const AnimatedIndicatorDot = ({ isActive }: { isActive: boolean }) => {
   const animatedWidth = useRef(new Animated.Value(isActive ? DOT_ACTIVE_WIDTH : DOT_INACTIVE_WIDTH)).current
   const animatedOpacity = useRef(new Animated.Value(isActive ? 1 : 0.7)).current
 
@@ -73,7 +67,7 @@ const AnimatedIndicatorDot = ({
         width: animatedWidth,
         height: DOT_HEIGHT,
         borderRadius: DOT_BORDER_RADIUS,
-        backgroundColor: activeColor,
+        backgroundColor: '#000',
         opacity: animatedOpacity,
       }}
     />
@@ -88,7 +82,7 @@ const HeaderNew = memo(({ pageIndex }: { pageIndex?: number }) => {
   const timeInfo = useTimeInfo()
   const { width: winWidth } = useWindowSize()
   const back = () => {
-    void pop(commonState.componentIds[commonState.componentIds.length - 1]?.id)
+    void pop(commonState.componentIds[commonState.componentIds.length - 1]?.id!)
   }
   const showSetting = () => {
     popupRef.current?.show()
@@ -97,10 +91,9 @@ const HeaderNew = memo(({ pageIndex }: { pageIndex?: number }) => {
     timerModalRef.current?.show()
   }
   const iconColor = theme.isDark ? theme['c-font'] : theme['c-primary']
-  const buttonBackground = theme['c-primary-light-900-alpha-200']
   const activeIndex = pageIndex ?? 0
 
-  const sideAreaWidth = Math.max(scaleSizeW(100), winWidth * 0.2)
+  const sideAreaWidth = winWidth * 0.2
   const dotGap = scaleSizeW(8)
   const containerPadding = scaleSizeW(10)
 
@@ -112,43 +105,25 @@ const HeaderNew = memo(({ pageIndex }: { pageIndex?: number }) => {
       <StatusBar />
       <View style={[styles.containerNew, { paddingHorizontal: containerPadding }]}>
         <View style={[styles.leftArea, { width: sideAreaWidth }]}>
-          <TouchableOpacity
-            style={[styles.backBtn, { backgroundColor: buttonBackground }]}
-            onPress={back}
-            hitSlop={BACK_BTN_HIT_SLOP}
-          >
+          <TouchableOpacity style={styles.backBtn} onPress={back} hitSlop={BACK_BTN_HIT_SLOP}>
             <Icon name="chevron-left" color={iconColor} size={24} />
           </TouchableOpacity>
         </View>
         <View style={styles.centerArea}>
           <View style={[styles.pageIndicator, { gap: dotGap }]}>
-            <AnimatedIndicatorDot
-              isActive={activeIndex === 0}
-              activeColor={theme['c-primary']}
-            />
-            <AnimatedIndicatorDot
-              isActive={activeIndex === 1}
-              activeColor={theme['c-600']}
-            />
+            <AnimatedIndicatorDot isActive={activeIndex === 0} />
+            <AnimatedIndicatorDot isActive={activeIndex === 1} />
           </View>
         </View>
         <View style={[styles.rightArea, { width: sideAreaWidth }]}>
-          <TouchableOpacity
-            style={[styles.rightBtn, { backgroundColor: buttonBackground }]}
-            onPress={showTimer}
-            hitSlop={RIGHT_BTN_HIT_SLOP}
-          >
+          <TouchableOpacity style={styles.rightBtn} onPress={showTimer} hitSlop={RIGHT_BTN_HIT_SLOP}>
             <Icon
               name="music_time"
               color={timeInfo.active ? theme['c-primary-font-active'] : iconColor}
               size={ICON_SIZE}
             />
           </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.rightBtn, { backgroundColor: buttonBackground }]}
-            onPress={showSetting}
-            hitSlop={RIGHT_BTN_HIT_SLOP}
-          >
+          <TouchableOpacity style={styles.rightBtn} onPress={showSetting} hitSlop={RIGHT_BTN_HIT_SLOP}>
             <Icon name="slider" color={iconColor} size={ICON_SIZE} />
           </TouchableOpacity>
         </View>
@@ -173,8 +148,7 @@ const styles = StyleSheet.create({
   },
   backBtn: {
     width: BACK_BTN_WIDTH,
-    height: BACK_BTN_WIDTH,
-    borderRadius: BACK_BTN_WIDTH / 2,
+    height: HEADER_HEIGHT,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -189,9 +163,9 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   rightBtn: {
-    width: BACK_BTN_WIDTH,
-    height: BACK_BTN_WIDTH,
-    borderRadius: BACK_BTN_WIDTH / 2,
+    // 等分右区宽度：在不下压中间指示点区域的前提下，把每枚图标的触控块撑到最大
+    flex: 1,
+    height: HEADER_HEIGHT,
     alignItems: 'center',
     justifyContent: 'center',
   },

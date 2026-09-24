@@ -28,7 +28,6 @@ const BTN_SIZE = scaleSizeW(42)
 export default memo(({ componentId }: { componentId: string }) => {
   const theme = useTheme()
   const iconOpacity = 0.7
-  const buttonBackground = theme['c-primary-light-900-alpha-200']
   const { height: winHeight } = useWindowSize()
   const isSmallWindow = winHeight < 700
   const menuRef = useRef<PlayDetailMenuType>(null)
@@ -121,7 +120,7 @@ export default memo(({ componentId }: { componentId: string }) => {
 
   const onPlayMv = useCallback((info: SelectInfo) => {
     if (global.lx.isEnableLog) console.log('[MV] 点击播放MV, source:', info.musicInfo.source, 'musicInfo:', info.musicInfo)
-
+    
     if (info.musicInfo.source === 'wy') {
       const mvId = info.musicInfo.meta.mv
       if (!mvId) {
@@ -181,53 +180,16 @@ export default memo(({ componentId }: { componentId: string }) => {
 
   return (
     <View style={[styles.container, isSmallWindow && { paddingVertical: 6 }]}>
-      <TouchableOpacity
-        style={[styles.btnItem, {
-          backgroundColor: buttonBackground,
-          borderColor: theme['c-border-background'],
-          borderWidth: 1,
-          borderRadius: 999,
-        }]}
-        onPress={handleAddPress}
-        activeOpacity={0.6}
-      >
+      <TouchableOpacity style={styles.btnItem} onPress={handleAddPress} activeOpacity={0.6}>
         <View style={{ opacity: iconOpacity }}><Icon name="add-music" color={theme['c-font']} rawSize={BTN_SIZE * 0.6} /></View>
       </TouchableOpacity>
-      <TouchableOpacity
-        style={[styles.btnItem, {
-          backgroundColor: buttonBackground,
-          borderColor: theme['c-border-background'],
-          borderWidth: 1,
-          borderRadius: 999,
-        }]}
-        onPress={handleDownloadPress}
-        activeOpacity={0.6}
-      >
+      <TouchableOpacity style={styles.btnItem} onPress={handleDownloadPress} activeOpacity={0.6}>
         <View style={{ opacity: iconOpacity }}><Icon name="download-2" color={theme['c-font']} rawSize={BTN_SIZE * 0.55} /></View>
       </TouchableOpacity>
-      <TouchableOpacity
-        style={[styles.btnItem, {
-          backgroundColor: buttonBackground,
-          borderColor: theme['c-border-background'],
-          borderWidth: 1,
-          borderRadius: 999,
-        }]}
-        onPress={handleCommentPress}
-        activeOpacity={0.6}
-      >
+      <TouchableOpacity style={styles.btnItem} onPress={handleCommentPress} activeOpacity={0.6}>
         <View style={{ opacity: iconOpacity }}><Icon name="comment" color={theme['c-font']} rawSize={BTN_SIZE * 0.6} /></View>
       </TouchableOpacity>
-      <TouchableOpacity
-        ref={moreBtnRef}
-        style={[styles.btnItem, {
-          backgroundColor: buttonBackground,
-          borderColor: theme['c-border-background'],
-          borderWidth: 1,
-          borderRadius: 999,
-        }]}
-        onPress={handleShowMenu}
-        activeOpacity={0.6}
-      >
+      <TouchableOpacity ref={moreBtnRef} style={styles.btnItem} onPress={handleShowMenu} activeOpacity={0.6}>
         <View style={{ opacity: iconOpacity }}><Icon name="dots-vertical" color={theme['c-font']} rawSize={BTN_SIZE * 0.6} /></View>
       </TouchableOpacity>
       <PlayDetailMenu

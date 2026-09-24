@@ -14,10 +14,7 @@ const ControlBtnNew = () => {
   const theme = useTheme()
   const winSize = useWindowSize()
   const isPlay = useIsPlay()
-  const iconColor = theme['c-font']
-  const sideIconColor = theme['c-font-label']
-  const playIconColor = theme['c-primary-light-1000']
-  const sideButtonBackground = theme['c-primary-light-900-alpha-200']
+  const iconColor = theme.isDark ? theme['c-font'] : theme['c-primary']
 
   const { toggleNextPlayMode, playModeIcon } = usePlayModeToggle()
 
@@ -41,29 +38,19 @@ const ControlBtnNew = () => {
   return (
     <View style={[styles.newContainer, { paddingVertical: paddingV }]}>
       <TouchableOpacity
-        style={[styles.controlBtn, styles.sideButton, {
-          width: extraBtnSize,
-          height: extraBtnSize,
-          backgroundColor: sideButtonBackground,
-          borderColor: theme['c-border-background'],
-        }]}
+        style={[styles.controlBtn, { width: extraBtnSize, height: extraBtnSize }]}
         activeOpacity={0.5}
         onPress={toggleNextPlayMode}
       >
         {playModeIcon?.startsWith('svg:') ? (
-          <SvgIcon name={playModeIcon.slice(4)} rawSize={sideIconSize} color={sideIconColor} />
+          <SvgIcon name={playModeIcon.slice(4)} rawSize={sideIconSize} color={iconColor} />
         ) : (
-        <Icon name={playModeIcon} color={sideIconColor} rawSize={sideIconSize} />
+          <Icon name={playModeIcon} color={iconColor} rawSize={sideIconSize} />
         )}
       </TouchableOpacity>
 
       <TouchableOpacity
-        style={[styles.controlBtn, styles.playButton, {
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          backgroundColor: theme['c-primary'],
-        }]}
+        style={[styles.controlBtn, { width: size, height: size }]}
         activeOpacity={0.5}
         onPress={() => void playPrev()}
       >
@@ -75,7 +62,7 @@ const ControlBtnNew = () => {
         activeOpacity={0.5}
         onPress={togglePlay}
       >
-        <Icon name={isPlay ? 'pause' : 'play'} color={playIconColor} rawSize={iconSize} />
+        <Icon name={isPlay ? 'pause' : 'play'} color={iconColor} rawSize={iconSize} />
       </TouchableOpacity>
 
       <TouchableOpacity
@@ -87,16 +74,11 @@ const ControlBtnNew = () => {
       </TouchableOpacity>
 
       <TouchableOpacity
-        style={[styles.controlBtn, styles.sideButton, {
-          width: extraBtnSize,
-          height: extraBtnSize,
-          backgroundColor: sideButtonBackground,
-          borderColor: theme['c-border-background'],
-        }]}
+        style={[styles.controlBtn, { width: extraBtnSize, height: extraBtnSize }]}
         activeOpacity={0.5}
         onPress={handleShowPlaylist}
       >
-        <Icon name="menu" color={sideIconColor} rawSize={sideIconSize} />
+        <Icon name="menu" color={iconColor} rawSize={sideIconSize} />
       </TouchableOpacity>
     </View>
   )
@@ -109,9 +91,6 @@ const styles = createStyle({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  playButton: {
-    backgroundColor: 'transparent',
-  },
   newContainer: {
     flexDirection: 'row',
     justifyContent: 'space-evenly',
@@ -119,9 +98,5 @@ const styles = createStyle({
     flexGrow: 1,
     flexShrink: 1,
     paddingHorizontal: '3%',
-  },
-  sideButton: {
-    borderRadius: 999,
-    borderWidth: 1,
   },
 })

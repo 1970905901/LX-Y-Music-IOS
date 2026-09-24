@@ -31,8 +31,9 @@ export interface ProgressDrag {
   seekEnabled: boolean
   /** 是否正在拖动 */
   draging: boolean
-  /** 手指当前对应的进度（0~1） */
-  dragProgress: number
+  /** 手指当前对应的进度（0~1）。Animated 直驱：移动回调里 setValue 直连原生属性，
+   *  不经 React 渲染——播放详情页歌词动画并发负载下，走 setState 会因 JS 帧不足拖动不跟手。 */
+  dragProgressAnim: Animated.Value
   /** 非拖动时的补间进度值，直接用于 width 插值 */
   animProgress: Animated.Value
   onDragState: (drag: boolean) => void
@@ -50,7 +51,10 @@ export const useProgressDrag = (progress: number, duration: number): ProgressDra
   const seekEnabled = useSettingValue('common.allowProgressBarSeek')
 
   const [draging, setDraging] = useState(false)
-  const [dragProgress, setDragProgress] = useState(0)
+  // 手指进度走 Animated.Value 直驱：setDragProgress 以触摸移动频率被调用，若走 setState
+  // 会以同一频率渲染整棵进度条子树，在播放详情页（歌词逐字动画等并发负载）上 JS 帧不足，
+  // 表现为进度条拖动不跟手。setValue 绕过 React 渲染直接更新原生属性，实时跟随手指。
+  const dragProgressAnim = useRef(new Animated.Value(0)).current
   // 播放中 playProgressChanged 约每 1s 触发一次，进度条原本是秒级跳变。
   // 非拖动时用 Animated 在两次更新之间做线性补间，让进度条连续平滑滑动。
   const animProgress = useRef(new Animated.Value(clamp01(progress))).current
@@ -124,10 +128,17 @@ export const useProgressDrag = (progress: number, duration: number): ProgressDra
     [canSeek]
   )
 
+  const setDragProgress = useCallback(
+    (p: number) => {
+      dragProgressAnim.setValue(clamp01(p))
+    },
+    [dragProgressAnim]
+  )
+
   return {
     seekEnabled,
     draging,
-    dragProgress,
+    dragProgressAnim,
     animProgress,
     onDragState: setDraging,
     setDragProgress,

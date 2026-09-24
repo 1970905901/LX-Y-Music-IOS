@@ -1,5 +1,5 @@
-import { memo } from 'react'
-import { View } from 'react-native'
+import { memo, useMemo } from 'react'
+import { Animated, View } from 'react-native'
 
 import { ProgressTouchArea, useProgressDrag } from './progressCore'
 import { clamp01, createStyle } from '@/utils/tools'
@@ -55,7 +55,7 @@ const Progress = ({
   const {
     seekEnabled,
     draging,
-    dragProgress,
+    dragProgressAnim,
     onDragState,
     setDragProgress,
     onSetProgress,
@@ -66,6 +66,11 @@ const Progress = ({
   // 已播放用实心主色，参照线用半透明主色。
   const activeColor = theme.isDark ? theme['c-font'] : theme['c-primary']
   const progressStr: `${number}%` = `${clamp01(progress) * 100}%`
+  // 手指层宽度由 Animated 直驱（拖动移动零 React 渲染），实时跟随手指
+  const dragWidth = useMemo(
+    () => dragProgressAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }),
+    [dragProgressAnim]
+  )
 
   return (
     <View style={{ ...styles.progress, paddingTop }}>
@@ -85,13 +90,12 @@ const Progress = ({
                 top: 0,
               }}
             />
-            {/* 上层：手指所在位置（实心高亮），后渲染所以永远压在参照线之上，
-                左拖 / 右拖都能实时跟随手指，不会被更长的参照线盖住。 */}
-            <View
+            {/* 上层：手指所在位置（实心高亮），Animated 直驱实时跟随手指 */}
+            <Animated.View
               style={{
                 ...styles.progressBar,
                 backgroundColor: activeColor,
-                width: `${clamp01(dragProgress) * 100}%`,
+                width: dragWidth,
                 position: 'absolute',
                 left: 0,
                 top: 0,

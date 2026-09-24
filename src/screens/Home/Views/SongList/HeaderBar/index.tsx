@@ -57,7 +57,6 @@ export default forwardRef<HeaderBarType, HeaderBarProps>(
       <View style={[styles.container, { paddingTop: Math.max(designSpacing.sm, statusBarHeight - designSpacing.md) }]}>
         <Text style={styles.title} size={34} color={theme['c-font']}>{title}</Text>
         <View style={styles.actions}>
-          <OpenList ref={openListRef} onOpenDetail={onOpenDetail} />
           <View
             style={[styles.sourcePill, {
               backgroundColor: theme['c-primary-light-900-alpha-200'],
@@ -66,6 +65,7 @@ export default forwardRef<HeaderBarType, HeaderBarProps>(
           >
             <SourceSelector ref={sourceSelectorRef} onSourceChange={onSourceChange} />
           </View>
+          <OpenList ref={openListRef} onOpenDetail={onOpenDetail} />
         </View>
 
         <View
@@ -108,7 +108,7 @@ const styles = createStyle({
     borderRadius: designRadius.pill,
     borderWidth: 1,
     overflow: 'hidden',
-    marginLeft: designSpacing.sm,
+    marginRight: 0,
   },
   filterRow: {
     minHeight: 42,

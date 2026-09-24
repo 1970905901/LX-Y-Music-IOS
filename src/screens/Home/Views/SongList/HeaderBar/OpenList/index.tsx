@@ -1,13 +1,10 @@
 import { useRef, forwardRef, useImperativeHandle, useEffect } from 'react'
-// import { Icon } from '@/components/common/Icon'
 import Button from '@/components/common/Button'
 import { useTheme } from '@/store/theme/hook'
-// import { navigations } from '@/navigation'
 import Modal, { type ModalType } from './Modal'
 import {ListInfoItem, type Source} from '@/store/songlist/state'
 import { createStyle } from '@/utils/tools'
-import Text from '@/components/common/Text'
-import { useI18n } from '@/lang'
+import { SvgIcon } from '@/components/common/Icon'
 import { navigations } from '@/navigation'
 import commonState from '@/store/common/state'
 import { designRadius, designSpacing } from '@/theme/DesignTokens'
@@ -25,7 +22,6 @@ export interface OpenListType {
 
 
 export default forwardRef<OpenListType, OpenListProps>(({ onOpenDetail }, ref) => {
-  const t = useI18n()
   const theme = useTheme()
   const modalRef = useRef<ModalType>(null)
   const songlistInfoRef = useRef<{ source: Source }>({ source: 'kw' })
@@ -79,9 +75,7 @@ export default forwardRef<OpenListType, OpenListProps>(({ onOpenDetail }, ref) =
         style={{ ...styles.button, backgroundColor: theme['c-button-background'] }}
         onPress={() => modalRef.current?.show(songlistInfoRef.current.source)}
       >
-        <Text style={{ color: theme['c-primary-font'], fontSize: 13, fontWeight: '600' }}>
-          {t('songlist_open')}
-        </Text>
+        <SvgIcon name="plus" size={20} color={theme['c-primary']} />
       </Button>
       <Modal ref={modalRef} onOpenId={handleOpenSonglist} />
     </>
@@ -90,10 +84,11 @@ export default forwardRef<OpenListType, OpenListProps>(({ onOpenDetail }, ref) =
 
 const styles = createStyle({
   button: {
+    width: 32,
     height: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: designSpacing.sm,
+    marginLeft: designSpacing.sm,
     borderRadius: designRadius.pill,
   },
 })

@@ -102,6 +102,13 @@ const MusicListIcon = ({ size, color }: { size: number; color: string }) => (
   </Svg>
 )
 
+const PlusIcon = ({ size, color }: { size: number; color: string }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Line x1="12" y1="4.5" x2="12" y2="19.5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+    <Line x1="4.5" y1="12" x2="19.5" y2="12" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+  </Svg>
+)
+
 const ExportIcon = ({ size, color }: { size: number; color: string }) => (
   <Svg width={size} height={size} viewBox="0 0 1024 1024" fill="none">
     <Path
@@ -205,6 +212,8 @@ const SvgIcon = memo(({ name, size = 15, rawSize, color = '#000', style }: SvgIc
         return <FolderIcon size={finalSize} color={color} />
       case 'music-list':
         return <MusicListIcon size={finalSize} color={color} />
+      case 'plus':
+        return <PlusIcon size={finalSize} color={color} />
       case 'export':
         return <ExportIcon size={finalSize} color={color} />
       case 'expand':

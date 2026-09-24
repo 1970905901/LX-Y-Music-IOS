@@ -5005,6 +5005,13 @@ RCT_REMAP_METHOD(sha1, sha1:(NSString *)input resolver:(RCTPromiseResolveBlock)r
 
 @end
 
+#pragma mark - Phone Scene Delegate（iOS 13+ 主 App 窗口）
+
+@interface SceneDelegate : UIResponder <UIWindowSceneDelegate>
+@property (strong, nonatomic) UIWindow *window;
+@property (nonatomic, assign) BOOL didBootstrap;
+@end
+
 @implementation AppDelegate
 
 #pragma mark - Scenes（iOS 13+ Phone Scene）
@@ -5025,7 +5032,7 @@ RCT_REMAP_METHOD(sha1, sha1:(NSString *)input resolver:(RCTPromiseResolveBlock)r
   (void)application;
   (void)options;
   UISceneConfiguration *configuration = [[UISceneConfiguration alloc] initWithName:@"Phone" sessionRole:UIWindowSceneSessionRoleApplication];
-  configuration.delegateClass = NSClassFromString(@"SceneDelegate");
+  configuration.delegateClass = [SceneDelegate class];
   return configuration;
 }
 
@@ -5060,12 +5067,6 @@ RCT_REMAP_METHOD(sha1, sha1:(NSString *)input resolver:(RCTPromiseResolveBlock)r
 
 @end
 
-#pragma mark - Phone Scene Delegate（iOS 13+ 主 App 窗口）
-
-@interface SceneDelegate : UIResponder <UIWindowSceneDelegate>
-@property (strong, nonatomic) UIWindow *window;
-@property (nonatomic, assign) BOOL didBootstrap;
-@end
 
 @implementation SceneDelegate
 

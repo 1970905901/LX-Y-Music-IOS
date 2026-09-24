@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, type ComponentType } from 'react'
+import { memo, useEffect, useMemo, useRef, type ComponentType } from 'react'
 import { ScrollView, TouchableOpacity, View } from 'react-native'
 
 import PageContent from '@/components/PageContent'
@@ -14,6 +14,9 @@ import { designSpacing } from '@/theme/DesignTokens'
 import { setComponentId } from '@/core/common'
 import { COMPONENT_IDS } from '@/config/constant'
 import { type SettingScreenIds } from '@/screens/Home/Views/Setting/Main'
+import WebLoginManager from '@/components/WebLoginManager'
+import QQWebLoginManager from '@/components/QQWebLoginManager'
+import KgWebLoginManager from '@/components/KgWebLoginManager'
 import Basic from '@/screens/Home/Views/Setting/settings/Basic'
 import Player from '@/screens/Home/Views/Setting/settings/Player'
 import Search from '@/screens/Home/Views/Setting/settings/Search'
@@ -48,10 +51,20 @@ export default memo(({ settingId, componentId }: {
   const t = useI18n()
   const safeAreaBottom = useSafeAreaBottom()
   const statusBarHeight = useStatusbarHeight()
+  const appearedAtRef = useRef(0)
 
   useEffect(() => {
     setComponentId(COMPONENT_IDS.SETTING_DETAIL, componentId)
+    appearedAtRef.current = Date.now()
   }, [componentId])
+
+  // push 转场（200ms）进行中忽略返回：pop 打断 push 会让 RNN iOS 的自定义转场
+  // 走到 transitionWasCancelled 分支、永不调用 completeTransition，整个导航栈
+  // 将失去交互（表现为界面卡死只能重启）。留 400ms 余量覆盖转场全程。
+  const handleBack = () => {
+    if (Date.now() - appearedAtRef.current < 400) return
+    void pop(componentId)
+  }
 
   const ActiveScreen = useMemo(() => (
     SETTING_COMPONENTS[settingId] ?? Basic
@@ -67,7 +80,7 @@ export default memo(({ settingId, componentId }: {
     <PageContent>
       <LandscapeCentered>
         <View style={{ ...styles.header, paddingTop: statusBarHeight + designSpacing.sm }}>
-          <TouchableOpacity style={styles.backButton} onPress={() => { void pop(componentId) }}>
+          <TouchableOpacity style={styles.backButton} onPress={handleBack}>
             <Icon name="chevron-left" size={20} color={theme['c-font']} />
           </TouchableOpacity>
           <Text size={17} style={styles.title} color={theme['c-font']} numberOfLines={1}>
@@ -84,6 +97,11 @@ export default memo(({ settingId, componentId }: {
           <ActiveScreen />
         </ScrollView>
       </LandscapeCentered>
+      {/* 登录弹窗必须挂在本页面视图树内：RN Modal 仅在宿主视图挂在窗口上时呈现，
+          挂在被 Home 托管的树里会因 Home 被 push 页面覆盖（self.window == nil）而不显示 */}
+      <WebLoginManager />
+      <QQWebLoginManager />
+      <KgWebLoginManager />
     </PageContent>
   )
 })

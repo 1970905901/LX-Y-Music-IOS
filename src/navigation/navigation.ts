@@ -14,6 +14,7 @@ import themeState from '@/store/theme/state'
 import playerState from '@/store/player/state'
 import settingState from '@/store/setting/state'
 import commonState from '@/store/common/state'
+import commonActions from '@/store/common/action'
 import { NAV_SHEAR_NATIVE_IDS, COMPONENT_IDS } from '@/config/constant'
 import { getStatusBarStyle } from './utils'
 import { windowSizeTools } from '@/utils/windowSizeTools'
@@ -29,9 +30,25 @@ const isTopScreen = (id: COMPONENT_IDS) => {
   const ids = commonState.componentIds
   return ids.length > 0 && ids[ids.length - 1]?.name === id
 }
-const startPush = (id: COMPONENT_IDS, allowSameTop = false) => {
+interface StartPushOptions {
+  /** 允许顶层已是同类型页面时再次 push（如歌手详情互跳） */
+  allowSameTop?: boolean
+  /**
+   * 顶层残留自愈：pop 事件丢失（转场被取消等）会让账本里残留“详情页在栈顶”的
+   * 记录，此后用户在列表页点击会因 isTopScreen 命中而被静默吞掉（点了没反应）。
+   * 开启后：命中同类型顶层时视为账本残留，清掉该条目并放行 push。
+   * 仅用于“从列表页进入详情页”的场景——用户能点到列表，说明详情页必然不在栈顶。
+   */
+  recoverStaleTop?: boolean
+}
+const startPush = (id: COMPONENT_IDS, options: StartPushOptions = {}) => {
   if (pendingPushes.has(id)) return false
-  if (!allowSameTop && isTopScreen(id)) return false
+  if (isTopScreen(id)) {
+    if (!options.allowSameTop && !options.recoverStaleTop) return false
+    const ids = commonState.componentIds
+    const stale = ids[ids.length - 1]
+    if (stale) commonActions.removeComponentId(stale.id)
+  }
   pendingPushes.add(id)
   // 安全兜底：即使 push 的 Promise 始终不结算（如 RNN 返回 undefined 或原生转场挂起），
   // 也确保锁最终释放，避免界面永久卡死只能重启。
@@ -39,6 +56,14 @@ const startPush = (id: COMPONENT_IDS, allowSameTop = false) => {
   return true
 }
 const endPush = (id: COMPONENT_IDS) => { pendingPushes.delete(id) }
+// pop 完成（返回按钮/系统返回）时统一处理：清账本条目 + 立即释放该类型页面的
+// push 锁。pop 已完成即不存在进行中的同名 push；若不释放，用户“返回后立刻
+// 再点同一入口”会在 800ms 兜底锁窗口内被静默吞掉（表现为点了没反应）。
+export const handleScreenPopped = (componentId: string) => {
+  const target = commonState.componentIds.find(item => item.id === componentId)
+  commonActions.removeComponentId(componentId)
+  if (target) endPush(target.name)
+}
 const guardPush = async (promise: Promise<string> | undefined, id: COMPONENT_IDS): Promise<void> => {
   try {
     await promise
@@ -651,7 +676,7 @@ export function pushTabBasedApp() {
 export function pushArtistDetailScreen(componentId: string, artistInfo: { id: string, mid?: string, name: string, picUrl?: string, source?: string }) {
   // allowSameTop: 允许从「歌手详情页」跳转到另一个「歌手详情页」（如相似歌手入口），
   // 否则 startPush 会因 isTopScreen(ARTIST_DETAIL) 直接拦截，导致相似歌手点击无响应。
-  if (!startPush(COMPONENT_IDS.ARTIST_DETAIL, true)) return
+  if (!startPush(COMPONENT_IDS.ARTIST_DETAIL, { allowSameTop: true })) return
   const theme = themeState.theme
   void guardPush(Navigation.push(componentId, {
     component: {
@@ -753,7 +778,7 @@ export function pushAlbumDetailScreen(componentId: string, albumInfo: any) {
 }
 
 export function pushSettingDetailScreen(componentId: string, settingId: string) {
-  if (!startPush(COMPONENT_IDS.SETTING_DETAIL)) return
+  if (!startPush(COMPONENT_IDS.SETTING_DETAIL, { recoverStaleTop: true })) return
   const theme = themeState.theme
   void guardPush(Navigation.push(componentId, {
     component: {
@@ -766,6 +791,9 @@ export function pushSettingDetailScreen(componentId: string, settingId: string) 
           visible: false,
           height: 0,
         },
+        // 关闭侧滑返回：边缘滑动打断 push/pop 转场时，RNN iOS 的自定义转场
+        // 不会调用 completeTransition，整个导航栈会失去交互（卡死）。
+        gestureEnabled: false,
         statusBar: {
           drawBehind: true,
           visible: true,

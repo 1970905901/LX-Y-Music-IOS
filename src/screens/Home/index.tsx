@@ -15,9 +15,6 @@ import commonState from '@/store/common/state'
 import {useBackHandler} from "@/utils/hooks/useBackHandler.ts";
 
 import { setSearchText as setSearchState } from '@/core/search/search'
-import WebLoginManager from "@/components/WebLoginManager.tsx";
-import QQWebLoginManager from "@/components/QQWebLoginManager.tsx";
-import KgWebLoginManager from "@/components/KgWebLoginManager.tsx";
 import DownloadBall from "@/components/DownloadBall";
 import YouTubeLoginManager from "@/components/YouTubeLoginManager.tsx";
 import VideoPlayerManager from "@/components/VideoPlayerManager.tsx";
@@ -80,9 +77,10 @@ export default ({ componentId }: Props) => {
     <>
       <PageContent>{isHorizontalMode ? <Horizontal componentId={componentId} /> : <Vertical componentId={componentId} />}</PageContent>
       <ArtistSelectorManager />
-      <WebLoginManager />
-      <QQWebLoginManager />
-      <KgWebLoginManager />
+      {/* 网易/QQ/酷狗登录弹窗管理器已迁至 SettingDetail：RN Modal 仅在其宿主视图
+          挂在窗口上时才会呈现（RCTModalHostView 的 shouldBePresented 检查 self.window），
+          Home 被 push 的原生页面覆盖后视图树脱离窗口，挂在 Home 里的弹窗永远无法呈现，
+          表现为设置详情页里的登录按钮点了没反应。 */}
       {/*<YouTubeLoginManager />*/}
       <VideoPlayerManager />
       <DownloadBall />

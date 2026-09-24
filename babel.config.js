@@ -6,7 +6,7 @@ module.exports = {
         ImportDeclaration(path) {
           if (
             path.node.source.value === 'react/jsx-runtime' &&
-            !path.filename.endsWith('jsxRuntimeProbe.ts')
+            !(path.hub.file.opts.filename || '').endsWith('jsxRuntimeProbe.ts')
           ) {
             path.node.source.value = '@/utils/jsxRuntimeProbe'
           }

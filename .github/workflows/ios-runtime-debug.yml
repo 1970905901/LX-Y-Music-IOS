@@ -80,6 +80,10 @@ jobs:
           echo "LAUNCH_EXIT=$LAUNCH_EXIT"
           echo "--- SYSTEM RUNTIME LOG ---"
           cat build/system-runtime.log
+          if grep -E '###UNDEFINED_ELEMENT###|Element type is invalid|FATAL_DIAGNOSTIC|TypeError|ReferenceError' build/runtime-console.log build/system-runtime.log; then
+            echo "::error::Runtime JavaScript error detected"
+            exit 1
+          fi
           mkdir -p build/crashes
           find "$HOME/Library/Logs/DiagnosticReports" -maxdepth 1 -type f -name 'LxMusicMobile-*' -mmin -10 -exec cp {} build/crashes/ \; 2>/dev/null || true
 

@@ -2,8 +2,7 @@ import { useTheme } from '@/store/theme/hook'
 import { BorderRadius } from '@/theme'
 import { createStyle } from '@/utils/tools'
 import { memo, useCallback, useEffect, useMemo, useState, useRef } from 'react'
-import { View, type ViewProps, Image as _Image, StyleSheet, AppState, type ImageResizeMode } from 'react-native'
-import Text from './Text'
+import { View, type ViewProps, Image as _Image, Text as NativeText, StyleSheet, AppState, type ImageResizeMode } from 'react-native'
 import { useLayout } from '@/utils/hooks'
 
 export interface ImageProps extends ViewProps {
@@ -26,8 +25,8 @@ const EmptyPic = memo(({ style, nativeID }: { style: ImageProps['style'], native
 
   return (
     <View style={StyleSheet.compose({ ...styles.emptyPic, backgroundColor: theme['c-primary-light-900-alpha-200'], gap: size * 0.1 }, style)} onLayout={onLayout} nativeID={nativeID}>
-      <Text size={size} color={theme['c-primary-light-400-alpha-200']}>L</Text>
-      <Text size={size} color={theme['c-primary-light-400-alpha-200']} style={styles.text}>X</Text>
+      <NativeText style={{ fontSize: size, color: theme['c-primary-light-400-alpha-200'] }}>L</NativeText>
+      <NativeText style={{ fontSize: size, color: theme['c-primary-light-400-alpha-200'], paddingLeft: 2 }}>X</NativeText>
     </View>
   )
 })

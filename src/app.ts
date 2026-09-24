@@ -1,5 +1,6 @@
 import '@/utils/errorHandle'
 import { init as initLog } from '@/utils/log'
+import * as React from 'react'
 import { bootLog, getBootLog } from '@/utils/bootLog'
 import '@/config/globalData'
 import { getFontSize } from '@/utils/data'
@@ -11,6 +12,16 @@ import { tipDialog } from './utils/tools'
 import settingState from '@/store/setting/state'
 
 // --- START: CONSOLE LOG PATCH (v2) ---
+const originalCreateElement = React.createElement
+const createElementWithUndefinedCheck = function(type: any, ...args: any[]) {
+  if (type == null) {
+    console.error('###UNDEFINED_ELEMENT###', args[0], new Error().stack)
+  }
+  return originalCreateElement.apply(React, [type, ...args] as any)
+}
+const reactRuntime = React as { createElement: (type: any, ...args: any[]) => any }
+reactRuntime.createElement = createElementWithUndefinedCheck
+
 if (__DEV__) {
   const originalLog = console.log;
   const originalWarn = console.warn;

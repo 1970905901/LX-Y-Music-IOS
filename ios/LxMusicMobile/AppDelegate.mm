@@ -5010,18 +5010,8 @@ RCT_REMAP_METHOD(sha1, sha1:(NSString *)input resolver:(RCTPromiseResolveBlock)r
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
 {
   LXRegisterTrackPlayerLifecycleObserver();
-  self.window = [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
-
-  UIStoryboard *launchStoryboard = [UIStoryboard storyboardWithName:@"LaunchScreen" bundle:[NSBundle mainBundle]];
-  UIViewController *launchVC = [launchStoryboard instantiateInitialViewController];
-  if (launchVC == nil) launchVC = [UIViewController new];
-  self.window.rootViewController = launchVC;
-  [self.window makeKeyAndVisible];
-
   self.launchOptions = launchOptions;
   self.initialProps = @{};
-  self.bridge = [[RCTBridge alloc] initWithDelegate:self launchOptions:launchOptions];
-  [ReactNativeNavigation bootstrapWithBridge:self.bridge];
 
   return YES;
 }
@@ -5032,7 +5022,9 @@ RCT_REMAP_METHOD(sha1, sha1:(NSString *)input resolver:(RCTPromiseResolveBlock)r
 {
   (void)application;
   (void)options;
-  return [[UISceneConfiguration alloc] initWithName:@"Phone" sessionRole:UIWindowSceneSessionRoleApplication];
+  UISceneConfiguration *configuration = [[UISceneConfiguration alloc] initWithName:@"Phone" sessionRole:UIWindowSceneSessionRoleApplication];
+  configuration.delegateClass = [SceneDelegate class];
+  return configuration;
 }
 
 - (NSArray<id<RCTBridgeModule>> *)extraModulesForBridge:(RCTBridge *)bridge {

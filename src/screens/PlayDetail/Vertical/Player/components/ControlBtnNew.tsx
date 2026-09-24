@@ -17,6 +17,7 @@ const ControlBtnNew = () => {
   const iconColor = theme['c-font']
   const sideIconColor = theme['c-font-label']
   const playIconColor = theme['c-primary-light-1000']
+  const sideButtonBackground = theme['c-primary-light-900-alpha-200']
 
   const { toggleNextPlayMode, playModeIcon } = usePlayModeToggle()
 
@@ -40,7 +41,12 @@ const ControlBtnNew = () => {
   return (
     <View style={[styles.newContainer, { paddingVertical: paddingV }]}>
       <TouchableOpacity
-        style={[styles.controlBtn, { width: extraBtnSize, height: extraBtnSize }]}
+        style={[styles.controlBtn, styles.sideButton, {
+          width: extraBtnSize,
+          height: extraBtnSize,
+          backgroundColor: sideButtonBackground,
+          borderColor: theme['c-border-background'],
+        }]}
         activeOpacity={0.5}
         onPress={toggleNextPlayMode}
       >
@@ -81,7 +87,12 @@ const ControlBtnNew = () => {
       </TouchableOpacity>
 
       <TouchableOpacity
-        style={[styles.controlBtn, { width: extraBtnSize, height: extraBtnSize }]}
+        style={[styles.controlBtn, styles.sideButton, {
+          width: extraBtnSize,
+          height: extraBtnSize,
+          backgroundColor: sideButtonBackground,
+          borderColor: theme['c-border-background'],
+        }]}
         activeOpacity={0.5}
         onPress={handleShowPlaylist}
       >
@@ -108,5 +119,9 @@ const styles = createStyle({
     flexGrow: 1,
     flexShrink: 1,
     paddingHorizontal: '3%',
+  },
+  sideButton: {
+    borderRadius: 999,
+    borderWidth: 1,
   },
 })

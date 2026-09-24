@@ -90,7 +90,7 @@ export default memo(() => {
         <TouchableOpacity onPress={handleSongNamePress} activeOpacity={0.6} style={styles.songNameTouch}>
           <Text
             numberOfLines={1}
-            size={30}
+            size={24}
             color={theme['c-font']}
             style={styles.songName}
           >
@@ -99,7 +99,7 @@ export default memo(() => {
         </TouchableOpacity>
         {showLikeBtn && (
           <TouchableOpacity onPress={handleLikePress} activeOpacity={0.6} style={styles.heartBtn}>
-            <Icon name={isLiked ? 'love-filled' : 'love'} color={isLiked ? '#ff4d4f' : theme['c-font']} size={28} />
+            <Icon name={isLiked ? 'love-filled' : 'love'} color={isLiked ? '#ff4d4f' : theme['c-font']} size={24} />
           </TouchableOpacity>
         )}
       </View>

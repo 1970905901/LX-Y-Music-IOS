@@ -109,7 +109,7 @@ const defaultSetting: LX.AppSetting = {
   'player.enableFailureStrategy': false,
   'player.failureStrategy': ['lowerQuality', 'togglePlatform', 'playNext', 'toggleSource'],
 
-  'playDetail.isCoverSpin': true,
+  'playDetail.isCoverSpin': false,
   'playDetail.style.align': 'center',
   'playDetail.style.miniLyricAlign': 'center',
   'playDetail.style.coverSize': 100,

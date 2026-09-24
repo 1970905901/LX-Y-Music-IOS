@@ -56,7 +56,7 @@ jobs:
       - name: Boot and launch app
         shell: bash
         run: |
-          APP_PATH="$(find build/SimDerived/Build/Products/Debug-iphonesimulator -maxdepth 1 -name '*.app' -print -quit)"
+          APP_PATH="$(find build/SimDerived/Build/Products/Release-iphonesimulator -maxdepth 1 -name '*.app' -print -quit)"
           test -n "$APP_PATH"
           SIM_UDID="$(xcrun simctl list devices available | grep -m1 -E 'iPhone' | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')"
           test -n "$SIM_UDID"

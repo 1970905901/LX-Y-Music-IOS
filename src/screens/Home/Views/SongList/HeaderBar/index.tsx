@@ -13,9 +13,7 @@ import { useTheme } from '@/store/theme/hook'
 import Tag, { type TagType, type TagProps } from './Tag'
 import OpenList, { type OpenListType } from './OpenList'
 import { designRadius, designSpacing } from '@/theme/DesignTokens'
-import Text from '@/components/common/Text'
 import { Icon } from '@/components/common/Icon'
-import { useI18n } from '@/lang'
 // import { BorderWidths } from '@/theme'
 
 export interface HeaderBarProps {
@@ -35,7 +33,6 @@ export default forwardRef<HeaderBarType, HeaderBarProps>(
     const tagRef = useRef<TagType>(null)
     const openListRef = useRef<OpenListType>(null)
     const sourceSelectorRef = useRef<SourceSelectorType>(null)
-    const t = useI18n()
     const theme = useTheme()
     // const theme = useTheme()
 
@@ -54,18 +51,15 @@ export default forwardRef<HeaderBarType, HeaderBarProps>(
 
     return (
       <View style={styles.container}>
-        <View style={styles.titleRow}>
-          <Text style={styles.title} size={24}>{t('nav_songlist')}</Text>
-          <View style={styles.actions}>
-            <OpenList ref={openListRef} onOpenDetail={onOpenDetail} />
-            <View
-              style={[styles.sourcePill, {
-                backgroundColor: theme['c-primary-light-900-alpha-200'],
-                borderColor: theme['c-border-background'],
-              }]}
-            >
-              <SourceSelector ref={sourceSelectorRef} onSourceChange={onSourceChange} />
-            </View>
+        <View style={styles.actions}>
+          <OpenList ref={openListRef} onOpenDetail={onOpenDetail} />
+          <View
+            style={[styles.sourcePill, {
+              backgroundColor: theme['c-primary-light-900-alpha-200'],
+              borderColor: theme['c-border-background'],
+            }]}
+          >
+            <SourceSelector ref={sourceSelectorRef} onSourceChange={onSourceChange} />
           </View>
         </View>
 
@@ -94,18 +88,11 @@ const styles = createStyle({
     marginTop: designSpacing.xs,
     marginBottom: designSpacing.xs,
   },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: designSpacing.md,
-  },
-  title: {
-    fontWeight: '800',
-  },
   actions: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'flex-end',
+    marginBottom: designSpacing.md,
   },
   sourcePill: {
     height: 36,

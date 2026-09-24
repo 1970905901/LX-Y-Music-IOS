@@ -22,7 +22,6 @@ import { LIST_IDS } from '@/config/constant'
 import { scaleSizeH } from '@/utils/pixelRatio'
 import { designRadius, designSpacing } from '@/theme/DesignTokens'
 import { shadow } from '@/utils/shadow'
-import { useI18n } from '@/lang'
 import { useSafeAreaBottom } from '@/store/common/hook'
 import Loading from '@/components/common/Loading'
 import { Navigation } from 'react-native-navigation'
@@ -301,7 +300,6 @@ const PlaylistCard = memo(({
 
 export default memo(() => {
   const theme = useTheme()
-  const t = useI18n()
   const safeAreaBottom = useSafeAreaBottom()
   const allList = useMyList()
   const activeListId = useActiveListId()
@@ -663,9 +661,6 @@ export default memo(() => {
 
   const listPanel = (
     <View style={styles.content}>
-      <View style={styles.header}>
-        <Text size={24} style={styles.title}>{t('nav_love')}</Text>
-      </View>
       {hasError ? (
         <View style={styles.errorContainer}>
           <Text size={16} color={theme['c-font']} style={styles.errorText}>加载失败</Text>
@@ -681,7 +676,7 @@ export default memo(() => {
         <>
           <FlatList
             data={listItems}
-            contentContainerStyle={{ paddingBottom: 80 + safeAreaBottom }}
+            contentContainerStyle={{ paddingTop: designSpacing.sm, paddingBottom: 80 + safeAreaBottom }}
             renderItem={renderItem}
             keyExtractor={item => item.id}
             style={styles.listContainer}
@@ -750,14 +745,6 @@ export default memo(() => {
 const styles = createStyle({
   content: {
     flex: 1,
-  },
-  header: {
-    paddingHorizontal: designSpacing.md,
-    paddingTop: designSpacing.sm,
-    paddingBottom: designSpacing.md,
-  },
-  title: {
-    fontWeight: '800',
   },
   listContainer: {
     flex: 1,

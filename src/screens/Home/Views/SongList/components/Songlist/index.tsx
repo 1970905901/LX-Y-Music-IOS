@@ -1,8 +1,9 @@
-import { useRef, forwardRef, useImperativeHandle } from 'react'
+import { useRef, forwardRef, useImperativeHandle, type ReactElement } from 'react'
 import { type ListInfoItem } from '@/store/songlist/state'
 import List, { type ListProps, type ListType, type Status } from './List'
 
 export interface SonglistProps {
+  header?: ReactElement
   onRefresh: ListProps['onRefresh']
   onLoadMore: ListProps['onLoadMore']
   onOpenDetail: (item: ListInfoItem, index: number) => void
@@ -12,7 +13,7 @@ export interface SonglistType {
   setStatus: (val: Status) => void
 }
 
-export default forwardRef<SonglistType, SonglistProps>(({ onRefresh, onLoadMore, onOpenDetail }, ref) => {
+export default forwardRef<SonglistType, SonglistProps>(({ header, onRefresh, onLoadMore, onOpenDetail }, ref) => {
   const listRef = useRef<ListType>(null)
 
   useImperativeHandle(ref, () => ({
@@ -27,6 +28,7 @@ export default forwardRef<SonglistType, SonglistProps>(({ onRefresh, onLoadMore,
   return (
     <List
       ref={listRef}
+      header={header}
       onRefresh={onRefresh}
       onLoadMore={onLoadMore}
       onOpenDetail={onOpenDetail}

@@ -1,4 +1,4 @@
-import { useRef, useState, useMemo, forwardRef, useImperativeHandle } from 'react'
+import { useRef, useState, useMemo, forwardRef, useImperativeHandle, type ReactElement } from 'react'
 import {FlatList, View, RefreshControl, type FlatListProps, Keyboard} from 'react-native'
 
 import ListItem from './ListItem'
@@ -19,6 +19,7 @@ const MIN_WIDTH_LANDSCAPE = scaleSizeW(150)
 const GAP = scaleSizeW(20)
 
 export interface ListProps {
+  header?: ReactElement
   onRefresh: () => void
   onLoadMore: () => void
   onOpenDetail: (item: ListInfoItem, index: number) => void
@@ -30,7 +31,7 @@ export interface ListType {
   setStatus: (val: Status) => void
 }
 
-export default forwardRef<ListType, ListProps>(({ onRefresh, onLoadMore, onOpenDetail }, ref) => {
+export default forwardRef<ListType, ListProps>(({ header, onRefresh, onLoadMore, onOpenDetail }, ref) => {
   const flatListRef = useRef<FlatList>(null)
   const [currentList, setList] = useState<ListInfoItem[]>([])
   const [showSource, setShowSource] = useState(false)
@@ -172,6 +173,7 @@ export default forwardRef<ListType, ListProps>(({ onRefresh, onLoadMore, onOpenD
           removeClippedSubviews={true}
           // initialNumToRender={12}
           renderItem={renderItem}
+          ListHeaderComponent={header}
           keyExtractor={getkey}
           // getItemLayout={getItemLayout}
           // onRefresh={onRefresh}

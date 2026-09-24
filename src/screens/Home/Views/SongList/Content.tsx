@@ -181,18 +181,21 @@ export default () => {
 
   return (
     <View style={styles.container}>
-      <HeaderBar
-        key={headerKey}
-        ref={headerBarRef}
-        title={t('nav_songlist')}
-        onSortChange={handleSortChange}
-        onTagChange={handleTagChange}
-        onSourceChange={handleSourceChange}
+      <List
+        ref={listRef}
+        header={(
+          <HeaderBar
+            key={headerKey}
+            ref={headerBarRef}
+            title={t('nav_songlist')}
+            onSortChange={handleSortChange}
+            onTagChange={handleTagChange}
+            onSourceChange={handleSourceChange}
+            onOpenDetail={handleOpenDetail}
+          />
+        )}
         onOpenDetail={handleOpenDetail}
       />
-      <View style={styles.listContainer}>
-        <List ref={listRef} onOpenDetail={handleOpenDetail} />
-      </View>
     </View>
   )
 }
@@ -200,9 +203,6 @@ export default () => {
 const styles = StyleSheet.create({
   container: {
     position: 'relative',
-    flex: 1,
-  },
-  listContainer: {
     flex: 1,
   },
 })

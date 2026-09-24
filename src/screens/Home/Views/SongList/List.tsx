@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useRef, type ReactElement } from 'react'
 import Songlist, { type SonglistProps, type SonglistType } from './components/Songlist'
 import { clearList, getList, setList, setListInfo } from '@/core/songlist'
 import songlistState, {ListInfoItem} from '@/store/songlist/state'
@@ -9,7 +9,7 @@ export interface ListType {
   onOpenDetail: (item: ListInfoItem) => void;
 }
 
-export default forwardRef<ListType, { onOpenDetail: (item: ListInfoItem) => void }>(({ onOpenDetail }, ref) => {
+export default forwardRef<ListType, { header?: ReactElement, onOpenDetail: (item: ListInfoItem) => void }>(({ header, onOpenDetail }, ref) => {
   const listRef = useRef<SonglistType>(null)
   const isUnmountedRef = useRef(false)
   const loadIdRef = useRef(0)
@@ -128,5 +128,5 @@ export default forwardRef<ListType, { onOpenDetail: (item: ListInfoItem) => void
       })
   }
 
-  return <Songlist ref={listRef} onRefresh={handleRefresh} onLoadMore={handleLoadMore} onOpenDetail={onOpenDetail} />
+  return <Songlist ref={listRef} header={header} onRefresh={handleRefresh} onLoadMore={handleLoadMore} onOpenDetail={onOpenDetail} />
 })

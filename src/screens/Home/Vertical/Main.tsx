@@ -591,7 +591,7 @@ const Main = () => {
   const navOrder = useSettingValue('common.navOrder');
   const navFlatOrder = useSettingValue('common.navFlatOrder');
 
-  // 与侧边栏（DrawerNav）保持同一套“有效顺序”，否则二者不一致时点击侧边栏项会跳错页面。
+  // 与功能网格保持同一套“有效顺序”，否则过滤状态不一致时会跳到未挂载页面。
   // 优先使用用户自定义的扁平顺序 navFlatOrder，否则回退 navOrder。
   const effectiveOrder = useMemo(() => getEffectiveFlatOrder(navFlatOrder, navOrder), [navFlatOrder, navOrder]);
 

@@ -19,6 +19,7 @@ import Text from '@/components/common/Text'
 import AnnouncementCard from '@/components/home/AnnouncementCard'
 import PlatformChips from '@/components/home/PlatformChips'
 import DailyRecommendCard from '@/components/home/DailyRecommendCard'
+import FeatureGrid from '@/components/home/FeatureGrid'
 import HorizontalShelf from '@/components/home/HorizontalShelf'
 import HotSongList from '@/components/home/HotSongList'
 
@@ -31,7 +32,7 @@ const SOURCE_LABELS: Partial<Record<Source, string>> = {
 }
 
 const supportedSources = songlistState.sources.filter(
-  (source): source is Source => !!SOURCE_LABELS[source] && !!songlistState.sortList[source]?.length
+  (source): source is Source => !!SOURCE_LABELS[source] && !!songlistState.sortList[source]?.length,
 )
 
 const getSortId = (source: Source) => songlistState.sortList[source]?.[0]?.id ?? ''
@@ -97,10 +98,10 @@ export default memo(() => {
       id: source,
       label: SOURCE_LABELS[source] ?? source,
     })),
-    []
+    [],
   )
 
-  const loadPlaylists = useCallback(async (source: Source) => {
+  const loadPlaylists = useCallback(async(source: Source) => {
     const currentLoadId = ++loadIdRef.current
     setLoading(true)
     try {
@@ -110,13 +111,13 @@ export default memo(() => {
     } catch (error: any) {
       if (currentLoadId !== loadIdRef.current) return
       setPlaylists([])
-      toast(error?.message || t('load_failed'))
+      toast(String(error?.message || t('load_failed')))
     } finally {
       if (currentLoadId === loadIdRef.current) setLoading(false)
     }
   }, [t])
 
-  const loadHotSongs = useCallback(async (source: Source) => {
+  const loadHotSongs = useCallback(async(source: Source) => {
     const currentLoadId = ++hotLoadIdRef.current
     setHotLoading(true)
     try {
@@ -193,7 +194,7 @@ export default memo(() => {
           <Text style={titleStyle} size={34}>{t('nav_discovery')}</Text>
           <TouchableOpacity
             style={historyButtonStyle}
-            onPress={() => setNavActiveId('nav_play_history')}
+            onPress={() => { setNavActiveId('nav_play_history') }}
           >
             <Icon name="music_time" size={21} color={theme['c-primary']} />
           </TouchableOpacity>
@@ -217,7 +218,7 @@ export default memo(() => {
           <PlatformChips
             options={platformOptions}
             selectedId={selectedSource}
-            onChange={setSelectedSource}
+            onChange={(id) => { setSelectedSource(id as Source) }}
           />
         </View>
 
@@ -225,9 +226,11 @@ export default memo(() => {
           <DailyRecommendCard
             title={t('discovery_daily_title')}
             subtitle={t('discovery_daily_subtitle')}
-            onPress={() => setNavActiveId('nav_daily_rec')}
+            onPress={() => { setNavActiveId('nav_daily_rec') }}
           />
         </View>
+
+        <FeatureGrid />
 
         <View style={styles.sectionGap}>
           <HorizontalShelf
@@ -243,9 +246,9 @@ export default memo(() => {
             <HotSongList
               title={`${SOURCE_LABELS[selectedSource] ?? selectedSource}${t('discovery_hot_title')}`}
               actionLabel={t('discovery_hot_more')}
-              onPressAction={() => setNavActiveId('nav_top')}
+              onPressAction={() => { setNavActiveId('nav_top') }}
               songs={hotSongs}
-              onSongPress={handlePlayHotSong}
+            onSongPress={(_song, index) => { handlePlayHotSong(index) }}
             />
           ) : null}
           {hotLoading ? (

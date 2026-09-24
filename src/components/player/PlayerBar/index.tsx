@@ -14,8 +14,8 @@ import { PLAY_DETAIL_SCREEN } from '@/navigation/screenNames'
 import commonState from '@/store/common/state'
 import { useSafeAreaBottom } from '@/store/common/hook'
 import { usePlayerMusicInfo } from '@/store/player/hook'
-import PlayerPlaylist, { PlayerPlaylistType } from '@/components/player/PlayerPlaylist.tsx'
-import MiniProgressBar from "@/components/player/PlayerBar/components/MiniProgressBar.tsx"
+import PlayerPlaylist, { type PlayerPlaylistType } from '@/components/player/PlayerPlaylist.tsx'
+import MiniProgressBar from '@/components/player/PlayerBar/components/MiniProgressBar.tsx'
 import playerState from '@/store/player/state'
 import { LIST_IDS } from '@/config/constant'
 import { designRadius, designSpacing } from '@/theme/DesignTokens'
@@ -29,7 +29,6 @@ export default memo(({ componentId, isHome = false }: { componentId?: string, is
   const longPressedRef = useRef(false)
   const navigatingRef = useRef(false)
   const playlistRef = useRef<PlayerPlaylistType>(null)
-  const drawerLayoutPosition = useSettingValue('common.drawerLayoutPosition')
   const miniPlayerOpacity = useSettingValue('theme.miniPlayerOpacity')
   const isSwipeToShowPlaylist = useSettingValue('player.isSwipeToShowPlaylist')
   const safeAreaBottom = useSafeAreaBottom()
@@ -38,7 +37,7 @@ export default memo(({ componentId, isHome = false }: { componentId?: string, is
     longPressedRef.current = true
     const listId = playerState.playMusicInfo.listId
     if (!listId || listId == LIST_IDS.DOWNLOAD) return
-    global.app_event.jumpListPosition()
+    void global.app_event.jumpListPosition()
   }, [])
 
   const handleNavigate = () => {
@@ -53,8 +52,8 @@ export default memo(({ componentId, isHome = false }: { componentId?: string, is
     // 若顶层已是播放详情页，不再重复 push。
     if (ids.length && String(ids[ids.length - 1]?.name) === PLAY_DETAIL_SCREEN) return
     navigatingRef.current = true
-    const currentComponentId = ids[ids.length - 1]?.id!
-    navigations.pushPlayDetailScreen(currentComponentId)
+    const currentComponentId = ids[ids.length - 1]?.id
+    navigations.pushPlayDetailScreen(String(currentComponentId))
     setTimeout(() => {
       navigatingRef.current = false
     }, 600)
@@ -70,21 +69,12 @@ export default memo(({ componentId, isHome = false }: { componentId?: string, is
   // 详情页面板返回主界面后会“又出现一个队列面板”。本组件的 ☰ 按钮与
   // 上滑手势均直接调用本地 handleShowPlaylist，不依赖全局事件。
 
-  const gestureAction = useRef<'drawer' | 'playlist' | null>(null)
+  const gestureAction = useRef<'playlist' | null>(null)
   const panResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (evt, gestureState) => {
         const { dx, dy } = gestureState
-        if (Math.abs(dx) > Math.abs(dy) * 1.5) {
-          if (drawerLayoutPosition === 'left' && dx > 10) {
-            gestureAction.current = 'drawer'
-            return true
-          }
-          if (drawerLayoutPosition === 'right' && dx < -10) {
-            gestureAction.current = 'drawer'
-            return true
-          }
-        } else if (isSwipeToShowPlaylist && Math.abs(dy) > Math.abs(dx) * 1.5) {
+        if (isSwipeToShowPlaylist && Math.abs(dy) > Math.abs(dx) * 1.5) {
           if (dy < -10) {
             gestureAction.current = 'playlist'
             return true
@@ -93,14 +83,8 @@ export default memo(({ componentId, isHome = false }: { componentId?: string, is
         return false
       },
       onPanResponderRelease: (evt, gestureState) => {
-        const { dx, dy } = gestureState
-        if (gestureAction.current === 'drawer') {
-          if (drawerLayoutPosition === 'left' && dx > 50) {
-            global.app_event.changeMenuVisible(true)
-          } else if (drawerLayoutPosition === 'right' && dx < -50) {
-            global.app_event.changeMenuVisible(true)
-          }
-        } else if (gestureAction.current === 'playlist' && dy < -50) {
+        const { dy } = gestureState
+        if (gestureAction.current === 'playlist' && dy < -50) {
           handleShowPlaylist()
         }
         gestureAction.current = null
@@ -128,7 +112,9 @@ export default memo(({ componentId, isHome = false }: { componentId?: string, is
           style={[
             styles.wrapper,
             {
-              bottom: safeAreaBottom + (isHome && !isHorizontalMode ? designSpacing.xl + 56 : designSpacing.sm),
+              bottom: safeAreaBottom + (isHome
+                ? (isHorizontalMode ? 84 : designSpacing.xl + 56)
+                : designSpacing.sm),
             },
           ]}
         >
@@ -155,7 +141,7 @@ export default memo(({ componentId, isHome = false }: { componentId?: string, is
         </View>
       )
     },
-    [theme, isHome, handleShowPlaylist, panResponder.panHandlers, drawerLayoutPosition, miniPlayerOpacity, safeAreaBottom, isHorizontalMode],
+    [theme, isHome, handleShowPlaylist, panResponder.panHandlers, miniPlayerOpacity, safeAreaBottom, isHorizontalMode],
   )
 
   return (

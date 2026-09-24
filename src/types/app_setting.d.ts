@@ -166,7 +166,6 @@ declare global {
        */
       'list.addMusicLocationType': AddMusicLocationType
 
-      'list.isShowMyListSubMenu': boolean
       'list.isAutoSaveDailyRec': boolean
 
       'menu.playLater': boolean

@@ -11,10 +11,9 @@ import IsAllowProgressBarSeek from './IsAllowProgressBarSeek'
 import IsShowBackBtn from './IsShowBackBtn'
 import IsShowExitBtn from './IsShowExitBtn'
 import DrawerLayoutPosition from './DrawerLayoutPosition'
-import IsShowMyListSubMenu from './IsShowMyListSubMenu'
 import IsNewListUI from './IsNewListUI'
 import { useI18n } from '@/lang/i18n'
-import NavMenu from "@/screens/Home/Views/Setting/settings/Basic/NavMenu.tsx";
+import NavMenu from '@/screens/Home/Views/Setting/settings/Basic/NavMenu.tsx'
 
 export default memo(() => {
   const t = useI18n()
@@ -28,7 +27,6 @@ export default memo(() => {
           <IsShowExitBtn />
         </>
       ) : null}
-      <IsShowMyListSubMenu />
       <IsHomePageScroll />
       <IsAllowProgressBarSeek />
       <DrawerLayoutPosition />

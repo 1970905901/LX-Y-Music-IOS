@@ -26,7 +26,7 @@ const styles = createStyle({
   },
 })
 
-export default memo(({ title, data, cardWidth, onPressItem }: HorizontalShelfProps) => {
+const HorizontalShelf = memo(({ title, data, cardWidth, onPressItem }: HorizontalShelfProps) => {
   const contentStyle = useMemo(
     () => StyleSheet.compose(styles.content, {
       paddingLeft: designSpacing.lg,
@@ -53,3 +53,5 @@ export default memo(({ title, data, cardWidth, onPressItem }: HorizontalShelfPro
     </>
   )
 })
+HorizontalShelf.displayName = 'HomeHorizontalShelf'
+export default HorizontalShelf

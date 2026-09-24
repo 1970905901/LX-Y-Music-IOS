@@ -58,7 +58,7 @@ const styles = createStyle({
   },
 })
 
-export default memo(({
+const HotSongList = memo(({
   title,
   actionLabel,
   onPressAction,
@@ -140,3 +140,5 @@ export default memo(({
     </>
   )
 })
+HotSongList.displayName = 'HomeHotSongList'
+export default HotSongList

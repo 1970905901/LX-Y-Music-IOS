@@ -27,7 +27,7 @@ interface SectionHeaderProps {
   onPressAction?: () => void
 }
 
-export default memo(({ title, actionLabel, onPressAction }: SectionHeaderProps) => {
+const SectionHeader = memo(({ title, actionLabel, onPressAction }: SectionHeaderProps) => {
   const theme = useTheme()
 
   const titleStyle = useMemo(
@@ -55,3 +55,5 @@ export default memo(({ title, actionLabel, onPressAction }: SectionHeaderProps) 
     </View>
   )
 })
+SectionHeader.displayName = 'CommonSectionHeader'
+export default SectionHeader

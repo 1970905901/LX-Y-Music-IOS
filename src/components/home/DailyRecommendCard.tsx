@@ -39,7 +39,7 @@ const styles = createStyle({
   },
 })
 
-export default memo(({ title, subtitle, onPress }: DailyRecommendCardProps) => {
+const DailyRecommendCard = memo(({ title, subtitle, onPress }: DailyRecommendCardProps) => {
   const theme = useTheme()
 
   const cardStyle = useMemo(
@@ -72,3 +72,5 @@ export default memo(({ title, subtitle, onPress }: DailyRecommendCardProps) => {
     </Pressable>
   )
 })
+DailyRecommendCard.displayName = 'HomeDailyRecommendCard'
+export default DailyRecommendCard

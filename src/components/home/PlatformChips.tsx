@@ -37,7 +37,7 @@ const styles = createStyle({
   },
 })
 
-export default memo(({ options, selectedId, onChange }: PlatformChipsProps) => {
+const PlatformChips = memo(({ options, selectedId, onChange }: PlatformChipsProps) => {
   const theme = useTheme()
 
   const activeChipStyle = useMemo(
@@ -85,3 +85,5 @@ export default memo(({ options, selectedId, onChange }: PlatformChipsProps) => {
     </ScrollView>
   )
 })
+PlatformChips.displayName = 'HomePlatformChips'
+export default PlatformChips

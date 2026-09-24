@@ -38,7 +38,7 @@ const styles = createStyle({
   },
 })
 
-export default memo(({ title, message }: AnnouncementCardProps) => {
+const AnnouncementCard = memo(({ title, message }: AnnouncementCardProps) => {
   const theme = useTheme()
 
   const cardStyle = useMemo(
@@ -77,3 +77,5 @@ export default memo(({ title, message }: AnnouncementCardProps) => {
     </View>
   )
 })
+AnnouncementCard.displayName = 'HomeAnnouncementCard'
+export default AnnouncementCard

@@ -1,6 +1,5 @@
 import { memo, useMemo } from 'react'
-import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native'
-import { type FastImageProps } from '@d11/react-native-fast-image'
+import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle, type ImageStyle } from 'react-native'
 import { useTheme } from '@/store/theme/hook'
 import { createStyle } from '@/utils/tools'
 import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
@@ -31,7 +30,7 @@ interface MediaCardProps {
   subtitle?: string
   onPress?: () => void
   style?: StyleProp<ViewStyle>
-  imageStyle?: FastImageProps['style']
+  imageStyle?: StyleProp<ImageStyle>
 }
 
 export default memo(({ url, title, subtitle, onPress, style, imageStyle }: MediaCardProps) => {

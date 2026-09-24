@@ -186,7 +186,7 @@ const HeartFilledIcon = ({ size, color }: { size: number; color: string }) => (
 )
 
 
-export const SvgIcon = memo(({ name, size = 15, rawSize, color = '#000', style }: SvgIconProps) => {
+const SvgIcon = memo(({ name, size = 15, rawSize, color = '#000', style }: SvgIconProps) => {
   const finalSize = rawSize ?? scaleSizeW(size)
 
   const renderIcon = () => {
@@ -229,5 +229,6 @@ export const SvgIcon = memo(({ name, size = 15, rawSize, color = '#000', style }
 
   return style ? <View style={style}>{icon}</View> : icon
 })
+SvgIcon.displayName = 'CommonSvgIcon'
 
-export {}
+export { SvgIcon }

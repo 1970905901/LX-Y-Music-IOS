@@ -37,7 +37,7 @@ const styles = createStyle({
   },
 })
 
-export default memo(({ item, width, onPress }: PlaylistCardProps) => {
+const PlaylistCard = memo(({ item, width, onPress }: PlaylistCardProps) => {
   const theme = useTheme()
 
   const coverStyle = useMemo(
@@ -74,3 +74,5 @@ export default memo(({ item, width, onPress }: PlaylistCardProps) => {
     </Pressable>
   )
 })
+PlaylistCard.displayName = 'HomePlaylistCard'
+export default PlaylistCard

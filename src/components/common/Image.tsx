@@ -2,11 +2,11 @@ import { useTheme } from '@/store/theme/hook'
 import { BorderRadius } from '@/theme'
 import { createStyle } from '@/utils/tools'
 import { memo, useCallback, useEffect, useMemo, useState, useRef } from 'react'
-import { View, type ViewProps, Image as _Image, Text as NativeText, StyleSheet, AppState, type ImageResizeMode } from 'react-native'
+import { View, type ViewProps, Image as _Image, Text as NativeText, StyleSheet, AppState, type ImageResizeMode, type ImageStyle, type TextStyle, type ViewStyle, type StyleProp } from 'react-native'
 import { useLayout } from '@/utils/hooks'
 
 export interface ImageProps extends ViewProps {
-  style: _Image['props']['style']
+  style: StyleProp<ViewStyle | TextStyle | ImageStyle>
   url?: string | number | null
   cache?: boolean
   resizeMode?: ImageResizeMode
@@ -30,6 +30,7 @@ const EmptyPic = memo(({ style, nativeID }: { style: ImageProps['style'], native
     </View>
   )
 })
+EmptyPic.displayName = 'CommonImageEmptyPic'
 
 const Image = memo(({ url, resizeMode = 'cover', style, onError, nativeID }: ImageProps) => {
   const [isError, setError] = useState(false)
@@ -65,7 +66,7 @@ const Image = memo(({ url, resizeMode = 'cover', style, onError, nativeID }: Ima
     showDefault ? <EmptyPic style={style} nativeID={nativeID} />
       : (
         <_Image
-          style={style}
+          style={style as StyleProp<ImageStyle>}
           source={{
             uri: uri!,
             headers: defaultHeaders,
@@ -81,6 +82,7 @@ const Image = memo(({ url, resizeMode = 'cover', style, onError, nativeID }: Ima
     prevProps.style == nextProps.style &&
     prevProps.nativeID == nextProps.nativeID
 })
+Image.displayName = 'CommonImage'
 
 export const getSize = (uri: string, success: (width: number, height: number) => void, failure?: (error: any) => void) => {
   _Image.getSize(uri, success, failure)

@@ -1,6 +1,15 @@
 module.exports = {
   presets: ['module:@react-native/babel-preset'],
   plugins: [
+    {
+      visitor: {
+        ImportDeclaration(path) {
+          if (path.node.source.value === 'react/jsx-runtime') {
+            path.node.source.value = '@/utils/jsxRuntimeProbe'
+          }
+        },
+      },
+    },
     '@babel/plugin-proposal-export-namespace-from',
     [
       'module-resolver',

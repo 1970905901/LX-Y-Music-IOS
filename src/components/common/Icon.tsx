@@ -21,7 +21,7 @@ interface IconProps extends Omit<ComponentProps<IconType>, 'style'> {
 // 这里统一拦截这两个名字，改用手绘 SvgIcon 心形，根治坏字形问题。
 const HEART_NAMES = new Set(['love', 'love-filled'])
 
-export const Icon = memo(({ size = 15, rawSize, color, style, ...props }: IconProps) => {
+const Icon = memo(({ size = 15, rawSize, color, style, ...props }: IconProps) => {
   const theme = useTheme()
   if (HEART_NAMES.has(props.name as string)) {
     return (
@@ -55,5 +55,8 @@ export const Icon = memo(({ size = 15, rawSize, color, style, ...props }: IconPr
     />
   )
 })
+Icon.displayName = 'CommonIcon'
+
+export { Icon, SvgIcon }
 
 export {}

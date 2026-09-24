@@ -1880,7 +1880,6 @@ const styles = StyleSheet.create({
 
   logBtn: {
     height: 36,
-    height: 36,
     paddingHorizontal: designSpacing.sm,
     borderRadius: designRadius.pill,
     overflow: 'hidden',

@@ -119,7 +119,7 @@ export const useTimeInfo = () => {
 
   useEffect(() => {
     let active: boolean | null = null
-    const remove = onTimeUpdate((time, isPlayedStop) => {
+    const remove = onTimeUpdate(({ time, isPlayedStop }) => {
       if (time < 0) {
         if (active) {
           setExitTimeInfo({

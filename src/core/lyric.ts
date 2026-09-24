@@ -149,14 +149,14 @@ export const syncLyric = (time: number, isPlaying: boolean) => {
 
 export const setLyric = async() => {
   if (!playerState.musicInfo.id) return
-  const musicInfo = playerState.musicInfo as LX.Music.MusicInfo
+  const musicInfo = playerState.musicInfo
+  const source = (musicInfo as { source?: string }).source ?? ''
   if (musicInfo.lrc) {
     let tlrc = ''
     let rlrc = ''
     if (musicInfo.tlrc) tlrc = musicInfo.tlrc
     if (musicInfo.rlrc) rlrc = musicInfo.rlrc
     let lxlrc = ''
-    const source = musicInfo.source
     // 咪咕/汽水的 lxlrc 格式异常，不进入逐字解析
     if (musicInfo.lxlrc && source != 'mg' && source != 'qs') {
       lxlrc = musicInfo.lxlrc

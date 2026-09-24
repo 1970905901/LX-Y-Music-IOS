@@ -142,7 +142,7 @@ export const getEffectiveFlatOrder = (
   const allMenuIds = NAV_MENUS.map(m => m.id)
   // 过滤已废弃的菜单 id（如合并前的 nav_download_music / nav_local_music），
   // 避免老用户持久化顺序里的残留项渲染成未知页面
-  const validBase = [
+  const validBase: NAV_ID_Type[] = [
     'nav_discovery',
     ...base.filter(id => allMenuIds.includes(id) && id !== 'nav_discovery'),
   ]

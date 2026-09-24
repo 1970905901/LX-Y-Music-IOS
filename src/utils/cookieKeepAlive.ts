@@ -7,6 +7,16 @@ const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
 
 let keepAliveTimer: ReturnType<typeof setInterval> | null = null
 
+const getResponseCode = (body: string | Blob): number | null => {
+  if (typeof body !== 'string') return null
+  try {
+    const data = JSON.parse(body) as { code?: unknown }
+    return typeof data.code === 'number' ? data.code : null
+  } catch {
+    return null
+  }
+}
+
 const pingWy = async () => {
   const cookie = settingState.setting['common.wy_cookie']
   if (!cookie) return
@@ -23,10 +33,11 @@ const pingWy = async () => {
       form: weapi({ csrf_token: csrfToken }),
     })
     const { statusCode, body } = await requestObj.promise
-    if (statusCode === 200 && body.code === 200) {
+    const responseCode = getResponseCode(body)
+    if (statusCode === 200 && responseCode === 200) {
       console.log('[CookieKeepAlive] wy ping ok')
     } else {
-      console.warn('[CookieKeepAlive] wy ping unexpected response', { statusCode, code: body?.code })
+      console.warn('[CookieKeepAlive] wy ping unexpected response', { statusCode, code: responseCode })
     }
   } catch (err) {
     console.warn('[CookieKeepAlive] wy ping failed:', err)
@@ -50,10 +61,11 @@ const pingTx = async () => {
       body: `cid=205360838&userid=${uinMatch[1]}&reqfrom=1`,
     })
     const { statusCode, body } = await requestObj.promise
-    if (statusCode === 200 && body.code !== 1000) {
+    const responseCode = getResponseCode(body)
+    if (statusCode === 200 && responseCode !== 1000) {
       console.log('[CookieKeepAlive] tx ping ok')
     } else {
-      console.warn('[CookieKeepAlive] tx ping unexpected response', { statusCode, code: body?.code })
+      console.warn('[CookieKeepAlive] tx ping unexpected response', { statusCode, code: responseCode })
     }
   } catch (err) {
     console.warn('[CookieKeepAlive] tx ping failed:', err)

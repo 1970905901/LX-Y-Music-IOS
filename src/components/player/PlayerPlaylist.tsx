@@ -53,7 +53,7 @@ const getMusicId = (item: LX.Player.PlayMusic) => ('progress' in item ? item.met
  * initialScrollIndex 会把目标行置于可视区顶部，这里回退「半个可视区行数」，
  * 让当前播放歌曲大致居中，与原先 scrollToIndex({ viewPosition: 0.5 }) 的观感一致。
  */
-const getInitialScrollIndex = (list: LX.Player.PlayMusic[], playId: string, windowHeight: number) => {
+const getInitialScrollIndex = (list: LX.Player.PlayMusic[], playId: string | null, windowHeight: number) => {
   if (!list.length || !playId) return 0
   const activeIndex = list.findIndex(item => getMusicId(item) === playId)
   if (activeIndex <= 0) return 0
@@ -104,19 +104,24 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
   // 因此这里订阅相关事件，在当前播放列表被改动时强制刷新。
   const [listVersion, setListVersion] = useState(0)
   useEffect(() => {
-    const handleListChange = (changedListId: string) => {
+    const handleListChange = async (changedListId: string) => {
       if (changedListId === playerState.playInfo.playerListId) setListVersion(v => v + 1)
+    }
+    const handleListIdsChange = async (changedListIds: string[]) => {
+      if (playerState.playInfo.playerListId && changedListIds.includes(playerState.playInfo.playerListId)) {
+        setListVersion(v => v + 1)
+      }
     }
     global.list_event.on('list_music_remove', handleListChange)
     global.list_event.on('list_music_add', handleListChange)
     global.list_event.on('list_music_update_position', handleListChange)
-    global.list_event.on('list_music_clear', handleListChange)
+    global.list_event.on('list_music_clear', handleListIdsChange)
     global.list_event.on('list_music_overwrite', handleListChange)
     return () => {
       global.list_event.off('list_music_remove', handleListChange)
       global.list_event.off('list_music_add', handleListChange)
       global.list_event.off('list_music_update_position', handleListChange)
-      global.list_event.off('list_music_clear', handleListChange)
+      global.list_event.off('list_music_clear', handleListIdsChange)
       global.list_event.off('list_music_overwrite', handleListChange)
     }
   }, [])

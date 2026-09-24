@@ -8,6 +8,7 @@ import {
   type NativeSyntheticEvent,
   TouchableOpacity,
   PanResponder,
+  type ListRenderItem,
 } from 'react-native'
 // import { useLayout } from '@/utils/hooks'
 import { type Line, useLrcPlay, useLrcSet, useLrcWordsMap, syncToTime as lrcSyncToTime, findLineIndexByTime } from '@/plugins/lyric'
@@ -620,7 +621,7 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
   // 仅记录当前滚动偏移，供“舒适区感知滚动”判断使用；不触发重渲染。
   const handleScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
     scrollYRef.current = e.nativeEvent.contentOffset.y
-    playLineRef.current?.updateScrollInfo(e)
+    playLineRef.current?.updateScrollInfo(e.nativeEvent)
   }, [])
 
   const handleLineLayout = useCallback<LineProps['onLayout']>((lineNum, height, _width, isActive) => {
@@ -674,7 +675,7 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
 
   // useCallback 稳定 renderItem：依赖项均为稳定引用或低频变化值（line 每行切换变化一次），
   // 配合 LrcLine 的 memo 比较器，行切换时只有新旧激活两行重渲染。
-  const renderItem: FlatListType['renderItem'] = useCallback(({ item, index }) => {
+  const renderItem: ListRenderItem<Line> = useCallback(({ item, index }) => {
     return <LrcLine line={item} lineNum={index} activeLine={line} onLayout={handleLineLayout} onPress={handleLinePress} isSmallWindow={isSmallWindow} wordsByIndex={wordsByIndex} />;
   }, [line, handleLineLayout, handleLinePress, isSmallWindow, wordsByIndex]);
   const getkey: FlatListType['keyExtractor'] = (_item, index) => `${index}`

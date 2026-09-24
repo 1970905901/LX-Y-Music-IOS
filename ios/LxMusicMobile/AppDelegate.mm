@@ -5019,7 +5019,6 @@ RCT_REMAP_METHOD(sha1, sha1:(NSString *)input resolver:(RCTPromiseResolveBlock)r
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
 {
   LXRegisterTrackPlayerLifecycleObserver();
-  fprintf(stderr, "###NATIVE_DEBUG### didFinishLaunching\n");
   self.launchOptions = launchOptions;
   self.initialProps = @{};
 
@@ -5074,7 +5073,6 @@ RCT_REMAP_METHOD(sha1, sha1:(NSString *)input resolver:(RCTPromiseResolveBlock)r
 - (void)scene:(UIScene *)scene willConnectToSession:(UISceneSession *)session options:(UISceneConnectionOptions *)connectionOptions API_AVAILABLE(ios(13.0)) {
   (void)session;
   (void)connectionOptions;
-  fprintf(stderr, "###NATIVE_DEBUG### scene willConnect\n");
   if (![scene isKindOfClass:[UIWindowScene class]]) return;
   UIWindowScene *windowScene = (UIWindowScene *)scene;
 
@@ -5098,7 +5096,6 @@ RCT_REMAP_METHOD(sha1, sha1:(NSString *)input resolver:(RCTPromiseResolveBlock)r
 }
 
 - (void)sceneDidBecomeActive:(UIScene *)scene API_AVAILABLE(ios(13.0)) {
-  fprintf(stderr, "###NATIVE_DEBUG### scene didActivate\n");
   if (self.didBootstrap) return;
   if (![scene isKindOfClass:[UIWindowScene class]]) return;
   if (!self.window) return;

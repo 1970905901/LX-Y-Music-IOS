@@ -620,7 +620,9 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
   // 仅记录当前滚动偏移，供“舒适区感知滚动”判断使用；不触发重渲染。
   const handleScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
     scrollYRef.current = e.nativeEvent.contentOffset.y
-    playLineRef.current?.updateScrollInfo(e)
+    // PlayLine.updateScrollInfo 期望 nativeEvent（内部直接读 contentOffset.y）；
+    // 传整个合成事件会因 contentOffset 为 undefined 在滑动歌词时抛错。
+    playLineRef.current?.updateScrollInfo(e.nativeEvent)
   }, [])
 
   const handleLineLayout = useCallback<LineProps['onLayout']>((lineNum, height, _width, isActive) => {

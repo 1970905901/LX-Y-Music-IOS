@@ -1,67 +1,30 @@
-import { memo, useCallback, useMemo, useState, useEffect, type ComponentType } from 'react'
-import { ScrollView, View } from 'react-native'
-import { subscribeScrollLock } from '@/utils/scrollLock'
-
-import Basic from '../settings/Basic'
-import Player from '../settings/Player'
-import Search from '../settings/Search'
-import List from '../settings/List'
-import Sync from '../settings/Sync'
-import Download from '../settings/Download'
-import Backup from '../settings/Backup'
-import Other from '../settings/Other'
-import About from '../settings/About'
-import ThemeScreen from '../settings/ThemeScreen'
-import PlatformScreen from '../settings/PlatformScreen'
+import { memo, useCallback, useMemo } from 'react'
+import { ScrollView, TouchableOpacity, View } from 'react-native'
 import { createStyle } from '@/utils/tools'
-import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
+import { designRadius, designSpacing } from '@/theme/DesignTokens'
 import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
 import { SETTING_SCREENS, type SettingScreenIds } from '../Main'
+import commonState from '@/store/common/state'
 import { useSafeAreaBottom } from '@/store/common/hook'
 import Text from '@/components/common/Text'
 import PageHeader from '@/components/common/PageHeader'
-
-const SETTING_COMPONENTS: Record<SettingScreenIds, ComponentType> = {
-  theme: ThemeScreen,
-  platform: PlatformScreen,
-  player: Player,
-  search: Search,
-  list: List,
-  download: Download,
-  sync: Sync,
-  backup: Backup,
-  other: Other,
-  about: About,
-  basic: Basic,
-}
+import { Icon } from '@/components/common/Icon'
+import LandscapeCentered from '@/components/LandscapeCentered'
+import { navigations } from '@/navigation'
 
 export default memo(() => {
   const theme = useTheme()
   const t = useI18n()
   const safeAreaBottom = useSafeAreaBottom()
-  const [activeId, setActiveId] = useState<SettingScreenIds>(
-    global.lx.settingActiveId as SettingScreenIds,
-  )
-  const [scrollLocked, setScrollLocked] = useState(false)
 
-  useEffect(() => subscribeScrollLock(setScrollLocked), [])
+  const currentComponentId = commonState.componentIds[commonState.componentIds.length - 1]?.id
 
-  const ActiveScreen = useMemo(() => {
-    return SETTING_COMPONENTS[activeId] ?? Basic
-  }, [activeId])
-
-  const handleChangeId = useCallback((id: SettingScreenIds) => {
-    setActiveId(id)
+  const handlePress = useCallback((id: SettingScreenIds) => {
     global.lx.settingActiveId = id
-  }, [])
-
-  const chipStyle = useCallback((isActive: boolean) => ({
-    backgroundColor: isActive
-      ? theme['c-primary']
-      : theme['c-primary-light-900-alpha-200'],
-    borderColor: isActive ? theme['c-primary'] : theme['c-border-background'],
-  }), [theme])
+    if (!currentComponentId) return
+    navigations.pushSettingDetailScreen(currentComponentId, id)
+  }, [currentComponentId])
 
   const contentContainer = useMemo(() => ({
     paddingHorizontal: designSpacing.lg,
@@ -70,38 +33,36 @@ export default memo(() => {
 
   return (
     <View style={styles.container}>
-      <ScrollView
-        style={styles.content}
-        contentContainerStyle={contentContainer}
-        keyboardShouldPersistTaps="always"
-        scrollEnabled={!scrollLocked}
-        showsVerticalScrollIndicator={false}
-      >
-        <PageHeader title={t('nav_setting')} />
+      <LandscapeCentered maxWidth={760}>
         <ScrollView
-          style={styles.navScroll}
-          contentContainerStyle={styles.navContent}
-          horizontal
-          showsHorizontalScrollIndicator={false}
+          style={styles.content}
+          contentContainerStyle={contentContainer}
           keyboardShouldPersistTaps="always"
+          showsVerticalScrollIndicator={false}
         >
-          {SETTING_SCREENS.map((id) => {
-            const isActive = id === activeId
-            return (
-              <Text
+          <PageHeader title={t('nav_setting')} />
+          <View style={{
+            ...styles.categoryList,
+            backgroundColor: theme['c-content-background'],
+            borderColor: theme['c-border-background'],
+          }}>
+            {SETTING_SCREENS.map((id, index, list) => (
+              <TouchableOpacity
                 key={id}
-                size={designTypography.caption}
-                color={isActive ? theme['c-primary-light-1000'] : theme['c-font']}
-                style={[styles.navItem, chipStyle(isActive)]}
-                onPress={() => { handleChangeId(id) }}
+                style={[styles.categoryItem, index < list.length - 1 ? {
+                  borderBottomWidth: 1,
+                  borderBottomColor: theme['c-border-background'],
+                } : null]}
+                activeOpacity={0.7}
+                onPress={() => { handlePress(id) }}
               >
-                {t(`setting_${id}`)}
-              </Text>
-            )
-          })}
+                <Text size={16} color={theme['c-font']}>{t(`setting_${id}`)}</Text>
+                <Icon name="chevron-right" size={16} color={theme['c-font-label']} />
+              </TouchableOpacity>
+            ))}
+          </View>
         </ScrollView>
-        <ActiveScreen />
-      </ScrollView>
+      </LandscapeCentered>
     </View>
   )
 })
@@ -110,23 +71,17 @@ const styles = createStyle({
   container: {
     flex: 1,
   },
-  navScroll: {
-    flexGrow: 0,
-    flexShrink: 0,
-  },
-  navContent: {
-    paddingHorizontal: designSpacing.lg,
-    paddingVertical: designSpacing.sm,
-  },
-  navItem: {
-    minHeight: 34,
-    lineHeight: 32,
-    paddingHorizontal: designSpacing.md,
-    marginRight: designSpacing.sm,
+  categoryList: {
+    borderRadius: designRadius.lg,
     borderWidth: 1,
-    borderRadius: designRadius.pill,
-    fontWeight: '600',
     overflow: 'hidden',
+  },
+  categoryItem: {
+    minHeight: 58,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: designSpacing.md,
   },
   content: {
     flex: 1,

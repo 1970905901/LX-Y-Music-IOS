@@ -9,6 +9,7 @@ import {
   Comment,
   ArtistDetail, AlbumDetail,
   SimilarSongs,
+  SettingDetail,
   // Setting,
 } from '@/screens'
 import { Provider } from '@/store/Provider'
@@ -22,6 +23,7 @@ import {
   SYNC_MODE_MODAL,
   ALBUM_DETAIL_SCREEN, DOWNLOAD_MANAGER_SCREEN,
   SIMILAR_SONGS_SCREEN,
+  SETTING_DETAIL_SCREEN,
   ANNOUNCEMENT_MODAL,
   TOAST_SCREEN,
   // SETTING_SCREEN,
@@ -52,6 +54,7 @@ const PactModalProvider = WrappedComponent(PactModal)
 const SyncModeModalProvider = WrappedComponent(SyncModeModal)
 const AnnouncementModalProvider = WrappedComponent(AnnouncementModal)
 const DownloadManagerProvider = WrappedComponent(DownloadManager)
+const SettingDetailProvider = WrappedComponent(SettingDetail)
 const ToastOverlayProvider = WrappedComponent(ToastOverlay)
 
 export default () => {
@@ -65,6 +68,7 @@ export default () => {
   Navigation.registerComponent(SYNC_MODE_MODAL, () => SyncModeModalProvider)
   Navigation.registerComponent(DOWNLOAD_MANAGER_SCREEN, () => DownloadManagerProvider)
   Navigation.registerComponent(SIMILAR_SONGS_SCREEN, () => SimilarSongsProvider)
+  Navigation.registerComponent(SETTING_DETAIL_SCREEN, () => SettingDetailProvider)
   Navigation.registerComponent(ANNOUNCEMENT_MODAL, () => AnnouncementModalProvider)
   // 非阻塞 Toast 浮层：用于替代 iOS 上的 Alert.alert，避免连续 toast 弹原生 Alert 堆叠导致整页卡死
   Navigation.registerComponent(TOAST_SCREEN, () => ToastOverlayProvider)

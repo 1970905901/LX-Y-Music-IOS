@@ -1,6 +1,4 @@
-import { useHorizontalMode } from '@/utils/hooks'
 import Vertical from './Vertical'
-import Horizontal from './Horizontal'
 import { useBackHandler } from '@/utils/hooks/useBackHandler'
 import { useCallback } from 'react'
 // import { AppColors } from '@/theme'
@@ -10,7 +8,6 @@ import { setNavActiveId } from '@/core/common'
 export type { SettingScreenIds } from './Main'
 
 export default () => {
-  const isHorizontalMode = useHorizontalMode()
   useBackHandler(
     useCallback(() => {
       if (
@@ -21,8 +18,8 @@ export default () => {
         return true
       }
       return false
-    }, [])
+    }, []),
   )
 
-  return isHorizontalMode ? <Horizontal /> : <Vertical />
+  return <Vertical />
 }

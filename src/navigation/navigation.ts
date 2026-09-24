@@ -7,6 +7,7 @@ import {
   SONGLIST_DETAIL_SCREEN,
   SIMILAR_SONGS_SCREEN,
   COMMENT_SCREEN, ARTIST_DETAIL_SCREEN, ALBUM_DETAIL_SCREEN, DOWNLOAD_MANAGER_SCREEN,
+  SETTING_DETAIL_SCREEN,
 } from './screenNames'
 
 import themeState from '@/store/theme/state'
@@ -749,6 +750,56 @@ export function pushAlbumDetailScreen(componentId: string, albumInfo: any) {
     },
   }),
     COMPONENT_IDS.ALBUM_DETAIL_SCREEN)
+}
+
+export function pushSettingDetailScreen(componentId: string, settingId: string) {
+  if (!startPush(COMPONENT_IDS.SETTING_DETAIL)) return
+  const theme = themeState.theme
+  void guardPush(Navigation.push(componentId, {
+    component: {
+      name: SETTING_DETAIL_SCREEN,
+      passProps: {
+        settingId,
+      },
+      options: {
+        topBar: {
+          visible: false,
+          height: 0,
+        },
+        statusBar: {
+          drawBehind: true,
+          visible: true,
+          style: getStatusBarStyle(theme.isDark),
+          backgroundColor: 'transparent',
+        },
+        layout: {
+          orientation: ['portrait', 'landscape'],
+          componentBackgroundColor: theme['c-content-background'],
+          fitSystemWindows: false,
+        },
+        animations: {
+          push: {
+            content: {
+              translationX: {
+                from: windowSizeTools.getSize().width,
+                to: 0,
+                duration: 200,
+              },
+            },
+          },
+          pop: {
+            content: {
+              translationX: {
+                from: 0,
+                to: windowSizeTools.getSize().width,
+                duration: 200,
+              },
+            },
+          },
+        },
+      },
+    },
+  }), COMPONENT_IDS.SETTING_DETAIL)
 }
 
 

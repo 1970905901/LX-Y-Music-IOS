@@ -3,6 +3,7 @@ import { init as initLog } from '@/utils/log'
 import { bootLog, getBootLog } from '@/utils/bootLog'
 import '@/config/globalData'
 import { getFontSize } from '@/utils/data'
+import { withTimeout } from '@/utils/withTimeout'
 import { exitApp } from './utils/nativeModules/utils'
 import { windowSizeTools } from './utils/windowSizeTools'
 import { listenLaunchEvent } from './navigation/regLaunchedEvent'
@@ -64,7 +65,14 @@ if (__DEV__) {
 console.log('starting app...')
 listenLaunchEvent()
 
-void Promise.all([getFontSize(), windowSizeTools.init()])
+  void Promise.all([
+    withTimeout(getFontSize(), 'Font size', 1),
+    withTimeout<{ width: number; height: number } | undefined>(
+      windowSizeTools.init(),
+      'Window size',
+      undefined,
+    ),
+  ])
   .then(async ([fontSize]) => {
     global.lx.fontSize = fontSize
     bootLog('Font size setting loaded.')

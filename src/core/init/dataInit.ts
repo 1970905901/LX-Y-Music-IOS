@@ -25,17 +25,10 @@ import {
 import {getDownloadTasks} from "@/utils/data/download.ts";
 import { cleanOneDriveDirtyData } from '@/utils/data';
 import downloadActions from '@/store/download/action';
+import { withTimeout } from '@/utils/withTimeout'
 
 const withInitTimeout = <T,>(promise: Promise<T>, label: string, fallback: T): Promise<T> =>
-  Promise.race([
-    promise,
-    new Promise<T>(resolve => {
-      setTimeout(() => {
-        bootLog(`${label} timeout, using fallback.`)
-        resolve(fallback)
-      }, 3000)
-    }),
-  ])
+  withTimeout(promise, label, fallback)
 
 export default async (appSetting: LX.AppSetting) => {
   void musicSdkInit()

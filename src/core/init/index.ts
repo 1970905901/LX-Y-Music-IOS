@@ -24,6 +24,8 @@ import { updateSetting } from '@/core/common'
 import { getDownloadTasks, saveDownloadTasks } from '@/utils/data/download'
 import downloadActions from '@/store/download/action'
 import { startCookieKeepAlive } from '@/utils/cookieKeepAlive'
+import { withTimeout } from '@/utils/withTimeout'
+import defaultSetting from '@/config/defaultSetting'
 
 let isFirstPush = true
 const handlePushedHomeScreen = async() => {
@@ -55,16 +57,16 @@ export default async() => {
   bootLog('Initing...')
   commonActions.setFontSize(global.lx.fontSize)
   bootLog('Font size changed.')
-  const setting = await initSetting()
+  const setting = await withTimeout(initSetting(), 'Setting', defaultSetting)
   bootLog('Setting inited.')
   // console.log(setting)
 
-  await initTheme(setting)
+  await withTimeout<void>(initTheme(setting), 'Theme', undefined)
   bootLog('Theme inited.')
-  await initI18n(setting)
+  await withTimeout<void>(initI18n(setting), 'I18n', undefined)
   bootLog('I18n inited.')
 
-  await initUserApi(setting)
+  await withTimeout<void>(initUserApi(setting), 'User Api', undefined)
   bootLog('User Api inited.')
 
   initUiMode()
@@ -75,7 +77,7 @@ export default async() => {
 
   registerPlaybackService()
   bootLog('Playback Service Registered.')
-  await initPlayer(setting)
+  await withTimeout<void>(initPlayer(setting), 'Player', undefined)
   bootLog('Player inited.')
   void dataInit(setting)
     .then(() => bootLog('Data inited.'))
@@ -83,7 +85,7 @@ export default async() => {
   void initDownloadPath(setting)
     .then(() => bootLog('Download path inited.'))
     .catch((err: any) => bootLog(`Download path init failed: ${err?.stack ?? err?.message ?? err}`))
-  await initCommonState(setting)
+  await withTimeout<void>(initCommonState(setting), 'Common State', undefined)
   bootLog('Common State inited.')
 
   void initSync(setting)

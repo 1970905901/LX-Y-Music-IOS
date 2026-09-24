@@ -4,13 +4,14 @@ import { useSettingValue } from '@/store/setting/hook'
 import { useTheme } from '@/store/theme/hook'
 import { createStyle } from '@/utils/tools'
 import { designSpacing } from '@/theme/DesignTokens'
-import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from 'react'
+import { forwardRef, useImperativeHandle, useMemo, useRef, useState, type ReactElement } from 'react'
 import { ScrollView, View } from 'react-native'
 import { Icon } from '@/components/common/Icon'
 import HistorySearch, { type HistorySearchType } from './HistorySearch'
 import HotSearch, { type HotSearchType } from './HotSearch'
 
 interface BlankViewProps {
+  header?: ReactElement
   onSearch: (keyword: string) => void
 }
 type Source = LX.OnlineSource | 'all'
@@ -19,7 +20,7 @@ export interface BlankViewType {
   show: (source: Source) => void
 }
 
-export default forwardRef<BlankViewType, BlankViewProps>(({ onSearch }, ref) => {
+export default forwardRef<BlankViewType, BlankViewProps>(({ header, onSearch }, ref) => {
   // const [listType, setListType] = useState<SearchState['searchType']>('music')
   const [visible, setVisible] = useState(false)
   const hotSearchRef = useRef<HotSearchType>(null)
@@ -60,6 +61,7 @@ export default forwardRef<BlankViewType, BlankViewProps>(({ onSearch }, ref) => 
   return visible ? (
     isShowHotSearch || isShowHistorySearch ? (
       <ScrollView>
+        {header}
         <View style={styles.content}>
           <View style={styles.emptyState}>
             <Icon name="search-2" size={48} color={theme['c-300']} />

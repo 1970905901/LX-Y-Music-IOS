@@ -20,7 +20,7 @@ import ListMusicMultiAdd, {
   type MusicMultiAddModalType as ListAddMultiType,
 } from '@/components/MusicMultiAddModal'
 import {createStyle, toast} from '@/utils/tools'
-import { type LayoutChangeEvent, TouchableOpacity, View } from 'react-native'
+import { type LayoutChangeEvent, TouchableOpacity, View, StyleSheet } from 'react-native'
 import ActiveList, { type ActiveListType } from './ActiveList'
 import MultipleModeBar, { type SelectMode, type MultipleModeBarType } from './MultipleModeBar'
 import ListSearchBar, { type ListSearchBarType } from './ListSearchBar'
@@ -40,6 +40,7 @@ import {getMvUrl as getTxMvUrl} from "@/utils/musicSdk/tx/mv.js";
 import {getMvUrl as getKgMvUrl} from "@/utils/musicSdk/kg/mv.js";
 import commonState from '@/store/common/state';
 import SimilarSongsModal, { type SimilarSongsModalType } from '@/components/SimilarSongsModal'
+import PageTopInset from '@/components/common/PageTopInset'
 
 export interface MusicListProps {
   onBack?: () => void
@@ -243,21 +244,15 @@ export default ({ onBack }: MusicListProps) => {
 
   return (
     <View style={styles.container}>
-      <View style={{ zIndex: 2 }}>
-        <ActiveList
-          ref={activeListRef}
-          onShowSearchBar={handleShowSearch}
-          onScrollToTop={hancelScrollToTop}
-          showCover={showCover}
-          onToggleView={handleToggleView}
-          onBack={onBack}
-        />
+      <View style={{ ...StyleSheet.absoluteFillObject, zIndex: 2 }} pointerEvents="box-none">
         <MultipleModeBar
           ref={multipleModeBarRef}
           onSwitchMode={hancelSwitchSelectMode}
           onSelectAll={(isAll) => listRef.current?.selectAll(isAll)}
           onExitSelectMode={hancelExitSelect}
         />
+      </View>
+      <View style={{ flex: 1 }} onLayout={onLayout}>
         <ListSearchBar
           ref={listSearchBarRef}
           onSearch={(keyword) =>
@@ -265,10 +260,21 @@ export default ({ onBack }: MusicListProps) => {
           }
           onExitSearch={handleExitSearch}
         />
-      </View>
-      <View style={{ flex: 1 }} onLayout={onLayout}>
         <List
           ref={listRef}
+          header={
+            <>
+              <PageTopInset />
+              <ActiveList
+                ref={activeListRef}
+                onShowSearchBar={handleShowSearch}
+                onScrollToTop={hancelScrollToTop}
+                showCover={showCover}
+                onToggleView={handleToggleView}
+                onBack={onBack}
+              />
+            </>
+          }
           onShowMenu={showMenu}
           onMuiltSelectMode={hancelMultiSelect}
           onSelectAll={(isAll) => multipleModeBarRef.current?.setIsSelectAll(isAll)}

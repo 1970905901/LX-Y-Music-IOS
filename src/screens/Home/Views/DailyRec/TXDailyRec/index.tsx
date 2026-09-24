@@ -147,15 +147,20 @@ export default memo(() => {
     }
   }
 
+  const pageHeader = (
+    <>
+      <PageTopInset />
+      <Tabs activeTab={activeTab} onTabChange={handleTabChange} />
+    </>
+  )
+
   return (
     <View style={{ flex: 1 }}>
-      <PageTopInset />
       <View
         style={[{ flex: 1 }, selectedPlaylist ? { opacity: 0 } : null]}
         pointerEvents={selectedPlaylist ? 'none' : 'auto'}
         {...(isHomePageScrollEnabled ? panResponder.panHandlers : {})}
       >
-        <Tabs activeTab={activeTab} onTabChange={handleTabChange} />
         <PagerView
           ref={pagerViewRef}
           style={{ flex: 1 }}
@@ -164,16 +169,16 @@ export default memo(() => {
           scrollEnabled={!isHomePageScrollEnabled}
         >
           <View key="home">
-            <RecSongs type="home" onOpenDetail={handleOpenDetail} />
+            <RecSongs header={pageHeader} type="home" onOpenDetail={handleOpenDetail} />
           </View>
           <View key="radar">
-            <RecSongs type="radar" />
+            <RecSongs header={pageHeader} type="radar" />
           </View>
           <View key="songlist">
-            <RecPlaylists onOpenDetail={handleOpenDetail} />
+            <RecPlaylists header={pageHeader} onOpenDetail={handleOpenDetail} />
           </View>
           <View key="newsong">
-            <RecSongs type="newsong" />
+            <RecSongs header={pageHeader} type="newsong" />
           </View>
         </PagerView>
       </View>

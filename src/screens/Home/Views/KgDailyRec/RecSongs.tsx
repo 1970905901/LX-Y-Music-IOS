@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useCallback } from 'react'
+import { memo, useEffect, useRef, useCallback, type ReactElement } from 'react'
 import { View } from 'react-native'
 import OnlineList, { type OnlineListType } from '@/components/OnlineList'
 import { createStyle, toast } from '@/utils/tools'
@@ -12,6 +12,7 @@ import { clearPlayedList } from '@/core/player/playedList'
 type RecType = 'recommend' | 'everyday'
 
 interface Props {
+  header?: ReactElement
   type: RecType
 }
 
@@ -22,7 +23,7 @@ const handlePlay = async (list: LX.Music.MusicInfoOnline[], listId: string, inde
   void playList(LIST_IDS.TEMP, index)
 }
 
-export default memo(({ type }: Props) => {
+export default memo(({ header, type }: Props) => {
   const listRef = useRef<OnlineListType>(null)
   const playerMusicInfo = usePlayerMusicInfo()
 
@@ -74,6 +75,7 @@ export default memo(({ type }: Props) => {
       <OnlineList
         ref={listRef}
         listId={`kg_daily_rec_${type}`}
+        ListHeaderComponent={header}
         forcePlayList={true}
         playingId={playerMusicInfo.id}
         onPlayList={handlePlayList}

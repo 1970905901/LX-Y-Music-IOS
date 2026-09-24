@@ -102,14 +102,19 @@ export default memo(() => {
     [activeTab]
   )
 
+  const pageHeader = (
+    <>
+      <PageTopInset />
+      <Tabs activeTab={activeTab} onTabChange={handleTabChange} />
+    </>
+  )
+
   return (
     <View style={{ flex: 1 }}>
-      <PageTopInset />
       <View
         style={{ flex: 1 }}
         {...(isHomePageScrollEnabled ? panResponder.panHandlers : {})}
       >
-        <Tabs activeTab={activeTab} onTabChange={handleTabChange} />
         <PagerView
           ref={pagerViewRef}
           style={{ flex: 1 }}
@@ -118,10 +123,10 @@ export default memo(() => {
           scrollEnabled={!isHomePageScrollEnabled}
         >
           <View key="recommend">
-            <RecSongs type="recommend" />
+            <RecSongs header={pageHeader} type="recommend" />
           </View>
           <View key="everyday">
-            <RecSongs type="everyday" />
+            <RecSongs header={pageHeader} type="everyday" />
           </View>
         </PagerView>
       </View>

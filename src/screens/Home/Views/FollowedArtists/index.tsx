@@ -30,10 +30,10 @@ export default memo(() => {
 
   return (
     <View style={{ flex: 1 }}>
-      <PageTopInset />
       <FlatList
         onScrollBeginDrag={Keyboard.dismiss}
         data={followedArtists}
+        ListHeaderComponent={PageTopInset}
         contentContainerStyle={{ paddingBottom: 80 }}
         key={isHorizontal ? 'horizontal' : 'vertical'}
         numColumns={isHorizontal ? 2 : 1}

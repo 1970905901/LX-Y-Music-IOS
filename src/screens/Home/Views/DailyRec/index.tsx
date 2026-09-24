@@ -148,6 +148,19 @@ export default memo(() => {
     setSelectedPlaylist(null)
   }, [])
 
+  const pageHeader = (
+    <>
+      <PageTopInset />
+      <Tabs
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+        isStylized={isStylized}
+        setIsStylized={setIsStylized}
+        onOpenModal={() => setShowStylizedModal(true)}
+      />
+    </>
+  )
+
   useEffect(() => {
     const onBackPress = () => {
       if (selectedPlaylistRef.current) {
@@ -166,15 +179,7 @@ export default memo(() => {
 
   return (
     <View style={{ flex: 1 }}>
-      <PageTopInset />
       <View style={[{ flex: 1 }, selectedPlaylist ? { opacity: 0 } : null]} pointerEvents={selectedPlaylist ? 'none' : 'auto'} {...(isHomePageScrollEnabled ? panResponder.panHandlers : {})}>
-        <Tabs
-          activeTab={activeTab}
-          onTabChange={handleTabChange}
-          isStylized={isStylized}
-          setIsStylized={setIsStylized}
-          onOpenModal={() => setShowStylizedModal(true)}
-        />
         <PagerView
           ref={pagerViewRef}
           style={{ flex: 1 }}
@@ -183,10 +188,16 @@ export default memo(() => {
           scrollEnabled={!isHomePageScrollEnabled}
         >
           <View key="1">
-            {(activeTab === 'songs') && <RecSongs isStylized={isStylized} stylizedSelection={stylizedSelection} />}
+            {(activeTab === 'songs') && (
+              <RecSongs
+                header={pageHeader}
+                isStylized={isStylized}
+                stylizedSelection={stylizedSelection}
+              />
+            )}
           </View>
           <View key="2">
-            <RecPlaylists onOpenDetail={handleOpenDetail} />
+            <RecPlaylists header={pageHeader} onOpenDetail={handleOpenDetail} />
           </View>
         </PagerView>
         <StylizedModal

@@ -12,6 +12,7 @@ import { handleCollect, handlePlay } from '../listAction'
 import boardState, { type InitState, type BoardItem } from '@/store/leaderboard/state'
 import { useTheme } from '@/store/theme/hook'
 import { getBoardsList } from '@/core/leaderboard'
+import PageTopInset from '@/components/common/PageTopInset'
 
 type Sources = Readonly<InitState['sources']>
 // type SourceSelectorProps = _SourceSelectorProps<Sources>
@@ -79,6 +80,7 @@ export default forwardRef<LeftBarType, LeftBarProps>(({ onChangeList }, ref) => 
 
   return (
     <View style={{ ...styles.container, borderRightColor: theme['c-list-header-border-bottom'] }}>
+      <PageTopInset />
       <View style={styles.selector}>
         <SourceSelector ref={sourceSelectorRef} onSourceChange={onSourceChange} />
       </View>

@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useCallback, useState } from 'react'
+import { memo, useEffect, useRef, useCallback, useState, type ReactElement } from 'react'
 import { TouchableOpacity, View } from 'react-native'
 import Text from '@/components/common/Text'
 import OnlineList, { type OnlineListType } from '@/components/OnlineList'
@@ -33,11 +33,12 @@ const similarSongsFetcher = {
 }
 
 interface RecSongsProps {
+  header?: ReactElement
   isStylized?: boolean
   stylizedSelection?: StylizedSelection | null
 }
 
-export default memo(({ isStylized, stylizedSelection }: RecSongsProps) => {
+export default memo(({ header, isStylized, stylizedSelection }: RecSongsProps) => {
   const listRef = useRef<OnlineListType>(null)
   const unmountedRef = useRef(false)
   const [isLoading, setIsLoading] = useState(true)
@@ -330,6 +331,7 @@ export default memo(({ isStylized, stylizedSelection }: RecSongsProps) => {
       <OnlineList
         ref={listRef}
         listId="dailyrec_wy"
+        ListHeaderComponent={header}
         forcePlayList={true}
         playingId={playerMusicInfo.id}
         onPlayList={(index) => {

@@ -278,20 +278,23 @@ export default memo(() => {
 
   return (
     <View style={{ flex: 1 }}>
-      <PageTopInset />
       <View
         style={[{ flex: 1, overflow: 'hidden' }, selectedPlaylist ? { opacity: 0 } : null]}
         pointerEvents={selectedPlaylist ? 'none' : 'auto'}
       >
-        <View style={[styles.tabBar, { borderBottomColor: theme['c-border-background'] }]}>
-          {renderTab('created', `自建歌单 (${createdPlaylists.length})`)}
-          {renderTab('collected', `收藏歌单 (${collectedPlaylists.length})`)}
-        </View>
-
         <FlatList
           key={`cols-${numColumns}`}
           onScrollBeginDrag={Keyboard.dismiss}
           data={playlists}
+          ListHeaderComponent={
+            <>
+              <PageTopInset />
+              <View style={[styles.tabBar, { borderBottomColor: theme['c-border-background'] }]}>
+                {renderTab('created', `自建歌单 (${createdPlaylists.length})`)}
+                {renderTab('collected', `收藏歌单 (${collectedPlaylists.length})`)}
+              </View>
+            </>
+          }
           contentContainerStyle={{ paddingBottom: 80, paddingRight: 0 }}
           numColumns={numColumns}
           renderItem={({ item }) => (

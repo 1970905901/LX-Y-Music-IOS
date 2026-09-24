@@ -1,4 +1,4 @@
-import {forwardRef, useCallback, useEffect, useImperativeHandle, useRef} from 'react'
+import {forwardRef, useCallback, useEffect, useImperativeHandle, useRef, type ReactElement} from 'react'
 import OnlineList, { type OnlineListType, type OnlineListProps } from '@/components/OnlineList'
 import {
   clearListDetail,
@@ -19,7 +19,8 @@ export interface MusicListType {
   loadList: (source: LX.OnlineSource, listId: string) => void
 }
 
-export default forwardRef<MusicListType, {}>((props, ref) => {
+export default forwardRef<MusicListType, { header?: ReactElement }>((props, ref) => {
+  const { header } = props
   const listRef = useRef<OnlineListType>(null)
   const isUnmountedRef = useRef(false)
   const handleListUpdate = useCallback((newList: LX.Music.MusicInfoOnline[]) => {
@@ -118,6 +119,7 @@ export default forwardRef<MusicListType, {}>((props, ref) => {
   return (
     <OnlineList
       ref={listRef}
+      ListHeaderComponent={header}
       onPlayList={handlePlayList}
       onRefresh={handleRefresh}
       onLoadMore={handleLoadMore}

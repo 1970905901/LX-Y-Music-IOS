@@ -37,10 +37,9 @@ export default () => {
 
   return (
     <View style={{ flex: 1 }}>
-      <PageTopInset />
       <View style={styles.container}>
         <LeftBar ref={leftBarRef} onChangeList={handleChangeBound} />
-        <MusicList ref={musicListRef} />
+        <MusicList ref={musicListRef} header={<PageTopInset />} />
       </View>
     </View>
   )

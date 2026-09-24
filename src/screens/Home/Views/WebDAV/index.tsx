@@ -699,6 +699,17 @@ export default memo(() => {
     Keyboard.dismiss()
   }, [searchText])
 
+  const renderTabsHeader = () => (
+    <>
+      <PageTopInset />
+      <View style={{ ...styles.tabs, borderBottomColor: theme['c-border-background'] }}>
+        <TabButton label="列表" tab="list" activeTab={activeTab} onPress={() => setActiveTab('list')} />
+        <TabButton label="文件列表" tab="folders" activeTab={activeTab} onPress={() => setActiveTab('folders')} />
+        <TabButton label="配置" tab="config" activeTab={activeTab} onPress={() => setActiveTab('config')} />
+      </View>
+    </>
+  )
+
   const renderConfig = () => (
     <ScrollView
       keyboardShouldPersistTaps="handled"
@@ -706,6 +717,7 @@ export default memo(() => {
       style={styles.scroll}
       contentContainerStyle={styles.content}
     >
+      {renderTabsHeader()}
       <View style={{ ...styles.panel, borderColor: theme['c-border-background'] }}>
         <Text style={styles.label}>连接状态</Text>
         <Text color={hasConfig ? theme['c-primary-font'] : theme['c-font-label']}>
@@ -767,7 +779,11 @@ export default memo(() => {
   )
 
   const renderFolders = () => (
-    <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.scroll}
+      contentContainerStyle={styles.content}
+    >
+      {renderTabsHeader()}
       <TouchableOpacity
         style={{ ...styles.folderItem, borderBottomColor: theme['c-border-background'] }}
         onPress={() => {
@@ -815,8 +831,15 @@ export default memo(() => {
 
   const renderList = () => (
     <View style={styles.listPage}>
-      <View style={{ ...styles.listHeader, borderBottomColor: theme['c-border-background'] }}>
-        <View style={styles.listHeaderText}>
+      <FlatList
+        key={`cols-${numColumns}`}
+        ref={listRef}
+        data={filteredSongs}
+        ListHeaderComponent={
+          <>
+            {renderTabsHeader()}
+            <View style={{ ...styles.listHeader, borderBottomColor: theme['c-border-background'] }}>
+              <View style={styles.listHeaderText}>
           {searchVisible ? (
             <TextInput
               ref={searchInputRef}
@@ -850,41 +873,38 @@ export default memo(() => {
                 {scanText || headerText}
               </Text>
             </View>
-          )}
-        </View>
-        <TouchableOpacity style={styles.headerIconButton} onPress={handleToggleSearch}>
-          <Icon name="search-2" size={16} color={searchVisible ? theme['c-primary-font'] : theme['c-font-label']} />
-        </TouchableOpacity>
-        {searchVisible ? (
-          <TouchableOpacity style={styles.headerIconButton} onPress={handleClearSearch}>
-            <Icon name="close" size={13} color={theme['c-font-label']} />
-          </TouchableOpacity>
-        ) : null}
-        <Button
-          style={{ ...styles.scanButton, backgroundColor: theme['c-button-background'] }}
-          disabled={!hasConfig || loading || !!batchLoadingText}
-          onPress={handleScan}
-        >
-          <Text color={theme['c-button-font']}>扫描</Text>
-        </Button>
-        <Button
-          style={{ ...styles.scanButton, backgroundColor: theme['c-primary-background-hover'], marginLeft: 8 }}
-          disabled={!hasConfig || loading || !!batchLoadingText}
-          onPress={handleBatchDownload}
-        >
-          <Text color={theme['c-primary-font']}>扫描并下载</Text>
-        </Button>
-      </View>
-      <FlatList
-        key={`cols-${numColumns}`}
-        ref={listRef}
-        data={filteredSongs}
+              )}
+              </View>
+              <TouchableOpacity style={styles.headerIconButton} onPress={handleToggleSearch}>
+                <Icon name="search-2" size={16} color={searchVisible ? theme['c-primary-font'] : theme['c-font-label']} />
+              </TouchableOpacity>
+              {searchVisible ? (
+                <TouchableOpacity style={styles.headerIconButton} onPress={handleClearSearch}>
+                  <Icon name="close" size={13} color={theme['c-font-label']} />
+                </TouchableOpacity>
+              ) : null}
+              <Button
+                style={{ ...styles.scanButton, backgroundColor: theme['c-button-background'] }}
+                disabled={!hasConfig || loading || !!batchLoadingText}
+                onPress={handleScan}
+              >
+                <Text color={theme['c-button-font']}>扫描</Text>
+              </Button>
+              <Button
+                style={{ ...styles.scanButton, backgroundColor: theme['c-primary-background-hover'], marginLeft: 8 }}
+                disabled={!hasConfig || loading || !!batchLoadingText}
+                onPress={handleBatchDownload}
+              >
+                <Text color={theme['c-primary-font']}>扫描并下载</Text>
+              </Button>
+            </View>
+          </>
+        }
         contentContainerStyle={{ paddingBottom: 180 + safeAreaBottom }}
         numColumns={numColumns}
         renderItem={renderSong}
         keyExtractor={item => item.id}
         style={{ flex: 1 }}
-        // 多列时每 row 放 numColumns 项，偏移按行计算，否则 scrollToIndex 会算错位置
         getItemLayout={(data, index) => ({
           length: ITEM_HEIGHT,
           offset: ITEM_HEIGHT * Math.floor(index / numColumns),
@@ -914,12 +934,6 @@ export default memo(() => {
 
   return (
     <View style={styles.container}>
-      <PageTopInset />
-      <View style={{ ...styles.tabs, borderBottomColor: theme['c-border-background'] }}>
-        <TabButton label="列表" tab="list" activeTab={activeTab} onPress={() => setActiveTab('list')} />
-        <TabButton label="文件列表" tab="folders" activeTab={activeTab} onPress={() => setActiveTab('folders')} />
-        <TabButton label="配置" tab="config" activeTab={activeTab} onPress={() => setActiveTab('config')} />
-      </View>
       {activeTab === 'config' ? renderConfig() : activeTab === 'folders' ? renderFolders() : renderList()}
       <WebDAVListMenu
         ref={webDAVListMenuRef}

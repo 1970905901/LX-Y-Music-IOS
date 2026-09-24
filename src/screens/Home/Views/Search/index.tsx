@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react'
 import { InteractionManager } from 'react-native'
-import { type LayoutChangeEvent, View, BackHandler, KeyboardAvoidingView, Platform } from 'react-native'
+import { type LayoutChangeEvent, View, BackHandler, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native'
 import HeaderBar, { type HeaderBarProps, type HeaderBarType } from './HeaderBar'
 import SearchTypeSelector from './SearchTypeSelector'
 import searchState, { type SearchType } from '@/store/search/state'
@@ -29,9 +29,12 @@ export default () => {
   const searchTipListRef = useRef<TipListType>(null)
   const listRef = useRef<ListType>(null)
   const layoutHeightRef = useRef<number>(0)
+  const containerHeightRef = useRef(0)
+  const headerHeightRef = useRef(0)
   const searchInfo = useRef<SearchInfo>({ temp_source: 'kw', source: 'kw', searchType: 'music' })
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
   const [selectedList, setSelectedList] = useState<ListInfoItem | null>(null)
+  const [headerHeight, setHeaderHeight] = useState(0)
   const selectedListRef = useRef(selectedList)
   selectedListRef.current = selectedList
 
@@ -205,7 +208,8 @@ export default () => {
   }, [])
 
   const handleLayout = (e: LayoutChangeEvent) => {
-    layoutHeightRef.current = e.nativeEvent.layout.height
+    containerHeightRef.current = e.nativeEvent.layout.height
+    layoutHeightRef.current = Math.max(0, e.nativeEvent.layout.height - headerHeightRef.current)
   }
   const handleSourceChange: HeaderBarProps['onSourceChange'] = (source) => {
     setSelectedList(null)
@@ -244,44 +248,66 @@ export default () => {
   }
 
   const handleOpenDetail = useCallback((item: ListInfoItem) => {
+    headerHeightRef.current = 0
     setSelectedList(item)
   }, [])
+
+  const searchHeader = selectedList ? null : (
+    <View onLayout={({ nativeEvent }) => {
+      headerHeightRef.current = nativeEvent.layout.height
+      setHeaderHeight(nativeEvent.layout.height)
+      layoutHeightRef.current = Math.max(0, containerHeightRef.current - headerHeightRef.current)
+    }}>
+      <HeaderBar
+        key={headerKey}
+        ref={headerBarRef}
+        onSourceChange={handleSourceChange}
+        onTipSearch={handleTipSearch}
+        onSearch={handleSearch}
+        onHideTipList={handleHideTipList}
+        onOpenSearch={() => {}}
+        onCancelSearch={handleCancelSearch}
+        onShowTipList={handleShowTipList}
+      />
+      <View style={styles.typeRow}>
+        <SearchTypeSelector />
+      </View>
+    </View>
+  )
+
+  const tipListTopStyle = useMemo(
+    () => (headerHeight ? { top: headerHeight } : undefined),
+    [headerHeight],
+  )
 
   return (
     // 键盘规避：键盘弹出时压缩结果列表高度，避免键盘遮挡列表底部（iOS 用 padding）
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS == 'ios' ? 'padding' : undefined}
+      onLayout={handleLayout}
     >
       { !selectedList && (
-        <HeaderBar
-          key={headerKey}
-          ref={headerBarRef}
-          onSourceChange={handleSourceChange}
-          onTipSearch={handleTipSearch}
+        <List
+          ref={listRef}
+          header={searchHeader ?? undefined}
           onSearch={handleSearch}
-          onHideTipList={handleHideTipList}
-          onOpenSearch={() => {}}
-          onCancelSearch={handleCancelSearch}
-          onShowTipList={handleShowTipList}
+          onOpenDetail={handleOpenDetail}
         />
       )}
-      <View style={styles.content} onLayout={handleLayout}>
-        { selectedList
-          ? <SonglistDetail
-            info={selectedList} onBack={() => { setSelectedList(null) }} initialScrollToInfo={null}
+      {selectedList ? (
+        <View style={styles.content} onLayout={handleLayout}>
+          <SonglistDetail
+            info={selectedList}
+            onBack={() => { setSelectedList(null) }}
+            initialScrollToInfo={null}
           />
-          : (
-            <>
-              <View style={styles.typeRow}>
-                <SearchTypeSelector />
-              </View>
-              <TipList ref={searchTipListRef} onSearch={handleSearch} />
-              <List ref={listRef} onSearch={handleSearch} onOpenDetail={handleOpenDetail} />
-            </>
-            )
-        }
-      </View>
+        </View>
+      ) : (
+        <View style={[styles.tipListContainer, tipListTopStyle]} pointerEvents="box-none">
+          <TipList ref={searchTipListRef} onSearch={handleSearch} />
+        </View>
+      )}
     </KeyboardAvoidingView>
   )
 }
@@ -299,5 +325,9 @@ const styles = createStyle({
     height: 42,
     paddingHorizontal: designSpacing.lg,
     justifyContent: 'center',
+  },
+  tipListContainer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 10,
   },
 })

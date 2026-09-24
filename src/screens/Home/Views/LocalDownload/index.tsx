@@ -313,12 +313,9 @@ export default memo(() => {
 
   const isPlayingId = playMusicInfo.musicInfo?.id
 
-  return (
+  const pageHeader = (
     <>
       <PageTopInset />
-      <LandscapeDetailLayout
-        header={
-        <>
           <View style={styles.header}>
             <View style={styles.headerActions}>
               <TouchableOpacity
@@ -365,14 +362,19 @@ export default memo(() => {
               ? '软件内下载的音乐，离线可播放'
               : `下载目录下的「${getLocalDirName()}」文件夹，把音频放进来即可离线播放，支持同名 .lrc 歌词`}
           </Text>
-        </>
-      }
+    </>
+  )
+
+  return (
+    <LandscapeDetailLayout
+      header={isHorizontal ? pageHeader : null}
       body={
         <View style={styles.listArea}>
           {tab === 'download' ? (
             <FlatList
               style={styles.list}
               data={completedTasks}
+              ListHeaderComponent={isHorizontal ? undefined : pageHeader}
               contentContainerStyle={{ paddingBottom: 180 + safeAreaBottom }}
               key={isHorizontal ? 'horizontal' : 'vertical'}
               numColumns={isHorizontal ? 2 : 1}
@@ -408,6 +410,7 @@ export default memo(() => {
             <FlatList
               style={styles.list}
               data={localFiles}
+              ListHeaderComponent={isHorizontal ? undefined : pageHeader}
               contentContainerStyle={{ paddingBottom: 180 + safeAreaBottom }}
               key={isHorizontal ? 'horizontal' : 'vertical'}
               numColumns={isHorizontal ? 2 : 1}
@@ -473,7 +476,6 @@ export default memo(() => {
         </View>
       }
       />
-    </>
   )
 })
 

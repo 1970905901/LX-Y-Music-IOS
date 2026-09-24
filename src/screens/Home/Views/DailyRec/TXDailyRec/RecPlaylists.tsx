@@ -1,4 +1,4 @@
-import { memo, useEffect, useState, useCallback } from 'react'
+import { memo, useEffect, useState, useCallback, type ReactElement } from 'react'
 import { RefreshControl, View, FlatList, TouchableOpacity, Image } from 'react-native'
 import Text from '@/components/common/Text'
 import { useTheme } from '@/store/theme/hook'
@@ -18,6 +18,7 @@ interface PlaylistInfo {
 }
 
 interface Props {
+  header?: ReactElement
   onOpenDetail: (playlistInfo: ListInfoItem) => void
 }
 
@@ -38,7 +39,7 @@ const ListItem = ({ item, onPress }: { item: PlaylistInfo; onPress: () => void }
   )
 }
 
-export default memo(({ onOpenDetail }: Props) => {
+export default memo(({ header, onOpenDetail }: Props) => {
   const [playlists, setPlaylists] = useState<PlaylistInfo[]>([])
   const [loading, setLoading] = useState(false)
   const theme = useTheme()
@@ -86,6 +87,7 @@ export default memo(({ onOpenDetail }: Props) => {
     <View style={{ flex: 1 }}>
       <FlatList
         onScrollBeginDrag={() => {}}
+        ListHeaderComponent={header}
         data={playlists}
         contentContainerStyle={{ paddingBottom: 80 }}
         key={isHorizontal ? 'horizontal' : 'vertical'}

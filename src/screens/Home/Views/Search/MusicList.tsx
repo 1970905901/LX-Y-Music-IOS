@@ -13,7 +13,7 @@ export interface MusicListType {
   loadList: (text: string, source: Source) => void
 }
 
-export default forwardRef<MusicListType, {}>((props, ref) => {
+export default forwardRef<MusicListType, { header?: OnlineListProps['ListHeaderComponent'] }>(({ header }, ref) => {
   const listRef = useRef<OnlineListType>(null)
   const searchInfoRef = useRef<{ text: string; source: Source }>({ text: '', source: 'kw' })
   const isUnmountedRef = useRef(false)
@@ -105,6 +105,7 @@ export default forwardRef<MusicListType, {}>((props, ref) => {
     <OnlineList
       ref={listRef}
       listId="search"
+      ListHeaderComponent={header}
       onRefresh={handleRefresh}
       onLoadMore={handleLoadMore}
       checkHomePagerIdle

@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useCallback, useState } from 'react'
+import { memo, useEffect, useRef, useCallback, useState, type ReactElement } from 'react'
 import { View, FlatList, TouchableOpacity, Image, RefreshControl } from 'react-native'
 import OnlineList, { type OnlineListType } from '@/components/OnlineList'
 import Text from '@/components/common/Text'
@@ -16,6 +16,7 @@ import { type ListInfoItem } from '@/store/songlist/state'
 type RecType = 'home' | 'radar' | 'newsong'
 
 interface Props {
+  header?: ReactElement
   type: RecType
   onOpenDetail?: (playlistInfo: ListInfoItem) => void
 }
@@ -44,7 +45,7 @@ const PlaylistItem = ({ item, onPress }: { item: { id: string; name: string; cov
   )
 }
 
-export default memo(({ type, onOpenDetail }: Props) => {
+export default memo(({ header, type, onOpenDetail }: Props) => {
   const listRef = useRef<OnlineListType>(null)
   const playerMusicInfo = usePlayerMusicInfo()
   const [playlists, setPlaylists] = useState<{ id: string; name: string; cover: string; playCount: number }[]>([])
@@ -148,6 +149,7 @@ export default memo(({ type, onOpenDetail }: Props) => {
       <View style={{ flex: 1 }}>
         <FlatList
           data={playlists}
+          ListHeaderComponent={header}
           contentContainerStyle={{ paddingBottom: 80 }}
           key={isHorizontal ? 'horizontal' : 'vertical'}
           numColumns={isHorizontal ? 2 : 1}
@@ -171,6 +173,7 @@ export default memo(({ type, onOpenDetail }: Props) => {
       <OnlineList
         ref={listRef}
         listId={`tx_daily_rec_${type}`}
+        ListHeaderComponent={header}
         forcePlayList={true}
         playingId={playerMusicInfo.id}
         onPlayList={handlePlayList}

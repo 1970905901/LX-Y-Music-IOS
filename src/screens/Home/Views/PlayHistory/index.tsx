@@ -225,18 +225,8 @@ export default memo(() => {
     })
   }, [changeDay, isRange])
 
-  return (
-    <View style={[styles.container, { backgroundColor: theme['c-content-background'] }]}>
-      {showBg ? (
-        <ImageBackground
-          style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0 }}
-          source={bgSource}
-          resizeMode="cover"
-          blurRadius={blur}
-        >
-          <View style={{ flex: 1, backgroundColor: theme['c-content-background'], opacity: picOpacity / 100 }} />
-        </ImageBackground>
-      ) : null}
+  const pageHeader = (
+    <>
       <PageTopInset />
       <View style={{ ...styles.header, borderBottomColor: theme['c-border-background'] }}>
         <TouchableOpacity
@@ -275,7 +265,21 @@ export default memo(() => {
           />
         </TouchableOpacity>
       </View>
+    </>
+  )
 
+  return (
+    <View style={[styles.container, { backgroundColor: theme['c-content-background'] }]}>
+      {showBg ? (
+        <ImageBackground
+          style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0 }}
+          source={bgSource}
+          resizeMode="cover"
+          blurRadius={blur}
+        >
+          <View style={{ flex: 1, backgroundColor: theme['c-content-background'], opacity: picOpacity / 100 }} />
+        </ImageBackground>
+      ) : null}
       <PagerView
         ref={pagerRef}
         style={styles.historyPager}
@@ -284,6 +288,7 @@ export default memo(() => {
         onPageSelected={handlePageSelected}
       >
         <View key="prev-day" collapsable={false} style={styles.historyPage}>
+          {pageHeader}
           <View style={styles.swipePlaceholder}>
             <Text color={theme['c-500']}>{getNextDateText(startDate, -1)}</Text>
           </View>
@@ -293,6 +298,7 @@ export default memo(() => {
             ref={listRef}
             listId="play_history"
             forcePlayList
+            ListHeaderComponent={pageHeader}
             playingId={playerMusicInfo.id}
             onPlayList={handlePlayList}
             onRefresh={loadHistory}
@@ -301,6 +307,7 @@ export default memo(() => {
           />
         </View>
         <View key="next-day" collapsable={false} style={styles.historyPage}>
+          {pageHeader}
           <View style={styles.swipePlaceholder}>
             <Text color={theme['c-500']}>{startDate >= getTodayText() ? startDate : getNextDateText(startDate, 1)}</Text>
           </View>

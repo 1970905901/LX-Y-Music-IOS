@@ -620,7 +620,6 @@ export default memo(() => {
   if (!isHorizontal && showMusicList) {
     return (
       <View style={styles.content}>
-        <PageTopInset />
         <MusicList onBack={handleBackToList} />
       </View>
     )
@@ -665,7 +664,7 @@ export default memo(() => {
     )
   }
 
-  const listHeader = !isHorizontal ? <PageTopInset /> : null
+  const listHeader = <PageTopInset />
 
   const listPanel = (
     <View style={styles.content}>
@@ -724,7 +723,6 @@ export default memo(() => {
     const hasActiveList = showMusicList || (activeListId != null && activeListId !== LIST_IDS.DEFAULT)
     return (
       <View style={{ flex: 1 }}>
-        <PageTopInset />
         <View style={{ flex: 1, flexDirection: 'row' }}>
           <View
             style={{

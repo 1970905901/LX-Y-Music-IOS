@@ -104,7 +104,6 @@ export default () => {
       // iOS 浮层阴影（仅 iPhone/iPad）
       style={{ ...shadow(1) }}
     >
-      <PageTopInset />
       <MusicList />
     </DrawerLayoutFixed>
   )

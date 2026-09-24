@@ -143,9 +143,15 @@ export default () => {
       style={{ ...shadow(1) }}
     >
       <View style={styles.container}>
-        <PageTopInset />
-        <HeaderBar ref={headerBarRef} onShowBound={onShowBound} onSourceChange={onSourceChange} />
-        <MusicList ref={musicListRef} />
+        <MusicList
+          ref={musicListRef}
+          header={
+            <>
+              <PageTopInset />
+              <HeaderBar ref={headerBarRef} onShowBound={onShowBound} onSourceChange={onSourceChange} />
+            </>
+          }
+        />
       </View>
     </DrawerLayoutFixed>
     // <View style={styles.container}>

@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useRef, type ReactElement } from 'react'
 
 import { search } from '@/core/search/songlist'
 import Songlist, {
@@ -17,9 +17,10 @@ export interface MusicListType {
   loadList: (text: string, source: Source) => void
 }
 interface SonglistListProps {
+  header?: ReactElement
   onOpenDetail: (item: ListInfoItem, index: number) => void
 }
-export default forwardRef<MusicListType, SonglistListProps>(({ onOpenDetail }, ref) => {
+export default forwardRef<MusicListType, SonglistListProps>(({ header, onOpenDetail }, ref) => {
   const listRef = useRef<SonglistType>(null)
   const searchInfoRef = useRef<{ text: string; source: Source }>({ text: '', source: 'kw' })
   const isUnmountedRef = useRef(false)
@@ -106,5 +107,5 @@ export default forwardRef<MusicListType, SonglistListProps>(({ onOpenDetail }, r
       })
   }
 
-  return <Songlist ref={listRef} onRefresh={handleRefresh} onLoadMore={handleLoadMore} onOpenDetail={onOpenDetail} />
+  return <Songlist ref={listRef} header={header} onRefresh={handleRefresh} onLoadMore={handleLoadMore} onOpenDetail={onOpenDetail} />
 })

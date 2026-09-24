@@ -1,4 +1,4 @@
-import {forwardRef, useImperativeHandle, useRef, useState, useCallback, useEffect} from 'react'
+import {forwardRef, useImperativeHandle, useRef, useState, useCallback, useEffect, type ReactElement} from 'react'
 import { FlatList, RefreshControl, Keyboard, View } from 'react-native'
 import wyMusicSearch from '@/utils/musicSdk/wy/musicSearch'
 import txMusicSearch from '@/utils/musicSdk/tx/musicSearch'
@@ -11,11 +11,12 @@ import { log } from '@/utils/log'
 import { createStyle, toast } from '@/utils/tools'
 
 interface SearchResultListProps {
+  header?: ReactElement
   searchType: 'singer' | 'album'
   source: string
 }
 
-export default forwardRef(({ searchType, source }: SearchResultListProps, ref) => {
+export default forwardRef(({ header, searchType, source }: SearchResultListProps, ref) => {
   const [list, setList] = useState([])
   const [loading, setLoading] = useState(false)
   const searchInfoRef = useRef({ text: '', page: 1, hasMore: true })
@@ -172,6 +173,7 @@ export default forwardRef(({ searchType, source }: SearchResultListProps, ref) =
   return (
     <FlatList
       data={list}
+      ListHeaderComponent={header}
       contentContainerStyle={{ paddingBottom: 80 }}
       // numColumns 变更时必须重挂载（key 变更），RN 不支持运行中修改 numColumns
       key={isHorizontal ? 'horizontal' : 'vertical'}

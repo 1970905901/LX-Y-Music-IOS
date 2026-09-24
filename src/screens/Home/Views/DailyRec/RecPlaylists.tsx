@@ -1,4 +1,4 @@
-import { memo, useEffect, useState, useCallback } from 'react'
+import { memo, useEffect, useState, useCallback, type ReactElement } from 'react'
 import { View, FlatList, RefreshControl, Keyboard } from 'react-native'
 import { useSettingValue } from '@/store/setting/hook'
 import { toast } from '@/utils/tools'
@@ -9,7 +9,7 @@ import wy from '@/utils/musicSdk/wy/index'
 import ListItem from '../MyPlaylist/ListItem'
 import { getDailyRecPlaylistsCache, setDailyRecPlaylistsCache, clearDailyRecPlaylistsCache } from '@/core/cache'
 
-export default memo(({ onOpenDetail }: { onOpenDetail: (info: any) => void }) => {
+export default memo(({ header, onOpenDetail }: { header?: ReactElement; onOpenDetail: (info: any) => void }) => {
   const [playlists, setPlaylists] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const cookie = useSettingValue('common.wy_cookie')
@@ -88,6 +88,7 @@ export default memo(({ onOpenDetail }: { onOpenDetail: (info: any) => void }) =>
   return (
     <View style={{ flex: 1 }}>
       <FlatList
+        ListHeaderComponent={header}
         onScrollBeginDrag={Keyboard.dismiss}
         data={playlists}
         contentContainerStyle={{ paddingBottom: 80 }}

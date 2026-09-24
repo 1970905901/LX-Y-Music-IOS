@@ -1,5 +1,5 @@
 import { playList } from '@/core/player/player'
-import { useMemo, useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallback } from 'react'
+import { useMemo, useRef, useState, useEffect, forwardRef, useImperativeHandle, useCallback, type ReactElement } from 'react'
 import {
   FlatList,
   type NativeScrollEvent,
@@ -25,6 +25,7 @@ import { useSettingValue } from '@/store/setting/hook'
 type FlatListType = FlatListProps<LX.Music.MusicInfo>
 
 export interface ListProps {
+  header?: ReactElement
   onShowMenu: (musicInfo: LX.Music.MusicInfo, index: number, position: Position) => void
   onMuiltSelectMode: () => void
   onSelectAll: (isAll: boolean) => void
@@ -52,7 +53,7 @@ const usePlayIndex = () => {
 }
 
 const List = forwardRef<ListType, ListProps>(
-  ({ onShowMenu, onMuiltSelectMode, onSelectAll, showCover }, ref) => {
+  ({ header, onShowMenu, onMuiltSelectMode, onSelectAll, showCover }, ref) => {
     // const t = useI18n()
     const flatListRef = useRef<FlatList>(null)
     const [currentList, setList] = useState<LX.List.ListMusics>([])
@@ -367,6 +368,7 @@ const List = forwardRef<ListType, ListProps>(
         style={styles.list}
         contentContainerStyle={{ paddingBottom: 80 }}
         data={currentList}
+        ListHeaderComponent={header}
         maxToRenderPerBatch={20}
         updateCellsBatchingPeriod={50}
         // key：numColumns 变更（旋转/分屏）时强制重挂载 FlatList——

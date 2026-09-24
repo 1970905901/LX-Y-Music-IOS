@@ -1,4 +1,4 @@
-import { forwardRef, useImperativeHandle, useRef, useState } from 'react'
+import { forwardRef, useImperativeHandle, useRef, useState, type ReactElement } from 'react'
 import type { InitState as SearchState } from '@/store/search/state'
 import type { Source as MusicSource } from '@/store/search/music/state'
 import type { Source as SongListSource } from '@/store/search/songlist/state'
@@ -8,6 +8,7 @@ import SonglistList from './SonglistList'
 import SearchResultList from "@/screens/Home/Views/Search/SearchResultList.tsx";
 
 interface ListProps {
+  header?: ReactElement
   onSearch: (keyword: string) => void
   onOpenDetail: (item: any) => void;
 }
@@ -19,7 +20,7 @@ export interface ListType {
   ) => void
 }
 
-export default forwardRef<ListType, ListProps>(({ onSearch, onOpenDetail }, ref) => {
+export default forwardRef<ListType, ListProps>(({ header, onSearch, onOpenDetail }, ref) => {
   const [listType, setListType] = useState<SearchState['searchType']>('music')
   const [showBlankView, setShowListView] = useState(true)
   const [currentSource, setCurrentSource] = useState<MusicSource | SongListSource>('wy')
@@ -51,16 +52,16 @@ export default forwardRef<ListType, ListProps>(({ onSearch, onOpenDetail }, ref)
   const renderList = () => {
     switch (listType) {
       case 'songlist':
-        return <SonglistList ref={listRef} onOpenDetail={onOpenDetail} />
+        return <SonglistList ref={listRef} header={header} onOpenDetail={onOpenDetail} />
       case 'singer':
-        return <SearchResultList ref={listRef} searchType="singer" source={currentSource} />
+        return <SearchResultList ref={listRef} header={header} searchType="singer" source={currentSource} />
       case 'album':
-        return <SearchResultList ref={listRef} searchType="album" source={currentSource} />
+        return <SearchResultList ref={listRef} header={header} searchType="album" source={currentSource} />
       case 'music':
       default:
-        return <MusicList ref={listRef} />
+        return <MusicList ref={listRef} header={header} />
     }
   }
 
-  return showBlankView ? <BlankView ref={blankViewRef} onSearch={onSearch} /> : renderList()
+  return showBlankView ? <BlankView ref={blankViewRef} header={header} onSearch={onSearch} /> : renderList()
 })

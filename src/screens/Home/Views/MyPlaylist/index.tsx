@@ -236,11 +236,11 @@ export default memo(() => {
   }, [])
   return (
     <View style={{ flex: 1 }}>
-      <PageTopInset />
       <View style={[{ flex: 1 }, selectedPlaylist ? { opacity: 0 } : null]} pointerEvents={selectedPlaylist ? 'none' : 'auto'}>
         <FlatList
           onScrollBeginDrag={Keyboard.dismiss}
           data={playlists}
+          ListHeaderComponent={PageTopInset}
           contentContainerStyle={{ paddingBottom: 80 }}
           key={isHorizontal ? 'horizontal' : 'vertical'}
           numColumns={isHorizontal ? 2 : 1}

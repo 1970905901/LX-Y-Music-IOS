@@ -35,6 +35,8 @@ export default () => {
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
   const [selectedList, setSelectedList] = useState<ListInfoItem | null>(null)
   const [headerHeight, setHeaderHeight] = useState(0)
+  const [source, setSource] = useState<SearchInfo['source']>(searchInfo.current.source)
+  const [sourceType, setSourceType] = useState<SearchInfo['searchType']>(searchInfo.current.searchType)
   const selectedListRef = useRef(selectedList)
   selectedListRef.current = selectedList
 
@@ -48,17 +50,10 @@ export default () => {
     [enabledSources],
   )
 
-  const filteredMusicSourcesRef = useRef(filteredMusicSources)
-  filteredMusicSourcesRef.current = filteredMusicSources
-  const filteredSonglistSourcesRef = useRef(filteredSonglistSources)
-  filteredSonglistSourcesRef.current = filteredSonglistSources
-
-  useEffect(() => {
-    const sources = searchInfo.current.searchType === 'songlist' ? filteredSonglistSourcesRef.current : filteredMusicSourcesRef.current
-    if (sources.length > 0 && searchInfo.current.source) {
-      headerBarRef.current?.setSourceList(sources, searchInfo.current.source)
-    }
-  }, [])
+  const availableSources = useMemo(
+    () => sourceType === 'songlist' ? filteredSonglistSources : filteredMusicSources,
+    [filteredMusicSources, filteredSonglistSources, sourceType],
+  )
 
   const [headerKey, setHeaderKey] = useState(Date.now())
 
@@ -111,16 +106,8 @@ export default () => {
       searchInfo.current.temp_source = info.temp_source
       searchInfo.current.source = info.source
       searchInfo.current.searchType = info.type
-      switch (info.type) {
-        case 'music':
-        case 'singer':
-        case 'album':
-          headerBarRef.current?.setSourceList(filteredMusicSources, info.source)
-          break
-        case 'songlist':
-          headerBarRef.current?.setSourceList(filteredSonglistSources, info.source)
-          break
-      }
+      setSource(info.source)
+      setSourceType(info.type)
       headerBarRef.current?.setText(searchState.searchText)
       void listRef.current?.loadList(
         searchState.searchText,
@@ -132,6 +119,7 @@ export default () => {
     const handleTypeChange = (type: SearchType) => {
       setSelectedList(null)
       searchInfo.current.searchType = type
+      setSourceType(type)
       void saveSearchSetting({ type })
       if (searchState.searchText) {
         listRef.current?.loadList(searchState.searchText, searchInfo.current.source, type)
@@ -143,20 +131,10 @@ export default () => {
       const info = await getSearchSetting()
       searchInfo.current.source = (source || info.source) as LX.OnlineSource
       searchInfo.current.searchType = (type || info.type) as SearchType
+      setSource(searchInfo.current.source)
+      setSourceType(searchInfo.current.searchType)
       if (type) {
         global.app_event.searchTypeChanged(searchInfo.current.searchType)
-      }
-      if (source) {
-        switch (searchInfo.current.searchType) {
-          case 'music':
-          case 'singer':
-          case 'album':
-            headerBarRef.current?.setSourceList(filteredMusicSources, searchInfo.current.source)
-            break
-          case 'songlist':
-            headerBarRef.current?.setSourceList(filteredSonglistSources, searchInfo.current.source)
-            break
-        }
       }
       if (keyword) {
         listRef.current?.loadList(
@@ -173,7 +151,7 @@ export default () => {
       global.app_event.off('searchTypeChanged', handleTypeChange)
       global.app_event.off('searchDeepLink', handleSearchDeepLink)
     }
-  }, [headerKey])
+  }, [filteredMusicSources, filteredSonglistSources, headerKey])
 
   useEffect(() => {
     const handleNavChange = async(id: string) => {
@@ -181,9 +159,9 @@ export default () => {
         const info = await getSearchSetting()
         searchInfo.current.source = info.source
         searchInfo.current.searchType = info.type
+        setSource(info.source)
+        setSourceType(info.type)
         headerBarRef.current?.setText(searchState.searchText)
-        const sources = info.type === 'songlist' ? filteredSonglistSourcesRef.current : filteredMusicSourcesRef.current
-        headerBarRef.current?.setSourceList(sources, info.source)
         if (searchState.searchText) {
           void listRef.current?.loadList(searchState.searchText, info.source, info.type)
         }
@@ -213,6 +191,7 @@ export default () => {
   }
   const handleSourceChange: HeaderBarProps['onSourceChange'] = (source) => {
     setSelectedList(null)
+    setSource(source)
     searchInfo.current.source = source
     void saveSearchSetting({ source: source as LX.OnlineSource })
     if (searchState.searchText) {
@@ -261,6 +240,8 @@ export default () => {
       <HeaderBar
         key={headerKey}
         ref={headerBarRef}
+        sources={availableSources}
+        source={source}
         onSourceChange={handleSourceChange}
         onTipSearch={handleTipSearch}
         onSearch={handleSearch}

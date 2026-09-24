@@ -5,6 +5,7 @@ import { setActiveList, updateUserListPosition } from '@/core/list'
 import { fetchCoverUrl } from '@/core/music/coverUrl'
 import { getListMusics } from '@/utils/data'
 import { useTheme } from '@/store/theme/hook'
+import { useI18n } from '@/lang'
 import Text from '@/components/common/Text'
 import Image from '@/components/common/Image'
 import { Icon } from '@/components/common/Icon'
@@ -18,7 +19,7 @@ import ListMusicSort, { type ListMusicSortType } from './MyList/ListMusicSort'
 import DuplicateMusic, { type DuplicateMusicType } from './MyList/DuplicateMusic'
 import ListImportExport, { type ListImportExportType } from './MyList/ListImportExport'
 import { handleRemove, handleSync } from './MyList/listAction'
-import { LIST_IDS } from '@/config/constant'
+import { LIST_IDS, COMPONENT_IDS } from '@/config/constant'
 import { scaleSizeH } from '@/utils/pixelRatio'
 import { designRadius, designSpacing } from '@/theme/DesignTokens'
 import { shadow } from '@/utils/shadow'
@@ -26,6 +27,8 @@ import { useSafeAreaBottom } from '@/store/common/hook'
 import PageTopInset from '@/components/common/PageTopInset'
 import Loading from '@/components/common/Loading'
 import { Navigation } from 'react-native-navigation'
+import OpenList from '../SongList/HeaderBar/OpenList'
+import { navigations } from '@/navigation'
 
 const CARD_HEIGHT = scaleSizeH(90)
 const LONG_PRESS_MS = 350
@@ -302,6 +305,7 @@ const PlaylistCard = memo(({
 export default memo(() => {
   const theme = useTheme()
   const safeAreaBottom = useSafeAreaBottom()
+  const t = useI18n()
   const allList = useMyList()
   const activeListId = useActiveListId()
   const isHorizontal = useHorizontalMode()
@@ -321,6 +325,11 @@ export default memo(() => {
   const handleBackToList = useCallback(() => {
     setShowMusicList(false)
     setActiveList(LIST_IDS.DEFAULT)
+  }, [])
+
+  const handleOpenImportedDetail = useCallback((item: any) => {
+    const homeComponentId = commonState.componentIds.find(({ name }) => name === COMPONENT_IDS.home)?.id
+    if (homeComponentId) navigations.pushSonglistDetailScreen(homeComponentId, item)
   }, [])
 
   useEffect(() => {
@@ -664,7 +673,17 @@ export default memo(() => {
     )
   }
 
-  const listHeader = <PageTopInset />
+  const listHeader = (
+    <>
+      <PageTopInset />
+      <View style={styles.pageHeader}>
+        <Text style={styles.pageTitle} size={34} color={theme['c-font']}>
+          {t('nav_songlist')}
+        </Text>
+        <OpenList onOpenDetail={handleOpenImportedDetail} />
+      </View>
+    </>
+  )
 
   const listPanel = (
     <View style={styles.content}>
@@ -758,6 +777,17 @@ const styles = createStyle({
   },
   listContainer: {
     flex: 1,
+  },
+  pageHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: designSpacing.lg,
+    marginBottom: designSpacing.xs,
+  },
+  pageTitle: {
+    fontWeight: '800',
+    lineHeight: 36,
   },
   cardContainer: {
     flexDirection: 'row',

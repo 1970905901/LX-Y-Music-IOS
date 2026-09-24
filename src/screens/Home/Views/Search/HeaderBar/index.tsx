@@ -1,4 +1,4 @@
-import { useRef, useState, forwardRef, useImperativeHandle } from 'react'
+import { useRef, forwardRef, useImperativeHandle } from 'react'
 import { ScrollView, TouchableOpacity, View } from 'react-native'
 
 // import music from '@/utils/musicSdk'
@@ -17,6 +17,8 @@ import { type Source as SonglistSource } from '@/store/search/songlist/state'
 type Sources = Readonly<Array<MusicSource | SonglistSource>>
 
 export interface HeaderBarProps {
+  sources: Sources
+  source: MusicSource | SonglistSource
   onSourceChange: (source: MusicSource | SonglistSource) => void
   onTipSearch: SearchInputProps['onChangeText']
   onSearch: SearchInputProps['onSubmit']
@@ -27,7 +29,6 @@ export interface HeaderBarProps {
 }
 
 export interface HeaderBarType {
-  setSourceList: (list: Sources, source: MusicSource | SonglistSource) => void
   setText: SearchInputType['setText']
   focus: SearchInputType['focus']
   blur: SearchInputType['blur']
@@ -35,6 +36,8 @@ export interface HeaderBarType {
 
 export default forwardRef<HeaderBarType, HeaderBarProps>(
   ({
+    sources,
+    source,
     onSourceChange,
     onTipSearch,
     onSearch,
@@ -43,8 +46,6 @@ export default forwardRef<HeaderBarType, HeaderBarProps>(
     onCancelSearch,
     onShowTipList,
   }, ref) => {
-    const [sources, setSources] = useState<Sources>([])
-    const [source, setSource] = useState<MusicSource | SonglistSource>('kw')
     const searchInputRef = useRef<SearchInputType>(null)
     const theme = useTheme()
     const statusBarHeight = useStatusbarHeight()
@@ -53,10 +54,6 @@ export default forwardRef<HeaderBarType, HeaderBarProps>(
     useImperativeHandle(
       ref,
       () => ({
-        setSourceList(list, source) {
-          setSources(list)
-          setSource(source)
-        },
         setText(text) {
           searchInputRef.current?.setText(text)
         },
@@ -120,7 +117,6 @@ export default forwardRef<HeaderBarType, HeaderBarProps>(
                     : theme['c-primary-light-900-alpha-200'],
                 }}
                 onPress={() => {
-                  setSource(sourceId)
                   onSourceChange(sourceId)
                 }}
               >

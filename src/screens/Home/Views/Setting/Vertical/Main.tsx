@@ -1,10 +1,13 @@
-import { memo, useCallback, useMemo, useState } from 'react'
+import { memo, useCallback, useMemo } from 'react'
 import { ScrollView, TouchableOpacity, View } from 'react-native'
 import { createStyle } from '@/utils/tools'
 import { designSpacing } from '@/theme/DesignTokens'
 import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
-import { SETTING_SCREENS, SETTING_COMPONENTS, type SettingScreenIds } from '../Main'
+import commonState from '@/store/common/state'
+import { COMPONENT_IDS } from '@/config/constant'
+import { navigations } from '@/navigation'
+import { SETTING_SCREENS, type SettingScreenIds } from '../Main'
 import { useSafeAreaBottom } from '@/store/common/hook'
 import Text from '@/components/common/Text'
 import PageHeader from '@/components/common/PageHeader'
@@ -15,16 +18,11 @@ export default memo(() => {
   const theme = useTheme()
   const t = useI18n()
   const safeAreaBottom = useSafeAreaBottom()
-  const [activeId, setActiveId] = useState<SettingScreenIds>(global.lx.settingActiveId)
 
   const handlePress = useCallback((id: SettingScreenIds) => {
-    setActiveId(id)
-    global.lx.settingActiveId = id
+    const homeComponentId = commonState.componentIds.find(({ name }) => name === COMPONENT_IDS.home)?.id
+    if (homeComponentId) navigations.pushSettingDetailScreen(homeComponentId, id)
   }, [])
-
-  const ActiveScreen = useMemo(() => (
-    SETTING_COMPONENTS[activeId] ?? SETTING_COMPONENTS.basic
-  ), [activeId])
 
   const contentContainer = useMemo(() => ({
     paddingHorizontal: designSpacing.lg,
@@ -51,17 +49,14 @@ export default memo(() => {
               >
                 <Text
                   size={16}
-                  color={activeId === id ? theme['c-primary'] : theme['c-font']}
+                  color={theme['c-font']}
                 >
                   {t(`setting_${id}`)}
                 </Text>
-                {activeId === id ? (
-                  <Icon name="chevron-right" size={16} color={theme['c-primary']} />
-                ) : null}
+                <Icon name="chevron-right" size={16} color={theme['c-font-label']} />
               </TouchableOpacity>
             ))}
           </View>
-          <ActiveScreen />
         </ScrollView>
       </LandscapeCentered>
     </View>

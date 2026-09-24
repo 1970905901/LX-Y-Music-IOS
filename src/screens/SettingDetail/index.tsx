@@ -66,7 +66,7 @@ export default memo(({ settingId, componentId }: {
   return (
     <PageContent>
       <LandscapeCentered>
-        <View style={{ ...styles.header, paddingTop: Math.max(designSpacing.sm, statusBarHeight - designSpacing.md) }}>
+        <View style={{ ...styles.header, paddingTop: statusBarHeight + designSpacing.sm }}>
           <TouchableOpacity style={styles.backButton} onPress={() => { void pop(componentId) }}>
             <Icon name="chevron-left" size={20} color={theme['c-font']} />
           </TouchableOpacity>

@@ -41,7 +41,6 @@ const styles = createStyle({
     flexDirection: 'row',
     paddingLeft: 12,
     alignItems: 'center',
-    height: '100%',
   },
   title: {
     paddingLeft: designSpacing.xs,

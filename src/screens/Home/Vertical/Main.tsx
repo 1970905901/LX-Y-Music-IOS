@@ -573,6 +573,8 @@ const SettingPage = () => {
         requestAnimationFrame(() => {
           setVisible(true)
         })
+      } else {
+        setVisible(false)
       }
     }
     global.state_event.on('navActiveIdUpdated', handleNavIdUpdate)

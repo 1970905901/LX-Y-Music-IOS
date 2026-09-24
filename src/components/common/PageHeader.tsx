@@ -16,7 +16,7 @@ const PageHeader = memo(({ title }: PageHeaderProps) => {
   const statusBarHeight = useStatusbarHeight()
 
   return (
-    <View style={[styles.container, { paddingTop: Math.max(designSpacing.sm, statusBarHeight - designSpacing.md) }]}>
+    <View style={[styles.container, { paddingTop: statusBarHeight + designSpacing.sm }]}>
       <Text style={styles.title} size={34} color={theme['c-font']}>
         {title}
       </Text>
@@ -31,7 +31,6 @@ const styles = createStyle({
   },
   title: {
     fontWeight: '800',
-    lineHeight: 36,
   },
 })
 

@@ -1,4 +1,3 @@
-import type { ReactNode } from 'react'
 import { View } from 'react-native'
 import { useNavActiveId, useStatusbarHeight } from '@/store/common/hook'
 import { useI18n } from '@/lang'
@@ -7,17 +6,11 @@ import Text from '@/components/common/Text'
 import { scaleSizeH } from '@/utils/pixelRatio'
 import { HEADER_HEIGHT } from '@/config/constant'
 import { designSpacing } from '@/theme/DesignTokens'
-import { type InitState as CommonState } from '@/store/common/state'
-import GlobalSearch from '@/components/GlobalSearch'
-
-const headerComponents: Partial<Record<CommonState['navActiveId'], ReactNode>> = {}
 
 const Header = () => {
   const id = useNavActiveId()
   const t = useI18n()
   const statusBarHeight = useStatusbarHeight()
-  const isSearchPage = id === 'nav_search'
-
   return (
     <View
       style={{
@@ -31,7 +24,6 @@ const Header = () => {
           {t(id)}
         </Text>
       </View>
-      {isSearchPage ? headerComponents[id] : <GlobalSearch />}
     </View>
   )
 }

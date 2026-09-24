@@ -10,13 +10,8 @@ import StatusBar from '@/components/common/StatusBar'
 import { useSettingValue } from '@/store/setting/hook'
 import { scaleSizeH } from '@/utils/pixelRatio'
 import { HEADER_HEIGHT as _HEADER_HEIGHT } from '@/config/constant'
-import { type InitState as CommonState } from '@/store/common/state'
 import SearchTypeSelector from '@/screens/Home/Views/Search/SearchTypeSelector'
 
-import GlobalSearch from '@/components/GlobalSearch'
-const headerComponents: Partial<Record<CommonState['navActiveId'], React.ReactNode>> = {
-  nav_search: <SearchTypeSelector />,
-}
 
 const HEADER_HEIGHT = _HEADER_HEIGHT * 0.8
 
@@ -44,7 +39,7 @@ const LeftHeader = () => {
           {t(id)}
         </Text>
       </View>
-      {isSearchPage ? headerComponents[id] : <GlobalSearch />}
+      {isSearchPage ? <SearchTypeSelector /> : null}
 
       {/* <TouchableOpacity style={styles.btn} onPress={openSetting}>
         <Icon style={{ ...styles.btnText, color: theme['c-font'] }} name="setting" size={styles.btnText.fontSize} />
@@ -78,7 +73,7 @@ const RightHeader = () => {
           {t(id)}
         </Text>
       </View>
-      {isSearchPage ? headerComponents[id] : <GlobalSearch />}
+      {isSearchPage ? <SearchTypeSelector /> : null}
       {/* <TouchableOpacity style={styles.btn} onPress={openSetting}>
         <Icon style={{ ...styles.btnText, color: theme['c-font'] }} name="setting" size={styles.btnText.fontSize} />
       </TouchableOpacity> */}

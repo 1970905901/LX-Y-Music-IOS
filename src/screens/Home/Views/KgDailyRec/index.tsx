@@ -13,6 +13,8 @@ import { COMPONENT_IDS, NAV_MENUS } from '@/config/constant'
 import { useSettingValue } from '@/store/setting/hook'
 import { useNavActiveId } from '@/store/common/hook'
 import { setNavActiveId } from '@/core/common'
+import { useI18n } from '@/lang'
+import PageHeader from '@/components/common/PageHeader'
 
 type TabType = 'recommend' | 'everyday'
 
@@ -54,6 +56,7 @@ const Tabs = ({
 
 export default memo(() => {
   const [activeTab, setActiveTab] = useState<TabType>('recommend')
+  const t = useI18n()
   const pagerViewRef = useRef<PagerView>(null)
   const theme = useTheme()
   const isHomePageScrollEnabled = useSettingValue('common.homePageScroll')
@@ -103,6 +106,7 @@ export default memo(() => {
 
   return (
     <View style={{ flex: 1 }}>
+      <PageHeader title={t('nav_kg_daily_rec')} />
       <View
         style={{ flex: 1 }}
         {...(isHomePageScrollEnabled ? panResponder.panHandlers : {})}

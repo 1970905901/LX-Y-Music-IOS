@@ -4,8 +4,8 @@ import commonState from '@/store/common/state'
 import { COMPONENT_IDS } from '@/config/constant'
 import { navigations } from '@/navigation'
 import { useTheme } from '@/store/theme/hook'
-import { useI18n } from '@/lang'
 import { useStatusbarHeight } from '@/store/common/hook'
+import { useI18n } from '@/lang'
 import { setNavActiveId } from '@/core/common'
 import { createStyle, toast } from '@/utils/tools'
 import { designSpacing, designTypography } from '@/theme/DesignTokens'
@@ -82,8 +82,8 @@ const styles = createStyle({
 
 export default memo(() => {
   const theme = useTheme()
-  const t = useI18n()
   const statusBarHeight = useStatusbarHeight()
+  const t = useI18n()
   const [selectedSource, setSelectedSource] = useState<Source>(supportedSources[0] ?? 'kw')
   const [playlists, setPlaylists] = useState<ListInfoItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -162,7 +162,7 @@ export default memo(() => {
 
   const headerStyle = useMemo(
     () => StyleSheet.compose(styles.header, {
-      paddingTop: Math.max(0, statusBarHeight - designSpacing.xs),
+      paddingTop: Math.max(designSpacing.sm, statusBarHeight - designSpacing.md),
     }),
     [statusBarHeight],
   )

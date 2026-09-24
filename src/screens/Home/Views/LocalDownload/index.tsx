@@ -18,6 +18,7 @@ import { mkdir, readDir, unlink, stat } from '@/utils/fs'
 import { sizeFormate } from '@/utils'
 import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
 import { useSafeAreaBottom } from '@/store/common/hook'
+import PageHeader from '@/components/common/PageHeader'
 
 type TabId = 'local' | 'download'
 
@@ -313,8 +314,10 @@ export default memo(() => {
   const isPlayingId = playMusicInfo.musicInfo?.id
 
   return (
-    <LandscapeDetailLayout
-      header={
+    <>
+      <PageHeader title={t('nav_local_download')} />
+      <LandscapeDetailLayout
+        header={
         <>
           <View style={styles.header}>
             <View style={styles.headerActions}>
@@ -469,7 +472,8 @@ export default memo(() => {
           )}
         </View>
       }
-    />
+      />
+    </>
   )
 })
 

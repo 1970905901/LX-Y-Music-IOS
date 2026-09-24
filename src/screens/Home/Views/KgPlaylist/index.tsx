@@ -20,6 +20,7 @@ import playerState from '@/store/player/state'
 import listState from '@/store/list/state'
 import { LIST_IDS } from '@/config/constant'
 import { useHorizontalMode } from '@/utils/hooks'
+import PageHeader from '@/components/common/PageHeader'
 
 interface PlaylistInfo {
   id: string
@@ -272,6 +273,7 @@ export default memo(() => {
 
   return (
     <View style={{ flex: 1 }}>
+      <PageHeader title={t('nav_kg_playlist')} />
       <View
         style={[{ flex: 1, overflow: 'hidden' }, selectedPlaylist ? { opacity: 0 } : null]}
         pointerEvents={selectedPlaylist ? 'none' : 'auto'}

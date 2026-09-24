@@ -9,8 +9,11 @@ import { useSettingValue } from '@/store/setting/hook'
 import Text from '@/components/common/Text'
 import ListItem from './ListItem'
 import { useHorizontalMode } from '@/utils/hooks'
+import { useI18n } from '@/lang'
+import PageHeader from '@/components/common/PageHeader'
 
 export default memo(() => {
+  const t = useI18n()
   const subscribedAlbums = useWySubscribedAlbums()
   const [loading, setLoading] = useState(false)
   const theme = useTheme()
@@ -52,6 +55,7 @@ export default memo(() => {
 
   return (
     <View style={{ flex: 1 }}>
+      <PageHeader title={t('nav_subscribed_albums')} />
       <FlatList
         onScrollBeginDrag={Keyboard.dismiss}
         data={subscribedAlbums}

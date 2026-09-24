@@ -16,11 +16,14 @@ import { useSettingValue } from '@/store/setting/hook'
 import { useBgPic } from '@/store/common/hook'
 import ImageBackground from '@/components/common/ImageBackground'
 import { defaultHeaders } from '@/components/common/Image'
+import PageHeader from '@/components/common/PageHeader'
+import { useI18n } from '@/lang'
 
 const MAX_WIDTH = scaleSizeW(400)
 
 export default () => {
   const drawer = useRef<DrawerLayoutFixedType>(null)
+  const t = useI18n()
   const theme = useTheme()
   const isNewListUI = useSettingValue('list.isNewListUI')
   const isDynamicBg = useSettingValue('theme.dynamicBg')
@@ -103,6 +106,7 @@ export default () => {
       // iOS 浮层阴影（仅 iPhone/iPad）
       style={{ ...shadow(1) }}
     >
+      <PageHeader title={t('nav_love')} />
       <MusicList />
     </DrawerLayoutFixed>
   )

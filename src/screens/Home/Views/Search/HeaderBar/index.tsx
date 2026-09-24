@@ -71,7 +71,7 @@ export default forwardRef<HeaderBarType, HeaderBarProps>(
     )
 
     return (
-      <View style={[styles.container, { paddingTop: Math.max(0, statusBarHeight - designSpacing.xs) }]}>
+      <View style={[styles.container, { paddingTop: Math.max(designSpacing.sm, statusBarHeight - designSpacing.md) }]}>
         <View style={styles.openHeader}>
           <View
             style={{

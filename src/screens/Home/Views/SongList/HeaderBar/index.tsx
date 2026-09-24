@@ -54,7 +54,7 @@ export default forwardRef<HeaderBarType, HeaderBarProps>(
     )
 
     return (
-      <View style={[styles.container, { paddingTop: statusBarHeight }]}>
+      <View style={[styles.container, { paddingTop: Math.max(designSpacing.sm, statusBarHeight - designSpacing.md) }]}>
         <Text style={styles.title} size={34} color={theme['c-font']}>{title}</Text>
         <View style={styles.actions}>
           <OpenList ref={openListRef} onOpenDetail={onOpenDetail} />
@@ -94,6 +94,7 @@ const styles = createStyle({
   },
   title: {
     fontWeight: '800',
+    lineHeight: 36,
   },
   actions: {
     flexDirection: 'row',

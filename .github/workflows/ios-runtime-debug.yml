@@ -69,11 +69,10 @@ jobs:
           xcrun simctl launch --console-pty "$SIM_UDID" "$IOS_BUNDLE_IDENTIFIER" > build/runtime-console.log 2>&1 &
           LAUNCH_PID=$!
           sleep 60
-          kill "$LAUNCH_PID" 2>/dev/null || true
-          wait "$LAUNCH_PID" 2>/dev/null || true
-          LAUNCH_EXIT=$?
           xcrun simctl io "$SIM_UDID" screenshot build/runtime-screenshot.png 2>/dev/null || true
           xcrun simctl terminate "$SIM_UDID" "$IOS_BUNDLE_IDENTIFIER" 2>/dev/null || true
+          wait "$LAUNCH_PID" 2>/dev/null || true
+          LAUNCH_EXIT=$?
           xcrun simctl spawn "$SIM_UDID" log show --last 3m --info --debug --style compact --predicate 'process == "LxMusicMobile" OR eventMessage CONTAINS "LxMusicMobile"' > build/system-runtime.log 2>&1 || true
           set -e
 

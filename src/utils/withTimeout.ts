@@ -6,16 +6,20 @@ export const withTimeout = <T,>(
   fallback: T,
   timeoutMs = 3000,
 ): Promise<T> => {
-  const startTime = Date.now()
-  const guardedPromise = promise.catch(error => {
-    if (Date.now() - startTime < timeoutMs) throw error
-    return fallback
-  })
-  const timeoutPromise = new Promise<T>(resolve => {
-    setTimeout(() => {
+  return new Promise<T>((resolve, reject) => {
+    const timeoutId = setTimeout(() => {
       bootLog(`${label} timeout, using fallback.`)
       resolve(fallback)
     }, timeoutMs)
+    promise.then(
+      value => {
+        clearTimeout(timeoutId)
+        resolve(value)
+      },
+      error => {
+        clearTimeout(timeoutId)
+        reject(error)
+      },
+    )
   })
-  return Promise.race([guardedPromise, timeoutPromise])
 }

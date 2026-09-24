@@ -30,7 +30,7 @@ export default ({ componentId }: Props) => {
     setComponentId(COMPONENT_IDS.home, componentId)
 
     if (settingState.setting['player.startupPushPlayDetailScreen']) {
-      navigations.pushPlayDetailScreen(componentId, true)
+      navigations.pushPlayDetailScreen(componentId)
     }
 
     const handleGlobalSearch = (text: string) => {

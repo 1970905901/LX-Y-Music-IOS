@@ -17,7 +17,6 @@ import commonState from '@/store/common/state'
 import commonActions from '@/store/common/action'
 import { NAV_SHEAR_NATIVE_IDS, COMPONENT_IDS } from '@/config/constant'
 import { getStatusBarStyle } from './utils'
-import { windowSizeTools } from '@/utils/windowSizeTools'
 import { type ListInfoItem } from '@/store/songlist/state'
 
 // const store = getStore()
@@ -169,59 +168,15 @@ export async function pushHomeScreen() {
     },
   })
 }
-export function pushPlayDetailScreen(componentId: string, skipAnimation = false) {
+export function pushPlayDetailScreen(componentId: string) {
   if (!startPush(COMPONENT_IDS.playDetail)) return
   // 未载入任何歌曲时不打开播放详情页，避免空状态导致卡死
   if (!playerState.playMusicInfo.musicInfo) {
     endPush(COMPONENT_IDS.playDetail)
     return
   }
-  /*
-    Navigation.setDefaultOptions({
-      topBar: {
-        background: {
-          color: '#039893',
-        },
-        title: {
-          color: 'white',
-        },
-        backButton: {
-          title: '', // Remove previous screen name from back button
-          color: 'white',
-        },
-        buttonColor: 'white',
-      },
-      statusBar: {
-        style: 'light',
-      },
-      layout: {
-        orientation: ['portrait'],
-      },
-      bottomTabs: {
-        titleDisplayMode: 'alwaysShow',
-      },
-      bottomTab: {
-        textColor: 'gray',
-        selectedTextColor: 'black',
-        iconColor: 'gray',
-        selectedIconColor: 'black',
-      },
-    })
-  */
   requestAnimationFrame(() => {
     const theme = themeState.theme
-    // 不使用 sharedElementTransitions / elementTransitions：iOS 上 RNN 共享元素转场会把
-    // 封面 Image 在原生层劫持成中间态（巨大、错位、静止），导致竖屏播放页封面异常。
-    // 进入/返回统一用整页 alpha 淡入淡出：更接近原生全屏播放器（如系统音乐）的柔和过渡，
-    // 且能消除默认右侧滑入“白屏滑入”的生硬跳变。背景白→彩的淡入仍由 PageContent 负责，
-    // 与整页 alpha 同步，形成“淡现 + 底色渐显”的连贯观感。
-    const playDetailAnimations = skipAnimation
-      ? { push: {}, pop: { content: { alpha: { from: 1, to: 0, duration: 300 } } } }
-      : {
-          push: { content: { alpha: { from: 0, to: 1, duration: 350 } } },
-          pop: { content: { alpha: { from: 1, to: 0, duration: 300 } } },
-        }
-
     // 原生转场背景色需与页面实际背景一致，否则 push 转场瞬间颜色跳变（闪屏）。
     // PageContent 有背景图时实际背景是 c-content-background（模糊封面 + 底色），
     // 无背景图时内容层用 c-main-background，两者在深色主题下色值不同，需动态匹配。
@@ -257,7 +212,9 @@ export function pushPlayDetailScreen(componentId: string, skipAnimation = false)
                     bottom: 'always',
                   },
           },
-          ...(playDetailAnimations ? { animations: playDetailAnimations } : {}),
+          // 不配置 animations，走系统默认转场。RNN iOS 自定义转场依赖 uiManagerDidPerformMounting
+          // 时序启动、被取消时永不回调 completeTransition：JS 空闲（未播放音乐）时 push 整栈卡死，
+          // 转场期间被再次导航打断同样卡死。全 app 的 push/pop 统一禁用自定义转场。
         },
       },
     }),
@@ -302,76 +259,8 @@ export function pushSonglistDetailScreen(componentId: string, info: ListInfoItem
                     bottom: 'always',
                   },
           },
-          animations: {
-            push: {
-              sharedElementTransitions: [
-                {
-                  fromId: `${NAV_SHEAR_NATIVE_IDS.songlistDetail_pic}_from_${info.id}`,
-                  toId: `${NAV_SHEAR_NATIVE_IDS.songlistDetail_pic}_to_${info.id}`,
-                  interpolation: { type: 'spring' },
-                },
-              ],
-              elementTransitions: [
-                {
-                  id: NAV_SHEAR_NATIVE_IDS.songlistDetail_title,
-                  alpha: {
-                    from: 0, // We don't declare 'to' value as that is the element's current alpha value, here we're essentially animating from 0 to 1
-                    duration: 300,
-                  },
-                  translationX: {
-                    from: 16, // Animate translationX from 16dp to 0dp
-                    duration: 300,
-                  },
-                },
-              ],
-              // content: {
-              //   scaleX: {
-              //     from: 1.2,
-              //     to: 1,
-              //     duration: 200,
-              //   },
-              //   scaleY: {
-              //     from: 1.2,
-              //     to: 1,
-              //     duration: 200,
-              //   },
-              //   alpha: {
-              //     from: 0,
-              //     to: 1,
-              //     duration: 200,
-              //   },
-              // },
-            },
-            pop: {
-              sharedElementTransitions: [
-                {
-                  fromId: `${NAV_SHEAR_NATIVE_IDS.songlistDetail_pic}_to_${info.id}`,
-                  toId: `${NAV_SHEAR_NATIVE_IDS.songlistDetail_pic}_from_${info.id}`,
-                  interpolation: { type: 'spring' },
-                },
-              ],
-              elementTransitions: [
-                {
-                  id: NAV_SHEAR_NATIVE_IDS.songlistDetail_title,
-                  alpha: {
-                    to: 0, // We don't declare 'to' value as that is the element's current alpha value, here we're essentially animating from 0 to 1
-                    duration: 300,
-                  },
-                  translationX: {
-                    to: 16, // Animate translationX from 16dp to 0dp
-                    duration: 300,
-                  },
-                },
-              ],
-              // content: {
-              //   alpha: {
-              //     from: 1,
-              //     to: 0,
-              //     duration: 200,
-              //   },
-              // },
-            },
-          },
+          // 不配置 animations，走系统默认转场：自定义转场在 JS 空闲/被打断时会让整栈卡死
+          //（详见 pushPlayDetailScreen 注释）。共享元素转场一并移除，封面 nativeID 保留无害。
         },
       },
     }),
@@ -444,26 +333,7 @@ export function pushCommentScreen(componentId: string) {
                     bottom: 'always',
                   },
           },
-          animations: {
-            push: {
-              content: {
-                translationX: {
-                  from: windowSizeTools.getSize().width,
-                  to: 0,
-                  duration: 300,
-                },
-              },
-            },
-            pop: {
-              content: {
-                translationX: {
-                  from: 0,
-                  to: windowSizeTools.getSize().width,
-                  duration: 300,
-                },
-              },
-            },
-          },
+          // 走系统默认转场，原因见 pushPlayDetailScreen 注释
         },
       },
     }),
@@ -700,26 +570,7 @@ export function pushArtistDetailScreen(componentId: string, artistInfo: { id: st
           componentBackgroundColor: theme['c-content-background'],
                   fitSystemWindows: false,
         },
-        animations: {
-          push: {
-            content: {
-              translationX: {
-                from: windowSizeTools.getSize().width,
-                to: 0,
-                duration: 200,
-              },
-            },
-          },
-          pop: {
-            content: {
-              translationX: {
-                from: 0,
-                to: windowSizeTools.getSize().width,
-                duration: 200,
-              },
-            },
-          },
-        },
+        // 走系统默认转场，原因见 pushPlayDetailScreen 注释
       },
     },
   }),
@@ -751,26 +602,7 @@ export function pushAlbumDetailScreen(componentId: string, albumInfo: any) {
           componentBackgroundColor: theme['c-content-background'],
                   fitSystemWindows: false,
         },
-        animations: {
-          push: {
-            content: {
-              translationX: {
-                from: windowSizeTools.getSize().width,
-                to: 0,
-                duration: 200,
-              },
-            },
-          },
-          pop: {
-            content: {
-              translationX: {
-                from: 0,
-                to: windowSizeTools.getSize().width,
-                duration: 200,
-              },
-            },
-          },
-        },
+        // 走系统默认转场，原因见 pushPlayDetailScreen 注释
       },
     },
   }),
@@ -791,8 +623,8 @@ export function pushSettingDetailScreen(componentId: string, settingId: string) 
           visible: false,
           height: 0,
         },
-        // 关闭侧滑返回：边缘滑动打断 push/pop 转场时，RNN iOS 的自定义转场
-        // 不会调用 completeTransition，整个导航栈会失去交互（卡死）。
+        // 关闭侧滑返回：边缘滑动会打断转场，RNN iOS 自定义转场被取消时
+        // 不回调 completeTransition，整个导航栈会失去交互（卡死）。
         gestureEnabled: false,
         statusBar: {
           drawBehind: true,
@@ -805,26 +637,9 @@ export function pushSettingDetailScreen(componentId: string, settingId: string) 
           componentBackgroundColor: theme['c-content-background'],
           fitSystemWindows: false,
         },
-        animations: {
-          push: {
-            content: {
-              translationX: {
-                from: windowSizeTools.getSize().width,
-                to: 0,
-                duration: 200,
-              },
-            },
-          },
-          pop: {
-            content: {
-              translationX: {
-                from: 0,
-                to: windowSizeTools.getSize().width,
-                duration: 200,
-              },
-            },
-          },
-        },
+        // 不配置 animations，走系统默认转场：RNN iOS 的自定义转场（ScreenAnimationController）
+        // 依赖 uiManagerDidPerformMounting 时序、且被打断时永不调用 completeTransition，
+        // 设置页高频进出极易触发整栈卡死。系统默认转场由 UIKit 处理打断，无此问题。
       },
     },
   }), COMPONENT_IDS.SETTING_DETAIL)
@@ -853,26 +668,7 @@ export function pushDownloadManagerScreen(componentId: string) {
           componentBackgroundColor: theme['c-content-background'],
                   fitSystemWindows: false,
         },
-        animations: {
-          push: {
-            content: {
-              translationX: {
-                from: windowSizeTools.getSize().width,
-                to: 0,
-                duration: 200,
-              },
-            },
-          },
-          pop: {
-            content: {
-              translationX: {
-                from: 0,
-                to: windowSizeTools.getSize().width,
-                duration: 200,
-              },
-            },
-          },
-        },
+        // 走系统默认转场，原因见 pushPlayDetailScreen 注释
       },
     },
   }),
@@ -906,26 +702,7 @@ export function pushSimilarSongsScreen(componentId: string, similarSongs: LX.Mus
           componentBackgroundColor: theme['c-content-background'],
                   fitSystemWindows: false,
         },
-        animations: {
-          push: {
-            content: {
-              translationX: {
-                from: windowSizeTools.getSize().width,
-                to: 0,
-                duration: 200,
-              },
-            },
-          },
-          pop: {
-            content: {
-              translationX: {
-                from: 0,
-                to: windowSizeTools.getSize().width,
-                duration: 200,
-              },
-            },
-          },
-        },
+        // 走系统默认转场，原因见 pushPlayDetailScreen 注释
       },
     },
   }),

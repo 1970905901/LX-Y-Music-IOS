@@ -58,9 +58,8 @@ export default memo(({ settingId, componentId }: {
     appearedAtRef.current = Date.now()
   }, [componentId])
 
-  // push 转场（200ms）进行中忽略返回：pop 打断 push 会让 RNN iOS 的自定义转场
-  // 走到 transitionWasCancelled 分支、永不调用 completeTransition，整个导航栈
-  // 将失去交互（表现为界面卡死只能重启）。留 400ms 余量覆盖转场全程。
+  // push 转场进行中忽略返回，避免 pop 打断 push；返回走无自定义动画的 popPlain，
+  // 与 push 侧（系统默认转场）配套，彻底规避 RNN iOS 自定义转场取消不回调导致的整栈卡死。
   const handleBack = () => {
     if (Date.now() - appearedAtRef.current < 400) return
     void pop(componentId)
@@ -83,7 +82,7 @@ export default memo(({ settingId, componentId }: {
           <TouchableOpacity style={styles.backButton} onPress={handleBack}>
             <Icon name="chevron-left" size={20} color={theme['c-font']} />
           </TouchableOpacity>
-          <Text size={17} style={styles.title} color={theme['c-font']} numberOfLines={1}>
+          <Text size={18} style={styles.title} color={theme['c-font']} numberOfLines={1}>
             {t(`setting_${settingId}`)}
           </Text>
           <View style={styles.headerSpace} />

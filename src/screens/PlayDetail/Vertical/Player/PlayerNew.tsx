@@ -47,7 +47,6 @@ export default PlayerNew
 const styles = createStyle({
   container: {
     flex: 0,
-    width: '100%',
     flexDirection: 'column',
   },
   card: {

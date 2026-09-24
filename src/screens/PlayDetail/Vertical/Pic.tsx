@@ -9,6 +9,7 @@ import { useStatusbarHeight } from '@/store/common/hook'
 import { HEADER_HEIGHT } from './components/Header'
 import { designRadius } from '@/theme/DesignTokens'
 import { createStyle, toast, requestStoragePermission } from '@/utils/tools'
+import { useTheme } from '@/store/theme/hook'
 import Menu, { type MenuType, type Menus } from '@/components/common/Menu'
 import { addTask } from '@/core/download'
 import RNFetchBlob from '@/utils/rnFetchBlob'
@@ -43,6 +44,7 @@ export default memo(({ componentId }: { componentId: string }) => {
   const statusBarHeight = useStatusbarHeight()
   const isPlay = useIsPlay()
   const isCoverSpin = useSettingValue('playDetail.isCoverSpin')
+  const theme = useTheme()
 
   // 封面 URL：playerMusicInfo.pic 已兼容在线 + 下载两种来源（playInfo.ts setPlayerMusicInfo）。
   // 同时兜底 playMusicInfo.musicInfo.meta.picUrl，保证和参考版 e58d1ab1 的数据入口一致。
@@ -217,8 +219,9 @@ export default memo(({ componentId }: { componentId: string }) => {
   const coverContainerStyle = useMemo(() => ({
     width: size,
     height: size,
-    backgroundColor: 'transparent' as const,
-  }), [size])
+    borderRadius: radius,
+    backgroundColor: theme['c-primary-light-900-alpha-200'],
+  }), [size, radius, theme])
 
   // 封面图样式：旋转模式为圆形；现代默认模式为参考项目的大圆角方形。
   const animatedCoverStyle = useMemo(() => ({

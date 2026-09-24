@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native'
 import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
 import { useNavActiveId, useSafeAreaBottom } from '@/store/common/hook'
+import { useSettingValue } from '@/store/setting/hook'
 import { setNavActiveId } from '@/core/common'
 import { createStyle } from '@/utils/tools'
 import { designRadius, designSpacing } from '@/theme/DesignTokens'
@@ -22,8 +23,8 @@ const styles = createStyle({
     height: 64,
     flexDirection: 'row',
     borderRadius: designRadius.xl,
-    borderWidth: 1,
-    ...shadow(10),
+    borderWidth: 0.8,
+    ...shadow(8),
     overflow: 'hidden',
   },
   item: {
@@ -32,12 +33,15 @@ const styles = createStyle({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  activeItem: {
-    width: 62,
-    height: 46,
+  // 选中态整格遮罩：绝对定位垫在图标/文字下层，覆盖整个 tab 格。
+  // 不能用带高度的底衬 View 包图标——那会在选中时把文字向下顶出，造成“文字跑到遮罩下方”。
+  activeMask: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     borderRadius: designRadius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   label: {
     marginTop: 2,
@@ -66,17 +70,21 @@ export default memo(() => {
   const t = useI18n()
   const activeId = useNavActiveId()
   const safeAreaBottom = useSafeAreaBottom()
+  // 视觉与迷你播放器同源：底色/描边跟随 theme.miniPlayerOpacity 半透明，深浅色分别以黑/白为基色
+  const miniPlayerOpacity = useSettingValue('theme.miniPlayerOpacity')
+  const opacity = (Number(miniPlayerOpacity) || 0) / 100
+  const bgRgb = theme.isDark ? '0, 0, 0' : '255, 255, 255'
 
   const barStyle = useMemo(
     () => StyleSheet.compose(styles.bar, {
-      backgroundColor: theme['c-content-background'],
-      borderColor: theme['c-border-background'],
+      backgroundColor: `rgba(${bgRgb}, ${Math.min(1, opacity)})`,
+      borderColor: `rgba(${bgRgb}, ${Math.min(0.8, opacity * 0.7 + 0.15)})`,
     }),
-    [theme],
+    [bgRgb, opacity],
   )
 
-  const activeItemStyle = useMemo(
-    () => StyleSheet.compose(styles.activeItem, {
+  const activeMaskStyle = useMemo(
+    () => StyleSheet.compose(styles.activeMask, {
       backgroundColor: theme['c-primary-background'],
     }),
     [theme],
@@ -99,13 +107,12 @@ export default memo(() => {
               style={styles.item}
               onPress={() => setNavActiveId(tab.id)}
             >
-              <View style={isActive ? activeItemStyle : null}>
-                <Icon
-                  name={tab.icon}
-                  size={21}
-                  color={isActive ? theme['c-primary'] : theme['c-font-label']}
-                />
-              </View>
+              {isActive ? <View style={activeMaskStyle} pointerEvents="none" /> : null}
+              <Icon
+                name={tab.icon}
+                size={21}
+                color={isActive ? theme['c-primary'] : theme['c-font-label']}
+              />
               <Text
                 style={styles.label}
                 size={12}

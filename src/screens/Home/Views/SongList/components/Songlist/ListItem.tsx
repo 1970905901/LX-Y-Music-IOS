@@ -35,7 +35,6 @@ export default memo(({
   const theme = useTheme()
   const itemWidth = width - gap
   const playCount = formatCount(item.play_count)
-  const subtitle = [item.source.toUpperCase(), item.author].filter(Boolean).join(' · ')
 
   const handlePress = () => {
     onPress(item, index)
@@ -51,13 +50,6 @@ export default memo(({
   const titleStyle = useMemo(
     () => StyleSheet.compose(styles.title, {
       color: theme['c-font'],
-    }),
-    [theme],
-  )
-
-  const subtitleStyle = useMemo(
-    () => StyleSheet.compose(styles.subtitle, {
-      color: theme['c-font-label'],
     }),
     [theme],
   )
@@ -84,11 +76,6 @@ export default memo(({
       <Text style={titleStyle} size={designTypography.body} numberOfLines={2}>
         {item.name}
       </Text>
-      {subtitle ? (
-        <Text style={subtitleStyle} size={designTypography.caption} numberOfLines={1}>
-          {subtitle}
-        </Text>
-      ) : null}
     </Pressable>
   ) : (
     <View style={{ ...styles.placeholder, width: itemWidth }} />
@@ -132,9 +119,6 @@ const styles = createStyle({
   title: {
     marginTop: designSpacing.sm,
     fontWeight: '600',
-  },
-  subtitle: {
-    marginTop: 3,
   },
   placeholder: {
     margin: 10,

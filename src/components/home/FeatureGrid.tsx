@@ -67,6 +67,7 @@ const FeatureGrid = memo(() => {
   const wyCookie = useSettingValue('common.wy_cookie')
   const kgCookie = useSettingValue('common.kg_cookie')
   const txCookie = useSettingValue('common.tx_cookie')
+  const myListVisibility = useSettingValue('list.myListVisibility')
 
   const features = useMemo(
     () => {
@@ -79,7 +80,8 @@ const FeatureGrid = memo(() => {
       }
       const items: FeatureItem[] = NAV_MENUS.filter(
         menu => !TAB_IDS.has(menu.id) && !MOVED_INTO_DISCOVERY_IDS.has(menu.id) && (navStatus[menu.id] ?? true) &&
-          (!COOKIE_GATED_IDS[menu.id] || !!cookieMap[menu.id]),
+          (!COOKIE_GATED_IDS[menu.id] || !!cookieMap[menu.id]) &&
+          (myListVisibility[menu.id] ?? true),
       ).map(({ id, icon }) => ({ id, icon }))
 
       if (!global.lx.isCarMode) return items
@@ -87,7 +89,7 @@ const FeatureGrid = memo(() => {
       if (showExitBtn) items.push({ id: 'nav_exit', icon: 'exit2' })
       return items
     },
-    [navStatus, showBackBtn, showExitBtn, wyCookie, kgCookie, txCookie],
+    [navStatus, showBackBtn, showExitBtn, wyCookie, kgCookie, txCookie, myListVisibility],
   )
 
   const rowStyle = useMemo(

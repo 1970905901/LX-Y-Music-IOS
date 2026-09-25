@@ -385,6 +385,8 @@
   "setting_list_auto_save_daily_rec": "自动保存每日推荐歌单",
   "setting_list_auto_save_daily_rec_tip": "开启后，每日首次进入“每日推荐”时，若当天还未保存过，将自动创建一个以日期命名的歌单（如“08_15_daily”）。最多会保留最近15天的歌单。",
   "setting_list_discovery_platform_order": "推荐页平台按钮排序",
+  "setting_list_my_list_visibility": "我的页列表显示",
+  "setting_list_my_list_visibility_tip": "勾选显示，取消勾选隐藏。设置只影响“我的”页入口，不删除列表、歌单或歌曲。",
   "setting_list_discovery_platform_order_tip": "从上到下为推荐页平台按钮的显示顺序，排在第一位的平台是进入推荐页时的默认选中平台。",
   "setting_list_discovery_platform_order_default_badge": "默认",
   "setting_list_discovery_platform_order_up": "上移",

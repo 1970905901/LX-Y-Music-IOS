@@ -177,6 +177,11 @@ declare global {
 
       'list.isAutoSaveDailyRec': boolean
 
+      /**
+       * “我的”页列表卡片显示状态（未配置的列表默认显示）
+       */
+      'list.myListVisibility': Record<string, boolean>
+
       'menu.playLater': boolean
       'menu.addTo': boolean
       'menu.dislike': boolean

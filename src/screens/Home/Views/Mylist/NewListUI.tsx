@@ -1,6 +1,7 @@
 import { memo, useCallback, useMemo, useState, useEffect, useRef } from 'react'
 import { View, TouchableOpacity, FlatList, ActivityIndicator, RefreshControl, Animated, PanResponder, BackHandler, StyleSheet } from 'react-native'
 import { useMyList, useActiveListId, useListFetching } from '@/store/list/hook'
+import { useSettingValue } from '@/store/setting/hook'
 import { setActiveList, updateUserListPosition } from '@/core/list'
 import { fetchCoverUrl } from '@/core/music/coverUrl'
 import { getListMusics } from '@/utils/data'
@@ -303,6 +304,7 @@ export default memo(() => {
   const allList = useMyList()
   const activeListId = useActiveListId()
   const isHorizontal = useHorizontalMode()
+  const listVisibility = useSettingValue('list.myListVisibility')
 
   const [listInfoMap, setListInfoMap] = useState<Map<string, { cover: string, total: number }>>(new Map())
   const [isLoading, setIsLoading] = useState(true)
@@ -355,7 +357,11 @@ export default memo(() => {
   const duplicateMusicRef = useRef<DuplicateMusicType>(null)
   const listImportExportRef = useRef<ListImportExportType>(null)
 
-  const userLists = useMemo(() => allList.filter(l => l.id !== LIST_IDS.DEFAULT && l.id !== LIST_IDS.LOVE), [allList])
+  const isListVisible = useCallback((listId: string) => {
+    return listVisibility[listId] ?? true
+  }, [listVisibility])
+
+  const userLists = useMemo(() => allList.filter(l => l.id !== LIST_IDS.DEFAULT && l.id !== LIST_IDS.LOVE && isListVisible(l.id)), [allList, isListVisible])
 
   if (animsRef.current.length !== userLists.length) {
     if (animsRef.current.length < userLists.length) {
@@ -470,13 +476,19 @@ export default memo(() => {
     }
   }, [activeListId])
 
+  useEffect(() => {
+    if (!isHorizontal && showMusicList && activeListId && !isListVisible(activeListId)) {
+      handleBackToList()
+    }
+  }, [activeListId, handleBackToList, isHorizontal, isListVisible, showMusicList])
+
   const handleItemPress = useCallback((item: ListItemInfo) => {
     setActiveList(item.id)
     setShowMusicList(true)
   }, [])
 
   const listItems = useMemo(() => {
-    return allList.map(list => {
+    return allList.filter(list => isListVisible(list.id)).map(list => {
       const info = listInfoMap.get(list.id)
       return {
         id: list.id,
@@ -486,7 +498,7 @@ export default memo(() => {
         isFixed: list.id === LIST_IDS.DEFAULT || list.id === LIST_IDS.LOVE,
       }
     })
-  }, [allList, listInfoMap])
+  }, [allList, isListVisible, listInfoMap])
 
   const handleLayoutHeight = useCallback((index: number, height: number) => {
     heightsRef.current[index] = height

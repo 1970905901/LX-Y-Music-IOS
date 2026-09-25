@@ -7,6 +7,7 @@ import IsClickPlayList from './IsClickPlayList'
 import IsShowAlbumName from './IsShowAlbumName'
 import IsShowInterval from './IsShowInterval'
 import IsAutoSaveDailyRec from './IsAutoSaveDailyRec'
+import MyListVisibility from './MyListVisibility'
 
 import MenuSettings from './MenuSettings'
 
@@ -17,6 +18,7 @@ export default memo(() => {
       <IsShowAlbumName />
       <IsShowInterval />
       <IsAutoSaveDailyRec />
+      <MyListVisibility />
       <AddMusicLocationType />
       <MenuSettings />
       <DiscoveryPlatformOrder />

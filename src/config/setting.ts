@@ -17,7 +17,7 @@ const arraysEqual = (a: any[], b: any[]): boolean => {
   return true
 }
 
-const DEEP_KEYS = ['common.navStatus', 'common.navOrder', 'common.sectionExpandedStatus', 'player.failureStrategy', 'search.enabledSources', 'common.navFlatOrder', 'common.discoveryPlatformOrder']
+const DEEP_KEYS = ['common.navStatus', 'common.navOrder', 'common.sectionExpandedStatus', 'player.failureStrategy', 'search.enabledSources', 'common.navFlatOrder', 'common.discoveryPlatformOrder', 'list.myListVisibility']
 
 const mergeSetting = (
   originSetting: LX.AppSetting,

@@ -149,6 +149,7 @@ const defaultSetting: LX.AppSetting = {
   'list.isSaveScrollLocation': true,
   'list.addMusicLocationType': 'top',
   'list.isAutoSaveDailyRec': true,
+  'list.myListVisibility': {},
   'list.isShowCover': true,
 
   'menu.playLater': true,

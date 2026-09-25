@@ -177,7 +177,7 @@ export default memo(() => {
             disabled={!isEnableLog}
           />
         </View>
-        <View style={{ marginLeft: -25 }}>
+        <View>
           <InputItem
             label={t('setting_other_log_max_lines')}
             value={String(maxLogLines)}
@@ -222,7 +222,6 @@ export default memo(() => {
 const styles = createStyle({
   checkBox: {
     paddingBottom: 15,
-    marginLeft: -25,
   },
   btn: {
     flexDirection: 'row',

@@ -41,7 +41,7 @@ export default memo(() => {
       </View>
       <View style={styles.part}>
         <Text style={{ ...styles.text, color: theme['c-font'] }}>
-          目前本项目的原始发布地址<Text style={styles.boldText}>只有 GitHub</Text>
+          目前本项目的原始发布地址<Text style={styles.boldText}>只有 GitHub 和 QQ 群 1013518794</Text>
           ，其他渠道均为第三方转载发布，可信度请自行鉴别。
         </Text>
       </View>

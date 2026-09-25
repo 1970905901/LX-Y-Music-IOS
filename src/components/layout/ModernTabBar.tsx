@@ -47,6 +47,12 @@ const styles = createStyle({
     marginTop: 2,
     fontWeight: '600',
   },
+  iconWrap: {
+    height: 24,
+    width: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 })
 
 const TAB_IDS = [
@@ -108,12 +114,15 @@ export default memo(() => {
               onPress={() => setNavActiveId(tab.id)}
             >
               {isActive ? <View style={activeMaskStyle} pointerEvents="none" /> : null}
-              <Icon
-                name={tab.icon}
-                // love 字形在字体内占位偏小，放大一档与其他图标视觉等大
-                size={tab.icon === 'love' ? 24 : 21}
-                color={isActive ? theme['c-primary'] : theme['c-font-label']}
-              />
+              {/* 所有 tab 的图标统一放进同尺寸容器：love 字形占位偏小需放大一档，
+                  但不能让它撑高布局把文字顶下去（与其他 tab 错位） */}
+              <View style={styles.iconWrap}>
+                <Icon
+                  name={tab.icon}
+                  size={tab.icon === 'love' ? 24 : 21}
+                  color={isActive ? theme['c-primary'] : theme['c-font-label']}
+                />
+              </View>
               <Text
                 style={styles.label}
                 size={12}

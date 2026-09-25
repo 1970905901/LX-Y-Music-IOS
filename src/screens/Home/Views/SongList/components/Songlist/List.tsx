@@ -180,6 +180,7 @@ export default forwardRef<ListType, ListProps>(({ header, onRefresh, onLoadMore,
           // refreshing={refreshing}
           onEndReachedThreshold={0.6}
           onEndReached={handleLoadMore}
+          showsVerticalScrollIndicator={false}
           refreshControl={refreshControl}
           ListFooterComponent={footerComponent}
         />

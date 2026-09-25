@@ -174,14 +174,18 @@ export default () => {
       <List
         ref={listRef}
         header={(
-          <HeaderBar
-            key={headerKey}
-            ref={headerBarRef}
-            title={t('discovery_tab_discover')}
-            onSortChange={handleSortChange}
-            onTagChange={handleTagChange}
-            onSourceChange={handleSourceChange}
-          />
+          // 负边距抵消 Songlist 列表 FlatList 的 10pt 水平框架内边距，
+          // 让平台/分类/标签横滑行的滚动范围直达屏幕左右两缘（与推荐页一致）
+          <View style={{ marginHorizontal: -10 }}>
+            <HeaderBar
+              key={headerKey}
+              ref={headerBarRef}
+              title={t('discovery_tab_discover')}
+              onSortChange={handleSortChange}
+              onTagChange={handleTagChange}
+              onSourceChange={handleSourceChange}
+            />
+          </View>
         )}
         onOpenDetail={handleOpenDetail}
       />

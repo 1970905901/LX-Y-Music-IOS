@@ -26,7 +26,12 @@ const styles = createStyle({
     paddingHorizontal: designSpacing.lg,
     paddingRight: designSpacing.md,
   },
-  contentBare: {},
+  contentBare: {
+    // 用于无父容器内边距的场景（如歌单页头部）：滚动范围直达屏幕两缘，
+    // 仅通过内容内边距保证首屏位置与标题对齐、末尾胶囊不贴边
+    paddingLeft: designSpacing.lg,
+    paddingRight: designSpacing.lg,
+  },
   chip: {
     height: 34,
     paddingHorizontal: designSpacing.md,

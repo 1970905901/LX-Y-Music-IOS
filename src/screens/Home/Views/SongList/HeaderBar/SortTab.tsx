@@ -96,6 +96,8 @@ const styles = createStyle({
   },
   content: {
     alignItems: 'center',
+    paddingLeft: designSpacing.lg,
+    paddingRight: designSpacing.lg,
   },
   buttonText: {
     textAlign: 'center',

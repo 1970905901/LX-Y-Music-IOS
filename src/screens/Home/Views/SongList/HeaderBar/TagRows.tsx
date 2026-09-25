@@ -82,7 +82,14 @@ export default forwardRef<TagRowsType, TagRowsProps>(({ onTagChange }, ref) => {
   return (
     <View style={styles.container}>
       {groups.map((group, index) => (
-        <View key={`${group.name}-${index}`} style={styles.groupRow}>
+        <ScrollView
+          key={`${group.name}-${index}`}
+          style={styles.groupScroll}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          keyboardShouldPersistTaps="always"
+          contentContainerStyle={styles.groupContent}
+        >
           {group.name ? (
             <Text
               style={styles.groupName}
@@ -93,40 +100,32 @@ export default forwardRef<TagRowsType, TagRowsProps>(({ onTagChange }, ref) => {
               {group.name}
             </Text>
           ) : null}
-          <ScrollView
-            style={styles.groupScroll}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            keyboardShouldPersistTaps="always"
-            contentContainerStyle={styles.groupContent}
-          >
-            {group.list.map((tag) => {
-              const isActive = activeId == tag.id
-              return (
-                <Pressable
-                  key={tag.id || `default-${index}`}
-                  style={{
-                    ...styles.tagButton,
-                    backgroundColor: isActive
-                      ? theme['c-primary']
-                      : theme['c-primary-light-900-alpha-300'],
-                    borderColor: isActive
-                      ? theme['c-primary']
-                      : theme['c-border-background'],
-                  }}
-                  onPress={() => { handlePress(tag.name, tag.id) }}
+          {group.list.map((tag) => {
+            const isActive = activeId == tag.id
+            return (
+              <Pressable
+                key={tag.id || `default-${index}`}
+                style={{
+                  ...styles.tagButton,
+                  backgroundColor: isActive
+                    ? theme['c-primary']
+                    : theme['c-primary-light-900-alpha-300'],
+                  borderColor: isActive
+                    ? theme['c-primary']
+                    : theme['c-border-background'],
+                }}
+                onPress={() => { handlePress(tag.name, tag.id) }}
+              >
+                <Text
+                  style={styles.tagText}
+                  color={isActive ? theme['c-primary-light-1000'] : theme['c-font']}
                 >
-                  <Text
-                    style={styles.tagText}
-                    color={isActive ? theme['c-primary-light-1000'] : theme['c-font']}
-                  >
-                    {tag.name}
-                  </Text>
-                </Pressable>
-              )
-            })}
-          </ScrollView>
-        </View>
+                  {tag.name}
+                </Text>
+              </Pressable>
+            )
+          })}
+        </ScrollView>
       ))}
     </View>
   )
@@ -136,20 +135,17 @@ const styles = createStyle({
   container: {
     marginTop: designSpacing.xs,
   },
-  groupRow: {
+  groupScroll: {
+    flexGrow: 0,
+  },
+  groupContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: designSpacing.sm,
+    paddingLeft: designSpacing.lg,
+    paddingRight: designSpacing.lg,
   },
   groupName: {
     marginRight: designSpacing.xs,
-  },
-  groupScroll: {
-    flexGrow: 0,
-    flexShrink: 1,
-  },
-  groupContent: {
-    alignItems: 'center',
   },
   tagButton: {
     height: 32,

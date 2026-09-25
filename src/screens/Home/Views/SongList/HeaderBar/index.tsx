@@ -60,13 +60,15 @@ export default forwardRef<HeaderBarType, HeaderBarProps>(
 const styles = createStyle({
   container: {
     zIndex: 2,
-    paddingHorizontal: designSpacing.lg,
+    // 不设水平内边距：让平台/分类/标签横滑行的滚动范围直达屏幕两缘，
+    // 各行通过 contentContainer 的内边距保证首屏位置与标题对齐。
     marginBottom: designSpacing.xs,
   },
   title: {
     fontWeight: '800',
     lineHeight: 36,
     marginBottom: designSpacing.sm,
+    paddingHorizontal: designSpacing.lg,
   },
   sortRow: {
     flexDirection: 'row',

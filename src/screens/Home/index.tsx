@@ -1,8 +1,9 @@
-import {useCallback, useEffect, useRef} from 'react'
+import {useCallback, useEffect, useRef, useState} from 'react'
 import { useHorizontalMode } from '@/utils/hooks'
 import PageContent from '@/components/PageContent'
 import {setComponentId, setNavActiveId} from '@/core/common'
 import { COMPONENT_IDS } from '@/config/constant'
+import { usePageVisible } from '@/store/common/hook'
 import Vertical from './Vertical'
 import Horizontal from './Horizontal'
 import { navigations } from '@/navigation'
@@ -20,6 +21,15 @@ import YouTubeLoginManager from "@/components/YouTubeLoginManager.tsx";
 import VideoPlayerManager from "@/components/VideoPlayerManager.tsx";
 interface Props {
   componentId: string
+}
+
+// Home 的 MV 播放器宿主：仅在 Home 页面在窗口上时启用。
+// Home 被 push 的页面（播放详情等）覆盖后视图树脱离窗口，present 无法执行；
+// 且禁用后其隐藏的 1x1 Video 不会抢载 MV 源，避免与窗口内实例出现双声道。
+const HomeVideoPlayerManager = () => {
+  const [visible, setVisible] = useState(true)
+  usePageVisible([COMPONENT_IDS.home], useCallback((v) => { setVisible(v) }, []))
+  return <VideoPlayerManager enabled={visible} />
 }
 
 export default ({ componentId }: Props) => {
@@ -82,7 +92,7 @@ export default ({ componentId }: Props) => {
           Home 被 push 的原生页面覆盖后视图树脱离窗口，挂在 Home 里的弹窗永远无法呈现，
           表现为设置详情页里的登录按钮点了没反应。 */}
       {/*<YouTubeLoginManager />*/}
-      <VideoPlayerManager />
+      <HomeVideoPlayerManager />
       <DownloadBall />
     </>
   )}

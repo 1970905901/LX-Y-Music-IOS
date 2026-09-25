@@ -15,6 +15,7 @@ import { useI18n } from '@/lang'
 import { useIsWyLiked, useIsTxLiked, useIsKgLiked } from '@/store/user/hook'
 import { handleLikeMusic, handleTxLikeMusic, handleKgLikeMusic } from '@/components/OnlineList/listAction'
 import useCoverUrl from '@/utils/hooks/useCoverUrl'
+import { designRadius, designSpacing } from '@/theme/DesignTokens'
 
 export const ITEM_HEIGHT = scaleSizeH(LIST_ITEM_HEIGHT)
 
@@ -257,8 +258,8 @@ const styles = createStyle({
     width: 70,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingLeft: 5,
-    paddingRight: 5,
+    paddingLeft: designSpacing.sm,
+    paddingRight: designSpacing.sm,
   },
   snIndex: {
     width: 40,
@@ -268,9 +269,9 @@ const styles = createStyle({
     paddingRight: 5,
   },
   albumArt: {
-    width: 52,
-    height: 52,
-    borderRadius: 4,
+    width: 54,
+    height: 54,
+    borderRadius: designRadius.md,
   },
   itemInfo: {
     flexGrow: 1,

@@ -26,13 +26,11 @@ interface PlaylistItem {
 
 interface ListItemProps {
   item: PlaylistItem
-  /** 横屏多列时每列宽度（如 '50%'），竖屏为 '100%' */
-  rowWidth?: `${number}%`
   onPress: (item: PlaylistItem) => void
   onMenuPress: (item: PlaylistItem, position: Position) => void
 }
 
-export default memo(({ item, rowWidth = '100%', onPress, onMenuPress }: ListItemProps) => {
+export default memo(({ item, onPress, onMenuPress }: ListItemProps) => {
   const theme = useTheme()
   const menuBtnRef = useRef<TouchableOpacity>(null)
 
@@ -47,7 +45,7 @@ export default memo(({ item, rowWidth = '100%', onPress, onMenuPress }: ListItem
 
   return (
     <TouchableOpacity
-      style={[styles.container, { width: rowWidth, backgroundColor: theme['c-content-background'], borderColor: theme['c-border-background'] }]}
+      style={[styles.container, { backgroundColor: theme['c-content-background'], borderColor: theme['c-border-background'] }]}
       onPress={() => onPress(item)}
     >
       <View style={styles.coverContainer}>
@@ -86,6 +84,7 @@ export default memo(({ item, rowWidth = '100%', onPress, onMenuPress }: ListItem
 
 const styles = StyleSheet.create({
   // 卡片行样式与「我的」tab 歌单卡片完全一致
+  // 不可再设 width：卡片靠父容器 stretch 撑满，否则与 marginHorizontal 相加会溢出、右侧被裁切
   container: {
     height: scaleSizeH(64),
     flexDirection: 'row',

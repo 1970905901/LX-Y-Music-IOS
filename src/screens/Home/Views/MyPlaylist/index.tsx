@@ -287,7 +287,9 @@ const styles = StyleSheet.create({
   titleRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    paddingHorizontal: designSpacing.lg,
+    // 与歌单卡片的 marginHorizontal(md=16) 对齐，标题与列表左右缩进一致
+    paddingHorizontal: designSpacing.md,
+    marginBottom: designSpacing.sm,
   },
   titleText: {
     fontWeight: '800',

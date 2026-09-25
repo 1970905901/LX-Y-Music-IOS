@@ -44,8 +44,10 @@ const LrcLine = memo(
     const isPlayed = lineNum < activeLine
     const size = lrcFontSize / 10
     const lineHeight = setSpText(size) * 1.3
-    // 当前激活行存在逐字时间轴时才走逐字卡拉OK渲染，否则退回整行高亮。
-    const words = isActive ? wordsByIndex[lineNum] ?? null : null
+    // 有逐字时间轴的行始终用卡拉OK渲染器（非激活时静态显示未播放颜色）：
+    // 嵌套 Text 与纯文本的换行断点不同，若激活时才切换渲染器，行高会在切行瞬间突变，
+    // 造成抖动且实测高度与累计偏移基准不一致、高亮行偏离中心。
+    const words = wordsByIndex[lineNum] ?? null
 
     const colors = useMemo(() => {
       return isActive
@@ -77,10 +79,12 @@ const LrcLine = memo(
                   textAlign,
                   lineHeight,
                   fontWeight: 'normal',
+                  opacity: colors[2],
                 }}
                 words={words}
                 lineTime={line.time}
                 size={size}
+                isActive={isActive}
                 playedColor={colors[0]}
                 inactiveColor={theme['c-350']}
               />
@@ -320,7 +324,8 @@ export default () => {
   // 逐字歌词（有逐字时间轴）时采用「句内暂停、句末再滚」：
   //   - 演唱区间 [curTime, lineEndTime]：高亮行停在【正中央】，歌词不滚动（符合“播放时暂停滚动”）。
   //   - 句末到下一句起的间隙 [lineEndTime, nextTime]：从当前行中心平滑滚动到下一行中心（放完再滚动）。
-  // 无逐字歌词（纯 LRC）时回退为整行匀速连续滚动（卡拉OK 式顺滑上移），避免无逐字时整段硬跳。
+  // 无逐字歌词（纯 LRC）：句内保持高亮行居中，仅在临近下一句的短窗口（约 0.25~0.7s）内
+  // 滚动到下一行中心，与逐字模式观感一致；配合指数平滑，切行也是短滑动而非硬跳。
   // 行级高亮着色仍由 useLrcPlay 的 line 驱动；本函数只负责位置连续（每帧基于精确时间计算）。
   const scrollToActiveContinuous = useCallback((ts: number) => {
     const t = audioClock.getTime() * 1000 // ms
@@ -359,8 +364,11 @@ export default () => {
           offset = offsetI + Math.min(1, Math.max(0, progress)) * (offsetNext - offsetI)
         }
       } else {
-        // 无逐字：整行匀速连续滚动（原卡拉OK 式顺滑上移）。
-        const progress = nextTime > curTime ? (t - curTime) / (nextTime - curTime) : 0
+        // 无逐字：句内保持当前行【居中】，仅在临近下一句的短窗口内平滑滚动到下一行中心。
+        // 不再整行线性插值——那会让高亮行在行内持续上移、绝大部分时间偏离中心位置。
+        const duration = Math.max(nextTime - curTime, 1)
+        const scrollWindow = Math.min(Math.max(duration * 0.35, Math.min(250, duration * 0.9)), 700)
+        const progress = Math.min(1, Math.max(0, (t - (nextTime - scrollWindow)) / scrollWindow))
         offset = offsetI + progress * (offsetNext - offsetI)
       }
     }

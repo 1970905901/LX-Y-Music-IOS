@@ -16,6 +16,7 @@ const KaraokeLyric = memo(({
   playedColor,
   inactiveColor,
   style,
+  isActive,
 }: {
   words: LxLyricWord[]
   lineTime: number
@@ -23,11 +24,20 @@ const KaraokeLyric = memo(({
   playedColor: string
   inactiveColor: string
   style?: TextStyle
+  isActive: boolean
 }) => {
   const [state, setState] = useState({ index: -1, progress: 0 })
   const stateRef = useRef(state)
 
   useEffect(() => {
+    // 非激活行静态渲染：停掉 rAF、进度归零（全部字用未播放颜色）。
+    // 激活/非激活共用同一渲染器是为了让行的换行布局恒定——若激活时才切换渲染器，
+    // 嵌套 Text 与纯文本的换行断点不同，行高会在切行瞬间突变（抖动 + 居中偏移）。
+    if (!isActive) {
+      stateRef.current = { index: -1, progress: 0 }
+      setState(stateRef.current)
+      return
+    }
     let raf = 0
     const tick = () => {
       // audioClock 返回秒，歌词时间为毫秒
@@ -43,7 +53,7 @@ const KaraokeLyric = memo(({
     }
     raf = requestAnimationFrame(tick)
     return () => { cancelAnimationFrame(raf) }
-  }, [words, lineTime])
+  }, [words, lineTime, isActive])
 
   return (
     <Text style={style}>

@@ -5,7 +5,7 @@ require Pod::Executable.execute_command('node', ['-p',
     {paths: [process.argv[1]]},
   )', __dir__]).strip
 
-platform :ios, '15.0'
+platform :ios, '14.0'
 prepare_react_native_project!
 
 # If you are using a `react-native-flipper` your iOS build will fail when `NO_FLIPPER=1` is set.
@@ -158,7 +158,7 @@ target 'LxMusicMobile' do
 
     installer.pods_project.targets.each do |target|
       target.build_configurations.each do |build_configuration|
-        build_configuration.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
+        build_configuration.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
       end
     end
 

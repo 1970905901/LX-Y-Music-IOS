@@ -46,7 +46,7 @@ const URL_QUALITYS: LX.Quality[] = ['320k', '128k']
 
 const cleanName = (name: string): string => {
   const cleaned = (name || '')
-    .replace(/\s*[[]【(（].*?[\]】)）]\s*/g, ' ')
+    .replace(/\s*[【(（[].*?[\]】)）]\s*/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
   return cleaned || name

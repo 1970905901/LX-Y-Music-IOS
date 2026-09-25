@@ -170,7 +170,8 @@ export default memo(() => {
   const titleStyle = useMemo(
     () => StyleSheet.compose(styles.title, {
       color: theme['c-font'],
-      lineHeight: 36,
+      // 不写死 lineHeight：fontSize 随 app 字号缩放（setSpText），行高小于字高时
+      // 大标题顶部笔画会被裁掉；交给系统按字体度量计算行高，任何字号下都完整显示。
     }),
     [theme],
   )

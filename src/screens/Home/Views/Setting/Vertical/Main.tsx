@@ -25,7 +25,8 @@ export default memo(() => {
   }, [])
 
   const contentContainer = useMemo(() => ({
-    paddingHorizontal: designSpacing.lg,
+    // 设置分类列表与详情页保持一致：水平内边距从 lg(24) 提到 xl(32)
+    paddingHorizontal: designSpacing.xl,
     // 底部悬浮的迷你播放器胶囊 + tab 栏最高约到 safeAreaBottom+150pt，
     // 参照 Discovery 页的 180 底部留白并叠加安全区，保证最后一项滚到底后完全脱离悬浮区可点。
     paddingBottom: 180 + safeAreaBottom,

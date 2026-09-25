@@ -70,7 +70,8 @@ export default memo(({ settingId, componentId }: {
   ), [settingId])
 
   const contentStyle = useMemo(() => ({
-    paddingHorizontal: designSpacing.lg,
+    // 设置详情内容离屏幕边缘过近，水平内边距从 lg(24) 提到 xl(32)
+    paddingHorizontal: designSpacing.xl,
     paddingTop: designSpacing.sm,
     paddingBottom: designSpacing.xl + safeAreaBottom,
   }), [safeAreaBottom])

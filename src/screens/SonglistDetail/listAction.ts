@@ -66,13 +66,20 @@ export const handleCollect = async (id: string, source: Source, name: string) =>
     return
   }
 
-  const list = await getListDetailAll(source, id)
-  await createList({
-    name,
-    id: `${source}_${toMD5(listId)}`,
-    list,
-    source,
-    sourceListId: id,
-  })
-  toast(global.i18n.t('collect_success'))
+  // 收藏需要拉取完整歌单（逐页请求），耗时可能较长：
+  // 点击后立即提示进行中，结束时明确反馈成功/失败，避免长时间无响应的观感
+  toast('收藏中...')
+  try {
+    const list = await getListDetailAll(source, id)
+    await createList({
+      name,
+      id: `${source}_${toMD5(listId)}`,
+      list,
+      source,
+      sourceListId: id,
+    })
+    toast(global.i18n.t('collect_success'))
+  } catch (err: any) {
+    toast(`收藏失败：${err?.message || '请稍后重试'}`)
+  }
 }

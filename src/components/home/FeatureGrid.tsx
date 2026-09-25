@@ -8,7 +8,6 @@ import { useSettingValue } from '@/store/setting/hook'
 import { useI18n } from '@/lang'
 import { exitApp, setNavActiveId } from '@/core/common'
 import { designRadius, designSpacing } from '@/theme/DesignTokens'
-import { shadow } from '@/utils/shadow'
 import { scaleSizeH } from '@/utils/pixelRatio'
 import { Icon } from '@/components/common/Icon'
 import { SvgIcon } from '@/components/common/SvgIcon'
@@ -93,8 +92,7 @@ const FeatureGrid = memo(() => {
 
   const rowStyle = useMemo(
     () => ({
-      backgroundColor: theme['c-content-background'],
-      borderColor: theme['c-border-background'],
+      backgroundColor: theme['c-primary-light-900-alpha-300'],
     }),
     [theme],
   )
@@ -172,9 +170,7 @@ const styles = createStyle({
     height: scaleSizeH(64),
     paddingHorizontal: designSpacing.md,
     marginBottom: designSpacing.sm,
-    borderWidth: 1,
     borderRadius: designRadius.md,
-    ...shadow(2),
   },
   label: {
     flex: 1,

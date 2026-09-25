@@ -22,7 +22,6 @@ import { handleRemove, handleSync } from './MyList/listAction'
 import { LIST_IDS, COMPONENT_IDS } from '@/config/constant'
 import { scaleSizeH } from '@/utils/pixelRatio'
 import { designRadius, designSpacing } from '@/theme/DesignTokens'
-import { shadow } from '@/utils/shadow'
 import { useSafeAreaBottom } from '@/store/common/hook'
 import PageTopInset from '@/components/common/PageTopInset'
 import Loading from '@/components/common/Loading'
@@ -91,10 +90,7 @@ const FixedPlaylistCard = memo(({
           height: CARD_HEIGHT,
           backgroundColor: activeId == item.id
             ? theme['c-primary-background-hover']
-            : theme['c-content-background'],
-          borderColor: activeId == item.id
-            ? theme['c-primary-background-active']
-            : theme['c-border-background'],
+            : theme['c-primary-light-900-alpha-300'],
         },
       ]}
     >
@@ -248,10 +244,7 @@ const PlaylistCard = memo(({
     ? theme['c-primary-background-active']
     : activeId == item.id
       ? theme['c-primary-background-hover']
-      : theme['c-content-background']
-  const borderColor = activeId == item.id
-    ? theme['c-primary-background-active']
-    : theme['c-border-background']
+      : theme['c-primary-light-900-alpha-300']
 
   return (
     <Animated.View
@@ -261,7 +254,6 @@ const PlaylistCard = memo(({
         {
           height: CARD_HEIGHT,
           backgroundColor,
-          borderColor,
           opacity,
           transform,
           zIndex,
@@ -799,9 +791,7 @@ const styles = createStyle({
     paddingHorizontal: designSpacing.md,
     marginHorizontal: designSpacing.md,
     marginBottom: designSpacing.sm,
-    borderWidth: 1,
     borderRadius: designRadius.md,
-    ...shadow(2),
     overflow: 'hidden',
   },
   cardContent: {

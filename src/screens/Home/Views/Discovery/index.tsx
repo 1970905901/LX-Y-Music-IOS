@@ -75,6 +75,10 @@ const styles = createStyle({
   platformTitle: {
     paddingHorizontal: designSpacing.lg,
   },
+  sectionTitle: {
+    paddingHorizontal: designSpacing.lg,
+    fontWeight: '800',
+  },
   boardContent: {
     paddingHorizontal: designSpacing.lg,
     gap: designSpacing.sm,
@@ -262,7 +266,7 @@ export default memo(() => {
         {boards.length ? (
           <View style={styles.sectionGap}>
             <Text
-              style={styles.platformTitle}
+              style={styles.sectionTitle}
               size={designTypography.title}
               color={theme['c-font']}
             >

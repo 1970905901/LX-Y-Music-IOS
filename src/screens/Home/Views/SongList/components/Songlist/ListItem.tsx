@@ -55,7 +55,7 @@ export default memo(({
   )
 
   return item.source ? (
-    <Pressable style={[styles.card, { width: itemWidth, margin: 10 }]} onPress={handlePress}>
+    <Pressable style={[styles.card, { width: itemWidth, margin: gap / 2 }]} onPress={handlePress}>
       <View style={styles.coverWrapper}>
         <Image
           url={item.img}
@@ -73,7 +73,7 @@ export default memo(({
           </Text>
         ) : null}
       </View>
-      <Text style={titleStyle} size={designTypography.body}>
+      <Text style={titleStyle} size={designTypography.body} numberOfLines={2}>
         {item.name}
       </Text>
     </Pressable>
@@ -123,6 +123,6 @@ const styles = createStyle({
     lineHeight: designTypography.body * 1.3,
   },
   placeholder: {
-    margin: 10,
+    margin: gap / 2,
   },
 })

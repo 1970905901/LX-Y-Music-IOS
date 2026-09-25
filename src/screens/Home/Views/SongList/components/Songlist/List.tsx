@@ -123,15 +123,18 @@ export default forwardRef<ListType, ListProps>(({ header, onRefresh, onLoadMore,
   const isHorizontal = useHorizontalMode()
 
   const rowInfo = useMemo(() => {
+    // FlatList 框架自带左右 10pt 内边距，列宽必须按扣除后的可用宽度计算，
+    // 否则每列比实际槽位宽，相邻列会盖住标题末尾的字
+    const available = width - 20
     const minWidth = isHorizontal ? MIN_WIDTH_LANDSCAPE : MIN_WIDTH_PORTRAIT
-    let w = width - GAP
-    let n = width / (minWidth + GAP)
+    let w = available - GAP
+    let n = available / (minWidth + GAP)
     if (n > 10) n = 10
     let computedItemWidth = Math.floor(w / n)
-    const num = Math.max(Math.floor(width / computedItemWidth), 2)
+    const num = Math.max(Math.floor(available / computedItemWidth), 2)
     return {
       num,
-      width: (width - GAP) / num,
+      width: (available - GAP) / num,
     }
   }, [width, isHorizontal])
   // console.log(rowNum)
@@ -181,6 +184,7 @@ export default forwardRef<ListType, ListProps>(({ header, onRefresh, onLoadMore,
           onEndReachedThreshold={0.6}
           onEndReached={handleLoadMore}
           showsVerticalScrollIndicator={false}
+          delaysContentTouches={false}
           refreshControl={refreshControl}
           ListFooterComponent={footerComponent}
         />

@@ -3,6 +3,7 @@ import { View, TouchableOpacity, Animated, Easing } from 'react-native';
 import * as Progress from 'react-native-progress';
 import { Icon } from '@/components/common/Icon';
 import { useTheme } from '@/store/theme/hook';
+import { useSafeAreaBottom } from '@/store/common/hook';
 import { createStyle } from '@/utils/tools';
 import { navigations } from '@/navigation';
 import commonState from '@/store/common/state';
@@ -11,6 +12,7 @@ import DownloadTask = LX.Download.DownloadTask;
 
 export default memo(() => {
   const theme = useTheme();
+  const safeAreaBottom = useSafeAreaBottom();
   const [isVisible, setIsVisible] = useState(false);
   const [activeTasks, setActiveTasks] = useState<Map<string, DownloadTask>>(new Map());
   const scaleAnim = useRef(new Animated.Value(0)).current;
@@ -100,7 +102,17 @@ export default memo(() => {
   if (!isVisible) return null;
 
   return (
-    <Animated.View style={[styles.container, { transform: [{ scale: scaleAnim }] }]}>
+    <Animated.View
+      style={[
+        styles.container,
+        {
+          // 悬浮在迷你播放器胶囊上方：胶囊 + tab 栏最高约到 safeAreaBottom + 150，
+          // 原 bottom:70 会与播放器/tab 栏重叠
+          bottom: 160 + safeAreaBottom,
+        },
+        { transform: [{ scale: scaleAnim }] },
+      ]}
+    >
       <TouchableOpacity onPress={handlePress}>
         <Progress.Circle
           size={50}
@@ -122,7 +134,6 @@ export default memo(() => {
 const styles = createStyle({
   container: {
     position: 'absolute',
-    bottom: 70,
     right: 15,
     zIndex: 100,
   },

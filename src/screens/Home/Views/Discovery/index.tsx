@@ -14,15 +14,13 @@ import songlistState, { type ListInfoItem, type Source } from '@/store/songlist/
 import settingState from '@/store/setting/state'
 import boardState, { type BoardItem } from '@/store/leaderboard/state'
 import { getList } from '@/core/songlist'
-import { getBoardsList, getListDetail } from '@/core/leaderboard'
+import { getBoardsList } from '@/core/leaderboard'
 import { saveLeaderboardSetting } from '@/utils/data'
-import { handlePlay as playLeaderboard } from '../Leaderboard/listAction'
 import { Icon } from '@/components/common/Icon'
 import Text from '@/components/common/Text'
 import PlatformChips from '@/components/home/PlatformChips'
 import DailyRecommendCard from '@/components/home/DailyRecommendCard'
 import HorizontalShelf from '@/components/home/HorizontalShelf'
-import HotSongList from '@/components/home/HotSongList'
 
 // 每日推荐入口与「首页推荐平台」联动：网易/酷狗/QQ 有每日推荐页，
 // 进入前要求对应平台的 Cookie 已登录；酷我/咪咕无每日推荐页，隐藏入口。
@@ -123,11 +121,8 @@ export default memo(() => {
   const [playlists, setPlaylists] = useState<ListInfoItem[]>([])
   const [loading, setLoading] = useState(true)
   const loadIdRef = useRef(0)
-  const [hotSongs, setHotSongs] = useState<LX.Music.MusicInfoOnline[]>([])
-  const [hotBoardId, setHotBoardId] = useState('')
-  const [hotLoading, setHotLoading] = useState(true)
-  const hotLoadIdRef = useRef(0)
   const [boards, setBoards] = useState<BoardItem[]>([])
+  const boardsLoadIdRef = useRef(0)
 
   const loadPlaylists = useCallback(async(source: Source) => {
     const currentLoadId = ++loadIdRef.current
@@ -145,26 +140,15 @@ export default memo(() => {
     }
   }, [t])
 
-  const loadHotSongs = useCallback(async(source: Source) => {
-    const currentLoadId = ++hotLoadIdRef.current
-    setHotLoading(true)
+  const loadBoards = useCallback(async(source: Source) => {
+    const currentLoadId = ++boardsLoadIdRef.current
     try {
-      const boards = await getBoardsList(source)
-      if (currentLoadId !== hotLoadIdRef.current) return
-      // 榜单列表与热歌同源加载：排行榜区块的卡片也跟随平台切换
-      setBoards(boards)
-      const board = boards.find(({ name }) => name.includes('热歌')) ?? boards[0]
-      if (!board) return
-      const result = await getListDetail(board.id, 1)
-      if (currentLoadId !== hotLoadIdRef.current) return
-      setHotSongs(result.list.slice(0, 6))
-      setHotBoardId(board.id)
+      const boardList = await getBoardsList(source)
+      if (currentLoadId !== boardsLoadIdRef.current) return
+      setBoards(boardList)
     } catch {
-      if (currentLoadId !== hotLoadIdRef.current) return
-      setHotSongs([])
-      setHotBoardId('')
-    } finally {
-      if (currentLoadId === hotLoadIdRef.current) setHotLoading(false)
+      if (currentLoadId !== boardsLoadIdRef.current) return
+      setBoards([])
     }
   }, [])
 
@@ -177,18 +161,13 @@ export default memo(() => {
     : boardState.sources[0] ?? 'kw'
 
   useEffect(() => {
-    void loadHotSongs(leaderboardSource)
-  }, [leaderboardSource, loadHotSongs])
+    void loadBoards(leaderboardSource)
+  }, [leaderboardSource, loadBoards])
 
   const handleOpenDetail = useCallback((item: ListInfoItem) => {
     const homeComponentId = commonState.componentIds.find(({ name }) => name === COMPONENT_IDS.home)?.id
     if (homeComponentId) navigations.pushSonglistDetailScreen(homeComponentId, item)
   }, [])
-
-  const handlePlayHotSong = useCallback((index: number) => {
-    if (!hotBoardId) return
-    void playLeaderboard(hotBoardId, hotSongs, index)
-  }, [hotBoardId, hotSongs])
 
   // 点榜单卡片进入排行榜页对应榜单：
   // 1) 持久化 source + boardId —— 排行榜页首次挂载时读取该设置兜底；
@@ -326,28 +305,6 @@ export default memo(() => {
             cardWidth={150}
             onPressItem={handleOpenDetail}
           />
-        </View>
-
-        <View style={styles.sectionGap}>
-          {hotSongs.length ? (
-            <HotSongList
-              title={`${sourceLabel(selectedSource)}${t('discovery_hot_title')}`}
-              actionLabel={t('discovery_hot_more')}
-              onPressAction={() => { setNavActiveId('nav_top') }}
-              songs={hotSongs}
-            onSongPress={(_song, index) => { handlePlayHotSong(index) }}
-            />
-          ) : null}
-          {hotLoading ? (
-            <Text style={styles.status} size={designTypography.caption} color={theme['c-font-label']}>
-              {t('list_loading')}
-            </Text>
-          ) : null}
-          {!hotLoading && !hotSongs.length ? (
-            <Text style={styles.status} size={designTypography.caption} color={theme['c-font-label']}>
-              {t('list_empty')}
-            </Text>
-          ) : null}
         </View>
 
         {loading ? (

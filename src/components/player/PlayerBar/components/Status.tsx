@@ -14,7 +14,7 @@ export default ({ autoUpdate }: { autoUpdate: boolean }) => {
   const status = statusText || (isPlay ? text : statusText)
 
   return (
-    <Text numberOfLines={1} size={12} color={theme['c-font-label']}>
+    <Text numberOfLines={1} size={12} color={theme['c-font']}>
       {status}
     </Text>
   )

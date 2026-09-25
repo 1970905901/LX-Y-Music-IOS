@@ -36,6 +36,11 @@ const DAILY_REC_IDS = new Set<NAV_ID_Type>([
   'nav_tx_daily_rec',
 ])
 
+// 播放历史在推荐页右上角已有时钟入口，更多功能网格不再重复展示。
+const HISTORY_IDS = new Set<NAV_ID_Type>([
+  'nav_play_history',
+])
+
 const renderIcon = (icon: string, color: string) => {
   if (icon.startsWith('svg:')) {
     return <SvgIcon name={icon.slice(4)} size={21} color={color} />
@@ -54,7 +59,7 @@ const FeatureGrid = memo(() => {
   const features = useMemo(
     () => {
       const items: FeatureItem[] = NAV_MENUS.filter(
-        menu => !TAB_IDS.has(menu.id) && !DAILY_REC_IDS.has(menu.id) && (navStatus[menu.id] ?? true),
+        menu => !TAB_IDS.has(menu.id) && !DAILY_REC_IDS.has(menu.id) && !HISTORY_IDS.has(menu.id) && (navStatus[menu.id] ?? true),
       ).map(({ id, icon }) => ({ id, icon }))
 
       if (!global.lx.isCarMode) return items

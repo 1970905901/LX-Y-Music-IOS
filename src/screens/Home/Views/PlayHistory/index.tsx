@@ -1,12 +1,13 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { TouchableOpacity, View, type ImageSourcePropType } from 'react-native'
-import PagerView, { type PagerViewOnPageSelectedEvent } from 'react-native-pager-view'
+import { PanResponder, TouchableOpacity, View, type ImageSourcePropType } from 'react-native'
 import OnlineList, { type OnlineListType } from '@/components/OnlineList'
 import Text from '@/components/common/Text'
 import Popup, { type PopupType } from '@/components/common/Popup'
 import { Icon } from '@/components/common/Icon'
 import { playOnlineList } from '@/core/list'
 import { getPlayHistoryByRange } from '@/core/player/playHistory'
+import { setNavActiveId } from '@/core/common'
+import commonState from '@/store/common/state'
 import { usePlayerMusicInfo } from '@/store/player/hook'
 import { useTheme } from '@/store/theme/hook'
 import { useSettingValue } from '@/store/setting/hook'
@@ -89,7 +90,6 @@ const normalizeHistoryMusic = (item: LX.Player.PlayHistoryItem): HistoryMusicInf
 
 export default memo(() => {
   const listRef = useRef<OnlineListType>(null)
-  const pagerRef = useRef<PagerView>(null)
   const popupRef = useRef<PopupType>(null)
   const [startDate, setStartDate] = useState(getTodayText())
   const [endDate, setEndDate] = useState('')
@@ -215,15 +215,21 @@ export default memo(() => {
     void playOnlineList('play_history', list, index)
   }, [list])
 
-  const handlePageSelected = useCallback(({ nativeEvent }: PagerViewOnPageSelectedEvent) => {
-    const position = nativeEvent.position
-    if (position === 1) return
-
-    if (!isRange) changeDay(position === 2 ? 1 : -1)
-    requestAnimationFrame(() => {
-      pagerRef.current?.setPageWithoutAnimation(1)
-    })
-  }, [changeDay, isRange])
+  // 左缘侧滑返回来源页（推荐页）：从屏幕左缘向右拖动后松手即返回。
+  // 进入播放历史时 setNavActiveId 不更新 lastNavActiveId（common.ts 对
+  // nav_play_history 做了排除），它仍停留在来源页，直接恢复即可返回。
+  // 只在横向位移明显大于纵向时接管手势，不影响列表的纵向滚动；
+  // 侧滑条宽 12pt，与日期头部按钮的 12pt 内边距齐平，不遮挡任何按钮。
+  const backPanResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponderCapture: (_evt, { dx, dy }) =>
+        dx > 12 && Math.abs(dx) > Math.abs(dy) * 2,
+      onPanResponderRelease: (_evt, { dx }) => {
+        // dx 从接管点起算，接管时手指已滑入 12pt，因此阈值放宽到 40
+        if (dx > 40) setNavActiveId(commonState.lastNavActiveId)
+      },
+    }),
+  ).current
 
   const pageHeader = (
     <>
@@ -280,39 +286,21 @@ export default memo(() => {
           <View style={{ flex: 1, backgroundColor: theme['c-content-background'], opacity: picOpacity / 100 }} />
         </ImageBackground>
       ) : null}
-      <PagerView
-        ref={pagerRef}
-        style={styles.historyPager}
-        initialPage={1}
-        scrollEnabled={!isRange}
-        onPageSelected={handlePageSelected}
-      >
-        <View key="prev-day" collapsable={false} style={styles.historyPage}>
-          {pageHeader}
-          <View style={styles.swipePlaceholder}>
-            <Text color={theme['c-500']}>{getNextDateText(startDate, -1)}</Text>
-          </View>
-        </View>
-        <View key="current-day" collapsable={false} style={styles.historyPage}>
-          <OnlineList
-            ref={listRef}
-            listId="play_history"
-            forcePlayList
-            ListHeaderComponent={pageHeader}
-            playingId={playerMusicInfo.id}
-            onPlayList={handlePlayList}
-            onRefresh={loadHistory}
-            onLoadMore={() => {}}
-            checkHomePagerIdle
-          />
-        </View>
-        <View key="next-day" collapsable={false} style={styles.historyPage}>
-          {pageHeader}
-          <View style={styles.swipePlaceholder}>
-            <Text color={theme['c-500']}>{startDate >= getTodayText() ? startDate : getNextDateText(startDate, 1)}</Text>
-          </View>
-        </View>
-      </PagerView>
+      {/* 日期切换只保留头部按钮（左右箭头 / 点击标题选日期），不再提供左右滑动切日，
+          避免 PagerView 占位页与列表手势冲突导致的滑动异常。 */}
+      <OnlineList
+        ref={listRef}
+        listId="play_history"
+        forcePlayList
+        ListHeaderComponent={pageHeader}
+        playingId={playerMusicInfo.id}
+        onPlayList={handlePlayList}
+        onRefresh={loadHistory}
+        onLoadMore={() => {}}
+        checkHomePagerIdle
+      />
+
+      <View style={styles.backSwipeArea} {...backPanResponder.panHandlers} />
 
       <Popup ref={popupRef} title="播放历史">
         <View style={styles.popupContent}>
@@ -459,16 +447,13 @@ const styles = createStyle({
   title: {
     fontWeight: '700',
   },
-  historyPager: {
-    flex: 1,
-  },
-  historyPage: {
-    flex: 1,
-  },
-  swipePlaceholder: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+  backSwipeArea: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 12,
+    zIndex: 10,
   },
   popupContent: {
     paddingHorizontal: 16,

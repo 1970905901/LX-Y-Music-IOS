@@ -94,6 +94,8 @@ export const useProgressDrag = (progress: number, duration: number): ProgressDra
       duration: Math.min(Math.max(dt, 250), 1500),
       easing: Easing.linear,
       useNativeDriver: false,
+      // 播放时该补间每秒接力，不占用 InteractionManager 队列（原因同 MiniProgressBar）
+      isInteraction: false,
     })
     anim.start()
     return () => anim.stop()

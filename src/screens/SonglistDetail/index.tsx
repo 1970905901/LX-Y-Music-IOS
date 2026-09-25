@@ -71,9 +71,9 @@ const ListHeader = ({ detailInfo, info, onBack, showSearchBar, searchText, isFuz
 
   return (
     <>
-      {/* 内嵌在歌单/搜索等 Home 子页面时没有共享页头兜底状态栏，必须自行让出状态栏高度，
-          否则封面/标题与状态栏重叠；不再渲染底部分割线，头部与歌曲列表浑然一体 */}
-      <View style={{ ...styles.listHeaderContainer, paddingTop: statusBarHeight }}>
+      {/* 内嵌在歌单/搜索等 Home 子页面时没有共享页头兜底状态栏，需自行让出状态栏高度；
+          独立 push 模式由 RNN safeAreaInsets 负责顶部安全区，再叠加会出现大段空白 */}
+      <View style={{ ...styles.listHeaderContainer, paddingTop: onBack ? statusBarHeight : 0 }}>
         <View style={styles.headerContent}>
           <View style={{ ...styles.listItemImg, width: IMAGE_WIDTH, height: IMAGE_WIDTH }}>
             {info.isFavorites ? (

@@ -20,6 +20,8 @@ export const useAnimateColor = (color: string) => {
       toValue: 1,
       duration: ANIMATION_DURATION,
       useNativeDriver: false,
+      // 主题色过渡动画不占用 InteractionManager 队列，避免阻塞列表渲染
+      isInteraction: false,
     }).start((finished) => {
       if (!finished) return
       // currentColor.current = nextColor

@@ -45,6 +45,10 @@ const MiniProgressBar = () => {
       duration: isJump ? 200 : 1000,
       easing: Easing.linear,
       useNativeDriver: false,
+      // 关键：不占用 InteractionManager 交互句柄。播放时本补间每 250ms 接力、
+      // 永远在飞，若持有句柄会阻塞 runAfterInteractions 队列，导致所有列表页
+      // 的 VirtualizedList 单元格停止渲染（表现为播放时列表只出一部分、暂停即恢复）。
+      isInteraction: false,
     })
     animRef.current.start()
   }, [progress, progressAnim])

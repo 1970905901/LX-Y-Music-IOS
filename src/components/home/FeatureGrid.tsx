@@ -157,7 +157,7 @@ const FeatureGrid = memo(() => {
       ))}
     </View>
   )
-}
+})
 
 // 行样式与「我的」页歌单卡片完全一致（同高/同圆角/同阴影/同图标底框/同字号），两段列表浑然一体
 const styles = createStyle({

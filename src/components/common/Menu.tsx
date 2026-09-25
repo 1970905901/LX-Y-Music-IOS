@@ -1,4 +1,5 @@
-import React, { useImperativeHandle, forwardRef, useMemo, useRef, useState, useEffect, type Ref } from 'react'
+import type React from 'react'
+import { useImperativeHandle, forwardRef, useMemo, useRef, useState, useEffect, type Ref } from 'react'
 import { View, Animated, TouchableHighlight } from 'react-native'
 import { useWindowSize } from '@/utils/hooks'
 
@@ -25,7 +26,7 @@ export interface MenuSize {
   width?: number
   height?: number
 }
-export type Menus = Readonly<Array<{ action: string; label: string | React.ReactNode; disabled?: boolean }>>
+export type Menus = Readonly<Array<{ action: string, label: string | React.ReactNode, disabled?: boolean }>>
 
 const styles = createStyle({
   mask: {
@@ -99,15 +100,14 @@ const Menu = ({
   }, [menuSize, width, height])
 
   const menuStyle = useMemo(() => {
-    if (!buttonPosition || buttonPosition.y === undefined) {
+    if (buttonPosition?.y === undefined) {
       return { height: 0, width: 0, top: 0 }
     }
 
     let menuHeight = menus.length * menuItemStyle.height
     const topHeight = buttonPosition.y - 20
     const bottomHeight = windowSize.height - buttonPosition.y - buttonPosition.h - 20
-    if (menuHeight > topHeight && menuHeight > bottomHeight)
-      menuHeight = Math.max(topHeight, bottomHeight)
+    if (menuHeight > topHeight && menuHeight > bottomHeight) { menuHeight = Math.max(topHeight, bottomHeight) }
 
     const menuWidth = menuItemStyle.width
     const bottomSpace = windowSize.height - buttonPosition.y - buttonPosition.h - 20
@@ -225,7 +225,7 @@ const Menu = ({
                 </View>
               )}
             </TouchableHighlight>
-          )
+          ),
         )}
       </Animated.ScrollView>
     </View>
@@ -250,7 +250,7 @@ export interface MenuType {
 
 const Component = <M extends Menus>(
   { menus, width, height, activeId, onHide, onPress, fontSize, center }: MenuProps<M>,
-  ref: Ref<MenuType>
+  ref: Ref<MenuType>,
 ) => {
   // console.log(visible)
   const modalRef = useRef<ModalType>(null)

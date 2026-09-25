@@ -322,5 +322,5 @@ const themes = defaultThemes.map(({ config: { primary, font, ...extInfo }, ...th
 
 fs.writeFileSync(
   path.join(__dirname, 'themes.ts'),
-  `//! 此文件由 createThemes.js 生成\n\nexport default ${JSON.stringify(themes, null, 2)} as const`
+  `//! 此文件由 createThemes.js 生成\n\nexport default ${JSON.stringify(themes, null, 2)} as const`,
 )

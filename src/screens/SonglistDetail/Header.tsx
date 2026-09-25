@@ -35,7 +35,7 @@ const CountText = memo(
   },
   (prevProps, nextProps) => {
     return true
-  }
+  },
 )
 
 const Pic = ({
@@ -113,7 +113,7 @@ export default forwardRef<HeaderType, HeaderProps>(
           setDetailInfo(info)
         },
       }),
-      []
+      [],
     )
 
     return (
@@ -154,7 +154,7 @@ export default forwardRef<HeaderType, HeaderProps>(
       </View> */}
       </View>
     )
-  }
+  },
 )
 
 const styles = createStyle({

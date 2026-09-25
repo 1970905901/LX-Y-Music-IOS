@@ -32,12 +32,12 @@ declare namespace LX {
       | DownloadTaskAction<'statusText', string>
       | DownloadTaskAction<'progress', ProgressInfo>
       | DownloadTaskAction<
-          'error',
-          {
-            error?: string
-            message?: string
-          }
-        >
+      'error',
+      {
+        error?: string
+        message?: string
+      }
+      >
 
     interface ListItem {
       id: string

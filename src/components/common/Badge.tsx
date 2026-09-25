@@ -23,7 +23,7 @@ const styles = createStyle({
 
 export type BadgeType = 'normal' | 'secondary' | 'tertiary' | 'sq' | 'hq' | 'vip'
 
-export default memo(({ type = 'normal', children }: { type?: BadgeType; children: string }) => {
+export default memo(({ type = 'normal', children }: { type?: BadgeType, children: string }) => {
   const theme = useTheme()
   // console.log(visible)
   const colors = useMemo(() => {

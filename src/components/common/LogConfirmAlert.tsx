@@ -96,7 +96,7 @@ export default forwardRef<LogConfirmAlertType, LogConfirmAlertProps>(
       onMiddle = () => {},
       showMiddle = false,
     }: LogConfirmAlertProps,
-    ref
+    ref,
   ) => {
     const theme = useTheme()
     const t = useI18n()
@@ -124,7 +124,7 @@ export default forwardRef<LogConfirmAlertType, LogConfirmAlertProps>(
         ref={dialogRef}
       >
         <View style={styles.main}>
-          <ScrollView 
+          <ScrollView
             style={styles.content}
             keyboardShouldPersistTaps={'always'}
           >
@@ -175,5 +175,5 @@ export default forwardRef<LogConfirmAlertType, LogConfirmAlertProps>(
         </View>
       </Dialog>
     )
-  }
+  },
 )

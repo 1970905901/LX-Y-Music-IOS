@@ -1,11 +1,11 @@
-import DownloadTask = LX.Download.DownloadTask;
+import DownloadTask = LX.Download.DownloadTask
 
 export interface InitState {
-  tasks: DownloadTask[];
+  tasks: DownloadTask[]
 }
 
 const state: InitState = {
   tasks: [],
-};
+}
 
-export default state;
+export default state

@@ -33,7 +33,7 @@ const showChoosePath = (
   choosePathRef: MutableRefObject<ChoosePathType | null>,
   visible: boolean,
   setVisible: (v: boolean) => void,
-  opts: { title: string; dirOnly: boolean; filter?: string[]; isPersist?: boolean },
+  opts: { title: string, dirOnly: boolean, filter?: string[], isPersist?: boolean },
 ) => {
   if (visible) {
     choosePathRef.current?.show(opts)
@@ -91,8 +91,8 @@ export default forwardRef<ListImportExportType, {}>((props, ref) => {
       if (Platform.OS === 'ios') {
         toast(global.i18n.t('setting_backup_part_export_list_tip_zip'))
         void exportListToFile(listInfo, temporaryDirectoryPath)
-          .then((filePath) => shareFile(filePath))
-          .then(() => toast(global.i18n.t('setting_backup_part_export_list_tip_success')))
+          .then(async(filePath) => shareFile(filePath))
+          .then(() => { toast(global.i18n.t('setting_backup_part_export_list_tip_success')) })
           .catch((err: any) => {
             if (err?.code === 'file_not_found') {
               toast(global.i18n.t('setting_backup_part_export_list_tip_failed'))
@@ -100,7 +100,7 @@ export default forwardRef<ListImportExportType, {}>((props, ref) => {
             }
             log.error(err)
             toast(
-              global.i18n.t('setting_backup_part_export_list_tip_failed') + ': ' + (err?.message ?? '')
+              global.i18n.t('setting_backup_part_export_list_tip_failed') + ': ' + (err?.message ?? ''),
             )
           })
         return

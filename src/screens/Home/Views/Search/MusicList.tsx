@@ -15,7 +15,7 @@ export interface MusicListType {
 
 export default forwardRef<MusicListType, { header?: OnlineListProps['ListHeaderComponent'] }>(({ header }, ref) => {
   const listRef = useRef<OnlineListType>(null)
-  const searchInfoRef = useRef<{ text: string; source: Source }>({ text: '', source: 'kw' })
+  const searchInfoRef = useRef<{ text: string, source: Source }>({ text: '', source: 'kw' })
   const isUnmountedRef = useRef(false)
   useImperativeHandle(
     ref,
@@ -32,7 +32,7 @@ export default forwardRef<MusicListType, { header?: OnlineListProps['ListHeaderC
             listRef.current?.setList(
               searchMusicState.listInfos[searchMusicState.source]!.list,
               false,
-              source == 'all'
+              source == 'all',
             )
           })
         } else {
@@ -49,7 +49,7 @@ export default forwardRef<MusicListType, { header?: OnlineListProps['ListHeaderC
                 listRef.current?.setStatus(
                   searchMusicState.listInfos[searchMusicState.source]!.maxPage <= page
                     ? 'end'
-                    : 'idle'
+                    : 'idle',
                 )
               })
             })
@@ -59,7 +59,7 @@ export default forwardRef<MusicListType, { header?: OnlineListProps['ListHeaderC
         }
       },
     }),
-    []
+    [],
   )
 
   useEffect(() => {
@@ -78,7 +78,7 @@ export default forwardRef<MusicListType, { header?: OnlineListProps['ListHeaderC
         if (isUnmountedRef.current) return
         listRef.current?.setList(list, false, searchInfoRef.current.source == 'all')
         listRef.current?.setStatus(
-          searchMusicState.listInfos[searchInfoRef.current.source]!.maxPage <= page ? 'end' : 'idle'
+          searchMusicState.listInfos[searchInfoRef.current.source]!.maxPage <= page ? 'end' : 'idle',
         )
       })
       .catch(() => {

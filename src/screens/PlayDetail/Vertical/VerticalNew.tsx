@@ -1,4 +1,4 @@
-import {memo, useState, useRef, useMemo, useEffect, useCallback} from 'react'
+import { memo, useState, useRef, useMemo, useEffect, useCallback } from 'react'
 import { View, AppState } from 'react-native'
 import PagerView, { type PagerViewOnPageSelectedEvent } from 'react-native-pager-view'
 import MiniLyric from '../components/MiniLyric'
@@ -16,7 +16,7 @@ import { registerPager } from '@/utils/pagerScrollControl'
 import { scaleSizeW } from '@/utils/pixelRatio'
 import { COMPONENT_IDS } from '@/config/constant'
 
-const LyricPage = ({ pagerHeight = 0, isActive = false }: { pagerHeight?: number; isActive?: boolean }) => {
+const LyricPage = ({ pagerHeight = 0, isActive = false }: { pagerHeight?: number, isActive?: boolean }) => {
   // 歌词页始终预挂载（pagerHeight 就绪后），isActive 只控制滚动/定位：
   // 若等首次滑到歌词页才挂载，FlatList 需在现场渲染大量歌词行 + 布局测量 + 无动画定位，
   // 全部挤在滑动完成的一帧里，PagerView 切页会出现明显顿挫（iPhone/iPad 竖屏“顿一下”的主因）。
@@ -28,7 +28,7 @@ const LyricPage = ({ pagerHeight = 0, isActive = false }: { pagerHeight?: number
 const VerticalNew = memo(({ componentId }: { componentId: string }) => {
   const [pageIndex, setPageIndex] = useState(0)
   // 正在从左往右滑向歌词页（从封面切到歌词），用于让 LyricPage 提前激活高亮定位
-  const pagerViewRef = useRef<PagerView>(null);
+  const pagerViewRef = useRef<PagerView>(null)
   const showLyricRef = useRef(false)
   const playlistRef = useRef<PlayerPlaylistType>(null)
   const [pagerHeight, setPagerHeight] = useState(0)
@@ -38,7 +38,7 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
   const isComingLyricRef = useRef(false)
   const [, setForceUpdate] = useState(0)
 
-  const [isProgressDragging, setIsProgressDragging] = useState(false);
+  const [isProgressDragging, setIsProgressDragging] = useState(false)
 
   const onPageSelected = ({ nativeEvent }: PagerViewOnPageSelectedEvent) => {
     setPageIndex(nativeEvent.position)
@@ -57,7 +57,7 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
 
   // 在 PagerView 滑动过程中检测方向：position===0（封面页）且 offset>0 表示正在滑向歌词页。
   // 用 ref 存状态避免高频 onScroll 触发 setState；首次变为 true 时通过 setForceUpdate 通知子组件。
-  const handlePageScroll = useCallback((e: { nativeEvent: { offset: number; position: number } }) => {
+  const handlePageScroll = useCallback((e: { nativeEvent: { offset: number, position: number } }) => {
     const coming = e.nativeEvent.position === 0 && e.nativeEvent.offset > 0
     if (coming && !isComingLyricRef.current) {
       isComingLyricRef.current = true
@@ -66,8 +66,8 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
   }, [])
 
   const handleSwitchToLyricPage = useCallback(() => {
-    pagerViewRef.current?.setPage(1);
-  }, []);
+    pagerViewRef.current?.setPage(1)
+  }, [])
 
   useEffect(() => {
     let appstateListener = AppState.addEventListener('change', (state) => {
@@ -87,7 +87,7 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
     }
 
     // 进度条拖动期间禁用 PagerView 横滑，避免与“切到歌词页”的原生手势冲突
-    const handleProgressDragState = (dragging: boolean) => setIsProgressDragging(dragging)
+    const handleProgressDragState = (dragging: boolean) => { setIsProgressDragging(dragging) }
     global.app_event.on('progressDragState', handleProgressDragState)
 
     // 将 PagerView ref 注册给同步手势锁，供进度条拖动时立即禁用原生横滑
@@ -188,7 +188,7 @@ const styles = createStyle({
     justifyContent: 'space-between',
     position: 'relative',
     // 注意：此处绝不能加 overflow: 'hidden'——iOS 上 clipsToBounds 与 transform
-    //（旋转封面）叠加在同一图层时，会把带 transform 的后代剔除出渲染树，
+    // （旋转封面）叠加在同一图层时，会把带 transform 的后代剔除出渲染树，
     // 导致封面空白（SongInfo 等无 transform 的子视图不受影响）。
     // 旧 UI（v20260826 实测封面正常）的 picPageContainerOld 就没有 overflow。
   },

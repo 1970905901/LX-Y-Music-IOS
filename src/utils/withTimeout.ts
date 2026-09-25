@@ -1,6 +1,6 @@
 import { bootLog } from '@/utils/bootLog'
 
-export const withTimeout = <T,>(
+export const withTimeout = async <T,>(
   promise: Promise<T>,
   label: string,
   fallback: T,

@@ -9,7 +9,7 @@ import wyApi from '@/utils/musicSdk/wy/user'
 import { addWySubscribedPlaylist } from '@/store/user/action'
 import { useWyUid } from '@/store/user/hook'
 
-export default ({ isEdit, onHide, playlistType }: { isEdit: boolean; onHide: () => void, playlistType: 'local' | 'online' }) => {
+export default ({ isEdit, onHide, playlistType }: { isEdit: boolean, onHide: () => void, playlistType: 'local' | 'online' }) => {
   const [text, setText] = useState('')
   const inputRef = useRef<InputType>(null)
   const t = useI18n()
@@ -24,7 +24,7 @@ export default ({ isEdit, onHide, playlistType }: { isEdit: boolean; onHide: () 
     }
   }, [isEdit])
 
-  const handleSubmitEditing = async () => {
+  const handleSubmitEditing = async() => {
     onHide()
     const name = text.trim()
     if (!name.length) return

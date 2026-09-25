@@ -1,22 +1,22 @@
-import {useCallback, useEffect, useRef} from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { useHorizontalMode } from '@/utils/hooks'
 import PageContent from '@/components/PageContent'
-import {setComponentId, setNavActiveId} from '@/core/common'
+import { setComponentId, setNavActiveId } from '@/core/common'
 import { COMPONENT_IDS } from '@/config/constant'
 import Vertical from './Vertical'
 import Horizontal from './Horizontal'
 import { navigations } from '@/navigation'
 import ArtistSelectorManager from '@/components/ArtistSelectorManager'
 import settingState from '@/store/setting/state'
-import {useI18n} from "@/lang";
-import {BackHandler} from "react-native";
-import {toast} from "@/utils/tools.ts";
+import { useI18n } from '@/lang'
+import { BackHandler } from 'react-native'
+import { toast } from '@/utils/tools.ts'
 import commonState from '@/store/common/state'
-import {useBackHandler} from "@/utils/hooks/useBackHandler.ts";
+import { useBackHandler } from '@/utils/hooks/useBackHandler.ts'
 
 import { setSearchText as setSearchState } from '@/core/search/search'
-import DownloadBall from "@/components/DownloadBall";
-import YouTubeLoginManager from "@/components/YouTubeLoginManager.tsx";
+import DownloadBall from '@/components/DownloadBall'
+import YouTubeLoginManager from '@/components/YouTubeLoginManager.tsx'
 interface Props {
   componentId: string
 }
@@ -42,13 +42,12 @@ export default ({ componentId }: Props) => {
     return () => {
       global.app_event.off('triggerSearch', handleGlobalSearch)
     }
-
   }, [componentId])
 
   useBackHandler(
     useCallback(() => {
       if (commonState.componentIds.length > 1) {
-        return false;
+        return false
       }
 
       if (commonState.navActiveId === 'nav_setting') {
@@ -69,7 +68,7 @@ export default ({ componentId }: Props) => {
       lastBackPressed.current = now
       toast(t('exit_app_tip_double_press'))
       return true
-    }, [t])
+    }, [t]),
   )
 
   return (
@@ -80,7 +79,8 @@ export default ({ componentId }: Props) => {
           挂在窗口上时才会呈现（RCTModalHostView 的 shouldBePresented 检查 self.window），
           Home 被 push 的原生页面覆盖后视图树脱离窗口，挂在 Home 里的弹窗永远无法呈现，
           表现为设置详情页里的登录按钮点了没反应。 */}
-      {/*<YouTubeLoginManager />*/}
+      {/* <YouTubeLoginManager /> */}
       <DownloadBall />
     </>
-  )}
+  )
+}

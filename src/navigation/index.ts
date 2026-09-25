@@ -5,7 +5,7 @@ import registerScreens from './registerScreens'
 import { onAppLaunched } from './regLaunchedEvent'
 
 let unRegisterEvent: ReturnType<
-  ReturnType<typeof Navigation.events>['registerScreenPoppedListener']
+ReturnType<typeof Navigation.events>['registerScreenPoppedListener']
 >
 
 const init = (callback: () => void | Promise<void>) => {

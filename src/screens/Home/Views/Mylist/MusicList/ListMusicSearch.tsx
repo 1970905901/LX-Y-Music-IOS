@@ -30,7 +30,7 @@ export const debounceSearchList = debounce(
     // console.log(reslutList)
     callback(searchListMusic(list, text))
   },
-  200
+  200,
 )
 
 export default forwardRef<ListMusicSearchType, ListMusicSearchProps>(({ onScrollToInfo }, ref) => {
@@ -98,7 +98,7 @@ export default forwardRef<ListMusicSearchType, ListMusicSearchProps>(({ onScroll
     }
   }, [])
 
-  const renderItem = ({ item, index }: { item: LX.Music.MusicInfo; index: number }) => {
+  const renderItem = ({ item, index }: { item: LX.Music.MusicInfo, index: number }) => {
     return (
       <Button
         style={styles.item}

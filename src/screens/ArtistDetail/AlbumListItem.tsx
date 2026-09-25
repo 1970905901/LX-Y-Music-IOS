@@ -21,7 +21,7 @@ export default memo(({ componentId, item, width, viewMode }: { componentId: stri
     const author = item.artist?.name || item.artistName || ''
     const source = item.source || 'wy'
     const albumId = source === 'tx' ? (item.mid || item.id) : item.id
-    
+
     const albumInfo = {
       id: albumId,
       mid: item.mid || item.id,

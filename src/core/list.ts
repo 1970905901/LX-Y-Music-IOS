@@ -13,8 +13,8 @@ import { clearPlayedList } from '@/core/player/playedList'
  * @param list Array of songs to play
  * @param index Index of the song to start playing
  */
-export const playOnlineList = async (listId: string, list: LX.Music.MusicInfoOnline[], index: number, isSkipPlay: boolean = false) => {
-  const targetMusic = list[index];
+export const playOnlineList = async(listId: string, list: LX.Music.MusicInfoOnline[], index: number, isSkipPlay: boolean = false) => {
+  const targetMusic = list[index]
   if (targetMusic) {
     console.log('[playOnlineList] === 播放歌曲信息诊断 ===', {
       listId,
@@ -27,9 +27,9 @@ export const playOnlineList = async (listId: string, list: LX.Music.MusicInfoOnl
       metaSongId: targetMusic.meta?.songId,
       metaId: (targetMusic.meta as any)?.id,
       metaKeys: targetMusic.meta ? Object.keys(targetMusic.meta) : [],
-    });
+    })
   }
-  
+
   await overwriteListMusics(LIST_IDS.TEMP, [...list])
   await setTempList(listId, list)
   clearPlayedList()
@@ -42,45 +42,45 @@ export const playOnlineList = async (listId: string, list: LX.Music.MusicInfoOnl
  * Overwrite all list data
  * @param data
  */
-export const overwriteListFull = async (data: LX.List.ListActionDataOverwrite) => {
+export const overwriteListFull = async(data: LX.List.ListActionDataOverwrite) => {
   await global.list_event.list_data_overwrite(data)
 }
 
 /**
  * Add user list
  */
-export const createUserList = async (position: number, listInfos: LX.List.UserListInfo[]) => {
+export const createUserList = async(position: number, listInfos: LX.List.UserListInfo[]) => {
   await global.list_event.list_create(position, listInfos)
 }
 
 /**
  * Remove user list and songs in the list
  */
-export const removeUserList = async (ids: string[]) => {
+export const removeUserList = async(ids: string[]) => {
   await global.list_event.list_remove(ids)
 }
 
 /**
  * Update user list
  */
-export const updateUserList = async (listInfos: LX.List.UserListInfo[]) => {
+export const updateUserList = async(listInfos: LX.List.UserListInfo[]) => {
   await global.list_event.list_update(listInfos)
 }
 
 /**
  * Batch move user list positions
  */
-export const updateUserListPosition = async (position: number, ids: string[]) => {
+export const updateUserListPosition = async(position: number, ids: string[]) => {
   await global.list_event.list_update_position(position, ids)
 }
 
 /**
  * Batch add songs to list
  */
-export const addListMusics = async (
+export const addListMusics = async(
   id: string,
   musicInfos: LX.Music.MusicInfo[],
-  addMusicLocationType: LX.AddMusicLocationType
+  addMusicLocationType: LX.AddMusicLocationType,
 ) => {
   await global.list_event.list_music_add(id, musicInfos, addMusicLocationType)
 }
@@ -88,11 +88,11 @@ export const addListMusics = async (
 /**
  * Batch move songs across lists
  */
-export const moveListMusics = async (
+export const moveListMusics = async(
   fromId: string,
   toId: string,
   musicInfos: LX.Music.MusicInfo[],
-  addMusicLocationType: LX.AddMusicLocationType
+  addMusicLocationType: LX.AddMusicLocationType,
 ) => {
   await global.list_event.list_music_move(fromId, toId, musicInfos, addMusicLocationType)
 }
@@ -100,15 +100,15 @@ export const moveListMusics = async (
 /**
  * Batch delete songs in list
  */
-export const removeListMusics = async (listId: string, ids: string[]) => {
+export const removeListMusics = async(listId: string, ids: string[]) => {
   await global.list_event.list_music_remove(listId, ids)
 }
 
 /**
  * Batch update songs in list
  */
-export const updateListMusics = async (
-  infos: Array<{ id: string; musicInfo: LX.Music.MusicInfo }>
+export const updateListMusics = async(
+  infos: Array<{ id: string, musicInfo: LX.Music.MusicInfo }>,
 ) => {
   await global.list_event.list_music_update(infos)
 }
@@ -116,21 +116,21 @@ export const updateListMusics = async (
 /**
  * Batch move positions of songs in list
  */
-export const updateListMusicPosition = async (listId: string, position: number, ids: string[]) => {
+export const updateListMusicPosition = async(listId: string, position: number, ids: string[]) => {
   await global.list_event.list_music_update_position(listId, position, ids)
 }
 
 /**
  * Overwrite songs in list
  */
-export const overwriteListMusics = async (listId: string, musicInfos: LX.Music.MusicInfo[]) => {
+export const overwriteListMusics = async(listId: string, musicInfos: LX.Music.MusicInfo[]) => {
   await global.list_event.list_music_overwrite(listId, musicInfos)
 }
 
 /**
  * Clear songs in list
  */
-export const clearListMusics = async (ids: string[]) => {
+export const clearListMusics = async(ids: string[]) => {
   await global.list_event.list_music_clear(ids)
 }
 
@@ -139,11 +139,11 @@ export const clearListMusics = async (ids: string[]) => {
  * @param listInfo
  * @param musics
  */
-export const overwriteList = async (
+export const overwriteList = async(
   listInfoFull:
-    | LX.List.MyDefaultListInfoFull
-    | LX.List.MyLoveListInfoFull
-    | LX.List.UserListInfoFull
+  | LX.List.MyDefaultListInfoFull
+  | LX.List.MyLoveListInfoFull
+  | LX.List.UserListInfoFull,
 ) => {
   let userListInfo
   switch (listInfoFull.id) {
@@ -166,7 +166,7 @@ export const overwriteList = async (
   }
   await overwriteListMusics(
     listInfoFull.id,
-    listInfoFull.list.map((m) => fixNewMusicInfoQuality(m))
+    listInfoFull.list.map((m) => fixNewMusicInfoQuality(m)),
   )
 }
 /**
@@ -174,7 +174,7 @@ export const overwriteList = async (
  * @param listInfo
  * @param musics
  */
-export const createList = async ({
+export const createList = async({
   name,
   id = `userlist_${Date.now()}`,
   list = [],
@@ -223,7 +223,7 @@ export const setUserList = (lists: LX.List.UserListInfo[]) => {
  * @param id
  * @param list
  */
-export const setTempList = async (id: string, list: LX.Music.MusicInfoOnline[]) => {
+export const setTempList = async(id: string, list: LX.Music.MusicInfoOnline[]) => {
   await overwriteListMusics(LIST_IDS.TEMP, list)
   listAction.setTempListMeta({ id })
 }

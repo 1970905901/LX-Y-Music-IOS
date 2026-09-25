@@ -12,7 +12,6 @@ import IsShowExitBtn from './IsShowExitBtn'
 import DrawerLayoutPosition from './DrawerLayoutPosition'
 
 export default memo(() => {
-
   return (
     <Section sectionId="setting_basic">
       {global.lx.isCarMode ? (

@@ -5,7 +5,7 @@ import { requestStoragePermission, toast } from '@/utils/tools'
 const sanitizeFileName = (name: string) =>
   (name.trim() || 'image').replace(/[\\/:*?"<>|]/g, '_').slice(0, 100)
 
-export const saveImageToPictures = async (url: string, name: string = 'image') => {
+export const saveImageToPictures = async(url: string, name: string = 'image') => {
   const isGranted = await requestStoragePermission()
   if (isGranted !== true) {
     toast('没有存储权限，无法保存图片', 'short')

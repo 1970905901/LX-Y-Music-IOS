@@ -64,10 +64,10 @@ const EditListItem = ({ itemWidth, playlistType }: { itemWidth: number, playlist
 }
 
 export default ({
-                  listId,
-                  onPress,
-                  playlistType,
-                }: {
+  listId,
+  onPress,
+  playlistType,
+}: {
   listId: string
   onPress: (listInfo: LX.List.MyListInfo) => void
   playlistType: 'local' | 'wy' | 'tx'

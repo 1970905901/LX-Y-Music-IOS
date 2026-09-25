@@ -1,5 +1,5 @@
 import { useRef, useState, useMemo, forwardRef, useImperativeHandle, type ReactElement } from 'react'
-import {FlatList, View, RefreshControl, type FlatListProps, Keyboard} from 'react-native'
+import { FlatList, View, RefreshControl, type FlatListProps, Keyboard } from 'react-native'
 
 import ListItem from './ListItem'
 // import { navigations } from '@/navigation'
@@ -78,7 +78,7 @@ export default forwardRef<ListType, ListProps>(({ header, onRefresh, onLoadMore,
         onRefresh={onRefresh}
       />
     ),
-    [status, onRefresh, theme]
+    [status, onRefresh, theme],
   )
   const footerComponent = useMemo(() => {
     let label: FooterLabel
@@ -196,7 +196,7 @@ export default forwardRef<ListType, ListProps>(({ header, onRefresh, onLoadMore,
 })
 
 type FooterLabel = 'list_loading' | 'list_end' | 'list_error' | 'list_empty' | null
-const Footer = ({ label, onLoadMore }: { label: FooterLabel; onLoadMore: () => void }) => {
+const Footer = ({ label, onLoadMore }: { label: FooterLabel, onLoadMore: () => void }) => {
   const theme = useTheme()
   const t = useI18n()
   const handlePress = () => {

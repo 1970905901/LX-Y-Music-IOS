@@ -104,7 +104,7 @@ export default forwardRef<MultipleModeBarType, MultipleModeBarProps>(
         opacity: visibleBar ? animFade : 0, // Bind opacity to animated value
         transform: [{ translateY: animTranslateY }],
       }),
-      [animFade, animTranslateY, theme, visibleBar]
+      [animFade, animTranslateY, theme, visibleBar],
     )
 
     const handleSelectAll = useCallback(() => {
@@ -163,7 +163,7 @@ export default forwardRef<MultipleModeBarType, MultipleModeBarProps>(
     ])
 
     return !visible && animatePlayed ? null : component
-  }
+  },
 )
 
 const styles = createStyle({

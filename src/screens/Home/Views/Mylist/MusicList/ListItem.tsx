@@ -25,7 +25,7 @@ export const ITEM_HEIGHT = scaleSizeH(LIST_ITEM_HEIGHT)
 
 const useQualityTag = (musicInfo: LX.Music.MusicInfo) => {
   const t = useI18n()
-  let info: { type: BadgeType | null; text: string } = { type: null, text: '' }
+  let info: { type: BadgeType | null, text: string } = { type: null, text: '' }
   if (musicInfo.source === 'local') return info
   const qualitys = (musicInfo.meta as LX.Music.MusicInfoMeta_online)?._qualitys ?? {}
   const showHighest = settingState.setting['common.quality_show_highest']
@@ -91,7 +91,7 @@ export default memo(
     onShowMenu: (
       item: LX.Music.MusicInfo,
       index: number,
-      position: { x: number; y: number; w: number; h: number }
+      position: { x: number, y: number, w: number, h: number }
     ) => void
     selectedList: LX.Music.MusicInfo[]
     rowInfo: RowInfo
@@ -112,8 +112,8 @@ export default memo(
     const isWyLiked = useIsWyLiked(meta.songId)
     const txSongId = meta.id
     const isNumericId = txSongId && /^\d+$/.test(String(txSongId))
-    const txSongMid = isNumericId 
-      ? String(txSongId) 
+    const txSongMid = isNumericId
+      ? String(txSongId)
       : (item.meta as any).songmid || (item.meta as any).strMediaMid || (typeof item.id === 'string' && item.id.startsWith('tx_') ? item.id.slice(3) : item.id)
     const isTxLiked = useIsTxLiked(txSongMid)
     const isKgLiked = useIsKgLiked(meta.hash || meta.songId)
@@ -169,7 +169,6 @@ export default memo(
         >
 
 
-
           <View style={showCover ? styles.sn : styles.snIndex}>
             {showCover ? (
               <Image url={coverUrl} style={styles.albumArt} />
@@ -213,7 +212,7 @@ export default memo(
         </TouchableOpacity>
         {showLikeButton ? (
           <TouchableOpacity onPress={handleLike} style={styles.likeButton}>
-            <Icon name={isLiked ? "love-filled" : "love"} size={16} color={isLiked ? theme['c-liked'] : theme['c-350']} />
+            <Icon name={isLiked ? 'love-filled' : 'love'} size={16} color={isLiked ? theme['c-liked'] : theme['c-350']} />
           </TouchableOpacity>
         ) : null}
         <TouchableOpacity onPress={handleShowMenu} ref={moreButtonRef} style={styles.moreButton}>
@@ -234,7 +233,7 @@ export default memo(
       prevProps.selectedList.includes(nextProps.item) &&
       prevProps.showCover === nextProps.showCover
     )
-  }
+  },
 )
 
 const styles = createStyle({

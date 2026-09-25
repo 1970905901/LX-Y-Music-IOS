@@ -7,15 +7,15 @@ import {
   writeFile,
   readFile,
   stat,
+  read,
 } from '@/utils/fs'
-import { read } from '@/utils/fs'
 
 const logPath = temporaryDirectoryPath + '/error.log'
 const sourceTestLogPath = temporaryDirectoryPath + '/source_test.log'
-const MAX_LOG_SIZE = 5 * 1024 * 1024 
-const READ_LIMIT = 1 * 1024 * 1024   
+const MAX_LOG_SIZE = 5 * 1024 * 1024
+const READ_LIMIT = 1 * 1024 * 1024
 
-const trimLogFile = async () => {
+const trimLogFile = async() => {
   try {
     const info = await stat(logPath)
     if (info.size > MAX_LOG_SIZE) {
@@ -26,7 +26,7 @@ const trimLogFile = async () => {
 }
 
 const logTools = {
-  tempLog: [] as Array<{ time: string; type: 'LOG' | 'WARN' | 'ERROR'; text: string }> | null,
+  tempLog: [] as Array<{ time: string, type: 'LOG' | 'WARN' | 'ERROR', text: string }> | null,
   writeLog(msg: string) {
     console.log(msg)
     void appendFile(logPath, '\n----lx log----\n' + msg)
@@ -40,10 +40,11 @@ const logTools = {
       // 启动时强制清理：无论日志开关状态，都截断超限文件
       // 防止老版本积累的几百兆日志残留
       await trimLogFile()
-      if (this.tempLog?.length)
+      if (this.tempLog?.length) {
         this.writeLog(
-          this.tempLog.map((m) => `${m.time} ${m.type} ${m.text}`).join('\n----lx log----\n')
+          this.tempLog.map((m) => `${m.time} ${m.type} ${m.text}`).join('\n----lx log----\n'),
         )
+      }
       this.tempLog = null
     } catch (err) {
       console.log(err)
@@ -51,11 +52,11 @@ const logTools = {
   },
 }
 
-export const init = async () => {
+export const init = async() => {
   return logTools.initLogFile()
 }
 
-export const getLogs = async () => {
+export const getLogs = async() => {
   try {
     const info = await stat(logPath)
     if (info.size > READ_LIMIT) {
@@ -66,8 +67,8 @@ export const getLogs = async () => {
   return readFile(logPath)
 }
 
-export const clearLogs = async () => {
-  return unlink(logPath).then(async () => writeFile(logPath, ''))
+export const clearLogs = async() => {
+  return unlink(logPath).then(async() => writeFile(logPath, ''))
 }
 
 export const log = {
@@ -75,7 +76,7 @@ export const log = {
     if (!global.lx.isEnableLog) return
     const msg = msgs
       .map((m) =>
-        typeof m == 'string' ? m : m instanceof Error ? (m.stack ?? m.message) : JSON.stringify(m)
+        typeof m == 'string' ? m : m instanceof Error ? (m.stack ?? m.message) : JSON.stringify(m),
       )
       .join(' ')
     if (msg.startsWith('%c')) return
@@ -88,7 +89,7 @@ export const log = {
     if (!global.lx.isEnableLog) return
     const msg = msgs
       .map((m) =>
-        typeof m == 'string' ? m : m instanceof Error ? (m.stack ?? m.message) : JSON.stringify(m)
+        typeof m == 'string' ? m : m instanceof Error ? (m.stack ?? m.message) : JSON.stringify(m),
       )
       .join(' ')
     const time = new Date().toLocaleString()
@@ -100,7 +101,7 @@ export const log = {
     if (!global.lx.isEnableLog) return
     const msg = msgs
       .map((m) =>
-        typeof m == 'string' ? m : m instanceof Error ? (m.stack ?? m.message) : JSON.stringify(m)
+        typeof m == 'string' ? m : m instanceof Error ? (m.stack ?? m.message) : JSON.stringify(m),
       )
       .join(' ')
     const time = new Date().toLocaleString()
@@ -112,19 +113,19 @@ export const log = {
   },
 }
 
-export const getSourceTestLogs = async () => {
+export const getSourceTestLogs = async() => {
   return readFile(sourceTestLogPath)
 }
 
-export const clearSourceTestLogs = async () => {
-  return unlink(sourceTestLogPath).then(async () => writeFile(sourceTestLogPath, ''))
+export const clearSourceTestLogs = async() => {
+  return unlink(sourceTestLogPath).then(async() => writeFile(sourceTestLogPath, ''))
 }
 
 export const sourceTestLog = {
   info(...msgs: any[]) {
     const msg = msgs
       .map((m) =>
-        typeof m == 'string' ? m : m instanceof Error ? (m.stack ?? m.message) : JSON.stringify(m)
+        typeof m == 'string' ? m : m instanceof Error ? (m.stack ?? m.message) : JSON.stringify(m),
       )
       .join(' ')
     if (msg.startsWith('%c')) return

@@ -32,7 +32,7 @@ export { default as decodeLyric } from './decodeLyric'
 
 export const objStr2JSON = (str) => {
   return JSON.parse(
-    str.replace(/('(?=(,\s*')))|('(?=:))|((?<=([:,]\s*))')|((?<={)')|('(?=}))/g, '"')
+    str.replace(/('(?=(,\s*')))|('(?=:))|((?<=([:,]\s*))')|((?<={)')|('(?=}))/g, '"'),
   )
 }
 
@@ -135,8 +135,7 @@ export const lrcTools = {
         const result = this.rxps.wordTime.exec(timeStr)
         const wordInfo = this.getWordInfo(result[1], result[2], preTimeInfo)
         words = words.replace(timeStr, wordInfo.timeStr)
-        if (preTimeInfo?.newTimeStr)
-          words = words.replace(preTimeInfo.timeStr, preTimeInfo.newTimeStr)
+        if (preTimeInfo?.newTimeStr) { words = words.replace(preTimeInfo.timeStr, preTimeInfo.newTimeStr) }
         preTimeInfo = wordInfo
       }
       this.lines.push(time + words)

@@ -19,14 +19,14 @@ const testAnnouncementData = {
     {
       text: '复制群号',
       enabled: true,
-      url: 'qq-group:1013518794'
+      url: 'qq-group:1013518794',
     },
     {
       text: '关闭',
       enabled: true,
-      url: ''
-    }
-  ]
+      url: '',
+    },
+  ],
 }
 // ===== 测试模式结束 =====
 
@@ -38,7 +38,7 @@ const address = [
   ['https://gcore.jsdelivr.net/gh/WalnutBai/lx-lxwalnut-music-mobile/publish/announcement.json', 'direct'],
 ]
 
-const request = async (url, retryNum = 0) => {
+const request = async(url, retryNum = 0) => {
   return new Promise((resolve, reject) => {
     httpGet(
       url,
@@ -51,19 +51,19 @@ const request = async (url, retryNum = 0) => {
             ? reject(err || new Error(resp.statusMessage || resp.statusCode))
             : request(url, retryNum).then(resolve).catch(reject)
         } else resolve(body)
-      }
+      },
     )
   })
 }
 
-const getDirectInfo = async (url) => {
+const getDirectInfo = async(url) => {
   return request(url).then((info) => {
     if (!info || !info.announcementId) throw new Error('Invalid announcement data')
     return info
   })
 }
 
-export const getAnnouncementInfo = async (index = 0) => {
+export const getAnnouncementInfo = async(index = 0) => {
   // 本地测试模式：直接返回测试数据
   // 每次调用都返回新对象，确保 ID 变化能被检测到
   if (TEST_MODE) {
@@ -82,7 +82,7 @@ export const getAnnouncementInfo = async (index = 0) => {
       promise = getDirectInfo(url)
   }
 
-  return promise.catch(async (err) => {
+  return promise.catch(async(err) => {
     index++
     if (index >= address.length) throw err
     return getAnnouncementInfo(index)

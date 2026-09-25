@@ -35,7 +35,7 @@ const ANIMATION_DURATION = 300
 export default forwardRef<PlayLineType, PlayLineProps>(({ onPlayLine }, ref) => {
   const theme = useTheme()
   const [scrollInfo, setScrollInfo] = useState<
-    NativeSyntheticEvent<NativeScrollEvent>['nativeEvent'] | null
+  NativeSyntheticEvent<NativeScrollEvent>['nativeEvent'] | null
   >(null)
   const [listLayoutInfo, setListLayoutInfo] = useState<{
     spaceHeight: number
@@ -56,12 +56,12 @@ export default forwardRef<PlayLineType, PlayLineProps>(({ onPlayLine }, ref) => 
   }
 
   useImperativeHandle(ref, () => ({
-    updateScrollInfo: (nextScrollInfo) => setScrollInfo(nextScrollInfo),
-    updateLayoutInfo: (nextLayoutInfo) => setListLayoutInfo(nextLayoutInfo),
-    updateLyricLines: (nextLyricLines) => setLyricLines(nextLyricLines),
+    updateScrollInfo: (nextScrollInfo) => { setScrollInfo(nextScrollInfo) },
+    updateLayoutInfo: (nextLayoutInfo) => { setListLayoutInfo(nextLayoutInfo) },
+    updateLyricLines: (nextLyricLines) => { setLyricLines(nextLyricLines) },
     setVisible: (nextVisible) => {
       if (nextVisible) setVisible(true)
-      requestAnimationFrame(() => setShow(nextVisible))
+      requestAnimationFrame(() => { setShow(nextVisible) })
     },
   }))
 

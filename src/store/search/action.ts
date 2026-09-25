@@ -36,7 +36,7 @@ export default {
   },
   setTipListInfo(
     keyword: InitState['tipListInfo']['text'],
-    source: InitState['tipListInfo']['source']
+    source: InitState['tipListInfo']['source'],
   ) {
     state.tipListInfo.text = keyword
     state.tipListInfo.source = source

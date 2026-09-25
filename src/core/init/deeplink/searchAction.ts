@@ -20,7 +20,7 @@ const TYPE_MAP: Record<string, string> = {
   album: 'album',
 }
 
-const handleSearch = async (params: Record<string, any>) => {
+const handleSearch = async(params: Record<string, any>) => {
   const { keyword, platform, type } = params
 
   let source = ''
@@ -54,6 +54,6 @@ const handleSearch = async (params: Record<string, any>) => {
   }
 }
 
-export const handleSearchAction = async (_action: string, params: Record<string, any>) => {
+export const handleSearchAction = async(_action: string, params: Record<string, any>) => {
   await handleSearch(params)
 }

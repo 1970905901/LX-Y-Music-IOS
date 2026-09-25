@@ -29,7 +29,7 @@ const timeExp = /^\[([\d:.]*)\]{1}/g
 const existTimeExp = /\[\d{1,2}:.*\d{1,4}\]/
 const lyricxTag = /^<-?\d+,-?\d+>/
 export default {
-    sortLrcArr(arr) {
+  sortLrcArr(arr) {
     const lrcSet = new Set()
     let lrc = []
     let lrcT = []
@@ -92,7 +92,7 @@ export default {
       {
         cache: false,
         binary: true,
-      }
+      },
     )
     requestObj.promise = requestObj.promise.then(({ statusCode, body }) => {
       if (statusCode != 200) return Promise.reject(new Error(JSON.stringify(body)))

@@ -76,7 +76,7 @@ export default forwardRef<PopupType, PopupProps>(
       title = '',
       children,
     }: PopupProps,
-    ref
+    ref,
   ) => {
     const theme = useTheme()
     const { keyboardShown, keyboardHeight } = useKeyboard()
@@ -102,7 +102,7 @@ export default forwardRef<PopupType, PopupProps>(
             <Icon name="close" style={{ color: theme['c-font-label'] }} size={12} />
           </TouchableOpacity>
         ) : null,
-      [closeBtn, theme]
+      [closeBtn, theme],
     )
 
     const [centeredViewStyle, modalViewStyle] = useMemo(() => {
@@ -226,5 +226,5 @@ export default forwardRef<PopupType, PopupProps>(
         </View>
       </Modal>
     )
-  }
+  },
 )

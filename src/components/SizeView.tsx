@@ -57,7 +57,7 @@ export default memo(
     const handleLayout = useCallback(
       ({
         nativeEvent: { layout },
-      }: LayoutChangeEvent | { nativeEvent: { layout: { width: number; height: number } } }) => {
+      }: LayoutChangeEvent | { nativeEvent: { layout: { width: number, height: number } } }) => {
         // 窗口尺寸变化（含 iPad 旋转 / 分屏）会触发 onLayout。
         // 这里不再依赖 Dimensions 'change' 事件（该事件在 iPad 旋转 / 分屏下可能不触发，
         // 会导致窗口尺寸不更新、横竖屏布局残留），改为每次 onLayout 都直接同步更新尺寸。
@@ -78,7 +78,7 @@ export default memo(
         })
         syncSafeAreaBottom()
       },
-      [syncSafeAreaBottom]
+      [syncSafeAreaBottom],
     )
     useEffect(() => {
       // iOS 首次进入主动校准一次状态栏高度（StatusBarManager 异步）
@@ -94,9 +94,9 @@ export default memo(
           windowSizeTools.setWindowSize(size.width, size.height)
         })
       })
-      return () => sub?.remove()
+      return () => { sub?.remove() }
     }, [])
     return <View style={StyleSheet.absoluteFill} onLayout={handleLayout} />
   },
-  () => true
+  () => true,
 )

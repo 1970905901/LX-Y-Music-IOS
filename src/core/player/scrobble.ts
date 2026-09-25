@@ -13,7 +13,6 @@ export let scrobbleInfo: {
 } | null = null
 
 
-
 export const updateScrobbleInfo = () => {
   const musicInfo = playerState.playMusicInfo.musicInfo
   const listId = playerState.playMusicInfo.listId
@@ -39,7 +38,7 @@ export const updateScrobbleInfo = () => {
 
   scrobbleInfo = {
     songId: ('meta' in musicInfo) ? musicInfo.meta.songId : '',
-    sourceId: sourceId,
+    sourceId,
     totalTime: 0,
     accumulatedPlayedTime: 0,
     lastReportedTime: 0,
@@ -58,14 +57,14 @@ export const updateScrobblePlayTime = (currentTime: number) => {
   }
 
   scrobbleInfo.lastReportedTime = currentTime
-  
+
   if (!scrobbleInfo.isScrobbled) {
     const playedTime = Math.floor(scrobbleInfo.accumulatedPlayedTime)
     const { totalTime } = scrobbleInfo
     if (playedTime >= 120 || (totalTime > 0 && playedTime >= totalTime * 0.5)) {
-        scrobbleInfo.isScrobbled = true
-        console.log(`Scrobbling song realtime: ${scrobbleInfo.songId}, Source ID: '${scrobbleInfo.sourceId}', Time: ${playedTime}s`)
-        void wyApi.scrobble(scrobbleInfo.songId, scrobbleInfo.sourceId, playedTime)
+      scrobbleInfo.isScrobbled = true
+      console.log(`Scrobbling song realtime: ${scrobbleInfo.songId}, Source ID: '${scrobbleInfo.sourceId}', Time: ${playedTime}s`)
+      void wyApi.scrobble(scrobbleInfo.songId, scrobbleInfo.sourceId, playedTime)
     }
   }
 }

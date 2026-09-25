@@ -9,53 +9,53 @@ import { BorderWidths } from '@/theme'
 import { scaleSizeH } from '@/utils/pixelRatio'
 
 export interface ReplyInfo {
-    commentId: string
-    userName: string
+  commentId: string
+  userName: string
 }
 
 export interface CommentInputType {
-    setReplyInfo: (info: ReplyInfo | null) => void
+  setReplyInfo: (info: ReplyInfo | null) => void
 }
 
 export interface CommentInputProps {
-    onSend: (content: string, replyInfo: ReplyInfo | null) => void
-    disabled?: boolean
+  onSend: (content: string, replyInfo: ReplyInfo | null) => void
+  disabled?: boolean
 }
 
 const INPUT_HEIGHT = scaleSizeH(48)
 
 const CommentInput = forwardRef<CommentInputType, CommentInputProps>(({ onSend, disabled }, ref) => {
-    const theme = useTheme()
-    const t = useI18n()
-    const [text, setText] = useState('')
-    const [replyInfo, setReplyInfo] = useState<ReplyInfo | null>(null)
-    const inputRef = useRef<TextInput>(null)
+  const theme = useTheme()
+  const t = useI18n()
+  const [text, setText] = useState('')
+  const [replyInfo, setReplyInfo] = useState<ReplyInfo | null>(null)
+  const inputRef = useRef<TextInput>(null)
 
-    useImperativeHandle(ref, () => ({
-        setReplyInfo(info) {
-            setReplyInfo(info)
-            if (info) {
-                setTimeout(() => {
-                    inputRef.current?.focus()
-                }, 100)
-            }
-        },
-    }))
+  useImperativeHandle(ref, () => ({
+    setReplyInfo(info) {
+      setReplyInfo(info)
+      if (info) {
+        setTimeout(() => {
+          inputRef.current?.focus()
+        }, 100)
+      }
+    },
+  }))
 
-    const handleSend = useCallback(() => {
-        const content = text.trim()
-        if (!content) return
-        onSend(content, replyInfo)
-        setText('')
-        setReplyInfo(null)
-        Keyboard.dismiss()
-    }, [text, replyInfo, onSend])
+  const handleSend = useCallback(() => {
+    const content = text.trim()
+    if (!content) return
+    onSend(content, replyInfo)
+    setText('')
+    setReplyInfo(null)
+    Keyboard.dismiss()
+  }, [text, replyInfo, onSend])
 
-    const handleCancelReply = useCallback(() => {
-        setReplyInfo(null)
-    }, [])
+  const handleCancelReply = useCallback(() => {
+    setReplyInfo(null)
+  }, [])
 
-    return (
+  return (
         <View style={{ borderTopColor: theme['c-border-background'], ...styles.wrapper }}>
             {replyInfo ? (
                 <View style={{ ...styles.replyBar, backgroundColor: theme['c-primary-background-hover'] }}>
@@ -71,10 +71,10 @@ const CommentInput = forwardRef<CommentInputType, CommentInputProps>(({ onSend, 
                 <TextInput
                     ref={inputRef}
                     style={{
-                        ...styles.input,
-                        color: theme['c-font'],
-                        backgroundColor: theme['c-primary-background-hover'],
-                        borderColor: theme['c-border-background'],
+                      ...styles.input,
+                      color: theme['c-font'],
+                      backgroundColor: theme['c-primary-background-hover'],
+                      borderColor: theme['c-border-background'],
                     }}
                     value={text}
                     onChangeText={setText}
@@ -89,8 +89,8 @@ const CommentInput = forwardRef<CommentInputType, CommentInputProps>(({ onSend, 
                     onPress={handleSend}
                     disabled={disabled || !text.trim()}
                     style={{
-                        ...styles.sendBtn,
-                        backgroundColor: theme['c-primary-background-hover'],
+                      ...styles.sendBtn,
+                      backgroundColor: theme['c-primary-background-hover'],
                     }}
                 >
                     <Icon
@@ -101,49 +101,49 @@ const CommentInput = forwardRef<CommentInputType, CommentInputProps>(({ onSend, 
                 </TouchableOpacity>
             </View>
         </View>
-    )
+  )
 })
 
 const styles = createStyle({
-    wrapper: {
-        borderTopWidth: BorderWidths.normal,
-    },
-    replyBar: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-    },
-    replyText: {
-        flex: 1,
-    },
-    cancelReply: {
-        padding: 4,
-    },
-    container: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 10,
-        paddingVertical: 6,
-        height: INPUT_HEIGHT,
-    },
-    input: {
-        flex: 1,
-        height: '100%',
-        borderRadius: 20,
-        paddingHorizontal: 16,
-        paddingVertical: 0,
-        fontSize: 14,
-        borderWidth: BorderWidths.normal,
-    },
-    sendBtn: {
-        marginLeft: 8,
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
+  wrapper: {
+    borderTopWidth: BorderWidths.normal,
+  },
+  replyBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  replyText: {
+    flex: 1,
+  },
+  cancelReply: {
+    padding: 4,
+  },
+  container: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    height: INPUT_HEIGHT,
+  },
+  input: {
+    flex: 1,
+    height: '100%',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 0,
+    fontSize: 14,
+    borderWidth: BorderWidths.normal,
+  },
+  sendBtn: {
+    marginLeft: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 })
 
 export default memo(CommentInput)

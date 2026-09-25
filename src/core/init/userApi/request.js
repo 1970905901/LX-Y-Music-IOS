@@ -9,7 +9,7 @@ const defaultHeaders = {
 // var proxyUrl = "http://" + user + ":" + password + "@" + host + ":" + port;
 // var proxiedRequest = request.defaults({'proxy': proxyUrl});
 
-const handleRequestData = async ({
+const handleRequestData = async({
   method = 'get',
   headers = {},
   format = 'json',
@@ -22,7 +22,7 @@ const handleRequestData = async ({
     {
       Accept: 'application/json',
     },
-    headers
+    headers,
   )
   if (method.toLocaleLowerCase() === 'post' && !headers['Content-Type']) {
     if (options.form) {
@@ -102,7 +102,7 @@ export const fetchData = (url, { timeout = 13_000, ...options }) => {
               url: resp.url,
               ok: resp.ok,
             }
-          })
+          }),
         )
         .then((resp) => {
           if (options.binary) {

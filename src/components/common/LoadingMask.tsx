@@ -67,7 +67,7 @@ export default forwardRef<LoadingMaskType, {}>((props, ref) => {
         <Loading size={25} label={t('list_loading')} />
       </Animated.View>
     ),
-    [animFade, t, theme]
+    [animFade, t, theme],
   )
 
   return maskVisible ? maskComponent : null

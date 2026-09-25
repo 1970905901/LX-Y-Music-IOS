@@ -12,9 +12,9 @@ import { toOldMusicInfo } from '@/utils'
 import { httpFetch } from '@/utils/request'
 import musicDetailApi from '@/utils/musicSdk/wy/musicDetail'
 import userState from '@/store/user/state'
-import {weapi} from "@/utils/musicSdk/wy/utils/crypto.js";
-import {addWyLikedSong, removeWyLikedSong, addTxLikedSong, removeTxLikedSong, addKgLikedSong, removeKgLikedSong} from "@/store/user/action.ts";
-import {navigations} from "@/navigation";
+import { weapi } from '@/utils/musicSdk/wy/utils/crypto.js'
+import { addWyLikedSong, removeWyLikedSong, addTxLikedSong, removeTxLikedSong, addKgLikedSong, removeKgLikedSong } from '@/store/user/action.ts'
+import { navigations } from '@/navigation'
 import commonState from '@/store/common/state'
 import wyApi from '@/utils/musicSdk/wy/user'
 import txApi from '@/utils/musicSdk/tx/user'
@@ -38,7 +38,7 @@ export const handleShowAlbumDetail = (componentId: string, musicInfo: LX.Music.M
   navigations.pushAlbumDetailScreen(componentId, albumInfo)
 }
 
-export const handleShowArtistDetail = async (componentId: string, musicInfo: LX.Music.MusicInfoOnline) => {
+export const handleShowArtistDetail = async(componentId: string, musicInfo: LX.Music.MusicInfoOnline) => {
   log.info('[handleShowArtistDetail] === 开始查看歌手详情 ===', {
     source: musicInfo.source,
     name: musicInfo.name,
@@ -93,8 +93,8 @@ export const handleShowArtistDetail = async (componentId: string, musicInfo: LX.
         try {
           // 兜底搜索必须与当前歌曲同源：歌曲来自哪个平台，就用哪个平台的接口找歌手
           if (musicInfo.source === 'kg') {
-            const response = await httpFetch(
-              `https://songsearch.kugou.com/song_search_v2?keyword=${encodeURIComponent(musicInfo.name)}&page=1&pagesize=10&userid=0&platform=WebFilter&filter=2&iscorrection=1&area_code=1`
+            const response = httpFetch(
+              `https://songsearch.kugou.com/song_search_v2?keyword=${encodeURIComponent(musicInfo.name)}&page=1&pagesize=10&userid=0&platform=WebFilter&filter=2&iscorrection=1&area_code=1`,
             )
             const { body } = await response.promise
             const bodyData = body as { data?: { lists?: Array<{ SongName?: string, Singers?: Array<{ id?: string | number, name?: string }> }> } }
@@ -190,7 +190,7 @@ export const handleShowArtistDetail = async (componentId: string, musicInfo: LX.
   }
 }
 
-export const handleLikeMusic = async (musicInfo: LX.Music.MusicInfoOnline) => {
+export const handleLikeMusic = async(musicInfo: LX.Music.MusicInfoOnline) => {
   const cookie = settingState.setting['common.wy_cookie']
   if (!cookie) {
     toast('请先设置网易云 Cookie')
@@ -206,20 +206,20 @@ export const handleLikeMusic = async (musicInfo: LX.Music.MusicInfoOnline) => {
   const like = !isLiked
 
   try {
-    await wyApi.likeSong(songId, like);
+    await wyApi.likeSong(songId, like)
     if (like) {
-      toast('喜欢成功');
-      addWyLikedSong(songId);
+      toast('喜欢成功')
+      addWyLikedSong(songId)
     } else {
-      toast('取消喜欢成功');
-      removeWyLikedSong(songId);
+      toast('取消喜欢成功')
+      removeWyLikedSong(songId)
     }
   } catch (error: any) {
-    toast(`操作失败: ${error.message}`);
+    toast(`操作失败: ${error.message}`)
   }
 }
 
-export const handleTxLikeMusic = async (musicInfo: LX.Music.MusicInfoOnline) => {
+export const handleTxLikeMusic = async(musicInfo: LX.Music.MusicInfoOnline) => {
   const cookie = settingState.setting['common.tx_cookie']
   if (!cookie) {
     toast('请先设置QQ音乐 Cookie')
@@ -244,20 +244,20 @@ export const handleTxLikeMusic = async (musicInfo: LX.Music.MusicInfoOnline) => 
   const like = !isLiked
 
   try {
-    await txApi.likeSong(songIdentifier, like);
+    await txApi.likeSong(songIdentifier, like)
     if (like) {
-      toast('喜欢成功');
-      addTxLikedSong(likeKey);
+      toast('喜欢成功')
+      addTxLikedSong(likeKey)
     } else {
-      toast('取消喜欢成功');
-      removeTxLikedSong(likeKey);
+      toast('取消喜欢成功')
+      removeTxLikedSong(likeKey)
     }
   } catch (error: any) {
-    toast(`操作失败: ${error.message}`);
+    toast(`操作失败: ${error.message}`)
   }
 }
 
-export const handleKgLikeMusic = async (musicInfo: LX.Music.MusicInfoOnline) => {
+export const handleKgLikeMusic = async(musicInfo: LX.Music.MusicInfoOnline) => {
   const cookie = settingState.setting['common.kg_cookie']
   if (!cookie) {
     toast('请先设置酷狗音乐 Cookie')
@@ -283,13 +283,13 @@ export const handleKgLikeMusic = async (musicInfo: LX.Music.MusicInfoOnline) => 
         toast('获取歌单列表失败')
         return
       }
-      
+
       const favoritesPlaylist = playlistsResult.data.createdList.find((p: any) => p.isFavorites)
-      if (!favoritesPlaylist || !favoritesPlaylist.listid) {
+      if (!favoritesPlaylist?.listid) {
         toast('未找到"我喜欢"歌单，可能是Cookie已失效，请重新登录')
         return
       }
-      
+
       const meta = musicInfo.meta as any
       const songInfo = {
         name: musicInfo.name || '',
@@ -297,7 +297,7 @@ export const handleKgLikeMusic = async (musicInfo: LX.Music.MusicInfoOnline) => 
         album_id: meta.albumId ? Number(meta.albumId) : 0,
         mixsongid: meta.mixsongid ? Number(meta.mixsongid) : 0,
       }
-      
+
       const result = await addSongToPlaylist(cookie, favoritesPlaylist.listid, songInfo)
       if (result.success) {
         toast('喜欢成功')
@@ -312,31 +312,31 @@ export const handleKgLikeMusic = async (musicInfo: LX.Music.MusicInfoOnline) => 
         toast('获取歌单列表失败，可能是Cookie已失效，请重新登录')
         return
       }
-      
+
       const favoritesPlaylist = playlistsResult.data.createdList.find((p: any) => p.isFavorites)
-      if (!favoritesPlaylist || !favoritesPlaylist.listid) {
+      if (!favoritesPlaylist?.listid) {
         toast('未找到"我喜欢"歌单，可能是Cookie已失效，请重新登录')
         return
       }
-      
+
       const songsResult = await getPlaylistSongs(cookie, favoritesPlaylist.id, 1, 500)
       if (!songsResult.success || !songsResult.data?.list) {
         toast('获取歌单歌曲失败')
         return
       }
-      
+
       const meta = musicInfo.meta as any
       const songHash = (meta.hash || '').toString().toLowerCase()
       if (global.lx.isEnableLog) console.log('[KgLike] 查找歌曲:', { songHash, totalSongs: songsResult.data.list.length })
-      
+
       const targetSong = songsResult.data.list.find((s: any) => {
         const sHash = (s.hash || '').toString().toLowerCase()
         return sHash === songHash || sHash.includes(songHash) || songHash.includes(sHash)
       })
-      
+
       if (global.lx.isEnableLog) console.log('[KgLike] 找到歌曲:', { found: !!targetSong, fileId: targetSong?.fileId, listid: favoritesPlaylist.listid })
-      
-      if (targetSong && targetSong.fileId && targetSong.fileId !== 0) {
+
+      if (targetSong?.fileId && targetSong.fileId !== 0) {
         const removeResult = await removeSongsFromPlaylist(cookie, favoritesPlaylist.listid, [Number(targetSong.fileId)])
         if (removeResult.success) {
           toast('取消喜欢成功')
@@ -357,7 +357,7 @@ export const handlePlay = (musicInfo: LX.Music.MusicInfoOnline) => {
   void addListMusics(
     LIST_IDS.DEFAULT,
     [musicInfo],
-    settingState.setting['list.addMusicLocationType']
+    settingState.setting['list.addMusicLocationType'],
   ).then(() => {
     const index = getListMusicSync(LIST_IDS.DEFAULT).findIndex((m) => m.id == musicInfo.id)
     if (index < 0) return
@@ -367,7 +367,7 @@ export const handlePlay = (musicInfo: LX.Music.MusicInfoOnline) => {
 export const handlePlayLater = (
   musicInfo: LX.Music.MusicInfoOnline,
   selectedList: LX.Music.MusicInfoOnline[],
-  onCancelSelect: () => void
+  onCancelSelect: () => void,
 ) => {
   if (selectedList.length) {
     addTempPlayList(selectedList.map((s) => ({ listId: '', musicInfo: s })))
@@ -377,9 +377,9 @@ export const handlePlayLater = (
   }
 }
 
-export const handleShowMusicSourceDetail = async (minfo: LX.Music.MusicInfoOnline) => {
+export const handleShowMusicSourceDetail = async(minfo: LX.Music.MusicInfoOnline) => {
   const url = musicSdk[minfo.source as LX.OnlineSource]?.getMusicDetailPageUrl(
-    toOldMusicInfo(minfo)
+    toOldMusicInfo(minfo),
   )
   if (!url) return
   void openUrl(url)
@@ -409,7 +409,7 @@ export const handleDislikeMusic = async(musicInfo: LX.Music.MusicInfoOnline, lis
           resType: 4,
           sceneType: 1,
         }),
-      }).promise;
+      }).promise
 
       const bodyData = body as { code?: number, data?: any }
 

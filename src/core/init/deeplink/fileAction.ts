@@ -12,18 +12,17 @@ import {
   buildLocalMusicInfoByFilePath,
 } from '@/screens/Home/Views/Mylist/MyList/listAction'
 
-export const handleFileLXMCAction = async (file: FileType) => {
+export const handleFileLXMCAction = async(file: FileType) => {
   if (
     !(await confirmDialog({
       message: global.i18n.t('deep_link_file_lxmc_confirm_tip', { name: file.name }),
     }))
-  )
-    return
+  ) { return }
 
   handleImportList(file.path)
 }
 
-export const handleFileMusicAction = async (file: FileType) => {
+export const handleFileMusicAction = async(file: FileType) => {
   const info = await readMetadata(file.path)
   const isPlaying = !!playerState.playMusicInfo.musicInfo
   const musicInfo = info
@@ -34,13 +33,12 @@ export const handleFileMusicAction = async (file: FileType) => {
   if (isPlaying) void playNext()
 }
 
-export const handleFileJSAction = async (file: FileType) => {
+export const handleFileJSAction = async(file: FileType) => {
   if (
     !(await confirmDialog({
       message: global.i18n.t('deep_link_file_js_confirm_tip', { name: file.name }),
     }))
-  )
-    return
+  ) { return }
 
   handleImportLocalFile(file.path)
 }

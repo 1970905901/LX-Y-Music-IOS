@@ -100,8 +100,8 @@ export default forwardRef<ListNameEditType, {}>((props, ref) => {
       void (
         listState.userList.some((l) => l.name == name)
           ? confirmDialog({
-              message: global.i18n.t('list_duplicate_tip'),
-            })
+            message: global.i18n.t('list_duplicate_tip'),
+          })
           : Promise.resolve(true)
       ).then((confirmed) => {
         if (!confirmed) return

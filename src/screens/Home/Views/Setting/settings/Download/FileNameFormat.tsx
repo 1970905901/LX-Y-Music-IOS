@@ -19,7 +19,7 @@ const useActive = (id: LX.DownloadFileNameFormat) => {
   return isActive
 }
 
-const Item = ({ id, name }: { id: LX.DownloadFileNameFormat; name: string }) => {
+const Item = ({ id, name }: { id: LX.DownloadFileNameFormat, name: string }) => {
   const isActive = useActive(id)
   // const isEnable = useSettingValue('download.enable')
   return (

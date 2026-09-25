@@ -1,4 +1,4 @@
-import { initSetting, showPactModal } from '@/core/common'
+import { initSetting, showPactModal, updateSetting } from '@/core/common'
 import registerPlaybackService from '@/plugins/player/service'
 import initTheme from './theme'
 import initI18n from './i18n'
@@ -20,7 +20,6 @@ import { Platform } from 'react-native'
 import RNFS from 'react-native-fs'
 import { mkdir, readDir, moveFile, existsFile } from '@/utils/fs'
 import { getDefaultDownloadPath } from '@/utils/downloadPath'
-import { updateSetting } from '@/core/common'
 import { getDownloadTasks, saveDownloadTasks } from '@/utils/data/download'
 import downloadActions from '@/store/download/action'
 import { startCookieKeepAlive } from '@/utils/cookieKeepAlive'
@@ -61,12 +60,12 @@ export default async() => {
   bootLog('Setting inited.')
   // console.log(setting)
 
-  await withTimeout<void>(initTheme(setting), 'Theme', undefined)
+  await withTimeout(initTheme(setting), 'Theme', undefined)
   bootLog('Theme inited.')
-  await withTimeout<void>(initI18n(setting), 'I18n', undefined)
+  await withTimeout(initI18n(setting), 'I18n', undefined)
   bootLog('I18n inited.')
 
-  await withTimeout<void>(initUserApi(setting), 'User Api', undefined)
+  await withTimeout(initUserApi(setting), 'User Api', undefined)
   bootLog('User Api inited.')
 
   initUiMode()
@@ -77,15 +76,15 @@ export default async() => {
 
   registerPlaybackService()
   bootLog('Playback Service Registered.')
-  await withTimeout<void>(initPlayer(setting), 'Player', undefined)
+  await withTimeout(initPlayer(setting), 'Player', undefined)
   bootLog('Player inited.')
   void dataInit(setting)
-    .then(() => bootLog('Data inited.'))
-    .catch((err: any) => bootLog(`Data init failed: ${err?.stack ?? err?.message ?? err}`))
+    .then(() => { bootLog('Data inited.') })
+    .catch((err: any) => { bootLog(`Data init failed: ${err?.stack ?? err?.message ?? err}`) })
   void initDownloadPath(setting)
-    .then(() => bootLog('Download path inited.'))
-    .catch((err: any) => bootLog(`Download path init failed: ${err?.stack ?? err?.message ?? err}`))
-  await withTimeout<void>(initCommonState(setting), 'Common State', undefined)
+    .then(() => { bootLog('Download path inited.') })
+    .catch((err: any) => { bootLog(`Download path init failed: ${err?.stack ?? err?.message ?? err}`) })
+  await withTimeout(initCommonState(setting), 'Common State', undefined)
   bootLog('Common State inited.')
 
   void initSync(setting)
@@ -110,7 +109,7 @@ export default async() => {
  *      连同同名 .lrc 歌词一并移动）。
  *   迁移后同步改写下载任务的 filePath，保证列表内文件继续可播。
  */
-const initDownloadPath = async (setting: LX.AppSetting) => {
+const initDownloadPath = async(setting: LX.AppSetting) => {
   const defaultPath = getDefaultDownloadPath()
 
   // 预创建默认下载目录（无论当前是否使用默认路径，都确保其存在）。

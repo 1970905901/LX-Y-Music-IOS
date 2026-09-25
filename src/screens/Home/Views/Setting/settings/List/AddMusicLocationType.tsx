@@ -19,7 +19,7 @@ const useActive = (id: LX.AddMusicLocationType) => {
   return isActive
 }
 
-const Item = ({ id, name }: { id: LX.AddMusicLocationType; name: string }) => {
+const Item = ({ id, name }: { id: LX.AddMusicLocationType, name: string }) => {
   const isActive = useActive(id)
   // const [toggleCheckBox, setToggleCheckBox] = useState(false)
   return (

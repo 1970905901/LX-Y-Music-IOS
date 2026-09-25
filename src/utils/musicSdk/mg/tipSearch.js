@@ -13,7 +13,7 @@ export default {
         headers: {
           referer: 'https://music.migu.cn/v3',
         },
-      }
+      },
     )
     return this.requestObj.then((body) => {
       return body.songs

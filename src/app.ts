@@ -23,12 +23,12 @@ const reactRuntime = React as { createElement: (type: any, ...args: any[]) => an
 reactRuntime.createElement = createElementWithUndefinedCheck
 
 if (__DEV__) {
-  const originalLog = console.log;
-  const originalWarn = console.warn;
-  const originalError = console.error;
+  const originalLog = console.log
+  const originalWarn = console.warn
+  const originalError = console.error
 
-  const PREFIX = '###RN_DEBUG_START###';
-  const SUFFIX = '###RN_DEBUG_END###';
+  const PREFIX = '###RN_DEBUG_START###'
+  const SUFFIX = '###RN_DEBUG_END###'
 
   /**
    * @param {'log' | 'warn' | 'error'} type
@@ -37,28 +37,27 @@ if (__DEV__) {
   const remoteLog = (type: 'log' | 'warn' | 'error', ...args: unknown[]) => {
     try {
       const payload = {
-        type: type,
+        type,
         payload: args,
-      };
+      }
 
-      originalLog(`${PREFIX}${JSON.stringify(payload)}${SUFFIX}`);
-
+      originalLog(`${PREFIX}${JSON.stringify(payload)}${SUFFIX}`)
     } catch (e) {
-      originalLog('Logger Patch Error:', e);
+      originalLog('Logger Patch Error:', e)
       if (type === 'warn') {
-        originalWarn.apply(console, args);
+        originalWarn.apply(console, args)
       } else if (type === 'error') {
-        originalError.apply(console, args);
+        originalError.apply(console, args)
       } else {
-        originalLog.apply(console, args);
+        originalLog.apply(console, args)
       }
     }
-  };
+  }
 
   // Override global console object
-  console.log = (...args) => remoteLog('log', ...args);
-  console.warn = (...args) => remoteLog('warn', ...args);
-  console.error = (...args) => remoteLog('error', ...args);
+  console.log = (...args) => { remoteLog('log', ...args) }
+  console.warn = (...args) => { remoteLog('warn', ...args) }
+  console.error = (...args) => { remoteLog('error', ...args) }
 }
 
 if (__DEV__) {
@@ -76,15 +75,15 @@ if (__DEV__) {
 console.log('starting app...')
 listenLaunchEvent()
 
-  void Promise.all([
-    withTimeout(getFontSize(), 'Font size', 1),
-    withTimeout<{ width: number; height: number } | undefined>(
-      windowSizeTools.init(),
-      'Window size',
-      undefined,
-    ),
-  ])
-  .then(async ([fontSize]) => {
+void Promise.all([
+  withTimeout(getFontSize(), 'Font size', 1),
+  withTimeout<{ width: number, height: number } | undefined>(
+    windowSizeTools.init(),
+    'Window size',
+    undefined,
+  ),
+])
+  .then(async([fontSize]) => {
     global.lx.fontSize = fontSize
     bootLog('Font size setting loaded.')
 
@@ -99,7 +98,7 @@ listenLaunchEvent()
       }
     }
 
-    const handleInit = async () => {
+    const handleInit = async() => {
       if (isInited) return
       void initLog()
       const { default: init } = await import('@/core/init')
@@ -120,7 +119,7 @@ listenLaunchEvent()
     }
     const { init: initNavigation, navigations } = await import('@/navigation')
 
-    initNavigation(async () => {
+    initNavigation(async() => {
       await handleInit()
       if (!isInited) return
 

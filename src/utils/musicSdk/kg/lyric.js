@@ -78,7 +78,7 @@ export default {
           'KG-THash': 'expand_search_manager.cpp:852736169:451',
           'User-Agent': 'KuGou2012-9020-ExpandSearchManager',
         },
-      }
+      },
     )
     requestObj.promise = requestObj.promise.then(({ body, statusCode }) => {
       if (statusCode !== 200) {
@@ -108,7 +108,7 @@ export default {
           'KG-THash': 'expand_search_manager.cpp:852736169:451',
           'User-Agent': 'KuGou2012-9020-ExpandSearchManager',
         },
-      }
+      },
     )
     requestObj.promise = requestObj.promise.then(({ body, statusCode }) => {
       if (statusCode !== 200) {
@@ -139,7 +139,7 @@ export default {
     let requestObj = this.searchLyric(
       songInfo.name,
       songInfo.hash,
-      songInfo._interval || this.getIntv(songInfo.interval)
+      songInfo._interval || this.getIntv(songInfo.interval),
     )
 
     requestObj.promise = requestObj.promise.then((result) => {

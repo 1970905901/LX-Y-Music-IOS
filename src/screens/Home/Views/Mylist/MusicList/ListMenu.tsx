@@ -36,7 +36,7 @@ export interface ListMenuType {
 
 export type { Position }
 
-const hasEditMetadata = async (musicInfo: LX.Music.MusicInfo) => {
+const hasEditMetadata = async(musicInfo: LX.Music.MusicInfo) => {
   if (musicInfo.source != 'local') return false
   return existsFile(musicInfo.meta.filePath)
 }
@@ -78,7 +78,7 @@ export default forwardRef<ListMenuType, ListMenuProps>((props, ref) => {
 
     const buildMenu = async() => {
       const musicInfo = selectInfo.musicInfo
-      const menu: Menus[number][] = []
+      const menu: Array<Menus[number]> = []
 
       if (menuSetting.playLater) menu.push({ action: 'playLater', label: t('play_later') })
       menu.push({ action: 'download', label: t('download') })

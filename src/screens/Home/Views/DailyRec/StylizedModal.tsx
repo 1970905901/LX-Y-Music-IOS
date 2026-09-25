@@ -7,54 +7,89 @@ import { shadow } from '@/utils/shadow'
 import { getData, saveData } from '@/plugins/storage'
 
 export const CATEGORIES = {
-  "曲风": {
-    "categoryId": 1000,
-    "tags": {
-      "嘻哈/说唱": 10005, "电音": 10004, "民谣": 10010, "华语流行": 10001,
-      "轻音乐": 10017, "国风": 10016, "欧美流行": 10002, "R&B": 10013,
-      "二次元": 10015, "DJ慢摇": 10018, "韩系流行": 10019, "日系流行": 10020,
-      "摇滚": 10021, "金属": 10022, "爵士": 10008, "古典": 10009,
-      "雷鬼": 10023, "蓝调": 10024, "乡村": 10011, "新世纪": 10007, "独立": 10012
-    }
+  曲风: {
+    categoryId: 1000,
+    tags: {
+      '嘻哈/说唱': 10005,
+      电音: 10004,
+      民谣: 10010,
+      华语流行: 10001,
+      轻音乐: 10017,
+      国风: 10016,
+      欧美流行: 10002,
+      'R&B': 10013,
+      二次元: 10015,
+      DJ慢摇: 10018,
+      韩系流行: 10019,
+      日系流行: 10020,
+      摇滚: 10021,
+      金属: 10022,
+      爵士: 10008,
+      古典: 10009,
+      雷鬼: 10023,
+      蓝调: 10024,
+      乡村: 10011,
+      新世纪: 10007,
+      独立: 10012,
+    },
   },
-  "语种": {
-    "categoryId": 2000,
-    "tags": {
-      "华语": 20001, "英语": 20002, "日语": 20003, "韩语": 20004,
-      "粤语": 20005, "纯音乐": 20006, "西班牙语": 20007, "俄语": 20008,
-      "法语": 20009, "泰语": 20010, "闽南语": 20011
-    }
+  语种: {
+    categoryId: 2000,
+    tags: {
+      华语: 20001,
+      英语: 20002,
+      日语: 20003,
+      韩语: 20004,
+      粤语: 20005,
+      纯音乐: 20006,
+      西班牙语: 20007,
+      俄语: 20008,
+      法语: 20009,
+      泰语: 20010,
+      闽南语: 20011,
+    },
   },
-  "情感": {
-    "categoryId": 3000,
-    "tags": {
-      "伤感": 30001, "放松": 30002, "抒情": 30008, "欢快": 30004,
-      "浪漫": 30005, "兴奋": 30009, "思念": 30010, "治愈": 30011
-    }
+  情感: {
+    categoryId: 3000,
+    tags: {
+      伤感: 30001,
+      放松: 30002,
+      抒情: 30008,
+      欢快: 30004,
+      浪漫: 30005,
+      兴奋: 30009,
+      思念: 30010,
+      治愈: 30011,
+    },
   },
-  "主题": {
-    "categoryId": 4000,
-    "tags": {
-      "偶像": 40001, "草原": 40002, "成熟": 40003, "慢摇": 40004
-    }
+  主题: {
+    categoryId: 4000,
+    tags: {
+      偶像: 40001, 草原: 40002, 成熟: 40003, 慢摇: 40004,
+    },
   },
-  "场景": {
-    "categoryId": 5000,
-    "tags": {
-      "学习": 50001, "助眠": 50002, "运动": 50003, "KTV": 50004,
-      "咖啡厅": 50005, "夜店": 50006, "微醺": 50007
-    }
-  }
+  场景: {
+    categoryId: 5000,
+    tags: {
+      学习: 50001,
+      助眠: 50002,
+      运动: 50003,
+      KTV: 50004,
+      咖啡厅: 50005,
+      夜店: 50006,
+      微醺: 50007,
+    },
+  },
 }
 
-export type StylizedSelection = { categoryId: number, tagIds: number[] } | null;
+export type StylizedSelection = { categoryId: number, tagIds: number[] } | null
 
-export const loadStylizedSelection = async (): Promise<StylizedSelection> => {
-  return await getData('stylizedRecSettings');
+export const loadStylizedSelection = async(): Promise<StylizedSelection> => {
+  return await getData('stylizedRecSettings')
 }
 
-export const saveStylizedSelection = async (data: StylizedSelection) => {
-  await saveData('stylizedRecSettings', data);
+export const saveStylizedSelection = async(data: StylizedSelection) => {
+  await saveData('stylizedRecSettings', data)
 }
 
 interface StylizedModalProps {
@@ -71,9 +106,9 @@ export default memo(({ visible, onClose, onConfirm }: StylizedModalProps) => {
   useEffect(() => {
     if (visible) {
       loadStylizedSelection().then(data => {
-        if (data && data.categoryId && data.tagIds) {
+        if (data?.categoryId && data.tagIds) {
           const categoryName = Object.keys(CATEGORIES).find(
-            k => CATEGORIES[k as keyof typeof CATEGORIES].categoryId === data.categoryId
+            k => CATEGORIES[k as keyof typeof CATEGORIES].categoryId === data.categoryId,
           ) as keyof typeof CATEGORIES
           if (categoryName) {
             setSelectedCategoryName(categoryName)
@@ -94,7 +129,7 @@ export default memo(({ visible, onClose, onConfirm }: StylizedModalProps) => {
 
   const handleSelectTag = (tagId: number) => {
     const isEmotion = selectedCategoryName === '情感'
-    
+
     if (selectedTags.includes(tagId)) {
       setSelectedTags(prev => prev.filter(id => id !== tagId))
     } else {
@@ -139,7 +174,7 @@ export default memo(({ visible, onClose, onConfirm }: StylizedModalProps) => {
               <Text size={16} color={theme['c-font-label']}>✕</Text>
             </TouchableOpacity>
           </View>
-          
+
           <View style={styles.content}>
             {/* 左侧分类 */}
             <View style={[styles.categoryList, { borderRightColor: theme['c-border-background'] }]}>
@@ -150,15 +185,15 @@ export default memo(({ visible, onClose, onConfirm }: StylizedModalProps) => {
               >
                 {Object.keys(CATEGORIES).map(name => {
                   const isSelected = selectedCategoryName === name
-                  const isThemeSupported = Object.keys(theme).includes('c-button-background');
+                  const isThemeSupported = Object.keys(theme).includes('c-button-background')
                   return (
                     <TouchableOpacity
                       key={name}
                       style={[
                         styles.categoryItem,
-                        isSelected && { backgroundColor: isThemeSupported ? theme['c-button-background'] : 'rgba(0,0,0,0.1)' }
+                        isSelected && { backgroundColor: isThemeSupported ? theme['c-button-background'] : 'rgba(0,0,0,0.1)' },
                       ]}
-                      onPress={() => handleSelectCategory(name as keyof typeof CATEGORIES)}
+                      onPress={() => { handleSelectCategory(name as keyof typeof CATEGORIES) }}
                     >
                       <Text
                         size={14}
@@ -172,7 +207,7 @@ export default memo(({ visible, onClose, onConfirm }: StylizedModalProps) => {
                 })}
               </ScrollView>
             </View>
-            
+
             {/* 右侧标签 */}
             <ScrollView style={styles.tagList} contentContainerStyle={styles.tagListContent}>
               <Text size={12} color={theme['c-font-label']} style={{ marginBottom: 10 }}>
@@ -180,17 +215,17 @@ export default memo(({ visible, onClose, onConfirm }: StylizedModalProps) => {
               </Text>
               <View style={styles.tagsContainer}>
                 {Object.entries(currentTags).map(([tagName, tagId]) => {
-                  const isSelected = selectedTags.includes(tagId as number)
-                  const isThemeSupported = Object.keys(theme).includes('c-button-background');
+                  const isSelected = selectedTags.includes(tagId)
+                  const isThemeSupported = Object.keys(theme).includes('c-button-background')
                   return (
                     <TouchableOpacity
                       key={tagId.toString()}
                       style={[
                         styles.tagItem,
                         { borderColor: Object.keys(theme).includes('c-border-background') ? theme['c-border-background'] : '#ddd' },
-                        isSelected && { borderColor: theme['c-button-background'], backgroundColor: isThemeSupported ? theme['c-button-background'] : 'rgba(0,0,0,0.1)' }
+                        isSelected && { borderColor: theme['c-button-background'], backgroundColor: isThemeSupported ? theme['c-button-background'] : 'rgba(0,0,0,0.1)' },
                       ]}
-                      onPress={() => handleSelectTag(tagId as number)}
+                      onPress={() => { handleSelectTag(tagId) }}
                     >
                       <Text
                         size={14}
@@ -204,16 +239,16 @@ export default memo(({ visible, onClose, onConfirm }: StylizedModalProps) => {
               </View>
             </ScrollView>
           </View>
-          
+
           <View style={[styles.footer, { borderTopColor: theme['c-border-background'] }]}>
             <TouchableOpacity style={styles.btn} onPress={onClose}>
               <Text color={theme['c-font-label']}>取消</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[
-                styles.btn, 
-                { backgroundColor: Object.keys(theme).includes('c-button-background') ? theme['c-button-background'] : '#f0f0f0' }
-              ]} 
+                styles.btn,
+                { backgroundColor: Object.keys(theme).includes('c-button-background') ? theme['c-button-background'] : '#f0f0f0' },
+              ]}
               onPress={handleConfirm}
             >
               <Text color={theme['c-button-font']}>确定</Text>

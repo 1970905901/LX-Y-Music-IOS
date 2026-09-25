@@ -12,7 +12,7 @@ export default {
         headers: {
           'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 9;)',
         },
-      }
+      },
     )
     const { body, statusCode } = await _requestObj.promise
     if (statusCode != 200 || body.status !== 'ok') throw new Error('获取热搜词失败')

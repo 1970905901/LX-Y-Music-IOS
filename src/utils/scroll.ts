@@ -28,7 +28,7 @@ const handleScrollY = (
   info: NativeSyntheticEvent<NativeScrollEvent>['nativeEvent'],
   to: number,
   duration = 300,
-  fn = noop
+  fn = noop,
 ): Noop => {
   if (element == null) {
     fn()
@@ -141,7 +141,7 @@ export const scrollTo = (
   to: number,
   duration = 300,
   fn = () => {},
-  delay = 0
+  delay = 0,
 ): (() => void) => {
   let cancelFn: () => void
   if (element.lx_scrollDelayTimeout != null) {

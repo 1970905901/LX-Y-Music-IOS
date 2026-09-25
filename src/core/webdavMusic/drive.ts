@@ -1,5 +1,5 @@
 import { getData, saveData } from '@/plugins/storage'
-import { createClient, FileStat } from 'webdav'
+import { createClient, type FileStat } from 'webdav'
 import settingState from '@/store/setting/state'
 import { webDAVLog } from './logger'
 import { btoa } from 'react-native-quick-base64'
@@ -65,7 +65,7 @@ const parseFileName = (fileName: string) => {
   }
 }
 
-export const getWebDAVConfig = async (): Promise<LX.WebDAV.Config> => {
+export const getWebDAVConfig = async(): Promise<LX.WebDAV.Config> => {
   const config = (await getData<LX.WebDAV.Config>(CONFIG_KEY)) ?? {
     selectedFolder: null,
     songs: [],
@@ -75,21 +75,21 @@ export const getWebDAVConfig = async (): Promise<LX.WebDAV.Config> => {
   return config
 }
 
-export const saveWebDAVFilterPath = async (filterPath: string | null) => {
+export const saveWebDAVFilterPath = async(filterPath: string | null) => {
   const config = await getWebDAVConfig()
   config.filterPath = filterPath
   await saveWebDAVConfig(config)
   return config
 }
 
-export const saveWebDAVConfig = async (config: LX.WebDAV.Config) => {
+export const saveWebDAVConfig = async(config: LX.WebDAV.Config) => {
   await saveData(CONFIG_KEY, config)
 }
 
-export const listWebDAVFolders = async (folder?: LX.WebDAV.DriveFolder | null) => {
+export const listWebDAVFolders = async(folder?: LX.WebDAV.DriveFolder | null) => {
   const client = await getClient()
   const basePath = folder?.path ?? '/'
-  
+
   let contents: Array<any & { type: string }>
   try {
     contents = await client.getDirectoryContents(basePath) as Array<any & { type: string }>
@@ -100,19 +100,19 @@ export const listWebDAVFolders = async (folder?: LX.WebDAV.DriveFolder | null) =
     }
     throw error
   }
-  
+
   return contents
     .filter(item => item.type === 'directory')
     .sort((a, b) => a.basename.localeCompare(b.basename))
     .map<LX.WebDAV.DriveFolder>(item => ({
-      id: item.filename,
-      name: item.basename,
-      parentId: folder?.id,
-      path: normalizePath(folder?.path, item.basename),
-    }))
+    id: item.filename,
+    name: item.basename,
+    parentId: folder?.id,
+    path: normalizePath(folder?.path, item.basename),
+  }))
 }
 
-export const saveWebDAVSelectedFolder = async (folder: LX.WebDAV.DriveFolder | null) => {
+export const saveWebDAVSelectedFolder = async(folder: LX.WebDAV.DriveFolder | null) => {
   const config = await getWebDAVConfig()
   config.selectedFolder = folder
   await saveWebDAVConfig(config)
@@ -150,14 +150,14 @@ export const normalizeWebDAVMusicInfo = (musicInfo: LX.WebDAV.MusicInfo) => {
   return musicInfo
 }
 
-const scanFolder = async (
+const scanFolder = async(
   folder: LX.WebDAV.DriveFolder | null,
-  onProgress?: (count: number, folderPath: string) => void
+  onProgress?: (count: number, folderPath: string) => void,
 ) => {
   const client = await getClient()
   const result: LX.WebDAV.MusicInfo[] = []
   const basePath = folder?.path ?? '/'
-  
+
   let contents: Array<any & { type: string }>
   try {
     contents = await client.getDirectoryContents(basePath) as Array<any & { type: string }>
@@ -168,7 +168,7 @@ const scanFolder = async (
     }
     throw error
   }
-  
+
   // 第一遍：收集当前目录的图片与歌词文件，供同名/通用封面匹配
   const picMap = new Map<string, string>()
   const lrcMap = new Map<string, string>()
@@ -194,8 +194,8 @@ const scanFolder = async (
         result.push(
           ...(await scanFolder(
             { id: item.filename, name: item.basename, parentId: folder?.id, path },
-            onProgress
-          ))
+            onProgress,
+          )),
         )
       } catch (error: any) {
         webDAVLog.error('scanFolder recursive error', { path, error, status: error.status })
@@ -219,9 +219,9 @@ const scanFolder = async (
   return result
 }
 
-export const scanWebDAVSongs = async (
+export const scanWebDAVSongs = async(
   folder: LX.WebDAV.DriveFolder | null,
-  onProgress?: (count: number, folderPath: string) => void
+  onProgress?: (count: number, folderPath: string) => void,
 ) => {
   const songs = await scanFolder(folder, onProgress)
   songs.sort((a, b) => b.meta.lastModifiedTime - a.meta.lastModifiedTime)
@@ -231,13 +231,13 @@ export const scanWebDAVSongs = async (
   for (const song of config.songs ?? []) {
     existingSongsMap.set(song.id, song)
   }
-  
+
   const mergedSongs = songs.map(newSong => {
     const existing = existingSongsMap.get(newSong.id)
     if (existing) Object.assign(newSong.meta, existing.meta)
     return newSong
   })
-  
+
   config.selectedFolder = folder
   config.songs = mergedSongs
   config.scannedAt = Date.now()
@@ -253,7 +253,7 @@ export const getWebDAVAuthHeaders = (): Record<string, string> => {
   const username = settingState.setting['sync.webdav.username']
   const password = settingState.setting['sync.webdav.password']
   if (username && password) {
-    headers['Authorization'] = 'Basic ' + btoa(`${username}:${password}`)
+    headers.Authorization = 'Basic ' + btoa(`${username}:${password}`)
   }
   return headers
 }
@@ -311,7 +311,7 @@ export interface WebDAVMusicMetaUpdate {
   filePath?: string | null
 }
 
-export const updateWebDAVMusicMeta = async (musicId: string, update: WebDAVMusicMetaUpdate): Promise<void> => {
+export const updateWebDAVMusicMeta = async(musicId: string, update: WebDAVMusicMetaUpdate): Promise<void> => {
   const config = await getWebDAVConfig()
   const songIndex = config.songs.findIndex(song => song.id === musicId)
   if (songIndex === -1) {
@@ -334,7 +334,7 @@ export const updateWebDAVMusicMeta = async (musicId: string, update: WebDAVMusic
 
 // 拉取网盘内封面图片：下载到本地缓存目录，返回 file:// 本地路径
 // （FastImage 固定 defaultHeaders，无法注入 Basic Auth，需先下载到本地）
-export const fetchWebDAVPic = async (musicInfo: LX.WebDAV.MusicInfo): Promise<string | null> => {
+export const fetchWebDAVPic = async(musicInfo: LX.WebDAV.MusicInfo): Promise<string | null> => {
   const picPath = musicInfo.meta.picPath
   if (!picPath) return null
   try {
@@ -354,7 +354,7 @@ export const fetchWebDAVPic = async (musicInfo: LX.WebDAV.MusicInfo): Promise<st
 }
 
 // 拉取网盘内同名 .lrc 歌词文本（通过直链 + Basic Auth）
-export const fetchWebDAVLrc = async (musicInfo: LX.WebDAV.MusicInfo): Promise<string | null> => {
+export const fetchWebDAVLrc = async(musicInfo: LX.WebDAV.MusicInfo): Promise<string | null> => {
   const lrcPath = musicInfo.meta.lrcPath
   if (!lrcPath) return null
   try {
@@ -373,7 +373,7 @@ export const fetchWebDAVLrc = async (musicInfo: LX.WebDAV.MusicInfo): Promise<st
 // iOS 的 AVPlayer 无法可靠注入 Authorization/User-Agent 头，
 // 直链流式播放不稳定，改为用 downloadFile（NSURLSession，能正确携带 Basic Auth）
 // 先下载到私有缓存，再播放本地文件。
-export const downloadWebDAVMusic = async (musicInfo: LX.WebDAV.MusicInfo): Promise<string> => {
+export const downloadWebDAVMusic = async(musicInfo: LX.WebDAV.MusicInfo): Promise<string> => {
   const remotePath = String(musicInfo.meta.remotePath || musicInfo.meta.songId || musicInfo.meta.filePath)
   const cacheDir = `${getWebDAVCacheDirectory()}/music`
   const ext = musicInfo.meta.ext || getExt(musicInfo.meta.fileName || remotePath)

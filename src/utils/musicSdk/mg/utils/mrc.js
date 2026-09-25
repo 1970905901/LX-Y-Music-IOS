@@ -36,8 +36,8 @@ const teaDecrypt = (data, key) => {
               (toLong(toLong(j2 ^ j4) + toLong(j7 ^ key[toLong(toLong(3n & j6) ^ j5)])) ^
                 toLong(
                   toLong(toLong(j7 >> 5n) ^ toLong(j2 << 2n)) +
-                    toLong(toLong(j2 >> 3n) ^ toLong(j7 << 4n))
-                ))
+                    toLong(toLong(j2 >> 3n) ^ toLong(j7 << 4n)),
+                )),
           )
           data[i] = j2
         } else break
@@ -49,9 +49,9 @@ const teaDecrypt = (data, key) => {
             toLong(toLong(key[toLong(toLong(j6 & 3n) ^ j5)] ^ j8) + toLong(j2 ^ j4)) ^
               toLong(
                 toLong(toLong(j8 >> 5n) ^ toLong(j2 << 2n)) +
-                  toLong(toLong(j2 >> 3n) ^ toLong(j8 << 4n))
-              )
-          )
+                  toLong(toLong(j2 >> 3n) ^ toLong(j8 << 4n)),
+              ),
+          ),
       )
       data[0] = j2
       j3 = toLong(j4 - DELTA)

@@ -185,5 +185,5 @@ export const getWebDAVPrivateDirectory = () => {
   return `${docDir}/WebDAV`
 }
 
-export const copyFile = async (fromPath: string, toPath: string) =>
+export const copyFile = async(fromPath: string, toPath: string) =>
   RNFS.copyFile(normalizePath(fromPath), normalizePath(toPath))

@@ -51,7 +51,7 @@ export default forwardRef<WebDAVListMenuType, WebDAVListMenuProps>((props, ref) 
     const buildMenu = async() => {
       const musicInfo = selectInfo.musicInfo
 
-      const menu: Menus[number][] = []
+      const menu: Array<Menus[number]> = []
 
       menu.push({ action: 'playLater', label: t('play_later') })
       menu.push({ action: 'download', label: '下载' })

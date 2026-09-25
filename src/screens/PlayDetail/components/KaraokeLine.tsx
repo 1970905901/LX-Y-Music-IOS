@@ -44,14 +44,14 @@ export default memo(({
   playedColor,
   inactiveColor,
 }: {
-  words: { text: string }[]
+  words: Array<{ text: string }>
   activeWordIndex: number
   activeWordProgress: number
   size: number
   playedColor: string
   inactiveColor: string
 }) => {
-const content = useMemo(() => {
+  const content = useMemo(() => {
     return words.map((word, index) => {
       if (index < activeWordIndex) {
         return <Text key={index} size={size} color={playedColor}>{word.text}</Text>

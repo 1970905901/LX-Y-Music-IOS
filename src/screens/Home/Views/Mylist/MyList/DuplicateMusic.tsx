@@ -137,7 +137,7 @@ const ListItem = memo(
       nextProps.selectedList.includes(nextProps.info) ==
         prevProps.selectedList.includes(nextProps.info)
     )
-  }
+  },
 )
 
 const handleRemoveList = (list: DuplicateMusicItem[], index: number) => {
@@ -184,7 +184,7 @@ const List = ({ listId }: { listId: string }) => {
         void playList(listId, idx)
       })
     },
-    [listId]
+    [listId],
   )
   const handleRemovePress = useCallback(
     (index: number) => {
@@ -204,7 +204,7 @@ const List = ({ listId }: { listId: string }) => {
             }
             setList((dataRef.current[0] = newList))
             setSelectedList((dataRef.current[1] = []))
-          }
+          },
         )
         return
       }
@@ -224,7 +224,7 @@ const List = ({ listId }: { listId: string }) => {
       })
       setList((dataRef.current[0] = newList))
     },
-    [listId]
+    [listId],
   )
   const handleSelect = useCallback((info: DuplicateMusicItem) => {
     setSelectedList((selectedList) => {
@@ -240,7 +240,7 @@ const List = ({ listId }: { listId: string }) => {
   useEffect(handleFilterList, [handleFilterList])
 
   const renderItem = useCallback(
-    ({ item, index }: { item: DuplicateMusicItem; index: number }) => {
+    ({ item, index }: { item: DuplicateMusicItem, index: number }) => {
       return (
         <ListItem
           info={item}
@@ -252,7 +252,7 @@ const List = ({ listId }: { listId: string }) => {
         />
       )
     },
-    [handlePlay, handleRemovePress, handleSelect, selectedList]
+    [handlePlay, handleRemovePress, handleSelect, selectedList],
   )
   const getkey = useCallback<NonNullable<FlatListProps['keyExtractor']>>((item) => item.id, [])
   const getItemLayout = useCallback<NonNullable<FlatListProps['getItemLayout']>>((data, index) => {

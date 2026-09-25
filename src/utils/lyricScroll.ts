@@ -196,7 +196,7 @@ export class LyricScrollLayout {
    * 使每秒数十次的连续滚动位置计算摊销为 O(1)；切歌导致 lines 变化、或某行被真实测量
    * （updateLineHeight 已清空 preciseOffsets）时自动重建。
    */
-  private ensurePreciseOffsets(index: number, lines: { extendedLyrics?: unknown[] }[], usePlayed: boolean) {
+  private ensurePreciseOffsets(index: number, lines: Array<{ extendedLyrics?: unknown[] }>, usePlayed: boolean) {
     const heights = usePlayed ? this.playedLineHeights : this.lineHeights
     const cache = usePlayed ? this.precisePlayedOffsets : this.preciseOffsets
     const ref = usePlayed ? this.precisePlayedLinesRef : this.preciseLinesRef
@@ -213,11 +213,11 @@ export class LyricScrollLayout {
       : (this.measuredPlainCount > 0 ? this.measuredPlainSum / this.measuredPlainCount : this.defaultHeight)
     const transAvg = usePlayed
       ? (this.playedTransCount > 0
-        ? this.playedTransSum / this.playedTransCount
-        : plainAvg * LyricScrollLayout.TRANSLATION_FACTOR)
+          ? this.playedTransSum / this.playedTransCount
+          : plainAvg * LyricScrollLayout.TRANSLATION_FACTOR)
       : (this.measuredTransCount > 0
-        ? this.measuredTransSum / this.measuredTransCount
-        : plainAvg * LyricScrollLayout.TRANSLATION_FACTOR)
+          ? this.measuredTransSum / this.measuredTransCount
+          : plainAvg * LyricScrollLayout.TRANSLATION_FACTOR)
     const oldLen = cache.length
     if (oldLen === 0) cache[0] = 0
     for (let i = Math.max(oldLen, 1); i <= index; i++) {
@@ -243,7 +243,7 @@ export class LyricScrollLayout {
   getTargetOffsetPrecise(
     index: number,
     listHeight: number,
-    lines: { extendedLyrics?: unknown[] }[],
+    lines: Array<{ extendedLyrics?: unknown[] }>,
     viewPosition = 0.5,
     paddingV = 0,
     spaceHeight = 0,
@@ -269,7 +269,7 @@ export class LyricScrollLayout {
    */
   getContinuousOffset(
     index: number,
-    lines: { time: number; extendedLyrics?: unknown[] }[],
+    lines: Array<{ time: number, extendedLyrics?: unknown[] }>,
     t: number,
     listHeight: number,
     viewPosition = 0.5,

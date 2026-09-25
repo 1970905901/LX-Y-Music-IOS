@@ -120,7 +120,7 @@ export default forwardRef<ListSearchBarType, ListSearchBarProps>(
         opacity: animFade, // Bind opacity to animated value
         transform: [{ translateY: animTranslateY }],
       }),
-      [animFade, animTranslateY, theme]
+      [animFade, animTranslateY, theme],
     )
 
     const component = useMemo(() => {
@@ -137,7 +137,7 @@ export default forwardRef<ListSearchBarType, ListSearchBarProps>(
     }, [animaStyle, onSearch, onExitSearch, theme, t])
 
     return !visible && animatePlayed ? null : component
-  }
+  },
 )
 
 const styles = createStyle({

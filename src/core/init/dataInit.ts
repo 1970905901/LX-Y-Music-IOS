@@ -3,7 +3,7 @@
 import { init as musicSdkInit } from '@/utils/musicSdk'
 import { getUserLists, setUserList } from '@/core/list'
 import { setNavActiveId } from '../common'
-import { getViewPrevState } from '@/utils/data'
+import { getViewPrevState, cleanOneDriveDirtyData } from '@/utils/data'
 import { bootLog } from '@/utils/bootLog'
 import { getDislikeInfo, setDislikeInfo } from '@/core/dislikeList'
 import { unlink } from '@/utils/fs'
@@ -20,17 +20,16 @@ import {
   setTxLikedSongs,
   setTxSubscribedPlaylists,
   setKgSubscribedPlaylists,
-  setKgLikedSongs
+  setKgLikedSongs,
 } from '@/store/user/action.ts'
-import {getDownloadTasks} from "@/utils/data/download.ts";
-import { cleanOneDriveDirtyData } from '@/utils/data';
-import downloadActions from '@/store/download/action';
+import { getDownloadTasks } from '@/utils/data/download.ts'
+import downloadActions from '@/store/download/action'
 import { withTimeout } from '@/utils/withTimeout'
 
-const withInitTimeout = <T,>(promise: Promise<T>, label: string, fallback: T): Promise<T> =>
+const withInitTimeout = async <T,>(promise: Promise<T>, label: string, fallback: T): Promise<T> =>
   withTimeout(promise, label, fallback)
 
-export default async (appSetting: LX.AppSetting) => {
+export default async(appSetting: LX.AppSetting) => {
   void musicSdkInit()
   bootLog('User list init...')
   const userLists = await withInitTimeout(getUserLists(), 'User list', [])
@@ -47,21 +46,20 @@ export default async (appSetting: LX.AppSetting) => {
   setDislikeInfo(dislikeInfo)
   bootLog('User list inited.')
 
-  void cleanOneDriveDirtyData().then(() => bootLog('OneDrive dirty data cleaned.')).catch((err) => bootLog(`OneDrive dirty data clean failed: ${err?.message ?? err}`))
+  void cleanOneDriveDirtyData().then(() => { bootLog('OneDrive dirty data cleaned.') }).catch((err) => { bootLog(`OneDrive dirty data clean failed: ${err?.message ?? err}`) })
 
 
-  bootLog('Download tasks init...');
-  const savedTasks = await withInitTimeout(getDownloadTasks(), 'Download tasks', []);
-  bootLog('Download task data loaded.');
-  downloadActions.setTasks(savedTasks);
-  bootLog('Download tasks inited.');
+  bootLog('Download tasks init...')
+  const savedTasks = await withInitTimeout(getDownloadTasks(), 'Download tasks', [])
+  bootLog('Download task data loaded.')
+  downloadActions.setTasks(savedTasks)
+  bootLog('Download tasks inited.')
 
   const wy_cookie = appSetting['common.wy_cookie']
   if (wy_cookie) {
     bootLog('Wy like list init...')
     wyUserApi.getUid(wy_cookie)
-      .then((uid: any) =>
-      {
+      .then((uid: any) => {
         setWyUid(uid)
         wyUserApi.getLikedSongList(uid, wy_cookie).then((ids: any) => {
           setWyLikedSongs(ids)
@@ -94,7 +92,7 @@ export default async (appSetting: LX.AppSetting) => {
   const tx_cookie = appSetting['common.tx_cookie']
   if (tx_cookie) {
     bootLog('Tx like list init...')
-    ;(async () => {
+    ;(async() => {
       try {
         const allLikedMids: string[] = []
         let page = 1

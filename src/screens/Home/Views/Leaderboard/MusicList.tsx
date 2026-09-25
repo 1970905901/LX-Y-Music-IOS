@@ -1,4 +1,4 @@
-import {forwardRef, useCallback, useEffect, useImperativeHandle, useRef, type ReactElement} from 'react'
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, type ReactElement } from 'react'
 import OnlineList, { type OnlineListType, type OnlineListProps } from '@/components/OnlineList'
 import {
   clearListDetail,
@@ -24,9 +24,9 @@ export default forwardRef<MusicListType, { header?: ReactElement }>((props, ref)
   const listRef = useRef<OnlineListType>(null)
   const isUnmountedRef = useRef(false)
   const handleListUpdate = useCallback((newList: LX.Music.MusicInfoOnline[]) => {
-    if (isUnmountedRef.current) return;
-    boardState.listDetailInfo.list = newList;
-  }, []);
+    if (isUnmountedRef.current) return
+    boardState.listDetailInfo.list = newList
+  }, [])
 
   useImperativeHandle(
     ref,
@@ -59,7 +59,7 @@ export default forwardRef<MusicListType, { header?: ReactElement }>((props, ref)
               requestAnimationFrame(() => {
                 listRef.current?.setList(result.list)
                 listRef.current?.setStatus(
-                  boardState.listDetailInfo.maxPage <= page ? 'end' : 'idle'
+                  boardState.listDetailInfo.maxPage <= page ? 'end' : 'idle',
                 )
               })
             })
@@ -70,7 +70,7 @@ export default forwardRef<MusicListType, { header?: ReactElement }>((props, ref)
         }
       },
     }),
-    []
+    [],
   )
 
   useEffect(() => {

@@ -25,7 +25,7 @@ export const sortListMusicInfo = (
   list: LX.Music.MusicInfo[],
   sortType: 'up' | 'down' | 'random',
   fieldName: 'name' | 'singer' | 'album' | 'time' | 'source',
-  localeId: string
+  localeId: string,
 ) => {
   // console.log(sortType, fieldName, localeId)
   localeId = localeId.replaceAll('_', '-')
@@ -48,18 +48,18 @@ export const sortListMusicInfo = (
             list.sort((a, b) => {
               if (a[fieldName] == null) {
                 return b[fieldName] == null ? 0 : -1
-              } else
-                return b[fieldName] == null ? 1 : a[fieldName].localeCompare(b[fieldName], localeId)
+              } else { return b[fieldName] == null ? 1 : a[fieldName].localeCompare(b[fieldName], localeId) }
             })
             break
           case 'album':
             list.sort((a, b) => {
               if (a.meta.albumName == null) {
                 return b.meta.albumName == null ? 0 : -1
-              } else
+              } else {
                 return b.meta.albumName == null
                   ? 1
                   : a.meta.albumName.localeCompare(b.meta.albumName, localeId)
+              }
             })
             break
         }
@@ -80,20 +80,22 @@ export const sortListMusicInfo = (
             list.sort((a, b) => {
               if (a[fieldName] == null) {
                 return b[fieldName] == null ? 0 : 1
-              } else
+              } else {
                 return b[fieldName] == null
                   ? -1
                   : b[fieldName].localeCompare(a[fieldName], localeId)
+              }
             })
             break
           case 'album':
             list.sort((a, b) => {
               if (a.meta.albumName == null) {
                 return b.meta.albumName == null ? 0 : 1
-              } else
+              } else {
                 return b.meta.albumName == null
                   ? -1
                   : b.meta.albumName.localeCompare(a.meta.albumName, localeId)
+              }
             })
             break
         }
@@ -117,9 +119,9 @@ export interface DuplicateMusicItem {
  * @param isFilterVariant 是否过滤 Live Explicit 等歌曲名
  * @returns
  */
-export const filterDuplicateMusic = async (
+export const filterDuplicateMusic = async(
   list: LX.Music.MusicInfo[],
-  isFilterVariant: boolean = true
+  isFilterVariant: boolean = true,
 ) => {
   const listMap = new Map<string, DuplicateMusicItem[]>()
   const duplicateList = new Set<string>()

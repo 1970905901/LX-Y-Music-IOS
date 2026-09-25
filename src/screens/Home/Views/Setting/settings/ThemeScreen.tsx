@@ -13,7 +13,6 @@ import MiniPlayerOpacity from './Theme/MiniPlayerOpacity'
 import SubContainerOpacity from './Theme/SubContainerOpacity'
 
 export default memo(() => {
-
   return (
     <Section sectionId="setting_theme">
       <Theme />

@@ -1,27 +1,27 @@
-import { useEffect, useRef, useState } from 'react';
-import KgWebLoginModal, { type KgWebLoginModalType } from './KgWebLoginModal';
+import { useEffect, useRef, useState } from 'react'
+import KgWebLoginModal, { type KgWebLoginModalType } from './KgWebLoginModal'
 
 export default () => {
-  const modalRef = useRef<KgWebLoginModalType>(null);
-  const [visible, setVisible] = useState(false);
+  const modalRef = useRef<KgWebLoginModalType>(null)
+  const [visible, setVisible] = useState(false)
 
   useEffect(() => {
     const handleShow = () => {
       if (visible) {
-        modalRef.current?.show();
+        modalRef.current?.show()
       } else {
-        setVisible(true);
+        setVisible(true)
         requestAnimationFrame(() => {
-          modalRef.current?.show();
-        });
+          modalRef.current?.show()
+        })
       }
-    };
+    }
 
-    global.app_event.on('showKgWebLogin' as any, handleShow);
+    global.app_event.on('showKgWebLogin' as any, handleShow)
     return () => {
-      global.app_event.off('showKgWebLogin' as any, handleShow);
-    };
-  }, [visible]);
+      global.app_event.off('showKgWebLogin' as any, handleShow)
+    }
+  }, [visible])
 
-  return visible ? <KgWebLoginModal ref={modalRef} /> : null;
-};
+  return visible ? <KgWebLoginModal ref={modalRef} /> : null
+}

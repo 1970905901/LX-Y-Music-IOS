@@ -1,4 +1,4 @@
-import {forwardRef, useEffect, useImperativeHandle, useRef, useState} from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import Dialog, { type DialogType } from '@/components/common/Dialog'
 import { toast } from '@/utils/tools'
 import Title from './Title'
@@ -11,11 +11,11 @@ import Button from '@/components/common/Button'
 import { getPlaylistType, savePlaylistType } from '@/utils/data'
 import wyApi from '@/utils/musicSdk/wy/user'
 import txApi from '@/utils/musicSdk/tx/user'
-import {addWyLikedSong, removeWyLikedSong, updateWySubscribedPlaylistTrackCount, addTxLikedSong, removeTxLikedSong} from '@/store/user/action'
+import { addWyLikedSong, removeWyLikedSong, updateWySubscribedPlaylistTrackCount, addTxLikedSong, removeTxLikedSong } from '@/store/user/action'
 import { clearListDetailCache } from '@/core/songlist'
-import {View} from "react-native";
+import { View } from 'react-native'
 import Text from '@/components/common/Text'
-import {useWySubscribedPlaylists} from "@/store/user/hook.ts";
+import { useWySubscribedPlaylists } from '@/store/user/hook.ts'
 import { log } from '@/utils/log'
 
 export interface SelectInfo {
@@ -47,13 +47,13 @@ export default forwardRef<MusicMultiAddModalType, MusicMultiAddModalProps>(({ on
   const subscribedPlaylists = useWySubscribedPlaylists()
 
   useEffect(() => {
-    getPlaylistType().then((type) => setPlaylistType(type as 'local' | 'wy' | 'tx'));
-  }, []);
+    getPlaylistType().then((type) => { setPlaylistType(type as 'local' | 'wy' | 'tx') })
+  }, [])
 
   const handlePlaylistTypeChange = (type: 'local' | 'wy' | 'tx') => {
-    setPlaylistType(type);
-    void savePlaylistType(type);
-  };
+    setPlaylistType(type)
+    void savePlaylistType(type)
+  }
 
   useImperativeHandle(ref, () => ({
     show(selectInfo) {
@@ -74,7 +74,7 @@ export default forwardRef<MusicMultiAddModalType, MusicMultiAddModalProps>(({ on
   const handleSelect = (listInfo: LX.List.MyListInfo) => {
     dialogRef.current?.setVisible(false)
     const { selectedList, listId: fromListId, isMove } = selectInfo
-    
+
     log.info('[MusicMultiAddModal] handleSelect 开始', {
       playlistType,
       toListId: listInfo.id,
@@ -88,18 +88,18 @@ export default forwardRef<MusicMultiAddModalType, MusicMultiAddModalProps>(({ on
         songId: m.meta?.songId,
       })),
     })
-    
+
     if (playlistType === 'wy') {
       if (!selectedList.length) {
         log.error('[MusicMultiAddModal] 网易歌单添加失败: selectedList 为空')
         return
       }
-      
+
       const invalidSongs = selectedList.filter(m => {
-        const songId = m.meta.songId;
-        return !songId || typeof songId !== 'string' || !/^\d+$/.test(songId);
-      });
-      
+        const songId = m.meta.songId
+        return !songId || typeof songId !== 'string' || !/^\d+$/.test(songId)
+      })
+
       if (invalidSongs.length > 0) {
         log.error('[MusicMultiAddModal] 网易歌单添加失败: 部分歌曲 ID 格式不正确', {
           invalidCount: invalidSongs.length,
@@ -111,9 +111,9 @@ export default forwardRef<MusicMultiAddModalType, MusicMultiAddModalProps>(({ on
           expected: '纯数字ID',
         })
         toast(`${invalidSongs.length}首歌曲不支持添加到网易云歌单（ID格式不兼容）`)
-        return;
+        return
       }
-      
+
       const toListId = String(listInfo.id)
       if (toListId.startsWith('tx__')) {
         log.error('[MusicMultiAddModal] 网易歌单添加失败: 目标歌单 ID 格式错误', {
@@ -123,7 +123,7 @@ export default forwardRef<MusicMultiAddModalType, MusicMultiAddModalProps>(({ on
         toast('目标歌单 ID 格式错误，请选择网易云歌单')
         return
       }
-      
+
       const songIds = selectedList.map(m => m.meta.songId).reverse()
       const sourcePlaylist = subscribedPlaylists.find(p => `wy__${p.id}` === fromListId)
 
@@ -131,7 +131,7 @@ export default forwardRef<MusicMultiAddModalType, MusicMultiAddModalProps>(({ on
         wyApi.manipulatePlaylistTracks('add', toListId, songIds).then(() => {
           if (listInfo.name === (listInfo as any).creator.nickname + '喜欢的音乐') {
             for (const songId of songIds) {
-              addWyLikedSong(songId);
+              addWyLikedSong(songId)
             }
           }
           const sourcePlaylistId = fromListId.replace('wy__', '')
@@ -165,7 +165,7 @@ export default forwardRef<MusicMultiAddModalType, MusicMultiAddModalProps>(({ on
         wyApi.manipulatePlaylistTracks('add', toListId, songIds).then(() => {
           if (listInfo.name === (listInfo as any).creator.nickname + '喜欢的音乐') {
             for (const songId of songIds) {
-              addWyLikedSong(songId);
+              addWyLikedSong(songId)
             }
           }
           onAdded?.()
@@ -185,14 +185,14 @@ export default forwardRef<MusicMultiAddModalType, MusicMultiAddModalProps>(({ on
       }
       return
     }
-    
+
     if (playlistType === 'tx') {
       if (!selectedList.length) {
         log.error('[MusicMultiAddModal] QQ歌单添加失败: selectedList 为空')
         return
       }
-      
-      const nonTxSongs = selectedList.filter(m => m.source !== 'tx');
+
+      const nonTxSongs = selectedList.filter(m => m.source !== 'tx')
       if (nonTxSongs.length > 0) {
         log.error('[MusicMultiAddModal] QQ歌单添加失败: 部分歌曲来源不是QQ音乐', {
           nonTxCount: nonTxSongs.length,
@@ -203,10 +203,10 @@ export default forwardRef<MusicMultiAddModalType, MusicMultiAddModalProps>(({ on
           note: 'QQ歌单只能添加QQ音乐的歌曲',
         })
         toast(`QQ歌单只能添加QQ音乐的歌曲，有${nonTxSongs.length}首歌曲不支持跨平台添加`)
-        return;
+        return
       }
-      
-      const invalidSongs = selectedList.filter(m => !(m.meta as any).mid && !m.meta.songId);
+
+      const invalidSongs = selectedList.filter(m => !(m.meta as any).mid && !m.meta.songId)
       if (invalidSongs.length > 0) {
         log.error('[MusicMultiAddModal] QQ歌单添加失败: 部分歌曲 mid 为空', {
           invalidCount: invalidSongs.length,
@@ -217,9 +217,9 @@ export default forwardRef<MusicMultiAddModalType, MusicMultiAddModalProps>(({ on
           })),
         })
         toast(`${invalidSongs.length}首歌曲 mid 为空，无法添加`)
-        return;
+        return
       }
-      
+
       const toListId = String(listInfo.id).replace('tx__', '')
       if (!toListId || toListId === String(listInfo.id)) {
         log.error('[MusicMultiAddModal] QQ歌单添加失败: 目标歌单 ID 格式错误', {
@@ -230,16 +230,16 @@ export default forwardRef<MusicMultiAddModalType, MusicMultiAddModalProps>(({ on
         toast('目标歌单 ID 格式错误，请选择 QQ 歌单')
         return
       }
-      
+
       const songMids = selectedList.map(m => String((m.meta as any).mid || m.meta.songId))
-      
+
       log.info('[MusicMultiAddModal] QQ歌单添加开始', {
         toListId,
         songCount: songMids.length,
         songMids,
         songSources: selectedList.map(m => m.source),
       })
-      
+
       txApi.addSongToPlaylist(toListId, songMids).then(() => {
         if ((listInfo as any).dirid === 201) {
           for (const music of selectedList) {
@@ -270,7 +270,7 @@ export default forwardRef<MusicMultiAddModalType, MusicMultiAddModalProps>(({ on
         selectInfo.listId,
         listInfo.id,
         [...selectInfo.selectedList],
-        settingState.setting['list.addMusicLocationType']
+        settingState.setting['list.addMusicLocationType'],
       )
         .then(() => {
           onAdded?.()
@@ -283,7 +283,7 @@ export default forwardRef<MusicMultiAddModalType, MusicMultiAddModalProps>(({ on
       void addListMusics(
         listInfo.id,
         [...selectInfo.selectedList],
-        settingState.setting['list.addMusicLocationType']
+        settingState.setting['list.addMusicLocationType'],
       )
         .then(() => {
           onAdded?.()
@@ -301,13 +301,13 @@ export default forwardRef<MusicMultiAddModalType, MusicMultiAddModalProps>(({ on
         <>
           <Title selectedList={selectInfo.selectedList} isMove={selectInfo.isMove} />
           <View style={{ flexDirection: 'row', justifyContent: 'center', paddingVertical: 10 }}>
-            <Button onPress={() => handlePlaylistTypeChange('local')} style={{ marginRight: 10, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 4, backgroundColor: playlistType === 'local' ? theme['c-button-background-active'] : theme['c-button-background'] }}>
+            <Button onPress={() => { handlePlaylistTypeChange('local') }} style={{ marginRight: 10, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 4, backgroundColor: playlistType === 'local' ? theme['c-button-background-active'] : theme['c-button-background'] }}>
               <Text color={theme['c-button-font']}>本地歌单</Text>
             </Button>
-            <Button onPress={() => handlePlaylistTypeChange('wy')} style={{ marginRight: 10, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 4, backgroundColor: playlistType === 'wy' ? theme['c-button-background-active'] : theme['c-button-background'] }}>
+            <Button onPress={() => { handlePlaylistTypeChange('wy') }} style={{ marginRight: 10, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 4, backgroundColor: playlistType === 'wy' ? theme['c-button-background-active'] : theme['c-button-background'] }}>
               <Text color={theme['c-button-font']}>网易歌单</Text>
             </Button>
-            <Button onPress={() => handlePlaylistTypeChange('tx')} style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 4, backgroundColor: playlistType === 'tx' ? theme['c-button-background-active'] : theme['c-button-background'] }}>
+            <Button onPress={() => { handlePlaylistTypeChange('tx') }} style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 4, backgroundColor: playlistType === 'tx' ? theme['c-button-background-active'] : theme['c-button-background'] }}>
               <Text color={theme['c-button-font']}>QQ歌单</Text>
             </Button>
           </View>
@@ -315,5 +315,5 @@ export default forwardRef<MusicMultiAddModalType, MusicMultiAddModalProps>(({ on
         </>
       ) : null}
     </Dialog>
-  );
+  )
 })

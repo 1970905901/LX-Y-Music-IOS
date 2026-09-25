@@ -15,7 +15,7 @@ const useActive = (id: I18n['locale']) => {
   return isActive
 }
 
-const Item = ({ id, name }: { id: I18n['locale']; name: string }) => {
+const Item = ({ id, name }: { id: I18n['locale'], name: string }) => {
   const isActive = useActive(id)
   // const [toggleCheckBox, setToggleCheckBox] = useState(false)
   return (

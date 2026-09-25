@@ -59,7 +59,7 @@ const MiniProgressBar = () => {
       animRef.current?.stop()
       animRef.current = null
     },
-    []
+    [],
   )
 
   const progressStyle = {

@@ -1,66 +1,66 @@
-import { memo, useMemo, useCallback, useState, useEffect } from 'react';
-import { View, TouchableOpacity } from 'react-native';
-import Text from '@/components/common/Text';
-import Image from '@/components/common/Image';
-import { Icon } from '@/components/common/Icon';
-import LineProgress from '@/components/common/LineProgress';
-import { useTheme } from '@/store/theme/hook';
-import { createStyle } from '@/utils/tools';
-import {dateFormat, sizeFormate} from '@/utils/common';
-import { resumeTask, retryTask } from '@/core/download';
+import { memo, useMemo, useCallback, useState, useEffect } from 'react'
+import { View, TouchableOpacity } from 'react-native'
+import Text from '@/components/common/Text'
+import Image from '@/components/common/Image'
+import { Icon } from '@/components/common/Icon'
+import LineProgress from '@/components/common/LineProgress'
+import { useTheme } from '@/store/theme/hook'
+import { createStyle } from '@/utils/tools'
+import { dateFormat, sizeFormate } from '@/utils/common'
+import { resumeTask, retryTask } from '@/core/download'
 
 export default memo(({ task: initialTask, rowWidth = '100%', onRemove }: { task: LX.Download.DownloadTask, rowWidth?: `${number}%`, onRemove: (id: string) => void }) => {
-  const theme = useTheme();
-  const [task, setTask] = useState(initialTask);
-  const errorColor = theme['c-600'];
+  const theme = useTheme()
+  const [task, setTask] = useState(initialTask)
+  const errorColor = theme['c-600']
 
   useEffect(() => {
     const handleProgressUpdate = ({ id, progress }: { id: string, progress: LX.Download.DownloadTask['progress'] }) => {
       if (id === task.id) {
-        setTask(prevTask => ({ ...prevTask, progress }));
+        setTask(prevTask => ({ ...prevTask, progress }))
       }
-    };
+    }
 
     const handleStatusUpdate = ({ id, status, errorMsg }: { id: string, status: LX.Download.DownloadTask['status'], errorMsg?: string }) => {
       if (id === task.id) {
-        setTask(prevTask => ({ ...prevTask, status, errorMsg }));
-      }
-    };
-    const handleMetadataUpdate = ({ id, metadataStatus }: { id: string, metadataStatus: LX.Download.DownloadTask['metadataStatus'] }) => {
-      if (id === task.id) {
-        setTask(prevTask => ({ ...prevTask, metadataStatus }));
+        setTask(prevTask => ({ ...prevTask, status, errorMsg }))
       }
     }
-    global.app_event.on('download_progress_update', handleProgressUpdate);
-    global.app_event.on('download_status_update', handleStatusUpdate);
-    global.app_event.on('download_metadata_update', handleMetadataUpdate);
+    const handleMetadataUpdate = ({ id, metadataStatus }: { id: string, metadataStatus: LX.Download.DownloadTask['metadataStatus'] }) => {
+      if (id === task.id) {
+        setTask(prevTask => ({ ...prevTask, metadataStatus }))
+      }
+    }
+    global.app_event.on('download_progress_update', handleProgressUpdate)
+    global.app_event.on('download_status_update', handleStatusUpdate)
+    global.app_event.on('download_metadata_update', handleMetadataUpdate)
 
-    setTask(initialTask);
+    setTask(initialTask)
 
     return () => {
-      global.app_event.off('download_progress_update', handleProgressUpdate);
-      global.app_event.off('download_status_update', handleStatusUpdate);
-      global.app_event.off('download_metadata_update', handleMetadataUpdate);
-    };
-  }, [task.id, initialTask]);
+      global.app_event.off('download_progress_update', handleProgressUpdate)
+      global.app_event.off('download_status_update', handleStatusUpdate)
+      global.app_event.off('download_metadata_update', handleMetadataUpdate)
+    }
+  }, [task.id, initialTask])
 
 
-  const hasMetaError = useMemo(() => Object.values(task.metadataStatus ?? {}).includes('fail'), [task.metadataStatus]);
+  const hasMetaError = useMemo(() => Object.values(task.metadataStatus ?? {}).includes('fail'), [task.metadataStatus])
 
   const handleRetry = useCallback(() => {
-    retryTask(task.id);
-  }, [task.id]);
+    retryTask(task.id)
+  }, [task.id])
 
   const handleResume = useCallback(() => {
-    void resumeTask(task.id);
-  }, [task.id]);
+    void resumeTask(task.id)
+  }, [task.id])
 
   const renderStatus = () => {
     if (task.isRemoteSynced) {
-      return <Text size={12} color={theme['c-font-label']}>由其他设备同步或导入的下载记录</Text>;
+      return <Text size={12} color={theme['c-font-label']}>由其他设备同步或导入的下载记录</Text>
     }
 
-    switch(task.status) {
+    switch (task.status) {
       case 'downloading':
         return (
           <View>
@@ -79,19 +79,19 @@ export default memo(({ task: initialTask, rowWidth = '100%', onRemove }: { task:
               </Text>
             </View>
           </View>
-        );
+        )
       case 'completed':
-        return <Text size={12} color={theme['c-primary']}>已完成</Text>;
+        return <Text size={12} color={theme['c-primary']}>已完成</Text>
       case 'error':
-        return <Text size={12} color={errorColor} numberOfLines={1}>{task.errorMsg || '下载失败'}</Text>;
+        return <Text size={12} color={errorColor} numberOfLines={1}>{task.errorMsg || '下载失败'}</Text>
       case 'paused':
-        return <Text size={12} color={theme['c-font-label']}>已中断，可继续下载</Text>;
+        return <Text size={12} color={theme['c-font-label']}>已中断，可继续下载</Text>
       case 'waiting':
-        return <Text size={12} color={theme['c-font-label']}>等待中...</Text>;
+        return <Text size={12} color={theme['c-font-label']}>等待中...</Text>
       default:
-        return null;
+        return null
     }
-  };
+  }
 
   const renderMetadataStatus = () => (
     <View style={styles.metadataContainer}>
@@ -113,7 +113,7 @@ export default memo(({ task: initialTask, rowWidth = '100%', onRemove }: { task:
         </TouchableOpacity>
       )}
     </View>
-  );
+  )
 
   return (
     <View style={{ ...styles.container, width: rowWidth }}>
@@ -144,13 +144,13 @@ export default memo(({ task: initialTask, rowWidth = '100%', onRemove }: { task:
             <Icon name="available_updates" size={18} color={theme['c-primary']} />
           </TouchableOpacity>
         ) }
-        <TouchableOpacity onPress={() => onRemove(task.id)} style={styles.actionButton}>
+        <TouchableOpacity onPress={() => { onRemove(task.id) }} style={styles.actionButton}>
           <Icon name="close" size={16} color={theme['c-font-label']} />
         </TouchableOpacity>
       </View>
     </View>
-  );
-});
+  )
+})
 
 const styles = createStyle({
   container: {
@@ -203,5 +203,5 @@ const styles = createStyle({
   retryButton: {
     marginLeft: 'auto',
     padding: 4,
-  }
-});
+  },
+})

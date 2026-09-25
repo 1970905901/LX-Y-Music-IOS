@@ -29,7 +29,7 @@ export const filterMusicInfoList = (rawList) => {
     const types = []
     const _types = {}
     item.newRateFormats?.forEach(type => {
-      let size = sizeFormate(type.asize ?? type.isize ?? type.size ?? type.androidSize ?? 0);
+      let size = sizeFormate(type.asize ?? type.isize ?? type.size ?? type.androidSize ?? 0)
       switch (type.formatType) {
         case 'PQ':
           types.push({ type: '128k', size })
@@ -94,25 +94,25 @@ export const filterMusicInfoListV5 = (rawList) => {
     const types = []
     const _types = {}
     item.audioFormats?.forEach(type => {
-      let size = sizeFormate(type.asize ?? type.isize ?? type.size ?? 0);
+      let size = sizeFormate(type.asize ?? type.isize ?? type.size ?? 0)
       switch (type.formatType) {
         case 'PQ':
-          types.push({ type: '128k', size });
-          _types['128k'] = { size };
-          break;
+          types.push({ type: '128k', size })
+          _types['128k'] = { size }
+          break
         case 'HQ':
-          types.push({ type: '320k', size });
-          _types['320k'] = { size };
-          break;
+          types.push({ type: '320k', size })
+          _types['320k'] = { size }
+          break
         case 'SQ':
-          types.push({ type: 'flac', size });
-          _types.flac = { size };
-          break;
+          types.push({ type: 'flac', size })
+          _types.flac = { size }
+          break
         case 'ZQ':
         case 'ZQ24':
-          types.push({ type: 'hires', size });
-          _types.hires = { size };
-          break;
+          types.push({ type: 'hires', size })
+          _types.hires = { size }
+          break
       }
     })
 

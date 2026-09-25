@@ -9,7 +9,7 @@ import { useTheme } from '@/store/theme/hook'
 
 const MAX_IMAGE_HEIGHT = scaleSizeH(260)
 
-export default ({ url, maxWidth }: { url: string; maxWidth: number }) => {
+export default ({ url, maxWidth }: { url: string, maxWidth: number }) => {
   const [show, setShow] = useState(false)
   const [wh, setWH] = useState({ width: 0, height: 0 })
   const theme = useTheme()

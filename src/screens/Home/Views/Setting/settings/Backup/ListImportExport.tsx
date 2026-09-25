@@ -90,8 +90,8 @@ export default forwardRef<ListImportExportType, {}>((props, ref) => {
         toast(global.i18n.t('setting_backup_part_export_list_tip_zip'))
         const tempFile = `${temporaryDirectoryPath}/lx_backup.lxmc`
         void handleExportListToFile(tempFile)
-          .then(() => shareFile(tempFile))
-          .then(() => toast(global.i18n.t('setting_backup_part_export_list_tip_success')))
+          .then(async() => shareFile(tempFile))
+          .then(() => { toast(global.i18n.t('setting_backup_part_export_list_tip_success')) })
           .catch((err: any) => {
             if (err?.code === 'file_not_found') {
               toast(global.i18n.t('setting_backup_part_export_list_tip_failed'))
@@ -99,7 +99,7 @@ export default forwardRef<ListImportExportType, {}>((props, ref) => {
             }
             log.error(err)
             toast(
-              global.i18n.t('setting_backup_part_export_list_tip_failed') + ': ' + (err?.message ?? '')
+              global.i18n.t('setting_backup_part_export_list_tip_failed') + ': ' + (err?.message ?? ''),
             )
           })
         return

@@ -1,7 +1,7 @@
-import { loadDatabase } from './util'
-import { generateSongId, buildDownloadUrl } from './util'
+import { loadDatabase, generateSongId, buildDownloadUrl } from './util'
 
-export const getMusicUrl = async (songInfo, type) => {
+
+export const getMusicUrl = async(songInfo, type) => {
   let gitcodeData = songInfo._gitcodeData
 
   if (!gitcodeData) {

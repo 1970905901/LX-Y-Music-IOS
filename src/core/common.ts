@@ -17,7 +17,7 @@ import { showPactModal as handleShowPactModal } from '@/navigation'
 /**
  * 初始化设置
  */
-export const initSetting = async () => {
+export const initSetting = async() => {
   const setting = (await initAppSetting()).setting
   settingActions.updateSetting(setting)
   return setting

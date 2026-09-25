@@ -4,22 +4,22 @@ import settingState from '@/store/setting/state'
 
 const log = searchLog
 
-const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
 const headers = {
-  "user-agent": UA,
-  accept: "*/*",
-  "accept-language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
+  'user-agent': UA,
+  accept: '*/*',
+  'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6',
 }
 
 const searchHeaders = {
-  "user-agent": UA,
-  accept: "application/json, text/plain, */*",
-  origin: "https://search.bilibili.com",
-  "sec-fetch-site": "same-site",
-  "sec-fetch-mode": "cors",
-  "sec-fetch-dest": "empty",
-  referer: "https://search.bilibili.com/",
-  "accept-language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
+  'user-agent': UA,
+  accept: 'application/json, text/plain, */*',
+  origin: 'https://search.bilibili.com',
+  'sec-fetch-site': 'same-site',
+  'sec-fetch-mode': 'cors',
+  'sec-fetch-dest': 'empty',
+  referer: 'https://search.bilibili.com/',
+  'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6',
 }
 
 let cookie = null
@@ -28,8 +28,8 @@ async function getCookie() {
   if (!cookie) {
     try {
       log.info('[Bilibili Search] getCookie - 开始请求指纹接口')
-      const requestObj = httpFetch("https://api.bilibili.com/x/frontend/finger/spi", {
-        headers: { "User-Agent": UA },
+      const requestObj = httpFetch('https://api.bilibili.com/x/frontend/finger/spi', {
+        headers: { 'User-Agent': UA },
       })
       const { body } = await requestObj.promise
       log.info('[Bilibili Search] getCookie - 响应body类型: ' + typeof body)
@@ -46,19 +46,19 @@ async function getCookie() {
 }
 
 function getCookieString() {
-  if (!cookie) return ""
+  if (!cookie) return ''
   const cookieStr = `buvid3=${cookie.b_3};buvid4=${cookie.b_4}`
   log.info('[Bilibili Search] getCookieString: ' + cookieStr)
   return cookieStr
 }
 
 function durationToSec(duration) {
-  if (typeof duration === "number") {
+  if (typeof duration === 'number') {
     return duration
   }
-  if (typeof duration === "string") {
-    const dur = duration.split(":")
-    return dur.reduce(function (prev, curr) {
+  if (typeof duration === 'string') {
+    const dur = duration.split(':')
+    return dur.reduce(function(prev, curr) {
       return 60 * prev + +curr
     }, 0)
   }
@@ -72,12 +72,12 @@ function formatPlayTime(seconds) {
 }
 
 function generateSongId(bvid, aid) {
-  const hash = bvid ? bvid : aid
+  const hash = bvid || aid
   return `bilibili_${hash}`
 }
 
 function generateAlbumId(album) {
-  if (!album) return ""
+  if (!album) return ''
   return `album_bilibili_${album}`
 }
 
@@ -96,7 +96,7 @@ function decodeHtmlEntities(str) {
 }
 
 function formatMedia(result) {
-  const title = decodeHtmlEntities(result.title?.replace(/(\<em(.*?)\>)|(\<\/em\>)/g, "") || "")
+  const title = decodeHtmlEntities(result.title?.replace(/(<em(.*?)>)|(<\/em>)/g, '') || '')
   return {
     id: result.cid ?? result.bvid ?? result.aid,
     aid: result.aid,
@@ -105,9 +105,9 @@ function formatMedia(result) {
     artist: result.author ?? result.owner?.name,
     title,
     album: result.bvid ?? result.aid,
-    pic: result.pic?.startsWith("//") ? `http:${result.pic}` : result.pic,
+    pic: result.pic?.startsWith('//') ? `http:${result.pic}` : result.pic,
     duration: durationToSec(result.duration),
-    tags: result.tag?.split(","),
+    tags: result.tag?.split(','),
     play: result.play,
     view: result.view,
     like: result.like,
@@ -119,7 +119,7 @@ async function getVideoDetail(bvid, aid) {
   log.info('[Bilibili Search] getVideoDetail 开始 - bvid: ' + bvid + ', aid: ' + aid)
   const params = bvid ? { bvid } : { aid }
   try {
-    const requestObj = httpFetch("https://api.bilibili.com/x/web-interface/view", { headers, params })
+    const requestObj = httpFetch('https://api.bilibili.com/x/web-interface/view', { headers, params })
     const { body } = await requestObj.promise
     const data = typeof body === 'string' ? JSON.parse(body) : body
     log.info('[Bilibili Search] getVideoDetail - 响应code: ' + data?.code)
@@ -139,10 +139,10 @@ const musicSearchModule = {
 
   async handleResult(searchResults, page, limit, total = 0, numPages = 0) {
     log.info('[Bilibili Search] handleResult - 原始结果数量: ' + searchResults.length + ', page: ' + page + ', limit: ' + limit + ', total: ' + total + ', numPages: ' + numPages)
-    
+
     const sortedResults = [...searchResults]
     log.info('[Bilibili Search] handleResult - 使用API默认排序')
-    
+
     this.total = total || sortedResults.length
     this.allPage = numPages || Math.ceil(this.total / limit)
     this.page = page
@@ -164,7 +164,7 @@ const musicSearchModule = {
       }
       return Promise.resolve(null)
     })
-    
+
     const videoDetails = await Promise.all(videoDetailsPromises)
     log.info('[Bilibili Search] 视频详情获取完成，数量: ' + videoDetails.length)
 
@@ -173,16 +173,16 @@ const musicSearchModule = {
       const item = sortedResults[i]
       const videoDetail = videoDetails[i]
       const index = list.length
-      
+
       const bvid = item.bvid
       const aid = item.aid
       const pages = videoDetail?.data?.pages
-      
+
       const firstPageDuration = pages?.[0]?.duration || videoDetail?.data?.duration || item.duration
       const firstPageCid = videoDetail?.data?.cid || pages?.[0]?.cid || item.cid
-      
+
       const isMultiPage = enableMultiPage && pages && Array.isArray(pages) && pages.length > 1
-      
+
       if (isMultiPage) {
         log.info('[Bilibili Search] 检测到合集视频: ' + item.title + ', 共 ' + pages.length + ' 个P')
         let partIndex = 1
@@ -253,7 +253,7 @@ const musicSearchModule = {
     log.info('[Bilibili Search] ========== search 开始 ==========')
     log.info('[Bilibili Search] keyword: ' + keyword + ', page: ' + page + ', limit: ' + limit + ', retryNum: ' + retryNum)
     log.info('[Bilibili Search] 当前模块状态: total=' + this.total + ', allPage=' + this.allPage + ', page=' + this.page)
-    
+
     if (retryNum > 2) {
       log.error('[Bilibili Search] 重试次数超过上限，放弃搜索')
       return Promise.reject(new Error('搜索失败，请稍后重试'))
@@ -267,21 +267,21 @@ const musicSearchModule = {
       log.info('[Bilibili Search] Cookie获取完成，Cookie状态: ' + (cookie ? '已设置' : '未设置'))
 
       const params = {
-        context: "",
+        context: '',
         page,
-        order: "",
+        order: '',
         page_size: limit,
         keyword,
-        duration: "",
-        tids_1: "",
-        tids_2: "",
+        duration: '',
+        tids_1: '',
+        tids_2: '',
         __refresh__: true,
-        _extra: "",
+        _extra: '',
         highlight: 1,
         single_column: 0,
-        platform: "pc",
-        from_source: "",
-        search_type: "video",
+        platform: 'pc',
+        from_source: '',
+        search_type: 'video',
         dynamic_offset: 0,
       }
       log.info('[Bilibili Search] 搜索参数: ' + JSON.stringify(params))
@@ -289,7 +289,7 @@ const musicSearchModule = {
       const requestHeaders = { ...searchHeaders, cookie: getCookieString() }
       log.info('[Bilibili Search] 请求头: ' + JSON.stringify(requestHeaders))
 
-      const requestObj = httpFetch("https://api.bilibili.com/x/web-interface/search/type", {
+      const requestObj = httpFetch('https://api.bilibili.com/x/web-interface/search/type', {
         headers: requestHeaders,
         params,
       })
@@ -299,7 +299,7 @@ const musicSearchModule = {
       log.info('[Bilibili Search] 响应获取成功')
       log.info('[Bilibili Search] 响应类型: ' + typeof response)
       log.info('[Bilibili Search] 响应键: ' + JSON.stringify(response ? Object.keys(response) : 'null'))
-      
+
       let data = response.body
       log.info('[Bilibili Search] response.body 类型: ' + typeof data)
 
@@ -321,7 +321,7 @@ const musicSearchModule = {
 
       log.info('[Bilibili Search] data 类型: ' + typeof data)
       log.info('[Bilibili Search] data 是否为 null: ' + (data == null))
-      
+
       if (data) {
         log.info('[Bilibili Search] data.code: ' + data.code + ', data.message: ' + data.message)
         log.info('[Bilibili Search] data.data 是否存在: ' + (data.data != null))
@@ -346,7 +346,7 @@ const musicSearchModule = {
       }
 
       log.info('[Bilibili Search] 开始格式化搜索结果，原始数量: ' + data.data.result.length)
-      
+
       let searchResults
       try {
         searchResults = data.data.result.map(formatMedia)
@@ -359,7 +359,7 @@ const musicSearchModule = {
         log.error('[Bilibili Search] formatMedia 堆栈: ' + (formatErr?.stack || '无'))
         return Promise.resolve({ list: [], allPage: 0, total: 0, limit, source: 'bilibili' })
       }
-      
+
       let list
       try {
         list = await this.handleResult(searchResults, page, limit, data.data.numResults, data.data.numPages)

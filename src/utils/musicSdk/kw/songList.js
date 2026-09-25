@@ -29,8 +29,7 @@ export default {
   hotTagUrl:
     'http://wapi.kuwo.cn/api/pc/classify/playlist/getRcmTagList?loginUid=0&loginSid=0&appUid=76039576',
   getListUrl({ sortId, id, type, page }) {
-    if (!id)
-      return `http://wapi.kuwo.cn/api/pc/classify/playlist/getRcmPlayList?loginUid=0&loginSid=0&appUid=76039576&&pn=${page}&rn=${this.limit_list}&order=${sortId}`
+    if (!id) { return `http://wapi.kuwo.cn/api/pc/classify/playlist/getRcmPlayList?loginUid=0&loginSid=0&appUid=76039576&&pn=${page}&rn=${this.limit_list}&order=${sortId}` }
     switch (type) {
       case '10000':
         return `http://wapi.kuwo.cn/api/pc/classify/playlist/getTagPlayList?loginUid=0&loginSid=0&appUid=76039576&pn=${page}&id=${id}&rn=${this.limit_list}`
@@ -157,7 +156,7 @@ export default {
           grade: item.favorcnt && item.favorcnt / 10,
           desc: item.desc,
           source: 'kw',
-        }))
+        })),
       )
     })
     return list
@@ -188,7 +187,7 @@ export default {
   getListDetailDigest5Info(id, tryNum = 0) {
     if (tryNum > 2) return Promise.reject(new Error('try max num'))
     const requestObj = httpFetch(
-      `http://qukudata.kuwo.cn/q.k?op=query&cont=ninfo&node=${id}&pn=0&rn=1&fmt=json&src=mbox&level=2`
+      `http://qukudata.kuwo.cn/q.k?op=query&cont=ninfo&node=${id}&pn=0&rn=1&fmt=json&src=mbox&level=2`,
     )
     return requestObj.promise.then(({ statusCode, body }) => {
       if (statusCode != 200 || !body.child) return this.getListDetail(id, ++tryNum)
@@ -201,7 +200,7 @@ export default {
     const requestObj = httpFetch(
       `http://nplserver.kuwo.cn/pl.svc?op=getlistinfo&pid=${id}&pn=${page - 1}&rn=${
         this.limit_song
-      }&encode=utf-8&keyset=pl2012&identity=kuwo&pcmp4=1`
+      }&encode=utf-8&keyset=pl2012&identity=kuwo&pcmp4=1`,
     )
     return requestObj.promise.then(({ body }) => {
       // console.log(body)
@@ -295,7 +294,7 @@ export default {
             'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36',
           plat: 'h5',
         },
-      }
+      },
     ).promise.catch(() => ({ code: 0 }))
 
     if (infoData.code != 200) return null
@@ -317,7 +316,7 @@ export default {
             'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36',
           plat: 'h5',
         },
-      }
+      },
     ).promise.catch(() => ({ code: 0 }))
 
     if (infoData.code != 200) return null
@@ -342,7 +341,7 @@ export default {
             'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36',
           plat: 'h5',
         },
-      }
+      },
     ).promise.catch(() => {
       if (tryNum > 2) return Promise.reject(new Error('try max num'))
       return this.getListDetailMusicListByBDList(id, source, page, ++tryNum)
@@ -418,43 +417,43 @@ export default {
             case '20900':
               types.push({ type: 'master', size })
               _types.master = {
-                size
+                size,
               }
               break
             case '20501':
               types.push({ type: 'atmos_plus', size })
               _types.atmos_plus = {
-                size
+                size,
               }
               break
             case '20201':
               types.push({ type: 'atmos', size })
               _types.atmos = {
-                size
+                size,
               }
               break
             case '4000':
               types.push({ type: 'hires', size })
               _types.hires = {
-                size
+                size,
               }
               break
             case '2000':
               types.push({ type: 'flac', size })
               _types.flac = {
-                size
+                size,
               }
               break
             case '320':
               types.push({ type: '320k', size })
               _types['320k'] = {
-                size
+                size,
               }
               break
             case '128':
               types.push({ type: '128k', size })
               _types['128k'] = {
-                size
+                size,
               }
               break
           }
@@ -499,7 +498,7 @@ export default {
     return httpFetch(
       `http://search.kuwo.cn/r.s?all=${encodeURIComponent(text)}&pn=${
         page - 1
-      }&rn=${limit}&rformat=json&encoding=utf8&ver=mbox&vipver=MUSIC_8.7.7.0_BCS37&plat=pc&devid=28156413&ft=playlist&pay=0&needliveshow=0`
+      }&rn=${limit}&rformat=json&encoding=utf8&ver=mbox&vipver=MUSIC_8.7.7.0_BCS37&plat=pc&devid=28156413&ft=playlist&pay=0&needliveshow=0`,
     ).promise.then(({ body }) => {
       body = objStr2JSON(body)
       return {

@@ -7,7 +7,7 @@ import { buildLyricInfo, getCachedLyricInfo } from './utils'
 import { existsFile, readFile } from '@/utils/fs'
 
 // 读取音频文件同目录的同名 .lrc 歌词（离线可用）
-const readSidecarLyric = async (filePath: string): Promise<string | null> => {
+const readSidecarLyric = async(filePath: string): Promise<string | null> => {
   if (!filePath) return null
   const base = filePath.substring(0, filePath.lastIndexOf('.'))
   if (!base) return null
@@ -31,7 +31,7 @@ const getTaskMusicInfo = (musicInfo: LX.Download.ListItem): LX.Music.MusicInfoOn
   return (musicInfo as any).musicInfo ?? (musicInfo as any).metadata?.musicInfo
 }
 
-export const getMusicUrl = async ({
+export const getMusicUrl = async({
   musicInfo,
   isRefresh,
   allowToggleSource = true,
@@ -58,7 +58,7 @@ export const getMusicUrl = async ({
   })
 }
 
-export const getPicUrl = async ({
+export const getPicUrl = async({
   musicInfo,
   isRefresh,
   listId,
@@ -83,7 +83,7 @@ export const getPicUrl = async ({
   })
 }
 
-export const getLyricInfo = async ({
+export const getLyricInfo = async({
   musicInfo,
   isRefresh,
   onToggleSource = () => {},
@@ -108,7 +108,7 @@ export const getLyricInfo = async ({
     musicInfo: getTaskMusicInfo(musicInfo),
     isRefresh,
     onToggleSource,
-  }).catch(async () => {
+  }).catch(async() => {
     throw new Error('failed')
   })
 }

@@ -14,7 +14,7 @@ export const exitApp = (): void => {
 }
 
 export const getSupportedAbis = isIOS
-  ? (async (): Promise<string[]> => [])
+  ? async(): Promise<string[]> => []
   : (UtilsModule.getSupportedAbis as () => Promise<string[]>)
 
 export const installApk = isIOS
@@ -35,19 +35,19 @@ export const screenUnkeepAwake = () => {
 }
 
 export const getWIFIIPV4Address = isIOS
-  ? (async (): Promise<string> => '')
+  ? async(): Promise<string> => ''
   : (UtilsModule.getWIFIIPV4Address as () => Promise<string>)
 
-export const getDeviceName = async (): Promise<string> => {
+export const getDeviceName = async(): Promise<string> => {
   if (isIOS) return 'iPhone'
   return UtilsModule.getDeviceName().then((deviceName: string) => deviceName || 'Unknown')
 }
 
 export const isNotificationsEnabled = isIOS
-  ? (async (): Promise<boolean> => true)
+  ? async(): Promise<boolean> => true
   : (UtilsModule.isNotificationsEnabled as () => Promise<boolean>)
 
-export const requestNotificationPermission = async () =>
+export const requestNotificationPermission = async() =>
   new Promise<boolean>((resolve) => {
     if (isIOS) {
       // iOS 走系统标准通知授权，此处视为已授权（具体授权由系统弹窗处理）
@@ -68,7 +68,7 @@ export const requestNotificationPermission = async () =>
     })
   })
 
-export const shareText = async (shareTitle: string, title: string, text: string): Promise<void> => {
+export const shareText = async(shareTitle: string, title: string, text: string): Promise<void> => {
   if (isIOS) {
     // iOS 使用系统分享面板由调用方兜底（Alert），此处不调用不存在的原生模块
     return
@@ -76,7 +76,7 @@ export const shareText = async (shareTitle: string, title: string, text: string)
   UtilsModule.shareText(shareTitle, title, text)
 }
 
-export const getSystemLocales = async (): Promise<string> => {
+export const getSystemLocales = async(): Promise<string> => {
   if (isIOS) {
     try {
       // RN 0.7x 提供 SettingsManager；旧版本回退到本地化
@@ -101,7 +101,7 @@ export const onScreenStateChange = (handler: (state: 'ON' | 'OFF') => void): (()
   }
 }
 
-export const getWindowSize = async (): Promise<{ width: number; height: number }> => {
+export const getWindowSize = async(): Promise<{ width: number, height: number }> => {
   // iOS 未实现 UtilsModule.getWindowSize，回退到 Dimensions（返回逻辑像素的物理像素当量）
   if (Platform.OS !== 'android' || !UtilsModule?.getWindowSize) {
     const { width, height, scale } = Dimensions.get('window')
@@ -110,21 +110,21 @@ export const getWindowSize = async (): Promise<{ width: number; height: number }
   return UtilsModule.getWindowSize()
 }
 
-export const getCutoutLeftPx = async (): Promise<number> => {
+export const getCutoutLeftPx = async(): Promise<number> => {
   // 仅安卓有刘海（挖孔屏）偏移概念；iOS 使用安全区，无需额外偏移
   if (Platform.OS !== 'android' || !UtilsModule?.getCutoutLeftPx) return 0
   return UtilsModule.getCutoutLeftPx()
 }
 
 export const onWindowSizeChange = (
-  handler: (size: { width: number; height: number }) => void
+  handler: (size: { width: number, height: number }) => void,
 ): (() => void) => {
   if (isIOS) return () => {}
   UtilsModule.listenWindowSizeChanged()
 
   const eventEmitter = new NativeEventEmitter(UtilsModule)
   const eventListener = eventEmitter.addListener('screen-size-changed', (event) => {
-    handler(event as { width: number; height: number })
+    handler(event as { width: number, height: number })
   })
 
   return () => {
@@ -133,13 +133,13 @@ export const onWindowSizeChange = (
 }
 
 export const onRemoteCommand = (
-  handler: (event: { command: string; position?: number }) => void
+  handler: (event: { command: string, position?: number }) => void,
 ): (() => void) => {
   if (!isIOS) return () => {}
   // iOS：原生 UtilsModule 会监听 MPRemoteCommandCenter 并把命令通过 remote-command 事件转发给 JS
   const eventEmitter = new NativeEventEmitter(UtilsModule)
   const eventListener = eventEmitter.addListener('remote-command', (event) => {
-    handler(event as { command: string; position?: number })
+    handler(event as { command: string, position?: number })
   })
   return () => {
     eventListener.remove()
@@ -160,12 +160,12 @@ export const onHeadphonesDisconnected = (handler: () => void): (() => void) => {
   }
 }
 
-export const isIgnoringBatteryOptimization = async (): Promise<boolean> => {
+export const isIgnoringBatteryOptimization = async(): Promise<boolean> => {
   if (isIOS) return true
   return UtilsModule.isIgnoringBatteryOptimization()
 }
 
-export const requestIgnoreBatteryOptimization = async () =>
+export const requestIgnoreBatteryOptimization = async() =>
   new Promise<boolean>((resolve) => {
     if (isIOS) {
       resolve(true)
@@ -187,10 +187,10 @@ export const requestIgnoreBatteryOptimization = async () =>
 
 // UI_MODE_TYPE_NORMAL = 1；iOS 无车机模式概念，直接返回普通模式
 export const getUiMode = isIOS
-  ? (async (): Promise<number> => 1)
+  ? async(): Promise<number> => 1
   : (UtilsModule.getUiMode as () => Promise<number>)
 
-export const adjustSystemMediaVolume = (direction: 'up' | 'down'): Promise<void> => {
+export const adjustSystemMediaVolume = async(direction: 'up' | 'down'): Promise<void> => {
   if (isIOS) return Promise.resolve() // iOS 音量由系统侧键控制，无原生接口
   return UtilsModule.adjustSystemMediaVolume(direction)
 }
@@ -207,7 +207,7 @@ export const setScreenOrientation = (orientation: 'landscape' | 'portrait' | 'au
 // 同时只允许持有一个任务：连续切歌时复用，避免重复申请把系统给的预算耗光。
 let backgroundTaskId: number | null = null
 
-export const beginBackgroundTask = async (): Promise<void> => {
+export const beginBackgroundTask = async(): Promise<void> => {
   if (!isIOS || !UtilsModule?.beginBackgroundTask) return
   if (backgroundTaskId != null) return
   try {
@@ -243,7 +243,7 @@ const ZERO_INSETS: SafeAreaInsets = { top: 0, bottom: 0, left: 0, right: 0 }
  * iOS 原生实现见 AppDelegate.mm 的 UtilsModule.getSafeAreaInsets。
  * 仅在 iOS 有实现，其他平台安全降级为全 0。
  */
-export const getSafeAreaInsets = async (): Promise<SafeAreaInsets> => {
+export const getSafeAreaInsets = async(): Promise<SafeAreaInsets> => {
   // 每次返回新对象，避免调用方误改共享常量影响后续调用
   if (!isIOS || !UtilsModule?.getSafeAreaInsets) return { ...ZERO_INSETS }
   try {

@@ -56,7 +56,7 @@ const filterInfoByPlayMusic = (musicInfo) => {
           { key: 'albumName', types: ['string'], max: 64 },
           { key: 'types', types: ['object'], required: true },
         ],
-        musicInfo
+        musicInfo,
       )
       break
     case 'kg':
@@ -75,7 +75,7 @@ const filterInfoByPlayMusic = (musicInfo) => {
 
           { key: 'hash', types: ['string'], required: true, max: 64 },
         ],
-        musicInfo
+        musicInfo,
       )
       break
     case 'tx':
@@ -94,7 +94,7 @@ const filterInfoByPlayMusic = (musicInfo) => {
           { key: 'strMediaMid', types: ['string'], required: true, max: 64 },
           { key: 'albumMid', types: ['string'], max: 64 },
         ],
-        musicInfo
+        musicInfo,
       )
       break
     case 'wy':
@@ -110,7 +110,7 @@ const filterInfoByPlayMusic = (musicInfo) => {
           { key: 'albumName', types: ['string'], max: 64 },
           { key: 'types', types: ['object'], required: true },
         ],
-        musicInfo
+        musicInfo,
       )
       break
     case 'mg':
@@ -131,7 +131,7 @@ const filterInfoByPlayMusic = (musicInfo) => {
           { key: 'trcUrl', types: ['string'], max: 1024 },
           { key: 'mrcUrl', types: ['string'], max: 1024 },
         ],
-        musicInfo
+        musicInfo,
       )
     case 'git':
       musicInfo = dataVerify(
@@ -147,7 +147,7 @@ const filterInfoByPlayMusic = (musicInfo) => {
           { key: 'types', types: ['object'], required: true },
           { key: '_gitcodeData', types: ['object'], required: true },
         ],
-        musicInfo
+        musicInfo,
       )
       break
     default:
@@ -186,11 +186,11 @@ const verifyInfo = (info) => {
       { key: 'interval', types: ['string'], max: 64 },
       { key: 'playLater', types: ['boolean'] },
     ],
-    info
+    info,
   )
 }
 
-const searchMusic = async (name, singer, albumName, interval) => {
+const searchMusic = async(name, singer, albumName, interval) => {
   return getOtherSource({
     name,
     singer,
@@ -202,7 +202,7 @@ const searchMusic = async (name, singer, albumName, interval) => {
     id: `sp_${name}_s${singer}_a${albumName}_i${interval ?? ''}`,
   })
 }
-const handleSearchPlayMusic = async ({ paths, data }) => {
+const handleSearchPlayMusic = async({ paths, data }) => {
   // console.log(paths, data)
   let info
   if (paths.length) {
@@ -220,7 +220,7 @@ const handleSearchPlayMusic = async ({ paths, data }) => {
     info.name,
     info.singer || '',
     info.albumName || '',
-    info.interval || null
+    info.interval || null,
   )
   if (musicList.length) {
     console.log('find music:', musicList)
@@ -237,7 +237,7 @@ const handleSearchPlayMusic = async ({ paths, data }) => {
   }
 }
 
-export const handleMusicAction = async (action, info) => {
+export const handleMusicAction = async(action, info) => {
   switch (action) {
     // case 'search':
     //   handleSearchMusic(info)

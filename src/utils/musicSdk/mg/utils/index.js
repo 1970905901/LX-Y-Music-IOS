@@ -6,7 +6,7 @@ import { httpFetch } from '../../../request'
  * @param {*} options
  * @param {*} retryNum
  */
-export const createHttpFetch = async (url, options, retryNum = 0) => {
+export const createHttpFetch = async(url, options, retryNum = 0) => {
   if (retryNum > 2) throw new Error('try max num')
   let result
   try {
@@ -22,8 +22,7 @@ export const createHttpFetch = async (url, options, retryNum = 0) => {
       : result.body.returnCode !== undefined
         ? result.body.returnCode
         : result.body.code) !== '000000'
-  )
-    return createHttpFetch(url, options, ++retryNum)
+  ) { return createHttpFetch(url, options, ++retryNum) }
   if (result.body.data) return result.body.data
   return result.body
 }

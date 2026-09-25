@@ -2,7 +2,7 @@ import { memo, useState, useCallback, useEffect } from 'react'
 import { View, FlatList, RefreshControl, Keyboard } from 'react-native'
 import { useWySubscribedAlbums } from '@/store/user/hook'
 import wyApi from '@/utils/musicSdk/wy/user'
-import { setWySubscribedAlbums} from '@/store/user/action'
+import { setWySubscribedAlbums } from '@/store/user/action'
 import { createStyle, toast } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
 import { useSettingValue } from '@/store/setting/hook'
@@ -27,14 +27,14 @@ export default memo(() => {
     setLoading(true)
     wyApi.getAllSubAlbumList()
       .then(albums => {
-        setWySubscribedAlbums(albums);
+        setWySubscribedAlbums(albums)
       })
       .catch(err => {
-        toast(`刷新失败: ${err.message}`);
+        toast(`刷新失败: ${err.message}`)
       })
       .finally(() => {
         setLoading(false)
-      });
+      })
   }, [cookie])
 
   useEffect(() => {

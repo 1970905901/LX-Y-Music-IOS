@@ -31,7 +31,7 @@ export default memo(
         ) : null}
       </View>
     )
-  }
+  },
 )
 
 const styles = StyleSheet.create({

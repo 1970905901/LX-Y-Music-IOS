@@ -147,7 +147,7 @@ export default memo(() => {
   }, [loadHistory])
 
   useEffect(() => {
-    const handleUpdate = () => loadHistory()
+    const handleUpdate = () => { loadHistory() }
     global.app_event.on('playHistoryUpdated', handleUpdate)
     return () => {
       global.app_event.off('playHistoryUpdated', handleUpdate)
@@ -245,7 +245,7 @@ export default memo(() => {
         <TouchableOpacity
           style={{ ...styles.iconBtn, backgroundColor: theme['c-primary-background'] }}
           disabled={isRange}
-          onPress={() => changeDay(-1)}
+          onPress={() => { changeDay(-1) }}
         >
           <Icon
             name="chevron-left"
@@ -269,7 +269,7 @@ export default memo(() => {
         <TouchableOpacity
           style={{ ...styles.iconBtn, backgroundColor: theme['c-primary-background'] }}
           disabled={isRange || startDate >= getTodayText()}
-          onPress={() => changeDay(1)}
+          onPress={() => { changeDay(1) }}
         >
           <Icon
             name="chevron-right"
@@ -334,7 +334,7 @@ export default memo(() => {
                 ...styles.modeBtn,
                 backgroundColor: pickerMode === 'range' ? theme['c-primary'] : 'transparent',
               }}
-              onPress={() => setPickerMode('range')}
+              onPress={() => { setPickerMode('range') }}
             >
                 <Text
                   size={designTypography.caption}
@@ -346,11 +346,11 @@ export default memo(() => {
           </View>
 
           <View style={styles.calendarHeader}>
-            <TouchableOpacity style={styles.monthBtn} onPress={() => setPickerMonth(month => changeMonth(month, -1))}>
+            <TouchableOpacity style={styles.monthBtn} onPress={() => { setPickerMonth(month => changeMonth(month, -1)) }}>
               <Icon name="chevron-left" size={16} color={theme['c-font']} />
             </TouchableOpacity>
             <Text style={styles.monthTitle}>{getMonthText(pickerMonth)}</Text>
-            <TouchableOpacity style={styles.monthBtn} onPress={() => setPickerMonth(month => changeMonth(month, 1))}>
+            <TouchableOpacity style={styles.monthBtn} onPress={() => { setPickerMonth(month => changeMonth(month, 1)) }}>
               <Icon name="chevron-right" size={16} color={theme['c-font']} />
             </TouchableOpacity>
           </View>
@@ -378,7 +378,7 @@ export default memo(() => {
                         ? theme['c-primary-light-100-alpha-300']
                         : 'transparent',
                   }}
-                  onPress={() => handlePickDate(dateText)}
+                  onPress={() => { handlePickDate(dateText) }}
                 >
                   <Text
                     color={
@@ -406,7 +406,7 @@ export default memo(() => {
                 ...styles.actionBtn,
                 backgroundColor: theme['c-primary-background'],
               }}
-              onPress={() => applyDate(getTodayText())}
+              onPress={() => { applyDate(getTodayText()) }}
             >
               <Text size={designTypography.caption} color={theme['c-primary-font']}>今天</Text>
             </TouchableOpacity>

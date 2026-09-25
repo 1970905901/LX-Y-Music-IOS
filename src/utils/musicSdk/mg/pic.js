@@ -9,7 +9,7 @@ export default {
         headers: {
           Referer: 'http://music.migu.cn/v3/music/player/audio?from=migu',
         },
-      }
+      },
     )
     requestObj.promise.then(({ body }) => {
       if (body.returnCode !== '000000') {

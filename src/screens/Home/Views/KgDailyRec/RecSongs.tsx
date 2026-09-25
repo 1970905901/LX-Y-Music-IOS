@@ -16,7 +16,7 @@ interface Props {
   type: RecType
 }
 
-const handlePlay = async (list: LX.Music.MusicInfoOnline[], listId: string, index = 0) => {
+const handlePlay = async(list: LX.Music.MusicInfoOnline[], listId: string, index = 0) => {
   await setTempList(listId, [...list])
   clearPlayedList()
   setActiveList(LIST_IDS.TEMP)
@@ -27,7 +27,7 @@ export default memo(({ header, type }: Props) => {
   const listRef = useRef<OnlineListType>(null)
   const playerMusicInfo = usePlayerMusicInfo()
 
-  const fetchSongs = useCallback(async () => {
+  const fetchSongs = useCallback(async() => {
     try {
       listRef.current?.setStatus('refreshing')
       let songs: LX.Music.MusicInfoOnline[] = []

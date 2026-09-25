@@ -10,9 +10,9 @@ import { scaleSizeW } from '@/utils/pixelRatio'
 import { useLayout } from '@/utils/hooks'
 import { useI18n } from '@/lang'
 import Image from '@/components/common/Image'
+import defaultUser from '@/resources/images/defaultUser.jpg'
 import CommentImage from './CommentImage'
 import CommentText from './CommentText'
-const defaultUser = require('@/resources/images/defaultUser.jpg')
 
 const GAP = 12
 const avatarWidth = scaleSizeW(36)

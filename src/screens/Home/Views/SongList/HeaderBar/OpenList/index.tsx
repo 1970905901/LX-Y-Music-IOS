@@ -2,7 +2,7 @@ import { useRef, forwardRef, useImperativeHandle, useEffect } from 'react'
 import Button from '@/components/common/Button'
 import { useTheme } from '@/store/theme/hook'
 import Modal, { type ModalType } from './Modal'
-import {ListInfoItem, type Source} from '@/store/songlist/state'
+import { type ListInfoItem, type Source } from '@/store/songlist/state'
 import { createStyle } from '@/utils/tools'
 import { SvgIcon } from '@/components/common/Icon'
 import { navigations } from '@/navigation'
@@ -14,7 +14,7 @@ import { designRadius, designSpacing } from '@/theme/DesignTokens'
 // }
 
 interface OpenListProps {
-  onOpenDetail: (item: ListInfoItem) => void;
+  onOpenDetail: (item: ListInfoItem) => void
 }
 export interface OpenListType {
   setInfo: (source: Source) => void
@@ -62,7 +62,7 @@ export default forwardRef<OpenListType, OpenListProps>(({ onOpenDetail }, ref) =
       img: undefined,
       desc: undefined,
       source: songlistInfoRef.current.source,
-    });
+    })
   }
 
   // const handleSourceChange: ModalProps['onSourceChange'] = (source) => {

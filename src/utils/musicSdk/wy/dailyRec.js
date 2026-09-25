@@ -1,7 +1,7 @@
 import { httpFetch } from '../../request'
 import musicDetailApi from './musicDetail'
 import { weapi } from './utils/crypto'
-import settingState from "@/store/setting/state"
+import settingState from '@/store/setting/state'
 
 export default {
   _requestObj: null,
@@ -29,10 +29,10 @@ export default {
       const { body, statusCode } = await _requestObj.promise
 
       if (statusCode !== 200 || body.code !== 200 || !body.data) {
-        throw new Error('获取每日推荐失败或返回数据无效');
+        throw new Error('获取每日推荐失败或返回数据无效')
       }
 
-      const filteredList = await musicDetailApi.filterList({ songs: body.data.dailySongs, privileges: [] });
+      const filteredList = await musicDetailApi.filterList({ songs: body.data.dailySongs, privileges: [] })
       return {
         list: filteredList,
         source: 'wy',
@@ -65,7 +65,7 @@ export default {
       const { body, statusCode } = await requestObj.promise
 
       if (statusCode !== 200 || body.code !== 200) {
-        throw new Error('保存风格化标签失败');
+        throw new Error('保存风格化标签失败')
       }
 
       return true
@@ -98,10 +98,10 @@ export default {
       const { body, statusCode } = await _requestObj.promise
 
       if (statusCode !== 200 || body.code !== 200 || !body.data) {
-        throw new Error('获取风格化推荐失败或返回数据无效');
+        throw new Error('获取风格化推荐失败或返回数据无效')
       }
 
-      const filteredList = await musicDetailApi.filterList({ songs: body.data.dailySongs, privileges: [] });
+      const filteredList = await musicDetailApi.filterList({ songs: body.data.dailySongs, privileges: [] })
       return {
         list: filteredList,
         source: 'wy',
@@ -133,7 +133,7 @@ export default {
       if (statusCode !== 200 || body.code !== 200) throw new Error('获取每日推荐歌单失败')
       return body.recommend || []
     } catch (error) {
-      return this.getRecPlaylists(cookie, retryNum + 1);
+      return this.getRecPlaylists(cookie, retryNum + 1)
     }
   },
 

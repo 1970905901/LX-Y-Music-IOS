@@ -16,7 +16,7 @@ const listeners = new Set<Listener>()
 
 const emit = (): void => {
   const locked = lockCount > 0
-  listeners.forEach((listener) => listener(locked))
+  listeners.forEach((listener) => { listener(locked) })
 }
 
 /** 请求锁定滚动（引用计数 +1）。首次锁定时通知订阅者。 */

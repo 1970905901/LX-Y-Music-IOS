@@ -1,27 +1,27 @@
-import { useEffect, useRef, useState } from 'react';
-import YouTubeLoginModal, { type YouTubeLoginModalType } from './YouTubeLoginModal';
+import { useEffect, useRef, useState } from 'react'
+import YouTubeLoginModal, { type YouTubeLoginModalType } from './YouTubeLoginModal'
 
 export default () => {
-  const modalRef = useRef<YouTubeLoginModalType>(null);
-  const [visible, setVisible] = useState(false);
+  const modalRef = useRef<YouTubeLoginModalType>(null)
+  const [visible, setVisible] = useState(false)
 
   useEffect(() => {
     const handleShow = () => {
       if (visible) {
-        modalRef.current?.show();
+        modalRef.current?.show()
       } else {
-        setVisible(true);
+        setVisible(true)
         requestAnimationFrame(() => {
-          modalRef.current?.show();
-        });
+          modalRef.current?.show()
+        })
       }
-    };
+    }
 
-    global.app_event.on('showYouTubeLogin' as any, handleShow);
+    global.app_event.on('showYouTubeLogin' as any, handleShow)
     return () => {
-      global.app_event.off('showYouTubeLogin' as any, handleShow);
-    };
-  }, [visible]);
+      global.app_event.off('showYouTubeLogin' as any, handleShow)
+    }
+  }, [visible])
 
-  return visible ? <YouTubeLoginModal ref={modalRef} /> : null;
-};
+  return visible ? <YouTubeLoginModal ref={modalRef} /> : null
+}

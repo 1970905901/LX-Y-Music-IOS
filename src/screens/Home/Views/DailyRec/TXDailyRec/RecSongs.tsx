@@ -21,14 +21,14 @@ interface Props {
   onOpenDetail?: (playlistInfo: ListInfoItem) => void
 }
 
-const handlePlay = async (list: LX.Music.MusicInfoOnline[], listId: string, index = 0) => {
+const handlePlay = async(list: LX.Music.MusicInfoOnline[], listId: string, index = 0) => {
   await setTempList(listId, [...list])
   clearPlayedList()
   setActiveList(LIST_IDS.TEMP)
   void playList(LIST_IDS.TEMP, index)
 }
 
-const PlaylistItem = ({ item, onPress }: { item: { id: string; name: string; cover: string; playCount: number }; onPress: () => void }) => {
+const PlaylistItem = ({ item, onPress }: { item: { id: string, name: string, cover: string, playCount: number }, onPress: () => void }) => {
   const theme = useTheme()
   return (
     <TouchableOpacity style={styles.item} onPress={onPress}>
@@ -48,18 +48,18 @@ const PlaylistItem = ({ item, onPress }: { item: { id: string; name: string; cov
 export default memo(({ header, type, onOpenDetail }: Props) => {
   const listRef = useRef<OnlineListType>(null)
   const playerMusicInfo = usePlayerMusicInfo()
-  const [playlists, setPlaylists] = useState<{ id: string; name: string; cover: string; playCount: number }[]>([])
+  const [playlists, setPlaylists] = useState<Array<{ id: string, name: string, cover: string, playCount: number }>>([])
   const [loading, setLoading] = useState(false)
   const theme = useTheme()
   const isHorizontal = useHorizontalMode()
 
-  const loadPlaylists = useCallback(async (refresh = false) => {
+  const loadPlaylists = useCallback(async(refresh = false) => {
     if (type !== 'home') return
     if (!refresh && playlists.length > 0) return
     setLoading(true)
     try {
       const result = await txApi.dailyRec.getHomeFeed()
-      if (result && result.list) {
+      if (result?.list) {
         setPlaylists(result.list.map((item: any) => ({
           id: String(item.id),
           name: item.name,
@@ -75,24 +75,26 @@ export default memo(({ header, type, onOpenDetail }: Props) => {
     }
   }, [type, playlists.length])
 
-  const fetchSongs = useCallback(async () => {
+  const fetchSongs = useCallback(async() => {
     try {
       let result: { list: LX.Music.MusicInfoOnline[] } | null = null
 
       switch (type) {
-        case 'radar':
+        case 'radar': {
           const radarResult = await txApi.dailyRec.getRadarRecommend()
           result = { list: radarResult.list }
           break
-        case 'newsong':
+        }
+        case 'newsong': {
           const newsongResult = await txApi.dailyRec.getRecommendNewsong()
           result = { list: newsongResult.list }
           break
+        }
         default:
           return
       }
 
-      if (result && result.list) {
+      if (result?.list) {
         listRef.current?.setList(result.list, false)
       }
     } catch (error) {
@@ -129,7 +131,7 @@ export default memo(({ header, type, onOpenDetail }: Props) => {
     handlePlay(list, listId, index)
   }, [type])
 
-  const handlePlaylistPress = (item: { id: string; name: string; cover: string; playCount: number }) => {
+  const handlePlaylistPress = (item: { id: string, name: string, cover: string, playCount: number }) => {
     if (onOpenDetail) {
       const listInfo = {
         id: item.id,
@@ -156,7 +158,7 @@ export default memo(({ header, type, onOpenDetail }: Props) => {
           columnWrapperStyle={isHorizontal ? styles.columnWrapper : undefined}
           renderItem={({ item }) => (
             <View style={isHorizontal ? styles.itemWrapper : null}>
-              <PlaylistItem item={item} onPress={() => handlePlaylistPress(item)} />
+              <PlaylistItem item={item} onPress={() => { handlePlaylistPress(item) }} />
             </View>
           )}
           keyExtractor={(item) => item.id}

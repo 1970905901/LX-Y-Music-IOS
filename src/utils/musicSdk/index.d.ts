@@ -9,7 +9,7 @@
  */
 
 declare const musicSdk: {
-  sources: Array<{ name: string; id: string }>
+  sources: Array<{ name: string, id: string }>
   supportQuality: Record<string, any>
   [source: string]: any
 }

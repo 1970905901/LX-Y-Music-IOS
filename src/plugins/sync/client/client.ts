@@ -120,7 +120,7 @@ const heartbeatTools = {
         })
         this.reConnnect()
       },
-      2 * 60 * 1000
+      2 * 60 * 1000,
     )
     socket.addEventListener('open', () => {
       if (this.connectTimeout) {
@@ -148,7 +148,7 @@ let client: LX.Sync.Socket | null
 // let listSyncPromise: Promise<void>
 export const connect = (urlInfo: LX.Sync.UrlInfo, keyInfo: LX.Sync.KeyInfo, options?: { silent?: boolean }) => {
   client = new WebSocket(
-    `${urlInfo.wsProtocol}//${urlInfo.hostPath}/socket?i=${encodeURIComponent(keyInfo.clientId)}&t=${encodeURIComponent(aesEncrypt(SYNC_CODE.msgConnect, keyInfo.key))}`
+    `${urlInfo.wsProtocol}//${urlInfo.hostPath}/socket?i=${encodeURIComponent(keyInfo.clientId)}&t=${encodeURIComponent(aesEncrypt(SYNC_CODE.msgConnect, keyInfo.key))}`,
   ) as LX.Sync.Socket
   client.data = {
     keyInfo,
@@ -226,7 +226,7 @@ export const connect = (urlInfo: LX.Sync.UrlInfo, keyInfo: LX.Sync.KeyInfo, opti
         })
     }
   })
-  client.onClose = function (handler: (typeof closeEvents)[number]) {
+  client.onClose = function(handler: (typeof closeEvents)[number]) {
     closeEvents.push(handler)
     return () => {
       closeEvents.splice(closeEvents.indexOf(handler), 1)
@@ -285,7 +285,7 @@ export const connect = (urlInfo: LX.Sync.UrlInfo, keyInfo: LX.Sync.KeyInfo, opti
   })
 }
 
-export const disconnect = async () => {
+export const disconnect = async() => {
   if (!client) return
   log.info('disconnecting...')
   client.close(SYNC_CLOSE_CODE.normal)

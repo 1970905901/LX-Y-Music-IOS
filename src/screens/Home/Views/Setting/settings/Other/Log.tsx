@@ -23,7 +23,7 @@ export default memo(() => {
   const [logLines, setLogLines] = useState<string[]>([])
   const [isTruncated, setIsTruncated] = useState(false)
   const isUnmountedRef = useRef(true)
-  
+
   const [isEnableLog, setIsEnableLog] = useState(settingState.setting['common.isEnableLog'])
   const [isEnableSyncErrorLog, setIsEnableSyncErrorLog] = useState(settingState.setting['common.isEnableSyncLog'])
   const [isEnableUserApiLog, setIsEnableUserApiLog] = useState(settingState.setting['common.isEnableUserApiLog'])
@@ -32,9 +32,9 @@ export default memo(() => {
   const [isEnablePlayerLog, setIsEnablePlayerLog] = useState(settingState.setting['common.isEnablePlayerLog'])
   const [maxLogLines, setMaxLogLines] = useState(DEFAULT_MAX_LOG_LINES)
 
-  const copyToClipboard = async (text: string) => {
+  const copyToClipboard = async(text: string) => {
     try {
-      await Clipboard.setString(text)
+      Clipboard.setString(text)
       toast(t('setting_other_log_tip_copy_success'))
     } catch {
       toast(t('setting_other_log_tip_copy_failed'))

@@ -98,7 +98,7 @@ export const useProgressDrag = (progress: number, duration: number): ProgressDra
       isInteraction: false,
     })
     anim.start()
-    return () => anim.stop()
+    return () => { anim.stop() }
   }, [progress, draging, animProgress])
 
   const durationRef = useRef(duration)
@@ -110,7 +110,7 @@ export const useProgressDrag = (progress: number, duration: number): ProgressDra
   // 否则 progress * 0 === 0，轻触一下就会把歌曲拖回开头，歌词也会跟着跳到第 0 行。
   const canSeek = useCallback(
     () => Number.isFinite(durationRef.current) && durationRef.current > 0,
-    []
+    [],
   )
 
   const onSetProgress = useCallback(
@@ -118,7 +118,7 @@ export const useProgressDrag = (progress: number, duration: number): ProgressDra
       if (!canSeek()) return
       global.app_event.setProgress(clamp01(value) * durationRef.current)
     },
-    [canSeek]
+    [canSeek],
   )
 
   // 拖动中实时把歌词时钟重锚到手指位置（毫秒），避免高亮行与进度条错位。
@@ -127,14 +127,14 @@ export const useProgressDrag = (progress: number, duration: number): ProgressDra
       if (!canSeek()) return
       global.app_event.progressDragPreview(clamp01(value) * durationRef.current * 1000)
     },
-    [canSeek]
+    [canSeek],
   )
 
   const setDragProgress = useCallback(
     (p: number) => {
       dragProgressAnim.setValue(clamp01(p))
     },
-    [dragProgressAnim]
+    [dragProgressAnim],
   )
 
   return {
@@ -169,7 +169,7 @@ export const ProgressTouchArea = memo(
       onSetProgress,
       onDragState,
       setDragProgress,
-      onPreview
+      onPreview,
     )
 
     // PanResponder.create 在首次渲染时生成，闭包内直接引用 props 会得到首次渲染的回调。
@@ -194,7 +194,7 @@ export const ProgressTouchArea = memo(
           handlersRef.current.onDragStart(
             gestureState.dx,
             evt.nativeEvent.locationX,
-            evt.nativeEvent.locationY
+            evt.nativeEvent.locationY,
           )
         },
         onPanResponderRelease: (_evt, gestureState) => {
@@ -214,7 +214,7 @@ export const ProgressTouchArea = memo(
         // 否则 onPanResponderRelease 不触发、onSetProgress(seek) 被丢弃，
         // 表现为「拖了进度条但歌曲不跳转」。
         onPanResponderTerminationRequest: () => false,
-      })
+      }),
     ).current
 
     return (
@@ -226,7 +226,7 @@ export const ProgressTouchArea = memo(
         {...panResponder.panHandlers}
       />
     )
-  }
+  },
 )
 
 const styles = createStyle({

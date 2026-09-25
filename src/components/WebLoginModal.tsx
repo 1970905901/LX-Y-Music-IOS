@@ -1,27 +1,27 @@
-import { forwardRef, useImperativeHandle, useRef, useCallback, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import Modal, { type ModalType } from '@/components/common/Modal';
-import WebView, { type WebViewNavigation } from 'react-native-webview';
-import { useTheme } from '@/store/theme/hook';
-import { useStatusbarHeight } from '@/store/common/hook';
-import { Icon } from '@/components/common/Icon';
-import Text from '@/components/common/Text';
-import { toast } from '@/utils/tools';
-import wyApi from '@/utils/musicSdk/wy/user';
-import CookieManager from '@react-native-cookies/cookies';
-import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens';
+import { forwardRef, useImperativeHandle, useRef, useCallback, useEffect } from 'react'
+import { View, StyleSheet, TouchableOpacity } from 'react-native'
+import Modal, { type ModalType } from '@/components/common/Modal'
+import WebView, { type WebViewNavigation } from 'react-native-webview'
+import { useTheme } from '@/store/theme/hook'
+import { useStatusbarHeight } from '@/store/common/hook'
+import { Icon } from '@/components/common/Icon'
+import Text from '@/components/common/Text'
+import { toast } from '@/utils/tools'
+import wyApi from '@/utils/musicSdk/wy/user'
+import CookieManager from '@react-native-cookies/cookies'
+import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
 
 
-const LOGIN_URL = 'https://music.163.com/m/login';
-const SUCCESS_URL_FLAG = 'music.163.com';
+const LOGIN_URL = 'https://music.163.com/m/login'
+const SUCCESS_URL_FLAG = 'music.163.com'
 
 export interface WebLoginModalType {
-  show: () => void;
+  show: () => void
 }
 
 const Header = ({ onClose }: { onClose: () => void }) => {
-  const theme = useTheme();
-  const statusBarHeight = useStatusbarHeight();
+  const theme = useTheme()
+  const statusBarHeight = useStatusbarHeight()
 
   return (
     <View
@@ -41,117 +41,117 @@ const Header = ({ onClose }: { onClose: () => void }) => {
       <Text size={designTypography.title}>网易云音乐登录</Text>
       <View style={styles.backButton} />
     </View>
-  );
-};
+  )
+}
 export default forwardRef<WebLoginModalType, {}>((props, ref) => {
-  const modalRef = useRef<ModalType>(null);
-  const webViewRef = useRef<any>(null);
-  const loggedInRef = useRef(false);
-  const isCheckingRef = useRef(false);
-  const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const theme = useTheme();
+  const modalRef = useRef<ModalType>(null)
+  const webViewRef = useRef<any>(null)
+  const loggedInRef = useRef(false)
+  const isCheckingRef = useRef(false)
+  const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const theme = useTheme()
 
   const stopPolling = useCallback(() => {
     if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
-      pollingIntervalRef.current = null;
+      clearInterval(pollingIntervalRef.current)
+      pollingIntervalRef.current = null
     }
-  }, []);
+  }, [])
 
   const startPolling = useCallback(() => {
-    stopPolling();
+    stopPolling()
     pollingIntervalRef.current = setInterval(() => {
-      if (loggedInRef.current || isCheckingRef.current) return;
+      if (loggedInRef.current || isCheckingRef.current) return
       // 验证码登录多为页面内 AJAX，不会触发 onNavigationStateChange，
       // 通过轮询主动注入 JS 获取 document.cookie 兜底。
-      webViewRef.current?.injectJavaScript('window.ReactNativeWebView.postMessage(document.cookie);');
-    }, 1500);
-  }, [stopPolling]);
+      webViewRef.current?.injectJavaScript('window.ReactNativeWebView.postMessage(document.cookie);')
+    }, 1500)
+  }, [stopPolling])
 
   const handleClose = useCallback(() => {
-    stopPolling();
-    modalRef.current?.setVisible(false);
-  }, [stopPolling]);
+    stopPolling()
+    modalRef.current?.setVisible(false)
+  }, [stopPolling])
 
   useImperativeHandle(ref, () => ({
     show() {
-      loggedInRef.current = false;
-      isCheckingRef.current = false;
-      modalRef.current?.setVisible(true);
-      startPolling();
+      loggedInRef.current = false
+      isCheckingRef.current = false
+      modalRef.current?.setVisible(true)
+      startPolling()
     },
-  }));
+  }))
 
-  const LOGIN_COOKIE_FLAGS = ['MUSIC_U=', 'S_INFO=', 'MUSIC_A=', '__csrf=', 'NMTID='];
+  const LOGIN_COOKIE_FLAGS = ['MUSIC_U=', 'S_INFO=', 'MUSIC_A=', '__csrf=', 'NMTID=']
   const isValidLoginCookie = (cookie: string) => {
     // 手机号验证码登录后字段可能只有 MUSIC_A/__csrf/NMTID，先放行再由接口验证
-    if (!cookie || cookie.length < 10) return false;
-    return LOGIN_COOKIE_FLAGS.some(flag => cookie.includes(flag));
-  };
+    if (!cookie || cookie.length < 10) return false
+    return LOGIN_COOKIE_FLAGS.some(flag => cookie.includes(flag))
+  }
 
-  const extractAndCheckCookies = async (url: string) => {
-    if (loggedInRef.current || isCheckingRef.current) return;
+  const extractAndCheckCookies = async(url: string) => {
+    if (loggedInRef.current || isCheckingRef.current) return
     try {
-      const cookies = await CookieManager.get(url, true);
+      const cookies = await CookieManager.get(url, true)
       const cookieString = Object.values(cookies)
         .map(c => `${c.name}=${c.value}`)
-        .join('; ');
-      console.log('Web登录: CookieManager captured cookies');
-      if (cookieString) handleMessage({ nativeEvent: { data: cookieString } });
+        .join('; ')
+      console.log('Web登录: CookieManager captured cookies')
+      if (cookieString) handleMessage({ nativeEvent: { data: cookieString } })
     } catch (err) {
-      console.error('Web登录: CookieManager extraction failed, falling back to document.cookie', err);
-      webViewRef.current?.injectJavaScript('window.ReactNativeWebView.postMessage(document.cookie);');
+      console.error('Web登录: CookieManager extraction failed, falling back to document.cookie', err)
+      webViewRef.current?.injectJavaScript('window.ReactNativeWebView.postMessage(document.cookie);')
     }
-  };
+  }
 
-  const handleNavigationStateChange = async (navState: WebViewNavigation) => {
-    console.log('Web登录: 页面导航状态变化:', navState.url);
-    const url = navState.url;
-    const isLoggedIn = url.includes(SUCCESS_URL_FLAG) && !url.includes('/login') && !url.includes('/m/login');
+  const handleNavigationStateChange = async(navState: WebViewNavigation) => {
+    console.log('Web登录: 页面导航状态变化:', navState.url)
+    const url = navState.url
+    const isLoggedIn = url.includes(SUCCESS_URL_FLAG) && !url.includes('/login') && !url.includes('/m/login')
     if (isLoggedIn) {
-      console.log('Web登录: extracting cookies via CookieManager');
+      console.log('Web登录: extracting cookies via CookieManager')
       // 验证码登录后 Cookie 可能尚未同步到原生，首次失败后延迟重试
-      await extractAndCheckCookies(url);
+      await extractAndCheckCookies(url)
       if (!loggedInRef.current) {
-        setTimeout(() => extractAndCheckCookies(url), 1000);
+        setTimeout(async() => extractAndCheckCookies(url), 1000)
       }
     }
-  };
+  }
   const logCookiePreview = (cookie: string) => {
-    const flags = LOGIN_COOKIE_FLAGS.filter(flag => cookie.includes(flag)).join(', ') || '无识别字段';
-    console.log(`Web登录: Cookie 预览 length=${cookie.length}, flags=[${flags}]`);
-  };
+    const flags = LOGIN_COOKIE_FLAGS.filter(flag => cookie.includes(flag)).join(', ') || '无识别字段'
+    console.log(`Web登录: Cookie 预览 length=${cookie.length}, flags=[${flags}]`)
+  }
 
-  const handleMessage = async (event: any) => {
-    const cookie = event.nativeEvent.data;
-    console.log('Web登录: 收到消息');
-    if (loggedInRef.current || isCheckingRef.current) return;
+  const handleMessage = async(event: any) => {
+    const cookie = event.nativeEvent.data
+    console.log('Web登录: 收到消息')
+    if (loggedInRef.current || isCheckingRef.current) return
 
     if (!cookie || !isValidLoginCookie(cookie)) {
-      logCookiePreview(cookie || '');
-      return;
+      logCookiePreview(cookie || '')
+      return
     }
 
-    isCheckingRef.current = true;
+    isCheckingRef.current = true
     try {
-      logCookiePreview(cookie);
-      await wyApi.getUid(cookie);
+      logCookiePreview(cookie)
+      await wyApi.getUid(cookie)
 
       loggedInRef.current = true;
-      (global.app_event as any).emit('wy-cookie-set', cookie);
-      toast('登录成功，已自动获取Cookie！');
-      handleClose();
+      (global.app_event as any).emit('wy-cookie-set', cookie)
+      toast('登录成功，已自动获取Cookie！')
+      handleClose()
     } catch (error) {
-      console.log('Web登录: Cookie验证失败:', (error as Error).message);
-      toast('Cookie 验证失败，请手动点击“获取Cookie”重试', 'long');
+      console.log('Web登录: Cookie验证失败:', (error as Error).message)
+      toast('Cookie 验证失败，请手动点击“获取Cookie”重试', 'long')
     } finally {
-      isCheckingRef.current = false;
+      isCheckingRef.current = false
     }
-  };
+  }
 
   useEffect(() => {
-    return () => stopPolling();
-  }, [stopPolling]);
+    return () => { stopPolling() }
+  }, [stopPolling])
 
   const injectedJavaScriptBeforeContentLoaded = `
     (function() {
@@ -215,14 +215,14 @@ export default forwardRef<WebLoginModalType, {}>((props, ref) => {
 
       return true;
     })();
-  `;
-  const injectedJavaScript = `true;`;
+  `
+  const injectedJavaScript = 'true;'
 
   const handleManualGetCookie = useCallback(() => {
-    if (loggedInRef.current || isCheckingRef.current) return;
-    console.log('Web登录: 用户手动获取Cookie');
-    webViewRef.current?.injectJavaScript('window.ReactNativeWebView.postMessage(document.cookie);');
-  }, []);
+    if (loggedInRef.current || isCheckingRef.current) return
+    console.log('Web登录: 用户手动获取Cookie')
+    webViewRef.current?.injectJavaScript('window.ReactNativeWebView.postMessage(document.cookie);')
+  }, [])
 
   return (
     <Modal ref={modalRef} onHide={stopPolling} statusBarPadding={false} bgHide={false}>
@@ -257,8 +257,8 @@ export default forwardRef<WebLoginModalType, {}>((props, ref) => {
         </View>
       </View>
     </Modal>
-  );
-});
+  )
+})
 
 const styles = StyleSheet.create({
   container: {
@@ -293,4 +293,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-});
+})

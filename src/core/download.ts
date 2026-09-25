@@ -1,120 +1,120 @@
-import RNFetchBlob from '@/utils/rnFetchBlob';
-import {toMD5, toast, requestStoragePermission} from '@/utils/tools';
-import { getMusicUrl, getLyricInfo } from '@/core/music';
-import {getFileExtension, getFileExtensionFromUrl} from '@/screens/Home/Views/Mylist/MusicList/download/utils';
-import { mergeLyrics } from '@/screens/Home/Views/Mylist/MusicList/download/lrcTool';
-import {writeFile, unlink, downloadFile, mkdir, moveFile, stopDownload} from '@/utils/fs';
-import { getDefaultDownloadPath } from '@/utils/downloadPath';
-import { writeMetadata, writePic, writeLyric, isWriteSupported } from '@/utils/localMediaMetadata';
-import settingState from '@/store/setting/state';
-import downloadState from '@/store/download/state';
-import downloadActions from '@/store/download/action';
-import {filterFileName, sizeFormate} from "@/utils";
+import RNFetchBlob from '@/utils/rnFetchBlob'
+import { toMD5, toast, requestStoragePermission } from '@/utils/tools'
+import { getMusicUrl, getLyricInfo } from '@/core/music'
+import { getFileExtension, getFileExtensionFromUrl } from '@/screens/Home/Views/Mylist/MusicList/download/utils'
+import { mergeLyrics } from '@/screens/Home/Views/Mylist/MusicList/download/lrcTool'
+import { writeFile, unlink, downloadFile, mkdir, moveFile, stopDownload } from '@/utils/fs'
+import { getDefaultDownloadPath } from '@/utils/downloadPath'
+import { writeMetadata, writePic, writeLyric, isWriteSupported } from '@/utils/localMediaMetadata'
+import settingState from '@/store/setting/state'
+import downloadState from '@/store/download/state'
+import downloadActions from '@/store/download/action'
+import { filterFileName, sizeFormate } from '@/utils'
 import { getPicUrl } from '@/core/music/online'
 import DownloadTask = LX.Download.DownloadTask
 import wySdk from '@/utils/musicSdk/wy'
 import bilibiliSdk from '@/utils/musicSdk/bilibili'
 
-const taskQueue: DownloadTask[] = [];
-let isProcessing = false;
+const taskQueue: DownloadTask[] = []
+let isProcessing = false
 const DOWNLOAD_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Mobile Safari/537.36',
-};
+}
 const WY_MEDIA_HEADERS = {
   'User-Agent': '',
 }
 const getDownloadHeaders = (task: DownloadTask) => {
   return task.musicInfo.source === 'wy' ? WY_MEDIA_HEADERS : DOWNLOAD_HEADERS
 }
-let currentDownloadTask: any | null = null;
+let currentDownloadTask: any | null = null
 
-const processQueue = async () => {
-  if (isProcessing || taskQueue.length === 0) return;
-  isProcessing = true;
+const processQueue = async() => {
+  if (isProcessing || taskQueue.length === 0) return
+  isProcessing = true
 
-  const task = taskQueue.shift();
+  const task = taskQueue.shift()
   if (!task) {
-    isProcessing = false;
-    return;
+    isProcessing = false
+    return
   }
 
   try {
-    await startDownload(task);
+    await startDownload(task)
   } catch (error: any) {
-    downloadActions.updateTask(task.id, { status: 'error', errorMsg: error.message });
+    downloadActions.updateTask(task.id, { status: 'error', errorMsg: error.message })
   } finally {
-    isProcessing = false;
-    processQueue();
+    isProcessing = false
+    processQueue()
   }
-};
+}
 
-const startDownload = async (task: DownloadTask) => {
-  downloadActions.updateTask(task.id, { status: 'downloading' });
+const startDownload = async(task: DownloadTask) => {
+  downloadActions.updateTask(task.id, { status: 'downloading' })
 
-  let url: string;
-  let headers: any = getDownloadHeaders(task);
+  let url: string
+  let headers: any = getDownloadHeaders(task)
   if (task.isForceCookie && task.musicInfo.source === 'wy') {
-    const highQualityLevels: LX.Quality[] = ['flac', 'hires', 'master', 'atmos', 'atmos_plus'];
-    console.log(`[Batch Download] Forcing cookie for ${task.musicInfo.name}`);
+    const highQualityLevels: LX.Quality[] = ['flac', 'hires', 'master', 'atmos', 'atmos_plus']
+    console.log(`[Batch Download] Forcing cookie for ${task.musicInfo.name}`)
     try {
-      const result: any = await (wySdk.cookie.getMusicUrl(task.musicInfo, task.quality) as any).promise;
-      if (!result.url) throw new Error('Cookie 未能获取到URL');
+      const result: any = await (wySdk.cookie.getMusicUrl(task.musicInfo, task.quality) as any).promise
+      if (!result.url) throw new Error('Cookie 未能获取到URL')
       if (result.level === 'exhigh' && highQualityLevels.includes(task.quality)) {
-        throw new Error(`请求的音质 ${task.quality} 不可用`);
+        throw new Error(`请求的音质 ${task.quality} 不可用`)
       }
-      url = result.url;
+      url = result.url
     } catch (error: any) {
-      toast(`${task.musicInfo.name} 下载失败: ${error.message}`, 'short');
-      removeTask(task.id);
-      return;
+      toast(`${task.musicInfo.name} 下载失败: ${error.message}`, 'short')
+      removeTask(task.id)
+      return
     }
   } else {
     if (task.musicInfo.source === 'bilibili') {
-      console.log(`[Download] 处理 bilibili 源`);
+      console.log('[Download] 处理 bilibili 源')
       try {
-        const result: any = await (bilibiliSdk.getMusicUrl(task.musicInfo, task.quality) as any).promise;
-        url = result.url;
+        const result: any = await (bilibiliSdk.getMusicUrl(task.musicInfo, task.quality) as any).promise
+        url = result.url
         if (result.headers) {
-          headers = result.headers;
-          console.log(`[Download] 使用 bilibili 自定义 headers`);
+          headers = result.headers
+          console.log('[Download] 使用 bilibili 自定义 headers')
         }
       } catch (error: any) {
-        toast(`${task.musicInfo.name} 下载失败: ${error.message}`, 'short');
-        removeTask(task.id);
-        return;
+        toast(`${task.musicInfo.name} 下载失败: ${error.message}`, 'short')
+        removeTask(task.id)
+        return
       }
     } else {
-      url = await getMusicUrl({ musicInfo: task.musicInfo, quality: task.quality, isRefresh: true });
+      url = await getMusicUrl({ musicInfo: task.musicInfo, quality: task.quality, isRefresh: true })
     }
   }
 
-  const isBilibiliSource = task.musicInfo.source === 'bilibili';
-  let finalFilePath = task.filePath;
+  const isBilibiliSource = task.musicInfo.source === 'bilibili'
+  let finalFilePath = task.filePath
 
-  const urlExtension = getFileExtensionFromUrl(url);
-  const taskExt = task.filePath.substring(task.filePath.lastIndexOf('.') + 1).toLowerCase();
+  const urlExtension = getFileExtensionFromUrl(url)
+  const taskExt = task.filePath.substring(task.filePath.lastIndexOf('.') + 1).toLowerCase()
 
-  let downloadFilePath = task.filePath;
+  let downloadFilePath = task.filePath
   if (isBilibiliSource && urlExtension) {
-    const downloadDir = settingState.setting['download.path'] || getDefaultDownloadPath();
-    downloadFilePath = `${downloadDir}/${task.fileName}.download.${urlExtension}`;
-    console.log(`[Download] Bilibili 源使用临时路径下载: ${downloadFilePath}`);
+    const downloadDir = settingState.setting['download.path'] || getDefaultDownloadPath()
+    downloadFilePath = `${downloadDir}/${task.fileName}.download.${urlExtension}`
+    console.log(`[Download] Bilibili 源使用临时路径下载: ${downloadFilePath}`)
   } else if (urlExtension && urlExtension !== taskExt) {
-    const downloadDir = settingState.setting['download.path'] || getDefaultDownloadPath();
-    downloadFilePath = `${downloadDir}/${task.fileName}.download.${urlExtension}`;
-    finalFilePath = `${downloadDir}/${task.fileName}.${urlExtension}`;
-    console.log(`[Download] URL 扩展名(${urlExtension})与任务扩展名(${taskExt})不一致，使用真实扩展名下载: ${downloadFilePath} -> ${finalFilePath}`);
+    const downloadDir = settingState.setting['download.path'] || getDefaultDownloadPath()
+    downloadFilePath = `${downloadDir}/${task.fileName}.download.${urlExtension}`
+    finalFilePath = `${downloadDir}/${task.fileName}.${urlExtension}`
+    console.log(`[Download] URL 扩展名(${urlExtension})与任务扩展名(${taskExt})不一致，使用真实扩展名下载: ${downloadFilePath} -> ${finalFilePath}`)
   }
 
   await requestStoragePermission()
 
   if (!task.isForceCookie) {
-    toast(`${task.fileName} 正在下载...`, 'short');
+    toast(`${task.fileName} 正在下载...`, 'short')
   }
-  let lastWritten = 0;
-  let lastTime = Date.now();
-  let downloadedFilePath: string;
-  const effectiveDownloadDir = settingState.setting['download.path'] || getDefaultDownloadPath();
+  let lastWritten = 0
+  let lastTime = Date.now()
+  let downloadedFilePath: string
+  const effectiveDownloadDir = settingState.setting['download.path'] || getDefaultDownloadPath()
   try {
     await mkdir(effectiveDownloadDir)
 
@@ -149,271 +149,270 @@ const startDownload = async (task: DownloadTask) => {
     await downloadTask.promise
     downloadedFilePath = downloadFilePath
     console.log('下载完成:', downloadedFilePath)
-    
+
     if (finalFilePath !== downloadedFilePath) {
       try {
-        await moveFile(downloadedFilePath, finalFilePath);
-        downloadedFilePath = finalFilePath;
-        console.log(`[Download] 重命名为最终路径: ${downloadedFilePath}`);
+        await moveFile(downloadedFilePath, finalFilePath)
+        downloadedFilePath = finalFilePath
+        console.log(`[Download] 重命名为最终路径: ${downloadedFilePath}`)
       } catch (renameError) {
-        console.warn('[Download] 重命名失败:', renameError);
+        console.warn('[Download] 重命名失败:', renameError)
       }
     }
-    
+
     if (!isBilibiliSource) {
-      await handleMetadata(task, downloadedFilePath);
+      await handleMetadata(task, downloadedFilePath)
     } else {
-      console.log('[Download] Bilibili 源跳过元数据处理');
-      downloadActions.updateTask(task.id, { metadataStatus: { cover: 'success', lyric: 'success', tags: 'success' } });
+      console.log('[Download] Bilibili 源跳过元数据处理')
+      downloadActions.updateTask(task.id, { metadataStatus: { cover: 'success', lyric: 'success', tags: 'success' } })
     }
     try {
-      await RNFetchBlob.fs.scanFile([{ path: downloadedFilePath }]);
-      console.log(`[Download Manager] Media scan requested for: ${downloadedFilePath}`);
+      await RNFetchBlob.fs.scanFile([{ path: downloadedFilePath }])
+      console.log(`[Download Manager] Media scan requested for: ${downloadedFilePath}`)
     } catch (scanError) {
-      console.error(`[Download Manager] Failed to request media scan for ${downloadedFilePath}:`, scanError);
+      console.error(`[Download Manager] Failed to request media scan for ${downloadedFilePath}:`, scanError)
     }
-    downloadActions.updateTask(task.id, { status: 'completed', progress: { ...task.progress, percent: 1 }, filePath: downloadedFilePath });
+    downloadActions.updateTask(task.id, { status: 'completed', progress: { ...task.progress, percent: 1 }, filePath: downloadedFilePath })
 
     // 下载完成后缓存歌词（内存缓存 + 同名 .lrc），保证离线也能显示歌词
-    void cacheLyricForOffline(task, downloadedFilePath);
+    void cacheLyricForOffline(task, downloadedFilePath)
 
     if (!task.isForceCookie) {
-      toast(`${task.fileName} 下载完成!`, 'short');
+      toast(`${task.fileName} 下载完成!`, 'short')
     }
   } finally {
-    currentDownloadTask = null;
+    currentDownloadTask = null
   }
-};
+}
 
 // 下载完成后缓存歌词：仅当用户明确勾选「下载歌词文件」时才写出同名 .lrc；
 // 「写入内嵌歌词」已由 handleMetadata 把歌词嵌入音频文件内部，不再额外生成 .lrc。
-const cacheLyricForOffline = async (task: DownloadTask, filePath: string) => {
+const cacheLyricForOffline = async(task: DownloadTask, filePath: string) => {
   try {
-    if (!settingState.setting['download.writeLyric']) return;
-    const lyrics = await getLyricInfo({ musicInfo: task.musicInfo as LX.Music.MusicInfoOnline });
-    const merged = mergeLyrics(lyrics.lyric, lyrics.tlyric, lyrics.rlyric);
+    if (!settingState.setting['download.writeLyric']) return
+    const lyrics = await getLyricInfo({ musicInfo: task.musicInfo as LX.Music.MusicInfoOnline })
+    const merged = mergeLyrics(lyrics.lyric, lyrics.tlyric, lyrics.rlyric)
     if (merged) {
-      const lrcPath = `${filePath.substring(0, filePath.lastIndexOf('.'))}.lrc`;
+      const lrcPath = `${filePath.substring(0, filePath.lastIndexOf('.'))}.lrc`
       try {
         if (!(await RNFetchBlob.fs.exists(lrcPath))) {
-          await writeFile(lrcPath, merged);
+          await writeFile(lrcPath, merged)
         }
       } catch (e: any) {
-        console.warn('[Download] 写入离线歌词文件失败:', e?.message || e);
+        console.warn('[Download] 写入离线歌词文件失败:', e?.message || e)
       }
     }
-    console.log(`[Download] 离线歌词已缓存: ${task.fileName}`);
+    console.log(`[Download] 离线歌词已缓存: ${task.fileName}`)
   } catch (e: any) {
-    console.warn('[Download] 离线歌词缓存失败（不影响歌曲）:', e?.message || e);
+    console.warn('[Download] 离线歌词缓存失败（不影响歌曲）:', e?.message || e)
   }
-};
+}
 
-const handleMetadata = async (task: DownloadTask, filePath: string) => {
+const handleMetadata = async(task: DownloadTask, filePath: string) => {
   // 按原生写入能力判断（iOS 的 LocalMediaMetadata 内联模块同样支持标签/封面/内嵌歌词写入），
   // 不再按平台一刀切跳过；能力不可用时整段跳过，避免误报与假成功
   // （与 MusicList/listAction.ts 的下载写入守卫保持一致）。
   if (!isWriteSupported()) return
-  console.log('开始处理元数据:', filePath);
-  
-  const fileExt = filePath.substring(filePath.lastIndexOf('.') + 1).toLowerCase();
-  console.log(`[Metadata] 文件格式: ${fileExt}`);
-  
+  console.log('开始处理元数据:', filePath)
+
+  const fileExt = filePath.substring(filePath.lastIndexOf('.') + 1).toLowerCase()
+  console.log(`[Metadata] 文件格式: ${fileExt}`)
+
   if (settingState.setting['download.writeMetadata']) {
     try {
       const title = settingState.setting['download.writeAlias'] && task.musicInfo.alias
         ? `${task.musicInfo.name} (${task.musicInfo.alias})`
-        : task.musicInfo.name;
+        : task.musicInfo.name
 
       await writeMetadata(filePath, {
         name: title,
         singer: task.musicInfo.singer,
         albumName: task.musicInfo.meta.albumName,
-      }, true);
-      downloadActions.updateTask(task.id, { metadataStatus: { ...task.metadataStatus, tags: 'success' } });
+      }, true)
+      downloadActions.updateTask(task.id, { metadataStatus: { ...task.metadataStatus, tags: 'success' } })
     } catch (e: any) {
-      console.error('[Metadata] 标签信息写入失败:', e?.message || e);
-      toast('标签信息写入失败', 'short');
-      downloadActions.updateTask(task.id, { metadataStatus: { ...task.metadataStatus, tags: 'fail' } });
+      console.error('[Metadata] 标签信息写入失败:', e?.message || e)
+      toast('标签信息写入失败', 'short')
+      downloadActions.updateTask(task.id, { metadataStatus: { ...task.metadataStatus, tags: 'fail' } })
     }
   }
 
   const downloadDir = settingState.setting['download.path'] || getDefaultDownloadPath()
   if (settingState.setting['download.writePicture']) {
     try {
-      const picUrl = await getPicUrl({ musicInfo: task.musicInfo as LX.Music.MusicInfoOnline } as any);
+      const picUrl = await getPicUrl({ musicInfo: task.musicInfo as LX.Music.MusicInfoOnline } as any)
       const extension = getFileExtensionFromUrl(picUrl) || 'jpg'
       const picPath = `${downloadDir}/temp.${extension}`
-      console.log(`[Metadata] 下载封面: ${picUrl} -> ${picPath}`);
-      const { promise } = downloadFile(picUrl, picPath);
-      await promise;
-      console.log(`[Metadata] 封面下载完成，开始写入到音频文件`);
-      await writePic(filePath, picPath);
-      await unlink(picPath);
-      console.log(`[Metadata] 封面写入完成`);
-      downloadActions.updateTask(task.id, { metadataStatus: { ...task.metadataStatus, cover: 'success' } });
+      console.log(`[Metadata] 下载封面: ${picUrl} -> ${picPath}`)
+      const { promise } = downloadFile(picUrl, picPath)
+      await promise
+      console.log('[Metadata] 封面下载完成，开始写入到音频文件')
+      await writePic(filePath, picPath)
+      await unlink(picPath)
+      console.log('[Metadata] 封面写入完成')
+      downloadActions.updateTask(task.id, { metadataStatus: { ...task.metadataStatus, cover: 'success' } })
     } catch (e: any) {
-      console.error('[Metadata] 封面写入失败:', e?.message || e);
-      toast('封面写入失败', 'short');
-      downloadActions.updateTask(task.id, { metadataStatus: { ...task.metadataStatus, cover: 'fail' } });
+      console.error('[Metadata] 封面写入失败:', e?.message || e)
+      toast('封面写入失败', 'short')
+      downloadActions.updateTask(task.id, { metadataStatus: { ...task.metadataStatus, cover: 'fail' } })
     }
   }
 
   if (settingState.setting['download.writeLyric'] || settingState.setting['download.writeEmbedLyric']) {
     try {
-      const lyrics = await getLyricInfo({ musicInfo: task.musicInfo as LX.Music.MusicInfoOnline });
-      const baseFilePath = filePath.substring(0, filePath.lastIndexOf('.'));
-      const romaLyric = settingState.setting['download.writeRomaLyric'] ? lyrics.rlyric : null;
+      const lyrics = await getLyricInfo({ musicInfo: task.musicInfo as LX.Music.MusicInfoOnline })
+      const baseFilePath = filePath.substring(0, filePath.lastIndexOf('.'))
+      const romaLyric = settingState.setting['download.writeRomaLyric'] ? lyrics.rlyric : null
 
       if (settingState.setting['download.writeEmbedLyric']) {
-        const embedLyricContent = mergeLyrics(lyrics.lyric, lyrics.tlyric, romaLyric);
+        const embedLyricContent = mergeLyrics(lyrics.lyric, lyrics.tlyric, romaLyric)
         if (embedLyricContent) {
-          console.log(`[Metadata] 写入嵌入歌词`);
-          await writeLyric(filePath, embedLyricContent);
+          console.log('[Metadata] 写入嵌入歌词')
+          await writeLyric(filePath, embedLyricContent)
         }
       }
       if (settingState.setting['download.writeLyric']) {
-        const finalLyricContent = mergeLyrics(lyrics.lyric, lyrics.tlyric, romaLyric);
+        const finalLyricContent = mergeLyrics(lyrics.lyric, lyrics.tlyric, romaLyric)
         if (finalLyricContent) {
-          const lrcPath = `${baseFilePath}.lrc`;
-          console.log(`[Metadata] 写入歌词文件: ${lrcPath}`);
-          await writeFile(lrcPath, finalLyricContent);
+          const lrcPath = `${baseFilePath}.lrc`
+          console.log(`[Metadata] 写入歌词文件: ${lrcPath}`)
+          await writeFile(lrcPath, finalLyricContent)
         }
       }
-      downloadActions.updateTask(task.id, { metadataStatus: { ...task.metadataStatus, lyric: 'success' } });
+      downloadActions.updateTask(task.id, { metadataStatus: { ...task.metadataStatus, lyric: 'success' } })
     } catch (e: any) {
-      console.error('[Metadata] 歌词写入失败:', e?.message || e);
-      toast('歌词写入失败', 'short');
-      downloadActions.updateTask(task.id, { metadataStatus: { ...task.metadataStatus, lyric: 'fail' } });
+      console.error('[Metadata] 歌词写入失败:', e?.message || e)
+      toast('歌词写入失败', 'short')
+      downloadActions.updateTask(task.id, { metadataStatus: { ...task.metadataStatus, lyric: 'fail' } })
     }
   }
-};
+}
 
-export const retryMetadata = async (taskId: string) => {
-  const task = downloadState.tasks.find(t => t.id === taskId);
-  if (!task || !task.filePath) {
-    toast('任务或文件不存在，无法重试');
-    return;
+export const retryMetadata = async(taskId: string) => {
+  const task = downloadState.tasks.find(t => t.id === taskId)
+  if (!task?.filePath) {
+    toast('任务或文件不存在，无法重试')
+    return
   }
 
   // 写入能力不可用时跳过（同 handleMetadata，按原生模块可用性而非平台判断）
   if (!isWriteSupported()) {
-    toast('当前平台不支持写入元数据');
-    return;
+    toast('当前平台不支持写入元数据')
+    return
   }
 
-  console.log(`[Retry Metadata] 开始重试元数据写入，文件: ${task.filePath}`);
-  toast('正在尝试重新获取元信息...');
-  const filePath = task.filePath;
-  const metadataStatus = { ...task.metadataStatus };
+  console.log(`[Retry Metadata] 开始重试元数据写入，文件: ${task.filePath}`)
+  toast('正在尝试重新获取元信息...')
+  const filePath = task.filePath
+  const metadataStatus = { ...task.metadataStatus }
 
-  const fileExt = filePath.substring(filePath.lastIndexOf('.') + 1).toLowerCase();
-  console.log(`[Retry Metadata] 文件格式: ${fileExt}`);
+  const fileExt = filePath.substring(filePath.lastIndexOf('.') + 1).toLowerCase()
+  console.log(`[Retry Metadata] 文件格式: ${fileExt}`)
 
   if (metadataStatus.tags === 'fail' && settingState.setting['download.writeMetadata']) {
     try {
       const title = settingState.setting['download.writeAlias'] && task.musicInfo.alias
         ? `${task.musicInfo.name} (${task.musicInfo.alias})`
-        : task.musicInfo.name;
+        : task.musicInfo.name
 
-      console.log(`[Retry Metadata] 写入标签: title=${title}, singer=${task.musicInfo.singer}`);
+      console.log(`[Retry Metadata] 写入标签: title=${title}, singer=${task.musicInfo.singer}`)
       await writeMetadata(filePath, {
         name: title,
         singer: task.musicInfo.singer,
         albumName: task.musicInfo.meta.albumName,
-      }, true);
-      metadataStatus.tags = 'success';
-      console.log(`[Retry Metadata] 标签写入成功`);
+      }, true)
+      metadataStatus.tags = 'success'
+      console.log('[Retry Metadata] 标签写入成功')
     } catch (e: any) {
-      console.error(`[Retry Metadata] Write Tags Error for ${task.musicInfo.name}:`, e?.message || e);
-      metadataStatus.tags = 'fail';
+      console.error(`[Retry Metadata] Write Tags Error for ${task.musicInfo.name}:`, e?.message || e)
+      metadataStatus.tags = 'fail'
     }
   }
 
   if (metadataStatus.cover === 'fail' && settingState.setting['download.writePicture']) {
     try {
-      const picUrl = await getPicUrl({ musicInfo: task.musicInfo as LX.Music.MusicInfoOnline } as any);
-      const extension = getFileExtensionFromUrl(picUrl) || 'jpg';
-      const picPath = `${RNFetchBlob.fs.dirs.CacheDir}/lx_temp_pic_${task.id}.${extension}`;
+      const picUrl = await getPicUrl({ musicInfo: task.musicInfo as LX.Music.MusicInfoOnline } as any)
+      const extension = getFileExtensionFromUrl(picUrl) || 'jpg'
+      const picPath = `${RNFetchBlob.fs.dirs.CacheDir}/lx_temp_pic_${task.id}.${extension}`
 
-      console.log(`[Retry Metadata] 下载封面: ${picUrl} -> ${picPath}`);
-      const { promise } = downloadFile(picUrl, picPath);
-      await promise;
-      console.log(`[Retry Metadata] 封面下载完成，开始写入`);
-      await writePic(filePath, picPath);
-      await unlink(picPath);
-      metadataStatus.cover = 'success';
-      console.log(`[Retry Metadata] 封面写入成功`);
+      console.log(`[Retry Metadata] 下载封面: ${picUrl} -> ${picPath}`)
+      const { promise } = downloadFile(picUrl, picPath)
+      await promise
+      console.log('[Retry Metadata] 封面下载完成，开始写入')
+      await writePic(filePath, picPath)
+      await unlink(picPath)
+      metadataStatus.cover = 'success'
+      console.log('[Retry Metadata] 封面写入成功')
     } catch (e: any) {
-      console.error(`[Retry Metadata] Write Cover Error for ${task.musicInfo.name}:`, e?.message || e);
-      metadataStatus.cover = 'fail';
+      console.error(`[Retry Metadata] Write Cover Error for ${task.musicInfo.name}:`, e?.message || e)
+      metadataStatus.cover = 'fail'
     }
   }
 
   if (metadataStatus.lyric === 'fail' && (settingState.setting['download.writeLyric'] || settingState.setting['download.writeEmbedLyric'])) {
     try {
-      const lyrics = await getLyricInfo({ musicInfo: task.musicInfo as LX.Music.MusicInfoOnline });
-      const baseFilePath = filePath.substring(0, filePath.lastIndexOf('.'));
-      const romaLyric = settingState.setting['download.writeRomaLyric'] ? lyrics.rlyric : null;
+      const lyrics = await getLyricInfo({ musicInfo: task.musicInfo as LX.Music.MusicInfoOnline })
+      const baseFilePath = filePath.substring(0, filePath.lastIndexOf('.'))
+      const romaLyric = settingState.setting['download.writeRomaLyric'] ? lyrics.rlyric : null
 
       if (settingState.setting['download.writeEmbedLyric']) {
-        const embedLyricContent = mergeLyrics(lyrics.lyric, lyrics.tlyric, romaLyric);
+        const embedLyricContent = mergeLyrics(lyrics.lyric, lyrics.tlyric, romaLyric)
         if (embedLyricContent) {
-          console.log(`[Retry Metadata] 写入嵌入歌词`);
-          await writeLyric(filePath, embedLyricContent);
+          console.log('[Retry Metadata] 写入嵌入歌词')
+          await writeLyric(filePath, embedLyricContent)
         }
       }
       if (settingState.setting['download.writeLyric']) {
-        const finalLyricContent = mergeLyrics(lyrics.lyric, lyrics.tlyric, romaLyric);
+        const finalLyricContent = mergeLyrics(lyrics.lyric, lyrics.tlyric, romaLyric)
         if (finalLyricContent) {
-          const lrcPath = `${baseFilePath}.lrc`;
-          console.log(`[Retry Metadata] 写入歌词文件: ${lrcPath}`);
-          await writeFile(lrcPath, finalLyricContent);
+          const lrcPath = `${baseFilePath}.lrc`
+          console.log(`[Retry Metadata] 写入歌词文件: ${lrcPath}`)
+          await writeFile(lrcPath, finalLyricContent)
         }
       }
-      metadataStatus.lyric = 'success';
-      console.log(`[Retry Metadata] 歌词写入成功`);
+      metadataStatus.lyric = 'success'
+      console.log('[Retry Metadata] 歌词写入成功')
     } catch (e: any) {
-      console.error(`[Retry Metadata] Write Lyric Error for ${task.musicInfo.name}:`, e?.message || e);
-      metadataStatus.lyric = 'fail';
+      console.error(`[Retry Metadata] Write Lyric Error for ${task.musicInfo.name}:`, e?.message || e)
+      metadataStatus.lyric = 'fail'
     }
   }
 
-  downloadActions.updateTask(task.id, { metadataStatus });
+  downloadActions.updateTask(task.id, { metadataStatus })
 
   if (Object.values(metadataStatus).every(s => s !== 'fail')) {
-    toast('元信息已全部修复成功！');
+    toast('元信息已全部修复成功！')
   } else {
-    toast('部分元信息修复失败，请检查日志', 'long');
+    toast('部分元信息修复失败，请检查日志', 'long')
   }
-};
+}
 
 export const retryTask = (taskId: string) => {
-  const task = downloadState.tasks.find(t => t.id === taskId);
-  if (!task) return;
+  const task = downloadState.tasks.find(t => t.id === taskId)
+  if (!task) return
 
   if (task.status === 'error' || !task.filePath) {
-    toast('正在重新下载...');
-    removeTask(task.id);
+    toast('正在重新下载...')
+    removeTask(task.id)
     setTimeout(() => {
-      addTask(task.musicInfo, task.quality);
-    }, 200);
+      addTask(task.musicInfo, task.quality)
+    }, 200)
+  } else if (Object.values(task.metadataStatus ?? {}).includes('fail')) {
+    void retryMetadata(task.id)
   }
-  else if (Object.values(task.metadataStatus ?? {}).includes('fail')) {
-    void retryMetadata(task.id);
-  }
-};
+}
 
-export const resumeTask = async (taskId: string) => {
-  const task = downloadState.tasks.find(t => t.id === taskId);
-  if (!task) return;
-  if (task.status !== 'paused') return;
+export const resumeTask = async(taskId: string) => {
+  const task = downloadState.tasks.find(t => t.id === taskId)
+  if (!task) return
+  if (task.status !== 'paused') return
 
   if (taskQueue.some(t => t.id === task.id)) {
-    return;
+    return
   }
 
   try {
-    await unlink(task.filePath);
+    await unlink(task.filePath)
   } catch (error) {
     // Ignore cleanup failures so we can still restart the download.
   }
@@ -423,27 +422,27 @@ export const resumeTask = async (taskId: string) => {
     errorMsg: '',
     progress: { percent: 0, speed: '', downloaded: 0, total: 0 },
     metadataStatus: { cover: 'pending', lyric: 'pending', tags: 'pending' },
-  });
-  taskQueue.push(task);
-  processQueue();
-};
+  })
+  taskQueue.push(task)
+  processQueue()
+}
 
 export const addTask = (musicInfo: LX.Music.MusicInfo, quality: LX.Quality, isForceCookie: boolean = false) => {
-  let extension = getFileExtension(quality);
+  let extension = getFileExtension(quality)
   if (musicInfo.source === 'bilibili') {
-    extension = 'mp3';
+    extension = 'mp3'
   }
 
-  let finalSingerString = musicInfo.singer;
+  let finalSingerString = musicInfo.singer
   if (musicInfo.artists && musicInfo.artists.length > 6) {
-    finalSingerString = musicInfo.artists.slice(0, 6).map(artist => artist.name).join('、') + '...';
+    finalSingerString = musicInfo.artists.slice(0, 6).map(artist => artist.name).join('、') + '...'
   }
   let fileName = settingState.setting['download.fileName']
     .replace('歌名', musicInfo.name)
-    .replace('歌手', finalSingerString);
-  fileName = filterFileName(fileName);
-  const downloadDir = settingState.setting['download.path'] || getDefaultDownloadPath();
-  const filePath = `${downloadDir}/${fileName}.${extension}`;
+    .replace('歌手', finalSingerString)
+  fileName = filterFileName(fileName)
+  const downloadDir = settingState.setting['download.path'] || getDefaultDownloadPath()
+  const filePath = `${downloadDir}/${fileName}.${extension}`
 
   const task: DownloadTask = {
     id: toMD5(`${musicInfo.id}-${quality}`),
@@ -456,72 +455,72 @@ export const addTask = (musicInfo: LX.Music.MusicInfo, quality: LX.Quality, isFo
     metadataStatus: { cover: 'pending', lyric: 'pending', tags: 'pending' },
     createdAt: Date.now(),
     isForceCookie,
-  };
-
-  if (downloadState.tasks.some(t => t.id === task.id)) {
-    toast('任务已存在');
-    return;
   }
 
-  downloadActions.addTask(task);
-  taskQueue.push(task);
-  processQueue();
-};
+  if (downloadState.tasks.some(t => t.id === task.id)) {
+    toast('任务已存在')
+    return
+  }
+
+  downloadActions.addTask(task)
+  taskQueue.push(task)
+  processQueue()
+}
 
 export const removeTask = (id: string) => {
-  const taskToRemove = downloadState.tasks.find(t => t.id === id);
+  const taskToRemove = downloadState.tasks.find(t => t.id === id)
   if (currentDownloadTask && taskToRemove && taskToRemove.status === 'downloading') {
     const jobId = currentDownloadTask.jobId
     if (typeof jobId === 'number') {
       stopDownload(jobId)
     }
     if (taskToRemove.filePath) {
-      void unlink(taskToRemove.filePath).catch(() => {});
-      console.log(`[Download Manager] Canceled and deleted partial file: ${taskToRemove.filePath}`);
+      void unlink(taskToRemove.filePath).catch(() => {})
+      console.log(`[Download Manager] Canceled and deleted partial file: ${taskToRemove.filePath}`)
     }
-    currentDownloadTask = null;
+    currentDownloadTask = null
   } else if (taskToRemove && taskToRemove.status !== 'completed' && taskToRemove.filePath) {
-    void unlink(taskToRemove.filePath).catch(() => {});
+    void unlink(taskToRemove.filePath).catch(() => {})
   }
-  const taskIndex = taskQueue.findIndex(t => t.id === id);
-  if (taskIndex > -1) taskQueue.splice(taskIndex, 1);
-  downloadActions.removeTask(id);
-  isProcessing = false;
-  processQueue();
-};
+  const taskIndex = taskQueue.findIndex(t => t.id === id)
+  if (taskIndex > -1) taskQueue.splice(taskIndex, 1)
+  downloadActions.removeTask(id)
+  isProcessing = false
+  processQueue()
+}
 
 
 /**
  * Batch download tasks - add download tasks with interval
  * @param musicInfos Selected song list
  */
-export const batchDownload = async (musicInfos: LX.Music.MusicInfo[]) => {
-  const cookie = settingState.setting['common.wy_cookie'];
-  const hasWyMusic = musicInfos.some(m => m.source === 'wy');
-  
+export const batchDownload = async(musicInfos: LX.Music.MusicInfo[]) => {
+  const cookie = settingState.setting['common.wy_cookie']
+  const hasWyMusic = musicInfos.some(m => m.source === 'wy')
+
   if (hasWyMusic && !cookie) {
-    toast('未配置网易云 Cookie，网易云音源将使用普通音质下载');
+    toast('未配置网易云 Cookie，网易云音源将使用普通音质下载')
   }
 
-  const quality = settingState.setting['download.quality'];
-  let wyCount = 0;
-  let otherCount = 0;
-  
+  const quality = settingState.setting['download.quality']
+  let wyCount = 0
+  let otherCount = 0
+
   for (const musicInfo of musicInfos) {
-    if (musicInfo.source === 'wy') wyCount++; else otherCount++;
+    if (musicInfo.source === 'wy') wyCount++; else otherCount++
   }
 
-  const tips = [];
-  if (wyCount > 0) tips.push(`${wyCount}首网易云${cookie ? '(Cookie)' : '(普通)'}`);
-  if (otherCount > 0) tips.push(`${otherCount}首其他音源`);
-  toast(`准备添加 ${musicInfos.length} 首歌曲到下载队列 (${tips.join(', ')})`);
-  
+  const tips = []
+  if (wyCount > 0) tips.push(`${wyCount}首网易云${cookie ? '(Cookie)' : '(普通)'}`)
+  if (otherCount > 0) tips.push(`${otherCount}首其他音源`)
+  toast(`准备添加 ${musicInfos.length} 首歌曲到下载队列 (${tips.join(', ')})`)
+
   for (const musicInfo of musicInfos) {
-    const isWyAndHasCookie = musicInfo.source === 'wy' && !!cookie;
-    addTask(musicInfo, quality, isWyAndHasCookie);
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    const isWyAndHasCookie = musicInfo.source === 'wy' && !!cookie
+    addTask(musicInfo, quality, isWyAndHasCookie)
+    await new Promise(resolve => setTimeout(resolve, 1000))
   }
-};
+}
 
 /**
  * 直接按下载设置中的音质下载单曲，并提示所添加的音质（不再弹确认框）

@@ -23,7 +23,7 @@ const pickUrl = (value) => {
 }
 
 // 从抖音网页 SSR HTML 提取歌曲 ID 列表
-const fetchBoardSongIds = async (bangid) => {
+const fetchBoardSongIds = async(bangid) => {
   const html = await fetch(`https://www.douyin.com/qishui/playlist/${bangid}`, {
     headers: { 'User-Agent': WEB_UA },
   }).then((r) => r.text())
@@ -38,10 +38,10 @@ const fetchBoardSongIds = async (bangid) => {
 }
 
 // 用 H5 SEO 接口获取歌曲详情
-const fetchTrack = async (trackId) => {
+const fetchTrack = async(trackId) => {
   const data = await fetch(
     `https://beta-luna.douyin.com/luna/h5/seo_track?track_id=${trackId}&device_platform=web`,
-    { headers: { 'User-Agent': H5_UA } }
+    { headers: { 'User-Agent': H5_UA } },
   ).then((r) => r.json())
   const track = data?.seo_track?.track
   if (!track || !track.id) return null

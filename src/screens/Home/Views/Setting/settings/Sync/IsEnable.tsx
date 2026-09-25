@@ -49,7 +49,7 @@ const HostInput = memo(
         if (host == hostAddress) return
         setHost(hostAddress)
       },
-      [host, setHost, t]
+      [host, setHost, t],
     )
 
     return (
@@ -63,10 +63,10 @@ const HostInput = memo(
         placeholder={t('setting_sync_host_value_tip')}
       />
     )
-  }
+  },
 )
 
-export default memo(({ host, setHost }: { host: string; setHost: (host: string) => void }) => {
+export default memo(({ host, setHost }: { host: string, setHost: (host: string) => void }) => {
   const t = useI18n()
   const setIsEnableSync = useCallback((enable: boolean) => {
     updateSetting({ 'sync.enable': enable })
@@ -118,7 +118,7 @@ export default memo(({ host, setHost }: { host: string; setHost: (host: string) 
 
       void (enable ? connectServer(host) : disconnectServer())
     },
-    [host, setIsEnableSync]
+    [host, setIsEnableSync],
   )
 
   const handleUpdateHost = useCallback(
@@ -127,7 +127,7 @@ export default memo(({ host, setHost }: { host: string; setHost: (host: string) 
       void setSyncHost(h)
       setHost(h)
     },
-    [host, setHost]
+    [host, setHost],
   )
 
   const status = useMemo(() => {

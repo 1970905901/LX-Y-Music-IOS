@@ -6,14 +6,14 @@ import { FlatList, type FlatListProps } from 'react-native'
 export type ItemT<T> = FlatListProps<T>['data']
 
 export type ListProps<T> = Pick<
-  FlatListProps<T>,
-  | 'renderItem'
-  | 'maxToRenderPerBatch'
-  | 'windowSize'
-  | 'initialNumToRender'
-  | 'keyExtractor'
-  | 'getItemLayout'
-  | 'keyboardShouldPersistTaps'
+FlatListProps<T>,
+| 'renderItem'
+| 'maxToRenderPerBatch'
+| 'windowSize'
+| 'initialNumToRender'
+| 'keyExtractor'
+| 'getItemLayout'
+| 'keyboardShouldPersistTaps'
 >
 
 export interface ListType<T> {

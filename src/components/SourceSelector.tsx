@@ -32,7 +32,7 @@ export const useSourceListI18n = (list: Sources) => {
 
 const Component = <S extends Sources>(
   { fontSize = 15, center, onSourceChange }: SourceSelectorProps<S>,
-  ref: Ref<SourceSelectorType<S>>
+  ref: Ref<SourceSelectorType<S>>,
 ) => {
   const sourceNameType = useSettingValue('common.sourceNameType')
   const [list, setList] = useState([] as unknown as S)
@@ -47,7 +47,7 @@ const Component = <S extends Sources>(
         setSource(activeSource)
       },
     }),
-    []
+    [],
   )
 
   const sourceList_t = useSourceListI18n(list)

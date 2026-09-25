@@ -18,7 +18,7 @@ export const playerLog = {
     if (!global.lx.isEnableLog) return
     const msg = msgs
       .map((m) =>
-        typeof m == 'string' ? m : m instanceof Error ? (m.stack ?? m.message) : JSON.stringify(m)
+        typeof m == 'string' ? m : m instanceof Error ? (m.stack ?? m.message) : JSON.stringify(m),
       )
       .join(' ')
     log.info('[Player] ' + msg)
@@ -29,7 +29,7 @@ export const playerLog = {
     if (!global.lx.isEnableLog) return
     const msg = msgs
       .map((m) =>
-        typeof m == 'string' ? m : m instanceof Error ? (m.stack ?? m.message) : JSON.stringify(m)
+        typeof m == 'string' ? m : m instanceof Error ? (m.stack ?? m.message) : JSON.stringify(m),
       )
       .join(' ')
     log.warn('[Player] ' + msg)
@@ -40,7 +40,7 @@ export const playerLog = {
     if (!global.lx.isEnableLog) return
     const msg = msgs
       .map((m) =>
-        typeof m == 'string' ? m : m instanceof Error ? (m.stack ?? m.message) : JSON.stringify(m)
+        typeof m == 'string' ? m : m instanceof Error ? (m.stack ?? m.message) : JSON.stringify(m),
       )
       .join(' ')
     log.error('[Player] ' + msg)

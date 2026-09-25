@@ -11,22 +11,22 @@ const artistApi = {
    * @param {string} id 歌手ID
    */
   async getDetail(id, retryNum = 0) {
-    if (retryNum > 2) return Promise.reject(new Error('获取歌手详情失败'));
+    if (retryNum > 2) return Promise.reject(new Error('获取歌手详情失败'))
     const requestObj = httpFetch('https://music.163.com/weapi/artist/head/info/get', {
       method: 'post',
       form: weapi({ id }),
-    });
+    })
     try {
-      const { body } = await requestObj.promise;
-      if (body.code !== 200) throw new Error('获取歌手详情失败');
-      return body.data;
+      const { body } = await requestObj.promise
+      if (body.code !== 200) throw new Error('获取歌手详情失败')
+      return body.data
     } catch (error) {
-      return artistApi.getDetail(id, retryNum + 1);
+      return artistApi.getDetail(id, retryNum + 1)
     }
   },
 
   async getSongs(id, order = 'hot', limit = 100, offset = 0, retryNum = 0) {
-    if (retryNum > 2) return Promise.reject(new Error('获取歌手歌曲失败'));
+    if (retryNum > 2) return Promise.reject(new Error('获取歌手歌曲失败'))
     const requestObj = httpFetch('https://music.163.com/weapi/v1/artist/songs', {
       method: 'post',
       form: weapi({
@@ -37,36 +37,36 @@ const artistApi = {
         offset,
         limit,
       }),
-    });
+    })
     try {
-      const { body } = await requestObj.promise;
-      if (body.code !== 200) throw new Error('获取歌手歌曲失败');
-      const rawSongs = Array.isArray(body.songs) ? body.songs : [];
-      const list = await musicDetailApi.filterList({ songs: rawSongs, privileges: [] });
-      const total = Number(body.total) || 0;
+      const { body } = await requestObj.promise
+      if (body.code !== 200) throw new Error('获取歌手歌曲失败')
+      const rawSongs = Array.isArray(body.songs) ? body.songs : []
+      const list = await musicDetailApi.filterList({ songs: rawSongs, privileges: [] })
+      const total = Number(body.total) || 0
       // 网易云部分接口返回的 more 字段在大歌手/分页请求中不稳定；
       // 以 total、当前 offset 和实际返回条数综合判断，避免歌曲还没加载完
       // 就提前显示“到底啦”。
-      const nextOffset = offset + limit;
-      const moreValue = body.more;
-      const serverHasMore = moreValue === true || moreValue === 1 || moreValue === '1' || moreValue === 'true';
+      const nextOffset = offset + limit
+      const moreValue = body.more
+      const serverHasMore = moreValue === true || moreValue === 1 || moreValue === '1' || moreValue === 'true'
       const hasMore = rawSongs.length > 0 && (
         serverHasMore ||
         (total > 0 && nextOffset < total) ||
         rawSongs.length >= limit
-      );
+      )
       return {
         list,
         total,
         hasMore,
-      };
+      }
     } catch (error) {
-      return artistApi.getSongs(id, order, limit, offset, retryNum + 1);
+      return artistApi.getSongs(id, order, limit, offset, retryNum + 1)
     }
   },
 
   async getAlbums(id, limit = 100, offset = 0, retryNum = 0) {
-    if (retryNum > 2) return Promise.reject(new Error('获取歌手专辑失败'));
+    if (retryNum > 2) return Promise.reject(new Error('获取歌手专辑失败'))
     const requestObj = httpFetch('https://music.163.com/weapi/artist/albums/' + id, {
       method: 'post',
       form: weapi({
@@ -74,21 +74,21 @@ const artistApi = {
         offset,
         total: true,
       }),
-    });
+    })
     try {
-      const { body } = await requestObj.promise;
-      if (body.code !== 200) throw new Error('获取歌手专辑失败');
+      const { body } = await requestObj.promise
+      if (body.code !== 200) throw new Error('获取歌手专辑失败')
       return {
         hotAlbums: body.hotAlbums,
         hasMore: body.more,
-      };
+      }
     } catch (error) {
-      return artistApi.getAlbums(id, limit, offset, retryNum + 1);
+      return artistApi.getAlbums(id, limit, offset, retryNum + 1)
     }
   },
 
   async getSimilar(id, retryNum = 0) {
-    if (retryNum > 2) return Promise.reject(new Error('获取相似歌手失败'));
+    if (retryNum > 2) return Promise.reject(new Error('获取相似歌手失败'))
 
     const cookie = settingState.setting['common.wy_cookie']
     if (!cookie) return Promise.reject(new Error('请先设置网易云 Cookie'))
@@ -105,13 +105,13 @@ const artistApi = {
       form: weapi({
         artistid: id,
       }),
-    });
+    })
 
     try {
-      const { body } = await requestObj.promise;
-      if (body.code === 301) return Promise.reject(new Error('请先设置有效网易云 Cookie'));
-      if (body.code !== 200) throw new Error(body.message || '获取相似歌手失败');
-      const artists = body.artists || [];
+      const { body } = await requestObj.promise
+      if (body.code === 301) return Promise.reject(new Error('请先设置有效网易云 Cookie'))
+      if (body.code !== 200) throw new Error(body.message || '获取相似歌手失败')
+      const artists = body.artists || []
       return Promise.all(artists.map(async artist => {
         if (artist.briefDesc) return artist
 
@@ -135,9 +135,9 @@ const artistApi = {
             cover: artist.cover || artist.picUrl,
           }
         }
-      }));
+      }))
     } catch (error) {
-      return artistApi.getSimilar(id, retryNum + 1);
+      return artistApi.getSimilar(id, retryNum + 1)
     }
   },
 

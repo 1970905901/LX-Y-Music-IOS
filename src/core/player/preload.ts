@@ -7,43 +7,43 @@ import { preloadLog } from '@/utils/preloadLog'
 
 let isPreloading = false
 
-const preloadNextMusic = async () => {
+const preloadNextMusic = async() => {
   if (isPreloading) return
   if (!settingState.setting['player.isEnableAudioPreload']) return
-  
+
   const currentMusicInfo = playerState.playMusicInfo.musicInfo
   if (!currentMusicInfo) {
     preloadLog.info('No current music info, skipping preload')
     return
   }
-  
+
   isPreloading = true
   preloadLog.info('========== Preload Start ==========')
-  
+
   try {
     const nextPlayMusicInfo = await getNextPlayMusicInfo()
     if (!nextPlayMusicInfo) {
       preloadLog.info('No next song to preload')
       return
     }
-    
+
     const musicInfo = nextPlayMusicInfo.musicInfo
     if ('progress' in musicInfo) {
       preloadLog.info('Skipping download item, not preloading')
       return
     }
-    
+
     preloadLog.info(`Target: "${musicInfo.name}" - "${musicInfo.singer}" (source: ${musicInfo.source}, id: ${musicInfo.id})`)
-    
+
     let success = false
     let currentInfo = musicInfo
     let tryCount = 0
     const maxTries = 5
-    
+
     while (!success && tryCount < maxTries) {
       try {
         preloadLog.info(`Attempt ${tryCount + 1}/${maxTries} for "${currentInfo.name}" from "${currentInfo.source}"`)
-        
+
         const url = await getMusicUrl({
           musicInfo: currentInfo,
           isRefresh: false,
@@ -55,7 +55,7 @@ const preloadNextMusic = async () => {
             }
           },
         })
-        
+
         success = true
         preloadLog.info(`Success! URL cached for "${currentInfo.name}" (length: ${url?.length || 0})`)
         // 预取歌词：缓存歌词，切歌后歌词立即就绪，与音频真实位置实时同步，
@@ -63,10 +63,10 @@ const preloadNextMusic = async () => {
         void getLyricInfo({ musicInfo: currentInfo, isRefresh: false }).catch(() => {})
       } catch (err: any) {
         preloadLog.error(`Failed attempt ${tryCount + 1} for "${currentInfo.name}": ${err?.message || err}`)
-        
+
         if (tryCount < maxTries - 1) {
           const nextInfo = await getNextPlayMusicInfo()
-          if (nextInfo && 'progress' in nextInfo.musicInfo === false) {
+          if (nextInfo && !('progress' in nextInfo.musicInfo)) {
             preloadLog.info(`Fallback to next song: "${nextInfo.musicInfo.name}"`)
             currentInfo = nextInfo.musicInfo
           } else {
@@ -75,10 +75,10 @@ const preloadNextMusic = async () => {
           }
         }
       }
-      
+
       tryCount++
     }
-    
+
     if (!success) {
       preloadLog.warn(`All ${tryCount} attempts failed, no URL cached`)
     }

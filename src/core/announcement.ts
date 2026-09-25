@@ -12,7 +12,7 @@ const logger = (msg: string, ...args: any[]) => {
   console.log(`[Announcement] ${msg}`, ...args)
 }
 
-export const showModal = async () => {
+export const showModal = async() => {
   logger('展示弹窗 - 当前状态:', announcementState.showModal)
   if (announcementState.showModal) {
     logger('弹窗已展示，跳过')
@@ -39,7 +39,7 @@ export const hideModal = (componentId: string) => {
   void Navigation.dismissOverlay(componentId)
 }
 
-export const checkAnnouncement = async (silent = false) => {
+export const checkAnnouncement = async(silent = false) => {
   logger('========== 开始检查公告 ==========')
   logger('DEBUG_MODE:', DEBUG_MODE)
   logger('silent:', silent)
@@ -52,7 +52,7 @@ export const checkAnnouncement = async (silent = false) => {
     logger('- 标题:', announcementInfo?.title)
 
     // ID 为空、null、undefined、false 时，完全禁用公告，不做任何处理
-    if (!announcementInfo || !announcementInfo.announcementId || announcementInfo.announcementId === 'false') {
+    if (!announcementInfo?.announcementId || announcementInfo.announcementId === 'false') {
       logger('announcementId 为空或 "false"，公告功能已禁用')
       announcementActions.setAnnouncementInfo({ status: 'idle' })
       return
@@ -98,7 +98,7 @@ export const checkAnnouncement = async (silent = false) => {
   logger('========== 公告检查完成 ==========')
 }
 
-export const dismissAnnouncement = async () => {
+export const dismissAnnouncement = async() => {
   logger('dismissAnnouncement 被调用')
   logger('announcementState.announcementInfo:', announcementState.announcementInfo)
   if (announcementState.announcementInfo) {
@@ -121,7 +121,7 @@ export const resetAnnouncementForTest = () => {
 }
 
 // 测试用：强制显示公告弹窗（不检查ID）
-export const forceShowAnnouncement = async () => {
+export const forceShowAnnouncement = async() => {
   logger('强制展示公告弹窗')
   try {
     const announcementInfo = await getAnnouncementInfo()
@@ -141,7 +141,7 @@ export const forceShowAnnouncement = async () => {
 }
 
 // 测试用：重新检查公告（可多次调用）
-export const recheckAnnouncement = async () => {
+export const recheckAnnouncement = async() => {
   logger('重新检查公告')
   // 先重置 showModal 状态
   announcementActions.setShowModal(false)

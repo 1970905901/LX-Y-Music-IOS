@@ -10,7 +10,7 @@ import { registerEvent, unregisterEvent } from './localEvent'
 
 const logInfo = (eventName: string, success = false) => {
   log.info(
-    `[${eventName}]${eventName.replace('list:sync:list_sync_', '').replace(/_/g, ' ')}${success ? ' success' : ''}`
+    `[${eventName}]${eventName.replace('list:sync:list_sync_', '').replace(/_/g, ' ')}${success ? ' success' : ''}`,
   )
 }
 const handler: LX.Sync.ClientSyncHandlerDislikeActions<LX.Sync.Socket> = {

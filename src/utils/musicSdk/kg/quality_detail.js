@@ -1,8 +1,8 @@
 import { httpFetch } from '../../request'
-import { dnsLookup } from '../utils'
+import { dnsLookup, formatSingerName } from '../utils'
 import { headers, timeout } from '../options'
 import { sizeFormate, decodeName, formatPlayTime } from '../../index'
-import { formatSingerName } from '../utils'
+
 
 export const getBatchMusicQualityInfo = (hashList) => {
   const resources = hashList.map((hash) => ({
@@ -36,14 +36,13 @@ export const getBatchMusicQualityInfo = (hashList) => {
       },
       lookup: dnsLookup,
       family: 4,
-    }
+    },
   )
 
   const qualityInfoMap = {}
 
   requestObj.promise = requestObj.promise.then(({ statusCode, body }) => {
-    if (statusCode != 200 || body.error_code != 0)
-      return Promise.reject(new Error('获取音质信息失败'))
+    if (statusCode != 200 || body.error_code != 0) { return Promise.reject(new Error('获取音质信息失败')) }
 
     body.data.forEach((songData, index) => {
       const hash = hashList[index]
@@ -53,8 +52,12 @@ export const getBatchMusicQualityInfo = (hashList) => {
       if (!songData || !songData.relate_goods) return
 
       const QUALITY_MAP = {
-        '128': '128k', '320': '320k', 'flac': 'flac',
-        'high': 'hires', 'viper_clear': 'master', 'viper_atmos': 'atmos',
+        128: '128k',
+        320: '320k',
+        flac: 'flac',
+        high: 'hires',
+        viper_clear: 'master',
+        viper_atmos: 'atmos',
       }
       for (const quality_data of songData.relate_goods) {
         const label = QUALITY_MAP[quality_data.quality]
@@ -109,7 +112,7 @@ const deriveTypesFromAudioInfo = (audioInfo) => {
   return { types, _types }
 }
 
-export const filterData = async (rawList, options = {}) => {
+export const filterData = async(rawList, options = {}) => {
   let processedList = rawList
 
   if (options.removeDuplicates) {

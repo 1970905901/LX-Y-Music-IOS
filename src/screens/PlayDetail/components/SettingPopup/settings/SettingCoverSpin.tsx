@@ -1,16 +1,16 @@
-import { View } from 'react-native';
-import { useSettingValue } from '@/store/setting/hook';
-import { updateSetting } from '@/core/common';
-import { useI18n } from '@/lang';
-import CheckBox from '@/components/common/CheckBox';
-import styles from './style';
+import { View } from 'react-native'
+import { useSettingValue } from '@/store/setting/hook'
+import { updateSetting } from '@/core/common'
+import { useI18n } from '@/lang'
+import CheckBox from '@/components/common/CheckBox'
+import styles from './style'
 
 export default () => {
-  const t = useI18n();
-  const isCoverSpin = useSettingValue('playDetail.isCoverSpin');
+  const t = useI18n()
+  const isCoverSpin = useSettingValue('playDetail.isCoverSpin')
   const setCoverSpin = (isSpin: boolean) => {
-    updateSetting({ 'playDetail.isCoverSpin': isSpin });
-  };
+    updateSetting({ 'playDetail.isCoverSpin': isSpin })
+  }
 
   return (
     <View style={styles.container}>
@@ -22,5 +22,5 @@ export default () => {
         />
       </View>
     </View>
-  );
-};
+  )
+}

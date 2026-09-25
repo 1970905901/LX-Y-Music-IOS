@@ -19,7 +19,7 @@ interface GlobalData {
   gettingUrlId: string
   isCarMode: boolean
 
-  playerError: boolean;
+  playerError: boolean
   // event_app: AppType
   // event_list: ListType
 
@@ -71,18 +71,18 @@ interface GlobalData {
   // syncKeyInfo: LX.Sync.KeyInfo
 }
 interface Artist {
-  id: string | number;
-  name: string;
+  id: string | number
+  name: string
 }
 declare global {
   var isDev: boolean
   var lx: GlobalData
   var i18n: I18n
   var app_event: AppEventTypes & {
-    emit: (eventName: string, ...args: any[]) => void;
-    changeHomePageScrollEnabled: (enabled: boolean) => void;
-    showArtistSelector: (artists: Artist[], onSelect: (artist: Artist) => void) => void;
-    triggerSearch: (text: string) => void;
+    emit: (eventName: string, ...args: any[]) => void
+    changeHomePageScrollEnabled: (enabled: boolean) => void
+    showArtistSelector: (artists: Artist[], onSelect: (artist: Artist) => void) => void
+    triggerSearch: (text: string) => void
     'wy-cookie-set': (cookie: string) => void
     'tx-cookie-set': (cookie: string) => void
     'yt-cookie-set': (cookie: string) => void

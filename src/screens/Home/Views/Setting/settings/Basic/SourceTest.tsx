@@ -28,7 +28,6 @@ const sources = [
 ]
 
 
-
 const qualityLevels: LX.Quality[] = ['master', 'atmos_plus', 'atmos', 'hires', 'flac', '320k', '128k']
 
 const qualityPriority: Record<string, number> = {
@@ -81,12 +80,12 @@ const RATE_LIMIT_ERROR_KEYWORDS = ['请求频率超限', '频率超限', 'too ma
 const ENCRYPTED_EXTENSIONS = new Set([
   'mflac', 'mflac0', 'mgg', 'mgg0', 'mgg1', 'ncm',
   'kgm', 'kgma', 'kgg', 'vpr', 'kwm', 'kwl', 'kwb',
-  'kwmv', 'kwac', 'kwring', 'kwshort'
+  'kwmv', 'kwac', 'kwring', 'kwshort',
 ])
 
 // 可播放文件格式白名单
 const PLAYABLE_EXTENSIONS = new Set([
-  'mp3', 'flac', 'ogg', 'aac', 'm4a', 'wav', 'opus', 'mpeg', 'wma'
+  'mp3', 'flac', 'ogg', 'aac', 'm4a', 'wav', 'opus', 'mpeg', 'wma',
 ])
 
 const isRateLimitError = (errorMessage: string): boolean => {
@@ -110,11 +109,11 @@ const getEncryptedQualityLabel = (quality: string): string => {
   return labels[quality] || quality
 }
 
-const sleep = (ms: number): Promise<void> => {
+const sleep = async(ms: number): Promise<void> => {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
-const loadSavedKeywords = async (): Promise<SourceKeywords> => {
+const loadSavedKeywords = async(): Promise<SourceKeywords> => {
   try {
     const saved = await AsyncStorage.getItem(STORAGE_KEY)
     if (saved) return JSON.parse(saved)
@@ -122,7 +121,7 @@ const loadSavedKeywords = async (): Promise<SourceKeywords> => {
   return { kw: '晴天', kg: '晴天', tx: '晴天', wy: '再也没有', mg: '晴天' }
 }
 
-const saveKeywords = async (keywords: SourceKeywords) => {
+const saveKeywords = async(keywords: SourceKeywords) => {
   try {
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(keywords))
   } catch (error) {
@@ -139,7 +138,7 @@ interface TestSettings {
   showDowngrades: boolean
 }
 
-const loadSavedSettings = async (): Promise<TestSettings> => {
+const loadSavedSettings = async(): Promise<TestSettings> => {
   try {
     const saved = await AsyncStorage.getItem(SETTINGS_STORAGE_KEY)
     if (saved) return JSON.parse(saved)
@@ -154,7 +153,7 @@ const loadSavedSettings = async (): Promise<TestSettings> => {
   }
 }
 
-const saveSettings = async (settings: TestSettings) => {
+const saveSettings = async(settings: TestSettings) => {
   try {
     await AsyncStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings))
   } catch (error) {
@@ -166,17 +165,17 @@ export default memo(() => {
   const t = useI18n()
   const theme = useTheme()
   const subContainerOpacity = useSettingValue('theme.subContainerOpacity')
-  const apiStatus = useStatus()  // 监听API状态变化，触发重新渲染
+  const apiStatus = useStatus() // 监听API状态变化，触发重新渲染
   const [isTesting, setIsTesting] = useState(false)
-  
+
   // 当API状态变化时，重新计算支持的平台
   const [supportedSourcesText, setSupportedSourcesText] = useState(() => {
     return sources.filter(s => (global.lx.qualityList[s.id as LX.Source]?.length ?? 0) > 0).map(s => s.name).join('、') || '无'
   })
-  
+
   useEffect(() => {
     setSupportedSourcesText(
-      sources.filter(s => (global.lx.qualityList[s.id as LX.Source]?.length ?? 0) > 0).map(s => s.name).join('、') || '无'
+      sources.filter(s => (global.lx.qualityList[s.id as LX.Source]?.length ?? 0) > 0).map(s => s.name).join('、') || '无',
     )
   }, [apiStatus])
   const [results, setResults] = useState<TestResult[]>([])
@@ -198,27 +197,27 @@ export default memo(() => {
   const [logText, setLogText] = useState('')
   const [testingSourceId, setTestingSourceId] = useState<string | null>(null)
   const [elapsedTime, setElapsedTime] = useState(0)
-  
+
   const shouldContinueTesting = useRef(true)
   const logModalRef = useRef<LogConfirmAlertType>(null)
   const faqModalRef = useRef<LogConfirmAlertType>(null)
   const testStartTimeRef = useRef<number>(0)
   const elapsedTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const abortControllersRef = useRef<Map<string, AbortController>>(new Map())
-  
+
   // 折叠展开状态
   const expandedStatus = useSettingValue('common.sectionExpandedStatus')
-  const initialExpanded = expandedStatus['setting_basic_source_test'] ?? true
+  const initialExpanded = expandedStatus.setting_basic_source_test ?? true
   const [expanded, setExpanded] = useState(initialExpanded)
   const rotateAnimRef = useRef(new Animated.Value(initialExpanded ? 0 : 1))
-  const rotateInterpolate = useMemo(() => 
+  const rotateInterpolate = useMemo(() =>
     rotateAnimRef.current.interpolate({
       inputRange: [0, 1],
       outputRange: ['0deg', '180deg'],
     }),
-  []
+  [],
   )
-  
+
   useEffect(() => {
     Animated.spring(rotateAnimRef.current, {
       toValue: expanded ? 0 : 1,
@@ -229,7 +228,7 @@ export default memo(() => {
   }, [expanded])
 
   useEffect(() => {
-    const load = async () => {
+    const load = async() => {
       const [savedKeywords, savedSettings] = await Promise.all([
         loadSavedKeywords(),
         loadSavedSettings(),
@@ -282,21 +281,21 @@ export default memo(() => {
     setIsTesting(false)
     stopElapsedTimer()
     // 终止所有正在进行的测试
-    abortControllersRef.current.forEach(controller => controller.abort())
+    abortControllersRef.current.forEach(controller => { controller.abort() })
     abortControllersRef.current.clear()
     sourceTestLog.info('========== 用户请求停止测试 ==========')
   }, [stopElapsedTimer])
 
-  const copyToClipboard = async (text: string) => {
+  const copyToClipboard = async(text: string) => {
     try {
-      await Clipboard.setString(text)
+      Clipboard.setString(text)
       toast('复制成功')
     } catch {
       toast('复制失败')
     }
   }
 
-  const getSourceTestLog = async () => {
+  const getSourceTestLog = async() => {
     try {
       const log = await getSourceTestLogs()
       const logArr = log.split(/^----lx source test log----\n|\n----lx source test log----\n|\n----lx source test log----$/)
@@ -346,7 +345,7 @@ export default memo(() => {
     return (isNaN(seconds) || seconds <= 0 ? 5 : seconds) * 1000
   }
 
-  const testSource = useCallback(async (source: typeof sources[0], keyword: string, qualityIntervalMs: number, abortController?: AbortController, onProgress?: (msg: string) => void): Promise<{
+  const testSource = useCallback(async(source: typeof sources[0], keyword: string, qualityIntervalMs: number, abortController?: AbortController, onProgress?: (msg: string) => void): Promise<{
     delay: number | null
     maxQuality: string | null
     message: string
@@ -364,7 +363,7 @@ export default memo(() => {
     sourceTestLog.info(`搜索关键词: "${keyword}"`)
 
     try {
-      const sdk = musicSdk[source.id as keyof typeof musicSdk] as any
+      const sdk = musicSdk[source.id as keyof typeof musicSdk]
       if (!sdk) {
         log.error(`[${source.name}] 错误: 未找到平台SDK`)
         throw new Error(`平台 ${source.name} SDK不存在`)
@@ -387,11 +386,11 @@ export default memo(() => {
       }
 
       const songInfo = searchResult.list[0]
-      
+
       const songName = songInfo.name || songInfo.songName || songInfo.title || songInfo.filename || '未知歌曲'
       const songSinger = songInfo.singer || songInfo.artist || songInfo.artists || songInfo.artistName || '未知歌手'
       const songId = songInfo.songmid || songInfo.id || songInfo.songId || songInfo.musicId || ''
-      
+
       if (!songName) {
         throw new Error('无法解析歌曲信息')
       }
@@ -416,7 +415,7 @@ export default memo(() => {
         lrc: songInfo.lrc || null,
         typeUrl: songInfo.typeUrl || {},
         meta: {
-          songId: songId,
+          songId,
           songmid: songId,
           albumName: songInfo.albumName || songInfo.album || '',
           albumId: songInfo.albumId || '',
@@ -494,7 +493,7 @@ export default memo(() => {
         actualQuality?: string
       }
       const qualityResults: Record<string, QualityResult> = {}
-      const detectedQualities: Record<string, { url: string; time: number }> = {}
+      const detectedQualities: Record<string, { url: string, time: number }> = {}
       const encryptedWarnings: string[] = []
       const permissionWarnings: string[] = []
 
@@ -502,27 +501,27 @@ export default memo(() => {
         if (abortController?.signal.aborted) {
           throw new Error('测试被终止')
         }
-        
+
         const quality = qualityLevels[i]
         const qualityStartTime = Date.now()
-        
+
         if (i > 0) {
           await sleep(qualityIntervalMs)
         }
-        
+
         if (abortController?.signal.aborted) {
           throw new Error('测试被终止')
         }
-        
+
         try {
           sourceTestLog.info(`[${source.name}] 尝试音质: ${quality}`)
           onProgress?.(`正在测试：${quality}`)
-          
+
           const qualityTimeoutMs = getQualityTimeout()
-          const qualityTimeoutPromise = new Promise<{ url: string }>((_, reject) => {
-            setTimeout(() => reject(new Error(`音质请求超时(${qualityTimeoutMs / 1000}秒)`)), qualityTimeoutMs)
+          const qualityTimeoutPromise = new Promise<{ url: string }>((_resolve, reject) => {
+            setTimeout(() => { reject(new Error(`音质请求超时(${qualityTimeoutMs / 1000}秒)`)) }, qualityTimeoutMs)
           })
-          
+
           let result: any
           try {
             const url = await Promise.race([
@@ -542,27 +541,27 @@ export default memo(() => {
             qualityResults[quality] = { success: false, error: errorMsg, time: Date.now() - qualityStartTime }
             continue
           }
-          
+
           const qualityEndTime = Date.now()
           const qualityTime = qualityEndTime - qualityStartTime
-          
+
           if (!result) {
             sourceTestLog.info(`[${source.name}]   [FAIL] ${quality}: 接口返回空结果 [耗时${qualityTime}ms]`)
             qualityResults[quality] = { success: false, error: '接口返回空结果', time: qualityTime }
             continue
           }
-          
+
           const url = result?.url
-          
+
           const hasInvalidLevel = url && /level=(undefined|null|$|&)/i.test(url)
           const isValidUrl = url && url.length > 10 && !hasInvalidLevel
-          
+
           if (!isValidUrl) {
             qualityResults[quality] = { success: false, error: 'URL无效', time: qualityTime }
             sourceTestLog.info(`[${source.name}]   [FAIL] ${quality}: URL无效`)
             continue
           }
-          
+
           let actualQualityFromUrl: string = quality
           let actualSizeRounded: number | null = null
           const qualitySizesNum: Record<string, number> = {}
@@ -571,7 +570,7 @@ export default memo(() => {
               qualitySizesNum[q] = parseFileSize((info as any).size)
             }
           }
-          
+
           let contentTypeExt = ''
           let realFileName = ''
           if (Object.keys(qualitySizesNum).length > 0) {
@@ -579,9 +578,9 @@ export default memo(() => {
               const headResponse = await fetch(url, { method: 'HEAD' })
               const contentLength = headResponse.headers.get('content-length')
               const contentType = headResponse.headers.get('content-type')
-              
+
               console.log(`[源测试] [${source.name}]   HEAD请求: status=${headResponse.status}, content-length=${contentLength}, content-type=${contentType}`)
-              
+
               // 从Content-Disposition获取真实文件名（最准确）
               const contentDisposition = headResponse.headers.get('content-disposition')
               if (contentDisposition) {
@@ -590,7 +589,7 @@ export default memo(() => {
                   realFileName = decodeURIComponent(filenameMatch[1].replace(/"/g, ''))
                 }
               }
-              
+
               // 从Content-Type获取文件类型
               const contentTypeMap: Record<string, string> = {
                 'audio/mpeg': 'mp3',
@@ -608,14 +607,14 @@ export default memo(() => {
                 'audio/x-ogg': 'ogg',
               }
               contentTypeExt = contentTypeMap[contentType || ''] || ''
-              
+
               console.log(`[源测试] [${source.name}]   Content-Disposition: ${contentDisposition || '无'}`)
-              
+
               if (!contentLength || contentLength === '0') {
                 // HEAD请求失败，可能URL过期，清除缓存并重试
                 sourceTestLog.info(`[${source.name}]   [INFO] ${quality}: HEAD请求无法获取文件大小(status=${headResponse.status})`)
                 sourceTestLog.info(`[${source.name}]   [URL] ${url}`)
-                
+
                 // 检测403权限错误
                 if (headResponse.status === 403) {
                   permissionWarnings.push(`${getEncryptedQualityLabel(quality)} --> 403`)
@@ -623,9 +622,9 @@ export default memo(() => {
                 } else {
                   sourceTestLog.info(`[${source.name}]   [INFO] 可能URL过期，清除缓存重试...`)
                 }
-                
+
                 await clearMusicUrl([`${storageDataPrefix.musicUrl}${musicInfoForApi.id}_${quality}`])
-                
+
                 // 重新请求URL
                 try {
                   const newUrl = await getMusicUrl({
@@ -655,7 +654,7 @@ export default memo(() => {
                 const actualSizeMB = parseInt(contentLength) / (1024 * 1024)
                 actualSizeRounded = Math.round(actualSizeMB * 100) / 100
               }
-              
+
               // 如果有文件大小信息，进行大小验证
               if (actualSizeRounded !== null) {
                 let matchedQuality: string | null = null
@@ -667,12 +666,12 @@ export default memo(() => {
                     break
                   }
                 }
-                
+
                 // 更新实际音质
                 if (matchedQuality) {
                   actualQualityFromUrl = matchedQuality
                 }
-                
+
                 if (!matchedQuality) {
                   const urlExtTemp = contentTypeExt || (url ? url.split('?')[0].split('.').pop() : '未知')
 
@@ -698,7 +697,7 @@ export default memo(() => {
                       sourceTestLog.info(`[${source.name}]   [URL] ${url}`)
                       sourceTestLog.info(`[${source.name}]   长度: ${url?.length || 0} | 音质: 疑似${getEncryptedQualityLabel(closestQuality)} | 类型: ${urlExtTemp} | 大小: ${actualSizeRounded.toFixed(2)}MB | 预期: ${expectedSizeMB}MB`)
                       sourceTestLog.info(`[${source.name}]   [SUSPECT] ${quality}: 格式可播放，大小最接近疑似${getEncryptedQualityLabel(closestQuality)}(偏差${(smallestRatio * 100).toFixed(1)}%)`)
-                      
+
                       qualityResults[quality] = {
                         success: false,
                         error: `疑似${closestQuality}，实际=疑似${closestQuality}`,
@@ -709,16 +708,16 @@ export default memo(() => {
                         expectedSize: qualitySizesNum[closestQuality],
                         actualFormat: urlExtTemp,
                       }
-                      
+
                       if (!detectedQualities[`suspected_${closestQuality}`]) {
                         detectedQualities[`suspected_${closestQuality}`] = { url, time: qualityTime }
                       }
-                      
+
                       // 检测加密格式并添加到警告列表
                       if (isEncryptedFormat(urlExtTemp)) {
                         encryptedWarnings.push(`${getEncryptedQualityLabel(quality)} --> ${urlExtTemp}`)
                       }
-                      
+
                       continue
                     }
                   }
@@ -730,7 +729,7 @@ export default memo(() => {
                   sourceTestLog.info(`[${source.name}]   [FAIL] ${quality}: 不匹配(请求: ${quality}, 实际: ${actualQualityFromUrl}, 大小: ${actualSizeRounded.toFixed(2)}MB, 预期: ${expectedSizeMB}MB)`)
                   continue
                 }
-                
+
                 actualQualityFromUrl = matchedQuality
               }
             } catch (err) {
@@ -741,16 +740,16 @@ export default memo(() => {
               continue
             }
           }
-          
+
           sourceTestLog.info(`[${source.name}]   URL: ${url}`)
           const expectedSize = qualitySizes[quality] || '未知'
-          
+
           // 已知的音频格式列表
           const knownAudioFormats = ['mp3', 'flac', 'aac', 'm4a', 'ogg', 'wav', 'opus', 'mflac', 'mgg']
-          
+
           // 判断类型的优先级：Content-Disposition > URL扩展名 > Content-Type
           let urlExt = ''
-          
+
           // 1. 优先使用Content-Disposition中的文件名扩展名（最准确）
           if (realFileName) {
             const realFileExt = realFileName.split('.').pop()?.toLowerCase() || ''
@@ -758,7 +757,7 @@ export default memo(() => {
               urlExt = realFileExt
             }
           }
-          
+
           // 2. 如果Content-Disposition没有有效扩展名，使用URL扩展名
           if (!urlExt && url) {
             const urlWithoutQuery = url.split('?')[0]
@@ -768,23 +767,23 @@ export default memo(() => {
               urlExt = urlExtCandidate
             }
           }
-          
+
           // 3. 最后使用Content-Type
           if (!urlExt && contentTypeExt) {
             urlExt = contentTypeExt
           }
-          
+
           urlExt = urlExt || '未知'
-          
+
           sourceTestLog.info(`[${source.name}]   长度: ${url?.length || 0} | 音质: ${actualQualityFromUrl} | 类型: ${urlExt} (文件名: ${realFileName || '无'}, URL: ${url?.split('?')[0]?.split('.').pop() || '无'}, Content-Type: ${contentTypeExt || '未知'}) | 大小: ${actualSizeRounded?.toFixed(2) || '未知'}MB | 预期: ${expectedSize}`)
-          
+
           // 检测加密格式
           if (isEncryptedFormat(urlExt)) {
             sourceTestLog.info(`[${source.name}]   [WARN] 检测到加密格式: ${urlExt}，该文件无法播放`)
             // 记录加密格式，继续测试下一个音质
-            qualityResults[quality] = { 
-              success: false, 
-              error: `加密格式(${urlExt})，该文件无法播放`, 
+            qualityResults[quality] = {
+              success: false,
+              error: `加密格式(${urlExt})，该文件无法播放`,
               time: qualityTime,
               encrypted: true,
               encryptedExt: urlExt,
@@ -795,11 +794,11 @@ export default memo(() => {
             encryptedWarnings.push(`${getEncryptedQualityLabel(quality)} --> ${urlExt}`)
             continue
           }
-          
+
           const isQualityMatch = actualQualityFromUrl === quality
-          
+
           if (isQualityMatch) {
-            qualityResults[quality] = { success: true, url: url, time: qualityTime, actualFormat: urlExt }
+            qualityResults[quality] = { success: true, url, time: qualityTime, actualFormat: urlExt }
             maxQuality = quality
             sourceTestLog.info(`[${source.name}]   [OK] ${quality}: 匹配`)
             break
@@ -810,13 +809,13 @@ export default memo(() => {
             const actualPriority = qualityPriority[actualQualityFromUrl] || 0
             const requestedPriority = qualityPriority[quality] || 0
             if (actualQualityFromUrl && actualPriority > requestedPriority && !detectedQualities[actualQualityFromUrl]) {
-              detectedQualities[actualQualityFromUrl] = { url: url, time: qualityTime }
+              detectedQualities[actualQualityFromUrl] = { url, time: qualityTime }
             }
             continue
           }
         } catch (qualityError: any) {
           const errorMessage = qualityError.message || '未知错误'
-          
+
           if (isRateLimitError(errorMessage)) {
             qualityResults[quality] = { success: false, error: errorMessage, time: Date.now() - qualityStartTime }
             const totalDelay = Date.now() - totalStartTime
@@ -824,12 +823,12 @@ export default memo(() => {
             return {
               delay: totalDelay,
               maxQuality: null,
-              message: `请求频率超限，请稍后重试`,
+              message: '请求频率超限，请稍后重试',
               success: false,
               searchedSong: songDisplay,
             }
           }
-          
+
           qualityResults[quality] = { success: false, error: errorMessage, time: Date.now() - qualityStartTime }
           sourceTestLog.info(`[${source.name}]   [FAIL] ${quality}: ${errorMessage}`)
           continue
@@ -845,8 +844,8 @@ export default memo(() => {
           enabled: true,
           check: (requestedQuality: string, result: any) => {
             if (result.success) return null
-            const actualQuality = result.error?.match(/实际[=:：]\s*疑似(\w+)/)?.[1] || 
-                                  result.error?.match(/实际[=:：]\s*(\w+)/)?.[1] || 
+            const actualQuality = result.error?.match(/实际[=:：]\s*疑似(\w+)/)?.[1] ||
+                                  result.error?.match(/实际[=:：]\s*(\w+)/)?.[1] ||
                                   result.error?.match(/实际[:：]\s*(\w+)/)?.[1]
             const isSuspected = result.error?.includes('疑似') || false
             if (actualQuality && actualQuality !== requestedQuality) {
@@ -854,7 +853,7 @@ export default memo(() => {
               return `${getEncryptedQualityLabel(requestedQuality)} --> ${label}`
             }
             return null
-          }
+          },
         },
         // 插件bug检测
         pluginBug: {
@@ -872,7 +871,7 @@ export default memo(() => {
               }
             }
             return null
-          }
+          },
         },
         // 类型降级检测
         typeDowngrade: {
@@ -895,8 +894,8 @@ export default memo(() => {
               return `${getEncryptedQualityLabel(requestedQuality)} --> ${result.actualFormat.toLowerCase()}`
             }
             return null
-          }
-        }
+          },
+        },
       }
 
       // 执行所有检测
@@ -929,12 +928,12 @@ export default memo(() => {
       const downgradeIssues = detectionResults.downgradeIssues
       const pluginBugIssues = detectionResults.pluginBugIssues
       const typeDowngradeWarnings = detectionResults.typeDowngradeWarnings
-      
+
       if (!maxQuality && Object.keys(detectedQualities).length > 0) {
         let highestDetectedQuality: string | null = null
         let highestDetectedPriority = -1
         let isSuspected = false
-        
+
         for (const detectedQuality of Object.keys(detectedQualities)) {
           const actualQualityName = detectedQuality.startsWith('suspected_')
             ? detectedQuality.replace('suspected_', '')
@@ -946,12 +945,12 @@ export default memo(() => {
             isSuspected = detectedQuality.startsWith('suspected_')
           }
         }
-        
+
         if (highestDetectedQuality) {
           maxQuality = isSuspected ? `suspected_${highestDetectedQuality}` : highestDetectedQuality
         }
       }
-      
+
       let qualityLabel: string
       if (maxQuality?.startsWith('suspected_')) {
         const actualQuality = maxQuality.replace('suspected_', '')
@@ -959,7 +958,7 @@ export default memo(() => {
       } else {
         qualityLabel = maxQuality ? getQualityLabel(maxQuality) : '未知'
       }
-      
+
       if (downgradeIssues.length > 0) {
         downgradeIssues.forEach(issue => {
           sourceTestLog.info(`[${source.name}] [WARN] ${issue}`)
@@ -990,35 +989,35 @@ export default memo(() => {
 
       if (!maxQuality) {
         const allErrors = Object.values(qualityResults).map(r => r.error || '')
-        const hasApiDown = allErrors.some(e => 
-          e.includes('internal server error') || 
+        const hasApiDown = allErrors.some(e =>
+          e.includes('internal server error') ||
           e.includes('权限不足') ||
           e.includes('Key失效') ||
           e.includes('无可用音源') ||
           e.includes('音质请求超时') ||
           e === 'Error' ||
-          e === '未知错误'
+          e === '未知错误',
         )
-        const hasNotSupported = allErrors.some(e => 
-          e.includes('不支持音质') || 
+        const hasNotSupported = allErrors.some(e =>
+          e.includes('不支持音质') ||
           e.includes('API调用失败') ||
           e.includes('Cannot read property') ||
           e.includes('of undefined') ||
-          e === 'source init failed'
+          e === 'source init failed',
         )
-        const hasAllForbidden = allErrors.some(e => 
-          e.includes('403') || 
+        const hasAllForbidden = allErrors.some(e =>
+          e.includes('403') ||
           e.includes('Forbidden') ||
-          e.includes('获取文件信息失败')
+          e.includes('获取文件信息失败'),
         )
-        
+
         let errorMessage = '实际最高音质: 未知'
         if (hasNotSupported) errorMessage = '不支持该平台'
         else if (hasApiDown) errorMessage = '接口挂了'
         else if (hasAllForbidden) errorMessage = '接口返回全部数据不可用'
-        
+
         sourceTestLog.info(`[${source.name}] ========== 测试完成: ${errorMessage} ==========`)
-        
+
         return {
           delay: totalDelay,
           maxQuality: null,
@@ -1061,19 +1060,19 @@ export default memo(() => {
     }
   }, [])
 
-  const handleTest = useCallback(async () => {
+  const handleTest = useCallback(async() => {
     shouldContinueTesting.current = true
     setIsStopRequested(false)
     setIsTesting(true)
     setElapsedTime(0)
     testStartTimeRef.current = Date.now()
-    
+
     elapsedTimerRef.current = setInterval(() => {
       const elapsed = Math.floor((Date.now() - testStartTimeRef.current) / 1000)
       setElapsedTime(elapsed)
     }, 1000)
-    
-    const runTest = async () => {
+
+    const runTest = async() => {
       setResults(sources.map(source => ({
         source: source.id,
         name: source.name,
@@ -1110,14 +1109,14 @@ export default memo(() => {
               ...r,
               status: 'failed',
               message: '关键词为空',
-            } : r
+            } : r,
           ))
           continue
         }
 
         setResults(prev => prev.map(r =>
-          r.source === source.id ? { 
-            ...r, 
+          r.source === source.id ? {
+            ...r,
             status: 'testing',
             message: '',
             searchedSong: '',
@@ -1128,7 +1127,7 @@ export default memo(() => {
             permissionWarnings: undefined,
             maxQuality: null,
             progress: `正在测试 ${source.name}...`,
-          } : r
+          } : r,
         ))
         setTestingSourceId(source.id)
         const currentElapsed = Math.floor((Date.now() - testStartTimeRef.current) / 1000)
@@ -1136,7 +1135,7 @@ export default memo(() => {
         const timeoutMs = getTestTimeout()
         const abortController = new AbortController()
         let isTimeout = false
-        
+
         const timeoutPromise = new Promise<{ success: false }>((resolve) => {
           setTimeout(() => {
             isTimeout = true
@@ -1147,7 +1146,7 @@ export default memo(() => {
 
         const testPromise = testSource(source, keyword, qualityIntervalMs, abortController, (msg) => {
           setResults(prev => prev.map(r =>
-            r.source === source.id ? { ...r, progress: msg } : r
+            r.source === source.id ? { ...r, progress: msg } : r,
           ))
         })
 
@@ -1161,10 +1160,10 @@ export default memo(() => {
               status: 'failed',
               delay: null,
               maxQuality: null,
-              message: `测试超时已跳过(${timeoutMs/1000}秒)`,
+              message: `测试超时已跳过(${timeoutMs / 1000}秒)`,
               searchedSong: '',
               progress: undefined,
-            } : r
+            } : r,
           ))
           setTestingSourceId(null)
         } else {
@@ -1182,13 +1181,13 @@ export default memo(() => {
               typeDowngradeWarnings: result.typeDowngradeWarnings,
               permissionWarnings: result.permissionWarnings,
               progress: undefined,
-            } : r
+            } : r,
           ))
 
           setTestingSourceId(null)
         }
 
-      if (i < sources.length - 1 && shouldContinueTesting.current) {
+        if (i < sources.length - 1 && shouldContinueTesting.current) {
           const interval = parseInt(intervalSeconds) || 0
           if (interval > 0) {
             sourceTestLog.info(`========== 等待 ${interval} 秒后测试下一个源 ==========`)
@@ -1210,7 +1209,7 @@ export default memo(() => {
     await runTest()
   }, [testSource, keywords, intervalSeconds, qualityIntervalSeconds, testTimeoutSeconds, stopElapsedTimer])
 
-  const handleTestSingleSource = useCallback(async (source: typeof sources[0]) => {
+  const handleTestSingleSource = useCallback(async(source: typeof sources[0]) => {
     const keyword = keywords[source.id as keyof SourceKeywords]
     if (!keyword.trim()) {
       toast(`请输入${source.name}搜索关键词`)
@@ -1234,8 +1233,8 @@ export default memo(() => {
       }
       return prev.map(r => {
         if (r.source === source.id) {
-          return { 
-            ...r, 
+          return {
+            ...r,
             status: 'testing',
             message: '',
             searchedSong: '',
@@ -1258,7 +1257,7 @@ export default memo(() => {
     const abortController = new AbortController()
     abortControllersRef.current.set(source.id, abortController)
     let isTimeout = false
-    
+
     const timeoutPromise = new Promise<{ success: false }>((resolve) => {
       setTimeout(() => {
         isTimeout = true
@@ -1269,7 +1268,7 @@ export default memo(() => {
 
     const testPromise = testSource(source, keyword, qualityIntervalMs, abortController, (msg) => {
       setResults(prev => prev.map(r =>
-        r.source === source.id ? { ...r, progress: msg } : r
+        r.source === source.id ? { ...r, progress: msg } : r,
       ))
     })
 
@@ -1283,10 +1282,10 @@ export default memo(() => {
           status: 'failed',
           delay: null,
           maxQuality: null,
-          message: `测试超时已跳过(${timeoutMs/1000}秒)`,
+          message: `测试超时已跳过(${timeoutMs / 1000}秒)`,
           searchedSong: '',
           progress: undefined,
-        } : r
+        } : r,
       ))
     } else {
       setResults(prev => prev.map(r =>
@@ -1303,7 +1302,7 @@ export default memo(() => {
           typeDowngradeWarnings: result.typeDowngradeWarnings,
           permissionWarnings: result.permissionWarnings,
           progress: undefined,
-        } : r
+        } : r,
       ))
     }
 
@@ -1357,12 +1356,12 @@ export default memo(() => {
 
   return (
     <View style={[styles.container, { backgroundColor: `rgba(255, 255, 255, ${subContainerOpacity / 100})` }]}>
-      <TouchableOpacity 
-        style={styles.titleRow} 
+      <TouchableOpacity
+        style={styles.titleRow}
         onPress={() => {
           const newExpanded = !expanded
           setExpanded(newExpanded)
-          const newStatus = { ...expandedStatus, ['setting_basic_source_test']: newExpanded }
+          const newStatus = { ...expandedStatus, setting_basic_source_test: newExpanded }
           settingAction.updateSetting({ 'common.sectionExpandedStatus': newStatus })
         }}
         activeOpacity={0.7}
@@ -1372,10 +1371,10 @@ export default memo(() => {
         </Text>
         <View style={styles.iconContainer}>
           <Animated.View style={{ transform: [{ rotate: rotateInterpolate }] }}>
-            <SvgIcon 
-              name="collapse" 
-              size={16} 
-              color={theme['c-font-label']} 
+            <SvgIcon
+              name="collapse"
+              size={16}
+              color={theme['c-font-label']}
             />
           </Animated.View>
         </View>
@@ -1398,14 +1397,14 @@ export default memo(() => {
                 placeholder={`输入${source.name}搜索词`}
                 placeholderTextColor={theme['c-font-label']}
                 value={keywords[source.id as keyof SourceKeywords]}
-                onChangeText={(value) => handleKeywordChange(source.id, value)}
+                onChangeText={(value) => { handleKeywordChange(source.id, value) }}
                 editable={!isTesting}
                 clearButtonMode="while-editing"
               />
             </View>
             <View style={styles.singleTestBtnContainer}>
               <Button
-                onPress={() => handleTestSingleSource(source)}
+                onPress={async() => handleTestSingleSource(source)}
                 disabled={testingSourceId === source.id || !keywords[source.id as keyof SourceKeywords].trim()}
                 ripple={{ borderless: true, radius: 20 }}
                 style={[
@@ -1545,7 +1544,7 @@ export default memo(() => {
               {t('setting_basic_source_test_result_title')}
             </Text>
             <Button
-              onPress={() => setResults([])}
+              onPress={() => { setResults([]) }}
               style={styles.clearResultBtn}
             >
               清空
@@ -1675,7 +1674,7 @@ export default memo(() => {
         showConfirm={!!logText}
         reverseBtn={true}
         middleText="复制全部"
-        onMiddle={() => copyToClipboard(logText)}
+        onMiddle={async() => copyToClipboard(logText)}
         showMiddle={!!logText}
       >
         <View style={styles.logContent} onStartShouldSetResponder={() => true}>

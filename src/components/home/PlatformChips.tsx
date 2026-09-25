@@ -79,7 +79,7 @@ const PlatformChips = memo(({ options, selectedId, onChange, noInset }: Platform
           <Pressable
             key={option.id}
             style={[styles.chip, isActive ? activeChipStyle : inactiveChipStyle]}
-            onPress={() => onChange(option.id)}
+            onPress={() => { onChange(option.id) }}
           >
             <Text
               style={styles.label}

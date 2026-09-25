@@ -5,12 +5,12 @@ import Text from '@/components/common/Text'
 import { createStyle } from '@/utils/tools'
 
 export interface Artist {
-  id: string | number;
+  id: string | number
   name: string
 }
 
 export interface ArtistSelectorModalType {
-  show: (artists: Artist[], onSelect: (artist: Artist) => void) => void;
+  show: (artists: Artist[], onSelect: (artist: Artist) => void) => void
 }
 
 export default forwardRef<ArtistSelectorModalType, {}>((props, ref) => {
@@ -40,7 +40,7 @@ export default forwardRef<ArtistSelectorModalType, {}>((props, ref) => {
     <Dialog ref={dialogRef} title="选择艺人">
       <ScrollView>
         {artists.map(artist => (
-          <TouchableOpacity key={artist.id} style={styles.item} onPress={() => handleSelect(artist)}>
+          <TouchableOpacity key={artist.id} style={styles.item} onPress={() => { handleSelect(artist) }}>
             <Text>{artist.name}</Text>
           </TouchableOpacity>
         ))}

@@ -5,7 +5,7 @@ export const txLog = {
     if (!global.lx.isEnableLog) return
     const msg = msgs.map(m => typeof m == 'string' ? m : m instanceof Error ? (m.stack ?? m.message) : JSON.stringify(m)).join(' ')
     if (__DEV__) {
-      console.log('[TX]', ...msgs);
+      console.log('[TX]', ...msgs)
     }
     log.info('[TX] ' + msg)
   },
@@ -13,7 +13,7 @@ export const txLog = {
     if (!global.lx.isEnableLog) return
     const msg = msgs.map(m => typeof m == 'string' ? m : m instanceof Error ? (m.stack ?? m.message) : JSON.stringify(m)).join(' ')
     if (__DEV__) {
-      console.warn('[TX]', ...msgs);
+      console.warn('[TX]', ...msgs)
     }
     log.warn('[TX] ' + msg)
   },
@@ -21,7 +21,7 @@ export const txLog = {
     if (!global.lx.isEnableLog) return
     const msg = msgs.map(m => typeof m == 'string' ? m : m instanceof Error ? (m.stack ?? m.message) : JSON.stringify(m)).join(' ')
     if (__DEV__) {
-      console.error('[TX]', ...msgs);
+      console.error('[TX]', ...msgs)
     }
     log.error('[TX] ' + msg)
   },
@@ -29,8 +29,8 @@ export const txLog = {
     if (!global.lx.isEnableLog) return
     const msg = msgs.map(m => typeof m == 'string' ? m : m instanceof Error ? (m.stack ?? m.message) : JSON.stringify(m)).join(' ')
     if (__DEV__) {
-      console.debug('[TX]', ...msgs);
+      console.debug('[TX]', ...msgs)
     }
     log.info('[TX DEBUG] ' + msg)
   },
-};
+}

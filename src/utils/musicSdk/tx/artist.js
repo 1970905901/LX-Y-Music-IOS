@@ -9,30 +9,30 @@ import settingState from '@/store/setting/state'
 function getUinFromCookie() {
   const cookie = settingState.setting['common.tx_cookie'] || ''
   txLog.info('=== getUinFromCookie ===', { hasCookie: !!cookie, cookieLength: cookie.length, cookiePreview: cookie.slice(0, 100) })
-  
+
   if (!cookie) return '0'
-  
+
   const uinMatch = cookie.match(/uin=o?(\d+)/)
   if (uinMatch) {
     const uin = 'o' + uinMatch[1]
     txLog.info('=== getUinFromCookie 提取到uin ===', { uin })
     return uin
   }
-  
+
   const wxuinMatch = cookie.match(/wxuin=(\d+)/)
   if (wxuinMatch) {
     const uin = 'o' + wxuinMatch[1]
     txLog.info('=== getUinFromCookie 提取到wxuin ===', { uin })
     return uin
   }
-  
+
   const pUinMatch = cookie.match(/p_uin=o?(\d+)/)
   if (pUinMatch) {
     const uin = 'o' + pUinMatch[1]
     txLog.info('=== getUinFromCookie 提取到p_uin ===', { uin })
     return uin
   }
-  
+
   txLog.warn('=== getUinFromCookie 未提取到uin ===', {})
   return '0'
 }
@@ -45,7 +45,7 @@ const artistApi = {
       txLog.error('=== txApi.getDetail 参数为空 ===', { artistMid, retryNum })
       return Promise.reject(new Error('歌手ID为空'))
     }
-    
+
     if (retryNum > 2) {
       txLog.error('=== txApi.getDetail 重试次数超限 ===', { artistMid, retryNum })
       return Promise.reject(new Error('获取歌手详情失败'))
@@ -117,15 +117,15 @@ const artistApi = {
 
       const baseInfo = data.Info?.BaseInfo || {}
       const singerInfo = data.singer || {}
-      
+
       const artistName = baseInfo.Name || singerInfo.name || data.singer_name || ''
       const artistPicUrl = baseInfo.Avatar || singerInfo.pic || data.singer_pic || ''
       let artistDesc = baseInfo.Desc || data.singer_desc || ''
-      
+
       if (!artistDesc) {
         artistDesc = await this.getSingerDesc(artistMid).catch(() => '')
       }
-      
+
       let formattedPicUrl = ''
       if (artistPicUrl) {
         if (artistPicUrl.startsWith('http')) {
@@ -177,7 +177,7 @@ const artistApi = {
       txLog.error('=== txApi.getSongs 参数为空 ===', { artistMid, retryNum })
       return Promise.reject(new Error('歌手ID为空'))
     }
-    
+
     if (retryNum > 2) {
       txLog.error('=== txApi.getSongs 重试次数超限 ===', { artistMid, retryNum })
       return Promise.reject(new Error('获取歌手歌曲失败'))
@@ -282,7 +282,7 @@ const artistApi = {
       txLog.error('=== txApi.getAlbums 参数为空 ===', { artistMid, retryNum })
       return Promise.reject(new Error('歌手ID为空'))
     }
-    
+
     if (retryNum > 2) {
       txLog.error('=== txApi.getAlbums 重试次数超限 ===', { artistMid, retryNum })
       return Promise.reject(new Error('获取歌手专辑失败'))
@@ -353,7 +353,7 @@ const artistApi = {
       const missingSizeAlbums = hotAlbums.filter(a => !a.size)
       if (missingSizeAlbums.length > 0) {
         const sizeResults = await Promise.all(
-          missingSizeAlbums.map(item => this.getAlbumSongCount(item.mid).catch(() => 0))
+          missingSizeAlbums.map(item => this.getAlbumSongCount(item.mid).catch(() => 0)),
         )
         missingSizeAlbums.forEach((item, i) => { if (sizeResults[i]) item.size = sizeResults[i] })
       }
@@ -478,7 +478,7 @@ const artistApi = {
     const list = []
     rawList.forEach((item) => {
       const songInfo = item.songInfo || item
-      
+
       if (!songInfo.file?.media_mid) {
         txLog.info('=== handleSongResult 跳过无media_mid的歌曲 ===', {
           title: songInfo.title,
@@ -600,8 +600,8 @@ const artistApi = {
       id: item.albumID || item.id || item.albumMid,
       mid: item.albumMid || item.mid,
       name: item.albumName || item.name,
-      picUrl: item.albumMid || item.mid 
-        ? `https://y.gtimg.cn/music/photo_new/T002R180x180M000${item.albumMid || item.mid}.jpg` 
+      picUrl: item.albumMid || item.mid
+        ? `https://y.gtimg.cn/music/photo_new/T002R180x180M000${item.albumMid || item.mid}.jpg`
         : '',
       artistName: item.singerName || item.singer_name || '',
       artistId: item.singerMid || item.singer_id || '',
@@ -632,7 +632,7 @@ const artistApi = {
     return request.then(({ body }) => {
       const bodyCode = body?.code
       const reqCode = body?.req?.code
-      
+
       if (!body || !body.req || bodyCode != this.successCode || reqCode != this.successCode) {
         txLog.warn('=== getSingerDesc 获取失败 ===', {
           artistMid,
@@ -686,7 +686,7 @@ const artistApi = {
     return request.then(({ body }) => {
       const bodyCode = body?.code
       const reqCode = body?.req?.code
-      
+
       if (!body || !body.req || bodyCode != this.successCode || reqCode != this.successCode) {
         txLog.warn('=== getAlbumSongCount 获取失败 ===', {
           albumMid,
@@ -694,12 +694,12 @@ const artistApi = {
           reqCode,
           retryNum: retryNum + 1,
         })
-        
+
         if (reqCode === 104400 || reqCode === 500003) {
           txLog.warn('=== getAlbumSongCount 需要登录或参数错误，跳过重试 ===', { albumMid, reqCode })
           return 0
         }
-        
+
         return this.getAlbumSongCount(albumMid, ++retryNum)
       }
       const totalNum = body.req.data?.totalNum || body.req.data?.total_num || 0

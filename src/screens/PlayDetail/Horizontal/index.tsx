@@ -1,5 +1,5 @@
 import { memo, useEffect, useState } from 'react'
-import { View, AppState, Dimensions, Platform } from 'react-native'
+import { View, AppState, Dimensions, Platform, PixelRatio } from 'react-native'
 import { screenkeepAwake, screenUnkeepAwake, getCutoutLeftPx } from '@/utils/nativeModules/utils'
 import StatusBar from '@/components/common/StatusBar'
 import MoreBtn from './MoreBtn'
@@ -31,13 +31,12 @@ const useCutoutLeft = () => {
     if (Platform.OS === 'ios') return
     const update = () => {
       void getCutoutLeftPx().then((px: number) => {
-        const { PixelRatio } = require('react-native')
         setCutoutLeftDp(px > 0 ? Math.round(px / PixelRatio.get()) : 0)
       })
     }
     update()
     const sub = Dimensions.addEventListener('change', update)
-    return () => sub?.remove()
+    return () => { sub?.remove() }
   }, [])
 
   return cutoutLeftDp

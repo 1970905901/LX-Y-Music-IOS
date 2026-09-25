@@ -104,7 +104,7 @@ export const initUnifiedPlayerController = () => {
       strategyRetryCount++
       if (!triedUrls) triedUrls = new Set()
       void getCurrentTrack()
-        .then((track: any) => {
+        .then(async(track: any) => {
           if (track?.url) triedUrls!.add(track.url)
           return executeFailureStrategy(currentMusicInfo, true, new Error('Playback failed'), triedUrls ?? undefined, strategyStartIndex)
         })

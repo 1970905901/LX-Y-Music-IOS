@@ -11,7 +11,7 @@ import CheckBoxItem from '../../components/CheckBoxItem'
 export default memo(() => {
   const t = useI18n()
   const isHandleAudioFocus = useSettingValue('player.isHandleAudioFocus')
-  const setHandleAudioFocus = async (isHandleAudioFocus: boolean) => {
+  const setHandleAudioFocus = async(isHandleAudioFocus: boolean) => {
     updateSetting({ 'player.isHandleAudioFocus': isHandleAudioFocus })
     // 切换后重新初始化播放器，让 iOS 音频会话分类（mixWithOthers）立即生效。
     await reloadConfig().catch(() => {})

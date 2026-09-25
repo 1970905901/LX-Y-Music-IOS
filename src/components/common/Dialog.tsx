@@ -79,7 +79,7 @@ export default forwardRef<DialogType, DialogProps>(
       children,
       height,
     }: DialogProps,
-    ref
+    ref,
   ) => {
     const theme = useTheme()
     const { keyboardShown, keyboardHeight } = useKeyboard()
@@ -134,5 +134,5 @@ export default forwardRef<DialogType, DialogProps>(
         </View>
       </Modal>
     )
-  }
+  },
 )

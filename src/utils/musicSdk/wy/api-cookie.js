@@ -94,7 +94,7 @@ export const getMusicUrl = (songInfo, type, retryNum = 0, noCopyrightFallbackUse
           createFallbackSongInfo(songInfo, fallbackSongId),
           type,
           0,
-          true
+          true,
         )
         requestObj.cancelHttp = newRequestObj.cancelHttp
         return newRequestObj.promise

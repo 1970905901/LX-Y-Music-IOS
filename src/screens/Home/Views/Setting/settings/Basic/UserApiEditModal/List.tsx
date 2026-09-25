@@ -99,7 +99,7 @@ export default ({ onExport }: UserApiEditModalProps) => {
   const theme = useTheme()
   const t = useI18n()
 
-  const handleRemove = useCallback(async (id: string, name: string) => {
+  const handleRemove = useCallback(async(id: string, name: string) => {
     const confirm = await confirmDialog({
       message: global.i18n.t('user_api_remove_tip', { name }),
       cancelButtonText: global.i18n.t('cancel_button_text_2'),

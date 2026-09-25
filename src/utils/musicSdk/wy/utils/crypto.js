@@ -33,7 +33,7 @@ const rsaEncrypt = (buffer, key) => {
   buffer = Buffer.concat([Buffer.alloc(128 - buffer.length), buffer])
   return Buffer.from(
     rsaEncryptSync(buffer.toString('base64'), key, RSA_PADDING.NoPadding),
-    'base64'
+    'base64',
   )
 }
 
@@ -48,12 +48,12 @@ export const weapi = (object) => {
           Buffer.from(text).toString('base64'),
           AES_MODE.CBC_128_PKCS7Padding,
           presetKey,
-          iv
-        )
+          iv,
+        ),
       ),
       AES_MODE.CBC_128_PKCS7Padding,
       btoa(secretKey),
-      iv
+      iv,
     ),
     encSecKey: rsaEncrypt(Buffer.from(secretKey).reverse(), publicKey).toString('hex'),
   }
@@ -64,7 +64,7 @@ export const linuxapi = (object) => {
   return {
     eparams: Buffer.from(
       aesEncrypt(Buffer.from(text).toString('base64'), AES_MODE.ECB_128_NoPadding, linuxapiKey, ''),
-      'base64'
+      'base64',
     )
       .toString('hex')
       .toUpperCase(),
@@ -79,7 +79,7 @@ export const eapi = (url, object) => {
   return {
     params: Buffer.from(
       aesEncrypt(Buffer.from(data).toString('base64'), AES_MODE.ECB_128_NoPadding, eapiKey, ''),
-      'base64'
+      'base64',
     )
       .toString('hex')
       .toUpperCase(),

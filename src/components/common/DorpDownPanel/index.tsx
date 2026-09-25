@@ -38,5 +38,5 @@ export default forwardRef<DorpDownPanelType, DorpDownPanelProps>(
         </Panel>
       </Button>
     )
-  }
+  },
 )

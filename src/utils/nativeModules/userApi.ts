@@ -78,7 +78,7 @@ export interface Actions {
   showUpdateAlert: UpdateInfoParams
   log: string
 }
-export type ActionsEvent = { [K in keyof Actions]: { action: K; data: Actions[K] } }[keyof Actions]
+export type ActionsEvent = { [K in keyof Actions]: { action: K, data: Actions[K] } }[keyof Actions]
 
 export const onScriptAction = (handler: (event: ActionsEvent) => void): (() => void) => {
   if (!UserApiModule) return () => {}

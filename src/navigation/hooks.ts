@@ -38,7 +38,7 @@ export const useNavigationComponentDidAppear = (componentId: string, callback = 
 
 export const onNavigationComponentDidDisappearEvent = (
   componentId: string,
-  callback = () => {}
+  callback = () => {},
 ) => {
   const listener = {
     componentDidDisappear: () => {

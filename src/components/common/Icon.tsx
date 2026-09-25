@@ -23,7 +23,8 @@ const HEART_NAMES = new Set(['love', 'love-filled'])
 
 const Icon = memo(({ size = 15, rawSize, color, style, ...props }: IconProps) => {
   const theme = useTheme()
-  if (HEART_NAMES.has(props.name as string)) {
+  const textShadow = useTextShadow()
+  if (HEART_NAMES.has(props.name)) {
     return (
       <SvgIcon
         name={props.name === 'love-filled' ? 'heart-filled' : 'heart'}
@@ -34,16 +35,15 @@ const Icon = memo(({ size = 15, rawSize, color, style, ...props }: IconProps) =>
       />
     )
   }
-  const textShadow = useTextShadow()
   const newStyle = textShadow
     ? StyleSheet.compose(
-        {
-          textShadowColor: theme['c-primary-dark-300-alpha-800'],
-          textShadowOffset: { width: 0.2, height: 0.2 },
-          textShadowRadius: 2,
-        },
-        style
-      )
+      {
+        textShadowColor: theme['c-primary-dark-300-alpha-800'],
+        textShadowOffset: { width: 0.2, height: 0.2 },
+        textShadowRadius: 2,
+      },
+      style,
+    )
     : style
   return (
     <IcoMoon

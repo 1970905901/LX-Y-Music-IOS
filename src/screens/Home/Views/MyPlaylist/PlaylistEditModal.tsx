@@ -7,7 +7,7 @@ import { createStyle, toast } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
 import wyApi from '@/utils/musicSdk/wy/user'
 import { updateWySubscribedPlaylist } from '@/store/user/action'
-import {SubscribedPlaylistInfo} from "@/store/user/state.ts";
+import { type SubscribedPlaylistInfo } from '@/store/user/state.ts'
 import { designRadius, designSpacing } from '@/theme/DesignTokens'
 
 interface PlaylistInfo {
@@ -86,7 +86,7 @@ export default forwardRef<PlaylistEditModalType, {}>((props, ref) => {
     <ConfirmAlert
       ref={alertRef}
       onConfirm={handleConfirm}
-      onHide={() => setVisible(false)}
+      onHide={() => { setVisible(false) }}
     >
       <View style={styles.content}>
         <Text style={styles.label}>歌单名</Text>

@@ -39,8 +39,8 @@ const userApiLog = {
 const getOtherSourcePromises = new Map()
 export const existTimeExp = /\[\d{1,2}:.*\d{1,4}\]/
 const otherSourceCache = new Map<
-  LX.Music.MusicInfo | LX.Download.ListItem,
-  LX.Music.MusicInfoOnline[]
+LX.Music.MusicInfo | LX.Download.ListItem,
+LX.Music.MusicInfoOnline[]
 >()
 
 const cleanFileName = (name: string): string => {
@@ -72,28 +72,28 @@ const cleanFileName = (name: string): string => {
   return cleaned || name
 }
 
-export const getOtherSource = async (
+export const getOtherSource = async(
   musicInfo: LX.Music.MusicInfo | LX.Download.ListItem,
-  isRefresh = false
+  isRefresh = false,
 ): Promise<LX.Music.MusicInfoOnline[]> => {
   const originalName = 'progress' in musicInfo ? musicInfo.metadata.musicInfo.name : musicInfo.name
   const originalSinger = 'progress' in musicInfo ? musicInfo.metadata.musicInfo.singer : musicInfo.singer
-  
+
   const cleanedName = cleanFileName(originalName)
   const cleanedSinger = cleanFileName(originalSinger)
-  
-  userApiLog.info(`[在线匹配源] ========== 开始搜索 ==========`)
+
+  userApiLog.info('[在线匹配源] ========== 开始搜索 ==========')
   userApiLog.info(`[在线匹配源] 原始歌曲名: "${originalName}"`)
   userApiLog.info(`[在线匹配源] 原始歌手名: "${originalSinger}"`)
   userApiLog.info(`[在线匹配源] 清理后歌曲名: "${cleanedName}"`)
   userApiLog.info(`[在线匹配源] 清理后歌手名: "${cleanedSinger}"`)
-  
+
   // if (!isRefresh) {
   //   const cachedInfo = await getOtherSourceFromStore(musicInfo.id)
   //   if (cachedInfo.length) return cachedInfo
   // }
   if (otherSourceCache.has(musicInfo)) {
-    userApiLog.info(`[在线匹配源] 命中缓存 - 直接返回缓存结果`)
+    userApiLog.info('[在线匹配源] 命中缓存 - 直接返回缓存结果')
     const cachedResult = otherSourceCache.get(musicInfo)!
     userApiLog.info(`[在线匹配源] 缓存结果数量: ${cachedResult.length}`)
     return cachedResult
@@ -128,48 +128,48 @@ export const getOtherSource = async (
     }
   }
   userApiLog.info(`[在线匹配源] 搜索key: "${key}"`)
-  userApiLog.info(`[在线匹配源] 搜索参数:`, JSON.stringify(searchMusicInfo, null, 2))
-  
+  userApiLog.info('[在线匹配源] 搜索参数:', JSON.stringify(searchMusicInfo, null, 2))
+
   if (getOtherSourcePromises.has(key)) {
-    userApiLog.info(`[在线匹配源] 已有相同查询在进行中，等待结果`)
+    userApiLog.info('[在线匹配源] 已有相同查询在进行中，等待结果')
     return getOtherSourcePromises.get(key)
   }
 
-  userApiLog.info(`[在线匹配源] 开始调用 findMusic 进行搜索`)
+  userApiLog.info('[在线匹配源] 开始调用 findMusic 进行搜索')
 
   const promise = new Promise<LX.Music.MusicInfoOnline[]>((resolve, reject) => {
     let timeout: null | number = BackgroundTimer.setTimeout(() => {
       timeout = null
-      userApiLog.error(`[在线匹配源] 搜索超时 (12秒)`)
+      userApiLog.error('[在线匹配源] 搜索超时 (12秒)')
       userApiLog.error(`[在线匹配源] 超时详情 - 歌曲: ${originalName} - 歌手: ${originalSinger}`)
       reject(new Error('find music timeout'))
     }, 12_000)
     findMusic(searchMusicInfo)
       .then((otherSource) => {
         userApiLog.info(`[在线匹配源] findMusic 返回结果，原始数量: ${otherSource.length}`)
-        
+
         if (otherSourceCache.size > 10) {
-          userApiLog.info(`[在线匹配源] 缓存数量超过10，清空缓存`)
+          userApiLog.info('[在线匹配源] 缓存数量超过10，清空缓存')
           otherSourceCache.clear()
         }
-        
+
         const source = otherSource.map(toNewMusicInfo) as LX.Music.MusicInfoOnline[]
         otherSourceCache.set(musicInfo, source)
-        
-        userApiLog.info(`[在线匹配源] 搜索完成 ==========`)
+
+        userApiLog.info('[在线匹配源] 搜索完成 ==========')
         userApiLog.info(`[在线匹配源] 最终找到结果: ${source.length} 个`)
-        
+
         if (source.length > 0) {
-          userApiLog.info(`[在线匹配源] 搜索结果详情:`)
+          userApiLog.info('[在线匹配源] 搜索结果详情:')
           source.forEach((item, index) => {
             userApiLog.info(`[在线匹配源]   ${index + 1}. ${item.source} - "${item.name}" - "${item.singer}"`)
           })
         }
-        
+
         resolve(source)
       })
       .catch((err) => {
-        userApiLog.error(`[在线匹配源] 搜索失败 ==========`)
+        userApiLog.error('[在线匹配源] 搜索失败 ==========')
         userApiLog.error(`[在线匹配源] 失败详情 - 歌曲: ${originalName} - 歌手: ${originalSinger}`)
         userApiLog.error(`[在线匹配源] 错误信息: ${err?.message || err}`)
         userApiLog.error(`[在线匹配源] 错误堆栈: ${err?.stack || '无'}`)
@@ -193,8 +193,8 @@ export const getOtherSource = async (
   return promise
 }
 
-export const buildLyricInfo = async (
-  lyricInfo: MakeOptional<LX.Player.LyricInfo, 'rawlrcInfo'>
+export const buildLyricInfo = async(
+  lyricInfo: MakeOptional<LX.Player.LyricInfo, 'rawlrcInfo'>,
 ): Promise<LX.Player.LyricInfo> => {
   if (!settingState.setting['player.isS2t']) {
     // @ts-expect-error
@@ -237,7 +237,7 @@ export const buildLyricInfo = async (
           lxlyric,
           rawlrcInfo,
         }
-      }
+      },
     )
   }
 
@@ -245,14 +245,14 @@ export const buildLyricInfo = async (
   return lyricInfo.rawlrcInfo ? lyricInfo : { ...lyricInfo, rawlrcInfo: { ...lyricInfo } }
 }
 
-export const getCachedLyricInfo = async (
-  musicInfo: LX.Music.MusicInfo
+export const getCachedLyricInfo = async(
+  musicInfo: LX.Music.MusicInfo,
 ): Promise<LX.Player.LyricInfo | null> => {
   const playerLyricInfo = await getPlayerLyric(musicInfo)
   if (playerLyricInfo?.lyric && playerLyricInfo.rawlrcInfo?.lyric !== playerLyricInfo.lyric) {
-  return playerLyricInfo
+    return playerLyricInfo
   }
-  
+
   let lrcInfo = await getStoreLyric(musicInfo)
   // lrcInfo = {}
   if (existTimeExp.test(lrcInfo.lyric) && lrcInfo.tlyric != null) {
@@ -281,9 +281,9 @@ export const getCachedLyricInfo = async (
   return null
 }
 
-export const getOnlineOtherSourceMusicUrlByLocal = async (
+export const getOnlineOtherSourceMusicUrlByLocal = async(
   musicInfo: LX.Music.MusicInfoLocal,
-  isRefresh: boolean
+  isRefresh: boolean,
 ): Promise<{
   url: string
   quality: LX.Quality
@@ -308,9 +308,9 @@ export const getOnlineOtherSourceMusicUrlByLocal = async (
   })
 }
 
-export const getOnlineOtherSourceLyricByLocal = async (
+export const getOnlineOtherSourceLyricByLocal = async(
   musicInfo: LX.Music.MusicInfoLocal,
-  isRefresh: boolean
+  isRefresh: boolean,
 ): Promise<{
   lyricInfo: LX.Music.LyricInfo
   isFromCache: boolean
@@ -320,7 +320,7 @@ export const getOnlineOtherSourceLyricByLocal = async (
     throw new Error('source init failed')
   }
 
-  userApiLog.info(`[在线匹配歌词] ========== 开始匹配 ==========`)
+  userApiLog.info('[在线匹配歌词] ========== 开始匹配 ==========')
   userApiLog.info(`[在线匹配歌词] 原始信息 - 歌曲: "${musicInfo.name}" - 歌手: "${musicInfo.singer}"`)
   userApiLog.info(`[在线匹配歌词] 音乐ID: "${musicInfo.id}"`)
   userApiLog.info(`[在线匹配歌词] 来源: "${musicInfo.source}"`)
@@ -328,7 +328,7 @@ export const getOnlineOtherSourceLyricByLocal = async (
 
   const lyricInfo = await getCachedLyricInfo(musicInfo)
   if (lyricInfo && !isRefresh) {
-    userApiLog.info(`[在线匹配歌词] 命中缓存，直接返回`)
+    userApiLog.info('[在线匹配歌词] 命中缓存，直接返回')
     userApiLog.info(`[在线匹配歌词] 缓存歌词长度: ${lyricInfo.lyric?.length || 0}`)
     return { lyricInfo, isFromCache: true }
   }
@@ -343,11 +343,11 @@ export const getOnlineOtherSourceLyricByLocal = async (
     name: cleanedName,
     singer: cleanedSinger,
   })
-  userApiLog.info(`[在线匹配歌词] 转换后的搜索参数:`, JSON.stringify(oldMusicInfo, null, 2))
-  
+  userApiLog.info('[在线匹配歌词] 转换后的搜索参数:', JSON.stringify(oldMusicInfo, null, 2))
+
   let reqPromise
   try {
-    userApiLog.info(`[在线匹配歌词] 调用 apis('local').getLyric()`)
+    userApiLog.info('[在线匹配歌词] 调用 apis(\'local\').getLyric()')
     reqPromise = apis('local').getLyric(oldMusicInfo).promise
   } catch (err: any) {
     userApiLog.error(`[在线匹配歌词] API 调用失败 - 错误: ${err?.message || err}`)
@@ -356,20 +356,20 @@ export const getOnlineOtherSourceLyricByLocal = async (
 
   return reqPromise.then((lyricInfo: LX.Music.LyricInfo) => {
     const hasLyric = lyricInfo?.lyric?.length > 0
-    userApiLog.info(`[在线匹配歌词] 匹配完成 ==========`)
+    userApiLog.info('[在线匹配歌词] 匹配完成 ==========')
     userApiLog.info(`[在线匹配歌词] 是否成功: ${hasLyric}`)
     userApiLog.info(`[在线匹配歌词] 歌词长度: ${lyricInfo?.lyric?.length || 0}`)
     userApiLog.info(`[在线匹配歌词] 歌词预览: ${lyricInfo?.lyric?.substring(0, 100) || ''}...`)
     return { lyricInfo, isFromCache: false }
   }).catch((err: any) => {
-    userApiLog.error(`[在线匹配歌词] 匹配失败 ==========`)
+    userApiLog.error('[在线匹配歌词] 匹配失败 ==========')
     userApiLog.error(`[在线匹配歌词] 错误信息: ${err?.message || err}`)
     throw err
   })
 }
 
-export const getOnlineOtherSourcePicByLocal = async (
-  musicInfo: LX.Music.MusicInfoLocal
+export const getOnlineOtherSourcePicByLocal = async(
+  musicInfo: LX.Music.MusicInfoLocal,
 ): Promise<{
   url: string
 }> => {
@@ -378,7 +378,7 @@ export const getOnlineOtherSourcePicByLocal = async (
     throw new Error('source init failed')
   }
 
-  userApiLog.info(`[在线匹配封面] ========== 开始匹配 ==========`)
+  userApiLog.info('[在线匹配封面] ========== 开始匹配 ==========')
   userApiLog.info(`[在线匹配封面] 原始信息 - 歌曲: "${musicInfo.name}" - 歌手: "${musicInfo.singer}"`)
   userApiLog.info(`[在线匹配封面] 音乐ID: "${musicInfo.id}"`)
   userApiLog.info(`[在线匹配封面] 来源: "${musicInfo.source}"`)
@@ -393,11 +393,11 @@ export const getOnlineOtherSourcePicByLocal = async (
     name: cleanedName,
     singer: cleanedSinger,
   })
-  userApiLog.info(`[在线匹配封面] 转换后的搜索参数:`, JSON.stringify(oldMusicInfo, null, 2))
+  userApiLog.info('[在线匹配封面] 转换后的搜索参数:', JSON.stringify(oldMusicInfo, null, 2))
 
   let reqPromise
   try {
-    userApiLog.info(`[在线匹配封面] 调用 apis('local').getPic()`)
+    userApiLog.info('[在线匹配封面] 调用 apis(\'local\').getPic()')
     reqPromise = apis('local').getPic(oldMusicInfo).promise
   } catch (err: any) {
     userApiLog.error(`[在线匹配封面] API 调用失败 - 错误: ${err?.message || err}`)
@@ -415,35 +415,35 @@ export const getOnlineOtherSourcePicByLocal = async (
 }
 
 export const TRY_QUALITYS_LIST = ['master', 'atmos_plus', 'atmos', 'hires', 'flac24bit', 'flac', '320k'] as const
-export const QUALITY_RANK: readonly LX.Quality[] = ['master', 'atmos_plus', 'atmos', 'hires', 'flac24bit', 'flac', '320k', '192k', '128k'];
+export const QUALITY_RANK: readonly LX.Quality[] = ['master', 'atmos_plus', 'atmos', 'hires', 'flac24bit', 'flac', '320k', '192k', '128k']
 
 export const getPlayQuality = (
   preferredQuality: LX.Quality,
-  musicInfo: LX.Music.MusicInfoOnline
+  musicInfo: LX.Music.MusicInfoOnline,
 ): LX.Quality => {
-  const availableQualities = musicInfo.meta._qualitys;
+  const availableQualities = musicInfo.meta._qualitys
 
   const validPreferredQuality = QUALITY_RANK.includes(preferredQuality)
     ? preferredQuality
-    : '128k';
+    : '128k'
 
-  const startIndex = QUALITY_RANK.indexOf(validPreferredQuality);
+  const startIndex = QUALITY_RANK.indexOf(validPreferredQuality)
 
-  const searchIndex = startIndex === -1 ? 0 : startIndex;
+  const searchIndex = startIndex === -1 ? 0 : startIndex
 
   for (let i = searchIndex; i < QUALITY_RANK.length; i++) {
-    const quality = QUALITY_RANK[i];
+    const quality = QUALITY_RANK[i]
     if (availableQualities[quality]) {
-      console.log(`[音质选择] 偏好: ${preferredQuality} -> 实际: ${quality}`);
-      return quality;
+      console.log(`[音质选择] 偏好: ${preferredQuality} -> 实际: ${quality}`)
+      return quality
     }
   }
 
-  console.log(`[音质选择] 偏好: ${preferredQuality} -> 兜底: 128k`);
-  return '128k';
+  console.log(`[音质选择] 偏好: ${preferredQuality} -> 兜底: 128k`)
+  return '128k'
 }
 
-export const getOnlineOtherSourceMusicUrl = async ({
+export const getOnlineOtherSourceMusicUrl = async({
   musicInfos,
   quality,
   onToggleSource,
@@ -468,7 +468,7 @@ export const getOnlineOtherSourceMusicUrl = async ({
 
   const musicName = musicInfos[0]?.name || '未知歌曲'
   const musicSinger = musicInfos[0]?.singer || '未知歌手'
-  userApiLog.info(`[换源播放] ========== 开始尝试换源获取播放地址 ==========`)
+  userApiLog.info('[换源播放] ========== 开始尝试换源获取播放地址 ==========')
   userApiLog.info(`[换源播放] 目标歌曲: "${musicName}" - "${musicSinger}"`)
   userApiLog.info(`[换源播放] 可用音源列表: ${musicInfos.map(m => m.source).join(', ')}`)
   userApiLog.info(`[换源播放] 已尝试过的音源: ${retryedSource.length > 0 ? retryedSource.join(', ') : '无'}`)
@@ -487,13 +487,13 @@ export const getOnlineOtherSourceMusicUrl = async ({
     userApiLog.info(`[换源播放]   时长: ${musicInfo.interval || '未知'}`)
 
     if (retryedSource.includes(musicInfo.source)) {
-      userApiLog.info(`[换源播放]   跳过 - 该音源已尝试过`)
+      userApiLog.info('[换源播放]   跳过 - 该音源已尝试过')
       continue
     }
     retryedSource.push(musicInfo.source)
 
     if (!assertApiSupport(musicInfo.source)) {
-      userApiLog.info(`[换源播放]   跳过 - 该音源API不支持当前平台`)
+      userApiLog.info('[换源播放]   跳过 - 该音源API不支持当前平台')
       continue
     }
 
@@ -507,35 +507,35 @@ export const getOnlineOtherSourceMusicUrl = async ({
       userApiLog.info(`[换源播放]   音质降级: ${preferredQuality} -> ${itemQuality}`)
     }
 
-    userApiLog.info(`[换源播放]   选择该音源进行尝试`)
+    userApiLog.info('[换源播放]   选择该音源进行尝试')
     onToggleSource(musicInfo)
     break
   }
 
   if (!musicInfo) {
-    userApiLog.error(`[换源播放] ========== 换源失败 ==========`)
-    userApiLog.error(`[换源播放] 所有音源均已尝试，无法获取播放地址`)
+    userApiLog.error('[换源播放] ========== 换源失败 ==========')
+    userApiLog.error('[换源播放] 所有音源均已尝试，无法获取播放地址')
     userApiLog.error(`[换源播放] 歌曲: "${musicName}" - "${musicSinger}"`)
     userApiLog.error(`[换源播放] 尝试过的音源: ${retryedSource.join(', ')}`)
     throw new Error(global.i18n.t('toggle_source_failed'))
   }
 
   if (!itemQuality) {
-    userApiLog.error(`[换源播放] ========== 换源失败 ==========`)
-    userApiLog.error(`[换源播放] 无法确定可用音质`)
+    userApiLog.error('[换源播放] ========== 换源失败 ==========')
+    userApiLog.error('[换源播放] 无法确定可用音质')
     throw new Error(global.i18n.t('toggle_source_failed'))
   }
 
   const cachedUrl = await getStoreMusicUrl(musicInfo, itemQuality)
   if (cachedUrl && !isRefresh) {
-    userApiLog.info(`[换源播放]   命中缓存，直接返回播放地址`)
-    userApiLog.info(`[换源播放] ========== 换源成功 ==========`)
+    userApiLog.info('[换源播放]   命中缓存，直接返回播放地址')
+    userApiLog.info('[换源播放] ========== 换源成功 ==========')
     userApiLog.info(`[换源播放] 最终音源: "${musicInfo.source}"`)
     userApiLog.info(`[换源播放] 音质: ${itemQuality}`)
     return { url: cachedUrl, musicInfo, quality: itemQuality, isFromCache: true }
   }
 
-  const tryGetMusicUrlWithFallback = async (qualities: LX.Quality[]): Promise<{ url: string; type: LX.Quality }> => {
+  const tryGetMusicUrlWithFallback = async(qualities: LX.Quality[]): Promise<{ url: string, type: LX.Quality }> => {
     if (qualities.length === 0) {
       throw new Error('no available quality')
     }
@@ -547,7 +547,7 @@ export const getOnlineOtherSourceMusicUrl = async ({
     try {
       reqPromise = musicSdk[musicInfo.source].getMusicUrl(
         toOldMusicInfo(musicInfo),
-        currentQuality
+        currentQuality,
       ).promise
     } catch (err: any) {
       userApiLog.error(`[换源播放]   API调用失败: ${err?.message || err}`)
@@ -555,24 +555,24 @@ export const getOnlineOtherSourceMusicUrl = async ({
     }
 
     return reqPromise
-      .then((result: { url: string; type: LX.Quality }) => {
-        userApiLog.info(`[换源播放]   请求成功，获取到播放地址`)
+      .then((result: { url: string, type: LX.Quality }) => {
+        userApiLog.info('[换源播放]   请求成功，获取到播放地址')
         userApiLog.info(`[换源播放]   播放地址长度: ${result.url.length} 字符`)
         userApiLog.info(`[换源播放]   实际音质: ${result.type}`)
         return result
       })
-      .catch((err: any) => {
+      .catch(async(err: any) => {
         if (err.message == requestMsg.tooManyRequests) {
-          userApiLog.error(`[换源播放]   请求失败 - 请求过于频繁`)
+          userApiLog.error('[换源播放]   请求失败 - 请求过于频繁')
           throw err
         }
         userApiLog.error(`[换源播放]   音质 ${currentQuality} 请求失败: ${err?.message || err}`)
-        
+
         if (qualities.length > 1) {
-          userApiLog.info(`[换源播放]   尝试更低音质...`)
+          userApiLog.info('[换源播放]   尝试更低音质...')
           return tryGetMusicUrlWithFallback(qualities.slice(1))
         }
-        
+
         throw err
       })
   }
@@ -583,26 +583,26 @@ export const getOnlineOtherSourceMusicUrl = async ({
     .sort((a, b) => QUALITY_RANK.indexOf(a) - QUALITY_RANK.indexOf(b))
 
   const startIndex = sortedQualities.indexOf(itemQuality)
-  const fallbackQualities = startIndex >= 0 
-    ? sortedQualities.slice(startIndex) 
+  const fallbackQualities = startIndex >= 0
+    ? sortedQualities.slice(startIndex)
     : sortedQualities
 
-  userApiLog.info(`[换源播放]   未命中缓存，发起网络请求获取播放地址`)
+  userApiLog.info('[换源播放]   未命中缓存，发起网络请求获取播放地址')
 
   return tryGetMusicUrlWithFallback(fallbackQualities)
     .then(({ url, type }) => {
-      userApiLog.info(`[换源播放] ========== 换源成功 ==========`)
+      userApiLog.info('[换源播放] ========== 换源成功 ==========')
       userApiLog.info(`[换源播放] 最终音源: "${musicInfo.source}"`)
       userApiLog.info(`[换源播放] 歌曲: "${musicInfo.name}" - "${musicInfo.singer}"`)
       userApiLog.info(`[换源播放] 音质: ${type}`)
       return { musicInfo, url, quality: type, isFromCache: false }
     })
-    .catch((err: any) => {
+    .catch(async(err: any) => {
       if (err.message == requestMsg.tooManyRequests) {
         throw err
       }
-      userApiLog.error(`[换源播放]   该音源所有音质均尝试失败`)
-      userApiLog.info(`[换源播放]   尝试下一个音源...`)
+      userApiLog.error('[换源播放]   该音源所有音质均尝试失败')
+      userApiLog.info('[换源播放]   尝试下一个音源...')
       return getOnlineOtherSourceMusicUrl({
         musicInfos,
         quality,
@@ -614,8 +614,8 @@ export const getOnlineOtherSourceMusicUrl = async ({
 }
 
 export const getUserDefinedSourceList = (
-  excludeSourceId?: string
-): Array<{ id: string; name: string }> => {
+  excludeSourceId?: string,
+): Array<{ id: string, name: string }> => {
   const currentSource = settingState.setting['common.apiSource']
 
   // 只有「音源脚本」才是真正的 API 源：用户导入的自定义音源 id 形如 user_api_xxx。
@@ -632,7 +632,7 @@ export const getUserDefinedSourceList = (
     .sort((a, b) => (a.id === currentSource ? 1 : 0) - (b.id === currentSource ? 1 : 0))
 }
 
-export const tryUserDefinedSourceToggle = async ({
+export const tryUserDefinedSourceToggle = async({
   musicInfo,
   isRefresh,
   maxRetry,
@@ -672,7 +672,7 @@ export const tryUserDefinedSourceToggle = async ({
   // 结束后必须把【设置值】与【实际已加载的脚本】一起还原，
   // 否则会出现「设置里是 A、实际生效的是 B」的不一致：后续歌曲、歌词、封面
   // 都会走被悄悄换掉的脚本，而界面上仍显示原音源。
-  const restoreApiSource = async () => {
+  const restoreApiSource = async() => {
     if (settingState.setting['common.apiSource'] === originalApiSource) return
     settingState.setting['common.apiSource'] = originalApiSource
     try {
@@ -682,7 +682,7 @@ export const tryUserDefinedSourceToggle = async ({
     } catch {}
   }
 
-  const tryWithApiSource = async (apiSourceId: string): Promise<string | null> => {
+  const tryWithApiSource = async(apiSourceId: string): Promise<string | null> => {
     if (apiSourceId !== originalApiSource) {
       settingState.setting['common.apiSource'] = apiSourceId
       if (/^user_api/.test(apiSourceId)) {
@@ -709,8 +709,8 @@ export const tryUserDefinedSourceToggle = async ({
     }
   }
 
-  const tryWithApiSourceWithTimeout = async (apiSourceId: string): Promise<string | null> => {
-    const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), PLUGIN_TIMEOUT_MS))
+  const tryWithApiSourceWithTimeout = async(apiSourceId: string): Promise<string | null> => {
+    const timeout = new Promise<null>((resolve) => setTimeout(() => { resolve(null) }, PLUGIN_TIMEOUT_MS))
     return Promise.race([tryWithApiSource(apiSourceId), timeout])
   }
 
@@ -726,7 +726,7 @@ export const tryUserDefinedSourceToggle = async ({
 
       if (url) {
         await restoreApiSource()
-        console.log(`[播放策略] [切换音源] ========== 切换插件成功! ==========`)
+        console.log('[播放策略] [切换音源] ========== 切换插件成功! ==========')
         console.log(`[播放策略] [切换音源] 成功插件: "${source.name}" (${source.id})`)
         onToggleSource(musicInfo)
         return {
@@ -750,7 +750,7 @@ export const tryUserDefinedSourceToggle = async ({
 /**
  * Get online music URL
  */
-export const handleGetOnlineMusicUrl = async ({
+export const handleGetOnlineMusicUrl = async({
   musicInfo,
   quality,
   onToggleSource,
@@ -769,20 +769,20 @@ export const handleGetOnlineMusicUrl = async ({
   isFromCache: boolean
 }> => {
   if (!(await global.lx.apiInitPromise[0])) {
-    userApiLog.error(`[在线播放] API 未初始化，无法获取播放地址`)
+    userApiLog.error('[在线播放] API 未初始化，无法获取播放地址')
     throw new Error('source init failed')
   }
 
-  userApiLog.info(`[在线播放] ========== 开始获取播放地址 ==========`)
+  userApiLog.info('[在线播放] ========== 开始获取播放地址 ==========')
   userApiLog.info(`[在线播放] 歌曲: "${musicInfo.name}" - "${musicInfo.singer}"`)
   userApiLog.info(`[在线播放] 音源: "${musicInfo.source}"`)
   userApiLog.info(`[在线播放] 音乐ID: "${musicInfo.id}"`)
   userApiLog.info(`[在线播放] 时长: ${musicInfo.interval || '未知'}`)
-  
+
   if (musicInfo.source === 'tx') {
     if (!musicInfo.meta.songmid || musicInfo.meta.songmid === undefined) {
       const fallbackSongmid = (musicInfo as any).songmid || musicInfo.meta.songId || musicInfo.meta.id || musicInfo.id
-      userApiLog.info(`[在线播放] === 修复 TX songmid ===`, {
+      userApiLog.info('[在线播放] === 修复 TX songmid ===', {
         currentSongmid: musicInfo.meta.songmid,
         fallbackSongmid,
         musicInfoSongmid: (musicInfo as any).songmid,
@@ -794,7 +794,7 @@ export const handleGetOnlineMusicUrl = async ({
     }
   }
 
-  userApiLog.info(`[在线播放] === 音乐元信息诊断 ===`)
+  userApiLog.info('[在线播放] === 音乐元信息诊断 ===')
   userApiLog.info(`[在线播放]   songId: ${musicInfo.meta.songId}`)
   userApiLog.info(`[在线播放]   songmid: ${(musicInfo.meta as any).songmid}`)
   userApiLog.info(`[在线播放]   meta.mid: ${(musicInfo.meta as any).mid}`)
@@ -818,12 +818,12 @@ export const handleGetOnlineMusicUrl = async ({
 
   const cachedUrl = await getStoreMusicUrl(musicInfo, targetQuality)
   if (cachedUrl && !isRefresh) {
-    userApiLog.info(`[在线播放] 命中缓存，直接返回播放地址`)
-    userApiLog.info(`[在线播放] ========== 获取成功 ==========`)
+    userApiLog.info('[在线播放] 命中缓存，直接返回播放地址')
+    userApiLog.info('[在线播放] ========== 获取成功 ==========')
     return { url: cachedUrl, musicInfo, quality: targetQuality, isFromCache: true }
   }
 
-  const tryGetMusicUrlWithFallback = async (qualities: LX.Quality[]): Promise<{ url: string; type: LX.Quality }> => {
+  const tryGetMusicUrlWithFallback = async(qualities: LX.Quality[]): Promise<{ url: string, type: LX.Quality }> => {
     if (qualities.length === 0) {
       throw new Error('no available quality')
     }
@@ -836,30 +836,30 @@ export const handleGetOnlineMusicUrl = async ({
     try {
       reqPromise = musicSdk[musicInfo.source].getMusicUrl(
         oldMusicInfo,
-        currentQuality
+        currentQuality,
       ).promise
     } catch (err: any) {
       reqPromise = Promise.reject(err)
     }
 
     return reqPromise
-      .then((result: { url: string; type: LX.Quality }) => {
+      .then((result: { url: string, type: LX.Quality }) => {
         if (!result.url || result.url.length < 10) {
-          userApiLog.warn(`[在线播放]   警告: 播放地址可能无效`)
+          userApiLog.warn('[在线播放]   警告: 播放地址可能无效')
         }
         return result
       })
-      .catch((err: any) => {
+      .catch(async(err: any) => {
         if (err.message == requestMsg.tooManyRequests) {
           throw err
         }
         userApiLog.error(`[在线播放]   音质 ${currentQuality} 请求失败: ${err?.message || err}`)
-        
+
         if (qualities.length > 1) {
-          userApiLog.info(`[在线播放]   尝试更低音质...`)
+          userApiLog.info('[在线播放]   尝试更低音质...')
           return tryGetMusicUrlWithFallback(qualities.slice(1))
         }
-        
+
         throw err
       })
   }
@@ -870,15 +870,15 @@ export const handleGetOnlineMusicUrl = async ({
     .sort((a, b) => QUALITY_RANK.indexOf(a) - QUALITY_RANK.indexOf(b))
 
   const startIndex = sortedQualities.indexOf(targetQuality)
-  const fallbackQualities = startIndex >= 0 
-    ? sortedQualities.slice(startIndex) 
+  const fallbackQualities = startIndex >= 0
+    ? sortedQualities.slice(startIndex)
     : sortedQualities
 
   return tryGetMusicUrlWithFallback(fallbackQualities)
     .then(({ url, type }) => {
       return { musicInfo, url, quality: type, isFromCache: false }
     })
-    .catch(async (err: any) => {
+    .catch(async(err: any) => {
       if (!allowToggleSource) {
         throw err
       }
@@ -887,13 +887,13 @@ export const handleGetOnlineMusicUrl = async ({
         throw err
       }
 
-      userApiLog.info(`[在线播放] 尝试切换到其他音源...`)
+      userApiLog.info('[在线播放] 尝试切换到其他音源...')
       onToggleSource()
 
-      return getOtherSource(musicInfo).then((otherSource) => {
+      return getOtherSource(musicInfo).then(async(otherSource) => {
         userApiLog.info(`[在线播放] 搜索到 ${otherSource.length} 个其他音源`)
         if (otherSource.length > 0) {
-          userApiLog.info(`[在线播放] 搜索到的音源列表:`)
+          userApiLog.info('[在线播放] 搜索到的音源列表:')
           otherSource.forEach((item, index) => {
             userApiLog.info(`[在线播放]   ${index + 1}. ${item.source} - "${item.name}" - "${item.singer}"`)
           })
@@ -905,14 +905,14 @@ export const handleGetOnlineMusicUrl = async ({
             retryedSource: [musicInfo.source],
           })
         }
-        userApiLog.error(`[在线播放] ========== 获取失败 ==========`)
-        userApiLog.error(`[在线播放] 未找到其他可用音源`)
+        userApiLog.error('[在线播放] ========== 获取失败 ==========')
+        userApiLog.error('[在线播放] 未找到其他可用音源')
         throw err
       })
     })
 }
 
-export const getOnlineOtherSourcePicUrl = async ({
+export const getOnlineOtherSourcePicUrl = async({
   musicInfos,
   onToggleSource,
   isRefresh,
@@ -938,15 +938,14 @@ export const getOnlineOtherSourcePicUrl = async ({
       musicInfo.source,
       musicInfo.name,
       musicInfo.singer,
-      musicInfo.interval
+      musicInfo.interval,
     )
     onToggleSource(musicInfo)
     break
   }
   if (!musicInfo) throw new Error(global.i18n.t('toggle_source_failed'))
 
-  if (musicInfo.meta.picUrl && !isRefresh)
-    return { musicInfo, url: musicInfo.meta.picUrl, isFromCache: true }
+  if (musicInfo.meta.picUrl && !isRefresh) { return { musicInfo, url: musicInfo.meta.picUrl, isFromCache: true } }
 
   let reqPromise
   try {
@@ -959,7 +958,7 @@ export const getOnlineOtherSourcePicUrl = async ({
     .then((url: string) => {
       return { musicInfo, url, isFromCache: false }
     })
-    .catch((err: any) => {
+    .catch(async(err: any) => {
       console.log(err)
       return getOnlineOtherSourcePicUrl({ musicInfos, onToggleSource, isRefresh, retryedSource })
     })
@@ -968,7 +967,7 @@ export const getOnlineOtherSourcePicUrl = async ({
 /**
  * Get online song cover
  */
-export const handleGetOnlinePicUrl = async ({
+export const handleGetOnlinePicUrl = async({
   musicInfo,
   isRefresh,
   onToggleSource,
@@ -994,12 +993,12 @@ export const handleGetOnlinePicUrl = async ({
     .then((url: string) => {
       return { musicInfo, url, isFromCache: false }
     })
-    .catch(async (err: any) => {
+    .catch(async(err: any) => {
       console.log(err)
       if (!allowToggleSource) throw err
       onToggleSource()
 
-      return getOtherSource(musicInfo).then((otherSource) => {
+      return getOtherSource(musicInfo).then(async(otherSource) => {
         // console.log('find otherSource', otherSource.length)
         if (otherSource.length) {
           return getOnlineOtherSourcePicUrl({
@@ -1014,7 +1013,7 @@ export const handleGetOnlinePicUrl = async ({
     })
 }
 
-export const getOnlineOtherSourceLyricInfo = async ({
+export const getOnlineOtherSourceLyricInfo = async({
   musicInfos,
   onToggleSource,
   isRefresh,
@@ -1040,7 +1039,7 @@ export const getOnlineOtherSourceLyricInfo = async ({
       musicInfo.source,
       musicInfo.name,
       musicInfo.singer,
-      musicInfo.interval
+      musicInfo.interval,
     )
     onToggleSource(musicInfo)
     break
@@ -1055,13 +1054,13 @@ export const getOnlineOtherSourceLyricInfo = async ({
   let reqPromise
   try {
     // TODO: remove any type
-    reqPromise = (musicSdk[musicInfo.source].getLyric(toOldMusicInfo(musicInfo)) as any).promise
+    reqPromise = (musicSdk[musicInfo.source].getLyric(toOldMusicInfo(musicInfo))).promise
   } catch (err: any) {
     reqPromise = Promise.reject(err)
   }
   // retryedSource.includes(musicInfo.source)
   return reqPromise
-    .then(async (lyricInfo: LX.Music.LyricInfo) => {
+    .then(async(lyricInfo: LX.Music.LyricInfo) => {
       return existTimeExp.test(lyricInfo.lyric)
         ? {
             lyricInfo,
@@ -1070,7 +1069,7 @@ export const getOnlineOtherSourceLyricInfo = async ({
           }
         : Promise.reject(new Error('failed'))
     })
-    .catch((err: any) => {
+    .catch(async(err: any) => {
       console.log(err)
       return getOnlineOtherSourceLyricInfo({ musicInfos, onToggleSource, isRefresh, retryedSource })
     })
@@ -1079,7 +1078,7 @@ export const getOnlineOtherSourceLyricInfo = async ({
 /**
  * Get online lyric info
  */
-export const handleGetOnlineLyricInfo = async ({
+export const handleGetOnlineLyricInfo = async({
   musicInfo,
   onToggleSource,
   isRefresh,
@@ -1098,12 +1097,12 @@ export const handleGetOnlineLyricInfo = async ({
   let reqPromise
   try {
     // TODO: remove any type
-    reqPromise = (musicSdk[musicInfo.source].getLyric(toOldMusicInfo(musicInfo)) as any).promise
+    reqPromise = (musicSdk[musicInfo.source].getLyric(toOldMusicInfo(musicInfo))).promise
   } catch (err) {
     reqPromise = Promise.reject(err)
   }
   return reqPromise
-    .then(async (lyricInfo: LX.Music.LyricInfo) => {
+    .then(async(lyricInfo: LX.Music.LyricInfo) => {
       return existTimeExp.test(lyricInfo.lyric)
         ? {
             musicInfo,
@@ -1112,13 +1111,13 @@ export const handleGetOnlineLyricInfo = async ({
           }
         : Promise.reject(new Error('failed'))
     })
-    .catch(async (err: any) => {
+    .catch(async(err: any) => {
       console.log(err)
       if (!allowToggleSource) throw err
 
       onToggleSource()
 
-      return getOtherSource(musicInfo).then((otherSource) => {
+      return getOtherSource(musicInfo).then(async(otherSource) => {
         // console.log('find otherSource', otherSource.length)
         if (otherSource.length) {
           return getOnlineOtherSourceLyricInfo({

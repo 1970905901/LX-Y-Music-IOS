@@ -30,7 +30,7 @@ export default memo(({ value, label, onOnlineMatch, onChanged }: PicItemProps) =
       },
       (path) => {
         onChanged(path)
-      }
+      },
     )
   }, [onChanged])
   return (

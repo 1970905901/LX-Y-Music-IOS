@@ -52,7 +52,7 @@ export default {
             },
             module: 'playlist.PlayListCategoryServer',
           },
-        })
+        }),
       )}`
     }
     return `https://u.y.qq.com/cgi-bin/musicu.fcg?loginUin=0&hostUin=0&format=json&inCharset=utf-8&outCharset=utf-8&notice=0&platform=wk_v15.json&needNewCode=0&data=${encodeURIComponent(
@@ -69,7 +69,7 @@ export default {
           },
           module: 'playlist.PlayListPlazaServer',
         },
-      })
+      }),
     )}`
   },
   getListDetailUrl(id) {
@@ -209,10 +209,10 @@ export default {
     return id
   },
   async getListDetailNew(id, page = 1, tryNum = 0) {
-    log.info(`[TX SongList] getListDetailNew 开始`, { id, page, tryNum })
+    log.info('[TX SongList] getListDetailNew 开始', { id, page, tryNum })
 
     if (tryNum > 2) {
-      log.error(`[TX SongList] getListDetailNew 重试次数超限`, { id, page, tryNum })
+      log.error('[TX SongList] getListDetailNew 重试次数超限', { id, page, tryNum })
       return Promise.reject(new Error('try max num'))
     }
 
@@ -238,50 +238,50 @@ export default {
       },
     }
 
-    log.info(`[TX SongList] getListDetailNew 构建payload完成`, { disstid: payload.req_0.param.disstid })
+    log.info('[TX SongList] getListDetailNew 构建payload完成', { disstid: payload.req_0.param.disstid })
 
     const url = `https://u.y.qq.com/cgi-bin/musicu.fcg?loginUin=0&hostUin=0&format=json&inCharset=utf-8&outCharset=utf-8&notice=0&platform=wk_v15.json&needNewCode=0&data=${encodeURIComponent(JSON.stringify(payload))}`
 
-    log.info(`[TX SongList] getListDetailNew URL:`, url.substring(0, 200))
+    log.info('[TX SongList] getListDetailNew URL:', url.substring(0, 200))
 
     const cookie = settingState.setting['common.tx_cookie']
-    log.info(`[TX SongList] getListDetailNew Cookie状态:`, cookie ? `已设置 (长度:${cookie.length})` : '未设置')
+    log.info('[TX SongList] getListDetailNew Cookie状态:', cookie ? `已设置 (长度:${cookie.length})` : '未设置')
 
     const requestObj_listDetail = httpFetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Referer': 'https://y.qq.com/',
-        'Cookie': cookie || '',
+        Referer: 'https://y.qq.com/',
+        Cookie: cookie || '',
       },
     })
 
     const { body, statusCode } = await requestObj_listDetail.promise
-    log.info(`[TX SongList] getListDetailNew 响应`, { statusCode, bodyCode: body?.code, req0Code: body?.req_0?.code })
+    log.info('[TX SongList] getListDetailNew 响应', { statusCode, bodyCode: body?.code, req0Code: body?.req_0?.code })
 
     if (!body || !body.req_0) {
-      log.error(`[TX SongList] getListDetailNew 响应体无效`, { body: JSON.stringify(body)?.substring(0, 200) })
+      log.error('[TX SongList] getListDetailNew 响应体无效', { body: JSON.stringify(body)?.substring(0, 200) })
       return this.getListDetailNew(id, page, ++tryNum)
     }
 
     const retCode = body.req_0.data?.retCode
-    log.info(`[TX SongList] getListDetailNew retCode`, { retCode })
+    log.info('[TX SongList] getListDetailNew retCode', { retCode })
 
     if (retCode !== undefined && retCode !== 0 && tryNum < 2) {
-      log.warn(`[TX SongList] getListDetailNew retCode非0，重试`, { retCode, tryNum })
+      log.warn('[TX SongList] getListDetailNew retCode非0，重试', { retCode, tryNum })
       return this.getListDetailNew(id, page, ++tryNum)
     }
 
     const data = body.req_0.data
     if (!data || !data.songlist) {
-      log.error(`[TX SongList] getListDetailNew 没有歌曲列表`, { dataKeys: data ? Object.keys(data) : [] })
+      log.error('[TX SongList] getListDetailNew 没有歌曲列表', { dataKeys: data ? Object.keys(data) : [] })
       return Promise.reject(new Error('获取歌单详情失败'))
     }
 
-    log.info(`[TX SongList] getListDetailNew 成功`, { songCount: data.songlist.length, dissname: data.dissinfo?.dissname })
+    log.info('[TX SongList] getListDetailNew 成功', { songCount: data.songlist.length, dissname: data.dissinfo?.dissname })
 
     if (data.songlist.length > 0) {
       const firstSong = data.songlist[0]
-      log.info(`[TX SongList] 第一条歌曲结构`, {
+      log.info('[TX SongList] 第一条歌曲结构', {
         keys: Object.keys(firstSong),
         title: firstSong.title,
         name: firstSong.name,
@@ -293,7 +293,7 @@ export default {
       })
     }
 
-    log.info(`[TX SongList] 新接口 dissinfo 完整数据`, {
+    log.info('[TX SongList] 新接口 dissinfo 完整数据', {
       dissinfoKeys: data.dissinfo ? Object.keys(data.dissinfo) : [],
       dissinfo: data.dissinfo,
     })
@@ -305,17 +305,17 @@ export default {
     let visitnum = 0
 
     try {
-      log.info(`[TX SongList] getListDetailNew 开始请求旧接口`, { oldUrl: this.getListDetailUrl(id) })
+      log.info('[TX SongList] getListDetailNew 开始请求旧接口', { oldUrl: this.getListDetailUrl(id) })
       const oldUrl = this.getListDetailUrl(id)
       const { body: oldBody, statusCode } = await httpFetch(oldUrl, {
         headers: { Origin: 'https://y.qq.com', Referer: `https://y.qq.com/n/yqq/playsquare/${id}.html` },
       }).promise
-      log.info(`[TX SongList] 旧接口响应`, { statusCode, bodyCode: oldBody?.code, cdlistLength: oldBody?.cdlist?.length })
-      log.info(`[TX SongList] 旧接口完整返回`, { oldBodyKeys: oldBody ? Object.keys(oldBody) : [], oldBody })
+      log.info('[TX SongList] 旧接口响应', { statusCode, bodyCode: oldBody?.code, cdlistLength: oldBody?.cdlist?.length })
+      log.info('[TX SongList] 旧接口完整返回', { oldBodyKeys: oldBody ? Object.keys(oldBody) : [], oldBody })
 
       if (oldBody?.cdlist?.[0]) {
         const cdlist = oldBody.cdlist[0]
-        log.info(`[TX SongList] 旧接口 cdlist[0] 完整数据`, {
+        log.info('[TX SongList] 旧接口 cdlist[0] 完整数据', {
           cdlistKeys: Object.keys(cdlist),
           cdlist,
         })
@@ -324,31 +324,31 @@ export default {
         desc = cdlist.desc ? decodeName(cdlist.desc).replace(/<br>/g, '\n') : ''
         nickname = cdlist.nickname || ''
         visitnum = cdlist.visitnum || 0
-        log.info(`[TX SongList] 旧接口获取到歌单信息`, { dissname, logo, visitnum, desc: desc?.substring(0, 50), nickname })
+        log.info('[TX SongList] 旧接口获取到歌单信息', { dissname, logo, visitnum, desc: desc?.substring(0, 50), nickname })
       } else {
-        log.warn(`[TX SongList] 旧接口未返回 cdlist[0]，降级使用新接口`)
+        log.warn('[TX SongList] 旧接口未返回 cdlist[0]，降级使用新接口')
         dissname = data.dissinfo?.dissname || ''
         logo = data.dissinfo?.logo || ''
         desc = data.dissinfo?.desc ? decodeName(data.dissinfo.desc).replace(/<br>/g, '\n') : ''
         nickname = data.dissinfo?.nickname || ''
         visitnum = data.dissinfo?.visitnum || 0
-        log.info(`[TX SongList] 新接口 dissinfo 降级数据`, { dissname, logo, visitnum })
+        log.info('[TX SongList] 新接口 dissinfo 降级数据', { dissname, logo, visitnum })
       }
     } catch (e) {
-      log.error(`[TX SongList] 旧接口请求异常`, { error: e.message, stack: e.stack })
-      log.warn(`[TX SongList] 旧接口请求失败，降级使用新接口`)
+      log.error('[TX SongList] 旧接口请求异常', { error: e.message, stack: e.stack })
+      log.warn('[TX SongList] 旧接口请求失败，降级使用新接口')
       dissname = data.dissinfo?.dissname || ''
       logo = data.dissinfo?.logo || ''
       desc = data.dissinfo?.desc ? decodeName(data.dissinfo.desc).replace(/<br>/g, '\n') : ''
       nickname = data.dissinfo?.nickname || ''
       visitnum = data.dissinfo?.visitnum || 0
-      log.info(`[TX SongList] 新接口 dissinfo 降级数据`, { dissname, logo, visitnum })
+      log.info('[TX SongList] 新接口 dissinfo 降级数据', { dissname, logo, visitnum })
     }
 
-    log.info(`[TX SongList] getListDetailNew 最终返回歌单信息`, { dissname, logo, visitnum, descLen: desc?.length, nickname })
+    log.info('[TX SongList] getListDetailNew 最终返回歌单信息', { dissname, logo, visitnum, descLen: desc?.length, nickname })
 
     const totalSongNum = data.dissinfo?.songnum ?? data.songnum ?? data.total_song_num ?? data.songlist.length
-    log.info(`[TX SongList] getListDetailNew 分页信息`, { page, pageSize, returned: data.songlist.length, total: totalSongNum })
+    log.info('[TX SongList] getListDetailNew 分页信息', { page, pageSize, returned: data.songlist.length, total: totalSongNum })
 
     return {
       list: await this.filterListDetailNew(data.songlist),
@@ -367,63 +367,63 @@ export default {
   },
 
   async filterListDetailNew(rawList) {
-    log.info(`[TX SongList] filterListDetailNew 输入`, { count: rawList.length })
+    log.info('[TX SongList] filterListDetailNew 输入', { count: rawList.length })
     const qualityInfoRequest = getBatchMusicQualityInfo(rawList)
     let qualityInfoMap = {}
 
     try {
       qualityInfoMap = await qualityInfoRequest.promise
-      log.info(`[TX SongList] filterListDetailNew 质量信息获取成功`, { count: Object.keys(qualityInfoMap).length })
+      log.info('[TX SongList] filterListDetailNew 质量信息获取成功', { count: Object.keys(qualityInfoMap).length })
     } catch (error) {
-      log.error(`[TX SongList] filterListDetailNew 质量信息获取失败`, { error: error.message })
+      log.error('[TX SongList] filterListDetailNew 质量信息获取失败', { error: error.message })
     }
 
     const result = rawList
       .filter((item) => item.mid)
       .map((item) => {
-      const { types = [], _types = {} } = qualityInfoMap[item.id] || {}
+        const { types = [], _types = {} } = qualityInfoMap[item.id] || {}
 
-      return {
-        singer: formatSingerName(item.singer, 'name'),
-        name: item.title || item.name,
-        albumName: item.album.name,
-        albumId: item.album.mid,
-        source: 'tx',
-        interval: formatPlayTime(item.interval),
-        songId: item.id,
-        albumMid: item.album.mid,
-        strMediaMid: item.file?.media_mid || '',
-        songmid: item.mid,
-        img:
+        return {
+          singer: formatSingerName(item.singer, 'name'),
+          name: item.title || item.name,
+          albumName: item.album.name,
+          albumId: item.album.mid,
+          source: 'tx',
+          interval: formatPlayTime(item.interval),
+          songId: item.id,
+          albumMid: item.album.mid,
+          strMediaMid: item.file?.media_mid || '',
+          songmid: item.mid,
+          img:
           item.album.name === '' || item.album.name === '空'
             ? item.singer?.length
               ? `https://y.gtimg.cn/music/photo_new/T001R500x500M000${item.singer[0].mid}.jpg`
               : ''
             : `https://y.gtimg.cn/music/photo_new/T002R500x500M000${item.album.mid}.jpg`,
-        lrc: null,
-        otherSource: null,
-        types,
-        _types,
-        typeUrl: {},
-      }
-    })
-    log.info(`[TX SongList] filterListDetailNew 输出`, { count: result.length, firstSong: result.length > 0 ? result[0].name : 'none' })
+          lrc: null,
+          otherSource: null,
+          types,
+          _types,
+          typeUrl: {},
+        }
+      })
+    log.info('[TX SongList] filterListDetailNew 输出', { count: result.length, firstSong: result.length > 0 ? result[0].name : 'none' })
     return result
   },
 
   async getListDetail(id, page = 1, tryNum = 0) {
-    log.info(`[TX SongList] getListDetail 开始`, { id, page, tryNum })
+    log.info('[TX SongList] getListDetail 开始', { id, page, tryNum })
 
     if (tryNum > 2) {
-      log.error(`[TX SongList] getListDetail 重试次数超限`, { id, page, tryNum })
+      log.error('[TX SongList] getListDetail 重试次数超限', { id, page, tryNum })
       return Promise.reject(new Error('try max num'))
     }
 
     id = await this.getListId(id)
-    log.info(`[TX SongList] getListDetail 获取到真实ID`, { id })
+    log.info('[TX SongList] getListDetail 获取到真实ID', { id })
 
     if (id === '99') {
-      log.info(`[TX SongList] getListDetail 检测到猜你喜欢，使用特殊接口`)
+      log.info('[TX SongList] getListDetail 检测到猜你喜欢，使用特殊接口')
       try {
         const cookie = settingState.setting['common.tx_cookie']
         const payload = {
@@ -435,23 +435,23 @@ export default {
           },
         }
         const url = `https://u.y.qq.com/cgi-bin/musicu.fcg?loginUin=0&hostUin=0&format=json&inCharset=utf-8&outCharset=utf-8&notice=0&platform=wk_v15.json&needNewCode=0&data=${encodeURIComponent(JSON.stringify(payload))}`
-        
+
         const { body } = await httpFetch(url, {
           headers: {
-            'Cookie': cookie || '',
+            Cookie: cookie || '',
           },
         }).promise
-        
+
         const tracks = body?.req_0?.data?.tracks || []
-        log.info(`[TX SongList] getListDetail 猜你喜欢获取到tracks`, { count: tracks.length })
-        
+        log.info('[TX SongList] getListDetail 猜你喜欢获取到tracks', { count: tracks.length })
+
         if (tracks.length === 0) {
           throw new Error('猜你喜欢返回歌曲列表为空')
         }
-        
+
         const list = await this.filterListDetailNew(tracks)
-        log.info(`[TX SongList] getListDetail 猜你喜欢格式化完成`, { songCount: list.length })
-        
+        log.info('[TX SongList] getListDetail 猜你喜欢格式化完成', { songCount: list.length })
+
         return {
           list,
           page: 1,
@@ -467,18 +467,18 @@ export default {
           },
         }
       } catch (error) {
-        log.error(`[TX SongList] getListDetail 猜你喜欢获取失败`, { error: error.message })
+        log.error('[TX SongList] getListDetail 猜你喜欢获取失败', { error: error.message })
         throw error
       }
     }
 
-    log.info(`[TX SongList] getListDetail 使用 musicu.fcg 接口`)
+    log.info('[TX SongList] getListDetail 使用 musicu.fcg 接口')
     try {
       const result = await this.getListDetailNew(id, page)
-      log.info(`[TX SongList] getListDetail 获取成功`, { songCount: result.list.length })
+      log.info('[TX SongList] getListDetail 获取成功', { songCount: result.list.length })
       return result
     } catch (error) {
-      log.error(`[TX SongList] getListDetail 获取失败`, { error: error.message })
+      log.error('[TX SongList] getListDetail 获取失败', { error: error.message })
       return this.getListDetail(id, page, ++tryNum)
     }
   },
@@ -495,32 +495,32 @@ export default {
     return rawList
       .filter((item) => item.mid)
       .map((item) => {
-      const { types = [], _types = {} } = qualityInfoMap[item.id] || {}
+        const { types = [], _types = {} } = qualityInfoMap[item.id] || {}
 
-      return {
-        singer: formatSingerName(item.singer, 'name'),
-        name: item.title,
-        albumName: item.album.name,
-        albumId: item.album.mid,
-        source: 'tx',
-        interval: formatPlayTime(item.interval),
-        songId: item.id,
-        albumMid: item.album.mid,
-        strMediaMid: item.file.media_mid,
-        songmid: item.mid,
-        img:
+        return {
+          singer: formatSingerName(item.singer, 'name'),
+          name: item.title,
+          albumName: item.album.name,
+          albumId: item.album.mid,
+          source: 'tx',
+          interval: formatPlayTime(item.interval),
+          songId: item.id,
+          albumMid: item.album.mid,
+          strMediaMid: item.file.media_mid,
+          songmid: item.mid,
+          img:
           item.album.name === '' || item.album.name === '空'
             ? item.singer?.length
               ? `https://y.gtimg.cn/music/photo_new/T001R500x500M000${item.singer[0].mid}.jpg`
               : ''
             : `https://y.gtimg.cn/music/photo_new/T002R500x500M000${item.album.mid}.jpg`,
-        lrc: null,
-        otherSource: null,
-        types,
-        _types,
-        typeUrl: {},
-      }
-    })
+          lrc: null,
+          otherSource: null,
+          types,
+          _types,
+          typeUrl: {},
+        }
+      })
   },
   getTags() {
     return Promise.all([this.getTag(), this.getHotTag()]).then(([tags, hotTag]) => ({
@@ -564,14 +564,14 @@ export default {
       `http://c.y.qq.com/soso/fcgi-bin/client_music_search_songlist?page_no=${
         page - 1
       }&num_per_page=${limit}&format=json&query=${encodeURIComponent(
-        text
+        text,
       )}&remoteplace=txt.yqq.playlist&inCharset=utf8&outCharset=utf-8`,
       {
         headers: {
           'User-Agent': 'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; WOW64; Trident/5.0)',
           Referer: 'http://y.qq.com/portal/search.html',
         },
-      }
+      },
     ).promise.then(({ body }) => {
       if (body.code != 0) return this.searchOld(text, page, limit, ++retryNum)
       return {

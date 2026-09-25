@@ -1,5 +1,5 @@
 import { memo, useState, useCallback } from 'react'
-import {View, FlatList, RefreshControl, Keyboard} from 'react-native'
+import { View, FlatList, RefreshControl, Keyboard } from 'react-native'
 import ListItem from './ListItem'
 import { useWyFollowedArtists } from '@/store/user/hook.ts'
 import wyApi from '@/utils/musicSdk/wy/user'

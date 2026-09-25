@@ -32,7 +32,7 @@ export default memo(
 
     const checkExternalStoragePath = useCallback(() => {
       storagePathsRef.current = []
-      void getExternalStoragePaths().then(async (storagePaths) => {
+      void getExternalStoragePaths().then(async(storagePaths) => {
         for (const path of storagePaths) {
           try {
             if (!(await stat(path)).canRead) continue
@@ -100,7 +100,7 @@ export default memo(
         <NewFolderModal ref={newFolderTypeRef} onRefreshDir={onRefreshDir} />
       </>
     )
-  }
+  },
 )
 
 const styles = createStyle({

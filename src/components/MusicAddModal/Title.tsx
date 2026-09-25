@@ -3,7 +3,7 @@ import { createStyle } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
 
-export default ({ musicInfo, isMove }: { musicInfo: LX.Music.MusicInfo; isMove: boolean }) => {
+export default ({ musicInfo, isMove }: { musicInfo: LX.Music.MusicInfo, isMove: boolean }) => {
   const theme = useTheme()
   const t = useI18n()
   return (

@@ -121,7 +121,7 @@ export default {
           headers: {
             Referer: 'https://music.migu.cn/v3/music/player/audio?from=migu',
           },
-        }
+        },
       )
       requestObj.promise = requestObj.promise.then(({ body }) => {
         if (body.returnCode !== '000000' || !body.lyric) {

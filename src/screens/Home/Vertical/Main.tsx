@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentRef, type ReactNode } from 'react'
-import {Keyboard, View} from 'react-native'
+import { Keyboard, View } from 'react-native'
 import Search from '../Views/Search'
 import Discovery from '../Views/Discovery'
 import SongList from '../Views/SongList'
@@ -17,9 +17,9 @@ import DailyRec from '../Views/DailyRec'
 import TXDailyRec from '../Views/DailyRec/TXDailyRec'
 import MyPlaylist from '../Views/MyPlaylist'
 import FollowedArtists from '../Views/FollowedArtists'
-import SubscribedAlbums from '../Views/SubscribedAlbums';
-import {NAV_MENUS, type NAV_ID_Type, getEffectiveFlatOrder} from "@/config/constant.ts";
-import {useSettingValue} from "@/store/setting/hook.ts";
+import SubscribedAlbums from '../Views/SubscribedAlbums'
+import { NAV_MENUS, type NAV_ID_Type, getEffectiveFlatOrder } from '@/config/constant.ts'
+import { useSettingValue } from '@/store/setting/hook.ts'
 import PlayHistory from '../Views/PlayHistory'
 import { useTheme } from '@/store/theme/hook'
 import WebDAV from '../Views/WebDAV'
@@ -30,7 +30,7 @@ import KgPlaylist from '../Views/KgPlaylist'
 import KgDailyRec from '../Views/KgDailyRec'
 
 const hideKeys = ['list.isShowAlbumName', 'list.isShowInterval'] as Readonly<
-  Array<keyof LX.AppSetting>
+Array<keyof LX.AppSetting>
 >
 
 const SearchPage = () => {
@@ -275,37 +275,37 @@ const MylistPage = () => {
 }
 
 const MyPlaylistPage = () => {
-    const [visible, setVisible] = useState(commonState.navActiveId == 'nav_my_playlist')
-    const component = useMemo(() => <MyPlaylist />, [])
-    useEffect(() => {
-        let currentId: CommonState['navActiveId'] = commonState.navActiveId
-          const handleNavIdUpdate = (id: CommonState['navActiveId']) => {
-            currentId = id
-              if (id == 'nav_my_playlist') {
-                requestAnimationFrame(() => {
-                    setVisible(true)
-                  })
-              }
-          }
-        const handleHide = () => {
-            if (currentId != 'nav_setting') return
-            setVisible(false)
-          }
-        const handleConfigUpdated = (keys: Array<keyof LX.AppSetting>) => {
-            if (keys.some((k) => hideKeys.includes(k))) handleHide()
-          }
-        global.state_event.on('navActiveIdUpdated', handleNavIdUpdate)
-        global.state_event.on('themeUpdated', handleHide)
-        global.state_event.on('languageChanged', handleHide)
-        global.state_event.on('configUpdated', handleConfigUpdated)
+  const [visible, setVisible] = useState(commonState.navActiveId == 'nav_my_playlist')
+  const component = useMemo(() => <MyPlaylist />, [])
+  useEffect(() => {
+    let currentId: CommonState['navActiveId'] = commonState.navActiveId
+    const handleNavIdUpdate = (id: CommonState['navActiveId']) => {
+      currentId = id
+      if (id == 'nav_my_playlist') {
+        requestAnimationFrame(() => {
+          setVisible(true)
+        })
+      }
+    }
+    const handleHide = () => {
+      if (currentId != 'nav_setting') return
+      setVisible(false)
+    }
+    const handleConfigUpdated = (keys: Array<keyof LX.AppSetting>) => {
+      if (keys.some((k) => hideKeys.includes(k))) handleHide()
+    }
+    global.state_event.on('navActiveIdUpdated', handleNavIdUpdate)
+    global.state_event.on('themeUpdated', handleHide)
+    global.state_event.on('languageChanged', handleHide)
+    global.state_event.on('configUpdated', handleConfigUpdated)
 
-        return () => {
-            global.state_event.off('navActiveIdUpdated', handleNavIdUpdate)
-            global.state_event.off('themeUpdated', handleHide)
-            global.state_event.off('languageChanged', handleHide)
-            global.state_event.on('configUpdated', handleConfigUpdated)
-          }
-      }, [])
+    return () => {
+      global.state_event.off('navActiveIdUpdated', handleNavIdUpdate)
+      global.state_event.off('themeUpdated', handleHide)
+      global.state_event.off('languageChanged', handleHide)
+      global.state_event.on('configUpdated', handleConfigUpdated)
+    }
+  }, [])
 
   return visible ? component : null
 }
@@ -347,22 +347,22 @@ const FollowedArtistsPage = () => {
 }
 
 const SubscribedAlbumsPage = () => {
-  const [visible, setVisible] = useState(commonState.navActiveId == 'nav_subscribed_albums');
-  const component = useMemo(() => <SubscribedAlbums />, []);
+  const [visible, setVisible] = useState(commonState.navActiveId == 'nav_subscribed_albums')
+  const component = useMemo(() => <SubscribedAlbums />, [])
   useEffect(() => {
-    let currentId: CommonState['navActiveId'] = commonState.navActiveId;
+    let currentId: CommonState['navActiveId'] = commonState.navActiveId
     const handleNavIdUpdate = (id: CommonState['navActiveId']) => {
-      currentId = id;
+      currentId = id
       if (id == 'nav_subscribed_albums') {
         requestAnimationFrame(() => {
-          setVisible(true);
-        });
+          setVisible(true)
+        })
       }
-    };
+    }
     const handleHide = () => {
-      if (currentId != 'nav_setting') return;
-      setVisible(false);
-    };
+      if (currentId != 'nav_setting') return
+      setVisible(false)
+    }
     const handleConfigUpdated = (keys: Array<keyof LX.AppSetting>) => {
       if (keys.some((k) => hideKeys.includes(k))) handleHide()
     }
@@ -377,10 +377,9 @@ const SubscribedAlbumsPage = () => {
       global.state_event.off('languageChanged', handleHide)
       global.state_event.on('configUpdated', handleConfigUpdated)
     }
-  }, []);
-  return visible ? component : null;
-};
-
+  }, [])
+  return visible ? component : null
+}
 
 
 const WebDAVPage = () => {
@@ -586,104 +585,104 @@ const SettingPage = () => {
 }
 
 const Main = () => {
-  const pagerViewRef = useRef<ComponentRef<typeof PagerView>>(null);
+  const pagerViewRef = useRef<ComponentRef<typeof PagerView>>(null)
   const [activeNavId, setActiveNavIdState] = useState(commonState.navActiveId)
-  const navStatus = useSettingValue('common.navStatus');
-  const navOrder = useSettingValue('common.navOrder');
-  const navFlatOrder = useSettingValue('common.navFlatOrder');
+  const navStatus = useSettingValue('common.navStatus')
+  const navOrder = useSettingValue('common.navOrder')
+  const navFlatOrder = useSettingValue('common.navFlatOrder')
 
   // 与功能网格保持同一套“有效顺序”，否则过滤状态不一致时会跳到未挂载页面。
   // 优先使用用户自定义的扁平顺序 navFlatOrder，否则回退 navOrder。
-  const effectiveOrder = useMemo(() => getEffectiveFlatOrder(navFlatOrder, navOrder), [navFlatOrder, navOrder]);
+  const effectiveOrder = useMemo(() => getEffectiveFlatOrder(navFlatOrder, navOrder), [navFlatOrder, navOrder])
 
   const visibleNavs = useMemo(() => {
     return effectiveOrder.filter((id: NAV_ID_Type) => isMenuVisible(id, navStatus)).map((id: NAV_ID_Type) => {
-      const menuInfo = NAV_MENUS.find(menu => menu.id === id);
-      return menuInfo || { id, icon: 'unknown' };
-    });
-  }, [navStatus, effectiveOrder]);
+      const menuInfo = NAV_MENUS.find(menu => menu.id === id)
+      return menuInfo || { id, icon: 'unknown' }
+    })
+  }, [navStatus, effectiveOrder])
 
   const { viewMap, indexMap } = useMemo(() => {
-    const viewMap: Partial<Record<NAV_ID_Type, number>> = {};
-    const indexMap: NAV_ID_Type[] = [];
+    const viewMap: Partial<Record<NAV_ID_Type, number>> = {}
+    const indexMap: NAV_ID_Type[] = []
     visibleNavs.forEach((nav: { id: NAV_ID_Type }, index: number) => {
-      viewMap[nav.id] = index;
-      indexMap.push(nav.id);
-    });
-    return { viewMap, indexMap };
-  }, [visibleNavs]);
+      viewMap[nav.id] = index
+      indexMap.push(nav.id)
+    })
+    return { viewMap, indexMap }
+  }, [visibleNavs])
 
   const getInitialIndex = () => {
-    let idx = viewMap[commonState.navActiveId];
+    let idx = viewMap[commonState.navActiveId]
     if (idx == null && visibleNavs.length > 0) {
-      idx = 0;
+      idx = 0
     }
-    return idx ?? 0;
-  };
-  const activeIndexRef = useRef(getInitialIndex());
+    return idx ?? 0
+  }
+  const activeIndexRef = useRef(getInitialIndex())
   // 页面集（id + 顺序）签名：分组开关 / 侧边栏显隐变化时会改变页面集合。
   // iOS 上对运行中的 PagerView 原位重排子页面并立即 setPage，存在原生侧
   // “index out of bounds” 崩溃（release 下表现为整个 App 白屏）。用 key 让
   // 页面集变化时整体重建 PagerView 实例，initialPage 直接落到当前页，彻底避开该竞争。
-  const pagerKey = useMemo(() => `flat|${visibleNavs.map(n => n.id).join('|')}`, [visibleNavs]);
+  const pagerKey = useMemo(() => `flat|${visibleNavs.map(n => n.id).join('|')}`, [visibleNavs])
   // remount 时的初始页：以当前导航 id 在新顺序中的位置为准
-  const initialPageIndex = useMemo(() => viewMap[commonState.navActiveId] ?? 0, [viewMap]);
+  const initialPageIndex = useMemo(() => viewMap[commonState.navActiveId] ?? 0, [viewMap])
 
   const onPageSelected = useCallback(({ nativeEvent }: PagerViewOnPageSelectedEvent) => {
-    activeIndexRef.current = nativeEvent.position;
+    activeIndexRef.current = nativeEvent.position
     const selectedId = indexMap[activeIndexRef.current]
     if (!selectedId) return
     if (selectedId) setActiveNavIdState(selectedId)
     // 播放历史是抽屉底部入口调起的全屏浮层，不属于 PagerView 页面；
     // 用户 swipe 切页时不应把它覆盖回我的列表。
     if (commonState.navActiveId !== 'nav_play_history' && activeIndexRef.current !== viewMap[commonState.navActiveId]) {
-      setNavActiveId(selectedId);
+      setNavActiveId(selectedId)
     }
-  }, [indexMap, viewMap]);
+  }, [indexMap, viewMap])
 
   const onPageScrollStateChanged = useCallback(
     ({ nativeEvent }: PageScrollStateChangedNativeEvent) => {
-      Keyboard.dismiss();
-      const idle = nativeEvent.pageScrollState == 'idle';
-      if (global.lx.homePagerIdle != idle) global.lx.homePagerIdle = idle;
+      Keyboard.dismiss()
+      const idle = nativeEvent.pageScrollState == 'idle'
+      if (global.lx.homePagerIdle != idle) global.lx.homePagerIdle = idle
     },
-    []
-  );
+    [],
+  )
 
   useEffect(() => {
     // 播放历史是浮层，不是 PagerView 的页面；visibleNavs 变化时不要把它重置到第一页
     if (commonState.navActiveId === 'nav_play_history') return
-    let index = viewMap[commonState.navActiveId];
+    let index = viewMap[commonState.navActiveId]
     if (index == null && visibleNavs.length > 0) {
-      index = 0;
-      activeIndexRef.current = index;
+      index = 0
+      activeIndexRef.current = index
       if (visibleNavs[0]) {
-        setNavActiveId(visibleNavs[0].id);
+        setNavActiveId(visibleNavs[0].id)
       }
     } else if (index != null) {
       // 防御：索引必须在当前页面集范围内，避免对原生 pager 下发越界页码
       if (index >= visibleNavs.length) return
-      activeIndexRef.current = index;
-      pagerViewRef.current?.setPageWithoutAnimation(index);
+      activeIndexRef.current = index
+      pagerViewRef.current?.setPageWithoutAnimation(index)
     }
-  }, [viewMap, visibleNavs]);
+  }, [viewMap, visibleNavs])
 
   useEffect(() => {
     const handleConfigUpdated = (keys: Array<keyof LX.AppSetting>) => {
       if (keys.includes('common.navStatus')) {
         // 播放历史是浮层，不在可见菜单列表里，但不应被导航状态变更重置
         if (commonState.navActiveId === 'nav_play_history') return
-        const isActiveVisible = isMenuVisible(commonState.navActiveId, navStatus);
+        const isActiveVisible = isMenuVisible(commonState.navActiveId, navStatus)
         if (!isActiveVisible && visibleNavs.length > 0) {
-          setNavActiveId(visibleNavs[0].id);
+          setNavActiveId(visibleNavs[0].id)
         }
       }
-    };
-    global.state_event.on('configUpdated', handleConfigUpdated);
+    }
+    global.state_event.on('configUpdated', handleConfigUpdated)
     return () => {
-      global.state_event.off('configUpdated', handleConfigUpdated);
-    };
-  }, [navStatus, visibleNavs]);
+      global.state_event.off('configUpdated', handleConfigUpdated)
+    }
+  }, [navStatus, visibleNavs])
 
   useEffect(() => {
     const handleUpdate = (id: CommonState['navActiveId']) => {
@@ -691,22 +690,22 @@ const Main = () => {
       // 播放历史是浮层，切到它时不要同步 PagerView 页面，否则 setPageWithoutAnimation(0)
       // 会触发 onPageSelected，进而把 navActiveId 又覆盖成我的列表。
       if (id === 'nav_play_history') return
-      let index = viewMap[id];
+      let index = viewMap[id]
       if (index == null && visibleNavs.length > 0) {
-        index = 0;
+        index = 0
       }
       // 防御：索引必须在当前页面集范围内，避免对原生 pager 下发越界页码
       if (index != null && index < visibleNavs.length && activeIndexRef.current !== index) {
-        activeIndexRef.current = index;
-        pagerViewRef.current?.setPageWithoutAnimation(index);
+        activeIndexRef.current = index
+        pagerViewRef.current?.setPageWithoutAnimation(index)
       }
-    };
+    }
 
-    global.state_event.on('navActiveIdUpdated', handleUpdate);
+    global.state_event.on('navActiveIdUpdated', handleUpdate)
     return () => {
-      global.state_event.off('navActiveIdUpdated', handleUpdate);
-    };
-  }, [viewMap, visibleNavs]);
+      global.state_event.off('navActiveIdUpdated', handleUpdate)
+    }
+  }, [viewMap, visibleNavs])
 
   const pages = useMemo(() => {
     const pageComponents: Partial<Record<NAV_ID_Type, ReactNode>> = {
@@ -726,14 +725,14 @@ const Main = () => {
       nav_kg_playlist: <KgPlaylistPage />,
       nav_kg_daily_rec: <KgDailyRecPage />,
       nav_setting: <SettingPage />,
-    };
+    }
 
     return visibleNavs.map((nav: { id: NAV_ID_Type }) => (
       <View collapsable={false} key={nav.id} style={styles.pageStyle}>
         {pageComponents[nav.id] ?? null}
       </View>
-    ));
-  }, [visibleNavs]);
+    ))
+  }, [visibleNavs])
 
   return (
     <View style={styles.container}>
@@ -752,8 +751,8 @@ const Main = () => {
       </PagerView>
       <PlayHistoryOverlay />
     </View>
-  );
-};
+  )
+}
 
 const styles = createStyle({
   container: {

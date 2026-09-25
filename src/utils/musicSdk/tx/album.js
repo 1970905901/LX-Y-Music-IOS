@@ -78,7 +78,7 @@ export default {
       txLog.error('=== txApi.getAlbum 重试次数超限 ===', { albumMid, retryNum })
       return Promise.reject(new Error('获取专辑详情失败'))
     }
-    
+
     txLog.info('=== txApi.getAlbum 开始 ===', { albumMid, retryNum })
 
     const requestData = {
@@ -116,7 +116,7 @@ export default {
 
       const bodyCode = body?.code
       const reqCode = body?.req?.code
-      
+
       if (!body || !body.req || bodyCode != this.successCode || reqCode != this.successCode) {
         txLog.warn('=== txApi.getAlbum 获取失败 ===', {
           albumMid,
@@ -124,12 +124,12 @@ export default {
           reqCode,
           retryNum: retryNum + 1,
         })
-        
+
         if (reqCode === 104400 || reqCode === 500003) {
           txLog.warn('=== txApi.getAlbum 需要登录或参数错误，跳过重试 ===', { albumMid, reqCode })
           return Promise.reject(new Error(`获取专辑详情失败: 错误码${reqCode}`))
         }
-        
+
         return this.getAlbum(albumMid, ++retryNum)
       }
 
@@ -142,7 +142,7 @@ export default {
       })
 
       const list = this.handleResult(songList)
-      
+
       let detailInfo = null
       try {
         detailInfo = await this.getAlbumDetail(albumMid)
@@ -166,7 +166,7 @@ export default {
       }
 
       const info = this.handleAlbumInfo(data, albumMid, detailInfo)
-      
+
       txLog.info('=== txApi.getAlbum 最终专辑信息 ===', {
         albumMid,
         albumName: info.name,
@@ -193,11 +193,11 @@ export default {
 
   handleResult(rawList) {
     if (!rawList || !Array.isArray(rawList)) return []
-    
+
     txLog.info('=== txApi.handleAlbumResult 开始 ===', {
       rawListLength: rawList.length,
-      firstItem: rawList[0] ? { 
-        id: rawList[0].id, 
+      firstItem: rawList[0] ? {
+        id: rawList[0].id,
         name: rawList[0].title,
         hasSongInfo: !!rawList[0].songInfo,
         songInfoKeys: rawList[0].songInfo ? Object.keys(rawList[0].songInfo) : [],
@@ -207,7 +207,7 @@ export default {
     const list = []
     rawList.forEach((item, index) => {
       const songInfo = item.songInfo || item
-      
+
       txLog.info('=== txApi.handleAlbumResult 原始数据诊断 ===', {
         index,
         itemId: item.id,
@@ -223,7 +223,7 @@ export default {
         songInfoTitle: songInfo.title,
         songInfoKeys: Object.keys(songInfo),
       })
-      
+
       if (!songInfo.file?.media_mid) {
         txLog.info('=== txApi.handleAlbumResult 跳过无media_mid的歌曲 ===', {
           name: songInfo.title,
@@ -297,7 +297,7 @@ export default {
         qualitys: types,
         _qualitys: _types,
       }
-      
+
       txLog.info('=== txApi.handleAlbumResult 处理歌曲 ===', {
         index,
         songName: songInfo.title,
@@ -306,7 +306,7 @@ export default {
         hasMeta: !!processedMeta,
         metaSongmid: processedMeta.songmid,
       })
-      
+
       list.push({
         id: String(songInfo.id),
         singer: formatSingerName(songInfo.singer, 'name'),
@@ -342,13 +342,13 @@ export default {
 
   handleAlbumInfo(data, albumMid, detailInfo = null) {
     if (!data) return null
-    
+
     const songList = data.songList || data.list || []
     const firstSong = songList[0]
-    
+
     const basicInfo = detailInfo?.basicInfo || detailInfo?.album || {}
     const singers = detailInfo?.singers || detailInfo?.singer?.singerList || []
-    
+
     txLog.info('=== txApi.handleAlbumInfo 诊断 ===', {
       albumMid,
       basicInfoKeys: Object.keys(basicInfo),
@@ -366,12 +366,12 @@ export default {
       firstSongAlbumName: firstSong?.album?.name,
       firstSongSinger: firstSong?.singer?.map(s => ({ id: s.id, mid: s.mid, name: s.name })) || null,
     })
-    
+
     const artistName = singers.length ? formatSingerName(singers.map(s => ({ name: s.name || s.singerName })), 'name') : formatSingerName(firstSong?.singer || [], 'name')
-    const artistObj = singers.length 
+    const artistObj = singers.length
       ? singers.map(s => ({ id: s.id || s.singerId || s.singerMid, mid: s.mid || s.singerMid, name: s.name || s.singerName }))
       : (firstSong?.singer || []).map(s => ({ id: s.id || s.mid, mid: s.mid, name: s.name }))
-    
+
     return {
       id: albumMid,
       mid: albumMid,

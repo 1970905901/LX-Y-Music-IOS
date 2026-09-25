@@ -38,17 +38,17 @@ export default memo(() => {
       <CheckBoxItem
         check={isAutoTheme}
         label={t('setting_basic_theme_mode_auto')}
-        onChange={() => applyMode('auto')}
+        onChange={() => { applyMode('auto') }}
       />
       <CheckBoxItem
         check={!isAutoTheme && !isDarkMode}
         label={t('setting_basic_theme_mode_light')}
-        onChange={() => applyMode('light')}
+        onChange={() => { applyMode('light') }}
       />
       <CheckBoxItem
         check={!isAutoTheme && isDarkMode}
         label={t('setting_basic_theme_mode_dark')}
-        onChange={() => applyMode('dark')}
+        onChange={() => { applyMode('dark') }}
       />
     </View>
   )

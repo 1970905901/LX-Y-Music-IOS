@@ -53,7 +53,7 @@ const Image = memo(({ url, resizeMode = 'cover', style, onError, nativeID }: Ima
         setError(false)
       }
     })
-    return () => subscription.remove()
+    return () => { subscription.remove() }
   }, [isError])
 
   let uri = typeof url == 'number'
@@ -75,7 +75,7 @@ const Image = memo(({ url, resizeMode = 'cover', style, onError, nativeID }: Ima
           resizeMode={resizeMode}
           nativeID={nativeID}
         />
-      )
+        )
   )
 }, (prevProps, nextProps) => {
   return prevProps.url == nextProps.url &&

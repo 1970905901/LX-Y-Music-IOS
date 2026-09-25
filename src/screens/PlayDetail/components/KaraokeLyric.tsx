@@ -42,7 +42,7 @@ const KaraokeLyric = memo(({
       raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
+    return () => { cancelAnimationFrame(raf) }
   }, [words, lineTime])
 
   return (

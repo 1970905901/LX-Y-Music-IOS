@@ -16,16 +16,17 @@ import { stat, existsFile, readDir, readFile } from '@/utils/fs'
 import { searchMusic } from '@/utils/musicSdk'
 import { toNewMusicInfo } from '@/utils'
 import settingState from '@/store/setting/state'
+import type * as WebDAVDriveModule from '@/core/webdavMusic/drive'
 const appEvent = global.app_event
 
-let webDAVModule: typeof import('@/core/webdavMusic/drive') | null = null
+let webDAVModule: typeof WebDAVDriveModule | null = null
 let webDAVLog: {
   info: (...args: unknown[]) => void
   warn: (...args: unknown[]) => void
   error: (...args: unknown[]) => void
 } | null = null
 
-const loadWebDAVModule = async () => {
+const loadWebDAVModule = async() => {
   if (!webDAVModule) {
     webDAVModule = await import('@/core/webdavMusic/drive')
     const logger = await import('@/core/webdavMusic/logger')
@@ -36,11 +37,11 @@ const loadWebDAVModule = async () => {
 
 const getOtherSourceByLocal = async <T>(
   musicInfo: LX.Music.MusicInfoLocal,
-  handler: (infos: LX.Music.MusicInfoOnline[]) => Promise<T>
+  handler: (infos: LX.Music.MusicInfoOnline[]) => Promise<T>,
 ) => {
   let result: LX.Music.MusicInfoOnline[] = []
-  
-  const tryHandler = async (sources: LX.Music.MusicInfoOnline[]) => {
+
+  const tryHandler = async(sources: LX.Music.MusicInfoOnline[]) => {
     if (sources.length) {
       try {
         return await handler(sources)
@@ -61,18 +62,18 @@ const getOtherSourceByLocal = async <T>(
         name,
         singer,
       },
-      true
+      true,
     )
     const handlerResult1 = await tryHandler(result)
     if (handlerResult1 !== null) return handlerResult1
-    
+
     result = await getOtherSource(
       {
         ...musicInfo,
         name: singer,
         singer: name,
       },
-      true
+      true,
     )
     const handlerResult2 = await tryHandler(result)
     if (handlerResult2 !== null) return handlerResult2
@@ -92,18 +93,18 @@ const getOtherSourceByLocal = async <T>(
             name,
             singer,
           },
-          true
+          true,
         )
         const handlerResult3 = await tryHandler(result)
         if (handlerResult3 !== null) return handlerResult3
-        
+
         result = await getOtherSource(
           {
             ...musicInfo,
             name: singer,
             singer: name,
           },
-          true
+          true,
         )
         const handlerResult4 = await tryHandler(result)
         if (handlerResult4 !== null) return handlerResult4
@@ -114,7 +115,7 @@ const getOtherSourceByLocal = async <T>(
             name: fileName,
             singer: '',
           },
-          true
+          true,
         )
         const handlerResult5 = await tryHandler(result)
         if (handlerResult5 !== null) return handlerResult5
@@ -122,18 +123,18 @@ const getOtherSourceByLocal = async <T>(
     }
   }
 
-  const fuzzyResults = await searchMusic({ 
-    name: musicInfo.name, 
-    singer: '', 
-    source: '' 
+  const fuzzyResults = await searchMusic({
+    name: musicInfo.name,
+    singer: '',
+    source: '',
   })
-  
+
   if (fuzzyResults.length > 0) {
     const allOnlineResults: LX.Music.MusicInfoOnline[] = []
     for (const source of fuzzyResults) {
       allOnlineResults.push(...source.list.map((s: any) => toNewMusicInfo(s) as LX.Music.MusicInfoOnline))
     }
-    
+
     const sortedResults = allOnlineResults.sort((a, b) => {
       const name = musicInfo.name.toLowerCase()
       const aMatch = a.name.toLowerCase().includes(name) || name.includes(a.name.toLowerCase())
@@ -142,7 +143,7 @@ const getOtherSourceByLocal = async <T>(
       if (!aMatch && bMatch) return 1
       return 0
     })
-    
+
     const handlerResult6 = await tryHandler(sortedResults)
     if (handlerResult6 !== null) return handlerResult6
   }
@@ -150,7 +151,7 @@ const getOtherSourceByLocal = async <T>(
   throw new Error('source not found')
 }
 
-export const getMusicUrl = async ({
+export const getMusicUrl = async({
   musicInfo,
   isRefresh,
   allowToggleSource = true,
@@ -188,14 +189,14 @@ export const getMusicUrl = async ({
       ({ url, quality, isFromCache }) => {
         if (!isFromCache) void saveMusicUrl(musicInfo, quality, url)
         return url
-      }
+      },
     )
   } catch {}
 
   if (!allowToggleSource) throw new Error('failed')
 
   onToggleSource()
-  return getOtherSourceByLocal(musicInfo, async (otherSource) => {
+  return getOtherSourceByLocal(musicInfo, async(otherSource) => {
     return getOnlineOtherSourceMusicUrl({
       musicInfos: [...otherSource],
       onToggleSource,
@@ -210,7 +211,7 @@ export const getMusicUrl = async ({
   })
 }
 
-export const getPicUrl = async ({
+export const getPicUrl = async({
   musicInfo,
   listId,
   isRefresh,
@@ -224,7 +225,7 @@ export const getPicUrl = async ({
   onToggleSource?: (musicInfo?: LX.Music.MusicInfoOnline) => void
 }): Promise<string> => {
   const isWebDAVMusic = 'webdav' in musicInfo.meta && (musicInfo.meta as any).webdav === true
-  
+
   if (!isRefresh && !skipFilePic) {
     if (isWebDAVMusic) {
       // 网盘内封面文件优先（同目录同名 / 目录通用封面），下载到本地缓存
@@ -237,18 +238,18 @@ export const getPicUrl = async ({
       }
 
       const { picCachePath, readPic: extractPic } = await import('@/utils/localMediaMetadata')
-      
+
       const audioFileName = (musicInfo.meta as any).fileName?.replace(/\.[^/.]+$/, '') || musicInfo.name
       const coverExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp']
       let foundPicUrl = ''
-      
+
       try {
         const coverFiles = await readDir(picCachePath).catch(() => [])
         for (const file of coverFiles) {
           const fileName = file.name || ''
           const ext = fileName.substring(fileName.lastIndexOf('.')).toLowerCase()
           const baseName = fileName.substring(0, fileName.lastIndexOf('.'))
-          
+
           if (coverExtensions.includes(ext) && baseName.includes(audioFileName)) {
             foundPicUrl = `file://${picCachePath}/${fileName}`
             break
@@ -257,11 +258,11 @@ export const getPicUrl = async ({
       } catch (err) {
         webDAVLog?.warn('getPicUrl: failed to read cover cache dir', { err })
       }
-      
+
       if (foundPicUrl) {
         return foundPicUrl
       }
-      
+
       const webdavPath = settingState.setting['webdav.downloadPath']
       let downloadDir = ''
       if (webdavPath && typeof webdavPath === 'string' && webdavPath.trim()) {
@@ -272,7 +273,7 @@ export const getPicUrl = async ({
       }
       const audioFilePath = musicInfo.meta.filePath
       let targetFilePath = audioFilePath
-      
+
       if (audioFilePath) {
         const audioExists = await existsFile(audioFilePath).catch(() => false)
         if (!audioExists) {
@@ -281,7 +282,7 @@ export const getPicUrl = async ({
       } else {
         targetFilePath = `${downloadDir}/${(musicInfo.meta as any).fileName}`
       }
-      
+
       const targetExists = await existsFile(targetFilePath).catch(() => false)
       if (targetExists) {
         try {
@@ -289,12 +290,12 @@ export const getPicUrl = async ({
           if (pic) {
             const picUrl = pic.startsWith('/') ? `file://${pic}` : pic
             webDAVLog?.info('getPicUrl: extracted cover from audio', { picUrl })
-            
+
             const module = await loadWebDAVModule()
             void module.updateWebDAVMusicMeta(musicInfo.id, { picUrl })
-            
+
             appEvent.webdavPicUpdated(musicInfo.id, picUrl)
-            
+
             return picUrl
           }
         } catch (err) {
@@ -321,7 +322,7 @@ export const getPicUrl = async ({
       return ''
     }
 
-    let pic = await readPic(musicInfo.meta.filePath).catch(() => null)        
+    let pic = await readPic(musicInfo.meta.filePath).catch(() => null)
     if (pic) {
       if (pic.startsWith('/')) pic = `file://${pic}`
       return pic
@@ -342,18 +343,18 @@ export const getPicUrl = async ({
   if (isWebDAVMusic) return ''
 
   onToggleSource()
-  return getOtherSourceByLocal(musicInfo, async (otherSource) => {
+  return getOtherSourceByLocal(musicInfo, async(otherSource) => {
     return getOnlineOtherSourcePicUrl({
       musicInfos: [...otherSource],
       onToggleSource,
       isRefresh,
-    }).then(async ({ url, musicInfo: targetMusicInfo, isFromCache }) => {
+    }).then(async({ url, musicInfo: targetMusicInfo, isFromCache }) => {
       return url
     })
   })
 }
 
-const getMusicFileLyric = async (filePath: string) => {
+const getMusicFileLyric = async(filePath: string) => {
   const lyric = await readLyric(filePath).catch(() => null)
   if (!lyric) return null
   return {
@@ -362,7 +363,7 @@ const getMusicFileLyric = async (filePath: string) => {
 }
 
 // 读取音频文件同目录的同名 .lrc 歌词（离线可用）
-const getSidecarLyric = async (filePath: string): Promise<string | null> => {
+const getSidecarLyric = async(filePath: string): Promise<string | null> => {
   if (!filePath) return null
   const base = filePath.substring(0, filePath.lastIndexOf('.'))
   if (!base) return null
@@ -376,7 +377,7 @@ const getSidecarLyric = async (filePath: string): Promise<string | null> => {
   }
   return null
 }
-export const getLyricInfo = async ({
+export const getLyricInfo = async({
   musicInfo,
   isRefresh,
   skipFileLyric,
@@ -393,7 +394,7 @@ export const getLyricInfo = async ({
     if (isWebDAVMusic) {
       const playerLyricInfo = await getPlayerLyric(musicInfo)
       if (playerLyricInfo?.lyric && playerLyricInfo.rawlrcInfo?.lyric !== playerLyricInfo.lyric) {
-      webDAVLog?.info('getLyricInfo: WebDAV music using edited lyric', { musicId: musicInfo.id })
+        webDAVLog?.info('getLyricInfo: WebDAV music using edited lyric', { musicId: musicInfo.id })
         return buildLyricInfo(playerLyricInfo)
       }
 
@@ -448,11 +449,11 @@ export const getLyricInfo = async ({
       webDAVLog?.info('getLyricInfo: WebDAV music fetching lyric from online source', { musicId: musicInfo.id })
       try {
         return await getOnlineOtherSourceLyricByLocal(musicInfo, isRefresh).then(
-          ({ lyricInfo, isFromCache }) => {
+          async({ lyricInfo, isFromCache }) => {
             if (!isFromCache) void saveLyric(musicInfo, lyricInfo)
             webDAVLog?.info('getLyricInfo: WebDAV music fetched lyric successfully', { musicId: musicInfo.id })
             return buildLyricInfo(lyricInfo)
-          }
+          },
         )
       } catch (err) {
         webDAVLog?.warn('getLyricInfo: WebDAV music online lyric fetch failed', { err })
@@ -464,9 +465,9 @@ export const getLyricInfo = async ({
 
     const playerLyricInfo = await getPlayerLyric(musicInfo)
     if (playerLyricInfo?.lyric && playerLyricInfo.rawlrcInfo?.lyric !== playerLyricInfo.lyric) {
-    return buildLyricInfo(playerLyricInfo)
+      return buildLyricInfo(playerLyricInfo)
     }
-    
+
     const rawlrcInfo = await getMusicFileLyric(musicInfo.meta.filePath)
     if (rawlrcInfo) return buildLyricInfo(rawlrcInfo)
 
@@ -479,20 +480,20 @@ export const getLyricInfo = async ({
 
   try {
     return await getOnlineOtherSourceLyricByLocal(musicInfo, isRefresh).then(
-      ({ lyricInfo, isFromCache }) => {
+      async({ lyricInfo, isFromCache }) => {
         if (!isFromCache) void saveLyric(musicInfo, lyricInfo)
         return buildLyricInfo(lyricInfo)
-      }
+      },
     )
   } catch {}
 
   onToggleSource()
-  return getOtherSourceByLocal(musicInfo, async (otherSource) => {
+  return getOtherSourceByLocal(musicInfo, async(otherSource) => {
     return getOnlineOtherSourceLyricInfo({
       musicInfos: [...otherSource],
       onToggleSource,
       isRefresh,
-    }).then(async ({ lyricInfo, musicInfo: targetMusicInfo, isFromCache }) => {
+    }).then(async({ lyricInfo, musicInfo: targetMusicInfo, isFromCache }) => {
       void saveLyric(musicInfo, lyricInfo)
 
       if (isFromCache) return buildLyricInfo(lyricInfo)

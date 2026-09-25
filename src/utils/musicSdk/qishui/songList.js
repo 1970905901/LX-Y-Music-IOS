@@ -78,7 +78,7 @@ const extractPlaylistIdFromText = (text) => {
 // RN 的 fetch 自动跟随重定向，最终返回分享页 HTML。
 // RN 在 iOS 上不保证 response.url 一定是重定向后的最终 URL，
 // 所以 URL 与 HTML 两条路都走一遍，返回 { playlistId, trackId }。
-const resolveShortLink = async (url) => {
+const resolveShortLink = async(url) => {
   try {
     const resp = await httpFetch(url, {
       method: 'get',
@@ -131,7 +131,7 @@ export default {
         return fail(
           resolved.trackId
             ? '这是汽水音乐的单曲分享链接，请在汽水音乐内分享歌单后再打开'
-            : '汽水歌单链接或 ID 解析失败'
+            : '汽水歌单链接或 ID 解析失败',
         )
       }
       playlistId = resolved.playlistId

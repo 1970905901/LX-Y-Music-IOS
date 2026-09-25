@@ -1,20 +1,20 @@
-import { memo, useState, useEffect } from 'react';
-import { View, TouchableOpacity } from 'react-native';
-import Image from '@/components/common/Image';
-import ImagePreviewModal from '@/components/common/ImagePreviewModal';
-import Text from '@/components/common/Text';
-import { useTheme } from '@/store/theme/hook';
-import { createStyle, toast } from '@/utils/tools';
-import { dateFormat } from '@/utils/common';
-import { useStatusbarHeight } from '@/store/common/hook';
-import { Icon } from '@/components/common/Icon';
-import { navigations } from '@/navigation';
-import { useIsWyAlbumSubscribed } from '@/store/user/hook';
-import wyApi from '@/utils/musicSdk/wy/user';
-import { addWySubscribedAlbum, removeWySubscribedAlbum } from '@/store/user/action';
-import { type SubscribedAlbumInfo } from '@/store/user/state';
-import { log } from '@/utils/log';
-import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens';
+import { memo, useState, useEffect } from 'react'
+import { View, TouchableOpacity } from 'react-native'
+import Image from '@/components/common/Image'
+import ImagePreviewModal from '@/components/common/ImagePreviewModal'
+import Text from '@/components/common/Text'
+import { useTheme } from '@/store/theme/hook'
+import { createStyle, toast } from '@/utils/tools'
+import { dateFormat } from '@/utils/common'
+import { useStatusbarHeight } from '@/store/common/hook'
+import { Icon } from '@/components/common/Icon'
+import { navigations } from '@/navigation'
+import { useIsWyAlbumSubscribed } from '@/store/user/hook'
+import wyApi from '@/utils/musicSdk/wy/user'
+import { addWySubscribedAlbum, removeWySubscribedAlbum } from '@/store/user/action'
+import { type SubscribedAlbumInfo } from '@/store/user/state'
+import { log } from '@/utils/log'
+import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
 
 interface Props {
   albumInfo: any
@@ -22,11 +22,11 @@ interface Props {
 }
 
 export default memo(({ albumInfo, componentId }: Props) => {
-  const theme = useTheme();
-  const statusBarHeight = useStatusbarHeight();
-  const isSubscribed = useIsWyAlbumSubscribed(albumInfo.id);
-  const [isPreviewVisible, setPreviewVisible] = useState(false);
-  const albumPic = albumInfo.picUrl || albumInfo.img;
+  const theme = useTheme()
+  const statusBarHeight = useStatusbarHeight()
+  const isSubscribed = useIsWyAlbumSubscribed(albumInfo.id)
+  const [isPreviewVisible, setPreviewVisible] = useState(false)
+  const albumPic = albumInfo.picUrl || albumInfo.img
 
   useEffect(() => {
     log.info('[AlbumDetail/Header] albumInfo更新', {
@@ -39,18 +39,18 @@ export default memo(({ albumInfo, componentId }: Props) => {
   }, [albumInfo.id, albumInfo.publishTime, albumInfo.size, albumInfo.total])
 
   const handleArtistPress = (artist: any) => {
-    if (!artist.id && !artist.mid) return;
-    navigations.pushArtistDetailScreen(componentId, { id: String(artist.id || artist.mid), mid: artist.mid || artist.id, name: artist.name, picUrl: artist.picUrl, source: albumInfo.source });
-  };
+    if (!artist.id && !artist.mid) return
+    navigations.pushArtistDetailScreen(componentId, { id: String(artist.id || artist.mid), mid: artist.mid || artist.id, name: artist.name, picUrl: artist.picUrl, source: albumInfo.source })
+  }
 
   const toggleSubscribe = () => {
     if (!albumInfo.id) {
-      toast('正在加载专辑信息，请稍后...');
-      return;
+      toast('正在加载专辑信息，请稍后...')
+      return
     }
-    const newSubState = !isSubscribed;
+    const newSubState = !isSubscribed
     wyApi.subAlbum(String(albumInfo.id), newSubState).then(() => {
-      toast(newSubState ? '收藏成功' : '取消收藏成功');
+      toast(newSubState ? '收藏成功' : '取消收藏成功')
       if (newSubState) {
         const albumInfoForStore: SubscribedAlbumInfo = {
           id: albumInfo.id,
@@ -59,19 +59,19 @@ export default memo(({ albumInfo, componentId }: Props) => {
           artists: albumInfo.artists,
           publishTime: albumInfo.publishTime,
           size: albumInfo.size,
-        };
-        addWySubscribedAlbum(albumInfoForStore);
+        }
+        addWySubscribedAlbum(albumInfoForStore)
       } else {
-        removeWySubscribedAlbum(albumInfo.id);
+        removeWySubscribedAlbum(albumInfo.id)
       }
     }).catch((err: any) => {
-      toast(`操作失败: ${err.message}，可能是Cookie已失效，请重新登录`);
-    });
-  };
+      toast(`操作失败: ${err.message}，可能是Cookie已失效，请重新登录`)
+    })
+  }
 
 
   const artists = albumInfo.artists?.map((artist: any, index: number) => (
-      <TouchableOpacity key={artist.id || `${artist.name}_${index}`} onPress={() => handleArtistPress(artist)}>
+      <TouchableOpacity key={artist.id || `${artist.name}_${index}`} onPress={() => { handleArtistPress(artist) }}>
       <Text style={styles.artistName} size={designTypography.body} color={theme['c-primary-font']}>
           {artist.name}{index < albumInfo.artists.length - 1 ? ' / ' : ''}
         </Text>
@@ -81,7 +81,7 @@ export default memo(({ albumInfo, componentId }: Props) => {
   return (
     <View style={{ paddingTop: statusBarHeight }}>
       <View style={styles.headerContainer}>
-        <TouchableOpacity activeOpacity={0.85} disabled={!albumPic} onPress={() => setPreviewVisible(true)}>
+        <TouchableOpacity activeOpacity={0.85} disabled={!albumPic} onPress={() => { setPreviewVisible(true) }}>
           <Image
             url={albumPic}
             style={{ ...styles.albumArt, backgroundColor: theme['c-primary-light-900-alpha-200'] }}
@@ -111,7 +111,7 @@ export default memo(({ albumInfo, componentId }: Props) => {
         visible={isPreviewVisible}
         url={albumPic}
         name={albumInfo.name || 'album'}
-        onClose={() => setPreviewVisible(false)}
+        onClose={() => { setPreviewVisible(false) }}
       />
     </View>
   )
@@ -164,4 +164,4 @@ const styles = createStyle({
     justifyContent: 'center',
     marginLeft: designSpacing.sm,
   },
-});
+})

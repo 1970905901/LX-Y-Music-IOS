@@ -64,7 +64,7 @@ const Progress = ({
   // 手指层宽度由 Animated 直驱（拖动移动零 React 渲染），实时跟随手指
   const dragWidth = useMemo(
     () => dragProgressAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }),
-    [dragProgressAnim]
+    [dragProgressAnim],
   )
 
   return (

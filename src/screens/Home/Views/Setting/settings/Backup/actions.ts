@@ -17,19 +17,19 @@ import { confirmDialog, handleReadFile, handleSaveFile, showImportTip, toast } f
 import listState from '@/store/list/state'
 import downloadState from '@/store/download/state'
 
-const getAllLists = async () => {
+const getAllLists = async() => {
   const lists = []
   lists.push(
     await getListMusics(listState.defaultList.id).then((musics) => ({
       ...listState.defaultList,
       list: musics,
-    }))
+    })),
   )
   lists.push(
     await getListMusics(listState.loveList.id).then((musics) => ({
       ...listState.loveList,
       list: musics,
-    }))
+    })),
   )
 
   for await (const list of listState.userList) {
@@ -38,7 +38,7 @@ const getAllLists = async () => {
 
   return lists
 }
-const importOldListData = async (lists: any[]) => {
+const importOldListData = async(lists: any[]) => {
   const allLists = await getAllLists()
   for (const list of lists) {
     try {
@@ -68,10 +68,10 @@ const importOldListData = async (lists: any[]) => {
     userList: allLists as LX.List.UserListInfoFull[],
   })
 }
-const importNewListData = async (
+const importNewListData = async(
   lists: Array<
-    LX.List.MyDefaultListInfoFull | LX.List.MyLoveListInfoFull | LX.List.UserListInfoFull
-  >
+  LX.List.MyDefaultListInfoFull | LX.List.MyLoveListInfoFull | LX.List.UserListInfoFull
+  >,
 ) => {
   const allLists = await getAllLists()
   for (const list of lists) {
@@ -109,9 +109,9 @@ const importNewListData = async (
  * @param position
  * @returns
  */
-export const handleImportListPart = async (
+export const handleImportListPart = async(
   listData: LX.ConfigFile.MyListInfoPart['data'],
-  position: number = listState.userList.length
+  position: number = listState.userList.length,
 ) => {
   const targetList = listState.allList.find((l) => l.id === listData.id)
   if (targetList) {
@@ -156,7 +156,7 @@ export const handleImportListPart = async (
     })
 }
 
-const showConfirm = async () => {
+const showConfirm = async() => {
   return confirmDialog({
     message: global.i18n.t('list_import_part_confirm_tip'),
     cancelButtonText: global.i18n.t('dialog_cancel'),
@@ -165,7 +165,7 @@ const showConfirm = async () => {
   })
 }
 
-const importBackupData = async (data: LX.ConfigFile.AllDataV3['data']) => {
+const importBackupData = async(data: LX.ConfigFile.AllDataV3['data']) => {
   if (!(await showConfirm())) return true
 
   if (data.lists) await overwriteListFull(data.lists)
@@ -185,11 +185,11 @@ const importBackupData = async (data: LX.ConfigFile.AllDataV3['data']) => {
   if (data.settings) updateSetting(filterSensitiveSettingsForSync(data.settings))
 
   if (data.userApis) await overwriteUserApis(data.userApis)
-  
+
   toast('部分设置需要重启后生效')
 }
 
-const importPlayList = async (path: string) => {
+const importPlayList = async(path: string) => {
   let configData: any
   try {
     configData = await handleReadFile(path)
@@ -204,8 +204,8 @@ const importPlayList = async (path: string) => {
       await overwriteListMusics(
         LIST_IDS.DEFAULT,
         filterMusicList(
-          (configData.data as LX.List.MyDefaultListInfoFull).list.map((m) => toNewMusicInfo(m)) as LX.Music.MusicInfo[]
-        )
+          (configData.data as LX.List.MyDefaultListInfoFull).list.map((m) => toNewMusicInfo(m)) as LX.Music.MusicInfo[],
+        ),
       )
       break
     case 'playList':
@@ -218,16 +218,16 @@ const importPlayList = async (path: string) => {
       break
     case 'allData':
       if (!(await showConfirm())) return true
-      if (configData.defaultList)
+      if (configData.defaultList) {
         await overwriteListMusics(
           LIST_IDS.DEFAULT,
           filterMusicList(
             (configData.defaultList as LX.List.MyDefaultListInfoFull).list.map((m) =>
-              toNewMusicInfo(m)
-            ) as LX.Music.MusicInfo[]
-          )
+              toNewMusicInfo(m),
+            ) as LX.Music.MusicInfo[],
+          ),
         )
-      else await importOldListData(configData.playList)
+      } else await importOldListData(configData.playList)
       break
     case 'allData_v2':
       if (!(await showConfirm())) return true
@@ -237,14 +237,14 @@ const importPlayList = async (path: string) => {
       return importBackupData(configData.data as LX.ConfigFile.AllDataV3['data'])
     case 'playListPart':
       configData.data.list = filterMusicList(
-        (configData.data as LX.ConfigFile.MyListInfoPart['data']).list.map((m) => toNewMusicInfo(m)) as LX.Music.MusicInfo[]
+        (configData.data as LX.ConfigFile.MyListInfoPart['data']).list.map((m) => toNewMusicInfo(m)) as LX.Music.MusicInfo[],
       )
 
       void handleImportListPart(configData.data)
       return true
     case 'playListPart_v2':
       configData.data.list = filterMusicList(
-        (configData.data as LX.ConfigFile.MyListInfoPart['data']).list
+        (configData.data as LX.ConfigFile.MyListInfoPart['data']).list,
       ).map((m) => fixNewMusicInfoQuality(m))
 
       void handleImportListPart(configData.data)
@@ -269,12 +269,12 @@ export const handleImportList = (path: string) => {
     })
 }
 
-const exportAllList = async (path: string) => {
+const exportAllList = async(path: string) => {
   const data: LX.ConfigFile.AllDataV3 = JSON.parse(
     JSON.stringify({
       type: 'allData_v3',
       data: await getAllDataForSync(),
-    })
+    }),
   )
 
   try {
@@ -293,18 +293,18 @@ export const handleExportList = (path: string) => {
     .catch((err: any) => {
       log.error(err.message)
       toast(
-        global.i18n.t('setting_backup_part_export_list_tip_failed') + ': ' + (err.message as string)
+        global.i18n.t('setting_backup_part_export_list_tip_failed') + ': ' + (err.message as string),
       )
     })
 }
 
 // iOS 导出：写入指定文件（供系统分享面板使用）
-export const handleExportListToFile = async (filePath: string) => {
+export const handleExportListToFile = async(filePath: string) => {
   const data: LX.ConfigFile.AllDataV3 = JSON.parse(
     JSON.stringify({
       type: 'allData_v3',
       data: await getAllDataForSync(),
-    })
+    }),
   )
 
   try {

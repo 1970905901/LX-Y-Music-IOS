@@ -83,12 +83,12 @@ export const clearList = () => {
  * @param isRefresh Whether to skip cache
  * @returns
  */
-export const getList = async (
+export const getList = async(
   source: LX.OnlineSource,
   tabId: string,
   sortId: string,
   page: number,
-  isRefresh = false
+  isRefresh = false,
 ): Promise<ListInfo> => {
   let pageKey = `slist__${source}__${sortId}__${tabId}__${page}`
 
@@ -114,10 +114,10 @@ export const getList = async (
  * @param page Page number
  * @returns
  */
-const doGetListDetailLimit = async (
+const doGetListDetailLimit = async(
   source: LX.OnlineSource,
   id: string,
-  page: number
+  page: number,
 ): Promise<ListDetailInfo> => {
   const listKey = `sdetail__${source}__${id}`
   const prevPageKey = `sdetail__${source}__${id}__${page - 1}`
@@ -137,7 +137,7 @@ const doGetListDetailLimit = async (
         cache.set(listKey, (listCache = new Map()))
       }
       result.list = deduplicationList(
-        result.list.map((m) => toNewMusicInfo(m)).filter(Boolean) as LX.Music.MusicInfoOnline[]
+        result.list.map((m) => toNewMusicInfo(m)).filter(Boolean) as LX.Music.MusicInfoOnline[],
       )
       let p = page
       const tempList = listCache.get(tempListKey) as ListDetailInfo['list']
@@ -180,10 +180,10 @@ const doGetListDetailLimit = async (
 }
 
 // 带并发治理的 getListDetailLimit：同页去重 + 同歌单串行（见上方注释）
-const getListDetailLimit = (
+const getListDetailLimit = async(
   source: LX.OnlineSource,
   id: string,
-  page: number
+  page: number,
 ): Promise<ListDetailInfo> => {
   const listKey = `sdetail__${source}__${id}`
   const reqKey = `${listKey}__${page}`
@@ -192,7 +192,7 @@ const getListDetailLimit = (
   const prev = detailRequestQueues.get(listKey) ?? Promise.resolve()
   const run = prev
     .catch(() => {})
-    .then(() => doGetListDetailLimit(source, id, page))
+    .then(async() => doGetListDetailLimit(source, id, page))
     .finally(() => {
       if (inflightDetailRequests.get(reqKey) === run) inflightDetailRequests.delete(reqKey)
     })
@@ -226,11 +226,11 @@ export const clearListDetail = () => {
  * @param isRefresh Whether to skip cache
  * @returns
  */
-export const getListDetail = async (
+export const getListDetail = async(
   id: string,
   source: LX.OnlineSource,
   page: number,
-  isRefresh = false
+  isRefresh = false,
 ): Promise<ListDetailInfo> => {
   const listKey = `sdetail__${source}__${id}`
   const pageKey = `sdetail__${source}__${id}__${page}`
@@ -253,10 +253,10 @@ export const getListDetail = async (
  * @param isRefresh Whether to skip cache
  * @returns
  */
-export const getListDetailAll = async (
+export const getListDetailAll = async(
   source: LX.OnlineSource,
   id: string,
-  isRefresh = false
+  isRefresh = false,
 ): Promise<LX.Music.MusicInfoOnline[]> => {
   const listKey = `sdetail__${source}__${id}`
   let listCache = cache.get(listKey) as LimitDetailCache
@@ -264,7 +264,7 @@ export const getListDetailAll = async (
     cache.set(listKey, (listCache = new Map()))
   }
 
-  const loadData = async (page: number): Promise<ListDetailInfo> => {
+  const loadData = async(page: number): Promise<ListDetailInfo> => {
     const pageKey = `sdetail__${source}__${id}__${page}`
     let pageCache = listCache.get(pageKey) as DetailPageCache
     if (pageCache) return pageCache.data
@@ -304,6 +304,8 @@ export const clearListDetailCache = (source: LX.OnlineSource, id: string) => {
   }
   if (source === 'kg') {
     try {
+      // kg songList 模块反向引用 songlist 核心，必须延迟加载避免循环依赖。
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
       const kgSongList = require('@/utils/musicSdk/kg/songList').default
       kgSongList.evictDetailCache?.(id)
     } catch {}

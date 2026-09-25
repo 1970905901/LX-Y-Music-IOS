@@ -1,6 +1,6 @@
 import { NativeModules, Platform } from 'react-native'
 
-type NowPlayingInfoMetadata = {
+interface NowPlayingInfoMetadata {
   title?: string
   artist?: string
   album?: string
@@ -10,12 +10,12 @@ type NowPlayingInfoMetadata = {
   playbackRate?: number
 }
 
-type NowPlayingStateOptions = {
+interface NowPlayingStateOptions {
   elapsedTime?: number
   playbackRate?: number
 }
 
-type NativeNowPlayingModule = {
+interface NativeNowPlayingModule {
   updateNowPlayingInfo?: (metadata: NowPlayingInfoMetadata) => Promise<void>
   playNowPlaying?: (options?: NowPlayingStateOptions) => Promise<void>
   pauseNowPlaying?: (options?: NowPlayingStateOptions) => Promise<void>

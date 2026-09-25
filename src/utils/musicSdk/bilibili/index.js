@@ -4,18 +4,18 @@ import { searchLog } from '@/utils/searchLog'
 
 const log = searchLog
 
-const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.90 Safari/537.36"
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.90 Safari/537.36'
 const headers = {
-  "user-agent": UA,
-  accept: "*/*",
-  "accept-language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
+  'user-agent': UA,
+  accept: '*/*',
+  'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6',
 }
 
 async function getCid(bvid, aid) {
   log.info('[Bilibili] getCid 开始 - bvid: ' + bvid + ', aid: ' + aid)
   const params = bvid ? { bvid } : { aid }
   try {
-    const requestObj = httpFetch("https://api.bilibili.com/x/web-interface/view", { headers, params })
+    const requestObj = httpFetch('https://api.bilibili.com/x/web-interface/view', { headers, params })
     const { body } = await requestObj.promise
     log.info('[Bilibili] getCid - 原始响应类型: ' + typeof body)
     const data = typeof body === 'string' ? JSON.parse(body) : body
@@ -36,7 +36,7 @@ async function getBilibiliMusicUrl(musicInfo, type) {
   log.info('[Bilibili] 传入 type: ' + type)
   log.info('[Bilibili] 传入 musicInfo 类型: ' + (typeof musicInfo))
   log.info('[Bilibili] musicInfo 是否为 null/undefined: ' + (musicInfo == null))
-  
+
   if (musicInfo) {
     log.info('[Bilibili] musicInfo 所有键: ' + JSON.stringify(Object.keys(musicInfo)))
     log.info('[Bilibili] musicInfo.songmid: ' + JSON.stringify(musicInfo.songmid))
@@ -56,7 +56,7 @@ async function getBilibiliMusicUrl(musicInfo, type) {
   let cid = bilibiliData?.cid
 
   log.info('[Bilibili] 初步解析 - bvid: ' + bvid + ', aid: ' + aid + ', cid: ' + cid)
-  
+
   if (!bvid && !aid) {
     log.info('[Bilibili] bvid和aid都为空，尝试从songmid/id解析')
     const songmid = musicInfo?.songmid || musicInfo?.id
@@ -80,11 +80,11 @@ async function getBilibiliMusicUrl(musicInfo, type) {
       log.error('[Bilibili] songmid和id都为空，无法解析')
     }
   }
-  
+
   log.info('[Bilibili] 最终解析 - bvid: ' + bvid + ', aid: ' + aid + ', cid: ' + cid)
-  
+
   let cidRes = null
-  
+
   if (!cid) {
     log.info('[Bilibili] cid为空，开始获取cid')
     try {
@@ -93,7 +93,7 @@ async function getBilibiliMusicUrl(musicInfo, type) {
       log.info('[Bilibili] getCid data 结构: ' + JSON.stringify(cidRes?.data ? Object.keys(cidRes.data) : '无data'))
       cid = cidRes?.data?.cid
       log.info('[Bilibili] 获取到的cid值: ' + cid)
-      
+
       if (!cid) {
         log.error('[Bilibili] 获取cid失败 - cid为空')
         log.error('[Bilibili] cidRes.data: ' + JSON.stringify(cidRes?.data))
@@ -104,7 +104,7 @@ async function getBilibiliMusicUrl(musicInfo, type) {
       throw err
     }
   }
-  
+
   if (!cidRes) {
     try {
       cidRes = await getCid(bvid, aid)
@@ -112,7 +112,7 @@ async function getBilibiliMusicUrl(musicInfo, type) {
       log.warn('[Bilibili] 获取视频详情失败，跳过时长修正: ' + err.message)
     }
   }
-  
+
   if (cidRes?.data?.pages && Array.isArray(cidRes.data.pages)) {
     const pages = cidRes.data.pages
     if (pages.length > 1) {
@@ -132,7 +132,7 @@ async function getBilibiliMusicUrl(musicInfo, type) {
       log.info('[Bilibili] 单P视频，时长: ' + cidRes.data.duration + '秒')
     }
   }
-  
+
   const params = {
     ...(bvid ? { bvid } : { aid }),
     cid,
@@ -142,7 +142,7 @@ async function getBilibiliMusicUrl(musicInfo, type) {
 
   let requestObj
   try {
-    requestObj = httpFetch("https://api.bilibili.com/x/player/playurl", {
+    requestObj = httpFetch('https://api.bilibili.com/x/player/playurl', {
       headers,
       params,
     })
@@ -187,40 +187,40 @@ async function getBilibiliMusicUrl(musicInfo, type) {
 
   if (!data) {
     log.error('[Bilibili] data 为空 (null/undefined)')
-    throw new Error("响应数据为空")
+    throw new Error('响应数据为空')
   }
-  
+
   log.info('[Bilibili] data.code: ' + data.code + ', data.message: ' + data.message)
-  
+
   if (data.code !== undefined && data.code !== 0) {
     log.error('[Bilibili] API返回错误 - code: ' + data.code + ', message: ' + data.message)
-    throw new Error("API错误: " + (data.message || '未知错误'))
+    throw new Error('API错误: ' + (data.message || '未知错误'))
   }
-  
+
   log.info('[Bilibili] data.data 是否存在: ' + (data.data != null))
   if (!data.data) {
     log.error('[Bilibili] data.data 为空')
     log.error('[Bilibili] data 完整内容: ' + JSON.stringify(data))
-    throw new Error("无数据返回")
+    throw new Error('无数据返回')
   }
-  
+
   log.info('[Bilibili] data.data 键: ' + JSON.stringify(Object.keys(data.data)))
   log.info('[Bilibili] data.data.dash 是否存在: ' + (data.data.dash != null))
   log.info('[Bilibili] data.data.durl 是否存在: ' + (data.data.durl != null))
 
   let url = ''
-  
+
   if (data.data?.dash?.audio && Array.isArray(data.data.dash.audio) && data.data.dash.audio.length > 0) {
     const audios = data.data.dash.audio
     log.info('[Bilibili] dash模式 - 音频数量: ' + audios.length)
     audios.forEach((audio, idx) => {
       log.info('[Bilibili] dash音频[' + idx + ']: id=' + audio.id + ', bandwidth=' + audio.bandwidth + ', baseUrl存在=' + (audio.baseUrl != null) + ', base_url存在=' + (audio.base_url != null) + ', url长度=' + ((audio.baseUrl || audio.base_url || '').length))
     })
-    
+
     audios.sort((a, b) => a.bandwidth - b.bandwidth)
     log.info('[Bilibili] 按bandwidth排序后: ' + JSON.stringify(audios.map(a => ({ id: a.id, bandwidth: a.bandwidth }))))
     const len = audios.length
-    
+
     const findBestUrl = (audioList) => {
       for (const audio of audioList) {
         const candidateUrl = audio.baseUrl || audio.base_url
@@ -240,10 +240,10 @@ async function getBilibiliMusicUrl(musicInfo, type) {
       }
       return null
     }
-    
+
     log.info('[Bilibili] 选择音质 type: ' + type + ', len: ' + len)
     let selectedAudios = []
-    
+
     switch (type) {
       case '64k':
         selectedAudios = audios.filter(a => a.id === 30216)
@@ -260,9 +260,9 @@ async function getBilibiliMusicUrl(musicInfo, type) {
       default:
         selectedAudios = [audios[len - 1]]
     }
-    
+
     log.info('[Bilibili] 选择的音质 ID: ' + JSON.stringify(selectedAudios.map(a => a.id)))
-    
+
     url = findBestUrl(selectedAudios) || findBestUrl(audios)
     log.info('[Bilibili] 选择的URL是否为空: ' + (!url) + ', URL长度: ' + (url ? url.length : 0))
 
@@ -271,7 +271,7 @@ async function getBilibiliMusicUrl(musicInfo, type) {
       log.info('[Bilibili] 非mcdn URL，尝试重试获取mcdn节点')
       for (let retry = 0; retry < 2; retry++) {
         try {
-          const retryReq = await httpFetch("https://api.bilibili.com/x/player/playurl", {
+          const retryReq = await httpFetch('https://api.bilibili.com/x/player/playurl', {
             headers,
             params: { ...(bvid ? { bvid } : { aid }), cid, fnval: 16 },
           })
@@ -305,12 +305,12 @@ async function getBilibiliMusicUrl(musicInfo, type) {
 
   if (!url) {
     log.error('[Bilibili] 无法获取音频链接 - url为空')
-    throw new Error("无法获取音频链接")
+    throw new Error('无法获取音频链接')
   }
 
   log.info('[Bilibili] 成功获取URL，长度: ' + url.length)
 
-  let host = "upos-sz-mirror08c.bilivideo.com"
+  let host = 'upos-sz-mirror08c.bilivideo.com'
   try {
     const protoEndIndex = url.indexOf('://')
     if (protoEndIndex >= 0) {
@@ -327,11 +327,11 @@ async function getBilibiliMusicUrl(musicInfo, type) {
   }
 
   const _headers = {
-    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.90 Safari/537.36 Edg/89.0.774.63",
-    accept: "*/*",
-    host: host,
-    "accept-encoding": "gzip, deflate, br",
-    connection: "keep-alive",
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.90 Safari/537.36 Edg/89.0.774.63',
+    accept: '*/*',
+    host,
+    'accept-encoding': 'gzip, deflate, br',
+    connection: 'keep-alive',
     referer: `https://www.bilibili.com/video/${bvid || bilibiliData?.bvid || aid || bilibiliData?.aid || ''}`,
   }
 
@@ -346,13 +346,13 @@ async function getBilibiliMusicUrl(musicInfo, type) {
 
 const bilibili = {
   musicSearch,
-  
+
   songList: {
     sortList: [],
     getTags() {
       return Promise.resolve({
         tags: [],
-        hotTag: []
+        hotTag: [],
       })
     },
     getList() {
@@ -362,7 +362,7 @@ const bilibili = {
         page: 1,
         limit: 30,
         maxPage: 0,
-        key: null
+        key: null,
       })
     },
     getListDetail() {
@@ -373,7 +373,7 @@ const bilibili = {
         limit: 30,
         maxPage: 0,
         key: null,
-        info: {}
+        info: {},
       })
     },
     search() {
@@ -383,7 +383,7 @@ const bilibili = {
         limit: 30,
         source: 'bilibili',
       })
-    }
+    },
   },
 
   getMusicUrl(songInfo, type) {
@@ -391,7 +391,7 @@ const bilibili = {
     log.info('[Bilibili] getMusicUrl type: ' + type)
     log.info('[Bilibili] getMusicUrl songInfo 类型: ' + typeof songInfo)
     log.info('[Bilibili] getMusicUrl songInfo 是否为 null: ' + (songInfo == null))
-    
+
     if (songInfo) {
       log.info('[Bilibili] getMusicUrl songInfo 键: ' + JSON.stringify(Object.keys(songInfo)))
       log.info('[Bilibili] getMusicUrl songInfo.songmid: ' + JSON.stringify(songInfo.songmid))
@@ -408,7 +408,7 @@ const bilibili = {
     const bilibiliType = '192k'
     log.info('[Bilibili] 哔哩哔哩音源固定使用 192K 音质，忽略传入的 type: ' + type)
 
-    const requestObj = new Object()
+    const requestObj = {}
     requestObj.promise = getBilibiliMusicUrl(songInfo, bilibiliType)
       .then(result => {
         log.info('[Bilibili] getMusicUrl .then - result 类型: ' + typeof result)
@@ -435,14 +435,14 @@ const bilibili = {
 
   getPic(songInfo) {
     log.info('[Bilibili] getPic 被调用 - songInfo.name: ' + (songInfo?.name || '未知'))
-    const requestObj = new Object()
+    const requestObj = {}
     requestObj.promise = Promise.resolve(songInfo?.img || '')
     return requestObj
   },
 
   getLyric(songInfo) {
     log.info('[Bilibili] getLyric 被调用 - songInfo.name: ' + (songInfo?.name || '未知'))
-    const requestObj = new Object()
+    const requestObj = {}
     requestObj.promise = Promise.resolve({ lyric: '[00:00.00] 哔哩哔哩 (゜-゜)つロ 干杯~' })
     return requestObj
   },

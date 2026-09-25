@@ -6,7 +6,7 @@ export interface InitState {
   // 底部安全区高度（pt）：Home 指示器 / iPad 底部区域。
   // 底部弹层与列表据此补 paddingBottom，避免最后一行被系统 UI 遮挡。
   safeAreaBottom: number
-  componentIds: Array<{ name: COMPONENT_IDS; id: string }>
+  componentIds: Array<{ name: COMPONENT_IDS, id: string }>
   navActiveId: NAV_ID_Type
   lastNavActiveId: NAV_ID_Type
   sourceNames: Record<LX.OnlineSource | 'all', string>

@@ -13,14 +13,14 @@ export default {
   musicSearch(str, page, limit) {
     const searchRequest = httpFetch(
       `https://songsearch.kugou.com/song_search_v2?keyword=${encodeURIComponent(
-        str
+        str,
       )}&page=${page}&pagesize=${limit}&userid=0&clientver=&platform=WebFilter&filter=2&iscorrection=1&privilege_filter=0`,
       {
         headers: {
           Referer: 'https://www.kugou.com/',
           'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1',
         },
-      }
+      },
     )
     return searchRequest.promise.then(({ body }) => body)
   },
@@ -93,7 +93,7 @@ export default {
     if (limit == null) limit = this.limit
 
     return this.musicSearch(str, page, limit)
-      .then(async (result) => {
+      .then(async(result) => {
         // 接口偶发返回空 data/lists（error_code 为 0 但 data 为 null，或被风控返回空列表），
         // 同样视为失败重试，避免 handleResult 里访问 result.data.lists 抛 TypeError，
         // 也避免「明明有结果却搜不出来」的偶发空结果。
@@ -134,7 +134,7 @@ export default {
             Referer: 'https://www.kugou.com/',
             'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1',
           },
-        }
+        },
       )
       const { body } = await requestObj.promise
 
@@ -157,7 +157,7 @@ export default {
       const results = await Promise.all(detailPromises)
 
       const list = results.filter(item => item !== null && item.name)
-      
+
       return { list }
     } catch (err) {
       console.error('[KuGou] searchSinger error:', err)
@@ -175,7 +175,7 @@ export default {
             Referer: 'https://www.kugou.com/',
             'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1',
           },
-        }
+        },
       )
       const { body } = await requestObj.promise
       if (!body || body.error_code !== 0 || !body.data || !body.data.lists) {
@@ -187,7 +187,7 @@ export default {
       for (const item of body.data.lists) {
         const id = String(item.AlbumID || item.albumid || '')
         if (!id || id === '0' || albumMap.has(id)) continue
-        
+
         const img = (item.Image || item.img || item.AlbumImage || item.album_sizable_cover || '').replace('{size}', '480')
         albumMap.set(id, {
           id,
@@ -205,7 +205,7 @@ export default {
       const albumsToFetch = albums.slice(0, 30)
       const detailPromises = albumsToFetch.map(a => albumApi.getAlbumDetail(a.id, 1, 1).then(r => ({ id: a.id, size: r.total })).catch(() => null))
       const details = await Promise.all(detailPromises)
-      
+
       const detailMap = new Map()
       for (const detail of details) {
         if (detail) detailMap.set(detail.id, detail.size)
@@ -215,7 +215,7 @@ export default {
           album.size = detailMap.get(album.id)
         }
       }
-      
+
       return {
         list: albums,
         total: body.data.total || albums.length,

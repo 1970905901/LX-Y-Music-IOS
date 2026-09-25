@@ -50,13 +50,13 @@ export default memo(
           multiline
           style={StyleSheet.compose(
             { ...styles.textarea, backgroundColor: theme['c-primary-input-background'] },
-            style
+            style,
           )}
           {...props}
         />
       </View>
     )
-  }
+  },
 )
 
 const styles = createStyle({

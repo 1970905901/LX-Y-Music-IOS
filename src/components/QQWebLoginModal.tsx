@@ -1,24 +1,24 @@
-import { forwardRef, useImperativeHandle, useRef, useCallback, useEffect, useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, Animated } from 'react-native';
-import Modal, { type ModalType } from '@/components/common/Modal';
-import WebView, { type WebViewNavigation } from 'react-native-webview';
-import { useTheme } from '@/store/theme/hook';
-import { useStatusbarHeight } from '@/store/common/hook';
-import { Icon } from '@/components/common/Icon';
-import Text from '@/components/common/Text';
-import { toast } from '@/utils/tools';
-import CookieManager from '@react-native-cookies/cookies';
-import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens';
+import { forwardRef, useImperativeHandle, useRef, useCallback, useEffect, useState } from 'react'
+import { View, StyleSheet, TouchableOpacity, Animated } from 'react-native'
+import Modal, { type ModalType } from '@/components/common/Modal'
+import WebView, { type WebViewNavigation } from 'react-native-webview'
+import { useTheme } from '@/store/theme/hook'
+import { useStatusbarHeight } from '@/store/common/hook'
+import { Icon } from '@/components/common/Icon'
+import Text from '@/components/common/Text'
+import { toast } from '@/utils/tools'
+import CookieManager from '@react-native-cookies/cookies'
+import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
 
-const LOGIN_URL = 'https://y.qq.com/n/ryqq/login';
+const LOGIN_URL = 'https://y.qq.com/n/ryqq/login'
 
 export interface QQWebLoginModalType {
-  show: () => void;
+  show: () => void
 }
 
-const Header = ({ onClose, onLogout }: { onClose: () => void; onLogout: () => void }) => {
-  const theme = useTheme();
-  const statusBarHeight = useStatusbarHeight();
+const Header = ({ onClose, onLogout }: { onClose: () => void, onLogout: () => void }) => {
+  const theme = useTheme()
+  const statusBarHeight = useStatusbarHeight()
 
   return (
     <View
@@ -41,12 +41,12 @@ const Header = ({ onClose, onLogout }: { onClose: () => void; onLogout: () => vo
         <Text size={14} color="#ffffff">退出登录</Text>
       </TouchableOpacity>
     </View>
-  );
-};
+  )
+}
 
 const LoadingSpinner = () => {
-  const spinAnim = useRef(new Animated.Value(0)).current;
-  const theme = useTheme();
+  const spinAnim = useRef(new Animated.Value(0)).current
+  const theme = useTheme()
 
   useEffect(() => {
     Animated.loop(
@@ -54,14 +54,14 @@ const LoadingSpinner = () => {
         toValue: 1,
         duration: 1000,
         useNativeDriver: true,
-      })
-    ).start();
-  }, [spinAnim]);
+      }),
+    ).start()
+  }, [spinAnim])
 
   const spin = spinAnim.interpolate({
     inputRange: [0, 1],
     outputRange: ['0deg', '360deg'],
-  });
+  })
 
   return (
     <Animated.View
@@ -74,78 +74,78 @@ const LoadingSpinner = () => {
         },
       ]}
     />
-  );
-};
+  )
+}
 
 const QQWebLoginModal = forwardRef<QQWebLoginModalType, object>((props, ref) => {
-  const modalRef = useRef<ModalType>(null);
-  const webViewRef = useRef<any>(null);
-  const theme = useTheme();
-  const [isLoading, setIsLoading] = useState(true);
+  const modalRef = useRef<ModalType>(null)
+  const webViewRef = useRef<any>(null)
+  const theme = useTheme()
+  const [isLoading, setIsLoading] = useState(true)
 
   useImperativeHandle(ref, () => ({
     show() {
-      setIsLoading(true);
-      modalRef.current?.setVisible(true);
+      setIsLoading(true)
+      modalRef.current?.setVisible(true)
     },
-  }));
+  }))
 
   const handleClose = useCallback(() => {
-    modalRef.current?.setVisible(false);
-  }, []);
+    modalRef.current?.setVisible(false)
+  }, [])
 
   const handleNavigationStateChange = (navState: WebViewNavigation) => {
-    console.log('QQ登录: 页面导航状态变化:', navState.url);
-    setIsLoading(false);
-  };
+    console.log('QQ登录: 页面导航状态变化:', navState.url)
+    setIsLoading(false)
+  }
 
   const handleLoadStart = () => {
-    setIsLoading(true);
-  };
+    setIsLoading(true)
+  }
 
   const handleLoadEnd = () => {
-    setIsLoading(false);
-  };
+    setIsLoading(false)
+  }
 
-  const handleGetCookie = async () => {
-    console.log('QQ登录: 用户手动点击获取Cookie');
-    if (!webViewRef.current) return;
+  const handleGetCookie = async() => {
+    console.log('QQ登录: 用户手动点击获取Cookie')
+    if (!webViewRef.current) return
 
     try {
-      const cookies = await CookieManager.get(LOGIN_URL, true);
+      const cookies = await CookieManager.get(LOGIN_URL, true)
       const cookieString = Object.values(cookies)
         .map(c => `${c.name}=${c.value}`)
-        .join('; ');
-      console.log('QQ登录: CookieManager captured cookies:', cookieString);
+        .join('; ')
+      console.log('QQ登录: CookieManager captured cookies:', cookieString)
 
       if (!cookieString || cookieString.length < 10) {
-        toast('未获取到Cookie，可能是Cookie已失效，请重新登录');
-        return;
+        toast('未获取到Cookie，可能是Cookie已失效，请重新登录')
+        return
       }
 
-      (global.app_event as any).emit('tx-cookie-set', cookieString);
-      toast('Cookie获取成功！');
-      handleClose();
+      (global.app_event as any).emit('tx-cookie-set', cookieString)
+      toast('Cookie获取成功！')
+      handleClose()
     } catch (err) {
-      console.error('QQ登录: Cookie获取失败:', err);
-      toast('Cookie获取失败，请手动输入');
+      console.error('QQ登录: Cookie获取失败:', err)
+      toast('Cookie获取失败，请手动输入')
     }
-  };
+  }
 
-  const handleLogout = async () => {
-    console.log('QQ登录: 用户点击退出登录');
+  const handleLogout = async() => {
+    console.log('QQ登录: 用户点击退出登录')
     try {
       await CookieManager.clearAll();
-      (global.app_event as any).emit('tx-cookie-set', '');
-      toast('已退出登录');
+      (global.app_event as any).emit('tx-cookie-set', '')
+      toast('已退出登录')
       if (webViewRef.current) {
-        webViewRef.current.reload();
+        webViewRef.current.reload()
       }
     } catch (err) {
-      console.error('QQ登录: 退出登录失败:', err);
-      toast('退出登录失败');
+      console.error('QQ登录: 退出登录失败:', err)
+      toast('退出登录失败')
     }
-  };
+  }
 
   return (
     <Modal ref={modalRef} statusBarPadding={false} bgHide={false}>
@@ -183,10 +183,10 @@ const QQWebLoginModal = forwardRef<QQWebLoginModalType, object>((props, ref) => 
         </View>
       </View>
     </Modal>
-  );
-});
+  )
+})
 
-export default QQWebLoginModal;
+export default QQWebLoginModal
 
 const styles = StyleSheet.create({
   container: {
@@ -263,4 +263,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-});
+})

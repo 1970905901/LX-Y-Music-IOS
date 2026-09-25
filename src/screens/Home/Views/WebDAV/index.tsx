@@ -119,7 +119,7 @@ const SongItem = memo(
     onShowMenu: (
       item: LX.WebDAV.MusicInfo,
       index: number,
-      position: { x: number; y: number; w: number; h: number }
+      position: { x: number, y: number, w: number, h: number }
     ) => void
   }) => {
     const theme = useTheme()
@@ -155,7 +155,7 @@ const SongItem = memo(
             : theme['c-border-background'],
         }}
       >
-        <TouchableOpacity style={styles.songItemLeft} onPress={() => onPress(item)}>
+        <TouchableOpacity style={styles.songItemLeft} onPress={() => { onPress(item) }}>
           <View style={styles.sn}>
             {item.meta.picUrl ? (
               <Image url={item.meta.picUrl} style={styles.albumArt} cache={false} />
@@ -198,7 +198,7 @@ const SongItem = memo(
         </TouchableOpacity>
       </View>
     )
-  }
+  },
 )
 
 export default memo(() => {
@@ -263,7 +263,7 @@ export default memo(() => {
       if (lastSlashIndex === -1) return
       const folderPath = path.substring(0, lastSlashIndex) || '/'
       const folderName = folderPath === '/' ? '根目录' : (folderPath.split('/').pop() || '未知目录')
-      
+
       const existing = foldersMap.get(folderPath)
       if (existing) {
         existing.count++
@@ -274,11 +274,11 @@ export default memo(() => {
     return Array.from(foldersMap.values()).sort((a, b) => a.path.localeCompare(b.path))
   }, [songs])
 
-  const syncSongsCover = useCallback(async (songList: LX.WebDAV.MusicInfo[]) => {
+  const syncSongsCover = useCallback(async(songList: LX.WebDAV.MusicInfo[]) => {
     // 仅补充网盘内封面（快速直连下载到本地），不触发全平台搜索；
     // 全平台封面由播放详情页按需获取。限制并发 4，避免批量下载风暴。
     let index = 0
-    const workers = Array.from({ length: 4 }, async () => {
+    const workers = Array.from({ length: 4 }, async() => {
       while (index < songList.length) {
         const i = index++
         const song = songList[i]
@@ -297,8 +297,8 @@ export default memo(() => {
     setSongs([...songList])
   }, [])
 
-  const loadConfig = useCallback(() => {
-    void getWebDAVConfig().then(config => {
+  const loadConfig = useCallback(async() => {
+    return getWebDAVConfig().then(config => {
       setSelectedFolder(config.selectedFolder ?? null)
       const songs = config.songs ?? []
       setSongs(songs)
@@ -317,7 +317,7 @@ export default memo(() => {
     setLoading(true)
     setScanText('正在加载标签...')
     void Promise.all(
-      songs.map(async (song) => {
+      songs.map(async(song) => {
         if (!song.meta.filePath) return song
         try {
           const fileMetadata = await readMetadata(song.meta.filePath).catch(() => null)
@@ -339,8 +339,8 @@ export default memo(() => {
           // ignore
         }
         return song
-      })
-    ).then(() => {
+      }),
+    ).then(async() => {
       return getWebDAVConfig()
     }).then((config) => {
       setSongs(config.songs ?? [])
@@ -356,13 +356,13 @@ export default memo(() => {
   }, [songs])
 
   const showMenu = useCallback(
-    (musicInfo: LX.WebDAV.MusicInfo, index: number, position: { x: number; y: number; w: number; h: number }) => {
+    (musicInfo: LX.WebDAV.MusicInfo, index: number, position: { x: number, y: number, w: number, h: number }) => {
       webDAVListMenuRef.current?.show(
         { musicInfo, index },
-        position
+        position,
       )
     },
-    []
+    [],
   )
 
   const handlePlay = useCallback(
@@ -371,7 +371,7 @@ export default memo(() => {
       if (index < 0) return
       void overwriteListMusics(LIST_IDS.TEMP, songs).then(() => {
         void playList(LIST_IDS.TEMP, index).then(() => {
-          void (async () => {
+          void (async() => {
             const config = await getWebDAVConfig()
             const updatedSongs = config.songs ?? []
             setSongs(updatedSongs)
@@ -380,7 +380,7 @@ export default memo(() => {
         })
       })
     },
-    [songs]
+    [songs],
   )
 
   const handlePlayLater = useCallback((info: WebDAVSelectInfo) => {
@@ -392,7 +392,7 @@ export default memo(() => {
     toast('已添加到稍后播放')
   }, [])
 
-  const handleLoadMetadata = useCallback(async (info: WebDAVSelectInfo) => {
+  const handleLoadMetadata = useCallback(async(info: WebDAVSelectInfo) => {
     const musicInfo = info.musicInfo
     if (!musicInfo.meta.filePath) {
       toast('请先下载歌曲')
@@ -402,12 +402,12 @@ export default memo(() => {
       toast('正在读取标签...')
       const fileMetadata = await readMetadata(musicInfo.meta.filePath)
       const picPath = await readPic(musicInfo.meta.filePath).catch(() => null)
-      
+
       if (!fileMetadata) {
         toast('没有找到标签信息')
         return
       }
-      
+
       const updates: Record<string, any> = {}
       if (fileMetadata.albumName) updates.albumName = fileMetadata.albumName
       if (fileMetadata.name && !musicInfo.name) updates.name = fileMetadata.name
@@ -416,13 +416,13 @@ export default memo(() => {
         const newPicUrl = picPath.startsWith('/') ? `file://${picPath}` : picPath
         updates.picUrl = newPicUrl
       }
-      
+
       if (Object.keys(updates).length > 0) {
         await updateWebDAVMusicMeta(musicInfo.id, updates)
-        setSongs(prevSongs => prevSongs.map(song => 
-          song.id === musicInfo.id 
+        setSongs(prevSongs => prevSongs.map(song =>
+          song.id === musicInfo.id
             ? { ...song, ...updates, meta: { ...song.meta, ...updates } }
-            : song
+            : song,
         ))
         toast('标签加载成功')
       } else {
@@ -436,10 +436,10 @@ export default memo(() => {
   const handleDownload = useCallback((info: WebDAVSelectInfo) => {
     void handleWebDAVDownload(info.musicInfo).then((newPicUrl) => {
       if (newPicUrl) {
-        setSongs(prevSongs => prevSongs.map(song => 
-          song.id === info.musicInfo.id 
+        setSongs(prevSongs => prevSongs.map(song =>
+          song.id === info.musicInfo.id
             ? { ...song, meta: { ...song.meta, picUrl: newPicUrl } }
-            : song
+            : song,
         ))
       }
     })
@@ -447,10 +447,10 @@ export default memo(() => {
 
   const handleFetchPicFromOnline = useCallback((info: WebDAVSelectInfo) => {
     void handleFetchWebDAVPicFromOnline(info.musicInfo).then((newPicUrl) => {
-      setSongs(prevSongs => prevSongs.map(song => 
-        song.id === info.musicInfo.id 
+      setSongs(prevSongs => prevSongs.map(song =>
+        song.id === info.musicInfo.id
           ? { ...song, meta: { ...song.meta, picUrl: newPicUrl } }
-          : song
+          : song,
       ))
     })
   }, [])
@@ -462,7 +462,7 @@ export default memo(() => {
 
   const handleUpdateMetadata = useCallback(() => {
     if (!selectedMusicInfoRef.current) return
-    void loadConfig()
+    loadConfig().catch(() => {})
   }, [loadConfig])
 
   const handleRemove = useCallback((info: WebDAVSelectInfo) => {
@@ -535,10 +535,10 @@ export default memo(() => {
       setSongs(prevSongs => prevSongs.map(song =>
         song.id === musicId
           ? { ...song, meta: { ...song.meta, picUrl } }
-          : song
+          : song,
       ))
     }
-    
+
     global.app_event.on('webdavPicUpdated', handleWebdavPicUpdated)
     return () => {
       global.app_event.off('webdavPicUpdated', handleWebdavPicUpdated)
@@ -631,10 +631,10 @@ export default memo(() => {
       pendingJumpIdRef.current = musicInfo.id
       scrollToMusic(musicInfo.id)
     }
-    // @ts-ignore - jumpWebDAVPosition is a custom event
+    // @ts-expect-error - jumpWebDAVPosition is a custom event
     global.app_event.on('jumpWebDAVPosition', handleJumpPosition)
     return () => {
-      // @ts-ignore - jumpWebDAVPosition is a custom event
+      // @ts-expect-error - jumpWebDAVPosition is a custom event
       global.app_event.off('jumpWebDAVPosition', handleJumpPosition)
     }
   }, [scrollToMusic])
@@ -665,7 +665,7 @@ export default memo(() => {
         onShowMenu={showMenu}
       />
     ),
-    [handlePlay, showMenu, playMusicInfo.musicInfo?.id, rowInfo.rowWidth]
+    [handlePlay, showMenu, playMusicInfo.musicInfo?.id, rowInfo.rowWidth],
   )
 
   const headerText = useMemo(() => {
@@ -703,9 +703,9 @@ export default memo(() => {
     <>
       <PageTopInset />
       <View style={{ ...styles.tabs, borderBottomColor: theme['c-border-background'] }}>
-        <TabButton label="列表" tab="list" activeTab={activeTab} onPress={() => setActiveTab('list')} />
-        <TabButton label="文件列表" tab="folders" activeTab={activeTab} onPress={() => setActiveTab('folders')} />
-        <TabButton label="配置" tab="config" activeTab={activeTab} onPress={() => setActiveTab('config')} />
+        <TabButton label="列表" tab="list" activeTab={activeTab} onPress={() => { setActiveTab('list') }} />
+        <TabButton label="文件列表" tab="folders" activeTab={activeTab} onPress={() => { setActiveTab('folders') }} />
+        <TabButton label="配置" tab="config" activeTab={activeTab} onPress={() => { setActiveTab('config') }} />
       </View>
     </>
   )
@@ -739,7 +739,7 @@ export default memo(() => {
           <Button
             style={{ ...styles.button, backgroundColor: theme['c-button-background'] }}
             disabled={!hasConfig || folderLoading || !folderStack.length}
-            onPress={() => setFolderStack(prev => prev.slice(0, -1))}
+            onPress={() => { setFolderStack(prev => prev.slice(0, -1)) }}
           >
             <Text color={theme['c-button-font']}>返回上级</Text>
           </Button>
@@ -761,7 +761,7 @@ export default memo(() => {
             <TouchableOpacity
               key={folder.id}
               style={{ ...styles.folderItem, borderBottomColor: theme['c-border-background'] }}
-              onPress={() => setFolderStack(prev => [...prev, folder])}
+              onPress={() => { setFolderStack(prev => [...prev, folder]) }}
             >
               <Text numberOfLines={1}>{folder.name}</Text>
               <Text size={11} color={theme['c-font-label']} numberOfLines={1}>
@@ -864,7 +864,7 @@ export default memo(() => {
                   {filterPath ? `文件夹：${filterPath.split('/').pop() || '根目录'}` : `已选择：${getFolderName(selectedFolder)}`}
                 </Text>
                 {filterPath ? (
-                  <TouchableOpacity onPress={() => handleSetFilterPath(null)} style={{ marginLeft: 8 }}>
+                  <TouchableOpacity onPress={() => { handleSetFilterPath(null) }} style={{ marginLeft: 8 }}>
                     <Icon name="close" size={12} color={theme['c-primary-font']} />
                   </TouchableOpacity>
                 ) : null}
@@ -873,7 +873,7 @@ export default memo(() => {
                 {scanText || headerText}
               </Text>
             </View>
-              )}
+          )}
               </View>
               <TouchableOpacity style={styles.headerIconButton} onPress={handleToggleSearch}>
                 <Icon name="search-2" size={16} color={searchVisible ? theme['c-primary-font'] : theme['c-font-label']} />
@@ -937,7 +937,7 @@ export default memo(() => {
       {activeTab === 'config' ? renderConfig() : activeTab === 'folders' ? renderFolders() : renderList()}
       <WebDAVListMenu
         ref={webDAVListMenuRef}
-        onPlay={(info) => handlePlay(info.musicInfo)}
+        onPlay={(info) => { handlePlay(info.musicInfo) }}
         onPlayLater={handlePlayLater}
         onDownload={handleDownload}
         onFetchPicFromOnline={handleFetchPicFromOnline}

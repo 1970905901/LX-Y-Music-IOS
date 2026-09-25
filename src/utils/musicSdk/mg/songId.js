@@ -1,7 +1,7 @@
 // import { httpFetch } from '../../request'
 import { getMusicInfo } from './musicInfo'
 
-const getSongId = async (mInfo) => {
+const getSongId = async(mInfo) => {
   if (mInfo.songmid != mInfo.copyrightId) return mInfo.songmid
   const musicInfo = await getMusicInfo(mInfo.copyrightId)
   return musicInfo.songmid

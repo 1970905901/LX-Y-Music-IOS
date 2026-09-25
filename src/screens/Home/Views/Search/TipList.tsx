@@ -19,7 +19,7 @@ export const debounceTipSearch = debounce(
     // console.log(reslutList)
     void musicSdk[source].tipSearch.search(keyword).then(callback)
   },
-  200
+  200,
 )
 
 export type SearchTipListProps = _SearchTipListProps<string>
@@ -102,7 +102,7 @@ export default forwardRef<TipListType, TipListProps>(({ onSearch }, ref) => {
         })
       },
     }),
-    [visible]
+    [visible],
   )
 
   const renderItem: SearchTipListProps['renderItem'] = ({ item, index }) => {

@@ -33,7 +33,7 @@ export default memo(
         step={step}
       />
     )
-  }
+  },
 )
 
 const styles = createStyle({

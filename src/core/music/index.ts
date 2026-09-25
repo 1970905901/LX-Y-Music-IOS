@@ -27,7 +27,7 @@ const getTaskTarget = (musicInfo: LX.Download.ListItem): localPlay.LocalPlayTarg
   }
 }
 
-export const getMusicUrl = async ({
+export const getMusicUrl = async({
   musicInfo,
   quality,
   isRefresh = false,
@@ -82,7 +82,7 @@ export const getMusicUrl = async ({
 // 取链并返回「链接 + 实际音质」，供播放器判断能否走原生 FLAC 高精度路径。
 // 参考 Q-1515/lx-music-mobile ios-adaptation：播放核心使用 getMusicUrlInfo，
 // 本项目的本地/WebDAV/汽水链路没有音质回传，故回退为请求时指定的音质（缺省 null）。
-export const getMusicUrlInfo = async ({
+export const getMusicUrlInfo = async({
   musicInfo,
   quality,
   isRefresh = false,
@@ -99,7 +99,7 @@ export const getMusicUrlInfo = async ({
   return { url, quality: quality ?? null }
 }
 
-export const getPicPath = async ({
+export const getPicPath = async({
   musicInfo,
   isRefresh = false,
   listId,
@@ -142,7 +142,7 @@ export const getPicPath = async ({
   }
 }
 
-export const getLyricInfo = async ({
+export const getLyricInfo = async({
   musicInfo,
   isRefresh = false,
   onToggleSource,

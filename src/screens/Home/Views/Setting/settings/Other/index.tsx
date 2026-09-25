@@ -7,7 +7,6 @@ import Log from './Log'
 // import MaxCache from './MaxCache'
 
 export default memo(() => {
-
   return (
     <Section sectionId="setting_other">
       <MetaCache />

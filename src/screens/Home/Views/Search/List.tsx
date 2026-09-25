@@ -5,12 +5,12 @@ import type { Source as SongListSource } from '@/store/search/songlist/state'
 import MusicList, { type MusicListType } from './MusicList'
 import BlankView, { type BlankViewType } from './BlankView'
 import SonglistList from './SonglistList'
-import SearchResultList from "@/screens/Home/Views/Search/SearchResultList.tsx";
+import SearchResultList from '@/screens/Home/Views/Search/SearchResultList.tsx'
 
 interface ListProps {
   header?: ReactElement
   onSearch: (keyword: string) => void
-  onOpenDetail: (item: any) => void;
+  onOpenDetail: (item: any) => void
 }
 export interface ListType {
   loadList: (
@@ -46,7 +46,7 @@ export default forwardRef<ListType, ListProps>(({ header, onSearch, onOpenDetail
         }
       },
     }),
-    []
+    [],
   )
 
   const renderList = () => {

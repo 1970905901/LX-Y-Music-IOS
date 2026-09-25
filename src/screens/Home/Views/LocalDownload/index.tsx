@@ -143,7 +143,7 @@ const SongRow = memo(
         )}
       </TouchableOpacity>
     )
-  }
+  },
 )
 
 export default memo(() => {
@@ -165,13 +165,13 @@ export default memo(() => {
 
   const completedTasks = useMemo(
     () => tasks.filter(task => task.status === 'completed' && task.filePath),
-    [tasks]
+    [tasks],
   )
 
   // 读取已完成下载文件的真实大小（progress.total 在某些场景为 0，导致页面上不显示大小）
   const completedKey = useMemo(
     () => completedTasks.map(task => task.id).join(','),
-    [completedTasks]
+    [completedTasks],
   )
   useEffect(() => {
     let active = true
@@ -188,7 +188,7 @@ export default memo(() => {
         } catch {
           return null
         }
-      })
+      }),
     ).then(results => {
       if (!active) return
       const next: Record<string, number> = {}
@@ -203,7 +203,7 @@ export default memo(() => {
   }, [completedKey])
 
   // 扫描下载路径下的「本地」文件夹
-  const scanLocalDir = useCallback(async () => {
+  const scanLocalDir = useCallback(async() => {
     setLoading(true)
     try {
       await mkdir(localDir).catch(() => {})
@@ -247,7 +247,7 @@ export default memo(() => {
         void playList(LIST_IDS.TEMP, index)
       })
     },
-    [localFiles]
+    [localFiles],
   )
 
   const handlePlayTask = useCallback(
@@ -257,7 +257,7 @@ export default memo(() => {
         void playList(LIST_IDS.TEMP, index)
       })
     },
-    [completedTasks]
+    [completedTasks],
   )
 
   // 批量管理模式：点击行改为切换选中，底部出现 全选 / 已选 / 删除 操作栏
@@ -297,7 +297,7 @@ export default memo(() => {
         const task = completedTasks.find(t => t.id === id)
         if (!task) continue
         const removeFile = task.filePath ? unlink(task.filePath).catch(() => {}) : Promise.resolve()
-        void removeFile.then(() => downloadActions.removeTask(id))
+        void removeFile.then(() => { downloadActions.removeTask(id) })
       }
     } else {
       for (const id of selectedIds) {
@@ -347,7 +347,7 @@ export default memo(() => {
                   styles.tabItem,
                   tab === id && { ...styles.tabItemActive, backgroundColor: theme['c-primary'] },
                 ]}
-                onPress={() => setTab(id)}
+                onPress={() => { setTab(id) }}
               >
                 <Text
                   size={designTypography.caption}
@@ -397,10 +397,11 @@ export default memo(() => {
                       .join(' · ')}
                     isPlaying={isPlayingId == item.id}
                     selected={selectedIds.has(item.id)}
-                    onPress={() => (selecting ? toggleSelect(item.id) : handlePlayTask(item, index))}
+                    onPress={() => { selecting ? toggleSelect(item.id) : handlePlayTask(item, index) }}
                   />
                 </View>
-              )}
+                )
+              }
             }
               ListEmptyComponent={
                 <View style={styles.empty}>
@@ -425,7 +426,7 @@ export default memo(() => {
                     subText={[item.singer, item.size ? sizeFormate(item.size) : ''].filter(Boolean).join(' · ')}
                     isPlaying={isPlayingId == item.id}
                     selected={selectedIds.has(item.id)}
-                    onPress={() => (selecting ? toggleSelect(item.id) : handlePlayLocal(item, index))}
+                    onPress={() => { selecting ? toggleSelect(item.id) : handlePlayLocal(item, index) }}
                   />
                 </View>
               )}

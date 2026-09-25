@@ -6,7 +6,7 @@ export const DEFAULT_DURATION = 800
 export const useAnimateNumber = (
   val: number,
   duration = DEFAULT_DURATION,
-  useNativeDriver = true
+  useNativeDriver = true,
 ) => {
   const anim = useMemo(() => new Animated.Value(0), [val])
   const [finished, setFinished] = useState(true)
@@ -44,7 +44,7 @@ export const useAnimateOnecNumber = (
   val: number,
   toVal: number,
   duration = DEFAULT_DURATION,
-  useNativeDriver = true
+  useNativeDriver = true,
 ) => {
   const anim = useMemo(() => new Animated.Value(0), [])
   const [finished, setFinished] = useState(true)

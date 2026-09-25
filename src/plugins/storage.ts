@@ -41,7 +41,7 @@ const handleGetData = async <T>(partKeys: string): Promise<T> => {
   })
 }
 
-export const saveData = async (key: string, value: any) => {
+export const saveData = async(key: string, value: any) => {
   const datas: Array<[string, string]> = []
   buildData(key, value, datas)
 
@@ -70,7 +70,7 @@ export const getData = async <T = unknown>(key: string): Promise<T | null> => {
   return JSON.parse(value)
 }
 
-export const removeData = async (key: string) => {
+export const removeData = async(key: string) => {
   let value: string | null
   try {
     value = await AsyncStorage.getItem(key)
@@ -114,7 +114,7 @@ export const removeData = async (key: string) => {
   }
 }
 
-export const getAllKeys = async () => {
+export const getAllKeys = async() => {
   let keys
   try {
     keys = await AsyncStorage.getAllKeys()
@@ -150,7 +150,7 @@ export const getDataMultiple = async <T extends readonly string[]>(keys: T) => {
   })
 }
 
-export const saveDataMultiple = async (datas: Array<[string, any]>) => {
+export const saveDataMultiple = async(datas: Array<[string, any]>) => {
   const allData: Array<[string, string]> = []
   for (const [key, value] of datas) {
     buildData(key, value, allData)
@@ -165,7 +165,7 @@ export const saveDataMultiple = async (datas: Array<[string, any]>) => {
   }
 }
 
-export const removeDataMultiple = async (keys: string[]) => {
+export const removeDataMultiple = async(keys: string[]) => {
   if (!keys.length) return
   const datas = await AsyncStorage.multiGet(keys)
   let allKeys = []
@@ -188,7 +188,7 @@ export const removeDataMultiple = async (keys: string[]) => {
   }
 }
 
-export const clearAll = async () => {
+export const clearAll = async() => {
   try {
     await AsyncStorage.clear()
   } catch (e: any) {

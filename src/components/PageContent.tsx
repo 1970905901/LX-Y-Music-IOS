@@ -18,12 +18,12 @@ interface Props {
 // const BLUR_RADIUS = Math.max(scaleSizeAbsHR(18), 10)
 
 export default ({ children, backgroundFadeIn = false }: Props) => {
-  const theme = useTheme();
-  const dynamicPic = useBgPic();
-  const customBgPicPath = useSettingValue('theme.customBgPicPath');
-  const pic = customBgPicPath || dynamicPic;
-  const picOpacity = useSettingValue('theme.picOpacity');
-  const blur = useSettingValue('theme.blur');
+  const theme = useTheme()
+  const dynamicPic = useBgPic()
+  const customBgPicPath = useSettingValue('theme.customBgPicPath')
+  const pic = customBgPicPath || dynamicPic
+  const picOpacity = useSettingValue('theme.picOpacity')
+  const blur = useSettingValue('theme.blur')
   // const BLUR_RADIUS = Math.max(scaleSizeAbsHR(blur), 10)
   const BLUR_RADIUS = blur
 
@@ -44,7 +44,7 @@ export default ({ children, backgroundFadeIn = false }: Props) => {
       useNativeDriver: true,
     })
     anim.start()
-    return () => anim.stop()
+    return () => { anim.stop() }
   }, [shouldFade, bgOpacity])
 
   const contentComponent = useMemo(() => {
@@ -103,13 +103,13 @@ export default ({ children, backgroundFadeIn = false }: Props) => {
           {children}
         </Animated.View>
       </View>
-    );
-  }, [children, pic, theme, BLUR_RADIUS, picOpacity, shouldFade, bgOpacity]);
+    )
+  }, [children, pic, theme, BLUR_RADIUS, picOpacity, shouldFade, bgOpacity])
 
   return (
     <>
       <SizeView />
       {contentComponent}
     </>
-  );
+  )
 }

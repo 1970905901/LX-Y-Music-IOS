@@ -20,95 +20,95 @@ export default {
    * Supports QQ login (uin=xxx) and WeChat login (wxUin=xxx or wxuin=xxx)
    */
   extractUin(cookie: string): string | null {
-    if (!cookie) return null;
-    
+    if (!cookie) return null
+
     // QQ login: uin=xxx
-    const uinMatch = cookie.match(/(?:^|;)\s*uin=(\d+|o[A-Za-z0-9_-]+)/);
+    const uinMatch = cookie.match(/(?:^|;)\s*uin=(\d+|o[A-Za-z0-9_-]+)/)
     if (uinMatch) {
-      return uinMatch[1];
+      return uinMatch[1]
     }
 
     // WeChat login: wxUin=xxx or wxuin=xxx
-    const wxUinMatch = cookie.match(/(?:^|;)\s*(?:wxUin|wxuin)=(\d+|[A-Za-z0-9_-]+)/i);
+    const wxUinMatch = cookie.match(/(?:^|;)\s*(?:wxUin|wxuin)=(\d+|[A-Za-z0-9_-]+)/i)
     if (wxUinMatch) {
-      return wxUinMatch[1];
+      return wxUinMatch[1]
     }
 
     // euin fallback
-    const fakeUinMatch = cookie.match(/euin=([A-Za-z0-9_*]+)/);
+    const fakeUinMatch = cookie.match(/euin=([A-Za-z0-9_*]+)/)
     if (fakeUinMatch) {
-      const realUinMatch = cookie.match(/(?:^|;)\s*uin=(\d+)/);
+      const realUinMatch = cookie.match(/(?:^|;)\s*uin=(\d+)/)
       if (realUinMatch) {
-        return realUinMatch[1];
+        return realUinMatch[1]
       }
       // WeChat euin might be usable directly
-      return fakeUinMatch[1];
+      return fakeUinMatch[1]
     }
 
-    txLog.warn('无法从Cookie中提取uin');
-    return null;
+    txLog.warn('无法从Cookie中提取uin')
+    return null
   },
 
   /**
    * Get user info
    */
   async getUserInfo(retryNum = 0): Promise<any> {
-    const maxRetries = 3;
-    const retryDelay = 200;
-    const cookie = settingState.setting['common.tx_cookie'];
+    const maxRetries = 3
+    const retryDelay = 200
+    const cookie = settingState.setting['common.tx_cookie']
 
-    txLog.info('=== getUserInfo 开始 ===');
+    txLog.info('=== getUserInfo 开始 ===')
 
     if (!cookie) {
-      txLog.error('未设置QQ音乐Cookie');
-      throw new Error('未设置QQ音乐Cookie');
+      txLog.error('未设置QQ音乐Cookie')
+      throw new Error('未设置QQ音乐Cookie')
     }
 
     try {
-      const uin = this.extractUin(cookie);
+      const uin = this.extractUin(cookie)
       if (!uin) {
-        throw new Error('Cookie中未找到uin');
+        throw new Error('Cookie中未找到uin')
       }
 
-      const bodyData = `cid=205360838&userid=${uin}&reqfrom=1`;
+      const bodyData = `cid=205360838&userid=${uin}&reqfrom=1`
 
       const requestObj = httpFetch(`https://${TX_API_HOST}/rsc/fcgi-bin/fcg_get_profile_homepage.fcg`, {
         method: 'POST',
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Referer': 'https://y.qq.com/',
-          'Cookie': cookie,
+          Referer: 'https://y.qq.com/',
+          Cookie: cookie,
           'Content-Type': 'application/x-www-form-urlencoded',
-          'Accept': 'application/json',
+          Accept: 'application/json',
         },
         body: bodyData,
-      });
+      })
 
-      const { body, statusCode } = (await requestObj.promise) as any;
+      const { body, statusCode } = (await requestObj.promise) as any
 
       if (statusCode !== 200) {
-        throw new Error('获取用户信息失败');
+        throw new Error('获取用户信息失败')
       }
 
       if (body.code === 1000) {
-        throw new Error('QQ音乐Cookie已过期，请重新获取');
+        throw new Error('QQ音乐Cookie已过期，请重新获取')
       }
 
-      txLog.info('获取用户信息成功');
+      txLog.info('获取用户信息成功')
 
       return {
         name: body.data?.nick || body.data?.name || 'QQ音乐用户',
         avatar: body.data?.avatarUrl || body.data?.avatar || '',
-        uin: uin,
-      };
+        uin,
+      }
     } catch (error: any) {
       if (retryNum < maxRetries) {
-        txLog.warn('获取用户信息失败, 重试次数:', retryNum + 1);
-        await new Promise(resolve => setTimeout(resolve, retryDelay));
-        return this.getUserInfo(retryNum + 1);
+        txLog.warn('获取用户信息失败, 重试次数:', retryNum + 1)
+        await new Promise(resolve => setTimeout(resolve, retryDelay))
+        return this.getUserInfo(retryNum + 1)
       } else {
-        txLog.error('获取用户信息失败 (重试次数已达上限)', error.message);
-        throw error;
+        txLog.error('获取用户信息失败 (重试次数已达上限)', error.message)
+        throw error
       }
     }
   },
@@ -118,92 +118,92 @@ export default {
    * Including self-created playlists and "My Favorites" collection
    */
   async getUserPlaylists(retryNum = 0): Promise<any> {
-    const maxRetries = 3;
-    const retryDelay = 200;
-    const cookie = settingState.setting['common.tx_cookie'];
+    const maxRetries = 3
+    const retryDelay = 200
+    const cookie = settingState.setting['common.tx_cookie']
 
-    txLog.info('=== getUserPlaylists 开始 ===');
+    txLog.info('=== getUserPlaylists 开始 ===')
 
     if (!cookie) {
-      txLog.error('未设置QQ音乐Cookie');
-      throw new Error('未设置QQ音乐Cookie');
+      txLog.error('未设置QQ音乐Cookie')
+      throw new Error('未设置QQ音乐Cookie')
     }
 
     try {
-      const uin = this.extractUin(cookie);
+      const uin = this.extractUin(cookie)
       if (!uin) {
-        throw new Error('Cookie中未找到uin');
+        throw new Error('Cookie中未找到uin')
       }
 
-      const bodyData = `hostUin=0&hostuin=${uin}&sin=0&size=200&g_tk=5381&loginUin=${uin}&format=json&inCharset=utf8&outCharset=utf-8&notice=0&platform=yqq.json&needNewCode=0`;
+      const bodyData = `hostUin=0&hostuin=${uin}&sin=0&size=200&g_tk=5381&loginUin=${uin}&format=json&inCharset=utf8&outCharset=utf-8&notice=0&platform=yqq.json&needNewCode=0`
 
       const requestObj = httpFetch(`https://${TX_API_HOST}/rsc/fcgi-bin/fcg_user_created_diss`, {
         method: 'POST',
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Referer': 'https://y.qq.com/portal/profile.html',
-          'Cookie': cookie,
+          Referer: 'https://y.qq.com/portal/profile.html',
+          Cookie: cookie,
           'Content-Type': 'application/x-www-form-urlencoded',
-          'Accept': 'application/json',
+          Accept: 'application/json',
         },
         body: bodyData,
-      });
+      })
 
-      const { body } = (await requestObj.promise) as any;
+      const { body } = (await requestObj.promise) as any
 
-      txLog.debug('自建歌单响应:', JSON.stringify(body).substring(0, 500));
+      txLog.debug('自建歌单响应:', JSON.stringify(body).substring(0, 500))
 
       if (body.code === 1000) {
         throw new Error('QQ音乐Cookie已过期，请重新获取')
       }
 
-      let dissList = body.data?.diss_list || body.data?.disslist;
+      let dissList = body.data?.diss_list || body.data?.disslist
 
       if (!dissList) {
         if (body.data?.hostname) {
-          txLog.warn('获取歌单返回用户主页格式, 用户没有创建歌单');
-          dissList = [];
+          txLog.warn('获取歌单返回用户主页格式, 用户没有创建歌单')
+          dissList = []
         } else {
-          throw new Error('获取用户歌单失败');
+          throw new Error('获取用户歌单失败')
         }
       }
 
-      txLog.info('获取自建歌单成功, 数量:', dissList.length);
+      txLog.info('获取自建歌单成功, 数量:', dissList.length)
 
-      const excludeDirids = [202, 205, 206];
-      const filteredCreatedList = dissList.filter((diss: any) => !excludeDirids.includes(diss.dirid));
+      const excludeDirids = [202, 205, 206]
+      const filteredCreatedList = dissList.filter((diss: any) => !excludeDirids.includes(diss.dirid))
 
-      txLog.info('过滤后的自建歌单数量:', filteredCreatedList.length);
+      txLog.info('过滤后的自建歌单数量:', filteredCreatedList.length)
 
       const createdPlaylists = filteredCreatedList.map((diss: any) => {
-        let cover = diss.disslogo || diss.diss_cover || diss.cover || '';
+        let cover = diss.disslogo || diss.diss_cover || diss.cover || ''
         if (diss.dirid === 201) {
-          cover = cover && cover !== '?n=1' ? cover : 'https://y.gtimg.cn/mediastyle/yqq/img/icon_favorite.png';
+          cover = cover && cover !== '?n=1' ? cover : 'https://y.gtimg.cn/mediastyle/yqq/img/icon_favorite.png'
         }
         return {
           id: String(diss.dissid || diss.tid || diss.id),
           tid: diss.dissid || diss.tid || diss.id,
           dirid: diss.dirid,
           name: diss.dissname || diss.diss_name || diss.title || '未知歌单',
-          cover: cover,
+          cover,
           songCount: diss.song_cnt || diss.songCount || 0,
           desc: diss.dissdesc || diss.desc || '',
           isFavorites: diss.dirid === 201,
           isCollected: false,
-        };
-      });
+        }
+      })
 
-      txLog.info('自建歌单数量:', createdPlaylists.length);
+      txLog.info('自建歌单数量:', createdPlaylists.length)
 
-      return createdPlaylists;
+      return createdPlaylists
     } catch (error: any) {
       if (retryNum < maxRetries) {
-        txLog.warn('获取用户歌单失败, 重试次数:', retryNum + 1);
-        await new Promise(resolve => setTimeout(resolve, retryDelay));
-        return this.getUserPlaylists(retryNum + 1);
+        txLog.warn('获取用户歌单失败, 重试次数:', retryNum + 1)
+        await new Promise(resolve => setTimeout(resolve, retryDelay))
+        return this.getUserPlaylists(retryNum + 1)
       } else {
-        txLog.error('获取用户歌单失败 (重试次数已达上限)', error.message);
-        throw error;
+        txLog.error('获取用户歌单失败 (重试次数已达上限)', error.message)
+        throw error
       }
     }
   },
@@ -212,52 +212,52 @@ export default {
    * Get playlist detail (including song list)
    */
   async getPlaylistDetail(disstid: string, retryNum = 0): Promise<any> {
-    const maxRetries = 3;
-    const retryDelay = 200;
-    const cookie = settingState.setting['common.tx_cookie'];
+    const maxRetries = 3
+    const retryDelay = 200
+    const cookie = settingState.setting['common.tx_cookie']
 
-    txLog.info('=== getPlaylistDetail 开始 === disstid:', disstid);
+    txLog.info('=== getPlaylistDetail 开始 === disstid:', disstid)
 
     if (!cookie) {
-      throw new Error('未设置QQ音乐Cookie');
+      throw new Error('未设置QQ音乐Cookie')
     }
 
-    const fetchPage = async (begin: number, num: number): Promise<any> => {
-      const bodyData = `type=1&utf8=1&disstid=${disstid}&loginUin=0&hostUin=0&format=json&inCharset=utf8&song_begin=${begin}&num=${num}`;
+    const fetchPage = async(begin: number, num: number): Promise<any> => {
+      const bodyData = `type=1&utf8=1&disstid=${disstid}&loginUin=0&hostUin=0&format=json&inCharset=utf8&song_begin=${begin}&num=${num}`
 
       const requestObj = httpFetch(`https://${TX_API_HOST}/qzone/fcg-bin/fcg_ucc_getcdinfo_byids_cp.fcg`, {
         method: 'POST',
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Referer': 'https://y.qq.com/n/yqq/playlist',
-          'Cookie': cookie,
+          Referer: 'https://y.qq.com/n/yqq/playlist',
+          Cookie: cookie,
           'Content-Type': 'application/x-www-form-urlencoded',
-          'Accept': 'application/json',
+          Accept: 'application/json',
         },
         body: bodyData,
-      });
+      })
 
-      const { body } = (await requestObj.promise) as any;
-      txLog.debug('歌单详情响应:', JSON.stringify(body).substring(0, 500));
+      const { body } = (await requestObj.promise) as any
+      txLog.debug('歌单详情响应:', JSON.stringify(body).substring(0, 500))
 
-      if (!body.cdlist || !body.cdlist[0]) {
-        throw new Error('获取歌单详情失败');
+      if (!body.cdlist?.[0]) {
+        throw new Error('获取歌单详情失败')
       }
-      return body.cdlist[0];
-    };
+      return body.cdlist[0]
+    }
 
     try {
-      const pageSize = 30;
-      const firstPage = await fetchPage(0, pageSize);
-      const totalSongs = firstPage.songnum ?? firstPage.songlist?.length ?? 0;
-      const allSongs = [...(firstPage.songlist || [])];
+      const pageSize = 30
+      const firstPage = await fetchPage(0, pageSize)
+      const totalSongs = firstPage.songnum ?? firstPage.songlist?.length ?? 0
+      const allSongs = [...(firstPage.songlist || [])]
 
       if (totalSongs > allSongs.length) {
         for (let begin = allSongs.length; begin < totalSongs; begin += pageSize) {
-          const page = await fetchPage(begin, pageSize);
-          const songs = page.songlist || [];
-          if (songs.length === 0) break;
-          allSongs.push(...songs);
+          const page = await fetchPage(begin, pageSize)
+          const songs = page.songlist || []
+          if (songs.length === 0) break
+          allSongs.push(...songs)
         }
       }
 
@@ -265,7 +265,7 @@ export default {
         name: firstPage.dissname || firstPage.title,
         songCount: allSongs.length,
         total: totalSongs,
-      });
+      })
 
       return {
         id: firstPage.dissid || disstid,
@@ -291,15 +291,15 @@ export default {
           songmid: song.songmid || song.mid || '',
           interval: song.interval || 0,
         })),
-      };
+      }
     } catch (error: any) {
       if (retryNum < maxRetries) {
-        txLog.warn('获取歌单详情失败, 重试次数:', retryNum + 1);
-        await new Promise(resolve => setTimeout(resolve, retryDelay));
-        return this.getPlaylistDetail(disstid, retryNum + 1);
+        txLog.warn('获取歌单详情失败, 重试次数:', retryNum + 1)
+        await new Promise(resolve => setTimeout(resolve, retryDelay))
+        return this.getPlaylistDetail(disstid, retryNum + 1)
       } else {
-        txLog.error('获取歌单详情失败 (重试次数已达上限)', error.message);
-        throw error;
+        txLog.error('获取歌单详情失败 (重试次数已达上限)', error.message)
+        throw error
       }
     }
   },
@@ -364,7 +364,7 @@ export default {
         txLog.warn('获取歌单列表失败，使用默认 dirid=0', err)
       }
 
-      const songInfo: { songId: number; songType: number }[] = []
+      const songInfo: Array<{ songId: number, songType: number }> = []
       const failedMids: string[] = []
 
       for (const mid of songMids) {
@@ -374,7 +374,7 @@ export default {
             songInfo.push({ songId: parsedId, songType: 13 })
           } else {
             const musicInfo = await getMusicInfo(mid)
-            if (musicInfo && musicInfo.songId) {
+            if (musicInfo?.songId) {
               songInfo.push({ songId: musicInfo.songId, songType: 13 })
               txLog.info('从 mid 获取到 songId', { mid, songId: musicInfo.songId, name: musicInfo.name })
             } else {
@@ -410,7 +410,7 @@ export default {
 
       if (songInfo.length === 0) {
         txLog.error('没有有效的歌曲可以添加', { failedMids })
-        errorLog.error(`[QQ音乐] 没有有效的歌曲可以添加`)
+        errorLog.error('[QQ音乐] 没有有效的歌曲可以添加')
         throw new Error('没有有效的歌曲可以添加')
       }
 
@@ -428,7 +428,7 @@ export default {
           method: 'AddSonglist',
           param: {
             dirId: dirid,
-            tid: tid,
+            tid,
             bFmtUtf8: true,
             v_songInfo: songInfo,
           },
@@ -536,42 +536,42 @@ export default {
    * Get "My Favorites" collected music
    */
   async getFavoritesMusic(page = 1, pageSize = 30, retryNum = 0): Promise<any> {
-    const maxRetries = 3;
-    const retryDelay = 200;
-    const cookie = settingState.setting['common.tx_cookie'];
+    const maxRetries = 3
+    const retryDelay = 200
+    const cookie = settingState.setting['common.tx_cookie']
 
-    txLog.info('=== getFavoritesMusic 开始 === page:', page);
+    txLog.info('=== getFavoritesMusic 开始 === page:', page)
 
     if (!cookie) {
-      txLog.error('未设置QQ音乐Cookie');
-      throw new Error('未设置QQ音乐Cookie');
+      txLog.error('未设置QQ音乐Cookie')
+      throw new Error('未设置QQ音乐Cookie')
     }
 
     try {
-      const uin = this.extractUin(cookie);
+      const uin = this.extractUin(cookie)
       if (!uin) {
-        throw new Error('Cookie中未找到uin');
+        throw new Error('Cookie中未找到uin')
       }
 
-      const playlists = await this.getUserPlaylists();
-      const favoritesPlaylist = playlists.find((p: any) => p.isFavorites);
+      const playlists = await this.getUserPlaylists()
+      const favoritesPlaylist = playlists.find((p: any) => p.isFavorites)
 
       if (!favoritesPlaylist) {
-        txLog.warn('未找到"我喜欢"歌单');
+        txLog.warn('未找到"我喜欢"歌单')
         return {
           list: [],
           total: 0,
           page,
           pageSize,
           hasMore: false,
-        };
+        }
       }
 
-      const detail = await this.getPlaylistDetail(favoritesPlaylist.id);
+      const detail = await this.getPlaylistDetail(favoritesPlaylist.id)
 
-      const startIndex = (page - 1) * pageSize;
-      const endIndex = startIndex + pageSize;
-      const pagedList = detail.songs.slice(startIndex, endIndex);
+      const startIndex = (page - 1) * pageSize
+      const endIndex = startIndex + pageSize
+      const pagedList = detail.songs.slice(startIndex, endIndex)
 
       return {
         list: pagedList,
@@ -579,15 +579,15 @@ export default {
         page,
         pageSize,
         hasMore: endIndex < detail.songs.length,
-      };
+      }
     } catch (error: any) {
       if (retryNum < maxRetries) {
-        txLog.warn('获取收藏音乐失败, 重试次数:', retryNum + 1);
-        await new Promise(resolve => setTimeout(resolve, retryDelay));
-        return this.getFavoritesMusic(page, pageSize, retryNum + 1);
+        txLog.warn('获取收藏音乐失败, 重试次数:', retryNum + 1)
+        await new Promise(resolve => setTimeout(resolve, retryDelay))
+        return this.getFavoritesMusic(page, pageSize, retryNum + 1)
       } else {
-        txLog.error('获取收藏音乐失败 (重试次数已达上限)', error.message);
-        throw error;
+        txLog.error('获取收藏音乐失败 (重试次数已达上限)', error.message)
+        throw error
       }
     }
   },
@@ -892,7 +892,7 @@ export default {
         txLog.warn('获取歌单列表失败，使用默认 dirid=0', err)
       }
 
-      const songInfo: { songId: number; songType: number }[] = []
+      const songInfo: Array<{ songId: number, songType: number }> = []
       const failedMids: string[] = []
 
       for (const mid of songMids) {
@@ -902,7 +902,7 @@ export default {
             songInfo.push({ songId: parsedId, songType: 13 })
           } else {
             const musicInfo = await getMusicInfo(mid)
-            if (musicInfo && musicInfo.songId) {
+            if (musicInfo?.songId) {
               songInfo.push({ songId: musicInfo.songId, songType: 13 })
             } else {
               try {
@@ -934,7 +934,7 @@ export default {
           method: 'DelSonglist',
           param: {
             dirId: dirid,
-            tid: tid,
+            tid,
             bFmtUtf8: true,
             v_songInfo: songInfo,
           },
@@ -1077,7 +1077,7 @@ export default {
         success: true,
         message: '创建成功',
         dirid: newDirid,
-        name: name,
+        name,
       }
     } catch (error: any) {
       txLog.error('创建歌单失败', { error: error.message, name })
@@ -1182,4 +1182,4 @@ export default {
 
     return true
   },
-};
+}

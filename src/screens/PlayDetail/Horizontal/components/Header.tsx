@@ -34,10 +34,10 @@ const Title = () => {
     const artistId = artist.id ?? artist.mid
     if (!artistId) {
       // id/mid 都缺失时清空自带 artists，走歌手名搜索兜底定位
-      void handleShowArtistDetail(commonState.componentIds[commonState.componentIds.length - 1]?.id!, { ...musicInfo, artists: [] } as LX.Music.MusicInfoOnline)
+      void handleShowArtistDetail(commonState.componentIds[commonState.componentIds.length - 1]?.id, { ...musicInfo, artists: [] } as LX.Music.MusicInfoOnline)
       return
     }
-    navigations.pushArtistDetailScreen(commonState.componentIds[commonState.componentIds.length - 1]?.id!, { id: String(artistId), mid: artist.mid, name: artist.name, source: musicInfo.source })
+    navigations.pushArtistDetailScreen(commonState.componentIds[commonState.componentIds.length - 1]?.id, { id: String(artistId), mid: artist.mid, name: artist.name, source: musicInfo.source })
   }, [musicInfo])
 
   const handleAlbumPress = useCallback(() => {
@@ -48,9 +48,9 @@ const Title = () => {
     const albumMid = (musicInfo.meta as any)?.albumMid || musicInfo.albumMid || albumId
     if (!albumId || !albumName) return
     if (musicInfo.source === 'tx') {
-      navigations.pushAlbumDetailScreen(commonState.componentIds[commonState.componentIds.length - 1]?.id!, { id: String(albumId), mid: albumMid, name: albumName, source: 'tx' })
+      navigations.pushAlbumDetailScreen(commonState.componentIds[commonState.componentIds.length - 1]?.id, { id: String(albumId), mid: albumMid, name: albumName, source: 'tx' })
     } else {
-      navigations.pushAlbumDetailScreen(commonState.componentIds[commonState.componentIds.length - 1]?.id!, { id: String(albumId), name: albumName, source: musicInfo.source })
+      navigations.pushAlbumDetailScreen(commonState.componentIds[commonState.componentIds.length - 1]?.id, { id: String(albumId), name: albumName, source: musicInfo.source })
     }
   }, [musicInfo])
 
@@ -63,7 +63,7 @@ const Title = () => {
     if (!musicInfo.artists?.length || musicInfo.source == 'local') {
       return (
         <View style={styles.singerContainer}>
-          <TouchableOpacity onPress={() => handleShowArtistDetail(commonState.componentIds[commonState.componentIds.length - 1]?.id!, musicInfo as LX.Music.MusicInfoOnline)}>
+          <TouchableOpacity onPress={async() => handleShowArtistDetail(commonState.componentIds[commonState.componentIds.length - 1]?.id, musicInfo as LX.Music.MusicInfoOnline)}>
             <Text numberOfLines={1} size={12} color={theme['c-font-label']}>
               {musicInfo.singer}
             </Text>
@@ -82,7 +82,7 @@ const Title = () => {
     return (
       <View style={styles.singerContainer}>
         {musicInfo.artists.map((artist, index) => (
-          <TouchableOpacity key={artist.id || index} onPress={() => handleArtistPress(artist)}>
+          <TouchableOpacity key={artist.id || index} onPress={() => { handleArtistPress(artist) }}>
             <Text style={styles.singerText} size={12} color={theme['c-font-label']}>
               {artist.name}
               {(musicInfo.artists?.length ?? 0) > 0 && index < (musicInfo.artists?.length ?? 0) - 1 ? ' / ' : ''}
@@ -120,7 +120,7 @@ export default memo(() => {
   const playMusicInfo = usePlayMusicInfo()
   const theme = useTheme()
   const back = () => {
-    void pop(commonState.componentIds[commonState.componentIds.length - 1]?.id!)
+    void pop(commonState.componentIds[commonState.componentIds.length - 1]?.id)
   }
   const showSetting = () => {
     popupRef.current?.show()

@@ -1,24 +1,24 @@
-import { forwardRef, useImperativeHandle, useRef, useCallback } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import Modal, { type ModalType } from '@/components/common/Modal';
-import WebView, { type WebViewNavigation } from 'react-native-webview';
-import { useTheme } from '@/store/theme/hook';
-import { useStatusbarHeight } from '@/store/common/hook';
-import { Icon } from '@/components/common/Icon';
-import Text from '@/components/common/Text';
-import { toast } from '@/utils/tools';
-import theme from "@/core/init/theme.ts";
+import { forwardRef, useImperativeHandle, useRef, useCallback } from 'react'
+import { View, StyleSheet, TouchableOpacity } from 'react-native'
+import Modal, { type ModalType } from '@/components/common/Modal'
+import WebView, { type WebViewNavigation } from 'react-native-webview'
+import { useTheme } from '@/store/theme/hook'
+import { useStatusbarHeight } from '@/store/common/hook'
+import { Icon } from '@/components/common/Icon'
+import Text from '@/components/common/Text'
+import { toast } from '@/utils/tools'
+import theme from '@/core/init/theme.ts'
 
-const LOGIN_URL = 'https://music.youtube.com/';
-const SUCCESS_URL_FLAG = 'music.youtube.com';
+const LOGIN_URL = 'https://music.youtube.com/'
+const SUCCESS_URL_FLAG = 'music.youtube.com'
 
 export interface YouTubeLoginModalType {
-  show: () => void;
+  show: () => void
 };
 
 const Header = ({ onClose }: { onClose: () => void }) => {
-  const theme = useTheme();
-  const statusBarHeight = useStatusbarHeight();
+  const theme = useTheme()
+  const statusBarHeight = useStatusbarHeight()
   return (
     <View style={[styles.header, { height: 50 + statusBarHeight, paddingTop: statusBarHeight, backgroundColor: theme['c-content-background'] }]}>
       <TouchableOpacity onPress={onClose} style={styles.backButton}>
@@ -27,48 +27,48 @@ const Header = ({ onClose }: { onClose: () => void }) => {
       <Text size={18}>YouTube 登录</Text>
       <View style={styles.backButton} />
     </View>
-  );
-};
+  )
+}
 
 export default forwardRef<YouTubeLoginModalType, {}>((props, ref) => {
-  const theme = useTheme();
-  const modalRef = useRef<ModalType>(null);
-  const webViewRef = useRef<any>(null);
-  const loggedInRef = useRef(false);
+  const theme = useTheme()
+  const modalRef = useRef<ModalType>(null)
+  const webViewRef = useRef<any>(null)
+  const loggedInRef = useRef(false)
 
   useImperativeHandle(ref, () => ({
     show() {
-      loggedInRef.current = false;
-      modalRef.current?.setVisible(true);
+      loggedInRef.current = false
+      modalRef.current?.setVisible(true)
     },
-  }));
+  }))
 
   const handleClose = useCallback(() => {
-    modalRef.current?.setVisible(false);
-  }, []);
+    modalRef.current?.setVisible(false)
+  }, [])
 
   const handleNavigationStateChange = (navState: WebViewNavigation) => {
     // console.log('YouTube登录: 页面导航状态变化:', navState.url);
     if (navState.url.includes(SUCCESS_URL_FLAG)) {
       // console.log('YouTube登录: injecting cookie');
-      webViewRef.current?.injectJavaScript('window.ReactNativeWebView.postMessage(document.cookie);');
+      webViewRef.current?.injectJavaScript('window.ReactNativeWebView.postMessage(document.cookie);')
     }
-  };
+  }
 
-  const handleMessage = async (event: any) => {
+  const handleMessage = async(event: any) => {
     // console.log('YouTube登录: 收到消息:', event.nativeEvent.data);
-    if (loggedInRef.current) return;
+    if (loggedInRef.current) return
 
-    const cookie = event.nativeEvent.data;
-    if (!cookie || !cookie.includes('SAPISID=')) return;
+    const cookie = event.nativeEvent.data
+    if (!cookie?.includes('SAPISID=')) return
 
     loggedInRef.current = true;
-    (global.app_event as any).emit('yt-cookie-set', cookie);
-    toast('登录成功，已自动获取Cookie！');
-    handleClose();
-  };
+    (global.app_event as any).emit('yt-cookie-set', cookie)
+    toast('登录成功，已自动获取Cookie！')
+    handleClose()
+  }
 
-  const injectedJavaScript = `true;`;
+  const injectedJavaScript = 'true;'
 
   return (
     <Modal ref={modalRef} statusBarPadding={false} bgHide={false}>
@@ -84,8 +84,8 @@ export default forwardRef<YouTubeLoginModalType, {}>((props, ref) => {
         />
       </View>
     </Modal>
-  );
-});
+  )
+})
 
 const styles = StyleSheet.create({
   container: {
@@ -104,4 +104,4 @@ const styles = StyleSheet.create({
     padding: 5,
     width: 40,
   },
-});
+})

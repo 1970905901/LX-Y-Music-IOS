@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react'
-import {View, BackHandler, TouchableOpacity} from 'react-native'
+import { View, BackHandler, TouchableOpacity } from 'react-native'
 import MusicList, { type MusicListType } from './MusicList'
 import { type ListInfoItem } from '@/store/songlist/state'
 import { ListInfoContext } from './state'
 import ActionBar from './ActionBar'
 import Image from '@/components/common/Image'
 import Text from '@/components/common/Text'
-import { NAV_SHEAR_NATIVE_IDS } from '@/config/constant'
+import { NAV_SHEAR_NATIVE_IDS, COMPONENT_IDS, LIST_IDS } from '@/config/constant'
 import { createStyle, toast } from '@/utils/tools'
 import { scaleSizeW } from '@/utils/pixelRatio'
 import { useTheme } from '@/store/theme/hook'
@@ -20,14 +20,14 @@ import Input from '@/components/common/Input'
 import { useIsWyPlaylistSubscribed, useWySubscribedPlaylists, useWyUid } from '@/store/user/hook'
 import wyApi from '@/utils/musicSdk/wy/user'
 import { addWySubscribedPlaylist, removeWySubscribedPlaylist } from '@/store/user/action'
-import { COMPONENT_IDS } from '@/config/constant'
-import { type DetailInfo } from "@/screens/SonglistDetail/Header.tsx"
+
+import { type DetailInfo } from '@/screens/SonglistDetail/Header.tsx'
 import LandscapeDetailLayout from '@/components/LandscapeDetailLayout'
 import PageContent from '@/components/PageContent'
 import playerState from '@/store/player/state'
-import { LIST_IDS } from '@/config/constant'
+
 import listState from '@/store/list/state'
-import {usePlayerMusicInfo} from "@/store/player/hook.ts"
+import { usePlayerMusicInfo } from '@/store/player/hook.ts'
 import { useStatusbarHeight } from '@/store/common/hook'
 import MusicInfoOnline = LX.Music.MusicInfoOnline
 
@@ -169,7 +169,7 @@ export default ({ info, onBack, componentId, initialScrollToInfo }: { info: List
     : undefined)
 
   const refreshList = useCallback((isRefresh = false) => {
-    if (global.lx.isEnableLog) console.log(`[SonglistDetail] refreshList`, { source: info.source, id: info.id, isRefresh })
+    if (global.lx.isEnableLog) console.log('[SonglistDetail] refreshList', { source: info.source, id: info.id, isRefresh })
     musicListRef.current?.loadList(info.source, info.id, isRefresh).then(setDetailInfo)
   }, [info.source, info.id])
 
@@ -227,7 +227,7 @@ export default ({ info, onBack, componentId, initialScrollToInfo }: { info: List
       return true
     }
     const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress)
-    return () => subscription.remove()
+    return () => { subscription.remove() }
   }, [handleBack])
 
   useEffect(() => {
@@ -239,7 +239,7 @@ export default ({ info, onBack, componentId, initialScrollToInfo }: { info: List
     if (!updatedPlaylist) {
       return
     }
-    if (updatedPlaylist.name !== detailInfo.name || updatedPlaylist.description !== detailInfo.desc && updatedPlaylist.description != null) {
+    if (updatedPlaylist.name !== detailInfo.name || (updatedPlaylist.description !== detailInfo.desc && updatedPlaylist.description != null)) {
       setDetailInfo(prev => ({
         ...prev,
         name: updatedPlaylist.name,

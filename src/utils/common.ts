@@ -23,7 +23,7 @@ export const toDateObj = (date?: number | string | Date): Date | '' => {
   if (!date) return ''
   let result: Date
   switch (typeof date) {
-    case 'string':
+    case 'string': {
       const cleanDate = date.split('.')[0]
       if (!cleanDate.includes('T')) {
         result = new Date(cleanDate.replace(/-/g, '/'))
@@ -31,11 +31,12 @@ export const toDateObj = (date?: number | string | Date): Date | '' => {
         result = new Date(cleanDate)
       }
       break
+    }
     case 'number':
       result = new Date(date)
       break
     case 'object':
-      result = date as Date
+      result = date
       break
     default:
       return ''
@@ -110,7 +111,7 @@ export const parseUrlParams = (str: string): Record<string, string> => {
  */
 export function throttle<Args extends any[]>(
   fn: (...args: Args) => void | Promise<void>,
-  delay = 100
+  delay = 100,
 ) {
   let timer: NodeJS.Timeout | null = null
   let _args: Args
@@ -132,7 +133,7 @@ export function throttle<Args extends any[]>(
  */
 export function debounce<Args extends any[]>(
   fn: (...args: Args) => void | Promise<void>,
-  delay = 100
+  delay = 100,
 ) {
   let timer: NodeJS.Timeout | null = null
   let _args: Args
@@ -186,8 +187,8 @@ export const similar = (a: string, b: string) => {
  * @param data
  */
 export const sortInsert = <T>(
-  arr: Array<{ num: number; data: T }>,
-  data: { num: number; data: T }
+  arr: Array<{ num: number, data: T }>,
+  data: { num: number, data: T },
 ) => {
   let key = data.num
   let left = 0

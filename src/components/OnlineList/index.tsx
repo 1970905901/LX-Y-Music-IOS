@@ -1,4 +1,4 @@
-import {useRef, forwardRef, useImperativeHandle, useCallback} from 'react'
+import { useRef, forwardRef, useImperativeHandle, useCallback } from 'react'
 import { View } from 'react-native'
 import List, { type ListProps, type ListType, type Status, type RowInfoType } from './List'
 import ListMenu, { type ListMenuType, type Position, type SelectInfo } from './ListMenu'
@@ -20,18 +20,18 @@ import {
   handleKgLikeMusic,
 } from './listAction'
 import { handleClearMusicCache } from '@/screens/Home/Views/Mylist/MusicList/listAction'
-import {createStyle, toast} from '@/utils/tools'
+import { createStyle, toast } from '@/utils/tools'
 import wyApi from '@/utils/musicSdk/wy/user'
 import txUserApi from '@/utils/musicSdk/tx/user'
 import { removeSongsFromPlaylist as removeKgSongsFromPlaylist, getPlaylistSongs as getKgPlaylistSongs } from '@/utils/musicSdk/kg/utils/api'
 import { batchDownload, downloadMusic } from '@/core/download'
-import {useI18n} from "@/lang"
-import {removeWyLikedSong, updateWySubscribedPlaylistTrackCount} from "@/store/user/action.ts"
-import {clearListDetailCache} from "@/core/songlist.ts"
+import { useI18n } from '@/lang'
+import { removeWyLikedSong, updateWySubscribedPlaylistTrackCount } from '@/store/user/action.ts'
+import { clearListDetailCache } from '@/core/songlist.ts'
 import commonState from '@/store/common/state'
-import {useWySubscribedPlaylists} from "@/store/user/hook.ts";
-import type { SubscribedPlaylistInfo } from "@/store/user/state"
-import {useSettingValue} from "@/store/setting/hook.ts";
+import { useWySubscribedPlaylists } from '@/store/user/hook.ts'
+import type { SubscribedPlaylistInfo } from '@/store/user/state'
+import { useSettingValue } from '@/store/setting/hook.ts'
 import SimilarSongsModal, { type SimilarSongsModalType } from '@/components/SimilarSongsModal'
 
 export interface OnlineListProps {
@@ -83,7 +83,7 @@ export default forwardRef<OnlineListType, OnlineListProps>(
     const listMusicAddRef = useRef<ListMusicAddType>(null)
     const listMusicMultiAddRef = useRef<ListAddMultiType>(null)
     const listMenuRef = useRef<ListMenuType>(null)
-  
+
     const similarSongsModalRef = useRef<SimilarSongsModalType>(null)
     const t = useI18n()
     const subscribedPlaylists = useWySubscribedPlaylists()
@@ -153,12 +153,12 @@ export default forwardRef<OnlineListType, OnlineListProps>(
     }
 
     const handleShowArtist = (info: SelectInfo) => {
-      const componentId = componentId_raw ?? commonState.componentIds[commonState.componentIds.length - 1]?.id!
+      const componentId = componentId_raw ?? commonState.componentIds[commonState.componentIds.length - 1]?.id
       void handleShowArtistDetail(componentId, info.musicInfo)
     }
 
     const handleShowAlbum = (info: SelectInfo) => {
-      const componentId = componentId_raw ?? commonState.componentIds[commonState.componentIds.length - 1]?.id!
+      const componentId = componentId_raw ?? commonState.componentIds[commonState.componentIds.length - 1]?.id
       handleShowAlbumDetail(componentId, info.musicInfo)
     }
     const handleMoveMusic = (info: SelectInfo) => {
@@ -171,9 +171,9 @@ export default forwardRef<OnlineListType, OnlineListProps>(
 
     const handleRemoveMusic = useCallback((info: SelectInfo) => {
       if (!listId) return
-      
+
       const musicInfos = info.selectedList.length ? info.selectedList : [info.musicInfo]
-      
+
       if (listId.startsWith('wy__')) {
         const playlistId = listId.replace('wy__', '')
         const sourcePlaylist = subscribedPlaylists.find(p => String(p.id) === playlistId) as (SubscribedPlaylistInfo & { creator?: { nickname?: string } }) | undefined
@@ -215,7 +215,7 @@ export default forwardRef<OnlineListType, OnlineListProps>(
           toast('无法获取歌单ID')
           return
         }
-        getKgPlaylistSongs(kgCookie, playlistId, 1, 500).then(songsResult => {
+        getKgPlaylistSongs(kgCookie, playlistId, 1, 500).then(async songsResult => {
           if (!songsResult.success || !songsResult.data?.list) {
             toast('获取歌单歌曲失败')
             return
@@ -314,7 +314,7 @@ export default forwardRef<OnlineListType, OnlineListProps>(
           onDislikeMusic={(info) => {
             void handleDislikeMusic(info.musicInfo, listId)
           }}
-          onDownload={(info) => downloadMusic(info.musicInfo)}
+          onDownload={(info) => { downloadMusic(info.musicInfo) }}
           onLike={(info) => {
             if (info.musicInfo.source === 'wy') {
               handleLikeMusic(info.musicInfo)

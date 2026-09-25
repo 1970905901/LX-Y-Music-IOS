@@ -114,7 +114,7 @@ export default {
       try {
         list = (
           await musicDetailApi.getList(
-            body.playlist.trackIds.slice(rangeStart, limit * page).map((trackId) => trackId.id)
+            body.playlist.trackIds.slice(rangeStart, limit * page).map((trackId) => trackId.id),
           )
         ).list
       } catch (err) {
@@ -141,7 +141,7 @@ export default {
         author: body.playlist.creator.nickname,
         userId: body.playlist.userId,
       },
-    };
+    }
   },
   filterListDetail({ playlist: { tracks }, privileges }) {
     // console.log(tracks, privileges)
@@ -163,7 +163,7 @@ export default {
       }
       switch (privilege.maxbr) {
         case 999000:
-          size = item.sq ? sizeFormate(item.sq.size) : null;
+          size = item.sq ? sizeFormate(item.sq.size) : null
           types.push({ type: 'flac', size })
           _types.flac = {
             size,
@@ -241,7 +241,7 @@ export default {
             _qualitys: _types,
             originCoverType: item.originCoverType,
             noCopyrightRcmd: item.noCopyrightRcmd,
-          }
+          },
         })
       }
     })

@@ -106,7 +106,7 @@ export default forwardRef<MetadataFormType, {}>((props, ref) => {
       },
       isRefresh: false,
     })
-      .then(async (pic) => {
+      .then(async(pic) => {
         if (isUnmounted.current || path != filePath.current) return
         let ext = pic.split('?')[0]
         ext = ext.substring(ext.lastIndexOf('.') + 1)
@@ -154,7 +154,7 @@ export default forwardRef<MetadataFormType, {}>((props, ref) => {
       },
       isRefresh: false,
     })
-      .then(async ({ lyric, tlyric, rlyric }) => {
+      .then(async({ lyric, tlyric, rlyric }) => {
         if (isUnmounted.current || path != filePath.current) return
         toast(t('metadata_edit_modal_form_match_lyric_success'))
         let lrc = [

@@ -3,8 +3,8 @@ import { View, ScrollView, Image, TouchableOpacity } from 'react-native'
 import Clipboard from '@react-native-clipboard/clipboard'
 import Video, { type VideoRef } from 'react-native-video'
 
-import { createStyle } from '@/utils/tools'
-import { openUrl, toast } from '@/utils/tools'
+import { createStyle, openUrl, toast } from '@/utils/tools'
+
 import { useTheme } from '@/store/theme/hook'
 import Text from '@/components/common/Text'
 import { useAnnouncementInfo } from '@/store/announcement/hook'
@@ -59,38 +59,38 @@ const parseInlineMarkdown = (text: string, theme: any): React.ReactNode[] => {
         <Text
           key={match.index}
           style={{ color: theme['c-primary'], textDecorationLine: 'underline' }}
-          onPress={() => openUrl(linkUrl)}
+          onPress={async() => openUrl(linkUrl)}
         >
           {linkText}
-        </Text>
+        </Text>,
       )
     } else if (match[3]) {
       // 行内代码: `code`
       parts.push(
         <Text key={match.index} style={[styles.markdownInlineCode, { color: theme['c-primary'] }]}>
           {match[3]}
-        </Text>
+        </Text>,
       )
     } else if (match[4]) {
       // 粗体: **text**
       parts.push(
         <Text key={match.index} style={{ fontWeight: 'bold', color: theme['c-font'] }}>
           {match[4]}
-        </Text>
+        </Text>,
       )
     } else if (match[5]) {
       // 斜体: *text*
       parts.push(
         <Text key={match.index} style={{ fontStyle: 'italic', color: theme['c-font'] }}>
           {match[5]}
-        </Text>
+        </Text>,
       )
     } else if (match[6] && match[7]) {
       // 彩色字体: <color=#FF0000>text</color>
       parts.push(
         <Text key={match.index} style={{ color: match[6] }}>
           {match[7]}
-        </Text>
+        </Text>,
       )
     }
     lastIndex = regex.lastIndex
@@ -103,14 +103,14 @@ const parseInlineMarkdown = (text: string, theme: any): React.ReactNode[] => {
   return parts.length > 0 ? parts : [text]
 }
 
-const CodeBlock = ({ code, theme }: { code: string; theme: any }) => {
+const CodeBlock = ({ code, theme }: { code: string, theme: any }) => {
   const [copied, setCopied] = useState(false)
 
   const handleCopy = useCallback(() => {
     Clipboard.setString(code)
     setCopied(true)
     toast('已复制')
-    setTimeout(() => setCopied(false), 2000)
+    setTimeout(() => { setCopied(false) }, 2000)
   }, [code])
 
   return (
@@ -148,7 +148,7 @@ const MarkdownText = ({ content }: { content: string }) => {
         }
         i++ // 跳过结束的 ```
         result.push(
-          <CodeBlock key={`code-${i}`} code={codeLines.join('\n')} theme={theme} />
+          <CodeBlock key={`code-${i}`} code={codeLines.join('\n')} theme={theme} />,
         )
         continue
       }
@@ -176,7 +176,7 @@ const MarkdownText = ({ content }: { content: string }) => {
               style={styles.markdownImage}
               resizeMode="contain"
               accessibilityLabel={alt}
-            />
+            />,
           )
         }
         i++
@@ -230,10 +230,10 @@ const AnnouncementModal = ({ componentId }: { componentId: string }) => {
 
   const enabledButtons = useMemo(() => {
     if (!announcementInfo?.buttons) return []
-    return announcementInfo.buttons.filter(btn => btn.enabled !== false)
+    return announcementInfo.buttons.filter(btn => btn.enabled)
   }, [announcementInfo])
 
-  const handleClose = async () => {
+  const handleClose = async() => {
     // 先保存 ID，再隐藏内容，最后关闭弹窗
     await dismissAnnouncement()
     setIsVisible(false)
@@ -284,7 +284,7 @@ const AnnouncementModal = ({ componentId }: { componentId: string }) => {
               <TouchableOpacity
                 key={index}
                 style={[styles.actionBtn, { backgroundColor: theme['c-button-background'] }]}
-                onPress={() => handleButtonPress(btn.url)}
+                onPress={() => { handleButtonPress(btn.url) }}
               >
                 <Text color={theme['c-button-font']}>{btn.text}</Text>
               </TouchableOpacity>

@@ -1,4 +1,4 @@
-import state, {FollowedArtistInfo, SubscribedAlbumInfo, SubscribedPlaylistInfo, TxPlaylistInfo, KgPlaylistInfo} from './state'
+import state, { type FollowedArtistInfo, type SubscribedAlbumInfo, type SubscribedPlaylistInfo, type TxPlaylistInfo, type KgPlaylistInfo } from './state'
 
 export const setWyUid = (uid: string) => {
   state.wy_uid = uid
@@ -7,7 +7,7 @@ export const setWyUid = (uid: string) => {
 export const setWyVipType = (type: number) => {
   state.wy_vip_type = type
 }
-export const setWyLikedSongs = (ids: (string | number)[]) => {
+export const setWyLikedSongs = (ids: Array<string | number>) => {
   state.wy_liked_song_ids = new Set(ids.map(String))
   global.state_event.wyLikedListChanged()
 }
@@ -47,46 +47,46 @@ export const removeWyFollowedArtist = (id: string | number) => {
 }
 
 export const setWySubscribedAlbums = (albums: SubscribedAlbumInfo[]) => {
-  state.wy_subscribed_albums = albums;
-  global.state_event.wySubscribedAlbumsChanged();
-};
+  state.wy_subscribed_albums = albums
+  global.state_event.wySubscribedAlbumsChanged()
+}
 
 export const addWySubscribedAlbum = (album: SubscribedAlbumInfo) => {
-  if (state.wy_subscribed_albums.some(a => String(a.id) === String(album.id))) return;
-  state.wy_subscribed_albums = [album, ...state.wy_subscribed_albums];
-  global.state_event.wySubscribedAlbumsChanged();
-};
+  if (state.wy_subscribed_albums.some(a => String(a.id) === String(album.id))) return
+  state.wy_subscribed_albums = [album, ...state.wy_subscribed_albums]
+  global.state_event.wySubscribedAlbumsChanged()
+}
 
 export const removeWySubscribedAlbum = (id: string | number) => {
-  const strId = String(id);
-  const index = state.wy_subscribed_albums.findIndex(a => String(a.id) === strId);
-  if (index < 0) return;
-  const newList = [...state.wy_subscribed_albums];
-  newList.splice(index, 1);
-  state.wy_subscribed_albums = newList;
-  global.state_event.wySubscribedAlbumsChanged();
-};
+  const strId = String(id)
+  const index = state.wy_subscribed_albums.findIndex(a => String(a.id) === strId)
+  if (index < 0) return
+  const newList = [...state.wy_subscribed_albums]
+  newList.splice(index, 1)
+  state.wy_subscribed_albums = newList
+  global.state_event.wySubscribedAlbumsChanged()
+}
 
 export const setWySubscribedPlaylists = (playlists: SubscribedPlaylistInfo[]) => {
-  state.wy_subscribed_playlists = playlists;
-  global.state_event.wySubscribedPlaylistsChanged();
-};
+  state.wy_subscribed_playlists = playlists
+  global.state_event.wySubscribedPlaylistsChanged()
+}
 
 export const addWySubscribedPlaylist = (playlist: SubscribedPlaylistInfo) => {
-  if (state.wy_subscribed_playlists.some(p => String(p.id) === String(playlist.id))) return;
-  state.wy_subscribed_playlists = [playlist, ...state.wy_subscribed_playlists];
-  global.state_event.wySubscribedPlaylistsChanged();
-};
+  if (state.wy_subscribed_playlists.some(p => String(p.id) === String(playlist.id))) return
+  state.wy_subscribed_playlists = [playlist, ...state.wy_subscribed_playlists]
+  global.state_event.wySubscribedPlaylistsChanged()
+}
 
 export const removeWySubscribedPlaylist = (id: string | number) => {
-  const strId = String(id);
-  const index = state.wy_subscribed_playlists.findIndex(p => String(p.id) === strId);
-  if (index < 0) return;
-  const newList = [...state.wy_subscribed_playlists];
-  newList.splice(index, 1);
-  state.wy_subscribed_playlists = newList;
-  global.state_event.wySubscribedPlaylistsChanged();
-};
+  const strId = String(id)
+  const index = state.wy_subscribed_playlists.findIndex(p => String(p.id) === strId)
+  if (index < 0) return
+  const newList = [...state.wy_subscribed_playlists]
+  newList.splice(index, 1)
+  state.wy_subscribed_playlists = newList
+  global.state_event.wySubscribedPlaylistsChanged()
+}
 
 export const updateWySubscribedPlaylist = (id: string | number, details: Partial<SubscribedPlaylistInfo>) => {
   const strId = String(id)
@@ -100,23 +100,23 @@ export const updateWySubscribedPlaylist = (id: string | number, details: Partial
   }
 }
 export const updateWySubscribedPlaylistTrackCount = (id: string | number, change: number) => {
-  const strId = String(id);
-  const index = state.wy_subscribed_playlists.findIndex(p => String(p.id) === strId);
+  const strId = String(id)
+  const index = state.wy_subscribed_playlists.findIndex(p => String(p.id) === strId)
 
   if (index > -1) {
     const updatedPlaylist = {
       ...state.wy_subscribed_playlists[index],
       trackCount: state.wy_subscribed_playlists[index].trackCount + change,
-    };
-    const newList = [...state.wy_subscribed_playlists];
-    newList.splice(index, 1, updatedPlaylist);
+    }
+    const newList = [...state.wy_subscribed_playlists]
+    newList.splice(index, 1, updatedPlaylist)
 
-    state.wy_subscribed_playlists = newList;
-    global.state_event.wySubscribedPlaylistsChanged();
+    state.wy_subscribed_playlists = newList
+    global.state_event.wySubscribedPlaylistsChanged()
   }
-};
+}
 
-export const setTxLikedSongs = (ids: (string | number)[]) => {
+export const setTxLikedSongs = (ids: Array<string | number>) => {
   state.tx_liked_song_ids = new Set(ids.map(String))
   global.state_event.txLikedListChanged()
 }
@@ -152,7 +152,7 @@ export const removeTxSubscribedPlaylist = (id: string | number) => {
   global.state_event.txSubscribedPlaylistsChanged()
 }
 
-export const setKgLikedSongs = (ids: (string | number)[]) => {
+export const setKgLikedSongs = (ids: Array<string | number>) => {
   state.kg_liked_song_ids = new Set(ids.map(String))
   global.state_event.kgLikedListChanged()
 }

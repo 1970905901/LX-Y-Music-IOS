@@ -89,7 +89,7 @@ export default forwardRef<ActiveListType, ActiveListProps>(
         </TouchableOpacity>
       </TouchableOpacity>
     )
-  }
+  },
 )
 
 const styles = createStyle({

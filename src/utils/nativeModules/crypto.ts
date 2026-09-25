@@ -31,38 +31,38 @@ export enum AES_MODE {
   ECB_128_NoPadding = 'AES',
 }
 
-export const generateRsaKey = async () => {
+export const generateRsaKey = async() => {
   // console.log(sourceFilePath, targetFilePath)
-  const key = (await assertCrypto().generateRsaKey()) as { publicKey: string; privateKey: string }
+  const key = (await assertCrypto().generateRsaKey()) as { publicKey: string, privateKey: string }
   return {
     publicKey: `${KEY_PREFIX.publicKeyStart}\n${key.publicKey}${KEY_PREFIX.publicKeyEnd}`,
     privateKey: `${KEY_PREFIX.privateKeyStart}\n${key.privateKey}${KEY_PREFIX.privateKeyEnd}`,
   }
 }
 
-export const rsaEncrypt = async (
+export const rsaEncrypt = async(
   text: string,
   key: string,
-  padding: RSA_PADDING
+  padding: RSA_PADDING,
 ): Promise<string> => {
   // console.log(sourceFilePath, targetFilePath)
   return assertCrypto().rsaEncrypt(
     text,
     key.replace(KEY_PREFIX.publicKeyStart, '').replace(KEY_PREFIX.publicKeyEnd, ''),
-    padding
+    padding,
   )
 }
 
-export const rsaDecrypt = async (
+export const rsaDecrypt = async(
   text: string,
   key: string,
-  padding: RSA_PADDING
+  padding: RSA_PADDING,
 ): Promise<string> => {
   // console.log(sourceFilePath, targetFilePath)
   return assertCrypto().rsaDecrypt(
     text,
     key.replace(KEY_PREFIX.privateKeyStart, '').replace(KEY_PREFIX.privateKeyEnd, ''),
-    padding
+    padding,
   )
 }
 
@@ -71,7 +71,7 @@ export const rsaEncryptSync = (text: string, key: string, padding: RSA_PADDING):
   return assertCrypto().rsaEncryptSync(
     text,
     key.replace(KEY_PREFIX.publicKeyStart, '').replace(KEY_PREFIX.publicKeyEnd, ''),
-    padding
+    padding,
   )
 }
 
@@ -80,25 +80,25 @@ export const rsaDecryptSync = (text: string, key: string, padding: RSA_PADDING):
   return assertCrypto().rsaDecryptSync(
     text,
     key.replace(KEY_PREFIX.privateKeyStart, '').replace(KEY_PREFIX.privateKeyEnd, ''),
-    padding
+    padding,
   )
 }
 
-export const aesEncrypt = async (
+export const aesEncrypt = async(
   text: string,
   key: string,
   vi: string,
-  mode: AES_MODE
+  mode: AES_MODE,
 ): Promise<string> => {
   // console.log(sourceFilePath, targetFilePath)
   return assertCrypto().aesEncrypt(text, key, vi, mode)
 }
 
-export const aesDecrypt = async (
+export const aesDecrypt = async(
   text: string,
   key: string,
   vi: string,
-  mode: AES_MODE
+  mode: AES_MODE,
 ): Promise<string> => {
   // console.log(sourceFilePath, targetFilePath)
   return assertCrypto().aesDecrypt(text, key, vi, mode)
@@ -114,7 +114,7 @@ export const aesDecryptSync = (text: string, key: string, vi: string, mode: AES_
   return assertCrypto().aesDecryptSync(text, key, vi, mode)
 }
 
-export const hashSHA1 = async (text: string): Promise<string> => {
+export const hashSHA1 = async(text: string): Promise<string> => {
   try {
     return await assertCrypto().sha1(text)
   } catch (error) {

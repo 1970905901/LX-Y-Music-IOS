@@ -27,7 +27,7 @@ const noop = () => {}
 
 const Component = <T extends ItemT<T>>(
   { onPressBg = noop, ...props }: SearchTipListProps<T>,
-  ref: Ref<SearchTipListType<T>>
+  ref: Ref<SearchTipListType<T>>,
 ) => {
   const theme = useTheme()
   const translateY = useRef(new Animated.Value(0)).current
@@ -124,7 +124,7 @@ const Component = <T extends ItemT<T>>(
         <View style={styles.blank} onTouchStart={onPressBg}></View>
       </Animated.View>
     ),
-    [onPressBg, props, scaleY, theme, translateY]
+    [onPressBg, props, scaleY, theme, translateY],
   )
 
   return !visible && animatePlayed ? null : component

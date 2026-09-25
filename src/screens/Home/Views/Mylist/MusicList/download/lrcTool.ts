@@ -39,7 +39,7 @@ const parseLrcToMap = (lrcString: string | null | undefined): Map<string, string
 export const mergeLyrics = (
   lrc: string,
   tlrc: string | null | undefined,
-  rlrc: string | null | undefined
+  rlrc: string | null | undefined,
 ): string => {
   if (!lrc || (!tlrc && !rlrc)) return lrc
 

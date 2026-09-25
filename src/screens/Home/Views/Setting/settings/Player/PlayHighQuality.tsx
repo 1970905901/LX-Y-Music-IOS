@@ -15,7 +15,7 @@ const useActive = (id: LX.Quality) => {
   return isActive
 }
 
-const Item = ({ id, name }: { id: LX.Quality; name: string }) => {
+const Item = ({ id, name }: { id: LX.Quality, name: string }) => {
   const isActive = useActive(id)
   return (
     <CheckBox

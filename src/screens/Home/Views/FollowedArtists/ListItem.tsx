@@ -1,18 +1,18 @@
 import { memo, useState } from 'react'
-import {View, TouchableOpacity, Animated} from 'react-native'
+import { View, TouchableOpacity, Animated } from 'react-native'
 import Image from '@/components/common/Image'
 import Text from '@/components/common/Text'
 import Button from '@/components/common/Button'
 import { useTheme } from '@/store/theme/hook'
-import {createStyle, toast} from '@/utils/tools'
+import { createStyle, toast } from '@/utils/tools'
 import { navigations } from '@/navigation'
 import commonState from '@/store/common/state'
 import { Icon } from '@/components/common/Icon'
-import event = Animated.event;
+import event = Animated.event
 import wyApi from '@/utils/musicSdk/wy/user'
 import { useIsWyArtistFollowed } from '@/store/user/hook'
 import { addWyFollowedArtist, removeWyFollowedArtist } from '@/store/user/action'
-import {FollowedArtistInfo} from "@/store/user/state.ts";
+import { type FollowedArtistInfo } from '@/store/user/state.ts'
 import { log } from '@/utils/log'
 
 export default memo(({ artist, showFollowButton = false }: { artist: any, showFollowButton?: boolean }) => {
@@ -52,20 +52,20 @@ export default memo(({ artist, showFollowButton = false }: { artist: any, showFo
       songNum: artist.songNum,
       timestamp: new Date().toISOString(),
     })
-    navigations.pushArtistDetailScreen(commonState.componentIds[commonState.componentIds.length - 1]?.id, { 
+    navigations.pushArtistDetailScreen(commonState.componentIds[commonState.componentIds.length - 1]?.id, {
       id: String(artist.id),
       mid: String(artist.mid),
       name: artist.name,
       picUrl: artist.picUrl,
       source: artist.source,
-    });
+    })
     log.info('[FollowedArtists/ListItem] === 跳转请求已发送 ===', {
       artistId: artist.id,
       artistMid: artist.mid,
       artistSource: artist.source,
     })
   }
-  const alias = artist.alias && artist.alias.length ? ` ${artist.alias[0]}` : ''
+  const alias = artist.alias?.length ? ` ${artist.alias[0]}` : ''
 
   return (
     <TouchableOpacity style={styles.container} onPress={handlePress}>

@@ -45,10 +45,10 @@ export default forwardRef<MetadataEditType, MetadataEditProps>((props, ref) => {
       readMetadata(filePath),
       readPic(filePath).catch(() => ''),
       readLyric(filePath, false).catch(() => ''),
-    ]).then(async ([_metadata, pic, lyric]) => {
+    ]).then(async([_metadata, pic, lyric]) => {
       console.log(`[编辑标签] 读取结果: metadata=${JSON.stringify(_metadata)}, pic=${pic ? '有' : '无'}, lyric=${lyric ? '有' : '无'}`)
       if (!_metadata) {
-        console.log(`[编辑标签] 警告: 未能读取到元数据，使用文件名作为歌名`)
+        console.log('[编辑标签] 警告: 未能读取到元数据，使用文件名作为歌名')
         // 尝试从文件名提取歌名
         const fileName = filePath.split('/').pop() || ''
         const nameWithoutExt = fileName.replace(/\.[^.]+$/, '')
@@ -88,14 +88,14 @@ export default forwardRef<MetadataEditType, MetadataEditProps>((props, ref) => {
     },
   }))
 
-  const handleUpdate = async () => {
+  const handleUpdate = async() => {
     if (!metadataFormRef.current) return
-    let _metadata = metadataFormRef.current.getForm() as Metadata & { fileName?: string; originalFileName?: string }
+    let _metadata = metadataFormRef.current.getForm() as Metadata & { fileName?: string, originalFileName?: string }
     if (!_metadata.name) {
       toast(global.i18n.t('metadata_edit_modal_tip'), 'long')
       return
     }
-    console.log(`[编辑标签] ========== 开始保存 ==========`)
+    console.log('[编辑标签] ========== 开始保存 ==========')
     console.log(`[编辑标签] 文件路径: ${filePath.current}`)
     console.log(`[编辑标签] 歌名: ${_metadata.name}`)
     console.log(`[编辑标签] 歌手: ${_metadata.singer || '空'}`)
@@ -103,17 +103,17 @@ export default forwardRef<MetadataEditType, MetadataEditProps>((props, ref) => {
     console.log(`[编辑标签] 原始歌名: ${metadata.current.name || '空'}`)
     console.log(`[编辑标签] fileName: ${_metadata.fileName || '空'}`)
     console.log(`[编辑标签] originalFileName: ${_metadata.originalFileName || '空'}`)
-    
+
     // 检查文件是否存在
     const fileExists = await existsFile(filePath.current)
     console.log(`[编辑标签] 文件是否存在: ${fileExists}`)
-    
+
     // 读取目录内容，检查实际文件名
     const dirPath = filePath.current.substring(0, filePath.current.lastIndexOf('/'))
     const dirFiles = await readDir(dirPath).catch(() => [])
     const matchingFiles = dirFiles.filter(f => f.name.includes('向远端') || f.name.includes('5caa25ca'))
     console.log(`[编辑标签] 目录中的匹配文件: ${JSON.stringify(matchingFiles.map(f => f.name))}`)
-    
+
     setProcessing(true)
     let isUpdated = false
     try {
@@ -137,7 +137,7 @@ export default forwardRef<MetadataEditType, MetadataEditProps>((props, ref) => {
         console.log(`[编辑标签] 写入元数据: name=${_metadata.name}, singer=${_metadata.singer}, album=${_metadata.albumName}`)
         console.log(`[编辑标签] 使用的文件路径: ${filePath.current}`)
         isUpdated ||= true
-        
+
         // 检查文件状态
         try {
           const fileStat = await stat(filePath.current)
@@ -145,27 +145,27 @@ export default forwardRef<MetadataEditType, MetadataEditProps>((props, ref) => {
         } catch (err) {
           console.log(`[编辑标签] 无法获取文件状态: ${err}`)
         }
-        
+
         await writeMetadata(filePath.current, {
           name: _metadata.name,
           singer: _metadata.singer,
           albumName: _metadata.albumName,
         })
-        console.log(`[编辑标签] 元数据写入成功`)
+        console.log('[编辑标签] 元数据写入成功')
       }
-      
+
       // 写入封面
       if (_metadata.pic != metadata.current.pic) {
-        console.log(`[编辑标签] 写入封面`)
+        console.log('[编辑标签] 写入封面')
         isUpdated ||= true
         await writePic(filePath.current, _metadata.pic)
         if (_metadata.pic.startsWith(TEMP_FILE_PATH)) void unlink(_metadata.pic)
-        console.log(`[编辑标签] 封面写入成功`)
+        console.log('[编辑标签] 封面写入成功')
       }
-      
+
       // 写入歌词
       if (_metadata.lyric != metadata.current.lyric) {
-        console.log(`[编辑标签] 写入歌词`)
+        console.log('[编辑标签] 写入歌词')
         isUpdated ||= true
         await writeLyric(filePath.current, _metadata.lyric)
         const lyricMusicInfo: any = musicInfoRef.current || {
@@ -175,12 +175,12 @@ export default forwardRef<MetadataEditType, MetadataEditProps>((props, ref) => {
           source: 'local',
         }
         void saveEditedLyric(lyricMusicInfo, { lyric: _metadata.lyric, tlyric: '', rlyric: '', lxlyric: '' })
-        console.log(`[编辑标签] 歌词写入成功`)
+        console.log('[编辑标签] 歌词写入成功')
       }
-      
-      console.log(`[编辑标签] ========== 保存完成 ==========`)
+
+      console.log('[编辑标签] ========== 保存完成 ==========')
     } catch (err: any) {
-      console.error(`[编辑标签] ========== 保存失败 ==========`)
+      console.error('[编辑标签] ========== 保存失败 ==========')
       console.error(`[编辑标签] 错误信息: ${err.message}`)
       console.error(`[编辑标签] 错误堆栈: ${err.stack || '无'}`)
       console.error(`[编辑标签] 文件路径: ${filePath.current}`)

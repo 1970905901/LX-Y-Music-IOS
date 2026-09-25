@@ -1,38 +1,38 @@
-import { memo, useCallback, useState } from 'react';
-import { View } from 'react-native';
-import SubTitle from '../../components/SubTitle';
-import Slider, { type SliderProps } from '../../components/Slider';
-import { useI18n } from '@/lang';
-import { useSettingValue } from '@/store/setting/hook';
-import { useTheme } from '@/store/theme/hook';
-import { createStyle } from '@/utils/tools';
-import Text from '@/components/common/Text';
-import { updateSetting } from '@/core/common';
+import { memo, useCallback, useState } from 'react'
+import { View } from 'react-native'
+import SubTitle from '../../components/SubTitle'
+import Slider, { type SliderProps } from '../../components/Slider'
+import { useI18n } from '@/lang'
+import { useSettingValue } from '@/store/setting/hook'
+import { useTheme } from '@/store/theme/hook'
+import { createStyle } from '@/utils/tools'
+import Text from '@/components/common/Text'
+import { updateSetting } from '@/core/common'
 
 export default memo(() => {
-  const t = useI18n();
-  const picOpacity = useSettingValue('theme.picOpacity');
-  const theme = useTheme();
+  const t = useI18n()
+  const picOpacity = useSettingValue('theme.picOpacity')
+  const theme = useTheme()
 
-  const [sliderValue, setSliderValue] = useState(picOpacity);
-  const [isSliding, setSliding] = useState(false);
+  const [sliderValue, setSliderValue] = useState(picOpacity)
+  const [isSliding, setSliding] = useState(false)
 
   const handleSlidingStart = useCallback<NonNullable<SliderProps['onSlidingStart']>>(() => {
-    setSliding(true);
-  }, []);
+    setSliding(true)
+  }, [])
 
   const handleValueChange = useCallback<NonNullable<SliderProps['onValueChange']>>((value) => {
-    setSliderValue(value);
-  }, []);
+    setSliderValue(value)
+  }, [])
 
   const handleSlidingComplete = useCallback<NonNullable<SliderProps['onSlidingComplete']>>(
     (value) => {
-      setSliding(false);
-      if (picOpacity === value) return;
-      updateSetting({ 'theme.picOpacity': value });
+      setSliding(false)
+      if (picOpacity === value) return
+      updateSetting({ 'theme.picOpacity': value })
     },
-    [picOpacity]
-  );
+    [picOpacity],
+  )
 
   return (
     <SubTitle title={'背景图片不透明度'}>
@@ -51,8 +51,8 @@ export default memo(() => {
         />
       </View>
     </SubTitle>
-  );
-});
+  )
+})
 
 const styles = createStyle({
   content: {
@@ -62,4 +62,4 @@ const styles = createStyle({
     flexWrap: 'nowrap',
     alignItems: 'center',
   },
-});
+})

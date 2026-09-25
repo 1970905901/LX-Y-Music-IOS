@@ -1,16 +1,17 @@
-import {forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState} from 'react'
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import OnlineList, { type OnlineListType, type OnlineListProps } from '@/components/OnlineList'
 import { clearListDetail, getListDetail, setListDetail, setListDetailInfo } from '@/core/songlist'
 import songlistState from '@/store/songlist/state'
 import { handlePlay } from './listAction'
 import { useListInfo } from './state'
-import {DetailInfo} from "@/screens/SonglistDetail/Header.tsx"
+import { type DetailInfo } from '@/screens/SonglistDetail/Header.tsx'
 import playerState from '@/store/player/state'
 import { LIST_IDS } from '@/config/constant'
 import listState from '@/store/list/state'
 import { getListMusics } from '@/core/list'
 import txUserApi from '@/utils/musicSdk/tx/user'
 import { log } from '@/utils/log'
+import { decodeName } from '@/utils/index'
 
 export interface MusicListProps {
   componentId: string
@@ -27,7 +28,7 @@ export interface MusicListType {
   addSongToList: (rawSong: any) => void
 }
 
-export default forwardRef<MusicListType, MusicListProps>(({componentId, isCreator, playingId, searchText, isFuzzySearch }, ref) => {
+export default forwardRef<MusicListType, MusicListProps>(({ componentId, isCreator, playingId, searchText, isFuzzySearch }, ref) => {
   const listRef = useRef<OnlineListType>(null)
   const isUnmountedRef = useRef(false)
   const info = useListInfo()
@@ -43,7 +44,7 @@ export default forwardRef<MusicListType, MusicListProps>(({componentId, isCreato
       return list.filter(song =>
         song.name?.toLowerCase().includes(textLower) ||
         song.singer?.toLowerCase().includes(textLower) ||
-        (song as any).meta?.albumName?.toLowerCase().includes(textLower)
+        (song as any).meta?.albumName?.toLowerCase().includes(textLower),
       )
     }
     // 模糊模式：允许字符间有间隔
@@ -131,7 +132,7 @@ export default forwardRef<MusicListType, MusicListProps>(({componentId, isCreato
     ref,
     () => ({
       async loadList(source, id, isRefresh = false) {
-        if (global.lx.isEnableLog) console.log(`[SonglistDetail] loadList`, { source, id, isRefresh })
+        if (global.lx.isEnableLog) console.log('[SonglistDetail] loadList', { source, id, isRefresh })
         clearListDetail()
         const listDetailInfo = songlistState.listDetailInfo
         const createDetailInfo = (detail: typeof listDetailInfo.info): DetailInfo => ({
@@ -148,7 +149,7 @@ export default forwardRef<MusicListType, MusicListProps>(({componentId, isCreato
           listDetailInfo.source === source &&
           listDetailInfo.list.length
         ) {
-          if (global.lx.isEnableLog) log.info(`[SonglistDetail] loadList cache hit`, { listCount: listDetailInfo.list.length })
+          if (global.lx.isEnableLog) log.info('[SonglistDetail] loadList cache hit', { listCount: listDetailInfo.list.length })
           requestAnimationFrame(() => {
             fullListRef.current = listDetailInfo.list
             listRef.current?.setList(listDetailInfo.list)
@@ -159,10 +160,10 @@ export default forwardRef<MusicListType, MusicListProps>(({componentId, isCreato
         listRef.current?.setStatus('loading')
         const page = 1
         setListDetailInfo(info.source, info.id)
-        if (global.lx.isEnableLog) log.info(`[SonglistDetail] loadList start`, { source, id, page, isRefresh })
+        if (global.lx.isEnableLog) log.info('[SonglistDetail] loadList start', { source, id, page, isRefresh })
         return getListDetail(id, source, page, isRefresh)
           .then((listDetail) => {
-            if (global.lx.isEnableLog) log.info(`[SonglistDetail] loadList got data`, { songCount: listDetail.list.length, total: listDetail.total })
+            if (global.lx.isEnableLog) log.info('[SonglistDetail] loadList got data', { songCount: listDetail.list.length, total: listDetail.total })
             const result = setListDetail(listDetail, id, page)
             if (isUnmountedRef.current) return createDetailInfo(result.info)
             const filtered = searchText.trim() ? filterList(result.list, searchText) : result.list
@@ -176,7 +177,7 @@ export default forwardRef<MusicListType, MusicListProps>(({componentId, isCreato
             return createDetailInfo(result.info)
           })
           .catch((err) => {
-            if (global.lx.isEnableLog) log.info(`[SonglistDetail] loadList error`, { error: err?.message })
+            if (global.lx.isEnableLog) log.info('[SonglistDetail] loadList error', { error: err?.message })
             if (songlistState.listDetailInfo.list.length && page === 1) clearListDetail()
             listRef.current?.setStatus('error')
             throw err
@@ -209,7 +210,6 @@ export default forwardRef<MusicListType, MusicListProps>(({componentId, isCreato
         }
       },
       addSongToList(rawSong: any) {
-        const { decodeName } = require('@/utils/index')
         const song: LX.Music.MusicInfoOnline = {
           id: `kg__${rawSong.hash || rawSong.audio_id}`,
           name: decodeName(rawSong.name || rawSong.songname || '').replace(/\.mp3$/i, ''),

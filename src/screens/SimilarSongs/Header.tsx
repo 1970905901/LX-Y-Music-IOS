@@ -12,7 +12,7 @@ import { designSpacing } from '@/theme/DesignTokens'
 
 const HEADER_HEIGHT = scaleSizeH(_HEADER_HEIGHT)
 
-export default memo(({ componentId, title }: { componentId: string; title: string }) => {
+export default memo(({ componentId, title }: { componentId: string, title: string }) => {
   const statusBarHeight = useStatusbarHeight()
   const theme = useTheme()
   const back = () => { void pop(componentId) }

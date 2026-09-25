@@ -1,12 +1,12 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, type ReactElement } from 'react'
 import Songlist, { type SonglistProps, type SonglistType } from './components/Songlist'
 import { clearList, getList, setList, setListInfo } from '@/core/songlist'
-import songlistState, {ListInfoItem} from '@/store/songlist/state'
-import { type Source } from '@/store/songlist/state'
+import songlistState, { type ListInfoItem, type Source } from '@/store/songlist/state'
+
 
 export interface ListType {
   loadList: (source: Source, sortId: string, tagId: string) => void
-  onOpenDetail: (item: ListInfoItem) => void;
+  onOpenDetail: (item: ListInfoItem) => void
 }
 
 export default forwardRef<ListType, { header?: ReactElement, onOpenDetail: (item: ListInfoItem) => void }>(({ header, onOpenDetail }, ref) => {
@@ -64,7 +64,7 @@ export default forwardRef<ListType, { header?: ReactElement, onOpenDetail: (item
           })
       },
     }),
-    []
+    [],
   )
 
   useEffect(() => {
@@ -83,7 +83,7 @@ export default forwardRef<ListType, { header?: ReactElement, onOpenDetail: (item
       songlistState.listInfo.tagId,
       songlistState.listInfo.sortId,
       page,
-      true
+      true,
     )
       .then((info) => {
         if (currentLoadId !== loadIdRef.current || isUnmountedRef.current) return
@@ -91,7 +91,7 @@ export default forwardRef<ListType, { header?: ReactElement, onOpenDetail: (item
           info,
           songlistState.listInfo.tagId,
           songlistState.listInfo.sortId,
-          page
+          page,
         )
         applyListResult(result, page, currentLoadId)
       })
@@ -109,7 +109,7 @@ export default forwardRef<ListType, { header?: ReactElement, onOpenDetail: (item
       songlistState.listInfo.source,
       songlistState.listInfo.tagId,
       songlistState.listInfo.sortId,
-      page
+      page,
     )
       .then((info) => {
         if (currentLoadId !== loadIdRef.current || isUnmountedRef.current) return
@@ -117,7 +117,7 @@ export default forwardRef<ListType, { header?: ReactElement, onOpenDetail: (item
           info,
           songlistState.listInfo.tagId,
           songlistState.listInfo.sortId,
-          page
+          page,
         )
         applyListResult(result, page, currentLoadId)
       })

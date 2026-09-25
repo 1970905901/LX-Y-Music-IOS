@@ -7,7 +7,6 @@ import SerpApiKey from './Basic/SerpApiKey'
 import WebLoginBtn from './Basic/WebLoginBtn'
 
 export default memo(() => {
-
   return (
     <Section sectionId="setting_platform">
       <WyCookie />

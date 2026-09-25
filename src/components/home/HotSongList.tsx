@@ -119,7 +119,7 @@ const HotSongList = memo(({
           <Pressable
             key={song.id}
             style={styles.row}
-            onPress={() => onSongPress(song, index)}
+            onPress={() => { onSongPress(song, index) }}
           >
             <Text style={rankStyle} size={15}>{index + 1}</Text>
             <Image style={coverStyle} url={song.meta.picUrl ?? song.pic} />

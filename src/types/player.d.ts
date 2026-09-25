@@ -16,7 +16,7 @@ declare global {
         alias?: string
         singer: string
         album: string
-        artists?: Array<{ id: string | number; mid?: string; name: string }>
+        artists?: Array<{ id: string | number, mid?: string, name: string }>
       }
 
       interface LyricInfo extends LX.Music.LyricInfo {

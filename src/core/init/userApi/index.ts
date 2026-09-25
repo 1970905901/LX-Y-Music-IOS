@@ -23,7 +23,7 @@ const parseFileSize = (sizeStr: string): number => {
 
 const getActualQualityBySize = (actualSizeMB: number, claimedQuality: string, musicInfo: LX.Music.MusicInfo): string => {
   const qualitySizes: Record<string, number> = {}
-  
+
   if (musicInfo._types) {
     for (const [quality, info] of Object.entries(musicInfo._types)) {
       if (typeof info === 'object' && info.size) {
@@ -31,7 +31,7 @@ const getActualQualityBySize = (actualSizeMB: number, claimedQuality: string, mu
       }
     }
   }
-  
+
   if (Object.keys(qualitySizes).length === 0 && musicInfo.meta?._qualitys) {
     for (const [quality, info] of Object.entries(musicInfo.meta._qualitys)) {
       if (typeof info === 'object' && info.size) {
@@ -39,12 +39,12 @@ const getActualQualityBySize = (actualSizeMB: number, claimedQuality: string, mu
       }
     }
   }
-  
+
   if (Object.keys(qualitySizes).length === 0) return claimedQuality
-  
+
   let closestQuality = claimedQuality
   let minDiff = Infinity
-  
+
   for (const [quality, expectedSize] of Object.entries(qualitySizes)) {
     const diff = Math.abs(actualSizeMB - expectedSize)
     if (diff < minDiff) {
@@ -52,20 +52,20 @@ const getActualQualityBySize = (actualSizeMB: number, claimedQuality: string, mu
       closestQuality = quality
     }
   }
-  
+
   return closestQuality
 }
 
-export default async (setting: LX.AppSetting) => {
+export default async(setting: LX.AppSetting) => {
   const userApiRequestMap = new Map<
-    string,
-    {
-      resolve: (value: ResponseParams['result']) => void
-      reject: (error: Error) => void
-      timeout: number
-    }
+  string,
+  {
+    resolve: (value: ResponseParams['result']) => void
+    reject: (error: Error) => void
+    timeout: number
+  }
   >()
-  const scriptRequestMap = new Map<string, { request: Promise<any>; abort: () => void }>()
+  const scriptRequestMap = new Map<string, { request: Promise<any>, abort: () => void }>()
 
   const cancelRequest = (requestKey: string, message: string) => {
     const target = scriptRequestMap.get(requestKey)
@@ -76,7 +76,7 @@ export default async (setting: LX.AppSetting) => {
   const sendScriptRequest = (
     requestKey: string,
     url: string,
-    options: RequestParams['options']
+    options: RequestParams['options'],
   ) => {
     let req = fetchData(url, options)
     req.request
@@ -100,7 +100,7 @@ export default async (setting: LX.AppSetting) => {
       })
     scriptRequestMap.set(requestKey, req)
   }
-  const sendUserApiRequest = async (data: LX.UserApi.UserApiRequestParams) => {
+  const sendUserApiRequest = async(data: LX.UserApi.UserApiRequestParams) => {
     const handleApiUpdate = () => {
       const target = userApiRequestMap.get(data.requestKey)
       if (!target) return
@@ -143,7 +143,7 @@ export default async (setting: LX.AppSetting) => {
         let apis: any = {}
         let qualitys: LX.QualityList = {}
         for (const [source, { actions, type, qualitys: sourceQualitys }] of Object.entries(
-          info.sources ?? {}
+          info.sources ?? {},
         )) {
           if (type != 'music') continue
           apis[source as LX.Source] = {}
@@ -167,22 +167,22 @@ export default async (setting: LX.AppSetting) => {
                         },
                       },
                     })
-                      .then(async (res) => {
+                      .then(async(res) => {
                         const extraQuality = res.data.extra?.quality
-                        let actualQuality = typeof extraQuality === 'object' 
-                          ? extraQuality.type || type 
+                        let actualQuality = typeof extraQuality === 'object'
+                          ? extraQuality.type || type
                           : (extraQuality || type)
-                        
+
                         const url = res.data.url
                         if (url) {
                           const urlLower = url.toLowerCase()
                           const urlExtension = urlLower.split('.').pop() || ''
-                          
+
                           try {
                             const headResponse = await fetch(url, { method: 'HEAD' })
                             const contentLength = headResponse.headers.get('content-length')
                             const contentType = headResponse.headers.get('content-type') || ''
-                            
+
                             let inferredType = urlExtension
                             if (contentType.includes('audio/flac') || contentType.includes('application/octet-stream')) {
                               inferredType = 'flac'
@@ -191,7 +191,7 @@ export default async (setting: LX.AppSetting) => {
                             } else if (contentType.includes('audio/mp4') || contentType.includes('audio/m4a') || contentType.includes('audio/aac')) {
                               inferredType = 'm4a'
                             }
-                            
+
                             if (contentLength) {
                               const actualSizeMB = parseInt(contentLength) / (1024 * 1024)
                               actualQuality = getActualQualityBySize(actualSizeMB, actualQuality, songInfo)
@@ -212,7 +212,7 @@ export default async (setting: LX.AppSetting) => {
                             }
                           }
                         }
-                        
+
                         return { type: actualQuality, url: res.data.url }
                       })
                       .catch((err) => {
@@ -244,7 +244,7 @@ export default async (setting: LX.AppSetting) => {
                         // console.log(res)
                         return res.data
                       })
-                      .catch(async (err) => {
+                      .catch(async(err) => {
                         console.log(err.message)
                         return Promise.reject(err)
                       }),
@@ -273,7 +273,7 @@ export default async (setting: LX.AppSetting) => {
                         // console.log(res)
                         return res.data
                       })
-                      .catch(async (err) => {
+                      .catch(async(err) => {
                         console.log(err.message)
                         return Promise.reject(err)
                       }),
@@ -328,8 +328,7 @@ export default async (setting: LX.AppSetting) => {
     // console.log('script actuon: ', event)
     switch (event.action) {
       case 'init':
-        if ((event as unknown as { errorMessage?: string }).errorMessage)
-          event.data.errorMessage = (event as unknown as { errorMessage: string }).errorMessage
+        if ((event as unknown as { errorMessage?: string }).errorMessage) { event.data.errorMessage = (event as unknown as { errorMessage: string }).errorMessage }
         handleStateChange(event.data)
         break
       case 'response':

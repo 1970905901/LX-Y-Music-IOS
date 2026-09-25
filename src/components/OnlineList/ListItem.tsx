@@ -25,7 +25,7 @@ export const ITEM_HEIGHT = scaleSizeH(LIST_ITEM_HEIGHT)
 
 const useQualityTag = (musicInfo: LX.Music.MusicInfoOnline) => {
   const t = useI18n()
-  let info: { type: BadgeType | null; text: string } = { type: null, text: '' }
+  let info: { type: BadgeType | null, text: string } = { type: null, text: '' }
   const qualitys = (musicInfo.meta as LX.Music.MusicInfoMeta_online)?._qualitys ?? {}
   const showHighest = settingState.setting['common.quality_show_highest']
 
@@ -90,26 +90,26 @@ export default memo(
     onShowMenu: (
       item: LX.Music.MusicInfoOnline,
       index: number,
-      position: { x: number; y: number; w: number; h: number }
+      position: { x: number, y: number, w: number, h: number }
     ) => void
     selectedList: LX.Music.MusicInfoOnline[]
     rowInfo: RowInfo
     isShowAlbumName: boolean
     isShowInterval: boolean
-    playingId?: string | null;
+    playingId?: string | null
     listId?: string
     showCover?: boolean
     hideMenu?: boolean
   }) => {
     const theme = useTheme()
-    const isPlaying = playingId === item.id;
+    const isPlaying = playingId === item.id
     const isSelected = selectedList.includes(item)
     const coverUrl = useCoverUrl(item)
     const isWyLiked = useIsWyLiked(item.meta.songId)
     const txSongId = (item.meta as any).id
     const isNumericId = txSongId && /^\d+$/.test(String(txSongId))
-    const txSongMid = isNumericId 
-      ? String(txSongId) 
+    const txSongMid = isNumericId
+      ? String(txSongId)
       : (item.meta as any).songmid || (item.meta as any).strMediaMid || (typeof item.id === 'string' && item.id.startsWith('tx_') ? item.id.slice(3) : item.id)
     const isTxLiked = useIsTxLiked(txSongMid)
     const isKgLiked = useIsKgLiked((item.meta as any).hash || item.meta.songId)
@@ -156,8 +156,8 @@ export default memo(
       >
         <TouchableOpacity
           style={styles.listItemLeft}
-          onPress={() => onPress(item, index)}
-          onLongPress={() => onLongPress(item, index)}
+          onPress={() => { onPress(item, index) }}
+          onLongPress={() => { onLongPress(item, index) }}
         >
 
 
@@ -212,7 +212,7 @@ export default memo(
         {showLikeButton ? (
           <TouchableOpacity onPress={handleLike} style={styles.likeButton}>
             <Icon
-              name={isLiked ? "love-filled" : "love"}
+              name={isLiked ? 'love-filled' : 'love'}
               size={17}
               color={isLiked ? theme['c-liked'] : theme['c-350']}
             />
@@ -242,7 +242,7 @@ export default memo(
       prevProps.selectedList.includes(nextProps.item) &&
       prevProps.showCover === nextProps.showCover
     )
-  }
+  },
 )
 
 const styles = createStyle({

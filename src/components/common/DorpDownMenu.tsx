@@ -31,7 +31,7 @@ export default <T extends Menus>({
         {
           width,
           height,
-        }
+        },
       )
     })
   }

@@ -12,7 +12,7 @@ type SetLyricHook = (lines: Lines) => void
 const lxLyricParser = new LxLyricPlayer()
 
 // 逐字映射就绪钩子：setLyric 解析完逐字后触发，让组件侧刷新逐字快照（独立于行级 onSetLyric）。
-const wordMapHooks: (() => void)[] = []
+const wordMapHooks: Array<() => void> = []
 
 const lrcTools = {
   isInited: false,
@@ -29,7 +29,7 @@ const lrcTools = {
   romaText: '' as string | null | undefined,
   // 与 currentLines 同序：第 i 项为第 i 行歌词的逐字时间轴；无逐字（纯 LRC）为 null。
   // 用「索引对齐」而非「时间相等」匹配，以容忍 lrc-file-parser 与 lxlyric 在 offset 处理上的微小差异。
-  currentWordsByIndex: [] as (LxLyricWord[] | null)[],
+  currentWordsByIndex: [] as Array<LxLyricWord[] | null>,
   init() {
     if (this.isInited) return
     this.isInited = true
@@ -82,7 +82,7 @@ export const init = async() => {
 // 仅做纯解析，不启动 LxLyricPlayer 内部 ticker（时钟由 audioClock 统一外推）。
 // 采用「时间就近匹配」对齐到 lrc-file-parser 的当前行，容忍两者在 offset 处理上的微小差异。
 const buildWordsMap = (lxlrc?: string | null) => {
-  const arr: (LxLyricWord[] | null)[] = []
+  const arr: Array<LxLyricWord[] | null> = []
   const lyricLines = lrcTools.currentLines
   if (lxlrc && lyricLines.length) {
     try {
@@ -119,8 +119,8 @@ const buildWordsMap = (lxlrc?: string | null) => {
 export const getWordState = (
   words: LxLyricWord[] | undefined,
   elapsed: number,
-): { index: number; progress: number } => {
-  if (!words || !words.length) return { index: -1, progress: 0 }
+): { index: number, progress: number } => {
+  if (!words?.length) return { index: -1, progress: 0 }
   if (elapsed < 0) return { index: -1, progress: 0 }
   for (let i = 0; i < words.length; i++) {
     const w = words[i]
@@ -265,8 +265,8 @@ export const syncToTime = (time: number, isPlaying: boolean) => {
 }
 
 // 逐行歌词 play hook：iOS 无原生 LyricModule，蓝牙歌词 / 网络歌词改用此 JS 引擎钩子驱动。
-export const addPlayHook = (hook: PlayHook) => lrcTools.addPlayHook(hook)
-export const removePlayHook = (hook: PlayHook) => lrcTools.removePlayHook(hook)
+export const addPlayHook = (hook: PlayHook) => { lrcTools.addPlayHook(hook) }
+export const removePlayHook = (hook: PlayHook) => { lrcTools.removePlayHook(hook) }
 
 // 参考 Q-1515/lx-music-mobile ios-adaptation：注册逐行播放钩子并返回取消函数。
 export const onLyricPlay = (hook: PlayHook) => {
@@ -335,7 +335,7 @@ export const useLrcSet = () => {
 
 // 逐字映射 hook：歌词（含逐字）就绪时返回最新「与行同序的逐字数组」快照。
 export const useLrcWordsMap = () => {
-  const [wordsByIndex, setWordsByIndex] = useState<readonly (LxLyricWord[] | null)[]>(lrcTools.currentWordsByIndex)
+  const [wordsByIndex, setWordsByIndex] = useState<ReadonlyArray<LxLyricWord[] | null>>(lrcTools.currentWordsByIndex)
   useEffect(() => {
     const callback = () => {
       setWordsByIndex(lrcTools.currentWordsByIndex)

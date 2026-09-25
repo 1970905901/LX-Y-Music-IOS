@@ -54,7 +54,7 @@ const useI18n = () => {
     (key: string, val?: TranslateValues): string => {
       return i18n?.getMessage(key, val) ?? ''
     },
-    [locale]
+    [locale],
   )
 }
 
@@ -70,7 +70,7 @@ const createI18n = (_locale: Langs = locale): I18n => {
     fallbackLocale: 'zh_cn',
     availableLocales: Object.keys(messages) as Langs[],
     messages,
-    message: messages[locale] ?? messages['zh_cn'],
+    message: messages[locale] ?? messages.zh_cn,
     setLanguage(_locale: Langs) {
       this.locale = _locale
       this.message = messages[_locale] ?? messages[this.fallbackLocale]

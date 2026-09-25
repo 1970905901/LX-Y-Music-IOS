@@ -29,7 +29,7 @@ export default memo(() => {
       if (miniPlayerOpacity === value) return
       updateSetting({ 'theme.miniPlayerOpacity': value })
     },
-    [miniPlayerOpacity]
+    [miniPlayerOpacity],
   )
 
   return (

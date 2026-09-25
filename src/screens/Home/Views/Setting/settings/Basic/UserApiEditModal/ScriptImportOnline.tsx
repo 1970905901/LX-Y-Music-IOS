@@ -81,7 +81,7 @@ export default forwardRef<ScriptImportOnlineType, {}>((props, ref) => {
     },
   }))
 
-  const handleImport = async () => {
+  const handleImport = async() => {
     let url = urlInputRef.current?.getText() ?? ''
     if (!/^https?:\/\//.test(url)) {
       url = ''

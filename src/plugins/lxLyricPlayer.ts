@@ -145,7 +145,7 @@ export default class LxLyricPlayer {
 
   private getWordState(lineIndex: number, currentTime: number) {
     const line = this.lines[lineIndex]
-    if (!line || !line.words.length) return { index: -1, progress: 0 }
+    if (!line?.words.length) return { index: -1, progress: 0 }
     const elapsed = currentTime - line.time
     if (elapsed < 0) return { index: -1, progress: 0 }
     for (let i = 0; i < line.words.length; i++) {
@@ -197,7 +197,7 @@ export default class LxLyricPlayer {
     this.tags = {}
     for (const tag in tagRegMap) {
       const matches = this.lyric.match(new RegExp(`\\[${tagRegMap[tag as keyof typeof tagRegMap]}:([^\\]]*)]`, 'i'))
-      this.tags[tag] = (matches && matches[1]) || ''
+      this.tags[tag] = matches?.[1] || ''
     }
     if (this.tags.offset) {
       const parsedOffset = parseInt(this.tags.offset as string)

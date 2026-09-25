@@ -26,107 +26,106 @@ export interface PlayDetailMenuProps {
 }
 
 export interface PlayDetailMenuType {
-  show: (selectInfo: SelectInfo, position: Position) => void;
+  show: (selectInfo: SelectInfo, position: Position) => void
 }
 
 export type { Position }
 
 export default forwardRef<PlayDetailMenuType, PlayDetailMenuProps>((props, ref) => {
-  const t = useI18n();
-  const theme = useTheme();
-  const [visible, setVisible] = useState(false);
-  const menuRef = useRef<MenuType>(null);
-  const selectInfoRef = useRef<SelectInfo>(initSelectInfo as SelectInfo);
-  const [isLiked, setIsLiked] = useState(false);
+  const t = useI18n()
+  const theme = useTheme()
+  const [visible, setVisible] = useState(false)
+  const menuRef = useRef<MenuType>(null)
+  const selectInfoRef = useRef<SelectInfo>(initSelectInfo as SelectInfo)
+  const [isLiked, setIsLiked] = useState(false)
 
   const renderLikeLabel = (liked: boolean) => (
     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-      <Icon name={liked ? "love-filled" : "love"} size={16} color={liked ? theme['c-liked'] : theme['c-350']} />
+      <Icon name={liked ? 'love-filled' : 'love'} size={16} color={liked ? theme['c-liked'] : theme['c-350']} />
       <View style={{ width: 6 }} />
       <Text size={15} color={theme['c-font']}>{liked ? '取消喜欢' : '喜欢'}</Text>
     </View>
-  );
+  )
 
   useImperativeHandle(ref, () => ({
     show(selectInfo, position) {
-      selectInfoRef.current = selectInfo;
+      selectInfoRef.current = selectInfo
       if (selectInfo.musicInfo.source === 'wy') {
-        setIsLiked(userState.wy_liked_song_ids.has(String(selectInfo.musicInfo.meta.songId)));
+        setIsLiked(userState.wy_liked_song_ids.has(String(selectInfo.musicInfo.meta.songId)))
       } else if (selectInfo.musicInfo.source === 'tx') {
         const songId = (selectInfo.musicInfo.meta as any).id
         const songMid = (selectInfo.musicInfo.meta as any).songmid || (selectInfo.musicInfo.meta as any).strMediaMid || selectInfo.musicInfo.id
         const likeKey = songId && /^\d+$/.test(String(songId)) ? String(songId) : songMid
-        setIsLiked(userState.tx_liked_song_ids.has(likeKey));
+        setIsLiked(userState.tx_liked_song_ids.has(likeKey))
       } else if (selectInfo.musicInfo.source === 'kg') {
-        setIsLiked(userState.kg_liked_song_ids.has(String((selectInfo.musicInfo.meta as any)?.hash || selectInfo.musicInfo.meta.songId)));
+        setIsLiked(userState.kg_liked_song_ids.has(String((selectInfo.musicInfo.meta as any)?.hash || selectInfo.musicInfo.meta.songId)))
       }
       if (visible) {
-        menuRef.current?.show(position);
+        menuRef.current?.show(position)
       } else {
-        setVisible(true);
+        setVisible(true)
         requestAnimationFrame(() => {
-          menuRef.current?.show(position);
-        });
+          menuRef.current?.show(position)
+        })
       }
     },
-  }));
+  }))
 
   const menus = useMemo((): Menus => {
-    const musicInfo = selectInfoRef.current.musicInfo;
-    const menuItems: Menus[number][] = [];
-    menuItems.push({ action: 'download', label: t('download') });
+    const musicInfo = selectInfoRef.current.musicInfo
+    const menuItems: Array<Menus[number]> = []
+    menuItems.push({ action: 'download', label: t('download') })
 
     if (musicInfo?.source === 'wy') {
       menuItems.push({ action: 'like', label: renderLikeLabel(isLiked) })
-      menuItems.push({ action: 'artistDetail', label: t('artist_detail') });
-      menuItems.push({ action: 'albumDetail', label: t('album_detail') });
-      menuItems.push({ action: 'similarSongs', label: '相似歌曲' });
-
+      menuItems.push({ action: 'artistDetail', label: t('artist_detail') })
+      menuItems.push({ action: 'albumDetail', label: t('album_detail') })
+      menuItems.push({ action: 'similarSongs', label: '相似歌曲' })
     }
 
     if (musicInfo?.source === 'tx') {
       menuItems.push({ action: 'like', label: renderLikeLabel(isLiked) })
-      menuItems.push({ action: 'artistDetail', label: t('artist_detail') });
-      menuItems.push({ action: 'albumDetail', label: t('album_detail') });
-      menuItems.push({ action: 'similarSongs', label: '相似歌曲' });
+      menuItems.push({ action: 'artistDetail', label: t('artist_detail') })
+      menuItems.push({ action: 'albumDetail', label: t('album_detail') })
+      menuItems.push({ action: 'similarSongs', label: '相似歌曲' })
     }
 
     if (musicInfo?.source === 'kg') {
       menuItems.push({ action: 'like', label: renderLikeLabel(isLiked) })
-      menuItems.push({ action: 'artistDetail', label: t('artist_detail') });
-      menuItems.push({ action: 'albumDetail', label: t('album_detail') });
+      menuItems.push({ action: 'artistDetail', label: t('artist_detail') })
+      menuItems.push({ action: 'albumDetail', label: t('album_detail') })
     }
 
-    menuItems.push({ action: 'clearCache', label: t('clear_music_cache') });
+    menuItems.push({ action: 'clearCache', label: t('clear_music_cache') })
 
-    return menuItems;
-  }, [t, isLiked, selectInfoRef.current.musicInfo]);
+    return menuItems
+  }, [t, isLiked, selectInfoRef.current.musicInfo])
 
   const handleMenuPress = ({ action }: (typeof menus)[number]) => {
-    const selectInfo = selectInfoRef.current;
+    const selectInfo = selectInfoRef.current
     switch (action) {
       case 'like':
-        props.onLike(selectInfo);
-        break;
+        props.onLike(selectInfo)
+        break
       case 'download':
-        props.onDownload(selectInfo);
-        break;
+        props.onDownload(selectInfo)
+        break
       case 'artistDetail':
-        props.onArtistDetail(selectInfo);
-        break;
+        props.onArtistDetail(selectInfo)
+        break
       case 'albumDetail':
-        props.onAlbumDetail(selectInfo);
-        break;
+        props.onAlbumDetail(selectInfo)
+        break
       case 'similarSongs':
-        props.onSimilarSongs(selectInfo);
-        break;
+        props.onSimilarSongs(selectInfo)
+        break
       case 'clearCache':
-        props.onClearCache(selectInfo);
-        break;
+        props.onClearCache(selectInfo)
+        break
       default:
-        break;
+        break
     }
-  };
+  }
 
-  return visible ? <Menu ref={menuRef} menus={menus} onPress={handleMenuPress} /> : null;
-});
+  return visible ? <Menu ref={menuRef} menus={menus} onPress={handleMenuPress} /> : null
+})

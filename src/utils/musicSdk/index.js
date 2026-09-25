@@ -83,41 +83,40 @@ const withSearchTimeout = (promise, ms = 10000) => {
     const timer = setTimeout(() => resolve(null), ms)
     promise.then(
       (v) => { clearTimeout(timer); resolve(v) },
-      () => { clearTimeout(timer); resolve(null) }
+      () => { clearTimeout(timer); resolve(null) },
     )
   })
 }
 
-export const searchMusic = async ({ name, singer, source: s, limit = 25 }) => {
+export const searchMusic = async({ name, singer, source: s, limit = 25 }) => {
   const trimStr = (str) => (typeof str == 'string' ? str.trim() : str)
   const musicName = trimStr(name)
   const tasks = []
   const excludeSource = ['xm', 'git', 'bilibili']
   for (const source of sources.sources) {
-    if (!sources[source.id].musicSearch || source.id == s || excludeSource.includes(source.id))
-      continue
+    if (!sources[source.id].musicSearch || source.id == s || excludeSource.includes(source.id)) { continue }
     tasks.push(
       withSearchTimeout(
-        sources[source.id].musicSearch.search(`${musicName} ${singer || ''}`.trim(), 1, limit)
-      )
+        sources[source.id].musicSearch.search(`${musicName} ${singer || ''}`.trim(), 1, limit),
+      ),
     )
   }
   return (await Promise.all(tasks)).filter((s) => s)
 }
 
-export const findMusic = async (musicInfo) => {
+export const findMusic = async(musicInfo) => {
   const { name, singer, albumName, interval, source: s } = musicInfo
-  console.log(`[在线匹配] ========== 开始匹配 ==========`)
+  console.log('[在线匹配] ========== 开始匹配 ==========')
   console.log(`[在线匹配] 输入信息: 歌名="${name}", 歌手="${singer}", 专辑="${albumName}", 时长="${interval}", 来源="${s}"`)
 
   const lists = await searchMusic({ name, singer, source: s, limit: 25 })
   console.log(`[在线匹配] 搜索返回 ${lists.length} 个平台的结果`)
-  
+
   // 显示搜索结果详情
   lists.forEach(source => {
     console.log(`[在线匹配] [${source.source}] 返回 ${source.list.length} 条结果`)
     source.list.slice(0, 5).forEach((item, i) => {
-      console.log(`[在线匹配]   ${i+1}. "${item.name}" - "${item.singer}" (${item.interval || '未知'})`)
+      console.log(`[在线匹配]   ${i + 1}. "${item.name}" - "${item.singer}" (${item.interval || '未知'})`)
     })
   })
 
@@ -125,9 +124,9 @@ export const findMusic = async (musicInfo) => {
   const sortSingle = (singer) =>
     singersRxp.test(singer)
       ? singer
-          .split(singersRxp)
-          .sort((a, b) => a.localeCompare(b))
-          .join('、')
+        .split(singersRxp)
+        .sort((a, b) => a.localeCompare(b))
+        .join('、')
       : singer || ''
   const sortMusic = (arr, callback) => {
     const tempResult = []
@@ -187,7 +186,7 @@ export const findMusic = async (musicInfo) => {
         item.fMusicName = filterStr(String(item.name ?? '').toLowerCase())
         item.fAlbumName = filterStr(String(item.albumName ?? '').toLowerCase())
         item.fInterval = getIntv(item.interval)
-        
+
         if (!isEqualsInterval(item.fInterval)) {
           item.name = null
           continue
@@ -237,22 +236,22 @@ export const findMusic = async (musicInfo) => {
       return null
     })
     .filter((s) => s)
-  
+
   // 输出匹配结果日志
-  console.log(`[在线匹配] ========== 匹配结果 ==========`)
+  console.log('[在线匹配] ========== 匹配结果 ==========')
   if (result.length > 0) {
     console.log(`[在线匹配] 找到 ${result.length} 个匹配结果`)
     result.forEach((item, i) => {
       console.log(`[在线匹配]   ${i + 1}. ${item.source} - "${item.name}" - "${item.singer}" (${item.interval || '未知'})`)
     })
   } else {
-    console.log(`[在线匹配] 未找到匹配结果`)
-    console.log(`[在线匹配] 失败原因分析:`)
+    console.log('[在线匹配] 未找到匹配结果')
+    console.log('[在线匹配] 失败原因分析:')
     console.log(`[在线匹配]   - 本地歌名: "${name}"`)
     console.log(`[在线匹配]   - 本地歌手: "${singer || '空'}"`)
     console.log(`[在线匹配]   - 本地专辑: "${albumName || '空'}"`)
     console.log(`[在线匹配]   - 本地时长: "${interval || '空'}"`)
-    console.log(`[在线匹配]   - 搜索结果中没有完全匹配的歌曲`)
+    console.log('[在线匹配]   - 搜索结果中没有完全匹配的歌曲')
   }
 
   const newResult = []
@@ -261,24 +260,24 @@ export const findMusic = async (musicInfo) => {
       ...sortMusic(
         result,
         (item) =>
-          item.fSinger == fSinger && item.fMusicName == fMusicName && item.interval == interval
-      )
+          item.fSinger == fSinger && item.fMusicName == fMusicName && item.interval == interval,
+      ),
     )
     newResult.push(
       ...sortMusic(
         result,
         (item) =>
-          item.fMusicName == fMusicName && item.fSinger == fSinger && item.fAlbumName == fAlbumName
-      )
+          item.fMusicName == fMusicName && item.fSinger == fSinger && item.fAlbumName == fAlbumName,
+      ),
     )
     newResult.push(
-      ...sortMusic(result, (item) => item.fSinger == fSinger && item.fMusicName == fMusicName)
+      ...sortMusic(result, (item) => item.fSinger == fSinger && item.fMusicName == fMusicName),
     )
     newResult.push(
-      ...sortMusic(result, (item) => item.fMusicName == fMusicName && item.interval == interval)
+      ...sortMusic(result, (item) => item.fMusicName == fMusicName && item.interval == interval),
     )
     newResult.push(
-      ...sortMusic(result, (item) => item.fSinger == fSinger && item.interval == interval)
+      ...sortMusic(result, (item) => item.fSinger == fSinger && item.interval == interval),
     )
     newResult.push(...sortMusic(result, (item) => item.interval == interval))
     newResult.push(...sortMusic(result, (item) => item.fMusicName == fMusicName))

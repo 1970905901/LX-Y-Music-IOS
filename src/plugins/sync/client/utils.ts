@@ -2,9 +2,9 @@
 import { gzipString, unGzipString } from '@/utils/fs'
 import BackgroundTimer from 'react-native-background-timer'
 
-export const request = async (
+export const request = async(
   url: string,
-  { timeout = 10000, ...options }: RequestInit & { timeout?: number } = {}
+  { timeout = 10000, ...options }: RequestInit & { timeout?: number } = {},
 ) => {
   const controller = new AbortController()
   let id: number | null = BackgroundTimer.setTimeout(() => {
@@ -15,7 +15,7 @@ export const request = async (
     ...options,
     signal: controller.signal,
   })
-    .then(async (response) => {
+    .then(async(response) => {
       const text = await response.text()
       return {
         text,
@@ -72,13 +72,13 @@ export { generateRsaKey } from '@/utils/nativeModules/crypto'
 //   )
 // })
 
-export const encryptMsg = async (keyInfo: LX.Sync.KeyInfo, msg: string): Promise<string> => {
+export const encryptMsg = async(keyInfo: LX.Sync.KeyInfo, msg: string): Promise<string> => {
   return msg.length > 1024 ? 'cg_' + (await gzipString(msg)) : msg
   // if (!keyInfo) return ''
   // return aesEncrypt(msg, keyInfo.key, keyInfo.iv)
 }
 
-export const decryptMsg = async (keyInfo: LX.Sync.KeyInfo, enMsg: string): Promise<string> => {
+export const decryptMsg = async(keyInfo: LX.Sync.KeyInfo, enMsg: string): Promise<string> => {
   return enMsg.substring(0, 3) == 'cg_' ? unGzipString(enMsg.replace('cg_', '')) : enMsg
   // if (!keyInfo) return ''
   // let msg = ''

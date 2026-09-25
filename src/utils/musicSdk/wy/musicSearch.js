@@ -48,13 +48,13 @@ export default {
 
   musicSearch(str, page, limit) {
     const searchRequest = eapiRequest('/api/search/song/list/page', {
-        keyword: str,
-        needCorrect: '1',
-        channel: 'typing',
-        offset: limit * (page - 1),
-        scene: 'normal',
-        total: page == 1,
-        limit,
+      keyword: str,
+      needCorrect: '1',
+      channel: 'typing',
+      offset: limit * (page - 1),
+      scene: 'normal',
+      total: page == 1,
+      limit,
     })
     return searchRequest.promise.then(({ body }) => body)
   },
@@ -67,7 +67,7 @@ export default {
       const query = `${str} site:music.163.com`
       const requestObj = httpFetch(
         `https://serpapi.com/search.json?engine=google&google_domain=google.com&hl=zh-cn&num=10&q=${encodeURIComponent(query)}&api_key=${encodeURIComponent(apiKey)}`,
-        { method: 'get', timeout: 20000 }
+        { method: 'get', timeout: 20000 },
       )
       const { body, statusCode } = await requestObj.promise
       if (statusCode !== 200) throw new Error(`SerpApi status ${statusCode}`)
@@ -88,42 +88,42 @@ export default {
   },
 
   handleResult(rawList) {
-    if (!rawList) return [];
+    if (!rawList) return []
 
     return rawList.map(item => {
       // console.log('[网易云原始数据]', JSON.stringify(item, null, 2))
       item = item.baseInfo.simpleSongData
 
-      const types = [];
-      const _types = {};
-      let size;
+      const types = []
+      const _types = {}
+      let size
 
       if (item.hr) {
-        size = sizeFormate(item.hr.size);
-        types.push({ type: 'hires', size });
-        _types.hires = { size };
+        size = sizeFormate(item.hr.size)
+        types.push({ type: 'hires', size })
+        _types.hires = { size }
       }
       if (item.sq) {
-        size = sizeFormate(item.sq.size);
-        types.push({ type: 'flac', size });
-        _types.flac = { size };
+        size = sizeFormate(item.sq.size)
+        types.push({ type: 'flac', size })
+        _types.flac = { size }
       }
       if (item.h) {
-        size = sizeFormate(item.h.size);
-        types.push({ type: '320k', size });
-        _types['320k'] = { size };
+        size = sizeFormate(item.h.size)
+        types.push({ type: '320k', size })
+        _types['320k'] = { size }
       }
       if (item.m && !_types['128k']) {
-        size = sizeFormate(item.m.size);
-        types.push({ type: '128k', size });
-        _types['128k'] = { size };
+        size = sizeFormate(item.m.size)
+        types.push({ type: '128k', size })
+        _types['128k'] = { size }
       }
       if (item.l && !_types['128k']) {
-        size = sizeFormate(item.l.size);
-        types.push({ type: '128k', size });
-        _types['128k'] = { size };
+        size = sizeFormate(item.l.size)
+        types.push({ type: '128k', size })
+        _types['128k'] = { size }
       }
-      types.reverse();
+      types.reverse()
 
       return {
         singer: this.getSinger(item.ar),
@@ -183,9 +183,9 @@ export default {
         source: 'wy',
       }
     }).catch(err => {
-      console.log('搜索错误，准备重试:', err.message, '次数:', retryNum);
+      console.log('搜索错误，准备重试:', err.message, '次数:', retryNum)
       return this.search(str, page, limit, retryNum, options)
-    });
+    })
   },
 
 

@@ -58,7 +58,7 @@ const SizeText = () => {
   )
 }
 
-const Item = ({ size, label }: { size: SIZE_TYPE; label: string }) => {
+const Item = ({ size, label }: { size: SIZE_TYPE, label: string }) => {
   const isActive = useActive(size)
   // const [toggleCheckBox, setToggleCheckBox] = useState(false)
   return (

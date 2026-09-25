@@ -168,8 +168,7 @@ export default forwardRef<TimeoutExitEditModalType, TimeoutExitEditModalProps>(
     const handleShow = () => {
       alertRef.current?.setVisible(true)
       requestAnimationFrame(() => {
-        if (settingState.setting['player.timeoutExit'])
-          timeInputRef.current?.setText(settingState.setting['player.timeoutExit'])
+        if (settingState.setting['player.timeoutExit']) { timeInputRef.current?.setText(settingState.setting['player.timeoutExit']) }
         //   setTimeout(() => {
         //     timeInputRef.current?.focus()
         //   }, 300)
@@ -237,7 +236,7 @@ export default forwardRef<TimeoutExitEditModalType, TimeoutExitEditModalProps>(
         </View>
       </ConfirmAlert>
     ) : null
-  }
+  },
 )
 
 const styles = createStyle({

@@ -5,7 +5,7 @@ import { requestMsg } from './message'
 import { bHh } from './musicSdk/options'
 import { deflateRaw } from 'pako'
 import settingState from '@/store/setting/state'
-import {toast} from "@/utils/tools";
+import { toast } from '@/utils/tools'
 
 const defaultHeaders = {
   'User-Agent':
@@ -100,16 +100,16 @@ const handleDeflateRaw = (data) =>
 
 const regx = /(?:\d\w)+/g
 
-const handleRequestData = async (
+const handleRequestData = async(
   url,
-  { method = 'get', headers = {}, format = 'json', cache = 'no-store', params, ...options }
+  { method = 'get', headers = {}, format = 'json', cache = 'no-store', params, ...options },
 ) => {
   // console.log(url, options)
   headers = Object.assign(
     {
       Accept: 'application/json',
     },
-    headers
+    headers,
   )
   if (url.includes('music.163.com')) {
     headers.cookie = settingState.setting['common.wy_cookie']
@@ -118,7 +118,7 @@ const handleRequestData = async (
     console.log('[TX] req:', options.method || 'get', url.substring(0, 80))
   }
   options.cache = cache
-  
+
   if (params && Object.keys(params).length > 0) {
     const searchParams = new URLSearchParams()
     for (const [key, value] of Object.entries(params)) {
@@ -131,7 +131,7 @@ const handleRequestData = async (
       url += (url.includes('?') ? '&' : '?') + queryString
     }
   }
-  
+
   if (method.toLocaleLowerCase() === 'post' && !headers['Content-Type']) {
     if (options.form) {
       headers['Content-Type'] = 'application/x-www-form-urlencoded'
@@ -204,7 +204,6 @@ const blobToBuffer = (blob) => {
 }
 
 const fetchData = (url, { timeout = 15000, ...options }) => {
-
   const controller = new global.AbortController()
   let id = BackgroundTimer.setTimeout(() => {
     id = null
@@ -217,8 +216,8 @@ const fetchData = (url, { timeout = 15000, ...options }) => {
       delete processedOptions.url
       console.log(`[HTTP] ${processedOptions.method || 'GET'} ${finalUrl}`)
       if (processedOptions.body) {
-        const bodyPreview = typeof processedOptions.body === 'string' 
-          ? processedOptions.body.substring(0, 200) 
+        const bodyPreview = typeof processedOptions.body === 'string'
+          ? processedOptions.body.substring(0, 200)
           : JSON.stringify(processedOptions.body).substring(0, 200)
         console.log(`[HTTP] Body: ${bodyPreview}`)
       }
@@ -228,34 +227,34 @@ const fetchData = (url, { timeout = 15000, ...options }) => {
           signal: controller.signal,
         })
         .then((resp) => {
-            return (options.binary ? resp.blob() : resp.text()).then((text) => {
-              return {
-                headers: resp.headers.map,
-                body: text,
-                statusCode: resp.status,
-                statusMessage: resp.statusText,
-                url: resp.url,
-                ok: resp.ok,
-              }
-            });
+          return (options.binary ? resp.blob() : resp.text()).then((text) => {
+            return {
+              headers: resp.headers.map,
+              body: text,
+              statusCode: resp.status,
+              statusMessage: resp.statusText,
+              url: resp.url,
+              ok: resp.ok,
+            }
           })
+        })
         .then((resp) => {
           if (options.binary) {
             return blobToBuffer(resp.body).then((buffer) => {
-              resp.body = buffer;
-              return resp;
-            });
+              resp.body = buffer
+              return resp
+            })
           } else {
             try {
-              const parsedBody = JSON.parse(resp.body);
+              const parsedBody = JSON.parse(resp.body)
               if (parsedBody?.code === 301 && url.includes('music.163.com')) {
-                throw new Error('登录状态已过期');
+                throw new Error('登录状态已过期')
               }
-              resp.body = parsedBody;
+              resp.body = parsedBody
             } catch (e) {
-              if (e.message.startsWith('登录状态已过期')) throw e;
+              if (e.message.startsWith('登录状态已过期')) throw e
             }
-            return resp;
+            return resp
           }
         })
         .catch((err) => {
@@ -273,7 +272,7 @@ const fetchData = (url, { timeout = 15000, ...options }) => {
   }
 }
 
-export const checkUrl = async (url, options = {}) => {
+export const checkUrl = async(url, options = {}) => {
   return fetchData(url, { method: 'head', ...options }).request.then((resp) => {
     if (resp.statusCode === 200) {
       return Promise.resolve()

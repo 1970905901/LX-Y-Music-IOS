@@ -109,7 +109,7 @@ export default forwardRef<InputType, InputProps>(
         // }
         onChangeText?.(text)
       },
-      [onChangeText]
+      [onChangeText],
     )
 
     return (
@@ -120,7 +120,7 @@ export default forwardRef<InputType, InputProps>(
           autoComplete="off"
           style={StyleSheet.compose(
             { ...styles.input, color: theme['c-font'], fontSize: setSpText(size) },
-            style
+            style,
           )}
           placeholderTextColor={theme['c-primary-dark-100-alpha-600']}
           selectionColor={theme['c-primary-light-100-alpha-300']}
@@ -140,5 +140,5 @@ export default forwardRef<InputType, InputProps>(
       </View> */}
       </View>
     )
-  }
+  },
 )

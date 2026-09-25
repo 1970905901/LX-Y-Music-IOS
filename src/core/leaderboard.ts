@@ -41,10 +41,10 @@ const cache = new Map<string, CacheValue>()
 const inflightPageRequests = new Map<string, Promise<ListDetailInfo>>()
 const listRequestQueues = new Map<string, Promise<unknown>>()
 
-export const getBoardsList = async (source: LX.OnlineSource) => {
+export const getBoardsList = async(source: LX.OnlineSource) => {
   // const source = (await getLeaderboardSetting()).source as LX.OnlineSource
-  if (leaderboardState.boards[source]) return leaderboardState.boards[source]!.list
-  const board = await ((musicSdk[source] as any)?.leaderboard.getBoards() as Promise<Board>)
+  if (leaderboardState.boards[source]) return leaderboardState.boards[source].list
+  const board = await ((musicSdk[source])?.leaderboard.getBoards() as Promise<Board>)
   setBoard(board, source)
   return leaderboardState.boards[source]!.list
 }
@@ -56,18 +56,17 @@ export const getBoardsList = async (source: LX.OnlineSource) => {
  * @param page Page number
  * @returns
  */
-const doGetListLimit = async (
+const doGetListLimit = async(
   source: LX.OnlineSource,
   bangId: string,
-  page: number
+  page: number,
 ): Promise<ListDetailInfo> => {
   const listKey = `${source}__${bangId}`
   const prevPageKey = `${source}__${bangId}__${page - 1}`
   const tempListKey = `${source}__${bangId}__temp`
 
   let listCache = cache.get(listKey)!
-  if (!listCache)
-    cache.set(listKey, (listCache = new Map<string, PageCache | LX.Music.MusicInfoOnline[]>()))
+  if (!listCache) { cache.set(listKey, (listCache = new Map<string, PageCache | LX.Music.MusicInfoOnline[]>())) }
   let sourcePage = 0
   {
     const prevPageData = listCache.get(prevPageKey) as PageCache
@@ -75,10 +74,10 @@ const doGetListLimit = async (
   }
 
   return (
-    (musicSdk[source] as any)?.leaderboard.getList(bangId, sourcePage + 1).then((result: ListDetailInfo) => {
+    (musicSdk[source])?.leaderboard.getList(bangId, sourcePage + 1).then((result: ListDetailInfo) => {
       if (listCache !== cache.get(listKey)) return
       result.list = deduplicationList(
-        result.list.map((m) => toNewMusicInfo(m)).filter(Boolean) as LX.Music.MusicInfoOnline[]
+        result.list.map((m) => toNewMusicInfo(m)).filter(Boolean) as LX.Music.MusicInfoOnline[],
       )
       let p = page
       const tempList = listCache.get(tempListKey) as ListDetailInfo['list']
@@ -121,10 +120,10 @@ const doGetListLimit = async (
 }
 
 // 带并发治理的getListLimit：同页去重 + 同榜单串行（见上方注释）
-const getListLimit = (
+const getListLimit = async(
   source: LX.OnlineSource,
   bangId: string,
-  page: number
+  page: number,
 ): Promise<ListDetailInfo> => {
   const listKey = `${source}__${bangId}`
   const reqKey = `${listKey}__${page}`
@@ -133,7 +132,7 @@ const getListLimit = (
   const prev = listRequestQueues.get(listKey) ?? Promise.resolve()
   const run = prev
     .catch(() => {})
-    .then(() => doGetListLimit(source, bangId, page))
+    .then(async() => doGetListLimit(source, bangId, page))
     .finally(() => {
       if (inflightPageRequests.get(reqKey) === run) inflightPageRequests.delete(reqKey)
     })
@@ -148,10 +147,10 @@ const getListLimit = (
  * @param isRefresh Whether to skip cache
  * @returns
  */
-export const getListDetail = async (
+export const getListDetail = async(
   id: string,
   page: number,
-  isRefresh = false
+  isRefresh = false,
 ): Promise<ListDetailInfo> => {
   // console.log(tabId)
   const [source, bangId] = id.split('__') as [LX.OnlineSource, string]
@@ -175,9 +174,9 @@ export const getListDetail = async (
  * @param isRefresh Whether to skip cache
  * @returns
  */
-export const getListDetailAll = async (
+export const getListDetailAll = async(
   id: string,
-  isRefresh = false
+  isRefresh = false,
 ): Promise<LX.Music.MusicInfoOnline[]> => {
   const [source, bangId] = id.split('__') as [LX.OnlineSource, string]
   // console.log(tabId)
@@ -187,7 +186,7 @@ export const getListDetailAll = async (
     cache.set(listKey, (listCache = new Map<string, PageCache | LX.Music.MusicInfoOnline[]>()))
   }
 
-  const loadData = async (page: number): Promise<ListDetailInfo> => {
+  const loadData = async(page: number): Promise<ListDetailInfo> => {
     const pageKey = `${source}__${bangId}__${page}`
     let pageCache = listCache.get(pageKey) as PageCache
     if (pageCache) return pageCache.data

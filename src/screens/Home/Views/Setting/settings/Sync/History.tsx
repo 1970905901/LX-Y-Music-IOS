@@ -94,7 +94,7 @@ const HistoryList = forwardRef<HistoryListType, HistoryListProps>(({ onSelect },
       popupRef.current?.setVisible(false)
       onSelect(list[index])
     },
-    [list, onSelect]
+    [list, onSelect],
   )
 
   const handleRemove = useCallback(
@@ -104,7 +104,7 @@ const HistoryList = forwardRef<HistoryListType, HistoryListProps>(({ onSelect },
       newList.splice(index, 1)
       setList(newList)
     },
-    [list]
+    [list],
   )
 
   return visible ? (

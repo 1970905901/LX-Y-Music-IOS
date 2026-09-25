@@ -12,21 +12,21 @@ declare namespace LX {
       hash: string
     }
     type _MusicQualityType = Partial<
-      Record<
-        Quality,
-        {
-          size: string | null
-        }
-      >
+    Record<
+    Quality,
+    {
+      size: string | null
+    }
+    >
     >
     type _MusicQualityTypeKg = Partial<
-      Record<
-        Quality,
-        {
-          size: string | null
-          hash: string
-        }
-      >
+    Record<
+    Quality,
+    {
+      size: string | null
+      hash: string
+    }
+    >
     >
 
     interface MusicInfoMetaBase {
@@ -64,7 +64,7 @@ declare namespace LX {
       name: string
       alias?: string
       singer: string
-      artists?: Array<{ id: string | number; name: string }>
+      artists?: Array<{ id: string | number, name: string }>
       source: S
       interval: string | null
       releaseDate?: string | null

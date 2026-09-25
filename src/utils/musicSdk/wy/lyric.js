@@ -257,10 +257,11 @@ const fixTimeLabel = (lrc, tlrc, romalrc) => {
     if (newLrc != lrc || newTlrc != tlrc) {
       lrc = newLrc
       tlrc = newTlrc
-      if (romalrc)
+      if (romalrc) {
         romalrc = romalrc
           .replace(/\[(\d{2}:\d{2}):(\d{2,3})]/g, '[$1.$2]')
           .replace(/\[(\d{2}:\d{2}\.\d{2})0]/g, '[$1]')
+      }
     }
   }
 
@@ -285,11 +286,11 @@ const getLyricWithRetry = (songmid, retryNum = 0) => {
     const attempt = (num) => {
       requestObj.promise.then(({ body, statusCode }) => {
         if (statusCode !== 200 || body.code !== 200) {
-          throw new Error('获取歌词响应码无效');
+          throw new Error('获取歌词响应码无效')
         }
 
         if (body?.lrc?.lyric) {
-          const fixTimeLabelLrc = fixTimeLabel(body.lrc.lyric, body.tlyric?.lyric, body.romalrc?.lyric);
+          const fixTimeLabelLrc = fixTimeLabel(body.lrc.lyric, body.tlyric?.lyric, body.romalrc?.lyric)
           const info = parseTools.parse(
             body.yrc?.lyric,
             body.ytlrc?.lyric,
@@ -297,29 +298,29 @@ const getLyricWithRetry = (songmid, retryNum = 0) => {
             fixTimeLabelLrc.lrc,
             fixTimeLabelLrc.tlrc,
             fixTimeLabelLrc.romalrc,
-          );
-          resolve(info);
+          )
+          resolve(info)
         } else {
-          resolve({ lyric: '', tlyric: '', rlyric: '', lxlyric: '' });
+          resolve({ lyric: '', tlyric: '', rlyric: '', lxlyric: '' })
         }
       }).catch(error => {
         if (num >= 2) {
-          console.error(`获取歌词失败 (已达最大重试次数): ${songmid}`, error);
-          reject(new Error('Get lyric failed'));
+          console.error(`获取歌词失败 (已达最大重试次数): ${songmid}`, error)
+          reject(new Error('Get lyric failed'))
         } else {
-          console.log(`获取歌词失败，将在200ms后进行第 ${num + 2} 次重试...`);
+          console.log(`获取歌词失败，将在200ms后进行第 ${num + 2} 次重试...`)
           setTimeout(() => {
-            const nextRequest = eapiRequest('/api/song/lyric/v1', { id: songmid, cp: false, tv: 0, lv: 0, rv: 0, kv: 0, yv: 0, ytv: 0, yrv: 0 });
-            requestObj.promise = nextRequest.promise;
-            requestObj.cancelHttp = nextRequest.cancelHttp;
-            attempt(num + 1);
-          }, 200);
+            const nextRequest = eapiRequest('/api/song/lyric/v1', { id: songmid, cp: false, tv: 0, lv: 0, rv: 0, kv: 0, yv: 0, ytv: 0, yrv: 0 })
+            requestObj.promise = nextRequest.promise
+            requestObj.cancelHttp = nextRequest.cancelHttp
+            attempt(num + 1)
+          }, 200)
         }
-      });
-    };
+      })
+    }
 
-    attempt(0);
-  });
+    attempt(0)
+  })
 
   return {
     promise,

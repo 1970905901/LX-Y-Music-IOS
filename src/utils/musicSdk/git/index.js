@@ -15,19 +15,19 @@ const git = {
   musicSearch,
 
   getLyric(songInfo) {
-    const requestObj = new Object()
+    const requestObj = {}
     requestObj.promise = lyric.getLyric(songInfo)
     return requestObj
   },
 
   getMusicUrl(songInfo, type) {
-    const requestObj = new Object()
+    const requestObj = {}
     requestObj.promise = _getMusicUrl(songInfo, type)
     return requestObj
   },
 
   getPic(songInfo) {
-    const requestObj = new Object()
+    const requestObj = {}
     requestObj.promise = Promise.resolve(songInfo.img)
     return requestObj
   },

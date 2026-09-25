@@ -42,7 +42,7 @@ const LineProgress = memo(
         />
       </View>
     )
-  }
+  },
 )
 
 export default LineProgress

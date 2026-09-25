@@ -1,20 +1,20 @@
-import { memo } from 'react';
-import { View } from 'react-native';
-import { createStyle } from '@/utils/tools';
-import Button from '../../components/Button';
+import { memo } from 'react'
+import { View } from 'react-native'
+import { createStyle } from '@/utils/tools'
+import Button from '../../components/Button'
 
 export default memo(() => {
   const handleShowWyLoginModal = () => {
-    global.app_event.showWebLogin();
-  };
+    global.app_event.showWebLogin()
+  }
 
   const handleShowTxLoginModal = () => {
-    global.app_event.showTxWebLogin();
-  };
+    global.app_event.showTxWebLogin()
+  }
 
   const handleShowKgLoginModal = () => {
-    global.app_event.showKgWebLogin();
-  };
+    global.app_event.showKgWebLogin()
+  }
 
   return (
     <View style={styles.content}>
@@ -22,8 +22,8 @@ export default memo(() => {
       <Button onPress={handleShowTxLoginModal}>QQ登录</Button>
       <Button onPress={handleShowKgLoginModal}>酷狗登录</Button>
     </View>
-  );
-});
+  )
+})
 
 const styles = createStyle({
   content: {
@@ -33,4 +33,4 @@ const styles = createStyle({
     flexWrap: 'wrap',
     gap: 10,
   },
-});
+})

@@ -6,7 +6,7 @@ import pic from './pic'
 import lyric from './lyric'
 import hotSearch from './hotSearch'
 import comment from './comment'
-import {resolveQualityAlias} from "@/utils/musicSdk/utils";
+import { resolveQualityAlias } from '@/utils/musicSdk/utils'
 // import tipSearch from './tipSearch'
 
 const mg = {
@@ -17,8 +17,8 @@ const mg = {
   hotSearch,
   comment,
   getMusicUrl(songInfo, type) {
-    const qualityToRequest = resolveQualityAlias('mg', type);
-    return apis('mg').getMusicUrl(songInfo, qualityToRequest);
+    const qualityToRequest = resolveQualityAlias('mg', type)
+    return apis('mg').getMusicUrl(songInfo, qualityToRequest)
   },
   getLyric(songInfo) {
     return lyric.getLyric(songInfo)

@@ -21,19 +21,19 @@ import {
   unlink as fsUnlink,
 } from 'react-native-fs'
 
-type FetchResult = {
+interface FetchResult {
   path: () => string
   base64: () => Promise<string>
 }
 
 const config = (opts: { path?: string } = {}) => ({
-  fetch(_method: string, url: string): Promise<FetchResult> {
+  async fetch(_method: string, url: string): Promise<FetchResult> {
     // 真实下载由调用方通过 react-native-fs 完成；此处仅提供兼容签名。
     // 由于本 shim 主要服务于 fs 工具方法，下载路径由各调用点自行实现，
     // 这里返回一个占位实现以避免直接崩溃。
     return Promise.resolve({
       path: () => opts.path ?? '',
-      base64: () => Promise.resolve(''),
+      base64: async() => Promise.resolve(''),
     })
   },
 })
@@ -46,12 +46,12 @@ const fs = {
     DownloadDir: DownloadDirectoryPath,
     CacheDir: CachesDirectoryPath,
   },
-  exists: (p: string) => fsExists(p),
-  mkdir: (p: string) => fsMkdir(p),
-  mv: (from: string, to: string) => moveFile(from, to).then(() => undefined),
-  unlink: (p: string) => fsUnlink(p),
+  exists: async(p: string) => fsExists(p),
+  mkdir: async(p: string) => fsMkdir(p),
+  mv: async(from: string, to: string) => moveFile(from, to).then(() => undefined),
+  unlink: async(p: string) => fsUnlink(p),
   // iOS 不需要媒体库扫描，no-op
-  scanFile: (_paths: Array<{ path: string }>) => Promise.resolve(),
+  scanFile: async(_paths: Array<{ path: string }>) => Promise.resolve(),
 }
 
 const RNFetchBlob = {

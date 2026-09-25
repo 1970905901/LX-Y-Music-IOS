@@ -22,7 +22,7 @@ interface Props {
   onOpenDetail: (playlistInfo: ListInfoItem) => void
 }
 
-const ListItem = ({ item, onPress }: { item: PlaylistInfo; onPress: () => void }) => {
+const ListItem = ({ item, onPress }: { item: PlaylistInfo, onPress: () => void }) => {
   const theme = useTheme()
   return (
     <TouchableOpacity style={styles.item} onPress={onPress}>
@@ -46,12 +46,12 @@ export default memo(({ header, onOpenDetail }: Props) => {
   const isHorizontal = useHorizontalMode()
   const t = useI18n()
 
-  const loadPlaylists = useCallback(async (refresh = false) => {
+  const loadPlaylists = useCallback(async(refresh = false) => {
     if (!refresh && playlists.length > 0) return
     setLoading(true)
     try {
       const result = await txApi.dailyRec.getRecommendSonglist()
-      if (result && result.songlists) {
+      if (result?.songlists) {
         setPlaylists(result.songlists)
       }
     } catch (error) {
@@ -95,7 +95,7 @@ export default memo(({ header, onOpenDetail }: Props) => {
         columnWrapperStyle={isHorizontal ? styles.columnWrapper : undefined}
         renderItem={({ item }) => (
           <View style={isHorizontal ? styles.itemWrapper : null}>
-            <ListItem item={item} onPress={() => handleItemPress(item)} />
+            <ListItem item={item} onPress={() => { handleItemPress(item) }} />
           </View>
         )}
         keyExtractor={(item) => String(item.id)}

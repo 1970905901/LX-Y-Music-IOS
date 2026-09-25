@@ -1,5 +1,5 @@
 import { httpFetch } from '../../request'
-import settingState from "@/store/setting/state"
+import settingState from '@/store/setting/state'
 import { log } from '@/utils/log'
 import { formatPlayTime, sizeFormate } from '../../index'
 import { formatSingerName } from '@/utils/musicSdk/utils'
@@ -16,14 +16,14 @@ const transformSong = (item, index) => {
     const singer = formatSingerName(item.singer, 'name')
     const albumName = item.album?.name || ''
     const albumMid = item.album?.mid || ''
-    
+
     let img = ''
     if (albumName && albumName !== '空') {
       img = `https://y.gtimg.cn/music/photo_new/T002R500x500M000${albumMid}.jpg`
     } else if (item.singer?.length) {
       img = `https://y.gtimg.cn/music/photo_new/T001R500x500M000${item.singer[0].mid}.jpg`
     }
-    
+
     const qualitys = [{ type: '128k', size: null }]
     const _qualitys = { '128k': { size: null } }
 
@@ -42,7 +42,7 @@ const transformSong = (item, index) => {
         _qualitys.flac = { size: sizeFormate(file.size_flac) }
       }
     }
-    
+
     const song = {
       id: 'tx_' + item.mid,
       name: item.title || item.name || '',
@@ -61,7 +61,7 @@ const transformSong = (item, index) => {
         albumMid,
       },
     }
-    
+
     log.info(`[TX DailyRec] transformSong[${index}] 转换完成`, { name: song.name, singer: song.singer, songmid: song.meta.songId })
     return song
   } catch (error) {
@@ -72,17 +72,17 @@ const transformSong = (item, index) => {
 
 const transformSongList = (rawList, sourceName = 'unknown') => {
   log.info(`[TX DailyRec] transformSongList 开始转换 ${sourceName}`, { rawListLength: rawList?.length || 0 })
-  
+
   if (!rawList || !Array.isArray(rawList)) {
     log.warn('[TX DailyRec] transformSongList rawList无效', { type: typeof rawList, isArray: Array.isArray(rawList) })
     return []
   }
-  
+
   if (rawList.length === 0) {
     log.warn(`[TX DailyRec] transformSongList ${sourceName} 原始列表为空`)
     return []
   }
-  
+
   if (rawList.length > 0) {
     const firstItem = rawList[0]
     log.info(`[TX DailyRec] transformSongList ${sourceName} 第一个元素结构:`, {
@@ -93,16 +93,16 @@ const transformSongList = (rawList, sourceName = 'unknown') => {
       singerType: Array.isArray(firstItem?.singer) ? 'array' : typeof firstItem?.singer,
     })
   }
-  
+
   const result = rawList
     .map((item, index) => transformSong(item, index))
     .filter(Boolean)
-  
-  log.info(`[TX DailyRec] transformSongList ${sourceName} 转换完成`, { 
-    inputLength: rawList.length, 
-    outputLength: result.length 
+
+  log.info(`[TX DailyRec] transformSongList ${sourceName} 转换完成`, {
+    inputLength: rawList.length,
+    outputLength: result.length,
   })
-  
+
   return result
 }
 
@@ -114,7 +114,7 @@ export default {
 
     try {
       log.info('[TX DailyRec] getHomeFeed 开始请求', { page, direction, sNum })
-      
+
       const payload = {
         comm: buildComm(),
         req_0: {
@@ -133,15 +133,15 @@ export default {
 
       log.info('[TX DailyRec] getHomeFeed URL:', url.substring(0, 200))
       log.info('[TX DailyRec] getHomeFeed payload:', JSON.stringify(payload))
-      
+
       const cookie = settingState.setting['common.tx_cookie']
       log.info('[TX DailyRec] getHomeFeed Cookie状态:', cookie ? `已设置 (长度:${cookie.length})` : '未设置')
-      
+
       const { body, statusCode } = await httpFetch(url, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Referer': 'https://y.qq.com/',
-          'Cookie': cookie || '',
+          Referer: 'https://y.qq.com/',
+          Cookie: cookie || '',
         },
       }).promise
 
@@ -151,7 +151,7 @@ export default {
       if (statusCode !== 200) {
         throw new Error(`HTTP错误: ${statusCode}`)
       }
-      
+
       if (body.code === 1000) {
         throw new Error('QQ音乐Cookie已过期，请重新获取')
       }
@@ -165,19 +165,19 @@ export default {
         log.error('[TX DailyRec] getHomeFeed 返回数据为空', { body: JSON.stringify(body)?.substring(0, 300) })
         throw new Error('返回数据为空')
       }
-      
+
       log.info('[TX DailyRec] getHomeFeed 解析成功', { dataKeys: Object.keys(data) })
-      
+
       const vShelf = data.v_shelf || []
       const playlists = []
-      
+
       vShelf.forEach((shelf, shelfIndex) => {
-        log.info(`[TX DailyRec] getHomeFeed shelf[${shelfIndex}]`, { 
+        log.info(`[TX DailyRec] getHomeFeed shelf[${shelfIndex}]`, {
           title_template: shelf.title_template,
           title_content: shelf.title_content,
-          nicheCount: shelf.v_niche?.length || 0
+          nicheCount: shelf.v_niche?.length || 0,
         })
-        
+
         const vNiche = shelf.v_niche || []
         vNiche.forEach((niche, nicheIndex) => {
           const vCard = niche.v_card || []
@@ -192,20 +192,20 @@ export default {
                 cardType: card.type,
               }
               playlists.push(playlist)
-              log.info(`[TX DailyRec] getHomeFeed 发现歌单`, { 
-                name: playlist.name, 
-                id: playlist.id, 
-                type: card.type 
+              log.info('[TX DailyRec] getHomeFeed 发现歌单', {
+                name: playlist.name,
+                id: playlist.id,
+                type: card.type,
               })
             }
           })
         })
       })
-      
+
       log.info('[TX DailyRec] getHomeFeed 解析完成', { playlistsCount: playlists.length })
       return { list: playlists, source: 'tx' }
     } catch (error) {
-      log.error(`[TX DailyRec] getHomeFeed 失败:`, error.message, error.stack)
+      log.error('[TX DailyRec] getHomeFeed 失败:', error.message, error.stack)
       return this.getHomeFeed(page, direction, sNum, vCache, retryNum + 1)
     }
   },
@@ -217,7 +217,7 @@ export default {
       log.info('[TX DailyRec] getGuessRecommend 开始请求')
       const cookie = settingState.setting['common.tx_cookie']
       log.info('[TX DailyRec] getGuessRecommend cookie状态:', cookie ? `已设置 (长度:${cookie.length})` : '未设置')
-      
+
       const payload = {
         comm: buildComm(),
         req_0: {
@@ -237,10 +237,10 @@ export default {
 
       log.info('[TX DailyRec] getGuessRecommend URL:', url.substring(0, 200))
       log.info('[TX DailyRec] getGuessRecommend payload:', JSON.stringify(payload))
-      
+
       const { body, statusCode } = await httpFetch(url, {
         headers: {
-          'Cookie': cookie || '',
+          Cookie: cookie || '',
         },
       }).promise
 
@@ -250,7 +250,7 @@ export default {
       if (statusCode !== 200) {
         throw new Error(`HTTP错误: ${statusCode}`)
       }
-      
+
       if (body.code === 1000) {
         throw new Error('QQ音乐Cookie已过期，请重新获取')
       }
@@ -260,16 +260,16 @@ export default {
       }
 
       const reqData = body.req_0?.data
-      log.info('[TX DailyRec] getGuessRecommend req_0.data状态', { 
-        exists: !!reqData, 
+      log.info('[TX DailyRec] getGuessRecommend req_0.data状态', {
+        exists: !!reqData,
         hasTracks: !!reqData?.tracks,
         tracksLength: reqData?.tracks?.length || 0,
-        dataKeys: Object.keys(reqData || {})
+        dataKeys: Object.keys(reqData || {}),
       })
-      
+
       const tracks = reqData?.tracks || []
       log.info('[TX DailyRec] getGuessRecommend tracks数量:', tracks.length)
-      
+
       if (tracks.length === 0) {
         log.warn('[TX DailyRec] getGuessRecommend tracks为空，尝试其他字段...')
         const altTracks = reqData?.songlist || reqData?.songs || reqData?.list || []
@@ -280,12 +280,12 @@ export default {
         }
         throw new Error('返回歌曲列表为空')
       }
-      
+
       const list = transformSongList(tracks, 'getGuessRecommend')
       log.info('[TX DailyRec] getGuessRecommend 转换完成', { listLength: list.length })
       return { list, source: 'tx' }
     } catch (error) {
-      log.error(`[TX DailyRec] getGuessRecommend 失败:`, error.message, error.stack)
+      log.error('[TX DailyRec] getGuessRecommend 失败:', error.message, error.stack)
       return this.getGuessRecommend(retryNum + 1)
     }
   },
@@ -295,7 +295,7 @@ export default {
 
     try {
       log.info('[TX DailyRec] getRadarRecommend 开始请求', { page })
-      
+
       const payload = {
         comm: buildComm(),
         req_0: {
@@ -313,7 +313,7 @@ export default {
       const url = `https://u.y.qq.com/cgi-bin/musicu.fcg?loginUin=0&hostUin=0&format=json&inCharset=utf-8&outCharset=utf-8&notice=0&platform=wk_v15.json&needNewCode=0&data=${encodeURIComponent(JSON.stringify(payload))}`
 
       log.info('[TX DailyRec] getRadarRecommend URL:', url.substring(0, 200))
-      
+
       const { body, statusCode } = await httpFetch(url).promise
 
       log.info('[TX DailyRec] getRadarRecommend 响应状态', { statusCode, bodyCode: body?.code })
@@ -322,7 +322,7 @@ export default {
       if (statusCode !== 200) {
         throw new Error(`HTTP错误: ${statusCode}`)
       }
-      
+
       if (body.code === 1000) {
         throw new Error('QQ音乐Cookie已过期，请重新获取')
       }
@@ -332,11 +332,11 @@ export default {
       }
 
       const reqData = body.req_0?.data
-      log.info('[TX DailyRec] getRadarRecommend req_0.data状态', { 
+      log.info('[TX DailyRec] getRadarRecommend req_0.data状态', {
         exists: !!reqData,
-        dataKeys: Object.keys(reqData || {})
+        dataKeys: Object.keys(reqData || {}),
       })
-      
+
       let songs = []
       if (reqData?.VecSongs?.length) {
         songs = reqData.VecSongs.map(item => item.Track)
@@ -348,14 +348,14 @@ export default {
         songs = reqData.songlist
         log.info('[TX DailyRec] getRadarRecommend songlist数量:', reqData.songlist.length)
       }
-      
+
       log.info('[TX DailyRec] getRadarRecommend 解析后songs数量:', songs.length)
-      
+
       if (songs.length === 0) {
         log.warn('[TX DailyRec] getRadarRecommend songs为空')
         throw new Error('返回歌曲列表为空')
       }
-      
+
       const list = transformSongList(songs, 'getRadarRecommend')
       log.info('[TX DailyRec] getRadarRecommend 转换完成', { listLength: list.length })
       return {
@@ -365,7 +365,7 @@ export default {
         baseSongIds: reqData?.BaseSongIds || [],
       }
     } catch (error) {
-      log.error(`[TX DailyRec] getRadarRecommend 失败:`, error.message, error.stack)
+      log.error('[TX DailyRec] getRadarRecommend 失败:', error.message, error.stack)
       return this.getRadarRecommend(page, retryNum + 1)
     }
   },
@@ -375,7 +375,7 @@ export default {
 
     try {
       log.info('[TX DailyRec] getRecommendSonglist 开始请求', { page, num })
-      
+
       const payload = {
         comm: buildComm(),
         req_0: {
@@ -391,7 +391,7 @@ export default {
       const url = `https://u.y.qq.com/cgi-bin/musicu.fcg?loginUin=0&hostUin=0&format=json&inCharset=utf-8&outCharset=utf-8&notice=0&platform=wk_v15.json&needNewCode=0&data=${encodeURIComponent(JSON.stringify(payload))}`
 
       log.info('[TX DailyRec] getRecommendSonglist URL:', url.substring(0, 200))
-      
+
       const { body, statusCode } = await httpFetch(url).promise
 
       log.info('[TX DailyRec] getRecommendSonglist 响应状态', { statusCode, bodyCode: body?.code })
@@ -400,7 +400,7 @@ export default {
       if (statusCode !== 200) {
         throw new Error(`HTTP错误: ${statusCode}`)
       }
-      
+
       if (body.code === 1000) {
         throw new Error('QQ音乐Cookie已过期，请重新获取')
       }
@@ -410,11 +410,11 @@ export default {
       }
 
       const data = body.req_0?.data || {}
-      log.info('[TX DailyRec] getRecommendSonglist data状态', { 
+      log.info('[TX DailyRec] getRecommendSonglist data状态', {
         exists: !!data,
-        dataKeys: Object.keys(data)
+        dataKeys: Object.keys(data),
       })
-      
+
       let songlists = []
 
       if (data.List?.length) {
@@ -440,7 +440,7 @@ export default {
           }
         }).filter(Boolean)
       }
-      
+
       if (!songlists.length && data.v_playlist?.length) {
         log.info('[TX DailyRec] getRecommendSonglist 使用格式2 (v_playlist)')
         songlists = data.v_playlist.map(item => ({
@@ -467,7 +467,7 @@ export default {
         msg: data.Msg || '',
       }
     } catch (error) {
-      log.error(`[TX DailyRec] getRecommendSonglist 失败:`, error.message, error.stack)
+      log.error('[TX DailyRec] getRecommendSonglist 失败:', error.message, error.stack)
       return this.getRecommendSonglist(page, num, retryNum + 1)
     }
   },
@@ -477,7 +477,7 @@ export default {
 
     try {
       log.info('[TX DailyRec] getRecommendNewsong 开始请求')
-      
+
       const payload = {
         comm: buildComm(),
         req_0: {
@@ -490,7 +490,7 @@ export default {
       const url = `https://u.y.qq.com/cgi-bin/musicu.fcg?loginUin=0&hostUin=0&format=json&inCharset=utf-8&outCharset=utf-8&notice=0&platform=wk_v15.json&needNewCode=0&data=${encodeURIComponent(JSON.stringify(payload))}`
 
       log.info('[TX DailyRec] getRecommendNewsong URL:', url.substring(0, 200))
-      
+
       const { body, statusCode } = await httpFetch(url).promise
 
       log.info('[TX DailyRec] getRecommendNewsong 响应状态', { statusCode, bodyCode: body?.code })
@@ -499,7 +499,7 @@ export default {
       if (statusCode !== 200) {
         throw new Error(`HTTP错误: ${statusCode}`)
       }
-      
+
       if (body.code === 1000) {
         throw new Error('QQ音乐Cookie已过期，请重新获取')
       }
@@ -509,26 +509,26 @@ export default {
       }
 
       const reqData = body.req_0?.data
-      log.info('[TX DailyRec] getRecommendNewsong req_0.data状态', { 
+      log.info('[TX DailyRec] getRecommendNewsong req_0.data状态', {
         exists: !!reqData,
-        dataKeys: Object.keys(reqData || {})
+        dataKeys: Object.keys(reqData || {}),
       })
-      
+
       let songlist = reqData?.songlist || []
       if (!songlist.length && reqData?.songs?.length) {
         songlist = reqData.songs
         log.info('[TX DailyRec] getRecommendNewsong 使用songs字段')
       }
-      
+
       log.info('[TX DailyRec] getRecommendNewsong songlist数量:', songlist.length)
-      
+
       if (songlist.length === 0) {
         log.warn('[TX DailyRec] getRecommendNewsong songlist为空')
         throw new Error('返回歌曲列表为空')
       }
-      
+
       log.info('[TX DailyRec] getRecommendNewsong 第一个元素:', JSON.stringify(songlist[0])?.substring(0, 300))
-      
+
       const list = transformSongList(songlist, 'getRecommendNewsong')
       log.info('[TX DailyRec] getRecommendNewsong 转换完成', { listLength: list.length })
       return {
@@ -540,7 +540,7 @@ export default {
         songTags: reqData?.songTagInfoList || [],
       }
     } catch (error) {
-      log.error(`[TX DailyRec] getRecommendNewsong 失败:`, error.message, error.stack)
+      log.error('[TX DailyRec] getRecommendNewsong 失败:', error.message, error.stack)
       return this.getRecommendNewsong(retryNum + 1)
     }
   },
@@ -550,10 +550,10 @@ export default {
 
     try {
       log.info('[TX DailyRec] getSimilarSongs 开始请求', { songMid, limit })
-      
+
       const cookie = settingState.setting['common.tx_cookie']
       log.info('[TX DailyRec] getSimilarSongs cookie状态:', cookie ? `已设置 (长度:${cookie.length})` : '未设置')
-      
+
       const payload = {
         comm: buildComm(),
         req_0: {
@@ -568,10 +568,10 @@ export default {
       const url = `https://u.y.qq.com/cgi-bin/musicu.fcg?loginUin=0&hostUin=0&format=json&inCharset=utf-8&outCharset=utf-8&notice=0&platform=wk_v15.json&needNewCode=0&data=${encodeURIComponent(JSON.stringify(payload))}`
 
       log.info('[TX DailyRec] getSimilarSongs URL:', url.substring(0, 200))
-      
+
       const { body, statusCode } = await httpFetch(url, {
         headers: {
-          'Cookie': cookie || '',
+          Cookie: cookie || '',
         },
       }).promise
 
@@ -581,7 +581,7 @@ export default {
       if (statusCode !== 200) {
         throw new Error(`HTTP错误: ${statusCode}`)
       }
-      
+
       if (body.code === 1000) {
         throw new Error('QQ音乐Cookie已过期，请重新获取')
       }
@@ -591,11 +591,11 @@ export default {
       }
 
       const reqData = body.req_0?.data
-      log.info('[TX DailyRec] getSimilarSongs req_0.data状态', { 
+      log.info('[TX DailyRec] getSimilarSongs req_0.data状态', {
         exists: !!reqData,
-        dataKeys: Object.keys(reqData || {})
+        dataKeys: Object.keys(reqData || {}),
       })
-      
+
       let songlist = reqData?.songlist || []
       if (!songlist.length && reqData?.songs?.length) {
         songlist = reqData.songs
@@ -606,24 +606,24 @@ export default {
         songlist = reqData.song.flatMap(item => item.song || [])
         log.info('[TX DailyRec] getSimilarSongs 使用嵌套song字段')
       }
-      
+
       if (!songlist.length && reqData?.vecSong?.length) {
         songlist = reqData.vecSong.map(item => item.track || item)
         log.info('[TX DailyRec] getSimilarSongs 使用vecSong字段')
       }
-      
+
       log.info('[TX DailyRec] getSimilarSongs songlist数量:', songlist.length)
-      
+
       if (songlist.length === 0) {
         log.warn('[TX DailyRec] getSimilarSongs songlist为空')
         throw new Error('返回歌曲列表为空')
       }
-      
+
       const list = transformSongList(songlist, 'getSimilarSongs')
       log.info('[TX DailyRec] getSimilarSongs 转换完成', { listLength: list.length })
       return list
     } catch (error) {
-      log.error(`[TX DailyRec] getSimilarSongs 失败:`, error.message, error.stack)
+      log.error('[TX DailyRec] getSimilarSongs 失败:', error.message, error.stack)
       return this.getSimilarSongs(songMid, limit, retryNum + 1)
     }
   },

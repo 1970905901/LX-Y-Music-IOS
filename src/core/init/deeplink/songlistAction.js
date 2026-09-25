@@ -49,7 +49,7 @@ import { dataVerify, sourceVerify } from './utils'
 //   }
 // }
 
-const handlePlaySonglist = async ({ paths, data }) => {
+const handlePlaySonglist = async({ paths, data }) => {
   let songlistInfo = {
     source: null,
     id: null,
@@ -77,7 +77,7 @@ const handlePlaySonglist = async ({ paths, data }) => {
       { key: 'url', types: ['string'], max: 500 },
       { key: 'index', types: ['number'], max: 1000000 },
     ],
-    songlistInfo
+    songlistInfo,
   )
 
   if (!songlistInfo.id && !songlistInfo.url) throw new Error('id or url missing')
@@ -85,7 +85,7 @@ const handlePlaySonglist = async ({ paths, data }) => {
   await playSonglist(songlistInfo.source, songlistInfo.id ?? songlistInfo.url, songlistInfo.index)
 }
 
-export const handleSonglistAction = async (action, info) => {
+export const handleSonglistAction = async(action, info) => {
   switch (action) {
     // case 'open':
     //   handleOpenSonglist(info)

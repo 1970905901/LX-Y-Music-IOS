@@ -1,30 +1,31 @@
-import React, {forwardRef, useImperativeHandle, useRef, useEffect, useCallback, useState} from 'react';
-import { Animated, View, StyleSheet, TouchableWithoutFeedback, BackHandler } from 'react-native';
-import { useWindowSize, useHorizontalMode } from '@/utils/hooks';
+import type React from 'react'
+import { forwardRef, useImperativeHandle, useRef, useEffect, useCallback, useState } from 'react'
+import { Animated, View, StyleSheet, TouchableWithoutFeedback, BackHandler } from 'react-native'
+import { useWindowSize, useHorizontalMode } from '@/utils/hooks'
 
 export interface AnimatedSlideUpPanelType {
-  setVisible: (visible: boolean) => void;
+  setVisible: (visible: boolean) => void
 }
 
 interface Props {
-  children: React.ReactNode;
-  onHide?: () => void;
+  children: React.ReactNode
+  onHide?: () => void
 }
 
 const AnimatedSlideUpPanel = forwardRef<AnimatedSlideUpPanelType, Props>(({ children, onHide }, ref) => {
-  const { height: windowHeight } = useWindowSize();
-  const isHorizontal = useHorizontalMode();
-  const [isVisible, setIsVisible] = useState(false);
-  const animatedValue = useRef(new Animated.Value(windowHeight)).current;
+  const { height: windowHeight } = useWindowSize()
+  const isHorizontal = useHorizontalMode()
+  const [isVisible, setIsVisible] = useState(false)
+  const animatedValue = useRef(new Animated.Value(windowHeight)).current
 
   const show = useCallback(() => {
-    setIsVisible(true);
+    setIsVisible(true)
     Animated.timing(animatedValue, {
       toValue: 0,
       duration: 0,
       useNativeDriver: true,
-    }).start();
-  }, [animatedValue]);
+    }).start()
+  }, [animatedValue])
 
   const hide = useCallback(() => {
     Animated.timing(animatedValue, {
@@ -32,42 +33,42 @@ const AnimatedSlideUpPanel = forwardRef<AnimatedSlideUpPanelType, Props>(({ chil
       duration: 0,
       useNativeDriver: true,
     }).start(() => {
-      setIsVisible(false);
-      onHide?.();
-    });
-  }, [animatedValue, windowHeight, onHide]);
+      setIsVisible(false)
+      onHide?.()
+    })
+  }, [animatedValue, windowHeight, onHide])
 
   useImperativeHandle(ref, () => ({
     setVisible: (visible: boolean) => {
       if (visible) {
-        show();
+        show()
       } else {
-        hide();
+        hide()
       }
     },
-  }));
+  }))
 
   useEffect(() => {
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
       if (isVisible) {
-        hide();
-        return true;
+        hide()
+        return true
       }
-      return false;
-    });
+      return false
+    })
 
-    return () => backHandler.remove();
-  }, [isVisible, hide]);
+    return () => { backHandler.remove() }
+  }, [isVisible, hide])
 
   useEffect(() => {
     // 窗口高度变化（iPad 旋转/分屏）时，隐藏态的动画值仍停留在旧窗口高，
     // 会导致下次 show 前 opacity 插值区间 [0, windowHeight] 与当前值错位；
     // 隐藏态直接对齐到新窗口高（显示态 translateY=0 无需处理）。
-    if (!isVisible) animatedValue.setValue(windowHeight);
-  }, [windowHeight, isVisible, animatedValue]);
+    if (!isVisible) animatedValue.setValue(windowHeight)
+  }, [windowHeight, isVisible, animatedValue])
 
   if (!isVisible) {
-    return null;
+    return null
   }
 
   return (
@@ -104,8 +105,8 @@ const AnimatedSlideUpPanel = forwardRef<AnimatedSlideUpPanelType, Props>(({ chil
         </Animated.View>
       </View>
     </View>
-  );
-});
+  )
+})
 
 const styles = StyleSheet.create({
   panelContainer: {
@@ -132,6 +133,6 @@ const styles = StyleSheet.create({
   panelHorizontal: {
     maxWidth: 760,
   },
-});
+})
 
-export default AnimatedSlideUpPanel;
+export default AnimatedSlideUpPanel

@@ -6,14 +6,14 @@ const pendingOverlays = new Set<string>()
 
 export const getStatusBarStyle = (isDark: boolean) => (isDark ? 'light' : 'dark')
 
-export const dismissOverlay = async (compId: string) => Navigation.dismissOverlay(compId)
+export const dismissOverlay = async(compId: string) => Navigation.dismissOverlay(compId)
 
 // pop 不带自定义转场：RNN iOS 的自定义转场被取消（如动画期间再次导航）或 JS 空闲时
 // 永不调用 completeTransition，会把整个导航栈卡死。全 app 的 push/pop 统一走系统默认
 // 动画，由 UIKit 处理打断，无此问题（详见 navigation.ts pushPlayDetailScreen 注释）。
-export const pop = async (compId: string) => Navigation.pop(compId)
-export const popToRoot = async (compId: string) => Navigation.popToRoot(compId)
-export const popTo = async (compId: string) => Navigation.popTo(compId)
+export const pop = async(compId: string) => Navigation.pop(compId)
+export const popToRoot = async(compId: string) => Navigation.popToRoot(compId)
+export const popTo = async(compId: string) => Navigation.popTo(compId)
 
 export const showPactModal = () => {
   if (pendingOverlays.has(PACT_MODAL)) return

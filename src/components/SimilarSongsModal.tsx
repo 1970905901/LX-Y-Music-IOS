@@ -19,8 +19,10 @@ export interface SimilarSongsModalType {
 }
 
 export default forwardRef<SimilarSongsModalType, {}>((props, ref) => {
+  // OnlineList 反向依赖本组件，必须延迟加载避免循环引用。
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const OnlineListComponent = require('@/components/OnlineList').default as React.ComponentType<
-    OnlineListProps & { ref?: React.Ref<OnlineListType> }
+  OnlineListProps & { ref?: React.Ref<OnlineListType> }
   >
   const popupRef = useRef<PopupType>(null)
   const listRef = useRef<OnlineListType>(null)
@@ -53,20 +55,20 @@ export default forwardRef<SimilarSongsModalType, {}>((props, ref) => {
         const rawList = await wyApi.dailyRec.getSimilarSongs(
           musicInfo.meta.songId,
           PAGE_SIZE,
-          isAppend ? offsetRef.current : 0
+          isAppend ? offsetRef.current : 0,
         )
         detailList = await musicDetailApi.filterList({ songs: rawList ?? [], privileges: [] })
       } else if (musicInfo.source === 'tx') {
         detailList = await txApi.dailyRec.getSimilarSongs(
           musicInfo.meta.id,
-          PAGE_SIZE
+          PAGE_SIZE,
         )
       }
 
       if (requestId !== requestIdRef.current) return
 
       const existsIds = new Set(
-        (isAppend ? currentListRef.current : [musicInfo]).map(item => item.id)
+        (isAppend ? currentListRef.current : [musicInfo]).map(item => item.id),
       )
       const nextList = detailList.filter(item => {
         if (existsIds.has(item.id)) return false

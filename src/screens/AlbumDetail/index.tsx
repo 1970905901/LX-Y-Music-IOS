@@ -14,10 +14,10 @@ import LandscapeDetailLayout from '@/components/LandscapeDetailLayout'
 import { playOnlineList } from '@/core/list'
 import { pop } from '@/navigation'
 import DetailActionBar from '@/components/DetailActionBar'
-import {COMPONENT_IDS, LIST_IDS} from "@/config/constant.ts"
+import { COMPONENT_IDS, LIST_IDS } from '@/config/constant.ts'
 import playerState from '@/store/player/state'
 import listState from '@/store/list/state'
-import {usePlayerMusicInfo} from "@/store/player/hook.ts";
+import { usePlayerMusicInfo } from '@/store/player/hook.ts'
 import { log } from '@/utils/log'
 
 const getApi = (source?: string) => {
@@ -26,7 +26,7 @@ const getApi = (source?: string) => {
   return wyApi
 }
 
-export default memo(({ componentId, albumInfo }: { componentId: string; albumInfo: any }) => {
+export default memo(({ componentId, albumInfo }: { componentId: string, albumInfo: any }) => {
   log.info('[AlbumDetail] === 专辑详情页初始化 ===', {
     componentId,
     albumInfo,
@@ -36,7 +36,7 @@ export default memo(({ componentId, albumInfo }: { componentId: string; albumInf
     albumName: albumInfo.name,
     timestamp: new Date().toISOString(),
   })
-  const [albumDetail, setAlbumDetail] = useState<{ info: any; list: LX.Music.MusicInfoOnline[] }>({ info: null, list: [] })
+  const [albumDetail, setAlbumDetail] = useState<{ info: any, list: LX.Music.MusicInfoOnline[] }>({ info: null, list: [] })
   const listRef = useRef<OnlineListType>(null)
   const playerMusicInfo = usePlayerMusicInfo()
 
@@ -64,23 +64,24 @@ export default memo(({ componentId, albumInfo }: { componentId: string; albumInf
       albumSource: albumInfo.source,
       albumName: albumInfo.name,
     })
-    setComponentId(COMPONENT_IDS.ALBUM_DETAIL_SCREEN as any, componentId);
+    setComponentId(COMPONENT_IDS.ALBUM_DETAIL_SCREEN as any, componentId)
     log.info('[AlbumDetail] === 设置列表状态为loading ===')
-    listRef.current?.setStatus('loading');
-    
+    listRef.current?.setStatus('loading')
+
     const api = getApi(albumInfo.source)
     const albumParam = albumInfo.source === 'tx' ? albumInfo.mid : albumInfo.id
-    
+
     api.getAlbum(albumParam).then((data: any) => {
       log.info('[AlbumDetail] 专辑加载成功', { albumId: albumInfo.id, listLength: data.list?.length || 0 })
-      setAlbumDetail(data);
-      listRef.current?.setList(data.list);
-      listRef.current?.setStatus('idle');
+      setAlbumDetail(data)
+      listRef.current?.setList(data.list)
+      listRef.current?.setStatus('idle')
     }).catch((err: any) => {
-      toast('获取专辑信息失败');
-      listRef.current?.setStatus('error');
-    });
-  }, [componentId, albumInfo.id, albumInfo.source, albumInfo.mid]);
+      console.error('[AlbumDetail] 专辑加载失败', err)
+      toast('获取专辑信息失败')
+      listRef.current?.setStatus('error')
+    })
+  }, [componentId, albumInfo.id, albumInfo.source, albumInfo.mid])
 
   const onRefresh = useCallback(() => {
     log.info('[AlbumDetail] === 下拉刷新专辑详情 ===', {
@@ -88,28 +89,28 @@ export default memo(({ componentId, albumInfo }: { componentId: string; albumInf
       albumMid: albumInfo.mid,
       albumSource: albumInfo.source,
     })
-    listRef.current?.setStatus('refreshing');
-    
+    listRef.current?.setStatus('refreshing')
+
     const refreshApi = getApi(albumInfo.source)
     const refreshParam = albumInfo.source === 'tx' ? albumInfo.mid : albumInfo.id
-    
+
     refreshApi.getAlbum(refreshParam).then((data: any) => {
       log.info('[AlbumDetail] === 刷新专辑详情成功 ===', {
         albumId: albumInfo.id,
         listLength: data.list.length,
       })
-      setAlbumDetail(data);
-      listRef.current?.setList(data.list);
-      listRef.current?.setStatus('idle');
+      setAlbumDetail(data)
+      listRef.current?.setList(data.list)
+      listRef.current?.setStatus('idle')
     }).catch((err: any) => {
       log.error('[AlbumDetail] === 刷新专辑详情失败 ===', {
         albumId: albumInfo.id,
         error: err.message,
       })
-      toast('刷新专辑信息失败');
-      listRef.current?.setStatus('error');
-    });
-  }, [albumInfo.id, albumInfo.source, albumInfo.mid]);
+      toast('刷新专辑信息失败')
+      listRef.current?.setStatus('error')
+    })
+  }, [albumInfo.id, albumInfo.source, albumInfo.mid])
 
   const onPlayList = useCallback((index: number) => {
     log.info('[AlbumDetail] === 点击播放专辑 ===', {
@@ -122,17 +123,17 @@ export default memo(({ componentId, albumInfo }: { componentId: string; albumInf
       log.warn('[AlbumDetail] === 无法播放，专辑列表为空 ===', {
         albumId: albumInfo.id,
       })
-      return;
+      return
     }
-    const listId = `album_${albumInfo.mid || albumInfo.id}`;
+    const listId = `album_${albumInfo.mid || albumInfo.id}`
     log.info('[AlbumDetail] === 调用playOnlineList ===', {
       listId,
       playIndex: index,
       totalSongs: albumDetail.list.length,
     })
-    void playOnlineList(listId, albumDetail.list, index);
+    void playOnlineList(listId, albumDetail.list, index)
     log.info('[AlbumDetail] === 播放请求已发送 ===')
-  }, [albumDetail.list, albumInfo.id]);
+  }, [albumDetail.list, albumInfo.id])
 
   const handleListUpdate = useCallback((newList: LX.Music.MusicInfoOnline[]) => {
     log.info('[AlbumDetail] === 列表数据更新 ===', {
@@ -143,8 +144,8 @@ export default memo(({ componentId, albumInfo }: { componentId: string; albumInf
     setAlbumDetail(prev => ({
       ...prev,
       list: newList,
-    }));
-  }, [albumDetail.list, albumInfo.id]);
+    }))
+  }, [albumDetail.list, albumInfo.id])
   const displayAlbumInfo = useMemo(() => {
     const info = {
       ...albumInfo,
@@ -214,4 +215,4 @@ export default memo(({ componentId, albumInfo }: { componentId: string; albumInf
       />
     </PageContent>
   )
-});
+})

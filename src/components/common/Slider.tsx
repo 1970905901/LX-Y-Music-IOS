@@ -5,14 +5,14 @@ import { createStyle } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
 
 export type SliderProps = Pick<
-  _SliderProps,
-  | 'value'
-  | 'minimumValue'
-  | 'maximumValue'
-  | 'onSlidingStart'
-  | 'onSlidingComplete'
-  | 'onValueChange'
-  | 'step'
+_SliderProps,
+| 'value'
+| 'minimumValue'
+| 'maximumValue'
+| 'onSlidingStart'
+| 'onSlidingComplete'
+| 'onValueChange'
+| 'step'
 >
 
 export default memo(
@@ -46,7 +46,7 @@ export default memo(
         step={step}
       />
     )
-  }
+  },
 )
 
 const styles = createStyle({

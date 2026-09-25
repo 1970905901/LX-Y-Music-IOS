@@ -9,7 +9,7 @@ import wy from '@/utils/musicSdk/wy/index'
 import ListItem from '../MyPlaylist/ListItem'
 import { getDailyRecPlaylistsCache, setDailyRecPlaylistsCache, clearDailyRecPlaylistsCache } from '@/core/cache'
 
-export default memo(({ header, onOpenDetail }: { header?: ReactElement; onOpenDetail: (info: any) => void }) => {
+export default memo(({ header, onOpenDetail }: { header?: ReactElement, onOpenDetail: (info: any) => void }) => {
   const [playlists, setPlaylists] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const cookie = useSettingValue('common.wy_cookie')
@@ -33,8 +33,8 @@ export default memo(({ header, onOpenDetail }: { header?: ReactElement; onOpenDe
     }
 
     setLoading(true)
-    wyApi.getRecPlaylists(cookie).then(async (list: any) => {
-      const adaptedList =  list
+    wyApi.getRecPlaylists(cookie).then(async(list: any) => {
+      const adaptedList = list
         // .filter(item => !item.name.includes('雷达'))
         .map((item: any) => ({
           id: item.id,
@@ -52,7 +52,7 @@ export default memo(({ header, onOpenDetail }: { header?: ReactElement; onOpenDe
           isFirstRadarFound = true
           try {
             const detail = await wy.songList.getListDetail(String(adaptedList[i].id), 1)
-            if (detail && detail.info) {
+            if (detail?.info) {
               adaptedList[i].name = detail.info.name || adaptedList[i].name
               adaptedList[i].trackCount = detail.total != null ? detail.total : adaptedList[i].trackCount
               adaptedList[i].coverImgUrl = detail.info.img || adaptedList[i].coverImgUrl

@@ -19,32 +19,41 @@ export class StateEvent extends Event {
   configUpdated(keys: Array<keyof LX.AppSetting>, setting: Partial<LX.AppSetting>) {
     this.emit('configUpdated', keys, setting)
   }
+
   wyLikedListChanged() {
     this.emit('wyLikedListChanged')
   }
+
   wyUidChanged() {
     this.emit('wyUidChanged')
   }
+
   txLikedListChanged() {
     this.emit('txLikedListChanged')
   }
+
   kgLikedListChanged() {
     this.emit('kgLikedListChanged')
   }
+
   wyFollowedListChanged() {
     this.emit('wyFollowedListChanged')
   }
+
   wySubscribedAlbumsChanged() {
-    this.emit('wySubscribedAlbumsChanged');
+    this.emit('wySubscribedAlbumsChanged')
   }
+
   wySubscribedPlaylistsChanged() {
-    this.emit('wySubscribedPlaylistsChanged');
+    this.emit('wySubscribedPlaylistsChanged')
   }
+
   txSubscribedPlaylistsChanged() {
-    this.emit('txSubscribedPlaylistsChanged');
+    this.emit('txSubscribedPlaylistsChanged')
   }
+
   kgSubscribedPlaylistsChanged() {
-    this.emit('kgSubscribedPlaylistsChanged');
+    this.emit('kgSubscribedPlaylistsChanged')
   }
 
   languageChanged(locale: I18n['locale']) {
@@ -111,7 +120,7 @@ export class StateEvent extends Event {
    * 我的列表更新
    */
   mylistUpdated(
-    lists: Array<LX.List.MyDefaultListInfo | LX.List.MyLoveListInfo | LX.List.UserListInfo>
+    lists: Array<LX.List.MyDefaultListInfo | LX.List.MyLoveListInfo | LX.List.UserListInfo>,
   ) {
     this.emit('mylistUpdated', lists)
   }

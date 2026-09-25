@@ -17,7 +17,7 @@ const getResponseCode = (body: string | Blob): number | null => {
   }
 }
 
-const pingWy = async () => {
+const pingWy = async() => {
   const cookie = settingState.setting['common.wy_cookie']
   if (!cookie) return
   const csrfToken = (cookie.match(/_csrf=([^(;|$)]+)/) || [])[1] || ''
@@ -44,7 +44,7 @@ const pingWy = async () => {
   }
 }
 
-const pingTx = async () => {
+const pingTx = async() => {
   const cookie = settingState.setting['common.tx_cookie']
   if (!cookie) return
   const uinMatch = cookie.match(/(?:^|;)\s*uin=(\d+|o[A-Za-z0-9_-]+)/)

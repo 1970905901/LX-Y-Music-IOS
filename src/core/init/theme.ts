@@ -5,7 +5,7 @@ import settingState from '@/store/setting/state'
 import StatusBar from '@/components/common/StatusBar'
 // import { Dimensions, PixelRatio } from 'react-native'
 
-export default async (setting: LX.AppSetting) => {
+export default async(setting: LX.AppSetting) => {
   if (getIsSupportedAutoTheme()) {
     setShouldUseDarkColors(getAppearance() == 'dark')
 

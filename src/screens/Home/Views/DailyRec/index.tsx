@@ -20,7 +20,7 @@ const Tabs = ({
   onTabChange,
   isStylized,
   setIsStylized,
-  onOpenModal
+  onOpenModal,
 }: {
   activeTab: 'songs' | 'playlists'
   onTabChange: (tab: 'songs' | 'playlists') => void
@@ -33,7 +33,7 @@ const Tabs = ({
     <View>
       {/* 主 tab 与大标题同行（见 pageHeader 的 titleRow） */}
       <View style={styles.titleTabs}>
-        <TouchableOpacity style={styles.tab} onPress={() => onTabChange('songs')}>
+        <TouchableOpacity style={styles.tab} onPress={() => { onTabChange('songs') }}>
           <Text
             style={[styles.tabText, { borderBottomColor: activeTab === 'songs' ? theme['c-primary-font-active'] : 'transparent' }]}
             color={theme['c-font']}
@@ -41,7 +41,7 @@ const Tabs = ({
             推荐歌曲
           </Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.tab} onPress={() => onTabChange('playlists')}>
+        <TouchableOpacity style={styles.tab} onPress={() => { onTabChange('playlists') }}>
           <Text
             style={[styles.tabText, { borderBottomColor: activeTab === 'playlists' ? theme['c-primary-font-active'] : 'transparent' }]}
             color={theme['c-font']}
@@ -53,10 +53,10 @@ const Tabs = ({
       {activeTab === 'songs' ? (
         <View style={[styles.subTabsRow, { justifyContent: 'flex-start', alignItems: 'center' }]}>
           <TouchableOpacity
-            onPress={() => setIsStylized(false)}
+            onPress={() => { setIsStylized(false) }}
             style={[
               { marginRight: 5, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 0, borderWidth: BorderWidths.normal },
-              !isStylized ? { borderColor: theme['c-primary-font'] } : { borderColor: 'transparent' }
+              !isStylized ? { borderColor: theme['c-primary-font'] } : { borderColor: 'transparent' },
             ]}
           >
             <Text color={!isStylized ? theme['c-primary-font'] : theme['c-font']} size={13}>默认推荐</Text>
@@ -68,7 +68,7 @@ const Tabs = ({
             }}
             style={[
               { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 0, borderWidth: BorderWidths.normal },
-              isStylized ? { borderColor: theme['c-primary-font'] } : { borderColor: 'transparent' }
+              isStylized ? { borderColor: theme['c-primary-font'] } : { borderColor: 'transparent' },
             ]}
           >
             <Text color={isStylized ? theme['c-primary-font'] : theme['c-font']} size={13}>
@@ -132,7 +132,7 @@ export default memo(() => {
           onTabChange={handleTabChange}
           isStylized={isStylized}
           setIsStylized={setIsStylized}
-          onOpenModal={() => setShowStylizedModal(true)}
+          onOpenModal={() => { setShowStylizedModal(true) }}
         />
       </View>
     </>
@@ -151,7 +151,7 @@ export default memo(() => {
     }
 
     const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress)
-    return () => subscription.remove()
+    return () => { subscription.remove() }
   }, [])
 
   return (
@@ -179,7 +179,7 @@ export default memo(() => {
         </PagerView>
         <StylizedModal
           visible={showStylizedModal}
-          onClose={() => setShowStylizedModal(false)}
+          onClose={() => { setShowStylizedModal(false) }}
           onConfirm={(selection) => {
             setStylizedSelection(selection)
             setShowStylizedModal(false)

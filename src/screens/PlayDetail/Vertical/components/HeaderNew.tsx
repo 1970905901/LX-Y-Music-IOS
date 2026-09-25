@@ -82,7 +82,7 @@ const HeaderNew = memo(({ pageIndex }: { pageIndex?: number }) => {
   const timeInfo = useTimeInfo()
   const { width: winWidth } = useWindowSize()
   const back = () => {
-    void pop(commonState.componentIds[commonState.componentIds.length - 1]?.id!)
+    void pop(commonState.componentIds[commonState.componentIds.length - 1]?.id)
   }
   const showSetting = () => {
     popupRef.current?.show()

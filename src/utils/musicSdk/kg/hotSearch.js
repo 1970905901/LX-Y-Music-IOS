@@ -20,7 +20,7 @@ export default {
           'user-agent': 'Android9-AndroidPhone-10020-130-0-searchrecommendprotocol-wifi',
           'kg-rc': 1,
         },
-      }
+      },
     )
     const { body, statusCode } = await _requestObj.promise
     if (statusCode != 200 || body.errcode !== 0) throw new Error('获取热搜词失败')

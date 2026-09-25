@@ -52,7 +52,7 @@ const ControlBtnNew = () => {
       <TouchableOpacity
         style={[styles.controlBtn, { width: size, height: size }]}
         activeOpacity={0.5}
-        onPress={() => void playPrev()}
+        onPress={() => { void playPrev() }}
       >
         <Icon name="prevMusic" color={iconColor} rawSize={iconSize} />
       </TouchableOpacity>
@@ -68,7 +68,7 @@ const ControlBtnNew = () => {
       <TouchableOpacity
         style={[styles.controlBtn, { width: size, height: size }]}
         activeOpacity={0.5}
-        onPress={() => void playNext()}
+        onPress={() => { void playNext() }}
       >
         <Icon name="nextMusic" color={iconColor} rawSize={iconSize} />
       </TouchableOpacity>

@@ -111,7 +111,7 @@ export default memo(() => {
             <Pressable
               key={tab.id}
               style={styles.item}
-              onPress={() => setNavActiveId(tab.id)}
+              onPress={() => { setNavActiveId(tab.id) }}
             >
               {isActive ? <View style={activeMaskStyle} pointerEvents="none" /> : null}
               {/* 所有 tab 的图标统一放进同尺寸容器：love 字形占位偏小需放大一档，

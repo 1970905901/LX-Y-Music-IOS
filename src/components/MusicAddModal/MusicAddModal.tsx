@@ -1,4 +1,4 @@
-import {forwardRef, useEffect, useImperativeHandle, useRef, useState} from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import Dialog, { type DialogType } from '@/components/common/Dialog'
 import { toast } from '@/utils/tools'
 import Title from './Title'
@@ -10,13 +10,13 @@ import { addSongToPlaylist as addKgSongToPlaylist, removeSongsFromPlaylist as re
 import { useI18n } from '@/lang'
 import { addListMusics, moveListMusics } from '@/core/list'
 import settingState from '@/store/setting/state'
-import {useTheme} from "@/store/theme/hook"
-import {getPlaylistType, savePlaylistType} from "@/utils/data"
-import {View} from "react-native"
+import { useTheme } from '@/store/theme/hook'
+import { getPlaylistType, savePlaylistType } from '@/utils/data'
+import { View } from 'react-native'
 import Text from '@/components/common/Text'
-import {addWyLikedSong, removeWyLikedSong, updateWySubscribedPlaylistTrackCount, addTxLikedSong, removeTxLikedSong} from "@/store/user/action.ts";
-import {clearListDetailCache} from "@/core/songlist.ts";
-import {useWySubscribedPlaylists} from "@/store/user/hook.ts";
+import { addWyLikedSong, removeWyLikedSong, updateWySubscribedPlaylistTrackCount, addTxLikedSong, removeTxLikedSong } from '@/store/user/action.ts'
+import { clearListDetailCache } from '@/core/songlist.ts'
+import { useWySubscribedPlaylists } from '@/store/user/hook.ts'
 import { log } from '@/utils/log'
 import { useSettingValue } from '@/store/setting/hook'
 
@@ -46,7 +46,7 @@ export default forwardRef<MusicAddModalType, MusicAddModalProps>(({ onAdded }, r
   const kgCookie = useSettingValue('common.kg_cookie')
 
   useEffect(() => {
-    getPlaylistType().then((type) => setPlaylistType(type as 'local' | 'wy' | 'tx'))
+    getPlaylistType().then((type) => { setPlaylistType(type as 'local' | 'wy' | 'tx') })
   }, [])
 
   const handlePlaylistTypeChange = (type: 'local' | 'wy' | 'tx' | 'kg') => {
@@ -73,7 +73,7 @@ export default forwardRef<MusicAddModalType, MusicAddModalProps>(({ onAdded }, r
   const handleSelect = (listInfo: LX.List.MyListInfo) => {
     dialogRef.current?.setVisible(false)
     const { musicInfo, listId: fromListId, isMove } = selectInfo
-    
+
     log.info('[MusicAddModal] handleSelect 开始', {
       playlistType,
       toListId: listInfo.id,
@@ -87,14 +87,14 @@ export default forwardRef<MusicAddModalType, MusicAddModalProps>(({ onAdded }, r
         songId: musicInfo.meta?.songId,
       } : null,
     })
-    
+
     if (playlistType === 'wy') {
       if (!musicInfo) {
         log.error('[MusicAddModal] 网易歌单添加失败: musicInfo 为空')
-        return;
+        return
       }
-      
-      const songId = String(musicInfo.meta.songId);
+
+      const songId = String(musicInfo.meta.songId)
       if (!songId || !/^\d+$/.test(songId)) {
         log.error('[MusicAddModal] 网易歌单添加失败: songId 格式不正确', {
           songId,
@@ -103,39 +103,39 @@ export default forwardRef<MusicAddModalType, MusicAddModalProps>(({ onAdded }, r
           musicSource: musicInfo.source,
         })
         toast('该歌曲不支持添加到网易云歌单（ID格式不兼容）')
-        return;
+        return
       }
-      
-      const toListId = String(listInfo.id);
+
+      const toListId = String(listInfo.id)
       if (toListId.startsWith('tx__')) {
         log.error('[MusicAddModal] 网易歌单添加失败: 目标歌单 ID 格式错误', {
           toListId,
           expected: '网易云歌单ID（纯数字）',
         })
         toast('目标歌单 ID 格式错误，请选择网易云歌单')
-        return;
+        return
       }
-      
-      const sourcePlaylist = subscribedPlaylists.find(p => `wy__${p.id}` === fromListId);
+
+      const sourcePlaylist = subscribedPlaylists.find(p => `wy__${p.id}` === fromListId)
 
       if (isMove) {
         wyApi.manipulatePlaylistTracks('add', toListId, [songId]).then(() => {
           if (listInfo.name === (listInfo as any).creator.nickname + '喜欢的音乐') {
             addWyLikedSong(songId)
           }
-          const sourcePlaylistId = fromListId.replace('wy__', '');
+          const sourcePlaylistId = fromListId.replace('wy__', '')
           clearListDetailCache('wy', toListId)
           global.app_event.playlist_updated({ source: 'wy', listId: toListId })
-          return wyApi.manipulatePlaylistTracks('del', sourcePlaylistId, [songId]);
+          return wyApi.manipulatePlaylistTracks('del', sourcePlaylistId, [songId])
         }).then(() => {
           if (sourcePlaylist?.name === (sourcePlaylist as any)?.creator?.nickname + '喜欢的音乐') {
             removeWyLikedSong(songId)
           }
           onAdded?.()
-          toast(t('list_edit_action_tip_move_success'));
-          updateWySubscribedPlaylistTrackCount(toListId, 1);
+          toast(t('list_edit_action_tip_move_success'))
+          updateWySubscribedPlaylistTrackCount(toListId, 1)
           const sourcePlaylistId = fromListId.replace('wy__', '')
-          updateWySubscribedPlaylistTrackCount(sourcePlaylistId, -1);
+          updateWySubscribedPlaylistTrackCount(sourcePlaylistId, -1)
           clearListDetailCache('wy', sourcePlaylistId)
           global.app_event.playlist_updated({ source: 'wy', listId: sourcePlaylistId })
           log.info('[MusicAddModal] 网易歌单移动成功', { toListId, songId })
@@ -146,8 +146,8 @@ export default forwardRef<MusicAddModalType, MusicAddModalProps>(({ onAdded }, r
             songId,
             fromListId,
           })
-          toast(err.message || t('list_edit_action_tip_move_failed'));
-        });
+          toast(err.message || t('list_edit_action_tip_move_failed'))
+        })
       } else {
         wyApi.manipulatePlaylistTracks('add', toListId, [songId]).then(() => {
           if (listInfo.name === (listInfo as any).creator.nickname + '喜欢的音乐') {
@@ -165,18 +165,18 @@ export default forwardRef<MusicAddModalType, MusicAddModalProps>(({ onAdded }, r
             toListId,
             songId,
           })
-          toast(err.message || t('list_edit_action_tip_add_failed'));
-        });
+          toast(err.message || t('list_edit_action_tip_add_failed'))
+        })
       }
-      return;
+      return
     }
-    
+
     if (playlistType === 'tx') {
       if (!musicInfo) {
         log.error('[MusicAddModal] QQ歌单添加失败: musicInfo 为空')
-        return;
+        return
       }
-      
+
       if (musicInfo.source !== 'tx') {
         log.error('[MusicAddModal] QQ歌单添加失败: 歌曲来源不是QQ音乐', {
           musicSource: musicInfo.source,
@@ -184,20 +184,20 @@ export default forwardRef<MusicAddModalType, MusicAddModalProps>(({ onAdded }, r
           note: 'QQ歌单只能添加QQ音乐的歌曲',
         })
         toast('QQ歌单只能添加QQ音乐的歌曲，不支持跨平台添加')
-        return;
+        return
       }
-      
-      const songMid = (musicInfo.meta as any).mid || musicInfo.meta.songId;
+
+      const songMid = (musicInfo.meta as any).mid || musicInfo.meta.songId
       if (!songMid) {
         log.error('[MusicAddModal] QQ歌单添加失败: 歌曲 mid 为空', {
           musicInfo,
           meta: musicInfo.meta,
         })
         toast('歌曲 mid 为空，无法添加')
-        return;
+        return
       }
-      
-      const toListId = String(listInfo.id).replace('tx__', '');
+
+      const toListId = String(listInfo.id).replace('tx__', '')
       if (!toListId || toListId === String(listInfo.id)) {
         log.error('[MusicAddModal] QQ歌单添加失败: 目标歌单 ID 格式错误', {
           originalId: listInfo.id,
@@ -205,19 +205,19 @@ export default forwardRef<MusicAddModalType, MusicAddModalProps>(({ onAdded }, r
           expected: 'tx__开头的ID',
         })
         toast('目标歌单 ID 格式错误，请选择 QQ 歌单')
-        return;
+        return
       }
-      
+
       log.info('[MusicAddModal] QQ歌单添加开始', {
         toListId,
         songMid,
         musicSource: musicInfo.source,
         isMove,
       })
-      
+
       if (isMove) {
         const sourcePlaylistId = fromListId.replace('tx__', '')
-        txApi.addSongToPlaylist(toListId, [String(songMid)]).then(() => {
+        txApi.addSongToPlaylist(toListId, [String(songMid)]).then(async() => {
           if ((listInfo as any).dirid === 201) {
             const txSongId = (musicInfo.meta as any).id
             const isNumericId = txSongId && /^\d+$/.test(String(txSongId))
@@ -240,8 +240,8 @@ export default forwardRef<MusicAddModalType, MusicAddModalProps>(({ onAdded }, r
             songMid,
             sourcePlaylistId,
           })
-          toast(err.message || t('list_edit_action_tip_move_failed'));
-        });
+          toast(err.message || t('list_edit_action_tip_move_failed'))
+        })
       } else {
         txApi.addSongToPlaylist(toListId, [String(songMid)]).then(() => {
           if ((listInfo as any).dirid === 201) {
@@ -261,37 +261,37 @@ export default forwardRef<MusicAddModalType, MusicAddModalProps>(({ onAdded }, r
             songMid,
             musicSource: musicInfo.source,
           })
-          toast(err.message || t('list_edit_action_tip_add_failed'));
-        });
+          toast(err.message || t('list_edit_action_tip_add_failed'))
+        })
       }
-      return;
+      return
     }
 
     if (playlistType === 'kg') {
       if (!musicInfo) {
         log.error('[MusicAddModal] 酷狗歌单操作失败: musicInfo 为空')
-        return;
+        return
       }
 
-      const toListId = (listInfo as any).listid || Number(String(listInfo.id).replace('kg__', ''));
+      const toListId = (listInfo as any).listid || Number(String(listInfo.id).replace('kg__', ''))
       if (!toListId || isNaN(toListId)) {
         log.error('[MusicAddModal] 酷狗歌单操作失败: 无法获取歌单数字ID', {
           listId: listInfo.id,
           listid: (listInfo as any).listid,
         })
         toast('歌单ID格式错误')
-        return;
+        return
       }
 
       if (!kgCookie) {
         toast('请先登录酷狗音乐，Cookie可能已失效')
-        return;
+        return
       }
 
-      const songName = musicInfo.name || '';
-      const songHash = (musicInfo.meta as any)?.hash || '';
-      const albumId = (musicInfo.meta as any)?.albumId || 0;
-      const mixsongid = Number((musicInfo.meta as any)?.mixSongId) || Number(musicInfo.meta?.songId) || 0;
+      const songName = musicInfo.name || ''
+      const songHash = (musicInfo.meta as any)?.hash || ''
+      const albumId = (musicInfo.meta as any)?.albumId || 0
+      const mixsongid = Number((musicInfo.meta as any)?.mixSongId) || Number(musicInfo.meta?.songId) || 0
 
       if (isMove) {
         const sourcePlaylistId = fromListId.replace('kg__', '')
@@ -300,7 +300,7 @@ export default forwardRef<MusicAddModalType, MusicAddModalProps>(({ onAdded }, r
           hash: songHash,
           album_id: albumId,
           mixsongid,
-        }).then((result) => {
+        }).then(async(result) => {
           if (result.success) {
             clearListDetailCache('kg', toListId)
             global.app_event.playlist_updated({ source: 'kg', listId: toListId })
@@ -354,7 +354,7 @@ export default forwardRef<MusicAddModalType, MusicAddModalProps>(({ onAdded }, r
           toast(err.message || t('list_edit_action_tip_add_failed'))
         })
       }
-      return;
+      return
     }
 
     if (selectInfo.isMove) {
@@ -362,7 +362,7 @@ export default forwardRef<MusicAddModalType, MusicAddModalProps>(({ onAdded }, r
         selectInfo.listId,
         listInfo.id,
         [selectInfo.musicInfo!],
-        settingState.setting['list.addMusicLocationType']
+        settingState.setting['list.addMusicLocationType'],
       )
         .then(() => {
           onAdded?.()
@@ -375,7 +375,7 @@ export default forwardRef<MusicAddModalType, MusicAddModalProps>(({ onAdded }, r
       void addListMusics(
         listInfo.id,
         [selectInfo.musicInfo!],
-        settingState.setting['list.addMusicLocationType']
+        settingState.setting['list.addMusicLocationType'],
       )
         .then(() => {
           onAdded?.()
@@ -394,16 +394,16 @@ export default forwardRef<MusicAddModalType, MusicAddModalProps>(({ onAdded }, r
         <>
           <Title musicInfo={selectInfo.musicInfo} isMove={selectInfo.isMove} />
           <View style={{ flexDirection: 'row', justifyContent: 'center', paddingVertical: 10, flexWrap: 'wrap', gap: 8 }}>
-            <Button onPress={() => handlePlaylistTypeChange('local')} style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 4, backgroundColor: playlistType === 'local' ? theme['c-button-background-active'] : theme['c-button-background'] }}>
+            <Button onPress={() => { handlePlaylistTypeChange('local') }} style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 4, backgroundColor: playlistType === 'local' ? theme['c-button-background-active'] : theme['c-button-background'] }}>
               <Text color={theme['c-button-font']}>本地歌单</Text>
             </Button>
-            <Button onPress={() => handlePlaylistTypeChange('wy')} style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 4, backgroundColor: playlistType === 'wy' ? theme['c-button-background-active'] : theme['c-button-background'] }}>
+            <Button onPress={() => { handlePlaylistTypeChange('wy') }} style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 4, backgroundColor: playlistType === 'wy' ? theme['c-button-background-active'] : theme['c-button-background'] }}>
               <Text color={theme['c-button-font']}>网易歌单</Text>
             </Button>
-            <Button onPress={() => handlePlaylistTypeChange('tx')} style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 4, backgroundColor: playlistType === 'tx' ? theme['c-button-background-active'] : theme['c-button-background'] }}>
+            <Button onPress={() => { handlePlaylistTypeChange('tx') }} style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 4, backgroundColor: playlistType === 'tx' ? theme['c-button-background-active'] : theme['c-button-background'] }}>
               <Text color={theme['c-button-font']}>QQ歌单</Text>
             </Button>
-            <Button onPress={() => handlePlaylistTypeChange('kg')} style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 4, backgroundColor: playlistType === 'kg' ? theme['c-button-background-active'] : theme['c-button-background'] }}>
+            <Button onPress={() => { handlePlaylistTypeChange('kg') }} style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 4, backgroundColor: playlistType === 'kg' ? theme['c-button-background-active'] : theme['c-button-background'] }}>
               <Text color={theme['c-button-font']}>酷狗歌单</Text>
             </Button>
           </View>

@@ -39,7 +39,7 @@ export default ({
         />
       </View>
     ),
-    [t, theme, toParentDir]
+    [t, theme, toParentDir],
   )
 
   useEffect(() => {
@@ -60,7 +60,7 @@ export default ({
         removeClippedSubviews={true}
       />
     ),
-    [list, onSetPath]
+    [list, onSetPath],
   )
 
   // const dirList = useMemo(() => [parentDir, ...list], [list, parentDir])

@@ -32,7 +32,7 @@ export default memo(() => {
       if (blur === value) return
       updateSetting({ 'theme.blur': value })
     },
-    [blur]
+    [blur],
   )
 
   return (

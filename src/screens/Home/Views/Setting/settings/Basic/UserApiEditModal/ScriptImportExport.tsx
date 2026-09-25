@@ -36,7 +36,7 @@ const showChoosePath = (
   choosePathRef: MutableRefObject<ChoosePathType | null>,
   visible: boolean,
   setVisible: (v: boolean) => void,
-  opts: { title: string; dirOnly: boolean; filter?: string[] },
+  opts: { title: string, dirOnly: boolean, filter?: string[] },
 ) => {
   if (visible) {
     choosePathRef.current?.show(opts)
@@ -102,8 +102,8 @@ export default forwardRef<ScriptImportExportType, ScriptImportExportProps>((prop
       if (Platform.OS === 'ios') {
         onBeforeNativePicker?.(() => {
           void handleExportUserApiToFile(apiId, temporaryDirectoryPath)
-            .then((fullPath) => shareFile(fullPath))
-            .then(() => toast(global.i18n.t('user_api_export_success_tip')))
+            .then(async(fullPath) => shareFile(fullPath))
+            .then(() => { toast(global.i18n.t('user_api_export_success_tip')) })
             .catch((err: any) => {
               if (err?.code === 'file_not_found') {
                 toast(global.i18n.t('user_api_export_failed_tip', { message: '' }), 'long')

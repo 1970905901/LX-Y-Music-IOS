@@ -45,7 +45,7 @@ export default forwardRef<ListMenuType, ListMenuProps>(
       onSync,
       onRemove,
     },
-    ref
+    ref,
   ) => {
     const t = useI18n()
     const menuRef = useRef<MenuType>(null)
@@ -123,7 +123,7 @@ export default forwardRef<ListMenuType, ListMenuProps>(
         case 'sync':
           onSync(selectInfo.listInfo as LX.List.UserListInfo)
           break
-        // case 'changePosition':
+          // case 'changePosition':
 
         //   break
         case 'remove':
@@ -138,5 +138,5 @@ export default forwardRef<ListMenuType, ListMenuProps>(
     return visible ? (
       <Menu ref={menuRef} menus={menus} onPress={handleMenuPress} width={menuItemWidth} />
     ) : null
-  }
+  },
 )

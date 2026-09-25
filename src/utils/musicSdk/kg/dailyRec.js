@@ -20,7 +20,7 @@ const transformSong = (item, index) => {
     const albumId = item.album_id || item.audio_info?.album_id || ''
     const rawDuration = item.time_length || item.timelength || item.timelen || item.duration || item.audio_info?.timelength || item.audio_info?.duration || 0
     const duration = rawDuration > 10000 ? Math.floor(rawDuration / 1000) : rawDuration
-    let img = item.sizable_cover || item.image || item.audio_info?.image || 
+    let img = item.sizable_cover || item.image || item.audio_info?.image ||
               item.album_sizable_cover || item.album_info?.sizable_cover ||
               item.trans_param?.union_cover || ''
     if (!img && hash) {
@@ -60,7 +60,7 @@ const transformSong = (item, index) => {
   }
 }
 
-const transformSongList = async (rawList, sourceName = 'unknown') => {
+const transformSongList = async(rawList, sourceName = 'unknown') => {
   if (!rawList || !Array.isArray(rawList)) return []
   log.info(`[KG DailyRec] transformSongList ${sourceName}`, { count: rawList.length })
 
@@ -71,7 +71,7 @@ const transformSongList = async (rawList, sourceName = 'unknown') => {
   try {
     qualityInfoMap = await getBatchMusicQualityInfo(hashList).promise
   } catch (error) {
-    log.error(`[KG DailyRec] getBatchMusicQualityInfo 失败:`, error.message)
+    log.error('[KG DailyRec] getBatchMusicQualityInfo 失败:', error.message)
   }
 
   return songList.map(song => {
@@ -115,7 +115,7 @@ export default {
       }
       const sig = signAndroidParams(paramsMap, '')
 
-      const url = `https://gateway.kugou.com/everyday_song_recommend`
+      const url = 'https://gateway.kugou.com/everyday_song_recommend'
       log.info('[KG DailyRec] getRecommendSongs URL:', url)
 
       const { body, statusCode } = await httpFetch(url, {
@@ -169,7 +169,7 @@ export default {
       const paramsMap = { ...defaultParams, platform: 'ios' }
       const sig = signAndroidParams(paramsMap, '')
 
-      const url = `https://gateway.kugou.com/everyday_song_recommend`
+      const url = 'https://gateway.kugou.com/everyday_song_recommend'
       log.info('[KG DailyRec] getEverydayRecommend URL:', url)
 
       const { body, statusCode } = await httpFetch(url, {
@@ -227,7 +227,7 @@ export default {
       const dataStr = JSON.stringify(dataMap)
       const sig = signAndroidParams(paramsMap, dataStr)
 
-      const url = `https://gateway.kugou.com/musicadservice/container/v1/newsong_publish`
+      const url = 'https://gateway.kugou.com/musicadservice/container/v1/newsong_publish'
       log.info('[KG DailyRec] getNewSongs URL:', url)
 
       const { body, statusCode } = await httpFetch(url, {

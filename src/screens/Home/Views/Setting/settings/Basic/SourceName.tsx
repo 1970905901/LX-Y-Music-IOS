@@ -20,7 +20,7 @@ const useActive = (type: SourceNameType) => {
   return isActive
 }
 
-const Item = ({ id, name }: { id: SourceNameType; name: string }) => {
+const Item = ({ id, name }: { id: SourceNameType, name: string }) => {
   const isActive = useActive(id)
   // const [toggleCheckBox, setToggleCheckBox] = useState(false)
   return (

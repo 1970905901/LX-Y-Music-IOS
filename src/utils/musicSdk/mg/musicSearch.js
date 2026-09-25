@@ -6,7 +6,7 @@ export const createSignature = (time, str) => {
   const deviceId = '963B7AA0D21511ED807EE5846EC87D20'
   const signatureMd5 = '6cdc72a439cef99a3418d2a78aa28c73'
   const sign = toMD5(
-    `${str}${signatureMd5}yyapp2d16148780a1dcc7408e06336b98cfd50${deviceId}${time}`
+    `${str}${signatureMd5}yyapp2d16148780a1dcc7408e06336b98cfd50${deviceId}${time}`,
   )
   return { sign, deviceId }
 }
@@ -125,7 +125,7 @@ export default {
           'User-Agent':
             'Mozilla/5.0 (Linux; U; Android 11.0.0; zh-cn; MI 11 Build/OPR1.170623.032) AppleWebKit/534.30 (KHTML, like Gecko) Version/4.0 Mobile Safari/534.30',
         },
-      }
+      },
     )
     return searchRequest.promise.then(({ body }) => body)
   },
@@ -207,8 +207,7 @@ export default {
     // http://newlyric.kuwo.cn/newlyric.lrc?62355680
     return this.musicSearch(str, page, limit).then((result) => {
       // console.log(result)
-      if (!result || result.code !== '000000')
-        return Promise.reject(new Error(result ? result.info : '搜索失败'))
+      if (!result || result.code !== '000000') { return Promise.reject(new Error(result ? result.info : '搜索失败')) }
       const songResultData = result.songResultData || { resultList: [], totalCount: 0 }
 
       let list = this.filterData(songResultData.resultList)

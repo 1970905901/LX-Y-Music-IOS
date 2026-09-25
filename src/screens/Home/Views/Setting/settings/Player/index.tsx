@@ -22,7 +22,6 @@ import FailureStrategy from './FailureStrategy'
 import IsAutoPlayOnReturn from './IsAutoPlayOnReturn'
 
 export default memo(() => {
-
   return (
     <Section sectionId="setting_player">
       <IsSavePlayTime />

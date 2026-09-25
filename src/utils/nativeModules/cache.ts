@@ -6,12 +6,12 @@ const { CacheModule } = NativeModules
 // CacheModule 在 iOS/Android 均有原生实现（iOS 遍历 Caches/Tmp 目录，见 AppDelegate.mm）。
 // 之前误用 isIOS 判断导致 iOS 上 getAppCacheSize 返回 0、clearAppCache 空操作，
 // 而 iOS 原生端其实已实现。这里只按「原生模块是否存在」兜底降级。
-export const getAppCacheSize = async (): Promise<number> => {
+export const getAppCacheSize = async(): Promise<number> => {
   if (!CacheModule) return 0
   return CacheModule.getAppCacheSize().then((size: number) => Math.trunc(size))
 }
 export const clearAppCache = !CacheModule
-  ? (): Promise<void> => Promise.resolve()
+  ? async(): Promise<void> => Promise.resolve()
   : (CacheModule.clearAppCache as () => Promise<void>)
 
 // 云盘播放缓存目录（位于 Caches，可被系统回收，不参与 iCloud 备份）。
@@ -22,7 +22,7 @@ const cloudCacheDirs = [
 ]
 
 // 递归统计目录大小（字节）
-const getDirSizeRecursively = async (dir: string): Promise<number> => {
+const getDirSizeRecursively = async(dir: string): Promise<number> => {
   if (!(await existsFile(dir))) return 0
   let total = 0
   try {
@@ -36,7 +36,7 @@ const getDirSizeRecursively = async (dir: string): Promise<number> => {
 }
 
 // 递归清理目录内容（保留目录本身）
-const clearDirRecursively = async (dir: string) => {
+const clearDirRecursively = async(dir: string) => {
   if (!(await existsFile(dir))) return
   try {
     const list = await readDir(dir)
@@ -47,7 +47,7 @@ const clearDirRecursively = async (dir: string) => {
 }
 
 // 统计云盘播放缓存（WebDAV 的流式播放预下载缓存）
-export const getCloudCacheSize = async (): Promise<number> => {
+export const getCloudCacheSize = async(): Promise<number> => {
   let total = 0
   for (const dir of cloudCacheDirs) {
     total += await getDirSizeRecursively(dir)
@@ -56,7 +56,7 @@ export const getCloudCacheSize = async (): Promise<number> => {
 }
 
 // 清理云盘播放缓存
-export const clearCloudCache = async () => {
+export const clearCloudCache = async() => {
   for (const dir of cloudCacheDirs) {
     await clearDirRecursively(dir)
   }
@@ -69,7 +69,7 @@ interface CloudCacheFile {
 }
 
 // 递归收集云盘缓存文件（含 lastModified，用于 LRU 清理）
-const collectCloudCacheFiles = async (dir: string, files: CloudCacheFile[] = []): Promise<CloudCacheFile[]> => {
+const collectCloudCacheFiles = async(dir: string, files: CloudCacheFile[] = []): Promise<CloudCacheFile[]> => {
   if (!(await existsFile(dir))) return files
   try {
     const list = await readDir(dir)
@@ -91,12 +91,12 @@ const collectCloudCacheFiles = async (dir: string, files: CloudCacheFile[] = [])
 // 无法让 getAppCacheSize 显示的总数收敛到上限内。
 // limitBytes <= 0 表示不限制，返回实际释放的字节数。
 export const enforceCacheLimit = !CacheModule
-  ? (_limitBytes: number): Promise<number> => Promise.resolve(0)
+  ? async(_limitBytes: number): Promise<number> => Promise.resolve(0)
   : (CacheModule.enforceCacheLimit as (limitBytes: number) => Promise<number>)
 
 // 按缓存大小上限清理云盘缓存（LRU：删除最旧的文件，直到总大小 <= limitBytes）。
 // limitBytes 为字节数，<= 0 表示不限制。
-export const enforceCloudCacheLimit = async (limitBytes: number) => {
+export const enforceCloudCacheLimit = async(limitBytes: number) => {
   if (limitBytes <= 0) return
   const files: CloudCacheFile[] = []
   for (const dir of cloudCacheDirs) {

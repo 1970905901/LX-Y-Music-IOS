@@ -8,6 +8,7 @@ import {
   PermissionsAndroid,
   AppState,
   StyleSheet,
+  ToastAndroid,
   type ScaledSize,
 } from 'react-native'
 // import ExtraDimensions from 'react-native-extra-dimensions-android'
@@ -40,7 +41,7 @@ import { Navigation } from 'react-native-navigation'
 import { TOAST_SCREEN } from '@/navigation/screenNames'
 
 // https://stackoverflow.com/a/47349998
-export const getDeviceLanguage = async () => {
+export const getDeviceLanguage = async() => {
   // let deviceLanguage = Platform.OS === 'ios'
   //   ? NativeModules.SettingsManager.settings.AppleLocale ||
   //     NativeModules.SettingsManager.settings.AppleLanguages[0] // iOS 13
@@ -83,7 +84,7 @@ export const TEMP_FILE_PATH = temporaryDirectoryPath + '/tempFile'
 //   // return windowSize
 // }
 
-export const checkStoragePermissions = async () => {
+export const checkStoragePermissions = async() => {
   // iOS 无需申请存储权限（沙盒内可读写），直接视为已授权
   if (Platform.OS === 'ios') return true
   const writeGranted = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE)
@@ -92,7 +93,7 @@ export const checkStoragePermissions = async () => {
   return writeGranted && readGranted
 }
 
-export const requestStoragePermission = async () => {
+export const requestStoragePermission = async() => {
   // iOS 无需申请存储权限（沙盒内可读写），直接视为已授权
   if (Platform.OS === 'ios') return true
   const isGranted = await checkStoragePermissions()
@@ -103,7 +104,7 @@ export const requestStoragePermission = async () => {
       [
         PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
         PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
-      ]
+      ],
       // {
       //   title: '存储读写权限申请',
       //   message:
@@ -145,7 +146,7 @@ let currentToastId: string | null = null
 export const toast = (
   message: string,
   duration: 'long' | 'short' = 'short',
-  position: 'top' | 'center' | 'bottom' = 'bottom'
+  position: 'top' | 'center' | 'bottom' = 'bottom',
 ) => {
   // 跨平台实现：安卓沿用系统 Toast，iOS 用非阻塞 RNN 浮层（避免连续 toast 弹原生 Alert 堆叠导致整页卡死）
   if (Platform.OS === 'android') {
@@ -159,7 +160,6 @@ export const toast = (
         _duration = 0
         break
     }
-    const ToastAndroid = require('react-native').ToastAndroid
     if (ToastAndroid && typeof ToastAndroid.show === 'function') {
       ToastAndroid.show(message, _duration)
       return
@@ -201,8 +201,8 @@ export const toast = (
   }
 }
 
-export const openUrl = async (url: string): Promise<void> =>
-  Linking.canOpenURL(url).then(async () => Linking.openURL(url))
+export const openUrl = async(url: string): Promise<void> =>
+  Linking.canOpenURL(url).then(async() => Linking.openURL(url))
 
 export const assertApiSupport = (source: LX.Source): boolean => {
   return source == 'local' || (source as string) == 'bilibili' || global.lx.qualityList[source] != null
@@ -217,7 +217,7 @@ export const exitApp = () => {
   BackHandler.exitApp()
 }
 
-export const handleSaveFile = async (path: string, data: any) => {
+export const handleSaveFile = async(path: string, data: any) => {
   // if (!path.endsWith('.json')) path += '.json'
   // const buffer = gzip(data)
   const tempFilePath = `${temporaryDirectoryPath}/tempFile.json`
@@ -249,7 +249,7 @@ export const handleReadFile = async <T = unknown>(path: string): Promise<T> => {
   return data
 }
 
-export const confirmDialog = async ({
+export const confirmDialog = async({
   title = '',
   message = '',
   cancelButtonText = global.i18n.t('dialog_cancel'),
@@ -279,12 +279,12 @@ export const confirmDialog = async ({
         onDismiss() {
           resolve(null)
         },
-      }
+      },
     )
   })
 }
 
-export const tipDialog = async ({
+export const tipDialog = async({
   title = '',
   message = '',
   btnText = global.i18n.t('dialog_confirm'),
@@ -307,7 +307,7 @@ export const tipDialog = async ({
         onDismiss() {
           resolve()
         },
-      }
+      },
     )
   })
 }
@@ -316,7 +316,7 @@ export const clipboardWriteText = (str: string) => {
   Clipboard.setString(str)
 }
 
-export const checkNotificationPermission = async () => {
+export const checkNotificationPermission = async() => {
   if (Platform.OS === 'ios') return
   const isHide = await getData(storageDataPrefix.notificationTipEnable)
   if (isHide != null) return
@@ -353,12 +353,12 @@ export const checkNotificationPermission = async () => {
             })
           },
         },
-      ]
+      ],
     )
   })
 }
 
-export const checkIgnoringBatteryOptimization = async () => {
+export const checkIgnoringBatteryOptimization = async() => {
   if (Platform.OS === 'ios') return
   const isHide = await getData(storageDataPrefix.ignoringBatteryOptimizationTipEnable)
   if (isHide != null) return
@@ -395,14 +395,14 @@ export const checkIgnoringBatteryOptimization = async () => {
             })
           },
         },
-      ]
+      ],
     )
   })
 }
-export const resetNotificationPermissionCheck = async () => {
+export const resetNotificationPermissionCheck = async() => {
   return removeData(storageDataPrefix.notificationTipEnable)
 }
-export const resetIgnoringBatteryOptimizationCheck = async () => {
+export const resetIgnoringBatteryOptimizationCheck = async() => {
   return removeData(storageDataPrefix.ignoringBatteryOptimizationTipEnable)
 }
 
@@ -413,7 +413,7 @@ export const formatMusicName = (format: string, name: string, singer: string) =>
 export const shareMusic = (
   shareType: LX.ShareType,
   downloadFileName: LX.AppSetting['download.fileName'],
-  musicInfo: LX.Music.MusicInfo
+  musicInfo: LX.Music.MusicInfo,
 ) => {
   const name = musicInfo.name
   const singer = musicInfo.singer
@@ -427,7 +427,7 @@ export const shareMusic = (
       void shareText(
         global.i18n.t('share_card_title_music', { name }),
         global.i18n.t('share_title_music'),
-        `${musicTitle.replace(/\s/g, '')}${detailUrl ? '\n' + detailUrl : ''}`
+        `${musicTitle.replace(/\s/g, '')}${detailUrl ? '\n' + detailUrl : ''}`,
       )
       break
     case 'clipboard':
@@ -438,7 +438,7 @@ export const shareMusic = (
 }
 
 export const onDimensionChange = (
-  handler: (info: { window: ScaledSize; screen: ScaledSize }) => void
+  handler: (info: { window: ScaledSize, screen: ScaledSize }) => void,
 ) => {
   return Dimensions.addEventListener('change', handler)
 }
@@ -450,9 +450,9 @@ export const getAppearance = () => {
 export const onAppearanceChange = (
   callback: (
     colorScheme: Parameters<
-      Parameters<(typeof Appearance)['addChangeListener']>[0]
+    Parameters<(typeof Appearance)['addChangeListener']>[0]
     >[0]['colorScheme']
-  ) => void
+  ) => void,
 ) => {
   return Appearance.addChangeListener(({ colorScheme }) => {
     callback(colorScheme)
@@ -515,7 +515,7 @@ export const showImportTip = (type: string) => {
  */
 export function throttleBackgroundTimer<Args extends any[]>(
   fn: (...args: Args) => void | Promise<void>,
-  delay = 100
+  delay = 100,
 ) {
   let timer: number | null = null
   let _args: Args
@@ -537,7 +537,7 @@ export function throttleBackgroundTimer<Args extends any[]>(
  */
 export function debounceBackgroundTimer<Args extends any[]>(
   fn: (...args: Args) => void | Promise<void>,
-  delay = 100
+  delay = 100,
 ) {
   let timer: number | null = null
   let _args: Args
@@ -616,7 +616,7 @@ export const trasformeStyle = <T extends Style>(styles: T): T => {
 }
 
 export const createStyle = <T extends StyleSheet.NamedStyles<T>>(
-  styles: T | StyleSheet.NamedStyles<T>
+  styles: T | StyleSheet.NamedStyles<T>,
 ): T => {
   const newStyle: Record<string, Style> = { ...styles }
   for (const [n, s] of Object.entries(newStyle)) {
@@ -671,7 +671,7 @@ export const getRowInfo = (type: RowInfoType = 'full'): RowInfo => {
 
 export const toMD5 = stringMd5
 
-export const cheatTip = async () => {
+export const cheatTip = async() => {
   const isRead = true
   if (isRead) return
 
@@ -687,7 +687,7 @@ export const cheatTip = async () => {
   })
 }
 
-export const remoteLyricTip = async () => {
+export const remoteLyricTip = async() => {
   const isRead = await getData<boolean>(storageDataPrefix.remoteLyricTip)
   if (isRead) return
 

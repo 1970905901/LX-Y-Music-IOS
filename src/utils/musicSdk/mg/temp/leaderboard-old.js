@@ -138,8 +138,7 @@ export default {
         if (
           (item.template != 'row1' && item.template != 'grid1' && !item.actionUrl) ||
           !item.actionUrl.includes('rank-info')
-        )
-          continue
+        ) { continue }
 
         let data = item.displayLogId.param
         list.push({

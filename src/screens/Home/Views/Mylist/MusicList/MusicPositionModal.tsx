@@ -22,7 +22,7 @@ const Title = forwardRef<TitleType, {}>((props, ref) => {
       setTitle(
         selectedList.length
           ? global.i18n.t('change_position_music_multi_title', { num: selectedList.length })
-          : global.i18n.t('change_position_music_title', { name: musicInfo.name })
+          : global.i18n.t('change_position_music_title', { name: musicInfo.name }),
       )
     },
   }))
@@ -94,7 +94,7 @@ export default forwardRef<MusicPositionModalType, MusicPositionModalProps>(
       requestAnimationFrame(() => {
         titleRef.current?.updateTitle(
           selectedInfo.current.musicInfo,
-          selectedInfo.current.selectedList
+          selectedInfo.current.selectedList,
         )
         setTimeout(() => {
           inputRef.current?.focus()
@@ -140,7 +140,7 @@ export default forwardRef<MusicPositionModalType, MusicPositionModalProps>(
         </View>
       </ConfirmAlert>
     ) : null
-  }
+  },
 )
 
 const styles = createStyle({

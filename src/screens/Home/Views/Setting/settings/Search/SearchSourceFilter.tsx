@@ -17,9 +17,9 @@ const SOURCE_LIST = [
   { id: 'all', i18nKey: 'source_all' },
 ]
 
-const Item = ({ id, name }: { id: string; name: string }) => {
+const Item = ({ id, name }: { id: string, name: string }) => {
   const enabledSources = useSettingValue('search.enabledSources')
-  const isActive = useMemo(() => enabledSources[id] !== false, [enabledSources, id])
+  const isActive = useMemo(() => enabledSources[id], [enabledSources, id])
   return (
     <View style={styles.item}>
       <CheckBox

@@ -9,13 +9,13 @@ const artistApi = {
    */
   async getDetail(singerid) {
     if (!singerid || singerid == 0) throw new Error('歌手不存在')
-    
+
     const requestObj = httpFetch(`http://mobiles.kugou.com/api/v5/singer/info?singerid=${singerid}`)
     let { body, statusCode } = await requestObj.promise
     if (statusCode !== 200) throw new Error('获取歌手信息失败')
-    
+
     console.log('[KuGou] getDetail 返回数据:', JSON.stringify(body.data).substring(0, 500))
-    
+
     return {
       artist: {
         id: singerid,
@@ -25,7 +25,7 @@ const artistApi = {
         albumSize: body.data.albumcount || body.data.album_count || 0,
         songNum: body.data.songcount || body.data.song_count || 0,
         source: 'kg',
-      }
+      },
     }
   },
 
@@ -39,14 +39,14 @@ const artistApi = {
    */
   async getSongs(singerid, sort = 'hot', limit = 30, offset = 0) {
     if (!singerid || singerid == 0) throw new Error('歌手不存在')
-    
+
     const page = Math.floor(offset / limit) + 1
     const requestObj = httpFetch(
-      `http://mobiles.kugou.com/api/v5/singer/song?singerid=${singerid}&page=${page}&pagesize=${limit}`
+      `http://mobiles.kugou.com/api/v5/singer/song?singerid=${singerid}&page=${page}&pagesize=${limit}`,
     )
     let { body, statusCode } = await requestObj.promise
     if (statusCode !== 200) throw new Error('获取歌手歌曲列表失败')
-    
+
     const rawList = Array.isArray(body.data?.info) ? body.data.info : []
     let listData = await getMusicInfosByList(rawList)
     const total = Number(body.data?.total) || 0
@@ -55,7 +55,7 @@ const artistApi = {
       (total > 0 && nextOffset < total) ||
       rawList.length >= limit
     )
-    
+
     return {
       list: listData,
       hasMore,
@@ -72,14 +72,14 @@ const artistApi = {
    */
   async getAlbums(singerid, limit = 30, offset = 0) {
     if (!singerid || singerid == 0) throw new Error('歌手不存在')
-    
+
     const page = Math.floor(offset / limit) + 1
     const requestObj = httpFetch(
-      `http://mobiles.kugou.com/api/v5/singer/album?singerid=${singerid}&page=${page}&pagesize=${limit}`
+      `http://mobiles.kugou.com/api/v5/singer/album?singerid=${singerid}&page=${page}&pagesize=${limit}`,
     )
     let { body, statusCode } = await requestObj.promise
     if (statusCode !== 200) throw new Error('获取歌手专辑列表失败')
-    
+
     const albums = (body.data.info || []).map(album => ({
       id: album.albumid,
       name: album.albumname || '',
@@ -89,10 +89,10 @@ const artistApi = {
       size: album.songcount || album.count || 0,
       source: 'kg',
     }))
-    
+
     const total = body.data.total || 0
     const hasMore = (offset + limit) < total
-    
+
     return {
       hotAlbums: albums,
       hasMore,

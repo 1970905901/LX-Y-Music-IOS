@@ -8,7 +8,7 @@ import { confirmDialog, toMD5, toast } from '@/utils/tools'
 
 const getListId = (id: string) => `board__${id}`
 
-export const handlePlay = async (id: string, list?: LX.Music.MusicInfoOnline[], index = 0) => {
+export const handlePlay = async(id: string, list?: LX.Music.MusicInfoOnline[], index = 0) => {
   let isPlayingList = false
   const listId = getListId(id)
   if (!list?.length) list = (await getListDetail(id, 1)).list
@@ -30,7 +30,7 @@ export const handlePlay = async (id: string, list?: LX.Music.MusicInfoOnline[], 
   }
 }
 
-export const handleCollect = async (id: string, name: string, source: LX.OnlineSource) => {
+export const handleCollect = async(id: string, name: string, source: LX.OnlineSource) => {
   const listId = getListId(id)
   const targetList = listState.userList.find((l) => l.sourceListId == listId)
   if (targetList) {

@@ -16,7 +16,7 @@ import PageTopInset from '@/components/common/PageTopInset'
 
 type TabType = 'home' | 'radar' | 'songlist' | 'newsong'
 
-const TABS: { id: TabType; label: string }[] = [
+const TABS: Array<{ id: TabType, label: string }> = [
   { id: 'home', label: '主页推荐' },
   { id: 'radar', label: '雷达推荐' },
   { id: 'songlist', label: '推荐歌单' },
@@ -42,7 +42,7 @@ const Tabs = ({
         <TouchableOpacity
           key={tab.id}
           style={styles.tab}
-          onPress={() => onTabChange(tab.id)}
+          onPress={() => { onTabChange(tab.id) }}
         >
           <Text
             style={[
@@ -82,7 +82,7 @@ export default memo(() => {
         setActiveTab(newTab)
       }
     },
-    [activeTab]
+    [activeTab],
   )
 
   const handleOpenDetail = useCallback((playlistInfo: ListInfoItem) => {
@@ -106,7 +106,7 @@ export default memo(() => {
     }
 
     const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress)
-    return () => subscription.remove()
+    return () => { subscription.remove() }
   }, [])
 
   const renderTabContent = () => {

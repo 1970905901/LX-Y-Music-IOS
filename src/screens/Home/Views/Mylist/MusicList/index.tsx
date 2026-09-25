@@ -19,7 +19,7 @@ import ListMusicAdd, {
 import ListMusicMultiAdd, {
   type MusicMultiAddModalType as ListAddMultiType,
 } from '@/components/MusicMultiAddModal'
-import {createStyle, toast} from '@/utils/tools'
+import { createStyle, toast } from '@/utils/tools'
 import { type LayoutChangeEvent, TouchableOpacity, View, StyleSheet } from 'react-native'
 import ActiveList, { type ActiveListType } from './ActiveList'
 import MultipleModeBar, { type SelectMode, type MultipleModeBarType } from './MultipleModeBar'
@@ -32,10 +32,10 @@ import MetadataEditModal, {
 } from '@/components/MetadataEditModal'
 import { downloadMusic } from '@/core/download'
 import MusicToggleModal, { type MusicToggleModalType } from './MusicToggleModal'
-import {handleShowAlbumDetail, handleShowArtistDetail} from "@/components/OnlineList/listAction.ts";
-import {useSettingValue} from "@/store/setting/hook.ts";
-import {updateSetting} from "@/core/common.ts";
-import commonState from '@/store/common/state';
+import { handleShowAlbumDetail, handleShowArtistDetail } from '@/components/OnlineList/listAction.ts'
+import { useSettingValue } from '@/store/setting/hook.ts'
+import { updateSetting } from '@/core/common.ts'
+import commonState from '@/store/common/state'
 import SimilarSongsModal, { type SimilarSongsModalType } from '@/components/SimilarSongsModal'
 import PageTopInset from '@/components/common/PageTopInset'
 
@@ -62,10 +62,10 @@ export default ({ onBack }: MusicListProps) => {
   const isShowSearchBarModeBar = useRef(false)
   const selectedInfoRef = useRef<SelectInfo>()
 
-  const showCover = useSettingValue('list.isShowCover');
+  const showCover = useSettingValue('list.isShowCover')
   const handleToggleView = useCallback(() => {
-    updateSetting({ 'list.isShowCover': !showCover });
-  }, [showCover]);
+    updateSetting({ 'list.isShowCover': !showCover })
+  }, [showCover])
 
   const hancelMultiSelect = useCallback(() => {
     if (isShowSearchBarModeBar.current) {
@@ -92,15 +92,15 @@ export default ({ onBack }: MusicListProps) => {
   }, [])
   const handleShowArtist = useCallback((info: SelectInfo) => {
     if (info.musicInfo.source !== 'local') {
-      void handleShowArtistDetail(commonState.componentIds[commonState.componentIds.length - 1]?.id!, info.musicInfo);
+      void handleShowArtistDetail(commonState.componentIds[commonState.componentIds.length - 1]?.id, info.musicInfo)
     }
-  }, []);
+  }, [])
 
   const handleShowAlbum = useCallback((info: SelectInfo) => {
     if (info.musicInfo.source !== 'local') {
-      handleShowAlbumDetail(commonState.componentIds[commonState.componentIds.length - 1]?.id!, info.musicInfo);
+      handleShowAlbumDetail(commonState.componentIds[commonState.componentIds.length - 1]?.id, info.musicInfo)
     }
-  }, []);
+  }, [])
 
   const showMenu = useCallback(
     (musicInfo: LX.Music.MusicInfo, index: number, position: Position) => {
@@ -112,10 +112,10 @@ export default ({ onBack }: MusicListProps) => {
           single: false,
           selectedList: listRef.current!.getSelectedList(),
         },
-        position
+        position,
       )
     },
-    []
+    [],
   )
   const handleShowSearch = useCallback(() => {
     isShowSearchBarModeBar.current = true
@@ -137,7 +137,7 @@ export default ({ onBack }: MusicListProps) => {
       listRef.current?.scrollToInfo(info)
       handleExitSearch()
     },
-    [handleExitSearch]
+    [handleExitSearch],
   )
   const onLayout = useCallback((e: LayoutChangeEvent) => {
     layoutHeightRef.current = e.nativeEvent.layout.height
@@ -233,7 +233,7 @@ export default ({ onBack }: MusicListProps) => {
             info.listId,
             info.musicInfo,
             info.selectedList,
-            hancelExitSelect
+            hancelExitSelect,
           )
         }}
       />
@@ -253,7 +253,7 @@ export default ({ onBack }: MusicListProps) => {
         onDislikeMusic={(info) => {
           void handleDislikeMusic(info.musicInfo)
         }}
-        onDownload={(info) => downloadMusic(info.musicInfo)}
+        onDownload={(info) => { downloadMusic(info.musicInfo) }}
         onAdd={handleAddMusic}
         onMove={handleMoveMusic}
         onEditMetadata={handleEditMetadata}

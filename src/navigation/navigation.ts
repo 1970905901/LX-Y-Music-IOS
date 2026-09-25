@@ -63,7 +63,7 @@ export const handleScreenPopped = (componentId: string) => {
   commonActions.removeComponentId(componentId)
   if (target) endPush(target.name)
 }
-const guardPush = async (promise: Promise<string> | undefined, id: COMPONENT_IDS): Promise<void> => {
+const guardPush = async(promise: Promise<string> | undefined, id: COMPONENT_IDS): Promise<void> => {
   try {
     await promise
   } catch {}
@@ -146,9 +146,9 @@ export async function pushHomeScreen() {
                   backgroundColor: 'transparent',
                 },
                 navigationBar: {
-          visible: true,
-          backgroundColor: theme['c-content-background'],
-        },
+                  visible: true,
+                  backgroundColor: theme['c-content-background'],
+                },
                 layout: {
                   orientation: ['portrait', 'landscape'],
                   componentBackgroundColor: theme['c-content-background'],
@@ -205,12 +205,12 @@ export function pushPlayDetailScreen(componentId: string) {
           layout: {
             orientation: ['portrait', 'landscape'],
             componentBackgroundColor,
-                  fitSystemWindows: false,
-                  // @ts-expect-error RNN 运行期支持的安全区选项，当前类型未声明
-                  safeAreaInsets: {
-                    top: 'always',
-                    bottom: 'always',
-                  },
+            fitSystemWindows: false,
+            // @ts-expect-error RNN 运行期支持的安全区选项，当前类型未声明
+            safeAreaInsets: {
+              top: 'always',
+              bottom: 'always',
+            },
           },
           // 不配置 animations，走系统默认转场。RNN iOS 自定义转场依赖 uiManagerDidPerformMounting
           // 时序启动、被取消时永不回调 completeTransition：JS 空闲（未播放音乐）时 push 整栈卡死，
@@ -218,7 +218,7 @@ export function pushPlayDetailScreen(componentId: string) {
         },
       },
     }),
-      COMPONENT_IDS.playDetail)
+    COMPONENT_IDS.playDetail)
   })
 }
 
@@ -254,19 +254,19 @@ export function pushSonglistDetailScreen(componentId: string, info: ListInfoItem
           layout: {
             orientation: ['portrait', 'landscape'],
             componentBackgroundColor: theme['c-content-background'],
-                  fitSystemWindows: false,
-                  // @ts-expect-error RNN 运行期支持的安全区选项，当前类型未声明
-                  safeAreaInsets: {
-                    top: 'always',
-                    bottom: 'always',
-                  },
+            fitSystemWindows: false,
+            // @ts-expect-error RNN 运行期支持的安全区选项，当前类型未声明
+            safeAreaInsets: {
+              top: 'always',
+              bottom: 'always',
+            },
           },
           // 不配置 animations，走系统默认转场：自定义转场在 JS 空闲/被打断时会让整栈卡死
-          //（详见 pushPlayDetailScreen 注释）。共享元素转场一并移除，封面 nativeID 保留无害。
+          // （详见 pushPlayDetailScreen 注释）。共享元素转场一并移除，封面 nativeID 保留无害。
         },
       },
     }),
-      COMPONENT_IDS.songlistDetail)
+    COMPONENT_IDS.songlistDetail)
   })
 }
 export function pushCommentScreen(componentId: string) {
@@ -328,18 +328,18 @@ export function pushCommentScreen(componentId: string) {
           layout: {
             orientation: ['portrait', 'landscape'],
             componentBackgroundColor: theme['c-content-background'],
-                  fitSystemWindows: false,
-                  // @ts-expect-error RNN 运行期支持的安全区选项，当前类型未声明
-                  safeAreaInsets: {
-                    top: 'always',
-                    bottom: 'always',
-                  },
+            fitSystemWindows: false,
+            // @ts-expect-error RNN 运行期支持的安全区选项，当前类型未声明
+            safeAreaInsets: {
+              top: 'always',
+              bottom: 'always',
+            },
           },
           // 走系统默认转场，原因见 pushPlayDetailScreen 注释
         },
       },
     }),
-      COMPONENT_IDS.comment)
+    COMPONENT_IDS.comment)
   })
 }
 
@@ -570,13 +570,13 @@ export function pushArtistDetailScreen(componentId: string, artistInfo: { id: st
         layout: {
           orientation: ['portrait', 'landscape'],
           componentBackgroundColor: theme['c-content-background'],
-                  fitSystemWindows: false,
+          fitSystemWindows: false,
         },
         // 走系统默认转场，原因见 pushPlayDetailScreen 注释
       },
     },
   }),
-    COMPONENT_IDS.ARTIST_DETAIL)
+  COMPONENT_IDS.ARTIST_DETAIL)
 }
 
 export function pushAlbumDetailScreen(componentId: string, albumInfo: any) {
@@ -602,13 +602,13 @@ export function pushAlbumDetailScreen(componentId: string, albumInfo: any) {
         layout: {
           orientation: ['portrait', 'landscape'],
           componentBackgroundColor: theme['c-content-background'],
-                  fitSystemWindows: false,
+          fitSystemWindows: false,
         },
         // 走系统默认转场，原因见 pushPlayDetailScreen 注释
       },
     },
   }),
-    COMPONENT_IDS.ALBUM_DETAIL_SCREEN)
+  COMPONENT_IDS.ALBUM_DETAIL_SCREEN)
 }
 
 export function pushSettingDetailScreen(componentId: string, settingId: string) {
@@ -654,7 +654,7 @@ export function pushSettingDetailScreen(componentId: string, settingId: string) 
 
 export function pushDownloadManagerScreen(componentId: string) {
   if (!startPush(COMPONENT_IDS.DOWNLOAD_MANAGER)) return
-  const theme = themeState.theme;
+  const theme = themeState.theme
   void guardPush(Navigation.push(componentId, {
     component: {
       name: DOWNLOAD_MANAGER_SCREEN,
@@ -672,15 +672,14 @@ export function pushDownloadManagerScreen(componentId: string) {
         layout: {
           orientation: ['portrait', 'landscape'],
           componentBackgroundColor: theme['c-content-background'],
-                  fitSystemWindows: false,
+          fitSystemWindows: false,
         },
         // 走系统默认转场，原因见 pushPlayDetailScreen 注释
       },
     },
   }),
-    COMPONENT_IDS.DOWNLOAD_MANAGER)
+  COMPONENT_IDS.DOWNLOAD_MANAGER)
 }
-
 
 
 export function pushSimilarSongsScreen(componentId: string, similarSongs: LX.Music.MusicInfoOnline[]) {
@@ -706,11 +705,11 @@ export function pushSimilarSongsScreen(componentId: string, similarSongs: LX.Mus
         layout: {
           orientation: ['portrait', 'landscape'],
           componentBackgroundColor: theme['c-content-background'],
-                  fitSystemWindows: false,
+          fitSystemWindows: false,
         },
         // 走系统默认转场，原因见 pushPlayDetailScreen 注释
       },
     },
   }),
-    COMPONENT_IDS.SIMILAR_SONGS_SCREEN)
+  COMPONENT_IDS.SIMILAR_SONGS_SCREEN)
 }

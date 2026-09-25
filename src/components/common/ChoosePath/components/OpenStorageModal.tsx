@@ -80,7 +80,7 @@ export default forwardRef<OpenDirModalType, { onOpenDir: (dir: string) => Promis
     // const handleHideAlert = () => {
     //   inputRef.current?.setPath('')
     // }
-    const handleConfirmAlert = async () => {
+    const handleConfirmAlert = async() => {
       const text = inputRef.current?.getText() ?? ''
       if (text) {
         if (
@@ -105,7 +105,7 @@ export default forwardRef<OpenDirModalType, { onOpenDir: (dir: string) => Promis
       confirmAlertRef.current?.setVisible(false)
     }
     const removeSelectStoragePath = (path: string) => {
-      void removeManagedFolder(path).then(async () => {
+      void removeManagedFolder(path).then(async() => {
         return getManagedFolders().then((dirs) => {
           setContentPaths(dirs)
         })
@@ -120,7 +120,7 @@ export default forwardRef<OpenDirModalType, { onOpenDir: (dir: string) => Promis
         })
         .catch((err) => {
           toast(
-            global.i18n.t('open_storage_select_managed_folder_failed_tip', { msg: err.message })
+            global.i18n.t('open_storage_select_managed_folder_failed_tip', { msg: err.message }),
           )
         })
     }
@@ -175,7 +175,7 @@ export default forwardRef<OpenDirModalType, { onOpenDir: (dir: string) => Promis
         </View>
       </ConfirmAlert>
     )
-  }
+  },
 )
 
 const styles = createStyle({

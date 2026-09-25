@@ -7,40 +7,29 @@ export default {
     this.cancelTipSearch()
 
     let canceled = false
-    const promise = new Promise(async (resolve, reject) => {
-      try {
-        if (canceled) {
-          reject(new Error('请求已取消'))
-          return
-        }
+    const promise = (async() => {
+      if (canceled) throw new Error('请求已取消')
 
-        const database = await loadDatabase()
+      const database = await loadDatabase()
 
-        if (canceled) {
-          reject(new Error('请求已取消'))
-          return
-        }
+      if (canceled) throw new Error('请求已取消')
 
-        if (!database || database.length === 0) {
-          reject(new Error('数据库为空'))
-          return
-        }
-
-        const filtered = str
-          ? database.filter((item) => {
-              const title = item.title || extractNameFromFile(item.filename)
-              return title.toLowerCase().includes(str.toLowerCase())
-            })
-          : database
-
-        const shuffled = [...filtered].sort(() => Math.random() - 0.5)
-        const results = shuffled.slice(0, 5)
-
-        resolve(results)
-      } catch (error) {
-        reject(error)
+      if (!database || database.length === 0) {
+        throw new Error('数据库为空')
       }
-    })
+
+      const filtered = str
+        ? database.filter((item) => {
+          const title = item.title || extractNameFromFile(item.filename)
+          return title.toLowerCase().includes(str.toLowerCase())
+        })
+        : database
+
+      const shuffled = [...filtered].sort(() => Math.random() - 0.5)
+      const results = shuffled.slice(0, 5)
+
+      return results
+    })()
 
     this.requestObj = {
       promise,

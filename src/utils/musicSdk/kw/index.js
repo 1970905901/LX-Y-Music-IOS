@@ -9,7 +9,7 @@ import { apis } from '../api-source'
 import songList from './songList'
 import hotSearch from './hotSearch'
 import comment from './comment'
-import {resolveQualityAlias} from "@/utils/musicSdk/utils";
+import { resolveQualityAlias } from '@/utils/musicSdk/utils'
 
 const kw = {
   _musicInfoRequestObj: null,
@@ -37,14 +37,14 @@ const kw = {
   },
 
   getMusicUrl(songInfo, type) {
-    const qualityToRequest = resolveQualityAlias('kw', type);
-    return apis('kw').getMusicUrl(songInfo, qualityToRequest);
+    const qualityToRequest = resolveQualityAlias('kw', type)
+    return apis('kw').getMusicUrl(songInfo, qualityToRequest)
   },
 
   getMusicInfo(songInfo) {
     if (this._musicInfoRequestObj) this._musicInfoRequestObj.cancelHttp()
     this._musicInfoRequestObj = httpFetch(
-      `http://www.kuwo.cn/api/www/music/musicInfo?mid=${songInfo.songmid}`
+      `http://www.kuwo.cn/api/www/music/musicInfo?mid=${songInfo.songmid}`,
     )
     return this._musicInfoRequestObj.promise.then(({ body }) => {
       return body.code === 200 ? body.data : Promise.reject(new Error(body.msg))

@@ -13,7 +13,7 @@ export default {
         headers: {
           'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 9;)',
         },
-      }
+      },
     )
     const { body, statusCode } = await _requestObj.promise
     if (statusCode != 200 || body.code != '200') throw new Error('获取评论失败')
@@ -38,7 +38,7 @@ export default {
         headers: {
           'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 9;)',
         },
-      }
+      },
     )
     const { body, statusCode } = await _requestObj2.promise
     if (statusCode != 200 || body.code != '200') throw new Error('获取热门评论失败')
@@ -69,18 +69,18 @@ export default {
         images: item.mpic ? [decodeURIComponent(item.mpic)] : [],
         reply: item.child_comments
           ? item.child_comments.map((i) => {
-              return {
-                id: i.id,
-                text: i.msg,
-                time: i.time,
-                timeStr: dateFormat2(Number(i.time) * 1000),
-                userName: i.u_name,
-                avatar: i.u_pic,
-                userId: i.u_id,
-                likedCount: i.like_num,
-                images: i.mpic ? [i.mpic] : [],
-              }
-            })
+            return {
+              id: i.id,
+              text: i.msg,
+              time: i.time,
+              timeStr: dateFormat2(Number(i.time) * 1000),
+              userName: i.u_name,
+              avatar: i.u_pic,
+              userId: i.u_id,
+              likedCount: i.like_num,
+              images: i.mpic ? [i.mpic] : [],
+            }
+          })
           : [],
       }
     })

@@ -8,8 +8,8 @@ import commonState, { type InitState as CommonState } from '@/store/common/state
 import DailyRec from '../Views/DailyRec'
 import TXDailyRec from '../Views/DailyRec/TXDailyRec'
 import MyPlaylist from '../Views/MyPlaylist'
-import SubscribedAlbums from "@/screens/Home/Views/SubscribedAlbums"
-import FollowedArtists from "@/screens/Home/Views/FollowedArtists"
+import SubscribedAlbums from '@/screens/Home/Views/SubscribedAlbums'
+import FollowedArtists from '@/screens/Home/Views/FollowedArtists'
 import PlayHistory from '../Views/PlayHistory'
 import WebDAV from '../Views/WebDAV'
 

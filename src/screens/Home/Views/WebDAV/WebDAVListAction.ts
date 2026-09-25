@@ -1,4 +1,4 @@
-import { findMusic } from '@/utils/musicSdk'
+import musicSdk, { findMusic } from '@/utils/musicSdk'
 import { getWebDAVConfig, updateWebDAVMusicMeta, getWebDAVDownloadUrl, saveWebDAVConfig } from '@/core/webdavMusic/drive'
 import { downloadFile, existsFile, mkdir, getWebDAVPrivateDirectory } from '@/utils/fs'
 import { toast, requestStoragePermission } from '@/utils/tools'
@@ -11,7 +11,7 @@ import { readPic, readMetadata } from '@/utils/localMediaMetadata'
 import { getPicPath, handleGetOnlinePicUrl } from '@/core/music'
 import { LIST_IDS } from '@/config/constant'
 import { toOldMusicInfo } from '@/utils'
-import musicSdk from '@/utils/musicSdk'
+
 
 const getAuthHeaders = (): Record<string, string> => {
   const headers: Record<string, string> = {
@@ -20,7 +20,7 @@ const getAuthHeaders = (): Record<string, string> => {
   const username = settingState.setting['sync.webdav.username']
   const password = settingState.setting['sync.webdav.password']
   if (username && password) {
-    headers['Authorization'] = 'Basic ' + btoa(`${username}:${password}`)
+    headers.Authorization = 'Basic ' + btoa(`${username}:${password}`)
   }
   return headers
 }
@@ -39,9 +39,9 @@ const chunk = <T>(arr: T[], size: number): T[][] => {
   return result
 }
 
-export const handleWebDAVBatchDownload = async (
+export const handleWebDAVBatchDownload = async(
   songs: LX.WebDAV.MusicInfo[],
-  onProgress?: (current: number, total: number, currentSong: string) => void
+  onProgress?: (current: number, total: number, currentSong: string) => void,
 ): Promise<string[]> => {
   const hasPermission = await requestStoragePermission()
   if (!hasPermission) {
@@ -51,20 +51,20 @@ export const handleWebDAVBatchDownload = async (
 
   const downloadDir = getDefaultDownloadDir()
   const downloadedPaths: string[] = []
-  
+
   webDAVLog.info('handleWebDAVBatchDownload: starting batch download', { songCount: songs.length })
-  
+
   try {
     await mkdir(downloadDir)
-    
+
     const headers = getAuthHeaders()
-    
+
     let currentIndex = 0
     for (const musicInfo of songs) {
       currentIndex++
       const fileName = musicInfo.meta.fileName
       const filePath = `${downloadDir}/${fileName}`
-      
+
       if (onProgress) {
         onProgress(currentIndex, songs.length, fileName)
       }
@@ -84,17 +84,17 @@ export const handleWebDAVBatchDownload = async (
         await updateWebDAVMusicMeta(musicInfo.id, { filePath })
         continue
       }
-      
+
       try {
         const downloadUrl = getWebDAVDownloadUrl(musicInfo)
         webDAVLog.info('handleWebDAVBatchDownload: downloading', { currentIndex, fileName, downloadUrl })
-        
+
         await downloadFile(downloadUrl, filePath, { headers }).promise
 
         const fileMetadata = await readMetadata(filePath).catch(() => null)
-        
+
         const updates: Record<string, any> = { filePath }
-        
+
         if (fileMetadata) {
           if (fileMetadata.albumName) updates.albumName = fileMetadata.albumName
           if (fileMetadata.name && !musicInfo.name) updates.name = fileMetadata.name
@@ -108,14 +108,14 @@ export const handleWebDAVBatchDownload = async (
           const newPicUrl = picPath.startsWith('/') ? `file://${picPath}` : picPath
           await updateWebDAVMusicMeta(musicInfo.id, { picUrl: newPicUrl })
         }
-        
+
         downloadedPaths.push(filePath)
         webDAVLog.info('handleWebDAVBatchDownload: download completed', { currentIndex, fileName, filePath })
       } catch (error: any) {
         webDAVLog.error('handleWebDAVBatchDownload: download failed', { fileName, error: error.message })
       }
     }
-    
+
     webDAVLog.info('handleWebDAVBatchDownload: batch download completed', { downloadedCount: downloadedPaths.length })
     return downloadedPaths
   } catch (error: any) {
@@ -124,15 +124,15 @@ export const handleWebDAVBatchDownload = async (
   }
 }
 
-export const handleWebDAVDownloadAndImport = async (
+export const handleWebDAVDownloadAndImport = async(
   songs: LX.WebDAV.MusicInfo[],
-  setLoadingText: (text: string) => void
+  setLoadingText: (text: string) => void,
 ): Promise<void> => {
   if (songs.length === 0) {
     toast('没有可下载的歌曲')
     return
   }
-  
+
   setLoadingText(`正在下载 0/${songs.length}...`)
   webDAVLog.info('handleWebDAVDownloadAndImport: starting process', { songCount: songs.length })
 
@@ -140,38 +140,38 @@ export const handleWebDAVDownloadAndImport = async (
     const downloadedPaths = await handleWebDAVBatchDownload(songs, (current, total, fileName) => {
       setLoadingText(`正在下载 ${current}/${total}...\n${fileName}`)
     })
-    
+
     if (downloadedPaths.length === 0) {
       toast('没有成功下载任何歌曲')
       return
     }
-    
+
     webDAVLog.info('handleWebDAVDownloadAndImport: download completed', { downloadedCount: downloadedPaths.length })
 
     const files = downloadedPaths.map(path => {
       const name = path.split('/').pop() || ''
       return { path, name } as any
     })
-    
+
     setLoadingText('正在添加到列表...')
     await addListMusics(
       LIST_IDS.DOWNLOAD,
       files.map(buildLocalMusicInfoByFilePath),
-      settingState.setting['list.addMusicLocationType']
+      settingState.setting['list.addMusicLocationType'],
     )
 
     toast(global.i18n.t('list_select_local_file_temp_add_tip', { total: files.length }), 'long')
 
     setLoadingText('正在读取音乐标签...')
 
-    const createLocalMusicInfos = async (
+    const createLocalMusicInfos = async(
       filePaths: string[],
-      errorPath: string[]
+      errorPath: string[],
     ): Promise<LX.Music.MusicInfoLocal[]> => {
       const list: LX.Music.MusicInfoLocal[] = []
       for (const batch of chunk(filePaths, 5)) {
         const results = await Promise.all(
-          batch.map(async (path) => {
+          batch.map(async(path) => {
             const info = await readMetadata(path)
             const picPath = await readPic(path).catch(() => null)
             return { path, info, picPath }
@@ -187,11 +187,11 @@ export const handleWebDAVDownloadAndImport = async (
       }
       return list
     }
-    
+
     const createThrottleAddMusics = (
       add: (listId: string, musicInfos: LX.Music.MusicInfoLocal[]) => Promise<void>,
       remove: (listId: string, errorPath: string[]) => Promise<void>,
-      listId: string
+      listId: string,
     ) => {
       let timer: ReturnType<typeof setTimeout> | null = null
       let _musicInfos: LX.Music.MusicInfoLocal[] = []
@@ -200,7 +200,7 @@ export const handleWebDAVDownloadAndImport = async (
         if (musicInfos.length) _musicInfos.push(...musicInfos)
         if (errorPath) _errorPath.push(...errorPath)
         if (timer) return
-        timer = setTimeout(async () => {
+        timer = setTimeout(async() => {
           timer = null
           const musicInfos = _musicInfos
           const errorPath = _errorPath
@@ -211,13 +211,13 @@ export const handleWebDAVDownloadAndImport = async (
         }, 100)
       }
     }
-    
-    const handleUpdateMusics = async (
+
+    const handleUpdateMusics = async(
       filePaths: string[],
       throttleUpdateMusics: (musicInfos: LX.Music.MusicInfoLocal[], errorPath?: string[]) => void,
       index: number = -1,
       total: number = 0,
-      errorPath: string[] = []
+      errorPath: string[] = [],
     ) => {
       if (!total) total = filePaths.length
       const paths = filePaths.slice(index + 1, index + 11)
@@ -228,9 +228,7 @@ export const handleWebDAVDownloadAndImport = async (
       }
       setLoadingText(`正在读取标签 ${Math.min(index + 11, total)}/${total}...`)
       index += 10
-      if (filePaths.length - 1 > index)
-        await handleUpdateMusics(filePaths, throttleUpdateMusics, index, total, errorPath)
-      else {
+      if (filePaths.length - 1 > index) { await handleUpdateMusics(filePaths, throttleUpdateMusics, index, total, errorPath) } else {
         if (errorPath.length) {
           toast(
             global.i18n.t('list_select_local_file_result_failed_tip', {
@@ -238,7 +236,7 @@ export const handleWebDAVDownloadAndImport = async (
               success: total - errorPath.length,
               failed: errorPath.length,
             }),
-            'long'
+            'long',
           )
         } else {
           toast(global.i18n.t('list_select_local_file_result_tip', { total }), 'long')
@@ -247,21 +245,20 @@ export const handleWebDAVDownloadAndImport = async (
         setLoadingText('')
       }
     }
-    
+
     const throttleUpdateMusics = createThrottleAddMusics(
-      async (listId, musicInfos) => {
+      async(listId, musicInfos) => {
         return updateListMusics(musicInfos.map((info) => ({ id: listId, musicInfo: info })))
       },
-      async (listId, errorPath) => {
+      async(listId, errorPath) => {
         return Promise.resolve()
       },
-      LIST_IDS.DOWNLOAD
+      LIST_IDS.DOWNLOAD,
     )
-    
+
     await handleUpdateMusics(downloadedPaths, throttleUpdateMusics)
-    
+
     webDAVLog.info('handleWebDAVDownloadAndImport: all processes completed')
-    
   } catch (error: any) {
     webDAVLog.error('handleWebDAVDownloadAndImport: process failed', { error: error.message })
     toast(`导入失败：${error.message}`, 'long')
@@ -281,7 +278,7 @@ const getDefaultDownloadDir = () => {
 const buildLocalMusicInfo = (
   filePath: string,
   metadata: Awaited<ReturnType<typeof readMetadata>>,
-  picPath: string | null
+  picPath: string | null,
 ): LX.Music.MusicInfoLocal => {
   const { nameWithoutExt, fileName } = parsePathForName(filePath)
   return {
@@ -321,12 +318,12 @@ const buildLocalMusicInfoByFilePath = (filePath: string): LX.Music.MusicInfoLoca
 /**
  * 下载单首 WebDAV 歌曲，返回封面 URL
  */
-export const handleWebDAVDownload = async (
-  musicInfo: LX.WebDAV.MusicInfo
+export const handleWebDAVDownload = async(
+  musicInfo: LX.WebDAV.MusicInfo,
 ): Promise<string | undefined> => {
   const downloadDir = getDefaultDownloadDir()
   const fileName = musicInfo.meta.fileName
-  
+
   if (!fileName) {
     toast('无法获取文件名')
     return undefined
@@ -334,15 +331,15 @@ export const handleWebDAVDownload = async (
 
   const filePath = `${downloadDir}/${fileName}`
   const exists = await existsFile(filePath).catch(() => false)
-  
+
   if (!exists) {
     try {
       const headers = getAuthHeaders()
-      
+
       const downloadUrl = getWebDAVDownloadUrl(musicInfo)
       await mkdir(downloadDir)
       await downloadFile(downloadUrl, filePath, { headers }).promise
-      
+
       const fileMetadata = await readMetadata(filePath).catch(() => null)
       const updates: Record<string, any> = { filePath }
       if (fileMetadata) {
@@ -375,8 +372,8 @@ export const handleWebDAVDownload = async (
 /**
  * 从在线音乐源获取封面
  */
-export const handleFetchWebDAVPicFromOnline = async (
-  musicInfo: LX.WebDAV.MusicInfo
+export const handleFetchWebDAVPicFromOnline = async(
+  musicInfo: LX.WebDAV.MusicInfo,
 ): Promise<string | undefined> => {
   try {
     const searchResult = await findMusic({
@@ -415,8 +412,8 @@ export const handleFetchWebDAVPicFromOnline = async (
 /**
  * 从 WebDAV 列表中移除歌曲
  */
-export const handleWebDAVRemove = async (
-  musicInfo: LX.WebDAV.MusicInfo
+export const handleWebDAVRemove = async(
+  musicInfo: LX.WebDAV.MusicInfo,
 ): Promise<void> => {
   try {
     const config = await getWebDAVConfig()

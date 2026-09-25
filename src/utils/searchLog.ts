@@ -18,7 +18,7 @@ export const searchLog = {
     if (!this.isEnabled) return
     const msg = msgs
       .map((m) =>
-        typeof m == 'string' ? m : m instanceof Error ? (m.stack ?? m.message) : JSON.stringify(m)
+        typeof m == 'string' ? m : m instanceof Error ? (m.stack ?? m.message) : JSON.stringify(m),
       )
       .join(' ')
     log.info('[Search] ' + msg)
@@ -29,7 +29,7 @@ export const searchLog = {
     if (!this.isEnabled) return
     const msg = msgs
       .map((m) =>
-        typeof m == 'string' ? m : m instanceof Error ? (m.stack ?? m.message) : JSON.stringify(m)
+        typeof m == 'string' ? m : m instanceof Error ? (m.stack ?? m.message) : JSON.stringify(m),
       )
       .join(' ')
     log.warn('[Search] ' + msg)
@@ -40,7 +40,7 @@ export const searchLog = {
     if (!this.isEnabled) return
     const msg = msgs
       .map((m) =>
-        typeof m == 'string' ? m : m instanceof Error ? (m.stack ?? m.message) : JSON.stringify(m)
+        typeof m == 'string' ? m : m instanceof Error ? (m.stack ?? m.message) : JSON.stringify(m),
       )
       .join(' ')
     log.error('[Search] ' + msg)

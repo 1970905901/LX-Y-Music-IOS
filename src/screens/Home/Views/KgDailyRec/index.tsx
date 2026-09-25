@@ -14,7 +14,7 @@ import PageTopInset from '@/components/common/PageTopInset'
 
 type TabType = 'recommend' | 'everyday'
 
-const TABS: { id: TabType; label: string }[] = [
+const TABS: Array<{ id: TabType, label: string }> = [
   { id: 'recommend', label: '每日推荐' },
   { id: 'everyday', label: '新歌速递' },
 ]
@@ -38,7 +38,7 @@ const Tabs = ({
         <TouchableOpacity
           key={tab.id}
           style={styles.tab}
-          onPress={() => onTabChange(tab.id)}
+          onPress={() => { onTabChange(tab.id) }}
         >
           <Text
             style={[
@@ -75,7 +75,7 @@ export default memo(() => {
         setActiveTab(newTab)
       }
     },
-    [activeTab]
+    [activeTab],
   )
 
   const pageHeader = (

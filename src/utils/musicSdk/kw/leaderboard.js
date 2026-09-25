@@ -141,7 +141,7 @@ export default {
   getBoardsData() {
     if (this._requestBoardsObj) this._requestBoardsObj.cancelHttp()
     this._requestBoardsObj = httpFetch(
-      'http://qukudata.kuwo.cn/q.k?op=query&cont=tree&node=2&pn=0&rn=1000&fmt=json&level=2'
+      'http://qukudata.kuwo.cn/q.k?op=query&cont=tree&node=2&pn=0&rn=1000&fmt=json&level=2',
     )
     return this._requestBoardsObj.promise
   },
@@ -274,8 +274,7 @@ export default {
       const rawData = wbdCrypto.decodeData(body)
       // console.log(rawData)
       const data = rawData.data
-      if (statusCode !== 200 || rawData.code != 200 || !data.musiclist)
-        return this.getList(id, page, retryNum)
+      if (statusCode !== 200 || rawData.code != 200 || !data.musiclist) { return this.getList(id, page, retryNum) }
 
       const total = parseInt(data.total)
       const list = this.filterData(data.musiclist)

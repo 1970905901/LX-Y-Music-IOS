@@ -14,7 +14,7 @@ export const usePlayModeToggle = () => {
   const togglePlayMethod = useSettingValue('player.togglePlayMethod')
   const t = useI18n()
 
-  const toggleNextPlayMode = useCallback(async () => {
+  const toggleNextPlayMode = useCallback(async() => {
     let list = [...MUSIC_TOGGLE_MODE_LIST] as any[]
 
     const playMusicInfo = playerState.playMusicInfo.musicInfo
@@ -44,7 +44,7 @@ export const usePlayModeToggle = () => {
           const mInfo = playMusicInfo
             ? ('progress' in playMusicInfo ? playMusicInfo.metadata.musicInfo : playMusicInfo)
             : musicInfo
-          const heartbeatList = [mInfo, ...res.list].filter(Boolean) as any[]
+          const heartbeatList = [mInfo, ...res.list].filter(Boolean)
           const isCurrent = mInfo?.id === musicInfo?.id
           playOnlineList('heartbeat', heartbeatList, 0, isCurrent)
         } else {

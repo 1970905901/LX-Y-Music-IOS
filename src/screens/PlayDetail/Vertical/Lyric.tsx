@@ -75,9 +75,9 @@ interface LineProps {
   lineNum: number
   activeLine: number
   onLayout: (lineNum: number, height: number, width: number, isActive: boolean) => void
-  onPress: (index: number) => void;
-  isSmallWindow?: boolean;
-  wordsByIndex: readonly (LxLyricWord[] | null)[];
+  onPress: (index: number) => void
+  isSmallWindow?: boolean
+  wordsByIndex: ReadonlyArray<LxLyricWord[] | null>
 }
 const LrcLine = memo(
   ({ line, lineNum, activeLine, onLayout, onPress, isSmallWindow, wordsByIndex }: LineProps) => {
@@ -105,8 +105,8 @@ const LrcLine = memo(
     }
 
     const handlePress = useCallback(() => {
-      onPress(lineNum);
-    }, [onPress, lineNum]);
+      onPress(lineNum)
+    }, [onPress, lineNum])
 
     return (
       <TouchableOpacity
@@ -131,7 +131,7 @@ const LrcLine = memo(
                 playedColor={colors[0]}
                 inactiveColor={theme['c-450']}
               />
-            )
+              )
             : (
               <AnimatedColorText
                 style={{
@@ -147,7 +147,7 @@ const LrcLine = memo(
               >
                 {line.text}
               </AnimatedColorText>
-            )}
+              )}
           {line.extendedLyrics.map((lrc, index) => {
             return (
               <AnimatedColorText
@@ -182,10 +182,10 @@ const LrcLine = memo(
       // 否则小屏/大屏切换后行内边距不刷新。
       prevProps.isSmallWindow === nextProps.isSmallWindow
     )
-  }
+  },
 )
 
-export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHeight?: number }) => {
+export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHeight?: number }) => {
   const lyricLines = useLrcSet()
   const { line } = useLrcPlay()
   // 逐字时间轴（与 lyricLines 同序）：第 i 项为第 i 行歌词的逐字数组；无逐字（纯 LRC）为 null。
@@ -307,7 +307,7 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
       if (pending != null && settingState.setting['playDetail.vertical.style.lrcFontSize'] !== pending) {
         updateSetting({ 'playDetail.vertical.style.lrcFontSize': pending })
       }
-    }
+    },
   }), [])
 
   // useLock()
@@ -390,7 +390,7 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
       const nextTime = lyricLines[i + 1].time
       const offsetNext = lyricScrollLayoutRef.current.getTargetOffsetPrecise(i + 1, listHeight, lyricLines, 0.5, paddingV, 0, false)
       const words = wordsMapRef.current[i] ?? undefined
-      if (words && words.length) {
+      if (words?.length) {
         // 逐字歌词：以最后一个字的结束时间作为“本句唱完”的边界。
         const lastW = words[words.length - 1]
         const lineEndTime = curTime + lastW.startTime + lastW.duration
@@ -487,8 +487,8 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
         }, 500)
       }
     }
-    const handleSetProgress = () => setForceScroll(true)
-    const handlePlay = () => setForceScroll(true)
+    const handleSetProgress = () => { setForceScroll(true) }
+    const handlePlay = () => { setForceScroll(true) }
     global.app_event.on('progressDragState', handleDragState)
     global.app_event.on('setProgress', handleSetProgress)
     global.app_event.on('play', handlePlay)
@@ -549,7 +549,7 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
     // 从封面页切回歌词页的“上升沿”这一次强制立刻定位（force=true）：
     // 否则本 effect 比 [active] effect 先执行，会先发一个 animated:true 的舒适区动画滚动，
     // 高亮行就“慢慢滚”到目标，而非立即到位。
-    const force = forceScrollRef.current || activeRef.current === false
+    const force = forceScrollRef.current || !activeRef.current
     activeRef.current = active
     // 拖动进度条 / 跳转 / 恢复播放等用户动作（force）期间立即无动画定位；
     // 普通播放推进交给每帧连续滚动循环（scrollToActiveContinuous），实现平滑上移而非逐行跳变。
@@ -570,7 +570,7 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
       rafId = requestAnimationFrame(loop)
     }
     rafId = requestAnimationFrame(loop)
-    return () => cancelAnimationFrame(rafId)
+    return () => { cancelAnimationFrame(rafId) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, lyricLines])
 
@@ -649,36 +649,36 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean; pagerHei
   }, [isSmallWindow])
 
   const handleLinePress = useCallback((index: number) => {
-    if (!isShowLyricProgressSetting) return;
+    if (!isShowLyricProgressSetting) return
     if (scrollTimoutRef.current) {
-      clearTimeout(scrollTimoutRef.current);
-      scrollTimoutRef.current = null;
+      clearTimeout(scrollTimoutRef.current)
+      scrollTimoutRef.current = null
     }
     if (scrollCancelRef.current) {
-      scrollCancelRef.current();
-      scrollCancelRef.current = null;
+      scrollCancelRef.current()
+      scrollCancelRef.current = null
     }
-    isPauseScrollRef.current = false;
-    const line = lyricLines[index];
+    isPauseScrollRef.current = false
+    const line = lyricLines[index]
     if (line) {
       // 同步重锚歌词时钟，使高亮行立即跟随点击位置（不依赖 app_event 的异步派发，
       // 否则在 iOS 上高亮会滞后/不跟随音频跳转）
       try { lrcSyncToTime(line.time, playerState.isPlay) } catch {}
       // setProgress 内部会真正 seek 音频（setCurrentTime -> seekToTime），
       // 同时把歌词时钟重锚到该行时间，保证音频与该行高亮绝对同步。
-      global.app_event.setProgress(line.time / 1000);
+      global.app_event.setProgress(line.time / 1000)
     }
     // 用户点击歌词行属于主动跳转：强制让歌词列表立即、无动画地定位到被点行，
     // 越过“舒适区 15%”节流与动画延迟，使高亮行与音频（及进度条）绝对同步跟随。
-    setForceScroll(true);
-    handleScrollToActive(index, true);
-  }, [isShowLyricProgressSetting, lyricLines, setForceScroll, handleScrollToActive]);
+    setForceScroll(true)
+    handleScrollToActive(index, true)
+  }, [isShowLyricProgressSetting, lyricLines, setForceScroll, handleScrollToActive])
 
   // useCallback 稳定 renderItem：依赖项均为稳定引用或低频变化值（line 每行切换变化一次），
   // 配合 LrcLine 的 memo 比较器，行切换时只有新旧激活两行重渲染。
   const renderItem: FlatListType['renderItem'] = useCallback(({ item, index }) => {
-    return <LrcLine line={item} lineNum={index} activeLine={line} onLayout={handleLineLayout} onPress={handleLinePress} isSmallWindow={isSmallWindow} wordsByIndex={wordsByIndex} />;
-  }, [line, handleLineLayout, handleLinePress, isSmallWindow, wordsByIndex]);
+    return <LrcLine line={item} lineNum={index} activeLine={line} onLayout={handleLineLayout} onPress={handleLinePress} isSmallWindow={isSmallWindow} wordsByIndex={wordsByIndex} />
+  }, [line, handleLineLayout, handleLinePress, isSmallWindow, wordsByIndex])
   const getkey: FlatListType['keyExtractor'] = (_item, index) => `${index}`
 
   const handlePageLayout = useCallback(({ nativeEvent }: LayoutChangeEvent) => {

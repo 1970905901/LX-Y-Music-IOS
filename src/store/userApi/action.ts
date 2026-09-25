@@ -3,7 +3,7 @@ import { event } from './event'
 
 export const setStatus = (
   status: LX.UserApi.UserApiStatus['status'],
-  message: LX.UserApi.UserApiStatus['message']
+  message: LX.UserApi.UserApiStatus['message'],
 ) => {
   state.status.status = status
   state.status.message = message

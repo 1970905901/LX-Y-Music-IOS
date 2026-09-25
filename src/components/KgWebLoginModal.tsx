@@ -1,13 +1,13 @@
-import { forwardRef, useImperativeHandle, useRef, useCallback, useState, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity, TextInput, ScrollView, ActivityIndicator, Modal as RNModal } from 'react-native';
-import WebView from 'react-native-webview';
-import Modal, { type ModalType } from '@/components/common/Modal';
-import { useTheme } from '@/store/theme/hook';
-import { useStatusbarHeight } from '@/store/common/hook';
-import { Icon } from '@/components/common/Icon';
-import Text from '@/components/common/Text';
-import { toast } from '@/utils/tools';
-import { sendCaptcha, loginByPhone, buildCookieString, getVerifyInfo, verifyUserInfo } from '@/utils/musicSdk/kg/utils/api';
+import { forwardRef, useImperativeHandle, useRef, useCallback, useState, useEffect } from 'react'
+import { View, StyleSheet, TouchableOpacity, TextInput, ScrollView, ActivityIndicator, Modal as RNModal } from 'react-native'
+import WebView from 'react-native-webview'
+import Modal, { type ModalType } from '@/components/common/Modal'
+import { useTheme } from '@/store/theme/hook'
+import { useStatusbarHeight } from '@/store/common/hook'
+import { Icon } from '@/components/common/Icon'
+import Text from '@/components/common/Text'
+import { toast } from '@/utils/tools'
+import { sendCaptcha, loginByPhone, buildCookieString, getVerifyInfo, verifyUserInfo } from '@/utils/musicSdk/kg/utils/api'
 
 export interface KgWebLoginModalType { show: () => void }
 
@@ -20,7 +20,7 @@ if(r.ret===0){window.ReactNativeWebView.postMessage(JSON.stringify({type:'ok',ti
 else{window.ReactNativeWebView.postMessage(JSON.stringify({type:'captcha_fail',ret:r.ret,desc:r.desc}));}
 },{type:'popup',enableDarkMode:false,themeColor:'#1677ff'});c.show();};
 s.onerror=function(e){window.ReactNativeWebView.postMessage(JSON.stringify({type:'error',msg:String(e)}));};
-document.head.appendChild(s);</script></body></html>`;
+document.head.appendChild(s);</script></body></html>`
 }
 
 const KgWebLoginModal = forwardRef<KgWebLoginModalType, object>((_, ref) => {
@@ -35,7 +35,7 @@ const KgWebLoginModal = forwardRef<KgWebLoginModalType, object>((_, ref) => {
   const [showVerify, setShowVerify] = useState(false)
   const [verifyHtml, setVerifyHtml] = useState('')
   const [showMultiAccount, setShowMultiAccount] = useState(false)
-  const [pendingData, setPendingData] = useState<{ mobile: string; code: string } | null>(null)
+  const [pendingData, setPendingData] = useState<{ mobile: string, code: string } | null>(null)
   const [selectedId, setSelectedId] = useState('')
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const cdRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -54,7 +54,7 @@ const KgWebLoginModal = forwardRef<KgWebLoginModalType, object>((_, ref) => {
     show() { setPhone(''); setCode(''); setSending(false); setCountdown(0); setCooldown(0); setLogging(false); setShowVerify(false); setShowMultiAccount(false); setPendingData(null); setSelectedId(''); modalRef.current?.setVisible(true) },
   }))
 
-  const handleVerifyMsg = useCallback(async (e: any) => {
+  const handleVerifyMsg = useCallback(async(e: any) => {
     try {
       const d = JSON.parse(e.nativeEvent.data)
       console.log('[KgLogin] 滑块验证回调:', JSON.stringify(d))
@@ -65,7 +65,7 @@ const KgWebLoginModal = forwardRef<KgWebLoginModalType, object>((_, ref) => {
         const r = await verifyUserInfo(d.code, 23, vcode, '', '')
         console.log('[KgLogin] verifyUserInfo result:', JSON.stringify(r))
         setShowVerify(false)
-        if (r.success) { toast('验证通过'); setTimeout(() => sendRef.current?.(), 500) } else toast('验证失败')
+        if (r.success) { toast('验证通过'); setTimeout(() => { sendRef.current?.() }, 500) } else toast('验证失败')
       } else if (d.type === 'error') {
         console.log('[KgLogin] 脚本加载失败:', d.msg)
         toast('验证脚本加载失败，请检查网络')
@@ -81,7 +81,7 @@ const KgWebLoginModal = forwardRef<KgWebLoginModalType, object>((_, ref) => {
     } catch (err) { console.error('[KgLogin] handleVerifyMsg error:', err); setShowVerify(false) }
   }, [])
 
-  const handleSendCode = useCallback(async () => {
+  const handleSendCode = useCallback(async() => {
     if (!phone || phone.length < 11) { toast('请输入正确的手机号'); return }
     if (cooldown > 0) { toast('请稍后再试'); return }
     setSending(true)
@@ -95,34 +95,30 @@ const KgWebLoginModal = forwardRef<KgWebLoginModalType, object>((_, ref) => {
       } else if (result.ssaCode) {
         console.log('[KgLogin] 需要滑块验证, ssaCode:', result.ssaCode)
         const vr = await getVerifyInfo(result.ssaCode)
-        if (vr.success && vr.data?.txappid) { setVerifyHtml(generateVerifyHtml(vr.data.txappid, result.ssaCode)); setShowVerify(true) }
-        else { console.log('[KgLogin] getVerifyInfo failed:', vr.message); toast('获取验证信息失败') }
+        if (vr.success && vr.data?.txappid) { setVerifyHtml(generateVerifyHtml(vr.data.txappid, result.ssaCode)); setShowVerify(true) } else { console.log('[KgLogin] getVerifyInfo failed:', vr.message); toast('获取验证信息失败') }
       } else { console.log('[KgLogin] sendCaptcha failed:', result.message); toast(result.message || '发送验证码失败') }
     } catch (err: any) { console.error('[KgLogin] sendCaptcha error:', err); toast('发送验证码失败: ' + (err.message || '')) } finally {
       setSending(false); setCooldown(2)
       cdRef.current = setInterval(() => { setCooldown(p => { if (p <= 1) { if (cdRef.current) { clearInterval(cdRef.current); cdRef.current = null }; return 0 }; return p - 1 }) }, 1000)
     }
   }, [phone, cooldown, sending])
-  sendRef.current = handleSendCode
+  sendRef.current = () => { void handleSendCode() }
 
-  const handleMultiLogin = useCallback(async (userId: string) => {
+  const handleMultiLogin = useCallback(async(userId: string) => {
     if (!pendingData) return; setShowMultiAccount(false); setLogging(true)
     try {
       const r = await loginByPhone(pendingData.mobile, pendingData.code, () => {}, userId)
-      if (r.success && r.data) { (global.app_event as any).emit('kg-cookie-set', buildCookieString(r.data)); toast('登录成功！'); handleClose() }
-      else toast(r.message || '登录失败')
+      if (r.success && r.data) { (global.app_event as any).emit('kg-cookie-set', buildCookieString(r.data)); toast('登录成功！'); handleClose() } else toast(r.message || '登录失败')
     } catch { toast('登录失败') } finally { setLogging(false); setPendingData(null) }
   }, [pendingData, handleClose])
 
-  const handleLogin = useCallback(async () => {
+  const handleLogin = useCallback(async() => {
     if (!phone || phone.length < 11) { toast('请输入正确的手机号'); return }
     if (!code || code.length < 4) { toast('请输入验证码'); return }
     setLogging(true)
     try {
       const r = await loginByPhone(phone, code, () => {})
-      if (r.success && r.data) { (global.app_event as any).emit('kg-cookie-set', buildCookieString(r.data)); toast('登录成功！'); handleClose() }
-      else if (r.message?.includes('34175')) { setPendingData({ mobile: phone, code }); setShowMultiAccount(true) }
-      else toast(r.message || '登录失败')
+      if (r.success && r.data) { (global.app_event as any).emit('kg-cookie-set', buildCookieString(r.data)); toast('登录成功！'); handleClose() } else if (r.message?.includes('34175')) { setPendingData({ mobile: phone, code }); setShowMultiAccount(true) } else toast(r.message || '登录失败')
     } catch { toast('登录失败') } finally { setLogging(false) }
   }, [phone, code, handleClose])
 
@@ -139,7 +135,7 @@ const KgWebLoginModal = forwardRef<KgWebLoginModalType, object>((_, ref) => {
           <View style={[styles.inputRow, { borderBottomColor: (theme as any)['c-border'] }]}>
             <Text size={15} color={theme['c-font']}>+86  |  </Text>
             <TextInput style={[styles.input, { color: theme['c-font'] }]} placeholder="手机号" placeholderTextColor={theme['c-font-label']} keyboardType="phone-pad" value={phone} onChangeText={setPhone} maxLength={11} editable={!logging} />
-            {phone.length > 0 && <TouchableOpacity onPress={() => setPhone('')}><Icon name="close" size={18} color={theme['c-font-label']} /></TouchableOpacity>}
+            {phone.length > 0 && <TouchableOpacity onPress={() => { setPhone('') }}><Icon name="close" size={18} color={theme['c-font-label']} /></TouchableOpacity>}
           </View>
           <View style={[styles.inputRow, { borderBottomColor: (theme as any)['c-border'] }]}>
             <TextInput style={[styles.input, { color: theme['c-font'] }]} placeholder="验证码" placeholderTextColor={theme['c-font-label']} keyboardType="number-pad" value={code} onChangeText={setCode} maxLength={6} editable={!logging} />
@@ -161,14 +157,14 @@ const KgWebLoginModal = forwardRef<KgWebLoginModalType, object>((_, ref) => {
           </View>
         ) : null}
 
-        <RNModal visible={showMultiAccount} transparent animationType="fade" onRequestClose={() => setShowMultiAccount(false)}>
+        <RNModal visible={showMultiAccount} transparent animationType="fade" onRequestClose={() => { setShowMultiAccount(false) }}>
           <View style={styles.modalOverlay}>
             <View style={[styles.modalBox, { backgroundColor: '#fff' }]}>
               <Text size={16} style={{ textAlign: 'center', marginBottom: 16, color: theme['c-font'] }}>该手机号绑定了多个账号</Text>
               <View style={[styles.idInput, { borderBottomColor: (theme as any)['c-border'] }]}>
                 <TextInput style={[styles.idInputText, { color: theme['c-font'] }]} placeholder="请输入您要登录的酷狗ID" placeholderTextColor={theme['c-font-label']} value={selectedId} onChangeText={setSelectedId} keyboardType="number-pad" autoFocus />
               </View>
-              <TouchableOpacity style={[styles.modalBtn, { backgroundColor: '#1677ff', marginTop: 20 }]} onPress={() => handleMultiLogin(selectedId)} disabled={!selectedId.trim()} activeOpacity={0.8}>
+              <TouchableOpacity style={[styles.modalBtn, { backgroundColor: '#1677ff', marginTop: 20 }]} onPress={async() => handleMultiLogin(selectedId)} disabled={!selectedId.trim()} activeOpacity={0.8}>
                 <Text size={16} color="#fff">确定登录</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.modalBtn, { backgroundColor: (theme as any)['c-border'], marginTop: 10 }]} onPress={() => { setShowMultiAccount(false); setPendingData(null); setSelectedId('') }} activeOpacity={0.8}>

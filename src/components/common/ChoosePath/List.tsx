@@ -18,11 +18,11 @@ import { type PathItem } from './components/ListItem'
 const parentDirInfo = new Map<string, string>()
 const caches = new Map<string, PathItem[]>()
 
-const handleReadDir = async (
+const handleReadDir = async(
   path: string,
   dirOnly: boolean,
   filter?: string[],
-  isRefresh = false
+  isRefresh = false,
 ) => {
   let filterRxp = filter?.length ? new RegExp(`\\.(${filter.join('|')})$`, 'i') : null
   const cacheKey = `${path}_${dirOnly ? 'true' : 'false'}_${filter ? filter.toString() : 'null'}`
@@ -130,20 +130,19 @@ export default forwardRef<ListType, ListProps>(
       }
     }, [])
 
-    const readDir = async (
+    const readDir = async(
       newPath: string,
       dirOnly: boolean,
       filter?: string[],
       isRefresh?: boolean,
-      isOpen?: boolean
+      isOpen?: boolean,
     ): Promise<PathItem[]> => {
       if (isReading) return []
       setIsReading(true)
       return handleReadDir(newPath, dirOnly, filter, isRefresh)
         .then((list) => {
           if (isUnmountedRef.current) return []
-          if (!isOpen && newPath != path && newPath.startsWith(path))
-            parentDirInfo.set(newPath, path)
+          if (!isOpen && newPath != path && newPath.startsWith(path)) { parentDirInfo.set(newPath, path) }
           setList(list)
           setPath(newPath)
           return list
@@ -202,10 +201,10 @@ export default forwardRef<ListType, ListProps>(
           }}
         >
           <Header
-            onRefreshDir={async (path) =>
+            onRefreshDir={async(path) =>
               readDir(path, readOptions.current.dirOnly, readOptions.current.filter, true)
             }
-            onOpenDir={async (path) =>
+            onOpenDir={async(path) =>
               readDir(path, readOptions.current.dirOnly, readOptions.current.filter, false, true)
             }
             title={readOptions.current.title}
@@ -220,7 +219,7 @@ export default forwardRef<ListType, ListProps>(
         </View>
       </Modal>
     )
-  }
+  },
 )
 
 const styles = createStyle({

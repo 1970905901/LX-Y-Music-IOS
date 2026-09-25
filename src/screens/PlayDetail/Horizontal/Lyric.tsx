@@ -32,8 +32,8 @@ interface LineProps {
   lineNum: number
   activeLine: number
   onLayout: (lineNum: number, height: number, width: number, isPlayed: boolean, isActive: boolean) => void
-  onPress: (index: number) => void;
-  wordsByIndex: readonly (LxLyricWord[] | null)[];
+  onPress: (index: number) => void
+  wordsByIndex: ReadonlyArray<LxLyricWord[] | null>
 }
 const LrcLine = memo(
   ({ line, lineNum, activeLine, onLayout, onPress, wordsByIndex }: LineProps) => {
@@ -57,8 +57,8 @@ const LrcLine = memo(
       onLayout(lineNum, nativeEvent.layout.height, nativeEvent.layout.width, isPlayed, isActive)
     }
     const handlePress = useCallback(() => {
-      onPress(lineNum);
-    }, [onPress, lineNum]);
+      onPress(lineNum)
+    }, [onPress, lineNum])
     return (
       <TouchableOpacity
         activeOpacity={0.7}
@@ -82,7 +82,7 @@ const LrcLine = memo(
                 playedColor={colors[0]}
                 inactiveColor={theme['c-350']}
               />
-            )
+              )
             : (
               <AnimatedColorText
                 style={{
@@ -98,7 +98,7 @@ const LrcLine = memo(
               >
                 {line.text}
               </AnimatedColorText>
-            )}
+              )}
           {line.extendedLyrics.map((lrc, index) => {
             return (
               <AnimatedColorText
@@ -129,9 +129,9 @@ const LrcLine = memo(
       prevProps.onPress === nextProps.onPress &&
       prevProps.wordsByIndex === nextProps.wordsByIndex
     )
-  }
+  },
 )
-const wait = async () => new Promise((resolve) => setTimeout(resolve, 100))
+const wait = async() => new Promise((resolve) => setTimeout(resolve, 100))
 
 export default () => {
   const safeAreaBottom = useSafeAreaBottom()
@@ -228,7 +228,7 @@ export default () => {
       if (pending != null && settingState.setting['playDetail.horizontal.style.lrcFontSize'] !== pending) {
         updateSetting({ 'playDetail.horizontal.style.lrcFontSize': pending })
       }
-    }
+    },
   }), [])
 
   // useLock()
@@ -281,7 +281,7 @@ export default () => {
           scrollInfoRef.current,
           targetOffset,
           duration,
-          () => { scrollCancelRef.current = null }
+          () => { scrollCancelRef.current = null },
         )
       } catch { }
     }
@@ -329,7 +329,7 @@ export default () => {
       const nextTime = lyricLines[i + 1].time
       const offsetNext = layout.getTargetOffsetPrecise(i + 1, listHeight, lyricLines, 0.5, paddingV, 0, false, true)
       const words = wordsMapRef.current[i] ?? undefined
-      if (words && words.length) {
+      if (words?.length) {
         // 逐字歌词：以最后一个字的结束时间作为“本句唱完”的边界。
         const lastW = words[words.length - 1]
         const lineEndTime = curTime + lastW.startTime + lastW.duration
@@ -457,7 +457,7 @@ export default () => {
       rafId = requestAnimationFrame(loop)
     }
     rafId = requestAnimationFrame(loop)
-    return () => cancelAnimationFrame(rafId)
+    return () => { cancelAnimationFrame(rafId) }
   }, [lyricLines])
 
   // 拖动进度条 / 跳转 / 恢复播放等用户动作期间强制让歌词列表立即滚动到高亮行，
@@ -473,8 +473,8 @@ export default () => {
         }, 500)
       }
     }
-    const handleSetProgress = () => setForceScroll(true)
-    const handlePlay = () => setForceScroll(true)
+    const handleSetProgress = () => { setForceScroll(true) }
+    const handlePlay = () => { setForceScroll(true) }
     global.app_event.on('progressDragState', handleDragState)
     global.app_event.on('setProgress', handleSetProgress)
     global.app_event.on('play', handlePlay)
@@ -538,28 +538,28 @@ export default () => {
   }, [scheduleRecentre])
 
   const handleLinePress = useCallback((index: number) => {
-    if (!isShowLyricProgressSetting) return;
+    if (!isShowLyricProgressSetting) return
     if (scrollTimoutRef.current) {
-      clearTimeout(scrollTimoutRef.current);
-      scrollTimoutRef.current = null;
+      clearTimeout(scrollTimoutRef.current)
+      scrollTimoutRef.current = null
     }
     if (scrollCancelRef.current) {
-      scrollCancelRef.current();
-      scrollCancelRef.current = null;
+      scrollCancelRef.current()
+      scrollCancelRef.current = null
     }
-    isPauseScrollRef.current = false;
+    isPauseScrollRef.current = false
     // 点击歌词视为用户主动跳转：强制立即定位，越过连续滚动循环，使高亮行与音频绝对同步。
-    setForceScroll(true);
-    const line = lyricLines[index];
+    setForceScroll(true)
+    const line = lyricLines[index]
     if (line) {
-      global.app_event.setProgress(line.time / 1000);
+      global.app_event.setProgress(line.time / 1000)
     }
 
-    handleScrollToActive(index);
-  }, [isShowLyricProgressSetting, lyricLines]);
+    handleScrollToActive(index)
+  }, [isShowLyricProgressSetting, lyricLines])
 
   const renderItem: FlatListType['renderItem'] = ({ item, index }) => {
-    return <LrcLine line={item} lineNum={index} activeLine={line} onLayout={handleLineLayout} onPress={handleLinePress} wordsByIndex={wordsByIndex} />;
+    return <LrcLine line={item} lineNum={index} activeLine={line} onLayout={handleLineLayout} onPress={handleLinePress} wordsByIndex={wordsByIndex} />
   }
   // 与竖屏一致用行索引作 key：切歌时行组件按 key 复用、仅 props 更新，
   // 避免把 text 拼进 key 导致切歌时整表卸载重建（行内动画状态也要重挂）。
@@ -571,7 +571,7 @@ export default () => {
   // 旋转时实测值与计算脱节，是高亮行不居中的根源）。
   const listPadding = useMemo(
     () => ({ paddingTop: listHeight * 0.5, paddingBottom: listHeight * 0.5 }),
-    [listHeight]
+    [listHeight],
   )
 
   return (

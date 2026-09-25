@@ -83,16 +83,16 @@ export default {
 
       return item.pcontent
         ? {
-          id: item.id,
-          text: decodeName(item.pcontent),
-          time: null,
-          userName: item.puser,
-          avatar: null,
-          userId: item.puser_id,
-          likedCount: null,
-          replyNum: null,
-          reply: [data],
-        }
+            id: item.id,
+            text: decodeName(item.pcontent),
+            time: null,
+            userName: item.puser,
+            avatar: null,
+            userId: item.puser_id,
+            likedCount: null,
+            replyNum: null,
+            reply: [data],
+          }
         : data
     })
   },

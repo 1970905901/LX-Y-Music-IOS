@@ -15,7 +15,7 @@ export const GITCODE_CONFIG = {
 }
 GITCODE_CONFIG.dbUrl = `https://api.gitcode.com/api/v5/repos/${GITCODE_CONFIG.owner}/${GITCODE_CONFIG.repo}/raw/audio_database.json?access_token=${GITCODE_CONFIG.token}`
 
-export const loadDatabase = async (forceReload = false) => {
+export const loadDatabase = async(forceReload = false) => {
   const now = Date.now()
 
   if (!forceReload && musicDatabase && now - lastFetchTime < CACHE_DURATION) {
@@ -117,7 +117,7 @@ export const formatSize = (bytes) => {
 
 export const objStr2JSON = (str) => {
   return JSON.parse(
-    str.replace(/('(?=(,\s*')))|('(?=:))|((?<=([:,]\s*))')|((?<={)')|('(?=}))/g, '"')
+    str.replace(/('(?=(,\s*')))|('(?=:))|((?<=([:,]\s*))')|((?<={)')|('(?=}))/g, '"'),
   )
 }
 
@@ -180,8 +180,7 @@ export const lrcTools = {
         const result = this.rxps.wordTime.exec(timeStr)
         const wordInfo = this.getWordInfo(result[1], result[2], preTimeInfo)
         words = words.replace(timeStr, wordInfo.timeStr)
-        if (preTimeInfo?.newTimeStr)
-          words = words.replace(preTimeInfo.timeStr, preTimeInfo.newTimeStr)
+        if (preTimeInfo?.newTimeStr) { words = words.replace(preTimeInfo.timeStr, preTimeInfo.newTimeStr) }
         preTimeInfo = wordInfo
       }
       this.lines.push(time + words)

@@ -71,7 +71,7 @@ export default memo(({ artist, onFollow, componentId }: Props) => {
     <View style={{ paddingTop: statusBarHeight }}>
       <ImageBackground source={(artist?.cover || artist?.picUrl || artistPic) ? { uri: artist.cover || artist?.picUrl || artistPic } : null} style={styles.headerContainer} blurRadius={10}>
         <View style={styles.overlay}>
-          <TouchableOpacity activeOpacity={0.85} disabled={!artistPic} onPress={() => setPreviewVisible(true)}>
+          <TouchableOpacity activeOpacity={0.85} disabled={!artistPic} onPress={() => { setPreviewVisible(true) }}>
             <Image url={artistPic} style={styles.avatar} />
           </TouchableOpacity>
           <View style={styles.infoContainer}>
@@ -83,7 +83,7 @@ export default memo(({ artist, onFollow, componentId }: Props) => {
             {!!description && (
               <View style={styles.descWrapper}>
                 <ScrollView nestedScrollEnabled={true}>
-                  <TouchableOpacity activeOpacity={0.8} onPress={() => setDescExpanded(!isDescExpanded)}>
+                  <TouchableOpacity activeOpacity={0.8} onPress={() => { setDescExpanded(!isDescExpanded) }}>
                     <Text size={designTypography.caption} color="rgba(255,255,255,0.82)">
                       {truncatedDesc}
                     </Text>
@@ -131,7 +131,7 @@ export default memo(({ artist, onFollow, componentId }: Props) => {
         visible={isPreviewVisible}
         url={artistPic}
         name={artistName || 'artist'}
-        onClose={() => setPreviewVisible(false)}
+        onClose={() => { setPreviewVisible(false) }}
       />
       <SimilarArtistsModal ref={similarArtistsModalRef} componentId={componentId} />
     </View>

@@ -1,6 +1,6 @@
 import state, { type Source } from './state'
 
-export type Lists = Array<{ source: LX.OnlineSource; list: string[] }>
+export type Lists = Array<{ source: LX.OnlineSource, list: string[] }>
 
 const setList = (source: LX.OnlineSource, list: string[]): string[] => {
   const l = (state.sourceList[source] = list.slice(0, 20))

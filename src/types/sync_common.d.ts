@@ -13,16 +13,16 @@ declare namespace LX {
       onListSyncAction: (action: LX.Sync.List.ActionList) => void
     }>
     type ServerSyncHandlerListActions<Socket> = WarpSyncHandlerActions<
-      Socket,
-      ServerSyncListActions
+    Socket,
+    ServerSyncListActions
     >
 
     type ServerSyncDislikeActions = WarpPromiseRecord<{
       onDislikeSyncAction: (action: LX.Sync.Dislike.ActionList) => void
     }>
     type ServerSyncHandlerDislikeActions<Socket> = WarpSyncHandlerActions<
-      Socket,
-      ServerSyncDislikeActions
+    Socket,
+    ServerSyncDislikeActions
     >
 
     type ClientSyncActions = WarpPromiseRecord<{
@@ -43,8 +43,8 @@ declare namespace LX {
       list_sync_finished: () => void
     }>
     type ClientSyncHandlerListActions<Socket> = WarpSyncHandlerActions<
-      Socket,
-      ClientSyncListActions
+    Socket,
+    ClientSyncListActions
     >
 
     type ClientSyncDislikeActions = WarpPromiseRecord<{
@@ -56,8 +56,8 @@ declare namespace LX {
       dislike_sync_finished: () => void
     }>
     type ClientSyncHandlerDislikeActions<Socket> = WarpSyncHandlerActions<
-      Socket,
-      ClientSyncDislikeActions
+    Socket,
+    ClientSyncDislikeActions
     >
   }
 }

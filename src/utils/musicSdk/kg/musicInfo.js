@@ -35,7 +35,7 @@ const createGetMusicInfosTask = (hashs) => {
         'User-Agent': 'Android712-AndroidPhone-11451-376-0-FeeCacheUpdate-wifi',
         'x-router': 'kmr.service.kugou.com',
       },
-    }).then((data) => data.map((s) => s[0]))
+    }).then((data) => data.map((s) => s[0])),
   )
 }
 
@@ -114,17 +114,17 @@ export const filterMusicInfoList = (rawList) => {
   return list
 }
 
-export const getMusicInfos = async (hashs) => {
+export const getMusicInfos = async(hashs) => {
   const rawData = await Promise.all(createGetMusicInfosTask(hashs)).then((data) => data.flat())
   const validData = rawData.filter(item => item && item.audio_info && item.audio_info.audio_id)
   return filterMusicInfoList(validData)
 }
 
-export const getMusicInfoRaw = async (hash) => {
+export const getMusicInfoRaw = async(hash) => {
   return Promise.all(createGetMusicInfosTask([{ hash }])).then((data) => data.flat()[0])
 }
 
-export const getMusicInfo = async (hash) => {
+export const getMusicInfo = async(hash) => {
   return getMusicInfos([{ hash }]).then((data) => data[0])
 }
 

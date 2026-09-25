@@ -64,9 +64,9 @@ const ENCRYPTED_EXTENSIONS = new Set([
 // 超时后 abort，走 catch 的「放行」分支（校验只是尽力而为的过滤，不作为硬性门槛）。
 const AUDIO_URL_CHECK_TIMEOUT = 5000
 
-const validateAudioUrl = async (url: string): Promise<boolean> => {
+const validateAudioUrl = async(url: string): Promise<boolean> => {
   const controller = new AbortController()
-  const timeoutId = BackgroundTimer.setTimeout(() => controller.abort(), AUDIO_URL_CHECK_TIMEOUT)
+  const timeoutId = BackgroundTimer.setTimeout(() => { controller.abort() }, AUDIO_URL_CHECK_TIMEOUT)
   try {
     const resp = await fetch(url, {
       method: 'HEAD',
@@ -95,13 +95,13 @@ const validateAudioUrl = async (url: string): Promise<boolean> => {
 
 type FailureStrategy = 'togglePlatform' | 'lowerQuality' | 'toggleSource' | 'playNext'
 
-export const executeFailureStrategy = async (
+export const executeFailureStrategy = async(
   musicInfo: LX.Music.MusicInfo | LX.Download.ListItem,
   isRefresh: boolean,
   error: any,
   triedUrls?: Set<string>,
-  startIndex = 0
-): Promise<{ url: string; quality?: LX.Quality | null; index: number } | null> => {
+  startIndex = 0,
+): Promise<{ url: string, quality?: LX.Quality | null, index: number } | null> => {
   if (!triedUrls) triedUrls = new Set()
   const strategies = (settingState.setting['player.failureStrategy'] ?? []) as FailureStrategy[]
   const currentMusicInfo = 'progress' in musicInfo ? musicInfo.metadata.musicInfo : musicInfo
@@ -163,14 +163,14 @@ export const executeFailureStrategy = async (
                 isRefresh,
                 allowToggleSource: false,
               })
-              if (playUrlInfo?.url && !triedUrls!.has(playUrlInfo.url)) {
+              if (playUrlInfo?.url && !triedUrls.has(playUrlInfo.url)) {
                 const isValid = await validateAudioUrl(playUrlInfo.url)
                 if (!isValid) {
                   console.log('[播放策略] [切换平台]', source.source, 'URL不可播放，跳过')
-                  triedUrls!.add(playUrlInfo.url)
+                  triedUrls.add(playUrlInfo.url)
                   continue
                 }
-                triedUrls!.add(playUrlInfo.url)
+                triedUrls.add(playUrlInfo.url)
                 console.log('[播放策略] [切换平台] 成功! 平台:', source.source)
                 setStatusText(`切换到 ${source.source} 成功`)
                 return { url: playUrlInfo.url, quality: playUrlInfo.quality, index: i }
@@ -221,14 +221,14 @@ export const executeFailureStrategy = async (
                 isRefresh,
                 allowToggleSource: false,
               })
-              if (playUrlInfo?.url && !triedUrls!.has(playUrlInfo.url)) {
+              if (playUrlInfo?.url && !triedUrls.has(playUrlInfo.url)) {
                 const isValid = await validateAudioUrl(playUrlInfo.url)
                 if (!isValid) {
                   console.log(`[播放策略] [降低音质] ${quality} URL不可播放，跳过`)
-                  triedUrls!.add(playUrlInfo.url)
+                  triedUrls.add(playUrlInfo.url)
                   continue
                 }
-                triedUrls!.add(playUrlInfo.url)
+                triedUrls.add(playUrlInfo.url)
                 console.log(`[播放策略] [降低音质] 成功! 降级到: ${quality}`)
                 setStatusText(`降级到 ${quality} 成功`)
                 return { url: playUrlInfo.url, quality: playUrlInfo.quality, index: i }
@@ -275,9 +275,9 @@ export const executeFailureStrategy = async (
             },
           })
           if (result.url) {
-            triedUrls!.add(result.url)
+            triedUrls.add(result.url)
             console.log('[播放策略] [切换音源] 成功! 插件:', (result.musicInfo as any)?.source)
-            setStatusText(`切换音源成功`)
+            setStatusText('切换音源成功')
             return { url: result.url, quality: result.quality, index: i }
           }
           console.log('[播放策略] [切换音源] 所有插件均失败，继续下一个策略')

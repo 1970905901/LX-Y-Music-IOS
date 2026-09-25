@@ -1,6 +1,6 @@
 import { memo, useRef } from 'react'
 import { View, Platform } from 'react-native'
-import { createStyle } from '@/utils/tools'
+import { createStyle, toast } from '@/utils/tools'
 import Text from '@/components/common/Text'
 import Button from '@/components/common/Button'
 import { useI18n } from '@/lang'
@@ -8,7 +8,7 @@ import { useSettingValue } from '@/store/setting/hook'
 import { useTheme } from '@/store/theme/hook'
 import { updateSetting } from '@/core/common'
 import FileSelect, { type FileSelectType } from '@/components/common/FileSelect'
-import { toast } from '@/utils/tools'
+
 import { getWebDAVPrivateDirectory, selectFolder } from '@/utils/fs'
 
 export default memo(() => {

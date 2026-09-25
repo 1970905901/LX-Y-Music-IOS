@@ -19,7 +19,7 @@ const MAX_CONCURRENT = 4
 let activeCount = 0
 const taskQueue: Array<() => void> = []
 
-const runWithLimit = (fn: () => Promise<string>): Promise<string> => {
+const runWithLimit = async(fn: () => Promise<string>): Promise<string> => {
   return new Promise<string>((resolve, reject) => {
     const execute = () => {
       activeCount++
@@ -40,23 +40,23 @@ export const getCachedQsCover = (song: LX.Music.MusicInfoOnline): string => {
   return qsCoverCache.get(`${song.name}|${song.singer}`) ?? ''
 }
 
-const withTimeout = (promise: Promise<string>, ms: number, fallback: string): Promise<string> => {
+const withTimeout = async(promise: Promise<string>, ms: number, fallback: string): Promise<string> => {
   return new Promise<string>((resolve) => {
-    const timer = setTimeout(() => resolve(fallback), ms)
+    const timer = setTimeout(() => { resolve(fallback) }, ms)
     promise.then(
       (v) => { clearTimeout(timer); resolve(v) },
-      () => { clearTimeout(timer); resolve(fallback) }
+      () => { clearTimeout(timer); resolve(fallback) },
     )
   })
 }
 
-export const fetchQsCover = (song: LX.Music.MusicInfoOnline): Promise<string> => {
+export const fetchQsCover = async(song: LX.Music.MusicInfoOnline): Promise<string> => {
   const key = `${song.name}|${song.singer}`
   const cached = qsCoverCache.get(key)
   if (cached) return Promise.resolve(cached)
   const inflight = qsCoverInflight.get(key)
   if (inflight) return inflight
-  const task = runWithLimit(() =>
+  const task = runWithLimit(async() =>
     // 跨平台匹配没有内置超时：若某个平台的搜索/取图请求挂起（无 timeout 的
     // fetch 常驻），该任务永不 settle，runWithLimit 的并发队列会被一直占用，
     // 导致列表里所有后续 qs 封面请求全部排队不执行（表现为「歌单/排行榜列表
@@ -67,8 +67,8 @@ export const fetchQsCover = (song: LX.Music.MusicInfoOnline): Promise<string> =>
         target: { name: song.name, singer: song.singer, filePath: '', picUrl: null },
       }),
       12000,
-      ''
-    )
+      '',
+    ),
   )
     .then((url) => {
       if (url) qsCoverCache.set(key, url)

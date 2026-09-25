@@ -12,7 +12,7 @@ import { SYNC_CODE } from '../constants'
 
 let connectId = 0
 
-const handleConnect = async (host: string, authCode?: string, options?: { silent?: boolean }) => {
+const handleConnect = async(host: string, authCode?: string, options?: { silent?: boolean }) => {
   // const hostInfo = await getSyncHost()
   // console.log(hostInfo)
   // if (!hostInfo || !hostInfo.host || !hostInfo.port) throw new Error(SYNC_CODE.unknownServiceAddress)
@@ -24,17 +24,17 @@ const handleConnect = async (host: string, authCode?: string, options?: { silent
   if (id != connectId) return
   socketConnect(urlInfo, keyInfo, options)
 }
-const handleDisconnect = async () => {
+const handleDisconnect = async() => {
   await socketDisconnect()
 }
 
-const connectServer = async (host: string, authCode?: string, options?: { silent?: boolean }) => {
+const connectServer = async(host: string, authCode?: string, options?: { silent?: boolean }) => {
   sendSyncStatus({
     status: false,
     message: SYNC_CODE.connecting,
   })
   const id = connectId
-  return handleConnect(host, authCode, options).catch(async (err) => {
+  return handleConnect(host, authCode, options).catch(async(err) => {
     if (id != connectId) return
     sendSyncStatus({
       status: false,
@@ -53,7 +53,7 @@ const connectServer = async (host: string, authCode?: string, options?: { silent
   })
 }
 
-const disconnectServer = async (isResetStatus = true) =>
+const disconnectServer = async(isResetStatus = true) =>
   handleDisconnect()
     .then(() => {
       log.info('disconnect...')

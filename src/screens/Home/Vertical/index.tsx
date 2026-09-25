@@ -9,7 +9,7 @@ export default ({ componentId }: { componentId: string }) => {
     // 让胶囊能稳定浮在屏幕底部、不挤压 Content 高度。
     <View style={{ flex: 1 }}>
       <Content />
-      <PlayerBar componentId={commonState.componentIds[commonState.componentIds.length - 1]?.id!} isHome />
+      <PlayerBar componentId={commonState.componentIds[commonState.componentIds.length - 1]?.id} isHome />
     </View>
   )
 }

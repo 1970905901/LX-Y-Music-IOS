@@ -55,7 +55,7 @@ const PlaylistCard = memo(({ item, width, onPress }: PlaylistCardProps) => {
   )
 
   return (
-    <Pressable style={{ width }} onPress={() => onPress(item)}>
+    <Pressable style={{ width }} onPress={() => { onPress(item) }}>
       <View>
         <Image
           style={coverStyle}

@@ -13,7 +13,7 @@ export default {
         headers: {
           referer: 'https://www.kugou.com/',
         },
-      }
+      },
     )
     return this.requestObj.then((body) => {
       return body[0].RecordDatas

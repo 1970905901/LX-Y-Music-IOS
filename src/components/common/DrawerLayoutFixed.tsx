@@ -50,8 +50,8 @@ const DrawerLayoutFixed = forwardRef<DrawerLayoutFixedType, Props>(
           if (!visible || !changedRef.current.width) return
           fixDrawerWidth()
         },
-        [fixDrawerWidth]
-      )
+        [fixDrawerWidth],
+      ),
     )
 
     useImperativeHandle(
@@ -67,7 +67,7 @@ const DrawerLayoutFixed = forwardRef<DrawerLayoutFixedType, Props>(
           fixDrawerWidth()
         },
       }),
-      [fixDrawerWidth]
+      [fixDrawerWidth],
     )
 
     const handleLayout = useCallback(
@@ -90,7 +90,7 @@ const DrawerLayoutFixed = forwardRef<DrawerLayoutFixedType, Props>(
           setW(width - 1)
         }
       },
-      [widthPercentage, widthPercentageMax]
+      [widthPercentage, widthPercentageMax],
     )
 
     return (
@@ -105,7 +105,7 @@ const DrawerLayoutFixed = forwardRef<DrawerLayoutFixedType, Props>(
         </DrawerLayoutAndroid>
       </View>
     )
-  }
+  },
 )
 
 // const styles = createStyle({

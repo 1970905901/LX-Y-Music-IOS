@@ -50,7 +50,7 @@ const HeaderItem = ({
         <Text color={isActive ? theme['c-primary-font-active'] : theme['c-font']}>{label}</Text>
       </TouchableOpacity>
     ),
-    [isActive, theme, label, onPress, id]
+    [isActive, theme, label, onPress, id],
   )
 
   return components
@@ -76,7 +76,7 @@ const HotCommentPage = memo(
     const initedRef = useRef(false)
     const comment = useMemo(
       () => <CommentHot musicInfo={musicInfo} onUpdateTotal={onUpdateTotal} actions={actions} refreshKey={refreshKey} />,
-      [musicInfo, onUpdateTotal, actions, refreshKey]
+      [musicInfo, onUpdateTotal, actions, refreshKey],
     )
     switch (activeId) {
       case 'hot':
@@ -85,7 +85,7 @@ const HotCommentPage = memo(
       default:
         return forceRender || initedRef.current ? comment : null
     }
-  }
+  },
 )
 
 const NewCommentPage = memo(
@@ -108,7 +108,7 @@ const NewCommentPage = memo(
     const initedRef = useRef(false)
     const comment = useMemo(
       () => <CommentNew musicInfo={musicInfo} onUpdateTotal={onUpdateTotal} actions={actions} refreshKey={refreshKey} />,
-      [musicInfo, onUpdateTotal, actions, refreshKey]
+      [musicInfo, onUpdateTotal, actions, refreshKey],
     )
     switch (activeId) {
       case 'new':
@@ -117,7 +117,7 @@ const NewCommentPage = memo(
       default:
         return forceRender || initedRef.current ? comment : null
     }
-  }
+  },
 )
 
 const TABS = ['hot', 'new'] as const
@@ -131,7 +131,7 @@ export default memo(({ componentId }: { componentId: string }) => {
   const isHorizontal = useHorizontalMode()
   const [activeId, setActiveId] = useState<ActiveId>('hot')
   const [musicInfo, setMusicInfo] = useState<LX.Music.MusicInfo | null>(
-    getMusicInfo(playerState.playMusicInfo.musicInfo)
+    getMusicInfo(playerState.playMusicInfo.musicInfo),
   )
   const t = useI18n()
   const theme = useTheme()
@@ -201,27 +201,27 @@ export default memo(({ componentId }: { componentId: string }) => {
     if (!musicInfo || musicInfo.source !== 'wy') return
     const songmid = String(musicInfo.meta.songId)
     Alert.alert(
-      t('comment_delete_confirm_title' as any) as string,
-      t('comment_delete_confirm_msg' as any) as string,
+      t('comment_delete_confirm_title' as any),
+      t('comment_delete_confirm_msg' as any),
       [
-        { text: t('cancel') as string, style: 'cancel' },
+        { text: t('cancel'), style: 'cancel' },
         {
-          text: t('confirm') as string,
+          text: t('confirm'),
           style: 'destructive',
           onPress: () => {
             deleteComment(songmid, String(comment.id))
               .then(() => {
-                toast(t('comment_delete_success' as any) as string)
+                toast(t('comment_delete_success' as any))
                 // Delay refresh to allow server to propagate the deletion
-                setTimeout(() => setRefreshKey(k => k + 1), 1500)
+                setTimeout(() => { setRefreshKey(k => k + 1) }, 1500)
               })
               .catch((err: any) => {
                 console.error('Delete comment failed:', err)
-                toast(t('comment_delete_failed' as any) as string)
+                toast(t('comment_delete_failed' as any))
               })
           },
         },
-      ]
+      ],
     )
   }, [musicInfo, t])
 
@@ -241,13 +241,13 @@ export default memo(({ componentId }: { componentId: string }) => {
 
     promise
       .then(() => {
-        toast(t((replyInfo ? 'comment_reply_success' : 'comment_send_success') as any) as string)
+        toast(t((replyInfo ? 'comment_reply_success' : 'comment_send_success') as any))
         // Delay refresh to allow server to propagate the new comment
-        setTimeout(() => setRefreshKey(k => k + 1), 1500)
+        setTimeout(() => { setRefreshKey(k => k + 1) }, 1500)
       })
       .catch((err: any) => {
         console.error('Send comment failed:', err)
-        toast(t((replyInfo ? 'comment_reply_failed' : 'comment_send_failed') as any) as string)
+        toast(t((replyInfo ? 'comment_reply_failed' : 'comment_send_failed') as any))
       })
       .finally(() => {
         setIsSending(false)
@@ -290,7 +290,7 @@ export default memo(({ componentId }: { componentId: string }) => {
                     <Text color={theme['c-primary-font-active']}>{tabs[1].label}</Text>
                   </View>
                 </>
-              )
+                )
               : tabs.map(({ id, label }) => (
                 <HeaderItem
                   id={id}
@@ -333,7 +333,7 @@ export default memo(({ componentId }: { componentId: string }) => {
                 />
               </View>
             </View>
-          )
+            )
           : (
             <PagerView
               ref={pagerViewRef}
@@ -360,7 +360,7 @@ export default memo(({ componentId }: { componentId: string }) => {
                 />
               </View>
             </PagerView>
-          )}
+            )}
         {isWyLoggedIn ? (
           <CommentInput
             ref={commentInputRef}

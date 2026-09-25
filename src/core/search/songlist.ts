@@ -17,10 +17,10 @@ export const clearListInfo: typeof searchSonglistActions.clearListInfo = (source
   searchSonglistActions.clearListInfo(source)
 }
 
-export const search = async (
+export const search = async(
   text: string,
   page: number,
-  sourceId: Source
+  sourceId: Source,
 ): Promise<ListInfoItem[]> => {
   if (sourceId === 'bilibili') {
     toast('哔哩哔哩音源暂不支持歌单搜索')
@@ -41,7 +41,7 @@ export const search = async (
           (musicSdk[source]?.songList.search(
             text,
             page,
-            searchSonglistState.listInfos.all.limit
+            searchSonglistState.listInfos.all.limit,
           ) as Promise<SearchResult>) ?? Promise.reject(new Error('source not found: ' + source))
         ).catch((error: any) => {
           console.log(error)
@@ -51,7 +51,7 @@ export const search = async (
             limit: searchSonglistState.listInfos.all.limit,
             source,
           }
-        })
+        }),
       )
     }
     return Promise.all(task).then((results: SearchResult[]) => {

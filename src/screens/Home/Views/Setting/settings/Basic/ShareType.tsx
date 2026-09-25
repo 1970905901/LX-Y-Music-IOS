@@ -20,7 +20,7 @@ const useActive = (type: ShareType) => {
   return isActive
 }
 
-const Item = ({ id, name }: { id: ShareType; name: string }) => {
+const Item = ({ id, name }: { id: ShareType, name: string }) => {
   const isActive = useActive(id)
   // const [toggleCheckBox, setToggleCheckBox] = useState(false)
   return (

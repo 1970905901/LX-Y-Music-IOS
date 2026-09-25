@@ -96,7 +96,7 @@ export default forwardRef<ConfirmAlertType, ConfirmAlertProps>(
       onMiddle = () => {},
       showMiddle = false,
     }: ConfirmAlertProps,
-    ref
+    ref,
   ) => {
     const theme = useTheme()
     const t = useI18n()
@@ -172,5 +172,5 @@ export default forwardRef<ConfirmAlertType, ConfirmAlertProps>(
         </View>
       </Dialog>
     )
-  }
+  },
 )

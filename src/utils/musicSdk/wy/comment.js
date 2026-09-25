@@ -206,18 +206,18 @@ export default {
       let replyData = item.beReplied && item.beReplied[0]
       return replyData
         ? {
-          id: item.commentId,
-          rootId: replyData.beRepliedCommentId,
-          text: replyData.content ? applyEmoji(replyData.content) : '',
-          time: item.time,
-          timeStr: null,
-          location: replyData.ipLocation?.location,
-          userName: replyData.user.nickname,
-          avatar: replyData.user.avatarUrl,
-          userId: replyData.user.userId,
-          likedCount: null,
-          reply: [data],
-        }
+            id: item.commentId,
+            rootId: replyData.beRepliedCommentId,
+            text: replyData.content ? applyEmoji(replyData.content) : '',
+            time: item.time,
+            timeStr: null,
+            location: replyData.ipLocation?.location,
+            userName: replyData.user.nickname,
+            avatar: replyData.user.avatarUrl,
+            userId: replyData.user.userId,
+            likedCount: null,
+            reply: [data],
+          }
         : data
     })
   },

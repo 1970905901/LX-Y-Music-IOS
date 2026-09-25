@@ -46,7 +46,7 @@ const URL_QUALITYS: LX.Quality[] = ['320k', '128k']
 
 const cleanName = (name: string): string => {
   const cleaned = (name || '')
-    .replace(/\s*[\[【(（].*?[\]】)）]\s*/g, ' ')
+    .replace(/\s*[[]【(（].*?[\]】)）]\s*/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
   return cleaned || name
@@ -95,7 +95,7 @@ const resolveSdkResult = async <T = any>(result: unknown): Promise<T | null> => 
 }
 
 // 按歌名+歌手在内置平台搜索候选（跨平台），歌名完全匹配优先
-const searchCandidates = async (name: string, singer: string): Promise<SongCandidate[]> => {
+const searchCandidates = async(name: string, singer: string): Promise<SongCandidate[]> => {
   const result: SongCandidate[] = []
 
   // 注意：searchMusic 是 musicSdk 的【命名导出】，不是默认导出的成员。
@@ -133,10 +133,10 @@ const searchCandidates = async (name: string, singer: string): Promise<SongCandi
   return result
 }
 
-const searchBilibili = async (name: string, singer: string): Promise<SongCandidate | null> => {
+const searchBilibili = async(name: string, singer: string): Promise<SongCandidate | null> => {
   const keyword = `${cleanName(name)} ${singer || ''}`.trim()
   try {
-    const result = (await bilibiliSdk.musicSearch.search(keyword, 1, 10).catch(() => null)) as any
+    const result = (await bilibiliSdk.musicSearch.search(keyword, 1, 10).catch(() => null))
     const first = result?.list?.[0]
     if (!first?.songmid) return null
     return { ...first, source: 'bilibili' }
@@ -149,9 +149,9 @@ const searchBilibili = async (name: string, singer: string): Promise<SongCandida
 // 1) 优先走音源脚本（musicSdk[source].getMusicUrl，覆盖 tx/wy/kg/kw/mg），
 //    这是汽水歌曲跨平台匹配播放的主链路（有导入音源脚本时）；
 // 2) 回退 wy cookie 直连 + bilibili 直连（无音源脚本时兜底）。
-const getOnlineUrl = async (
+const getOnlineUrl = async(
   target: LocalPlayTarget,
-  candidates: SongCandidate[]
+  candidates: SongCandidate[],
 ): Promise<string> => {
   const qualitys = target.quality && URL_QUALITYS.includes(target.quality)
     ? [target.quality, ...URL_QUALITYS.filter(q => q !== target.quality)]
@@ -194,7 +194,7 @@ const getOnlineUrl = async (
   throw new Error('无法从内置平台获取播放链接')
 }
 
-export const getMusicUrl = async ({
+export const getMusicUrl = async({
   target,
   isRefresh = false,
 }: {
@@ -213,7 +213,7 @@ export const getMusicUrl = async ({
   return getOnlineUrl(target, candidates)
 }
 
-const readSidecarLyric = async (filePath: string): Promise<string | null> => {
+const readSidecarLyric = async(filePath: string): Promise<string | null> => {
   if (!filePath) return null
   const base = filePath.substring(0, filePath.lastIndexOf('.'))
   if (!base) return null
@@ -228,7 +228,7 @@ const readSidecarLyric = async (filePath: string): Promise<string | null> => {
   return null
 }
 
-export const getLyricInfo = async ({
+export const getLyricInfo = async({
   target,
   isRefresh = false,
 }: {
@@ -255,7 +255,7 @@ export const getLyricInfo = async ({
   return buildLyricInfo({ lyric: '' })
 }
 
-export const getPicUrl = async ({
+export const getPicUrl = async({
   target,
   isRefresh = false,
 }: {

@@ -55,7 +55,7 @@ interface OldUserListInfo {
   }
 }
  */
-export const getAllListData = async (): Promise<{
+export const getAllListData = async(): Promise<{
   defaultList?: { list: any[] }
   loveList?: { list: any[] }
   tempList?: { list: any[] }
@@ -112,7 +112,7 @@ export const getAllListData = async (): Promise<{
  * 迁移 v1.0.0 之前的 list data
  * @returns
  */
-export const migrateListData = async () => {
+export const migrateListData = async() => {
   const playList = await getAllListData()
   let listDataAll: LX.List.ListDataFull = {
     defaultList: [],
@@ -120,18 +120,18 @@ export const migrateListData = async () => {
     userList: [],
     tempList: [],
   }
-  if (playList.defaultList)
+  if (playList.defaultList) {
     listDataAll.defaultList = filterMusicList(
-      playList.defaultList.list.map((m) => toNewMusicInfo(m) as LX.Music.MusicInfo)
+      playList.defaultList.list.map((m) => toNewMusicInfo(m)!),
     )
-  if (playList.loveList)
-    listDataAll.loveList = filterMusicList(playList.loveList.list.map((m) => toNewMusicInfo(m) as LX.Music.MusicInfo))
+  }
+  if (playList.loveList) { listDataAll.loveList = filterMusicList(playList.loveList.list.map((m) => toNewMusicInfo(m)!)) }
   if (playList.userList) {
     listDataAll.userList = playList.userList.map((l) => {
       return {
         ...l,
         locationUpdateTime: l.locationUpdateTime ?? null,
-        list: filterMusicList(l.list.map((m) => toNewMusicInfo(m) as LX.Music.MusicInfo)),
+        list: filterMusicList(l.list.map((m) => toNewMusicInfo(m)!)),
       }
     })
   }
@@ -160,7 +160,7 @@ const timeStr2Intv = (timeStr: string) => {
   }
   return intv
 }
-const migratePlayInfo = async () => {
+const migratePlayInfo = async() => {
   const playInfo = await getData<any>(storageDataPrefixOld.playInfo)
   if (playInfo == null) return
   if (playInfo.list !== undefined) delete playInfo.list
@@ -171,7 +171,7 @@ const migratePlayInfo = async () => {
  * 迁移 v1.0.0 之前的 meta 数据
  * @returns
  */
-export const migrateMetaData = async () => {
+export const migrateMetaData = async() => {
   await migratePlayInfo()
   // const [playInfo] = await getDataMultiple([
   //   storageDataPrefixOld.listPosition,

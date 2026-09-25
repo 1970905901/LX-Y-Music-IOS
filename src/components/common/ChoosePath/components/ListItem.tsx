@@ -91,7 +91,7 @@ export default memo(
         )}
       </View>
     )
-  }
+  },
 )
 
 const styles = createStyle({

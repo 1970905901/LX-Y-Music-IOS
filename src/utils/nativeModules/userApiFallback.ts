@@ -156,14 +156,14 @@ class UserApiFallbackRuntime {
       this.emitLog(type, text)
     }
     return {
-      log: (...args: any[]) => send('log', args),
-      info: (...args: any[]) => send('info', args),
-      warn: (...args: any[]) => send('warn', args),
-      error: (...args: any[]) => send('error', args),
+      log: (...args: any[]) => { send('log', args) },
+      info: (...args: any[]) => { send('info', args) },
+      warn: (...args: any[]) => { send('warn', args) },
+      error: (...args: any[]) => { send('error', args) },
     }
   }
 
-  private setTimer = (callback: (...args: any[]) => void, timeout = 0, ...args: any[]) => {
+  private readonly setTimer = (callback: (...args: any[]) => void, timeout = 0, ...args: any[]) => {
     const id = this.timeoutId++
     const handle = setTimeout(() => {
       this.timeoutHandles.delete(id)
@@ -173,7 +173,7 @@ class UserApiFallbackRuntime {
     return id
   }
 
-  private clearTimer = (id: number) => {
+  private readonly clearTimer = (id: number) => {
     const handle = this.timeoutHandles.get(id)
     if (!handle) return
     clearTimeout(handle)
@@ -263,7 +263,7 @@ class UserApiFallbackRuntime {
     }
   }
 
-  private handleScriptRequest = async(eventData: { requestKey: string, data: any }) => {
+  private readonly handleScriptRequest = async(eventData: { requestKey: string, data: any }) => {
     if (!this.requestHandler) {
       emit({
         action: 'response',
@@ -377,11 +377,11 @@ class UserApiFallbackRuntime {
           })
         }
       },
-      send: (eventName: string, data: any) => {
+      send: async(eventName: string, data: any) => {
         return new Promise<void>((resolve, reject) => {
           switch (eventName) {
             case EVENT_NAMES.inited:
-              if (this.isInited) return reject(new Error('Script is inited'))
+              if (this.isInited) { reject(new Error('Script is inited')); return }
               this.isInited = true
               try {
                 this.emitInit(true, this.buildSourceInfo(data))
@@ -392,7 +392,7 @@ class UserApiFallbackRuntime {
               }
               break
             case EVENT_NAMES.updateAlert:
-              if (this.isShowedUpdateAlert) return reject(new Error('The update alert can only be called once.'))
+              if (this.isShowedUpdateAlert) { reject(new Error('The update alert can only be called once.')); return }
               this.isShowedUpdateAlert = true
               emit({
                 action: 'showUpdateAlert',
@@ -409,7 +409,7 @@ class UserApiFallbackRuntime {
           }
         })
       },
-      on: (eventName: string, handler: ScriptRequestHandler) => {
+      on: async(eventName: string, handler: ScriptRequestHandler) => {
         if (eventName != EVENT_NAMES.request) return Promise.reject(new Error(`The event is not supported: ${eventName}`))
         this.requestHandler = handler
         return Promise.resolve()
@@ -447,6 +447,8 @@ class UserApiFallbackRuntime {
     sandboxGlobal.eval = blockedEval
 
     try {
+      // 用户脚本只能运行在显式声明的沙盒里；此处的动态函数是受控入口。
+      // eslint-disable-next-line @typescript-eslint/no-implied-eval, no-new-func
       const runner = new Function(
         'globalThis',
         'window',

@@ -1,10 +1,10 @@
 import { httpFetch } from '../../request'
 import { weapi } from './utils/crypto'
-import {dateFormat, formatPlayTime, sizeFormate} from '../../index'
+import { dateFormat, formatPlayTime, sizeFormate } from '../../index'
 import { getBatchMusicQualityInfo } from './quality_detail'
 import { updateListMusics } from '@/core/list'
 import playerState from '@/store/player/state'
-import {allMusicList} from "@/utils/listManage";
+import { allMusicList } from '@/utils/listManage'
 
 const fetchingDetails = new Set()
 
@@ -27,13 +27,13 @@ export const fetchAndApplyDetailedQuality = async(musicInfo, retryNum = 0, silen
   for (const list of allMusicList.values()) {
     const found = list.find(item => item.id === musicInfo.id)
     if (found) {
-      if (!silent) console.log("found", found)
+      if (!silent) console.log('found', found)
       latestMusicInfo = found
       break
     }
   }
   const currentMusicInfo = latestMusicInfo || musicInfo
-  if (!silent) console.log("found -> currentMusicInfo", currentMusicInfo)
+  if (!silent) console.log('found -> currentMusicInfo', currentMusicInfo)
   if (currentMusicInfo.meta._full) return currentMusicInfo
 
   const songId = currentMusicInfo.meta.songId
@@ -80,29 +80,28 @@ export const fetchAndApplyDetailedQuality = async(musicInfo, retryNum = 0, silen
       },
     }
 
-    const listIdsToUpdate = [];
+    const listIdsToUpdate = []
     for (const [listId, list] of allMusicList.entries()) {
       if (list.some(item => item.id === musicInfo.id)) {
-        listIdsToUpdate.push(listId);
+        listIdsToUpdate.push(listId)
       }
     }
 
     if (listIdsToUpdate.length) {
-      if (!silent) console.log('updateListMusics');
-      void updateListMusics(listIdsToUpdate.map(id => ({ id, musicInfo: updatedMusicInfo })));
+      if (!silent) console.log('updateListMusics')
+      void updateListMusics(listIdsToUpdate.map(id => ({ id, musicInfo: updatedMusicInfo })))
     } else {
-      if (!silent) console.log('global.app_event.musicInfoUpdate');
-      global.app_event.musicInfoUpdate(updatedMusicInfo);
+      if (!silent) console.log('global.app_event.musicInfoUpdate')
+      global.app_event.musicInfoUpdate(updatedMusicInfo)
     }
 
     if (playerState.playMusicInfo.musicInfo?.id === musicInfo.id) {
-      if (!silent) console.log('updatePlayMusicInfo');
-      playerState.playMusicInfo.musicInfo.meta = updatedMusicInfo.meta;
+      if (!silent) console.log('updatePlayMusicInfo')
+      playerState.playMusicInfo.musicInfo.meta = updatedMusicInfo.meta
     }
 
     fetchingDetails.delete(songId)
     return updatedMusicInfo
-
   } catch (error) {
     if (++retryNum > 2) {
       console.error(`Failed to fetch details for ${musicInfo.name} after max retries:`, error)
@@ -150,8 +149,8 @@ export default {
         m: item.mMusic,
         h: item.hMusic,
         sq: item.sqMusic,
-        hr: item.hrMusic
-      }));
+        hr: item.hrMusic,
+      }))
     }
 
     const list = []

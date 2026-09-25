@@ -16,15 +16,13 @@ export const setTipList: (typeof searchActions)['setTipList'] = (list) => {
   searchActions.setTipList(list)
 }
 
-export const getSearchHistory = async () => {
-  if (!searchState.historyList.length)
-    searchActions.setHistoryWord(await getSearchHistoryFromStore())
+export const getSearchHistory = async() => {
+  if (!searchState.historyList.length) { searchActions.setHistoryWord(await getSearchHistoryFromStore()) }
   return searchState.historyList
 }
-export const addHistoryWord = async (word: string) => {
+export const addHistoryWord = async(word: string) => {
   if (!settingState.setting['search.isShowHistorySearch'] || !word) return
-  if (!searchState.historyList.length)
-    searchActions.setHistoryWord(await getSearchHistoryFromStore())
+  if (!searchState.historyList.length) { searchActions.setHistoryWord(await getSearchHistoryFromStore()) }
   const list = searchActions.addHistoryWord(word)
   if (!list) return
   void saveSearchHistory(list)

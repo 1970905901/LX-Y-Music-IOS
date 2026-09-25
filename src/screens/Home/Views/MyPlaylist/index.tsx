@@ -1,11 +1,11 @@
 import { memo, useEffect, useState, useCallback, useRef } from 'react'
-import {View, FlatList, RefreshControl, BackHandler, StyleSheet, Keyboard} from 'react-native'
+import { View, FlatList, RefreshControl, BackHandler, StyleSheet, Keyboard } from 'react-native'
 import ListItem from './ListItem'
 import wyApi from '@/utils/musicSdk/wy/user'
 import wyDailyRecApi from '@/utils/musicSdk/wy/dailyRec'
 import wyMusicDetailApi from '@/utils/musicSdk/wy/musicDetail'
 import { playOnlineList } from '@/core/list'
-import { MUSIC_TOGGLE_MODE } from '@/config/constant'
+import { MUSIC_TOGGLE_MODE, LIST_IDS } from '@/config/constant'
 import { updateSetting } from '@/core/common'
 import { useWySubscribedPlaylists, useWyUid } from '@/store/user/hook.ts'
 import { useHorizontalMode } from '@/utils/hooks'
@@ -21,12 +21,12 @@ import SonglistDetail from '../../../SonglistDetail'
 import { type ListInfoItem } from '@/store/songlist/state'
 import commonState from '@/store/common/state'
 import playerState from '@/store/player/state'
-import { LIST_IDS } from '@/config/constant'
+
 import listState from '@/store/list/state'
-import {setWySubscribedPlaylists, removeWySubscribedPlaylist} from "@/store/user/action.ts"
+import { setWySubscribedPlaylists, removeWySubscribedPlaylist } from '@/store/user/action.ts'
 import Menu, { type MenuType, type Position } from '@/components/common/Menu'
 import PlaylistEditModal, { type PlaylistEditModalType } from './PlaylistEditModal'
-import MusicInfoOnline = LX.Music.MusicInfoOnline;
+import MusicInfoOnline = LX.Music.MusicInfoOnline
 
 export default memo(() => {
   const playlists = useWySubscribedPlaylists()
@@ -47,7 +47,7 @@ export default memo(() => {
   const playlistEditModalRef = useRef<PlaylistEditModalType>(null)
 
   useEffect(() => {
-    const handleJumpPosition = async () => {
+    const handleJumpPosition = async() => {
       let listId = playerState.playMusicInfo.listId
       if (listId === LIST_IDS.TEMP) listId = listState.tempListMeta.id
       if (!listId?.startsWith('wy__')) return
@@ -134,34 +134,34 @@ export default memo(() => {
     const onBackPress = () => {
       if (selectedPlaylistRef.current) {
         if (commonState.componentIds.length > 1) {
-          return false;
+          return false
         }
 
-        setSelectedPlaylist(null);
-        return true;
+        setSelectedPlaylist(null)
+        return true
       }
 
-      return false;
-    };
+      return false
+    }
 
-    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
-    return () => subscription.remove();
-  }, []);
+    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress)
+    return () => { subscription.remove() }
+  }, [])
 
   const handleItemPress = useCallback((playlistInfo: ListInfoItem) => {
     setSelectedPlaylist(playlistInfo)
   }, [])
 
-  const handleHeartbeatPress = useCallback(async (playlistInfo: ListInfoItem) => {
+  const handleHeartbeatPress = useCallback(async(playlistInfo: ListInfoItem) => {
     if (!cookie || !uid) return
     try {
       toast('正在开启心动模式...')
       let ids = Array.from(userState.wy_liked_song_ids)
-      if (!ids || !ids.length) {
+      if (!ids?.length) {
         ids = (await wyApi.getLikedSongList(uid, cookie)).map(String)
       }
 
-      if (!ids || !ids.length) {
+      if (!ids?.length) {
         toast('没有喜欢的歌曲')
         return
       }
@@ -176,7 +176,7 @@ export default memo(() => {
       }
 
       const res = await wyDailyRecApi.getHeartbeatModeList(cookie, playlistInfo.id, randomSongId)
-      const heartbeatList = [mInfo, ...res.list].filter(Boolean) as any[]
+      const heartbeatList = [mInfo, ...res.list].filter(Boolean)
 
       updateSetting({ 'player.togglePlayMethod': MUSIC_TOGGLE_MODE.heartbeat })
       playOnlineList('heartbeat', heartbeatList, 0, false)
@@ -211,7 +211,7 @@ export default memo(() => {
         confirmDialog({
           message: `确定要删除歌单"${item.name}"吗？`,
           confirmButtonText: '删除',
-        }).then(async (confirmed) => {
+        }).then(async(confirmed) => {
           if (!confirmed) return
           try {
             await wyApi.deletePlaylist(item.id)
@@ -275,7 +275,7 @@ export default memo(() => {
           ref={menuRef}
           menus={[{ action: 'edit', label: '编辑' }, { action: 'delete', label: '删除' }]}
           onPress={handleMenuAction}
-          onHide={() => setMenuVisible(false)}
+          onHide={() => { setMenuVisible(false) }}
         />
       )}
       <PlaylistEditModal ref={playlistEditModalRef} />

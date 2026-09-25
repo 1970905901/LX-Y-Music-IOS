@@ -3,7 +3,7 @@ import { useI18n } from '@/lang'
 import settingState from '@/store/setting/state'
 import Menu, { type MenuType, type Position } from '@/components/common/Menu'
 import { hasDislike } from '@/core/dislikeList'
-import {useSettingValue} from "@/store/setting/hook.ts";
+import { useSettingValue } from '@/store/setting/hook.ts'
 import { toast } from '@/utils/tools'
 
 const isTxCookieExpired = (): boolean => {
@@ -45,7 +45,7 @@ export default forwardRef<ListMenuType, ListMenuProps>((props: ListMenuProps, re
   const t = useI18n()
   const [visible, setVisible] = useState(false)
   const menuRef = useRef<MenuType>(null)
-  const [selectInfo, setSelectInfo] = useState<SelectInfo>(initSelectInfo as SelectInfo);
+  const [selectInfo, setSelectInfo] = useState<SelectInfo>(initSelectInfo as SelectInfo)
   const [isDislikeMusic, setDislikeMusic] = useState(false)
 
   const menuSetting = {
@@ -56,7 +56,7 @@ export default forwardRef<ListMenuType, ListMenuProps>((props: ListMenuProps, re
 
   useImperativeHandle(ref, () => ({
     show(newSelectInfo, position) {
-      setSelectInfo(newSelectInfo);
+      setSelectInfo(newSelectInfo)
       setDislikeMusic(hasDislike(newSelectInfo.musicInfo))
       if (visible) menuRef.current?.show(position)
       else {
@@ -70,44 +70,43 @@ export default forwardRef<ListMenuType, ListMenuProps>((props: ListMenuProps, re
 
   const menus = useMemo(() => {
     const menu = []
-    if (menuSetting.playLater) menu.push({ action: 'playLater', label: t('play_later') });
-    menu.push({ action: 'download', label: t('download') });
+    if (menuSetting.playLater) menu.push({ action: 'playLater', label: t('play_later') })
+    menu.push({ action: 'download', label: t('download') })
     // if (menuSetting.addTo) menu.push({ action: 'add', label: t('add_to') });
-    menu.push({ action: 'add', label: t('add_to') });
-    menu.push({ action: 'move', label: t('move_to') });
+    menu.push({ action: 'add', label: t('add_to') })
+    menu.push({ action: 'move', label: t('move_to') })
 
-    const wyMenuItems = [];
+    const wyMenuItems = []
     if (selectInfo.musicInfo?.source === 'wy') {
       wyMenuItems.push(
         { action: 'artistDetail', label: t('artist_detail') },
         { action: 'albumDetail', label: t('album_detail') },
         { action: 'similarSongs', label: '相似歌曲' },
-      );
+      )
     }
 
     if (selectInfo.musicInfo?.source === 'tx') {
       wyMenuItems.push(
         { action: 'artistDetail', label: t('artist_detail') },
         { action: 'albumDetail', label: t('album_detail') },
-      );
+      )
     }
 
     if (selectInfo.musicInfo?.source === 'kg') {
       wyMenuItems.push(
         { action: 'artistDetail', label: t('artist_detail') },
         { action: 'albumDetail', label: t('album_detail') },
-      );
+      )
     }
 
     const remainingMenu = []
-    if (menuSetting.dislike)
-      remainingMenu.push({ action: 'dislike', label: t('dislike'), disabled: isDislikeMusic })
+    if (menuSetting.dislike) { remainingMenu.push({ action: 'dislike', label: t('dislike'), disabled: isDislikeMusic }) }
     remainingMenu.push({ action: 'clearCache', label: t('clear_music_cache') })
 
-    remainingMenu.push({ action: 'remove', label: t('delete') });
+    remainingMenu.push({ action: 'remove', label: t('delete') })
 
-    return [...menu, ...wyMenuItems, ...remainingMenu];
-  }, [t, isDislikeMusic, selectInfo, menuSetting, props.isCreator]);
+    return [...menu, ...wyMenuItems, ...remainingMenu]
+  }, [t, isDislikeMusic, selectInfo, menuSetting, props.isCreator])
 
   const handleMenuPress = ({ action }: (typeof menus)[number]) => {
     if ((action === 'move' || action === 'remove') && props.listId?.startsWith('tx__') && isTxCookieExpired()) {
@@ -144,14 +143,14 @@ export default forwardRef<ListMenuType, ListMenuProps>((props: ListMenuProps, re
         props.onDislikeMusic(selectInfo)
         break
       case 'move':
-        props.onMove?.(selectInfo);
-        break;
+        props.onMove?.(selectInfo)
+        break
       case 'remove':
-        props.onRemove?.(selectInfo);
-        break;
+        props.onRemove?.(selectInfo)
+        break
       case 'clearCache':
-        props.onClearCache?.(selectInfo);
-        break;
+        props.onClearCache?.(selectInfo)
+        break
       default:
         break
     }

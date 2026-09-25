@@ -1,5 +1,5 @@
-import {useCallback, useMemo, useRef, useState, forwardRef, useImperativeHandle, useEffect} from 'react'
-import {FlatList, type FlatListProps, Keyboard, RefreshControl, View} from 'react-native'
+import { useCallback, useMemo, useRef, useState, forwardRef, useImperativeHandle, useEffect } from 'react'
+import { FlatList, type FlatListProps, Keyboard, RefreshControl, View } from 'react-native'
 import ListItem, { ITEM_HEIGHT } from './ListItem'
 import { createStyle, getRowInfo, type RowInfoType } from '@/utils/tools'
 import { useHorizontalMode } from '@/utils/hooks'
@@ -111,8 +111,7 @@ const List = forwardRef<ListType, ListProps>(
         flatListRef.current?.recordInteraction?.()
         onListUpdate?.(list)
         setShowSource(showSource)
-        if (!isAppend && selectedListRef.current.length)
-          setSelectedList((selectedListRef.current = []))
+        if (!isAppend && selectedListRef.current.length) { setSelectedList((selectedListRef.current = [])) }
       },
       setIsMultiSelectMode(isMultiSelectMode) {
         isMultiSelectModeRef.current = isMultiSelectMode
@@ -247,12 +246,28 @@ const List = forwardRef<ListType, ListProps>(
     // 列表只显示前 12 条下方空白（各平台在线列表通病）。
     // 通过 ref 镜像所有依赖，useCallback([]) 固定引用；行级刷新由 extraData 驱动。
     const renderDepsRef = useRef({
-      showSource, isShowAlbumName, isShowInterval, listId, playingId,
-      selectedList, handlePress, handleLongPress, onShowMenu, rowInfo,
+      showSource,
+      isShowAlbumName,
+      isShowInterval,
+      listId,
+      playingId,
+      selectedList,
+      handlePress,
+      handleLongPress,
+      onShowMenu,
+      rowInfo,
     })
     renderDepsRef.current = {
-      showSource, isShowAlbumName, isShowInterval, listId, playingId,
-      selectedList, handlePress, handleLongPress, onShowMenu, rowInfo,
+      showSource,
+      isShowAlbumName,
+      isShowInterval,
+      listId,
+      playingId,
+      selectedList,
+      handlePress,
+      handleLongPress,
+      onShowMenu,
+      rowInfo,
     }
     const renderItem = useCallback<NonNullable<FlatListType['renderItem']>>(({ item, index }) => {
       const d = renderDepsRef.current

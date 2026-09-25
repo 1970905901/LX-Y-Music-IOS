@@ -27,7 +27,7 @@ export function compareVer(currentVer: string, targetVer: string): -1 | 0 | 1 {
 }
 
 export const toNewMusicInfo = (oldMusicInfo: any): LX.Music.MusicInfo | null => {
-  if (!oldMusicInfo || !oldMusicInfo.songmid || !oldMusicInfo.source) {
+  if (!oldMusicInfo?.songmid || !oldMusicInfo.source) {
     return null
   }
 
@@ -37,9 +37,9 @@ export const toNewMusicInfo = (oldMusicInfo: any): LX.Music.MusicInfo | null => 
     picUrl: oldMusicInfo.img || '',
   }
   const newInfo = {
-    id: typeof oldMusicInfo.songmid === 'string' && oldMusicInfo.songmid.startsWith(`${oldMusicInfo.source}_`) ? 
-      oldMusicInfo.songmid : 
-      `${oldMusicInfo.source}_${oldMusicInfo.songmid}`,
+    id: typeof oldMusicInfo.songmid === 'string' && oldMusicInfo.songmid.startsWith(`${oldMusicInfo.source}_`)
+      ? oldMusicInfo.songmid
+      : `${oldMusicInfo.source}_${oldMusicInfo.songmid}`,
     name: oldMusicInfo.name || '',
     alias: oldMusicInfo.alias || '',
     singer: oldMusicInfo.singer || '',
@@ -56,12 +56,12 @@ export const toNewMusicInfo = (oldMusicInfo: any): LX.Music.MusicInfo | null => 
     meta.fee = oldMusicInfo.meta?.fee
     meta.noCopyrightRcmd = oldMusicInfo.noCopyrightRcmd || oldMusicInfo.meta?.noCopyrightRcmd
     if (oldMusicInfo.originCoverType || oldMusicInfo.meta?.originCoverType) {
-      meta.originCoverType = oldMusicInfo.originCoverType || oldMusicInfo.meta.originCoverType;
+      meta.originCoverType = oldMusicInfo.originCoverType || oldMusicInfo.meta.originCoverType
     }
     meta.qualitys = oldMusicInfo.types || []
     meta._qualitys = oldMusicInfo._types || {}
     meta.albumId = oldMusicInfo.albumId || ''
-    if ((oldMusicInfo as any).mixSongId) meta.mixSongId = (oldMusicInfo as any).mixSongId
+    if ((oldMusicInfo).mixSongId) meta.mixSongId = (oldMusicInfo).mixSongId
 
     if (meta._qualitys && typeof meta._qualitys === 'object' && Array.isArray(meta.qualitys)) {
       if (meta._qualitys.flac32bit && !meta._qualitys.hires) {

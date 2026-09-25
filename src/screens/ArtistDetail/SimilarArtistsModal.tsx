@@ -12,10 +12,10 @@ import { useWindowSize } from '@/utils/hooks'
 import { createStyle, toast } from '@/utils/tools'
 
 export interface SimilarArtistsModalType {
-  show: (artist: { id: string | number; name?: string; source?: string }) => void
+  show: (artist: { id: string | number, name?: string, source?: string }) => void
 }
 
-type ArtistInfo = {
+interface ArtistInfo {
   id: string | number
   name: string
   alias?: string[] | null
@@ -36,7 +36,7 @@ const ArtistItem = memo(({
   source,
 }: {
   item: ArtistInfo & { source?: string }
-  onOpen: (artist: ArtistInfo & { mid?: string; source?: string; picUrl?: string }) => void
+  onOpen: (artist: ArtistInfo & { mid?: string, source?: string, picUrl?: string }) => void
   source?: string
 }) => {
   const theme = useTheme()
@@ -66,7 +66,7 @@ const ArtistItem = memo(({
         <Icon name="chevron-right" size={16} color={theme['c-font-label']} />
       </TouchableOpacity>
       {showDesc && (
-        <TouchableOpacity activeOpacity={0.8} onPress={() => setExpanded(!expanded)}>
+        <TouchableOpacity activeOpacity={0.8} onPress={() => { setExpanded(!expanded) }}>
           <Text
             color={theme['c-font-label']}
             size={12}
@@ -92,7 +92,7 @@ export default forwardRef<SimilarArtistsModalType, { componentId: string }>(({ c
   const requestIdRef = useRef(0)
   const theme = useTheme()
 
-  const loadData = useCallback((artist: { id: string | number; name?: string; source?: string }) => {
+  const loadData = useCallback((artist: { id: string | number, name?: string, source?: string }) => {
     const requestId = ++requestIdRef.current
     setLoading(true)
     setList([])
@@ -137,7 +137,7 @@ export default forwardRef<SimilarArtistsModalType, { componentId: string }>(({ c
     },
   }))
 
-  const handleOpenArtist = useCallback((artist: ArtistInfo & { mid?: string; source?: string; picUrl?: string }) => {
+  const handleOpenArtist = useCallback((artist: ArtistInfo & { mid?: string, source?: string, picUrl?: string }) => {
     popupRef.current?.setVisible(false)
     requestAnimationFrame(() => {
       navigations.pushArtistDetailScreen(componentId, {

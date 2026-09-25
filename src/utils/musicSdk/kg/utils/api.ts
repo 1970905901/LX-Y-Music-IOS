@@ -1,75 +1,75 @@
-import axios from 'axios';
-import { stringMd5 } from 'react-native-quick-md5';
-import { Buffer } from '@craftzdog/react-native-buffer';
-import { generateSidEdt, cryptoAesEncrypt, cryptoRSAEncrypt, cryptoAesDecrypt, rsaEncrypt2, playlistAesEncrypt, playlistAesDecrypt } from './crypto';
-import { formatPlayTime } from '@/utils/common';
-import { getBatchMusicQualityInfo } from '../quality_detail';
+import axios from 'axios'
+import { stringMd5 } from 'react-native-quick-md5'
+import { Buffer } from '@craftzdog/react-native-buffer'
+import { generateSidEdt, cryptoAesEncrypt, cryptoRSAEncrypt, cryptoAesDecrypt, rsaEncrypt2, playlistAesEncrypt, playlistAesDecrypt } from './crypto'
+import { formatPlayTime } from '@/utils/common'
+import { getBatchMusicQualityInfo } from '../quality_detail'
 
 const KG_CONFIG = {
   appid: '1005',
   clientver: '20489',
   liteAppid: '3116',
   liteClientver: '11440',
-};
+}
 
-const KG_API_BASE = 'https://gateway.kugou.com';
-const KG_LOGIN_BASE = 'http://login.user.kugou.com';
+const KG_API_BASE = 'https://gateway.kugou.com'
+const KG_LOGIN_BASE = 'http://login.user.kugou.com'
 
-let cachedDevice: { headers: Record<string, string>; defaultParams: Record<string, any> } | null = null;
+let cachedDevice: { headers: Record<string, string>, defaultParams: Record<string, any> } | null = null
 
-const ANDROID_SIGN_SALT = 'OIlwieks28dk2k092lksi2UIkp';
+const ANDROID_SIGN_SALT = 'OIlwieks28dk2k092lksi2UIkp'
 
-export type LogCallback = (message: string) => void;
+export type LogCallback = (message: string) => void
 
 function md5(str: string): string {
-  return stringMd5(str);
+  return stringMd5(str)
 }
 
 function randomString(length: number = 16): string {
-  const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  let result = '';
+  const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+  let result = ''
   for (let i = 0; i < length; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
+    result += chars.charAt(Math.floor(Math.random() * chars.length))
   }
-  return result;
+  return result
 }
 
 function generateDeviceId(): string {
-  return randomString(24);
+  return randomString(24)
 }
 
 function generateMid(): string {
-  const guid = randomString(32);
-  return md5(guid);
+  const guid = randomString(32)
+  return md5(guid)
 }
 
 export function signAndroidParams(params: Record<string, any>, data?: string, onLog?: LogCallback): string {
-  const sortedKeys = Object.keys(params).sort();
+  const sortedKeys = Object.keys(params).sort()
   const paramsString = sortedKeys
     .map((key) => {
-      const value = typeof params[key] === 'object' ? JSON.stringify(params[key]) : params[key];
-      return `${key}=${value}`;
+      const value = typeof params[key] === 'object' ? JSON.stringify(params[key]) : params[key]
+      return `${key}=${value}`
     })
-    .join('');
+    .join('')
 
-  const dataStr = data || '';
-  const signStr = `${ANDROID_SIGN_SALT}${paramsString}${dataStr}${ANDROID_SIGN_SALT}`;
-  
-  onLog?.(`签名盐值: ${ANDROID_SIGN_SALT}`);
-  onLog?.(`排序后的参数键: ${sortedKeys.join(', ')}`);
-  onLog?.(`参数字符串: ${paramsString}`);
-  onLog?.(`请求体数据: ${dataStr.substring(0, 100)}`);
-  onLog?.(`完整签名字符串: ${signStr}`);
-  
-  const signature = md5(signStr);
-  onLog?.(`生成签名: ${signature}`);
-  return signature;
+  const dataStr = data || ''
+  const signStr = `${ANDROID_SIGN_SALT}${paramsString}${dataStr}${ANDROID_SIGN_SALT}`
+
+  onLog?.(`签名盐值: ${ANDROID_SIGN_SALT}`)
+  onLog?.(`排序后的参数键: ${sortedKeys.join(', ')}`)
+  onLog?.(`参数字符串: ${paramsString}`)
+  onLog?.(`请求体数据: ${dataStr.substring(0, 100)}`)
+  onLog?.(`完整签名字符串: ${signStr}`)
+
+  const signature = md5(signStr)
+  onLog?.(`生成签名: ${signature}`)
+  return signature
 }
 
-export function generateHeadersAndParams(): { headers: Record<string, string>; defaultParams: Record<string, any> } {
-  const dfid = generateDeviceId();
-  const mid = generateMid();
-  const clienttime = Math.floor(Date.now() / 1000);
+export function generateHeadersAndParams(): { headers: Record<string, string>, defaultParams: Record<string, any> } {
+  const dfid = generateDeviceId()
+  const mid = generateMid()
+  const clienttime = Math.floor(Date.now() / 1000)
 
   const headers = {
     'User-Agent': 'Android15-1070-11083-46-0-DiscoveryDRADProtocol-wifi',
@@ -81,7 +81,7 @@ export function generateHeadersAndParams(): { headers: Record<string, string>; d
     'kg-thash': '5d816a0',
     'kg-rec': '1',
     'kg-rf': 'B9EDA08A64250DEFFBCADDEE00F8F25F',
-  };
+  }
 
   const defaultParams = {
     dfid,
@@ -90,43 +90,43 @@ export function generateHeadersAndParams(): { headers: Record<string, string>; d
     appid: KG_CONFIG.appid,
     clientver: KG_CONFIG.clientver,
     clienttime,
-  };
+  }
 
-  return { headers, defaultParams };
+  return { headers, defaultParams }
 }
 
 export async function sendCaptcha(
   mobile: string,
-  onLog?: LogCallback
-): Promise<{ success: boolean; message: string; ssaCode?: string }> {
+  onLog?: LogCallback,
+): Promise<{ success: boolean, message: string, ssaCode?: string }> {
   const log = (msg: string) => {
-    if (global.lx.isEnableLog) console.log(`[KuGou] ${msg}`);
-    onLog?.(msg);
-  };
+    if (global.lx.isEnableLog) console.log(`[KuGou] ${msg}`)
+    onLog?.(msg)
+  }
 
   try {
-    const { headers, defaultParams } = cachedDevice || generateHeadersAndParams();
-    log(`${cachedDevice ? '复用缓存' : '生成'}设备信息: MID=${defaultParams.mid}, dfid=${defaultParams.dfid}`);
+    const { headers, defaultParams } = cachedDevice || generateHeadersAndParams()
+    log(`${cachedDevice ? '复用缓存' : '生成'}设备信息: MID=${defaultParams.mid}, dfid=${defaultParams.dfid}`)
 
     if (!cachedDevice) {
-      cachedDevice = { headers, defaultParams };
+      cachedDevice = { headers, defaultParams }
     }
 
     const dataMap = {
       businessid: 5,
-      mobile: mobile,
+      mobile,
       plat: 3,
-    };
+    }
 
-    const dataStr = JSON.stringify(dataMap);
-    const signature = signAndroidParams(defaultParams, dataStr, log);
-    log(`生成签名: ${signature}`);
+    const dataStr = JSON.stringify(dataMap)
+    const signature = signAndroidParams(defaultParams, dataStr, log)
+    log(`生成签名: ${signature}`)
 
-    log(`请求URL: ${KG_LOGIN_BASE}/v7/send_mobile_code`);
-    log(`请求体: ${dataStr}`);
-    log(`查询参数: ${JSON.stringify({ ...defaultParams, signature })}`);
-    log(`请求头: ${JSON.stringify(headers)}`);
-    log(`Cookie: mid=${defaultParams.mid}`);
+    log(`请求URL: ${KG_LOGIN_BASE}/v7/send_mobile_code`)
+    log(`请求体: ${dataStr}`)
+    log(`查询参数: ${JSON.stringify({ ...defaultParams, signature })}`)
+    log(`请求头: ${JSON.stringify(headers)}`)
+    log(`Cookie: mid=${defaultParams.mid}`)
 
     const response = await axios({
       baseURL: KG_LOGIN_BASE,
@@ -139,41 +139,41 @@ export async function sendCaptcha(
         Cookie: `mid=${defaultParams.mid}`,
       },
       timeout: 10000,
-    });
+    })
 
-    log(`响应状态: ${response.status}`);
-    log(`响应头: ${JSON.stringify(response.headers)}`);
-    log(`响应数据: ${JSON.stringify(response.data)}`);
+    log(`响应状态: ${response.status}`)
+    log(`响应头: ${JSON.stringify(response.headers)}`)
+    log(`响应数据: ${JSON.stringify(response.data)}`)
 
-    const ssaCode = response.headers['ssa-code'] || response.headers['SSA-CODE'];
+    const ssaCode = response.headers['ssa-code'] || response.headers['SSA-CODE']
     if (ssaCode) {
-      log(`需要人机验证: ssa-code=${ssaCode}`);
-      return { 
-        success: false, 
-        message: '需要人机验证', 
-        ssaCode: ssaCode 
-      };
+      log(`需要人机验证: ssa-code=${ssaCode}`)
+      return {
+        success: false,
+        message: '需要人机验证',
+        ssaCode,
+      }
     }
 
-    const result = response.data;
+    const result = response.data
     if (result.status === 1 || result.error_code === 0) {
-      log('验证码发送成功');
-      cachedDevice = null;
-      return { success: true, message: '验证码已发送' };
+      log('验证码发送成功')
+      cachedDevice = null
+      return { success: true, message: '验证码已发送' }
     } else {
-      log(`发送失败: error_code=${result.error_code}, msg=${result.msg || '未知错误'}`);
-      return { success: false, message: result.msg || `发送失败(${result.error_code})` };
+      log(`发送失败: error_code=${result.error_code}, msg=${result.msg || '未知错误'}`)
+      return { success: false, message: result.msg || `发送失败(${result.error_code})` }
     }
   } catch (error: any) {
     const errorMsg = error.response?.data
       ? JSON.stringify(error.response.data)
-      : error.message || '网络错误';
-    log(`请求异常: ${errorMsg}`);
+      : error.message || '网络错误'
+    log(`请求异常: ${errorMsg}`)
     if (error.response) {
-      log(`HTTP状态码: ${error.response.status}`);
+      log(`HTTP状态码: ${error.response.status}`)
     }
-    console.error('发送验证码失败:', error);
-    return { success: false, message: errorMsg };
+    console.error('发送验证码失败:', error)
+    return { success: false, message: errorMsg }
   }
 }
 
@@ -181,26 +181,26 @@ export async function loginByPhone(
   mobile: string,
   code: string,
   onLog?: LogCallback,
-  userid?: string
-): Promise<{ success: boolean; data?: any; message: string }> {
+  userid?: string,
+): Promise<{ success: boolean, data?: any, message: string }> {
   const log = (msg: string) => {
-    if (global.lx.isEnableLog) console.log(`[KuGou] ${msg}`);
-    onLog?.(msg);
-  };
+    if (global.lx.isEnableLog) console.log(`[KuGou] ${msg}`)
+    onLog?.(msg)
+  }
 
   try {
-    const dateTime = Date.now();
-    const { headers, defaultParams } = cachedDevice || generateHeadersAndParams();
+    const dateTime = Date.now()
+    const { headers, defaultParams } = cachedDevice || generateHeadersAndParams()
 
-    log(`设备信息: dfid=${defaultParams.dfid}, mid=${defaultParams.mid}, cached=${!!cachedDevice}`);
+    log(`设备信息: dfid=${defaultParams.dfid}, mid=${defaultParams.mid}, cached=${!!cachedDevice}`)
     if (userid) {
-      log(`指定登录 userid: ${userid}`);
+      log(`指定登录 userid: ${userid}`)
     }
 
-    const encrypt = cryptoAesEncrypt({ mobile: mobile, code: code });
-    const pk = cryptoRSAEncrypt({ clienttime_ms: dateTime, key: encrypt.key }).toUpperCase();
-    const params = encrypt.str;
-    log(`加密完成: pk长度=${pk.length}, params长度=${params.length}`);
+    const encrypt = cryptoAesEncrypt({ mobile, code })
+    const pk = cryptoRSAEncrypt({ clienttime_ms: dateTime, key: encrypt.key }).toUpperCase()
+    const params = encrypt.str
+    log(`加密完成: pk长度=${pk.length}, params长度=${params.length}`)
 
     const dataMap: Record<string, any> = {
       plat: 1,
@@ -211,20 +211,20 @@ export async function loginByPhone(
       clienttime_ms: dateTime,
       mobile: `${mobile.substring(0, 2)}*****${mobile.substring(10, 11)}`,
       key: md5(`${KG_CONFIG.appid}${ANDROID_SIGN_SALT}${KG_CONFIG.clientver}${dateTime}`),
-      pk: pk,
-      params: params,
-    };
-
-    if (userid) {
-      dataMap.userid = userid;
+      pk,
+      params,
     }
 
-    const dataStr = JSON.stringify(dataMap);
-    const signature = signAndroidParams(defaultParams, dataStr, log);
-    log(`生成签名: ${signature}`);
+    if (userid) {
+      dataMap.userid = userid
+    }
 
-    log(`请求URL: https://loginserviceretry.kugou.com/v7/login_by_verifycode`);
-    log(`请求体: ${dataStr.substring(0, 200)}...`);
+    const dataStr = JSON.stringify(dataMap)
+    const signature = signAndroidParams(defaultParams, dataStr, log)
+    log(`生成签名: ${signature}`)
+
+    log('请求URL: https://loginserviceretry.kugou.com/v7/login_by_verifycode')
+    log(`请求体: ${dataStr.substring(0, 200)}...`)
 
     const response = await axios({
       baseURL: 'https://loginserviceretry.kugou.com',
@@ -239,33 +239,33 @@ export async function loginByPhone(
         Cookie: `mid=${defaultParams.mid}`,
       },
       timeout: 10000,
-    });
+    })
 
-    log(`响应状态: ${response.status}`);
-    log(`响应数据: ${JSON.stringify(response.data)}`);
+    log(`响应状态: ${response.status}`)
+    log(`响应数据: ${JSON.stringify(response.data)}`)
 
-    const result = response.data;
+    const result = response.data
     if (result.status === 1 && result.data) {
-      const data = { ...result.data };
+      const data = { ...result.data }
 
       if (data.secu_params) {
         try {
-          const decrypted = cryptoAesDecrypt(data.secu_params, encrypt.key);
-          log(`secu_params 解密成功`);
+          const decrypted = cryptoAesDecrypt(data.secu_params, encrypt.key)
+          log('secu_params 解密成功')
           try {
-            const tokenObj = JSON.parse(decrypted);
-            Object.assign(data, tokenObj);
+            const tokenObj = JSON.parse(decrypted)
+            Object.assign(data, tokenObj)
           } catch {
-            data.token = decrypted;
+            data.token = decrypted
           }
         } catch (e: any) {
-          log(`secu_params 解密失败: ${e?.message}`);
+          log(`secu_params 解密失败: ${e?.message}`)
         }
       }
 
-      const { token, userid, vip_type, vip_token, t1 } = data;
-      log(`登录成功: userid=${userid}, token=${token?.substring(0, 20)}...`);
-      cachedDevice = null;
+      const { token, userid, vip_type, vip_token, t1 } = data
+      log(`登录成功: userid=${userid}, token=${token?.substring(0, 20)}...`)
+      cachedDevice = null
       return {
         success: true,
         data: {
@@ -278,40 +278,40 @@ export async function loginByPhone(
           vip_token,
         },
         message: '登录成功',
-      };
+      }
     } else {
-      log(`登录失败: error_code=${result.error_code}, msg=${result.msg || '未知错误'}`);
-      return { success: false, message: result.msg || `登录失败(${result.error_code})` };
+      log(`登录失败: error_code=${result.error_code}, msg=${result.msg || '未知错误'}`)
+      return { success: false, message: result.msg || `登录失败(${result.error_code})` }
     }
   } catch (error: any) {
     const errorMsg = error.response?.data
       ? JSON.stringify(error.response.data)
-      : error.message || '网络错误';
-    log(`请求异常: ${errorMsg}`);
+      : error.message || '网络错误'
+    log(`请求异常: ${errorMsg}`)
     if (error.response) {
-      log(`HTTP状态码: ${error.response.status}`);
+      log(`HTTP状态码: ${error.response.status}`)
     }
-    console.error('登录失败:', error);
-    return { success: false, message: errorMsg };
+    console.error('登录失败:', error)
+    return { success: false, message: errorMsg }
   }
 }
 
 export async function refreshToken(
   token: string,
   userid: string,
-  onLog?: LogCallback
-): Promise<{ success: boolean; data?: any; message: string }> {
+  onLog?: LogCallback,
+): Promise<{ success: boolean, data?: any, message: string }> {
   const log = (msg: string) => {
-    if (global.lx.isEnableLog) console.log(`[KuGou] ${msg}`);
-    onLog?.(msg);
-  };
+    if (global.lx.isEnableLog) console.log(`[KuGou] ${msg}`)
+    onLog?.(msg)
+  }
 
   try {
-    const dateTime = Date.now();
-    const { headers, defaultParams } = generateHeadersAndParams();
+    const dateTime = Date.now()
+    const { headers, defaultParams } = generateHeadersAndParams()
 
-    log(`生成设备标识: dfid=${defaultParams.dfid}`);
-    log(`生成MID: ${defaultParams.mid}`);
+    log(`生成设备标识: dfid=${defaultParams.dfid}`)
+    log(`生成MID: ${defaultParams.mid}`)
 
     const dataMap = {
       dfid: defaultParams.dfid,
@@ -322,17 +322,17 @@ export async function refreshToken(
       t3: 'MCwwLDAsMCwwLDAsMCwwLDA=',
       pk: '',
       params: '',
-      userid: userid,
+      userid,
       clienttime_ms: dateTime,
-    };
+    }
 
-    const dataStr = JSON.stringify(dataMap);
-    const signature = signAndroidParams(defaultParams, dataStr, log);
-    log(`生成签名: ${signature}`);
+    const dataStr = JSON.stringify(dataMap)
+    const signature = signAndroidParams(defaultParams, dataStr, log)
+    log(`生成签名: ${signature}`)
 
-    log(`请求URL: ${KG_LOGIN_BASE}/v5/login_by_token`);
-    log(`请求体: ${dataStr}`);
-    log(`查询参数: ${JSON.stringify({ ...defaultParams, signature })}`);
+    log(`请求URL: ${KG_LOGIN_BASE}/v5/login_by_token`)
+    log(`请求体: ${dataStr}`)
+    log(`查询参数: ${JSON.stringify({ ...defaultParams, signature })}`)
 
     const response = await axios({
       baseURL: KG_LOGIN_BASE,
@@ -342,15 +342,15 @@ export async function refreshToken(
       params: { ...defaultParams, signature },
       headers,
       timeout: 10000,
-    });
+    })
 
-    log(`响应状态: ${response.status}`);
-    log(`响应数据: ${JSON.stringify(response.data)}`);
+    log(`响应状态: ${response.status}`)
+    log(`响应数据: ${JSON.stringify(response.data)}`)
 
-    const result = response.data;
+    const result = response.data
     if (result.status === 1 && result.data) {
-      const { token: newToken, userid: newUserid, vip_type, vip_token } = result.data;
-      log(`刷新成功: userid=${newUserid || userid}`);
+      const { token: newToken, userid: newUserid, vip_type, vip_token } = result.data
+      log(`刷新成功: userid=${newUserid || userid}`)
       return {
         success: true,
         data: {
@@ -362,38 +362,38 @@ export async function refreshToken(
           vip_token,
         },
         message: '刷新成功',
-      };
+      }
     } else {
-      log(`刷新失败: error_code=${result.error_code}, msg=${result.msg || '未知错误'}`);
-      return { success: false, message: result.msg || `刷新失败(${result.error_code})` };
+      log(`刷新失败: error_code=${result.error_code}, msg=${result.msg || '未知错误'}`)
+      return { success: false, message: result.msg || `刷新失败(${result.error_code})` }
     }
   } catch (error: any) {
     const errorMsg = error.response?.data
       ? JSON.stringify(error.response.data)
-      : error.message || '网络错误';
-    log(`请求异常: ${errorMsg}`);
+      : error.message || '网络错误'
+    log(`请求异常: ${errorMsg}`)
     if (error.response) {
-      log(`HTTP状态码: ${error.response.status}`);
+      log(`HTTP状态码: ${error.response.status}`)
     }
-    console.error('刷新登录失败:', error);
-    return { success: false, message: errorMsg };
+    console.error('刷新登录失败:', error)
+    return { success: false, message: errorMsg }
   }
 }
 
 export async function getVerifyInfo(
   eventid: string,
-  onLog?: LogCallback
-): Promise<{ success: boolean; data?: any; message: string }> {
+  onLog?: LogCallback,
+): Promise<{ success: boolean, data?: any, message: string }> {
   const log = (msg: string) => {
-    if (global.lx.isEnableLog) console.log(`[KuGou] ${msg}`);
-    onLog?.(msg);
-  };
+    if (global.lx.isEnableLog) console.log(`[KuGou] ${msg}`)
+    onLog?.(msg)
+  }
 
   try {
-    const { headers, defaultParams } = generateHeadersAndParams();
+    const { headers, defaultParams } = generateHeadersAndParams()
 
     const dataMap = {
-      eventid: eventid,
+      eventid,
       userid: 0,
       platid: 2,
       rtype: 1,
@@ -401,12 +401,12 @@ export async function getVerifyInfo(
       i: '',
       sid: '',
       edt: '',
-    };
+    }
 
-    const dataStr = JSON.stringify(dataMap);
-    const signature = signAndroidParams(defaultParams, dataStr, log);
+    const dataStr = JSON.stringify(dataMap)
+    const signature = signAndroidParams(defaultParams, dataStr, log)
 
-    log(`请求URL: ${KG_API_BASE}/verifyservice/v3/get_verify_info`);
+    log(`请求URL: ${KG_API_BASE}/verifyservice/v3/get_verify_info`)
 
     const response = await axios({
       baseURL: KG_API_BASE,
@@ -419,25 +419,25 @@ export async function getVerifyInfo(
         Cookie: `mid=${defaultParams.mid}`,
       },
       timeout: 10000,
-    });
+    })
 
-    log(`响应状态: ${response.status}`);
-    log(`响应数据: ${JSON.stringify(response.data)}`);
+    log(`响应状态: ${response.status}`)
+    log(`响应数据: ${JSON.stringify(response.data)}`)
 
-    const result = response.data;
+    const result = response.data
     if (result.status === 1 && result.data) {
-      log('获取验证信息成功');
-      return { success: true, data: result.data, message: '获取成功' };
+      log('获取验证信息成功')
+      return { success: true, data: result.data, message: '获取成功' }
     } else {
-      log(`获取失败: ${result.msg || '未知错误'}`);
-      return { success: false, message: result.msg || '获取失败' };
+      log(`获取失败: ${result.msg || '未知错误'}`)
+      return { success: false, message: result.msg || '获取失败' }
     }
   } catch (error: any) {
     const errorMsg = error.response?.data
       ? JSON.stringify(error.response.data)
-      : error.message || '网络错误';
-    log(`请求异常: ${errorMsg}`);
-    return { success: false, message: errorMsg };
+      : error.message || '网络错误'
+    log(`请求异常: ${errorMsg}`)
+    return { success: false, message: errorMsg }
   }
 }
 
@@ -447,42 +447,42 @@ export async function verifyUserInfo(
   verifycode: string,
   sid: string,
   edt: string,
-  onLog?: LogCallback
-): Promise<{ success: boolean; message: string }> {
+  onLog?: LogCallback,
+): Promise<{ success: boolean, message: string }> {
   const log = (msg: string) => {
-    if (global.lx.isEnableLog) console.log(`[KuGou] ${msg}`);
-    onLog?.(msg);
-  };
+    if (global.lx.isEnableLog) console.log(`[KuGou] ${msg}`)
+    onLog?.(msg)
+  }
 
-  log(`=== verifyUserInfo 开始 ===`);
-  log(`入参: eventid=${eventid}, vType=${vType}, sid长度=${sid.length}, edt长度=${edt.length}`);
+  log('=== verifyUserInfo 开始 ===')
+  log(`入参: eventid=${eventid}, vType=${vType}, sid长度=${sid.length}, edt长度=${edt.length}`)
 
   try {
-    const { headers, defaultParams } = cachedDevice || generateHeadersAndParams();
-    log(`设备信息: mid=${defaultParams.mid}, dfid=${defaultParams.dfid}, cached=${!!cachedDevice}`);
+    const { headers, defaultParams } = cachedDevice || generateHeadersAndParams()
+    log(`设备信息: mid=${defaultParams.mid}, dfid=${defaultParams.dfid}, cached=${!!cachedDevice}`)
 
-    let finalSid = sid;
-    let finalEdt = edt;
+    let finalSid = sid
+    let finalEdt = edt
     if (!finalSid || !finalEdt) {
-      log(`sid/edt 为空，开始生成...`);
+      log('sid/edt 为空，开始生成...')
       try {
-        const simulate = generateSidEdt(defaultParams.mid, '0', defaultParams.dfid);
-        finalSid = simulate.sid;
-        finalEdt = simulate.edt;
-        log(`sid/edt 生成成功, sid长度=${finalSid.length}, edt长度=${finalEdt.length}`);
+        const simulate = generateSidEdt(defaultParams.mid, '0', defaultParams.dfid)
+        finalSid = simulate.sid
+        finalEdt = simulate.edt
+        log(`sid/edt 生成成功, sid长度=${finalSid.length}, edt长度=${finalEdt.length}`)
       } catch (genError: any) {
-        log(`sid/edt 生成失败: ${genError?.message}`);
+        log(`sid/edt 生成失败: ${genError?.message}`)
       }
     }
 
-    log(`开始生成 pk/params...`);
-    const encrypt = cryptoAesEncrypt({});
-    const pk = cryptoRSAEncrypt({ key: encrypt.key }).toUpperCase();
-    const params = encrypt.str;
-    log(`pk长度=${pk.length}, params长度=${params.length}, key=${encrypt.key}`);
+    log('开始生成 pk/params...')
+    const encrypt = cryptoAesEncrypt({})
+    const pk = cryptoRSAEncrypt({ key: encrypt.key }).toUpperCase()
+    const params = encrypt.str
+    log(`pk长度=${pk.length}, params长度=${params.length}, key=${encrypt.key}`)
 
     let dataMap: any = {
-      eventid: eventid,
+      eventid,
       userid: 0,
       platid: 2,
       v_type: vType,
@@ -490,34 +490,34 @@ export async function verifyUserInfo(
       i: '',
       sid: finalSid,
       edt: finalEdt,
-    };
+    }
 
     if (vType === 23) {
       dataMap = {
         ...dataMap,
-        verifycode: verifycode,
-        pk: pk,
-        params: params,
-      };
+        verifycode,
+        pk,
+        params,
+      }
     }
 
     if (vType === 32) {
       dataMap = {
         ...dataMap,
         code: verifycode,
-        pk: pk,
-        params: params,
-      };
+        pk,
+        params,
+      }
     }
 
-    const dataStr = JSON.stringify(dataMap);
-    log(`请求体: ${dataStr.substring(0, 300)}...`);
+    const dataStr = JSON.stringify(dataMap)
+    log(`请求体: ${dataStr.substring(0, 300)}...`)
 
-    const queryParams = { ...defaultParams, clientver: 11510 };
-    const signature = signAndroidParams(queryParams, dataStr, log);
+    const queryParams = { ...defaultParams, clientver: 11510 }
+    const signature = signAndroidParams(queryParams, dataStr, log)
 
-    log(`最终签名: ${signature}`);
-    log(`请求URL: https://verifyservice.kugou.com/v4/verify_user_info`);
+    log(`最终签名: ${signature}`)
+    log('请求URL: https://verifyservice.kugou.com/v4/verify_user_info')
 
     const response = await axios({
       baseURL: 'https://verifyservice.kugou.com',
@@ -530,48 +530,48 @@ export async function verifyUserInfo(
         Cookie: `mid=${defaultParams.mid}`,
       },
       timeout: 10000,
-    });
+    })
 
-    log(`响应状态: ${response.status}`);
-    log(`响应数据: ${JSON.stringify(response.data)}`);
+    log(`响应状态: ${response.status}`)
+    log(`响应数据: ${JSON.stringify(response.data)}`)
 
-    const result = response.data;
+    const result = response.data
     if (result.status === 1 || result.error_code === 0) {
-      log('=== verifyUserInfo 验证成功 ===');
-      return { success: true, message: '验证成功' };
+      log('=== verifyUserInfo 验证成功 ===')
+      return { success: true, message: '验证成功' }
     } else {
-      log(`=== verifyUserInfo 验证失败: ${result.msg || result.data || '未知错误'} ===`);
-      return { success: false, message: result.msg || result.data || '验证失败' };
+      log(`=== verifyUserInfo 验证失败: ${result.msg || result.data || '未知错误'} ===`)
+      return { success: false, message: result.msg || result.data || '验证失败' }
     }
   } catch (error: any) {
     const errorMsg = error.response?.data
       ? JSON.stringify(error.response.data)
-      : error.message || '网络错误';
-    log(`=== verifyUserInfo 异常: ${errorMsg} ===`);
-    return { success: false, message: errorMsg };
+      : error.message || '网络错误'
+    log(`=== verifyUserInfo 异常: ${errorMsg} ===`)
+    return { success: false, message: errorMsg }
   }
 }
 
 export function buildCookieString(data: {
-  userid?: string;
-  token?: string;
-  t1?: string;
-  dfid?: string;
-  mid?: string;
+  userid?: string
+  token?: string
+  t1?: string
+  dfid?: string
+  mid?: string
 }): string {
-  const parts = [];
+  const parts = []
   if (data.userid) {
-    parts.push(`KugooID=${data.userid}`);
-    parts.push(`userid=${data.userid}`);
+    parts.push(`KugooID=${data.userid}`)
+    parts.push(`userid=${data.userid}`)
   }
   if (data.token) {
-    parts.push(`t=${data.token}`);
-    parts.push(`token=${data.token}`);
+    parts.push(`t=${data.token}`)
+    parts.push(`token=${data.token}`)
   }
-  if (data.t1) parts.push(`t1=${data.t1}`);
-  if (data.dfid) parts.push(`dfid=${data.dfid}`);
-  if (data.mid) parts.push(`mid=${data.mid}`);
-  return parts.join('; ');
+  if (data.t1) parts.push(`t1=${data.t1}`)
+  if (data.dfid) parts.push(`dfid=${data.dfid}`)
+  if (data.mid) parts.push(`mid=${data.mid}`)
+  return parts.join('; ')
 }
 
 function cookieToJson(cookie: string): Record<string, string> {
@@ -586,12 +586,12 @@ function cookieToJson(cookie: string): Record<string, string> {
 
 export async function getUserPlaylists(
   cookie: string,
-  onLog?: LogCallback
-): Promise<{ success: boolean; data?: any; message: string }> {
+  onLog?: LogCallback,
+): Promise<{ success: boolean, data?: any, message: string }> {
   const log = (msg: string) => {
-    if (global.lx.isEnableLog) console.log(`[KuGou] ${msg}`);
-    onLog?.(msg);
-  };
+    if (global.lx.isEnableLog) console.log(`[KuGou] ${msg}`)
+    onLog?.(msg)
+  }
 
   const cookieObj = cookieToJson(cookie)
   const userid = cookieObj.userid || cookieObj.KugooID || ''
@@ -645,7 +645,7 @@ export async function getUserPlaylists(
       const myUserId = Number(userid)
       const allList = (result.data.info || []).map((item: any) => {
         let cover = item.pic || ''
-        if (cover && cover.includes('{size}')) {
+        if (cover?.includes('{size}')) {
           cover = cover.replace('{size}', '400')
         }
         const isFavorites = item.is_def === 2
@@ -718,8 +718,8 @@ export async function subscribePlaylist(
     type?: number
     is_pri?: number
   },
-  onLog?: LogCallback
-): Promise<{ success: boolean; message: string }> {
+  onLog?: LogCallback,
+): Promise<{ success: boolean, message: string }> {
   const log = (msg: string) => {
     if (global.lx.isEnableLog) console.log(`[KuGou] ${msg}`)
     onLog?.(msg)
@@ -804,8 +804,8 @@ export async function subscribePlaylist(
 export async function unsubscribePlaylist(
   cookie: string,
   listid: number,
-  onLog?: LogCallback
-): Promise<{ success: boolean; message: string }> {
+  onLog?: LogCallback,
+): Promise<{ success: boolean, message: string }> {
   const log = (msg: string) => {
     if (global.lx.isEnableLog) console.log(`[KuGou] ${msg}`)
     onLog?.(msg)
@@ -848,8 +848,8 @@ export async function unsubscribePlaylist(
       last_time: clienttime,
       p,
     }
-    if (token) paramsMap['token'] = token
-    if (userid && userid !== '0') paramsMap['userid'] = userid
+    if (token) paramsMap.token = token
+    if (userid && userid !== '0') paramsMap.userid = userid
 
     const signature = signAndroidParams(paramsMap, aesEncrypt.str, log)
 
@@ -865,7 +865,7 @@ export async function unsubscribePlaylist(
     log(`请求URL: ${fullUrl}`)
     log(`请求头: ${JSON.stringify(fullHeaders)}`)
     log(`查询参数: ${JSON.stringify({ ...paramsMap, signature })}`)
-    log(`请求体(加密): ${aesEncrypt.str.substring(0, 100)}...`);
+    log(`请求体(加密): ${aesEncrypt.str.substring(0, 100)}...`)
 
     const queryString = Object.entries({ ...paramsMap, signature })
       .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
@@ -917,8 +917,8 @@ export async function removeSongsFromPlaylist(
   cookie: string,
   listid: number,
   fileids: number[],
-  onLog?: LogCallback
-): Promise<{ success: boolean; message: string }> {
+  onLog?: LogCallback,
+): Promise<{ success: boolean, message: string }> {
   const log = (msg: string) => {
     if (global.lx.isEnableLog) console.log(`[KuGou] ${msg}`)
     onLog?.(msg)
@@ -995,13 +995,13 @@ export async function removeSongsFromPlaylist(
 export async function addSongToPlaylist(
   cookie: string,
   listid: number,
-  songInfo: { name: string; hash: string; album_id?: number; mixsongid?: number },
-  onLog?: LogCallback
-): Promise<{ success: boolean; message: string; song?: any }> {
+  songInfo: { name: string, hash: string, album_id?: number, mixsongid?: number },
+  onLog?: LogCallback,
+): Promise<{ success: boolean, message: string, song?: any }> {
   const log = (msg: string) => {
-    if (global.lx.isEnableLog) console.log(`[KuGou] ${msg}`);
-    onLog?.(msg);
-  };
+    if (global.lx.isEnableLog) console.log(`[KuGou] ${msg}`)
+    onLog?.(msg)
+  }
 
   const cookieObj = cookieToJson(cookie)
   const userid = cookieObj.userid || cookieObj.KugooID || ''
@@ -1027,7 +1027,7 @@ export async function addSongToPlaylist(
       bitrate: 0,
       album_id: songInfo.album_id || 0,
       mixsongid: songInfo.mixsongid || 0,
-    }];
+    }]
 
     const dataMap = {
       userid: Number(userid),
@@ -1041,7 +1041,7 @@ export async function addSongToPlaylist(
     }
 
     const dataStr = JSON.stringify(dataMap)
-    
+
     const queryParams = {
       ...defaultParams,
       last_time: clienttime,
@@ -1100,12 +1100,12 @@ export async function getPlaylistSongs(
   globalCollectionId: string,
   page: number = 1,
   pagesize: number = 100,
-  onLog?: LogCallback
-): Promise<{ success: boolean; data?: any; message: string }> {
+  onLog?: LogCallback,
+): Promise<{ success: boolean, data?: any, message: string }> {
   const log = (msg: string) => {
-    if (global.lx.isEnableLog) console.log(`[KuGou] ${msg}`);
-    onLog?.(msg);
-  };
+    if (global.lx.isEnableLog) console.log(`[KuGou] ${msg}`)
+    onLog?.(msg)
+  }
 
   const cookieObj = cookieToJson(cookie)
 

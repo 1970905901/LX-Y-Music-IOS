@@ -60,7 +60,7 @@ export default forwardRef<ModalType, ModalProps>(
       children,
       ...props
     }: ModalProps,
-    ref
+    ref,
   ) => {
     const [visible, setVisible] = useState(false)
     // const { window: windowSize } = useWindowSize()
@@ -129,5 +129,5 @@ export default forwardRef<ModalType, ModalProps>(
         </View>
       </Modal>
     )
-  }
+  },
 )

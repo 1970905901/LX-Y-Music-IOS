@@ -13,7 +13,7 @@ export default {
         headers: {
           Referer: 'https://y.qq.com/portal/player.html',
         },
-      }
+      },
     )
     return this.requestObj.promise.then(({ statusCode, body }) => {
       if (statusCode != 200 || body.code != 0) return Promise.reject(new Error('请求失败'))

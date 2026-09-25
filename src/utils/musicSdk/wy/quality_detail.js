@@ -69,7 +69,7 @@ export const getMusicQualityInfo = (id) => {
   return { requestObj, types, _types }
 }
 
-export const getBatchMusicQualityInfo = async (idList) => {
+export const getBatchMusicQualityInfo = async(idList) => {
   const ids = idList.filter((id) => id)
 
   const qualityPromises = ids.map((id) => {

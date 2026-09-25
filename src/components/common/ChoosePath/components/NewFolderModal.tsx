@@ -100,7 +100,7 @@ export default forwardRef<NewFolderType, { onRefreshDir: (dir: string) => Promis
         </View>
       </ConfirmAlert>
     )
-  }
+  },
 )
 
 const styles = createStyle({

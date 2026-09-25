@@ -108,14 +108,12 @@ export const writeMetadata = async(filePath: string, metadata: MusicMetadataFull
   }
   // iOS 无 react-native-local-media-metadata 原生模块，写入是不支持的能力。
   // 直接静默成功（不再 throw），避免所有调用方（下载、元数据编辑等）捕获后误报"写入失败"。
-  return
 }
 
 export const writePic = async(filePath: string, picPath: string): Promise<void> => {
   if (nativeLocalMediaMetadata?.writePic) {
     return nativeLocalMediaMetadata.writePic(filePath, picPath)
   }
-  return
 }
 
 export const readLyric = async(filePath: string, raw?: boolean): Promise<string> => {
@@ -129,7 +127,6 @@ export const writeLyric = async(filePath: string, lyric: string): Promise<void> 
   if (nativeLocalMediaMetadata?.writeLyric) {
     return nativeLocalMediaMetadata.writeLyric(filePath, lyric)
   }
-  return
 }
 
 export const readPic = async(dirPath: string): Promise<string> => {

@@ -20,7 +20,7 @@ export default {
   setPlayMusicInfo(
     listId: string | null,
     musicInfo: LX.Download.ListItem | LX.Music.MusicInfo | null,
-    isTempPlay: boolean = false
+    isTempPlay: boolean = false,
   ) {
     state.playMusicInfo = { listId, musicInfo, isTempPlay }
 
@@ -99,16 +99,18 @@ export default {
       }
       return true
     })
-    if (topList.length)
+    if (topList.length) {
       arrUnshift(
         state.tempPlayList,
-        topList.map(({ musicInfo, listId }) => ({ musicInfo, listId, isTempPlay: true })) as any
+        topList.map(({ musicInfo, listId }) => ({ musicInfo, listId, isTempPlay: true })) as any,
       )
-    if (bottomList.length)
+    }
+    if (bottomList.length) {
       arrPush(
         state.tempPlayList,
-        bottomList.map(({ musicInfo, listId }) => ({ musicInfo, listId, isTempPlay: true })) as any
+        bottomList.map(({ musicInfo, listId }) => ({ musicInfo, listId, isTempPlay: true })) as any,
       )
+    }
 
     global.state_event.playTempPlayListChanged([...state.tempPlayList])
   },

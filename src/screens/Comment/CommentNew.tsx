@@ -26,7 +26,7 @@ export default ({
     isLoading: false,
     isLoadError: false,
   })
-  const handleGetComment = async (musicInfo: LX.Music.MusicInfoOnline, page: number) => {
+  const handleGetComment = async(musicInfo: LX.Music.MusicInfoOnline, page: number) => {
     // setIsLoading(true)
     listInfo.current.isLoading = true
     return getNewComment(musicInfo, page, limit)
@@ -39,7 +39,7 @@ export default ({
         }
         return commentInfo
       })
-      .catch(async (err) => {
+      .catch(async(err) => {
         console.log(err)
         if (err.message != '取消请求') {
           listInfo.current.isLoading = false
@@ -88,7 +88,7 @@ export default ({
   }
 
   const handleShowComment = (musicInfo: LX.Music.MusicInfoOnline) => {
-    if (!musicInfo.id || !(music[musicInfo.source] as any)?.comment) return
+    if (!musicInfo.id || !(music[musicInfo.source])?.comment) return
     listInfo.current.page = 1
     listInfo.current.total = 0
     listInfo.current.maxPage = 1

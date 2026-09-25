@@ -70,7 +70,7 @@ export default {
         hasData: !!(body?.req?.data),
         dataKeys: body?.req?.data ? Object.keys(body.req.data) : [],
       })
-      
+
       if (!body || !body.req || body.code != this.successCode || body.req.code != this.successCode) {
         txLog.warn('=== musicSearch 请求失败，准备重试 ===', {
           query: str,
@@ -317,7 +317,7 @@ export default {
         query: str,
         originalCount: body.item_singer?.length || 0,
         processedCount: list.length,
-        firstItem: list[0] ? { 
+        firstItem: list[0] ? {
           id: list[0].id,
           mid: list[0].mid,
           name: list[0].name,
@@ -387,7 +387,7 @@ export default {
         const missingSizeAlbums = list.filter(a => !a.size)
         if (missingSizeAlbums.length > 0) {
           const sizeResults = await Promise.all(
-            missingSizeAlbums.map(item => this.getAlbumSongCount(item.mid).catch(() => 0))
+            missingSizeAlbums.map(item => this.getAlbumSongCount(item.mid).catch(() => 0)),
           )
           missingSizeAlbums.forEach((item, i) => { if (sizeResults[i]) item.size = sizeResults[i] })
         }
@@ -437,7 +437,7 @@ export default {
     return request.then(({ body }) => {
       const bodyCode = body?.code
       const reqCode = body?.req?.code
-      
+
       if (!body || !body.req || bodyCode != this.successCode || reqCode != this.successCode) {
         txLog.warn('=== getAlbumSongCount 获取失败 ===', {
           albumMid,
@@ -445,12 +445,12 @@ export default {
           reqCode,
           retryNum: retryNum + 1,
         })
-        
+
         if (reqCode === 104400 || reqCode === 500003) {
           txLog.warn('=== getAlbumSongCount 需要登录或参数错误，跳过重试 ===', { albumMid, reqCode })
           return 0
         }
-        
+
         return this.getAlbumSongCount(albumMid, ++retryNum)
       }
       const totalNum = body.req.data?.totalNum || body.req.data?.total_num || 0
@@ -494,15 +494,15 @@ export default {
       const match = picUrl.match(/M000([A-Za-z0-9]+)/)
       return match ? match[1] : ''
     }
-    
+
     const result = rawList.map(item => {
       const mid = item.mid || extractMidFromPicUrl(item.singerPic) || String(item.id || '')
-      const picUrl = item.singerPic 
+      const picUrl = item.singerPic
         ? item.singerPic.replace(/R\d+x\d+M000/, 'R500x500M000').replace(/_\d+\.jpg$/, '_1.jpg')
         : ''
       return {
         id: mid,
-        mid: mid,
+        mid,
         name: stripHtml(item.name || item.singer_name || item.singerName),
         picUrl,
         alias: [],

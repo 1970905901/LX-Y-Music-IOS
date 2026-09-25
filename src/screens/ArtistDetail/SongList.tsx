@@ -1,4 +1,4 @@
-import {forwardRef, memo, useCallback, useEffect, useImperativeHandle, useRef} from 'react'
+import { forwardRef, memo, useCallback, useEffect, useImperativeHandle, useRef } from 'react'
 import { View, TouchableOpacity } from 'react-native'
 import OnlineList from '@/components/OnlineList'
 import AlbumList from './AlbumList'
@@ -32,15 +32,15 @@ interface SongListRef {
 }
 
 const SongList = forwardRef<SongListRef, SongListProps>(({
-                                                           componentId,
-                                                           artistId,
-                                                           songs, albums, activeTab, onTabChange,
-                                                           onLoadMoreSongs, onLoadMoreAlbums,
-                                                           onSortChange, onRefresh,
-                                                           playingId,
-                                                           albumViewMode, onAlbumViewModeChange,
-                                                           onSongListUpdate,
-                                                         }, ref) => {
+  componentId,
+  artistId,
+  songs, albums, activeTab, onTabChange,
+  onLoadMoreSongs, onLoadMoreAlbums,
+  onSortChange, onRefresh,
+  playingId,
+  albumViewMode, onAlbumViewModeChange,
+  onSongListUpdate,
+}, ref) => {
   const theme = useTheme()
   const songListRef = useRef<OnlineListType>(null)
   // 上次同步进 OnlineList 的列表引用。播放中 wy 音质详情回填会触发 musicInfoUpdate
@@ -80,7 +80,7 @@ const SongList = forwardRef<SongListRef, SongListProps>(({
   const Header = () => (
     <View style={styles.listHeader}>
       <View style={styles.tabs}>
-        <TouchableOpacity style={styles.tab} onPress={() => onTabChange('songs')}>
+        <TouchableOpacity style={styles.tab} onPress={() => { onTabChange('songs') }}>
           <Text
             style={[styles.tabText, { borderBottomColor: activeTab === 'songs' ? theme['c-primary-font-active'] : 'transparent' }]}
             color={activeTab === 'songs' ? theme['c-primary-font'] : theme['c-font']}
@@ -88,7 +88,7 @@ const SongList = forwardRef<SongListRef, SongListProps>(({
             所有歌曲
           </Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.tab} onPress={() => onTabChange('albums')}>
+        <TouchableOpacity style={styles.tab} onPress={() => { onTabChange('albums') }}>
           <Text
             style={[styles.tabText, { borderBottomColor: activeTab === 'albums' ? theme['c-primary-font-active'] : 'transparent' }]}
             color={activeTab === 'albums' ? theme['c-primary-font'] : theme['c-font']}
@@ -99,7 +99,7 @@ const SongList = forwardRef<SongListRef, SongListProps>(({
       </View>
       { activeTab === 'songs' && (
         <View style={styles.sorts}>
-          <TouchableOpacity onPress={() => onSortChange('hot')} style={styles.sortBtn}>
+          <TouchableOpacity onPress={() => { onSortChange('hot') }} style={styles.sortBtn}>
             <Text
               style={[styles.tabText, { borderBottomColor: songs.sort === 'hot' ? theme['c-primary-font-active'] : 'transparent' }]}
               color={songs.sort === 'hot' ? theme['c-primary-font'] : theme['c-font']}
@@ -107,7 +107,7 @@ const SongList = forwardRef<SongListRef, SongListProps>(({
               热门
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => onSortChange('time')} style={styles.sortBtn}>
+          <TouchableOpacity onPress={() => { onSortChange('time') }} style={styles.sortBtn}>
             <Text
               style={[styles.tabText, { borderBottomColor: songs.sort === 'time' ? theme['c-primary-font-active'] : 'transparent' }]}
               color={songs.sort === 'time' ? theme['c-primary-font'] : theme['c-font']}
@@ -119,10 +119,10 @@ const SongList = forwardRef<SongListRef, SongListProps>(({
       )}
       { activeTab === 'albums' && (
         <View style={styles.viewModeContainer}>
-          <TouchableOpacity style={styles.viewModeBtn} onPress={() => onAlbumViewModeChange('grid')}>
+          <TouchableOpacity style={styles.viewModeBtn} onPress={() => { onAlbumViewModeChange('grid') }}>
             <Icon name="album" color={albumViewMode === 'grid' ? theme['c-primary-font-active'] : theme['c-font']} size={18} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.viewModeBtn} onPress={() => onAlbumViewModeChange('list')}>
+          <TouchableOpacity style={styles.viewModeBtn} onPress={() => { onAlbumViewModeChange('list') }}>
             <Icon name="menu" color={albumViewMode === 'list' ? theme['c-primary-font-active'] : theme['c-font']} size={18} />
           </TouchableOpacity>
         </View>

@@ -5,17 +5,22 @@ import themeState from '@/store/theme/state'
 import { isUrl } from '@/utils'
 import { privateStorageDirectoryPath } from '@/utils/fs'
 import { type ImageSourcePropType } from 'react-native'
+import chinaInkImage from './images/china_ink.jpg'
+import jqbgImage from './images/jqbg.jpg'
+import landingMoonImage from './images/landingMoon2.png'
+import myzcbgImage from './images/myzcbg.jpg'
+import xnklImage from './images/xnkl.png'
 
 export const BG_IMAGES = {
-  'china_ink.jpg': require('./images/china_ink.jpg') as ImageSourcePropType,
-  'jqbg.jpg': require('./images/jqbg.jpg') as ImageSourcePropType,
-  'landingMoon.png': require('./images/landingMoon2.png') as ImageSourcePropType,
-  'myzcbg.jpg': require('./images/myzcbg.jpg') as ImageSourcePropType,
-  'xnkl.png': require('./images/xnkl.png') as ImageSourcePropType,
+  'china_ink.jpg': chinaInkImage as ImageSourcePropType,
+  'jqbg.jpg': jqbgImage as ImageSourcePropType,
+  'landingMoon.png': landingMoonImage as ImageSourcePropType,
+  'myzcbg.jpg': myzcbgImage as ImageSourcePropType,
+  'xnkl.png': xnklImage as ImageSourcePropType,
 } as const
 
 let userThemes: LX.Theme[]
-export const getAllThemes = async () => {
+export const getAllThemes = async() => {
   userThemes ??= await getUserTheme()
   return {
     themes,
@@ -24,14 +29,14 @@ export const getAllThemes = async () => {
   }
 }
 
-export const saveTheme = async (theme: LX.Theme) => {
+export const saveTheme = async(theme: LX.Theme) => {
   const targetTheme = userThemes.find((t) => t.id === theme.id)
   if (targetTheme) Object.assign(targetTheme, theme)
   else userThemes.push(theme)
   await saveUserTheme(userThemes)
 }
 
-export const removeTheme = async (id: string) => {
+export const removeTheme = async(id: string) => {
   const index = userThemes.findIndex((t) => t.id === id)
   if (index < 0) return
   userThemes.splice(index, 1)
@@ -59,7 +64,7 @@ export const buildActiveThemeColors = (theme: LX.Theme): LX.ActiveTheme => {
 
   theme.config.extInfo = { ...theme.config.extInfo }
 
-  for (const [k, v] of Object.entries(theme.config.extInfo) as Array<[string, string]>) {
+  for (const [k, v] of Object.entries(theme.config.extInfo)) {
     if (!v.startsWith('var(')) continue
     (theme.config.extInfo as any)[k] = theme.config.themeColors[v.replace(varColorRxp, '$1') as ColorsKey]
   }
@@ -90,10 +95,10 @@ export const buildActiveThemeColors = (theme: LX.Theme): LX.ActiveTheme => {
     'c-border-background': theme.config.themeColors['c-primary-light-100-alpha-700'],
     'c-liked': theme.config.extInfo['c-liked']!,
     'bg-image': bgImg,
-  };
+  }
 
   if (theme.isDark) {
-    activeTheme['c-primary-font-active'] = activeTheme['c-000'];
+    activeTheme['c-primary-font-active'] = activeTheme['c-000']
   }
 
   return activeTheme
@@ -110,7 +115,7 @@ export const buildActiveThemeColors = (theme: LX.Theme): LX.ActiveTheme => {
 //   }
 // }
 // type IDS = LocalTheme['id']
-export const getTheme = async () => {
+export const getTheme = async() => {
   // fs.promises.readdir()
   const shouldUseDarkColors = themeState.shouldUseDarkColors
   // let themeId = settingState.setting['theme.id'] == 'auto'

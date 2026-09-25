@@ -6,7 +6,7 @@ export const useRuleNum = () => {
   const [num, setNum] = useState(
     state.dislikeInfo.musicNames.size +
       state.dislikeInfo.singerNames.size +
-      state.dislikeInfo.names.size
+      state.dislikeInfo.names.size,
   )
 
   useEffect(() => {
@@ -14,7 +14,7 @@ export const useRuleNum = () => {
       setNum(
         state.dislikeInfo.musicNames.size +
           state.dislikeInfo.singerNames.size +
-          state.dislikeInfo.names.size
+          state.dislikeInfo.names.size,
       )
     }
     event.on('dislike_changed', handleUpdate)

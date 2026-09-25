@@ -20,7 +20,7 @@ const useCoverUrl = (item: {
   // 跨平台匹配），避免「列表用不可用封面加载失败、播放详情页却有封面」的不一致。
   const isCrossMatchSource = item.source === 'qs'
   const [url, setUrl] = useState<string>(() =>
-    isCrossMatchSource ? getCachedCoverUrl(item) : (item.meta?.picUrl ?? getCachedCoverUrl(item))
+    isCrossMatchSource ? getCachedCoverUrl(item) : (item.meta?.picUrl ?? getCachedCoverUrl(item)),
   )
 
   useEffect(() => {

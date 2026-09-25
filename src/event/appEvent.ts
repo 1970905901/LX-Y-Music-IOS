@@ -7,10 +7,10 @@ import DownloadTask = LX.Download.DownloadTask
 import playerState from '@/store/player/state'
 import listState from '@/store/list/state'
 import userState from '@/store/user/state'
-import {COMPONENT_IDS, LIST_IDS, type NAV_ID_Type} from '@/config/constant'
-import {navigations, popTo} from "@/navigation";
-import {getDailyRecCache} from "@/utils/data.ts";
-import {toast} from "@/utils/tools.ts";
+import { COMPONENT_IDS, LIST_IDS, type NAV_ID_Type } from '@/config/constant'
+import { navigations, popTo } from '@/navigation'
+import { getDailyRecCache } from '@/utils/data.ts'
+import { toast } from '@/utils/tools.ts'
 
 // {
 //   // sync: {
@@ -221,7 +221,7 @@ export class AppEvent extends Event {
         this.emit('jumpListPosition')
       } else {
         setNavActiveId('nav_love')
-        setTimeout(() => this.emit('jumpListPosition'), 200)
+        setTimeout(() => { this.emit('jumpListPosition') }, 200)
       }
       return
     }
@@ -236,10 +236,10 @@ export class AppEvent extends Event {
 
     let navigatedToDetail = false
     let needDelayEmit = false
-    const currentComponent = commonState.componentIds[commonState.componentIds.length - 1];
+    const currentComponent = commonState.componentIds[commonState.componentIds.length - 1]
     const homeComponent = commonState.componentIds.find(c => c.name === COMPONENT_IDS.home)
     const isOnHome = currentComponent?.name === COMPONENT_IDS.home
-    const ensureHome = async () => {
+    const ensureHome = async() => {
       if (!isOnHome && homeComponent) {
         await popTo(homeComponent.id)
         needDelayEmit = true
@@ -300,15 +300,15 @@ export class AppEvent extends Event {
       setNavActiveId('nav_daily_rec')
     } else if (listId === 'similar_songs_list') {
       if (currentComponent?.name !== COMPONENT_IDS.SIMILAR_SONGS_SCREEN) {
-        const cache = await getDailyRecCache();
-        const allSimilarSongs = cache?.items.flatMap(item => item.similarSongs) ?? [];
+        const cache = await getDailyRecCache()
+        const allSimilarSongs = cache?.items.flatMap(item => item.similarSongs) ?? []
         if (allSimilarSongs.length === 0) {
-          toast('找不到相似歌曲列表');
-          return;
+          toast('找不到相似歌曲列表')
+          return
         }
-        const uniqueSongs = Array.from(new Map(allSimilarSongs.map(song => [song.id, song])).values());
-        navigations.pushSimilarSongsScreen(currentComponentId, uniqueSongs);
-        navigatedToDetail = true;
+        const uniqueSongs = Array.from(new Map(allSimilarSongs.map(song => [song.id, song])).values())
+        navigations.pushSimilarSongsScreen(currentComponentId, uniqueSongs)
+        navigatedToDetail = true
       }
     } else {
       await ensureHome()
@@ -365,21 +365,27 @@ export class AppEvent extends Event {
   download_list_changed() {
     this.emit('download_list_changed')
   }
+
   download_task_add(task: DownloadTask) {
     this.emit('download_task_add', task)
   }
+
   download_progress_update(payload: { id: string, progress: DownloadTask['progress'] }) {
     this.emit('download_progress_update', payload)
   }
+
   download_status_update(payload: { id: string, status: DownloadTask['status'], errorMsg?: string }) {
     this.emit('download_status_update', payload)
   }
+
   download_metadata_update(payload: { id: string, metadataStatus: DownloadTask['metadataStatus'] }) {
     this.emit('download_metadata_update', payload)
   }
+
   show_download_ball() {
     this.emit('show_download_ball')
   }
+
   playlist_updated(data: { source: string, listId: string }) {
     this.emit('playlist_updated', data)
   }

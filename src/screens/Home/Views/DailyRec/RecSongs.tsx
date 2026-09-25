@@ -57,7 +57,7 @@ export default memo(({ header, isStylized, stylizedSelection }: RecSongsProps) =
   }, [])
 
   useEffect(() => {
-    const handleJumpPosition = async () => {
+    const handleJumpPosition = async() => {
       const listId = playerState.playMusicInfo.listId === LIST_IDS.TEMP
         ? listState.tempListMeta.id
         : playerState.playMusicInfo.listId
@@ -116,7 +116,7 @@ export default memo(({ header, isStylized, stylizedSelection }: RecSongsProps) =
     } else {
       setIsLoading(true)
       listRef.current?.setStatus('loading')
-      wyApi.dailyRec.getList(cookie).then(async (result: any) => {
+      wyApi.dailyRec.getList(cookie).then(async(result: any) => {
         listRef.current?.setList(result.list, false)
         listRef.current?.setStatus('idle')
         setDailyRecSongsCache(result.list)
@@ -167,7 +167,7 @@ export default memo(({ header, isStylized, stylizedSelection }: RecSongsProps) =
         setIsAllSimilarSongsFetched(false)
         const allDailySongIds = new Set(result.list.map((s: any) => s.id))
 
-        const processQueue = async () => {
+        const processQueue = async() => {
           if (unmountedRef.current) {
             similarSongsFetcher.isFetching = false
             return
@@ -181,7 +181,7 @@ export default memo(({ header, isStylized, stylizedSelection }: RecSongsProps) =
           }
 
           if (similarSongsFetcher.currentDailyRecId !== currentDailyRecId) {
-            console.log("日推ID已变更，终止旧的后台任务。")
+            console.log('日推ID已变更，终止旧的后台任务。')
             similarSongsFetcher.isFetching = false
             return
           }
@@ -312,7 +312,7 @@ export default memo(({ header, isStylized, stylizedSelection }: RecSongsProps) =
 
     const uniqueSongs = Array.from(new Map(allSimilarSongs.map(song => [song.id, song])).values())
 
-    navigations.pushSimilarSongsScreen(commonState.componentIds[commonState.componentIds.length - 1]?.id!, uniqueSongs)
+    navigations.pushSimilarSongsScreen(commonState.componentIds[commonState.componentIds.length - 1]?.id, uniqueSongs)
   }
 
   const ListFooter = () => {

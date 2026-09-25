@@ -7,7 +7,7 @@ import {
   type FlatListProps, Keyboard,
 } from 'react-native'
 
-import OnlineListItem from '@/components/OnlineList/ListItem';
+import OnlineListItem from '@/components/OnlineList/ListItem'
 import listState from '@/store/list/state'
 import playerState from '@/store/player/state'
 import { getListPosition, getListPrevSelectId, saveListPosition } from '@/utils/data'
@@ -153,7 +153,7 @@ const List = forwardRef<ListType, ListProps>(
                     try {
                       flatListRef.current?.scrollToIndex({
                         index: Math.floor(
-                          playerState.playInfo.playIndex / (rowInfoRef.current.rowNum ?? 1)
+                          playerState.playInfo.playIndex / (rowInfoRef.current.rowNum ?? 1),
                         ),
                         viewPosition: 0.3,
                         animated: false,
@@ -308,13 +308,29 @@ const List = forwardRef<ListType, ListProps>(
     // 「只显示前面部分、下方空白/加载不全」。通过 ref 镜像所有依赖，useCallback([])
     // 固定引用；行级刷新由 extraData={listVersion|activeIndex} 驱动。
     const renderDepsRef = useRef({
-      activeIndex, selectedList, handlePress, handleLongPress, onShowMenu,
-      rowInfo, isShowAlbumName, isShowInterval, isShowSource, showCover,
+      activeIndex,
+      selectedList,
+      handlePress,
+      handleLongPress,
+      onShowMenu,
+      rowInfo,
+      isShowAlbumName,
+      isShowInterval,
+      isShowSource,
+      showCover,
       playingId: playerState.playMusicInfo.musicInfo?.id ?? '',
     })
     renderDepsRef.current = {
-      activeIndex, selectedList, handlePress, handleLongPress, onShowMenu,
-      rowInfo, isShowAlbumName, isShowInterval, isShowSource, showCover,
+      activeIndex,
+      selectedList,
+      handlePress,
+      handleLongPress,
+      onShowMenu,
+      rowInfo,
+      isShowAlbumName,
+      isShowInterval,
+      isShowSource,
+      showCover,
       playingId: playerState.playMusicInfo.musicInfo?.id ?? '',
     }
     const renderItem = useCallback<NonNullable<FlatListType['renderItem']>>(({ item, index }) => {
@@ -336,7 +352,7 @@ const List = forwardRef<ListType, ListProps>(
             showSource={d.isShowSource}
             showCover={d.showCover}
           />
-        );
+        )
       } else {
         return (
           <ListItem
@@ -353,7 +369,7 @@ const List = forwardRef<ListType, ListProps>(
             isShowInterval={d.isShowInterval}
             showCover={d.showCover}
           />
-        );
+        )
       }
     }, [])
     const getkey: FlatListType['keyExtractor'] = (item) => item.id
@@ -389,7 +405,7 @@ const List = forwardRef<ListType, ListProps>(
         getItemLayout={getItemLayout}
       />
     )
-  }
+  },
 )
 
 const styles = createStyle({

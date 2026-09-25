@@ -70,7 +70,7 @@ const List = forwardRef<ListType, ListProps>(({ onRefresh, onLoadMore, actions }
         onRefresh={onRefresh}
       />
     ),
-    [status, onRefresh, theme]
+    [status, onRefresh, theme],
   )
   const footerComponent = useMemo(() => {
     let label: FooterLabel
@@ -116,7 +116,7 @@ const List = forwardRef<ListType, ListProps>(({ onRefresh, onLoadMore, actions }
 })
 
 type FooterLabel = 'list_loading' | 'list_end' | 'list_error' | null
-const Footer = ({ label, onLoadMore }: { label: FooterLabel; onLoadMore: () => void }) => {
+const Footer = ({ label, onLoadMore }: { label: FooterLabel, onLoadMore: () => void }) => {
   const theme = useTheme()
   const t = useI18n()
   const handlePress = () => {

@@ -1,4 +1,4 @@
-type PendingAction = {
+interface PendingAction {
   type: 'searchFocus' | 'songlistImport'
   data?: any
 }

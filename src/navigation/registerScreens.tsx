@@ -31,7 +31,7 @@ import {
 import PactModal from './components/PactModal'
 import SyncModeModal from './components/SyncModeModal'
 import AnnouncementModal from './components/AnnouncementModal'
-import DownloadManager from "@/screens/DownloadManager";
+import DownloadManager from '@/screens/DownloadManager'
 import ToastOverlay from './components/Toast'
 function WrappedComponent(Component: any) {
   return function inject(props: Record<string, any>) {

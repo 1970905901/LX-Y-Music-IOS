@@ -42,7 +42,7 @@ export default forwardRef<ChoosePathType, ChoosePathProps>(
     const readOptions = useRef<ReadOptions>(initReadOptions as ReadOptions)
     const isUnmounted = useUnmounted()
 
-    const handleOpenExternalStorage = async (options: ReadOptions) => {
+    const handleOpenExternalStorage = async(options: ReadOptions) => {
       return checkStoragePermissions().then((isGranted) => {
         readOptions.current = options
         if (isGranted) {
@@ -106,7 +106,7 @@ export default forwardRef<ChoosePathType, ChoosePathProps>(
             readOptions.current.title,
             '',
             readOptions.current.dirOnly,
-            readOptions.current.filter
+            readOptions.current.filter,
           )
         } else {
           toast(t('storage_permission_tip_disagree'), 'long')
@@ -131,10 +131,10 @@ export default forwardRef<ChoosePathType, ChoosePathProps>(
           cancelText={t('disagree')}
           confirmText={t('agree')}
           text={t(
-            deny ? 'storage_permission_tip_disagree_ask_again' : 'storage_permission_tip_request'
+            deny ? 'storage_permission_tip_disagree_ask_again' : 'storage_permission_tip_request',
           )}
         />
       </>
     )
-  }
+  },
 )

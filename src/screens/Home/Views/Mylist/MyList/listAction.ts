@@ -20,7 +20,7 @@ export const handleRemove = (listInfo: LX.List.UserListInfo) => {
   })
 }
 
-const readListData = async (path: string) => {
+const readListData = async(path: string) => {
   let configData: any
   try {
     configData = await handleReadFile(path)
@@ -47,7 +47,7 @@ const readListData = async (path: string) => {
 export const handleImport = (path: string, position: number) => {
   toast(global.i18n.t('setting_backup_part_import_list_tip_unzip'))
   void readListData(path)
-    .then(async (listData) => {
+    .then(async(listData) => {
       if (listData == null) return
       void handleImportListPart(listData, position)
     })
@@ -57,7 +57,7 @@ export const handleImport = (path: string, position: number) => {
     })
 }
 
-const exportList = async (listInfo: LX.List.MyListInfo, path: string) => {
+const exportList = async(listInfo: LX.List.MyListInfo, path: string) => {
   const data = JSON.parse(
     JSON.stringify({
       type: 'playListPart_v2',
@@ -65,7 +65,7 @@ const exportList = async (listInfo: LX.List.MyListInfo, path: string) => {
         ...listInfo,
         list: await getListMusics(listInfo.id),
       },
-    })
+    }),
   )
   try {
     await handleSaveFile(`${path}/lx_list_part_${filterFileName(listInfo.name)}.lxmc`, data)
@@ -75,7 +75,7 @@ const exportList = async (listInfo: LX.List.MyListInfo, path: string) => {
 }
 
 // iOS 导出：写入指定文件并返回其路径（供系统分享面板使用）
-export const exportListToFile = async (listInfo: LX.List.MyListInfo, dirPath: string): Promise<string> => {
+export const exportListToFile = async(listInfo: LX.List.MyListInfo, dirPath: string): Promise<string> => {
   const data = JSON.parse(
     JSON.stringify({
       type: 'playListPart_v2',
@@ -83,7 +83,7 @@ export const exportListToFile = async (listInfo: LX.List.MyListInfo, dirPath: st
         ...listInfo,
         list: await getListMusics(listInfo.id),
       },
-    })
+    }),
   )
   const fileName = `lx_list_part_${filterFileName(listInfo.name)}.lxmc`
   const filePath = dirPath.endsWith('/') ? `${dirPath}${fileName}` : `${dirPath}/${fileName}`
@@ -104,7 +104,7 @@ export const handleExport = (listInfo: LX.List.MyListInfo, path: string) => {
     .catch((err: any) => {
       log.error(err.message)
       toast(
-        global.i18n.t('setting_backup_part_export_list_tip_failed') + ': ' + (err.message as string)
+        global.i18n.t('setting_backup_part_export_list_tip_failed') + ': ' + (err.message as string),
       )
     })
 }
@@ -145,7 +145,7 @@ export const buildLocalMusicInfoByFilePath = (file: FileType): LX.Music.MusicInf
 export const buildLocalMusicInfo = (
   filePath: string,
   metadata: MusicMetadataFull,
-  picUrl?: string | null
+  picUrl?: string | null,
 ): LX.Music.MusicInfoLocal => {
   return {
     id: filePath,

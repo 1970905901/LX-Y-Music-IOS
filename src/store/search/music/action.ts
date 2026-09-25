@@ -40,14 +40,14 @@ const convertMusicInfo = (item: any): LX.Music.MusicInfoOnline | null => {
 const setLists = (
   results: SearchResult[],
   page: number,
-  text: string
+  text: string,
 ): LX.Music.MusicInfoOnline[] => {
   let pages = []
   let totals = []
   let limit = 0
   let list = [] as LX.Music.MusicInfoOnline[]
   const onlyBilibili = results.length === 1 && results[0].source === 'bilibili'
-  
+
   for (const source of results) {
     state.maxPages[source.source] = source.allPage
     limit = Math.max(source.limit, limit)
@@ -56,15 +56,15 @@ const setLists = (
     pages.push(source.allPage)
     totals.push(source.total)
   }
-  
+
   let convertedList = list.map(convertMusicInfo).filter((item): item is LX.Music.MusicInfoOnline => item !== null)
-  
+
   if (onlyBilibili) {
     list = convertedList
   } else {
     list = handleSortList(convertedList, text)
   }
-  
+
   let listInfo = state.listInfos.all
   listInfo.maxPage = Math.max(0, ...pages)
   const total = Math.max(0, ...totals)

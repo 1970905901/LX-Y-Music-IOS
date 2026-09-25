@@ -23,18 +23,18 @@ export interface CommentInfo {
   maxPage: number
 }
 
-export const getNewComment = async (
+export const getNewComment = async(
   musicInfo: LX.Music.MusicInfoOnline,
   page: number,
   limit: number,
-  retryNum = 0
+  retryNum = 0,
 ): Promise<CommentInfo> => {
   let resp
   try {
-    resp = await ((music[musicInfo.source] as any).comment.getComment(
+    resp = await ((music[musicInfo.source]).comment.getComment(
       toOldMusicInfo(musicInfo),
       page,
-      limit
+      limit,
     ) as Promise<CommentInfo>)
   } catch (error: any) {
     console.log(error.message)
@@ -44,18 +44,18 @@ export const getNewComment = async (
   return resp
 }
 
-export const getHotComment = async (
+export const getHotComment = async(
   musicInfo: LX.Music.MusicInfoOnline,
   page: number,
   limit: number,
-  retryNum = 0
+  retryNum = 0,
 ): Promise<CommentInfo> => {
   let resp
   try {
-    resp = await ((music[musicInfo.source] as any).comment.getHotComment(
+    resp = await ((music[musicInfo.source]).comment.getHotComment(
       toOldMusicInfo(musicInfo),
       page,
-      limit
+      limit,
     ) as Promise<CommentInfo>)
   } catch (error: any) {
     console.log(error.message)
@@ -75,24 +75,24 @@ export const filterList = (list: Comment[]) => {
   })
 }
 
-export const sendComment = async (
+export const sendComment = async(
   songmid: string,
-  content: string
+  content: string,
 ): Promise<any> => {
   return (music as any).wy.comment.sendComment(songmid, content)
 }
 
-export const replyComment = async (
+export const replyComment = async(
   songmid: string,
   content: string,
-  commentId: string
+  commentId: string,
 ): Promise<any> => {
   return (music as any).wy.comment.replyComment(songmid, content, commentId)
 }
 
-export const deleteComment = async (
+export const deleteComment = async(
   songmid: string,
-  commentId: string
+  commentId: string,
 ): Promise<any> => {
   return (music as any).wy.comment.deleteComment(songmid, commentId)
 }

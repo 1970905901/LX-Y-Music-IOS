@@ -43,7 +43,7 @@ export default memo(({ visible, url, name = 'image', onClose }: Props) => {
   const handleSave = useCallback(() => {
     if (!url) return
     setActionVisible(false)
-    void (async () => {
+    void (async() => {
       try {
         toast('正在保存图片...', 'short')
         const targetPath = await saveImageToPictures(url, name)
@@ -70,7 +70,7 @@ export default memo(({ visible, url, name = 'image', onClose }: Props) => {
     >
       <TouchableWithoutFeedback onPress={handleClose}>
         <View style={styles.container}>
-          <TouchableWithoutFeedback onPress={() => {}} onLongPress={() => setActionVisible(true)}>
+          <TouchableWithoutFeedback onPress={() => {}} onLongPress={() => { setActionVisible(true) }}>
             <View style={{ ...styles.imageWrapper, ...imageSize }}>
               <Image
                 url={url}

@@ -1,15 +1,15 @@
 import { memo, useMemo } from 'react'
 import { FlatList, View, RefreshControl } from 'react-native'
 import AlbumListItem from './AlbumListItem'
-import {useHorizontalMode, useLayout} from '@/utils/hooks'
+import { useHorizontalMode, useLayout } from '@/utils/hooks'
 import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
 import { scaleSizeW } from '@/utils/pixelRatio'
 import Text from '@/components/common/Text'
 import { createStyle } from '@/utils/tools'
 
-const MIN_WIDTH = scaleSizeW(120);
-const HORIZONTAL_SPACING = 24;
+const MIN_WIDTH = scaleSizeW(120)
+const HORIZONTAL_SPACING = 24
 
 interface AlbumListProps {
   componentId: string

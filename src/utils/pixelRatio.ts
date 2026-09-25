@@ -44,7 +44,7 @@ const recalc = () => {
   scale = Math.min(scaleW, scaleH, 3.1, MAX_EFFECTIVE_SCALE * pixelRatio)
 }
 
-windowSizeTools.onSizeChanged(() => recalc())
+windowSizeTools.onSizeChanged(() => { recalc() })
 recalc()
 
 /**

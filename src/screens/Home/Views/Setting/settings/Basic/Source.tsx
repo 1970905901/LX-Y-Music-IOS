@@ -9,7 +9,7 @@ import { setApiSource } from '@/core/apiSource'
 import { useI18n } from '@/lang'
 import apiSourceInfo from '@/utils/musicSdk/api-source-info'
 import { useSettingValue } from '@/store/setting/hook'
-import { useStatus, useUserApiList } from '@/store/userApi'
+import { useStatus, useUserApiList, state as userApiState } from '@/store/userApi'
 import Button from '../../components/Button'
 import UserApiEditModal, { type UserApiEditModalType } from './UserApiEditModal'
 import SourceTest from './SourceTest'
@@ -17,7 +17,7 @@ import Text from '@/components/common/Text'
 import { useTheme } from '@/store/theme/hook'
 import { Icon } from '@/components/common/Icon'
 import { reorderUserApi } from '@/core/userApi'
-import { state as userApiState } from '@/store/userApi'
+
 import { acquireScrollLock, releaseScrollLock } from '@/utils/scrollLock'
 import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
 import { applyOpacity } from '@/utils/colorOpacity'
@@ -180,7 +180,7 @@ const UserApiItem = memo(({
         // 一旦接管手势就不再释放给 ScrollView，避免整页被滚动。
         onPanResponderTerminationRequest: () => false,
       }),
-    [index, onLongPressStart, onDragMove, onDragRelease, onDragCancel]
+    [index, onLongPressStart, onDragMove, onDragRelease, onDragCancel],
   )
 
   const transform = isDragSource
@@ -190,7 +190,7 @@ const UserApiItem = memo(({
 
   return (
     <Animated.View
-      onLayout={(e) => onLayoutHeight(index, e.nativeEvent.layout.height)}
+      onLayout={(e) => { onLayoutHeight(index, e.nativeEvent.layout.height) }}
       style={[
         styles.userApiItem,
         {
@@ -228,7 +228,7 @@ const UserApiItem = memo(({
         <CheckBox
           check={isChecked}
           label=""
-          onChange={() => onChange(item.id)}
+          onChange={() => { onChange(item.id) }}
         />
       </View>
       {isDragSource ? (
@@ -250,7 +250,7 @@ export default memo(() => {
         name: t(`setting_basic_source_${s.id}`) || s.name,
         id: s.id,
       })),
-    [t]
+    [t],
   )
   const setApiSourceId = useCallback((id: string) => {
     setApiSource(id)
@@ -409,7 +409,7 @@ export default memo(() => {
         animateLayout(from, target)
       }
     },
-    [computeTargetIndex, animateLayout]
+    [computeTargetIndex, animateLayout],
   )
 
   const persistReorder = useCallback((from: number, to: number) => {

@@ -3,7 +3,7 @@ import Event from './Event'
 import { saveDislikeListRules } from '@/utils/data'
 import { setDislikeInfo } from '@/core/dislikeList'
 
-const updateList = async (dislikeInfo: LX.Dislike.DislikeInfo) => {
+const updateList = async(dislikeInfo: LX.Dislike.DislikeInfo) => {
   await saveDislikeListRules(dislikeInfo.rules)
   setDislikeInfo(dislikeInfo)
 }

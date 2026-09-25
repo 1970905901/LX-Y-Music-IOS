@@ -1,23 +1,23 @@
-import { memo } from 'react';
-import { View } from 'react-native';
-import SubTitle from '../../components/SubTitle';
-import CheckBox from '@/components/common/CheckBox';
-import { useI18n } from '@/lang';
-import { useSettingValue } from '@/store/setting/hook';
-import { updateSetting } from '@/core/common';
-import { createStyle } from '@/utils/tools';
-import { useTheme } from '@/store/theme/hook';
-import { designRadius, designSpacing } from '@/theme/DesignTokens';
+import { memo } from 'react'
+import { View } from 'react-native'
+import SubTitle from '../../components/SubTitle'
+import CheckBox from '@/components/common/CheckBox'
+import { useI18n } from '@/lang'
+import { useSettingValue } from '@/store/setting/hook'
+import { updateSetting } from '@/core/common'
+import { createStyle } from '@/utils/tools'
+import { useTheme } from '@/store/theme/hook'
+import { designRadius, designSpacing } from '@/theme/DesignTokens'
 
 type MenuSettingKey =
   | 'menu.playLater'
   | 'menu.dislike'
 
-const SettingItem = ({ settingKey, label }: { settingKey: MenuSettingKey; label: string }) => {
-  const value = useSettingValue(settingKey);
+const SettingItem = ({ settingKey, label }: { settingKey: MenuSettingKey, label: string }) => {
+  const value = useSettingValue(settingKey)
   const handleChange = (newValue: boolean) => {
-    updateSetting({ [settingKey]: newValue });
-  };
+    updateSetting({ [settingKey]: newValue })
+  }
 
   return (
     <CheckBox
@@ -25,12 +25,12 @@ const SettingItem = ({ settingKey, label }: { settingKey: MenuSettingKey; label:
       onChange={handleChange}
       label={label}
     />
-  );
-};
+  )
+}
 
 export default memo(() => {
-  const t = useI18n();
-  const theme = useTheme();
+  const t = useI18n()
+  const theme = useTheme()
 
   return (
     <SubTitle title="菜单设置">
@@ -39,8 +39,8 @@ export default memo(() => {
         <SettingItem settingKey="menu.dislike" label={t('dislike')} />
       </View>
     </SubTitle>
-  );
-});
+  )
+})
 
 const styles = createStyle({
   content: {
@@ -52,4 +52,4 @@ const styles = createStyle({
     borderWidth: 1,
     borderRadius: designRadius.sm,
   },
-});
+})

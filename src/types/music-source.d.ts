@@ -165,7 +165,7 @@ declare namespace LX {
       author?: string
       artist?: string
       artistId?: string | number
-      artists?: Array<{ id: string | number; name: string }>
+      artists?: Array<{ id: string | number, name: string }>
       publishTime?: string
       size?: number
       source: LX.OnlineSource
@@ -317,8 +317,6 @@ declare namespace LX {
     getStylizedList?(cookie: string, retryNum?: number): Promise<any>
     /** Get recommended playlists (wy) */
     getRecPlaylists?(cookie: string, retryNum?: number): Promise<RecommendSonglistResult>
-    /** Get similar songs (wy) */
-    getSimilarSongs?(songId: string | number, limit?: number, offset?: number, retryNum?: number): Promise<DailyRecResult>
     /** Get heartbeat mode list (wy) */
     getHeartbeatModeList?(cookie: string, playlistId?: string, songId?: string, retryNum?: number): Promise<DailyRecResult>
 
@@ -333,6 +331,8 @@ declare namespace LX {
     getRecommendSonglist?(page?: number, num?: number, retryNum?: number): Promise<RecommendSonglistResult>
     /** Recommended new songs (tx) */
     getRecommendNewsong?(retryNum?: number): Promise<DailyRecResult>
+    /** Get similar songs (wy) */
+    getSimilarSongs?(songId: string | number, limit?: number, offset?: number, retryNum?: number): Promise<DailyRecResult>
     /** Similar songs (tx) */
     getSimilarSongs?(songMid: string, limit?: number, retryNum?: number): Promise<DailyRecResult>
 
@@ -400,12 +400,11 @@ declare namespace LX {
     // --- tx specific ---
     /** Get album raw detail data (tx) */
     getAlbumDetail?(albumMid: string, retryNum?: number): Promise<any>
-
-    // --- kg specific ---
-    /** Get album info (kg) */
-    getAlbumInfo?(id: string | number): Promise<any>
     /** Get album song list (kg) */
     getAlbumDetail?(id: string | number, page?: number, limit?: number): Promise<any>
+
+    /** Get album info (kg) */
+    getAlbumInfo?(id: string | number): Promise<any>
   }
 
   /**
@@ -439,17 +438,17 @@ declare namespace LX {
     /** Add songs to playlist */
     addSongToPlaylist?(
       ...args:
-        | [pid: string | number, tracks: any[], retryNum?: number]
-        | [listId: string | number, songMids: string[], retryNum?: number]
-        | [cookie: string, listId: string | number, songInfo: any]
+      | [pid: string | number, tracks: any[], retryNum?: number]
+      | [listId: string | number, songMids: string[], retryNum?: number]
+      | [cookie: string, listId: string | number, songInfo: any]
     ): Promise<any>
 
     /** Remove songs from playlist */
     removeSongsFromPlaylist?(
       ...args:
-        | [pid: string | number, tracks: any[], retryNum?: number]
-        | [listId: string | number, songMids: string[], retryNum?: number]
-        | [cookie: string, listId: string | number, fileHash: string]
+      | [pid: string | number, tracks: any[], retryNum?: number]
+      | [listId: string | number, songMids: string[], retryNum?: number]
+      | [cookie: string, listId: string | number, fileHash: string]
     ): Promise<any>
 
     /** Manipulate playlist tracks - unified add/remove entry (wy) */
@@ -466,7 +465,7 @@ declare namespace LX {
       listId: string | number,
       page?: number,
       limit?: number
-    ): Promise<{ list: AnyMusicInfo[]; total?: number }>
+    ): Promise<{ list: AnyMusicInfo[], total?: number }>
 
     /** Get playlist detail (tx) */
     getPlaylistDetail?(
@@ -480,8 +479,8 @@ declare namespace LX {
     /** Unsubscribe playlist */
     unsubscribePlaylist?(
       ...args:
-        | [cookie: string, listid: string | number]
-        | [id: string | number, isSub: boolean]
+      | [cookie: string, listid: string | number]
+      | [id: string | number, isSub: boolean]
     ): Promise<any>
 
     /** Subscribe playlist (kg) */
@@ -506,8 +505,8 @@ declare namespace LX {
     /** Like/unlike song */
     likeSong?(
       ...args:
-        | [songId: string | number, like: boolean, retryNum?: number]
-        | [songMid: string, like: boolean]
+      | [songId: string | number, like: boolean, retryNum?: number]
+      | [songMid: string, like: boolean]
     ): Promise<any>
 
     /** Get liked song list */
@@ -684,10 +683,7 @@ declare namespace LX {
     user?: UserModule
 
     // --- Cookie module (wy specific) ---
-    cookie?: {
-      /** Get cookie-related operations */
-      [key: string]: any
-    }
+    cookie?: Record<string, any>
 
     // --- Playback related ---
     /** Get music playback URL */

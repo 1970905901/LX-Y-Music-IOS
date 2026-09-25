@@ -55,7 +55,7 @@ export default memo(() => {
         resetNotificationPermissionCheck(),
         resetIgnoringBatteryOptimizationCheck(),
       ])
-        .then(() => toast(t('setting_other_cache_clear_success_tip')))
+        .then(() => { toast(t('setting_other_cache_clear_success_tip')) })
         .finally(() => {
           handleGetCacheSize()
           setCleaning(false)
@@ -69,7 +69,7 @@ export default memo(() => {
 
   useEffect(() => {
     if (Number(cacheLimit) > 0) {
-      void enforceCacheLimit(Number(cacheLimit) * 1024 * 1024).finally(() => handleGetCacheSize())
+      void enforceCacheLimit(Number(cacheLimit) * 1024 * 1024).finally(() => { handleGetCacheSize() })
     } else {
       handleGetCacheSize()
     }
@@ -91,7 +91,7 @@ export default memo(() => {
             marginRight={8}
             check={Number(cacheLimit) == opt.value}
             label={opt.label}
-            onChange={() => handleSetCacheLimit(opt.value)}
+            onChange={() => { handleSetCacheLimit(opt.value) }}
             need
           />
         ))}

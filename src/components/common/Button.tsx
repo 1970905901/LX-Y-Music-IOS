@@ -33,7 +33,7 @@ export default forwardRef<BtnType, BtnProps>(
         color: theme['c-primary-light-200-alpha-700'],
         ...propsRipple,
       }),
-      [theme, propsRipple]
+      [theme, propsRipple],
     )
 
     useImperativeHandle(ref, () => ({
@@ -53,5 +53,5 @@ export default forwardRef<BtnType, BtnProps>(
         {children}
       </Pressable>
     )
-  }
+  },
 )

@@ -10,7 +10,7 @@ import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
 import { createStyle } from '@/utils/tools'
 import { scaleSizeW, scaleSizeH } from '@/utils/pixelRatio'
-import {useWySubscribedPlaylists, useWyUid, useTxSubscribedPlaylists, useKgSubscribedPlaylists} from "@/store/user/hook.ts"
+import { useWySubscribedPlaylists, useWyUid, useTxSubscribedPlaylists, useKgSubscribedPlaylists } from '@/store/user/hook.ts'
 import { setTxSubscribedPlaylists, setKgSubscribedPlaylists, setWySubscribedPlaylists } from '@/store/user/action'
 import wyUserApi from '@/utils/musicSdk/wy/user'
 import txUserApi from '@/utils/musicSdk/tx/user'
@@ -91,7 +91,7 @@ export default ({
   const [isRefreshing, setIsRefreshing] = useState(false)
 
   // Req3: 切换标签时实时刷新在线歌单
-  const refreshOnlinePlaylists = useCallback(async (type: 'wy' | 'tx' | 'kg') => {
+  const refreshOnlinePlaylists = useCallback(async(type: 'wy' | 'tx' | 'kg') => {
     if (isRefreshing) return
     setIsRefreshing(true)
     try {

@@ -1,15 +1,15 @@
-import { memo } from 'react';
-import InputItem, { type InputItemProps } from '../../components/InputItem';
-import { useSettingValue } from '@/store/setting/hook';
-import { updateSetting } from '@/core/common';
+import { memo } from 'react'
+import InputItem, { type InputItemProps } from '../../components/InputItem'
+import { useSettingValue } from '@/store/setting/hook'
+import { updateSetting } from '@/core/common'
 
 export default memo(() => {
-  const serpApiKey = useSettingValue('common.wy_serpapi_key');
+  const serpApiKey = useSettingValue('common.wy_serpapi_key')
 
   const handleSerpApiKeyChanged: InputItemProps['onChanged'] = (text, callback) => {
-    callback(text);
-    updateSetting({ 'common.wy_serpapi_key': text.trim() });
-  };
+    callback(text)
+    updateSetting({ 'common.wy_serpapi_key': text.trim() })
+  }
 
   return (
     <InputItem
@@ -18,5 +18,5 @@ export default memo(() => {
       onChanged={handleSerpApiKeyChanged}
       placeholder="用于网易云搜索补充 Google 搜索结果"
     />
-  );
-});
+  )
+})

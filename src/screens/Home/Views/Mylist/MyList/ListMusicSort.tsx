@@ -131,7 +131,7 @@ export default forwardRef<ListMusicSortType, {}>((props, ref) => {
     },
   }))
 
-  const handleSort = async () => {
+  const handleSort = async() => {
     const [name, type] = formTypeRef.current!.getForm()
     // console.log(type, name)
     if (!type || (!name && type != 'random')) return
@@ -144,7 +144,7 @@ export default forwardRef<ListMusicSortType, {}>((props, ref) => {
         void updateListMusicPosition(
           id,
           0,
-          list.map((m) => m.id)
+          list.map((m) => m.id),
         )
         setFetchingListStatus(id, false)
       })

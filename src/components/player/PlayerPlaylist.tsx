@@ -1,27 +1,27 @@
-import {forwardRef, useImperativeHandle, useRef, useState, useEffect, useCallback, memo, useMemo} from 'react';
-import AnimatedSlideUpPanel, { type AnimatedSlideUpPanelType } from '@/components/common/AnimatedSlideUpPanel';
-import { useI18n } from '@/lang';
-import { FlatList, View, TouchableOpacity } from 'react-native';
-import Text from '@/components/common/Text';
-import { useTheme } from '@/store/theme/hook';
-import playerState from '@/store/player/state';
-import listState from '@/store/list/state';
-import { usePlayerMusicInfo, useTempPlayList } from '@/store/player/hook';
-import { createStyle, toast, type RowInfo } from '@/utils/tools';
-import { scaleSizeH } from '@/utils/pixelRatio';
-import { LIST_ITEM_HEIGHT, LIST_IDS } from '@/config/constant';
-import MusicAddModal, { type MusicAddModalType } from '@/components/MusicAddModal';
+import { forwardRef, useImperativeHandle, useRef, useState, useEffect, useCallback, memo, useMemo } from 'react'
+import AnimatedSlideUpPanel, { type AnimatedSlideUpPanelType } from '@/components/common/AnimatedSlideUpPanel'
+import { useI18n } from '@/lang'
+import { FlatList, View, TouchableOpacity } from 'react-native'
+import Text from '@/components/common/Text'
+import { useTheme } from '@/store/theme/hook'
+import playerState from '@/store/player/state'
+import listState from '@/store/list/state'
+import { usePlayerMusicInfo, useTempPlayList } from '@/store/player/hook'
+import { createStyle, toast, type RowInfo } from '@/utils/tools'
+import { scaleSizeH } from '@/utils/pixelRatio'
+import { LIST_ITEM_HEIGHT, LIST_IDS } from '@/config/constant'
+import MusicAddModal, { type MusicAddModalType } from '@/components/MusicAddModal'
 import { useSettingValue } from '@/store/setting/hook'
-import { useSafeAreaBottom } from '@/store/common/hook';
-import { downloadMusic } from '@/core/download';
-import { useWindowSize } from '@/utils/hooks';
-import { addTempPlayList, playTempListAt, playCurrentListAt, removeTempPlayList } from '@/core/player/tempPlayList';
-import { getList } from '@/core/player/playInfo';
-import { removeListMusics } from '@/core/list';
-import { Icon } from "@/components/common/Icon.tsx";
+import { useSafeAreaBottom } from '@/store/common/hook'
+import { downloadMusic } from '@/core/download'
+import { useWindowSize } from '@/utils/hooks'
+import { addTempPlayList, playTempListAt, playCurrentListAt, removeTempPlayList } from '@/core/player/tempPlayList'
+import { getList } from '@/core/player/playInfo'
+import { removeListMusics } from '@/core/list'
+import { Icon } from '@/components/common/Icon.tsx'
 
-import OnlineListItem from '@/components/OnlineList/ListItem';
-import ListMenu, { type ListMenuType, type Position, type SelectInfo } from '@/components/OnlineList/ListMenu';
+import OnlineListItem from '@/components/OnlineList/ListItem'
+import ListMenu, { type ListMenuType, type Position, type SelectInfo } from '@/components/OnlineList/ListMenu'
 import {
   handleDislikeMusic,
   handleLikeMusic,
@@ -29,13 +29,13 @@ import {
   handleKgLikeMusic,
   handleShowAlbumDetail,
   handleShowArtistDetail,
-} from "@/components/OnlineList/listAction";
-import settingState from '@/store/setting/state';
-import commonState from '@/store/common/state';
+} from '@/components/OnlineList/listAction'
+import settingState from '@/store/setting/state'
+import commonState from '@/store/common/state'
 import SimilarSongsModal, { type SimilarSongsModalType } from '@/components/SimilarSongsModal'
 
 export interface PlayerPlaylistType {
-  show: () => void;
+  show: () => void
 }
 
 // AnimatedSlideUpPanel 的面板高度固定为窗口高度的 50%（见其 styles.panel）
@@ -62,23 +62,23 @@ const getInitialScrollIndex = (list: LX.Player.PlayMusic[], playId: string | nul
 }
 
 export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
-  const panelRef = useRef<AnimatedSlideUpPanelType>(null);
-  const t = useI18n();
-  const theme = useTheme();
-  const playerMusicInfo = usePlayerMusicInfo();
-  const tempPlayList = useTempPlayList();
-  const { height: windowHeight } = useWindowSize();
-  const [initialIndex, setInitialIndex] = useState(0);
-  const [isVisible, setIsVisible] = useState(false);
-  const listMenuRef = useRef<ListMenuType>(null);
-  const musicAddModalRef = useRef<MusicAddModalType>(null);
-  const similarSongsModalRef = useRef<SimilarSongsModalType>(null);
-  const isShowAlbumName = useSettingValue('list.isShowAlbumName');
-  const isShowInterval = useSettingValue('list.isShowInterval');
-  const showCover = useSettingValue('list.isShowCover');
+  const panelRef = useRef<AnimatedSlideUpPanelType>(null)
+  const t = useI18n()
+  const theme = useTheme()
+  const playerMusicInfo = usePlayerMusicInfo()
+  const tempPlayList = useTempPlayList()
+  const { height: windowHeight } = useWindowSize()
+  const [initialIndex, setInitialIndex] = useState(0)
+  const [isVisible, setIsVisible] = useState(false)
+  const listMenuRef = useRef<ListMenuType>(null)
+  const musicAddModalRef = useRef<MusicAddModalType>(null)
+  const similarSongsModalRef = useRef<SimilarSongsModalType>(null)
+  const isShowAlbumName = useSettingValue('list.isShowAlbumName')
+  const isShowInterval = useSettingValue('list.isShowInterval')
+  const showCover = useSettingValue('list.isShowCover')
   // 底部安全区：列表最后一行补 paddingBottom，避免被 Home 指示器 / iPad 底部区域遮挡
-  const safeAreaBottom = useSafeAreaBottom();
-  const rowInfo = useRef({ rowNum: undefined, rowWidth: '100%' } as const).current;
+  const safeAreaBottom = useSafeAreaBottom()
+  const rowInfo = useRef({ rowNum: undefined, rowWidth: '100%' } as const).current
 
   // 播放器面板展示当前播放队列：
   // 1. 当存在「稍后播放」队列时优先展示该队列；
@@ -101,10 +101,10 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
   // 因此这里订阅相关事件，在当前播放列表被改动时强制刷新。
   const [listVersion, setListVersion] = useState(0)
   useEffect(() => {
-    const handleListChange = async (changedListId: string) => {
+    const handleListChange = async(changedListId: string) => {
       if (changedListId === playerState.playInfo.playerListId) setListVersion(v => v + 1)
     }
-    const handleListIdsChange = async (changedListIds: string[]) => {
+    const handleListIdsChange = async(changedListIds: string[]) => {
       if (playerState.playInfo.playerListId && changedListIds.includes(playerState.playInfo.playerListId)) {
         setListVersion(v => v + 1)
       }
@@ -129,7 +129,7 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
     const listId = playerState.playInfo.playerListId
     if (!listId) return []
     return (getList(listId) as LX.Player.PlayMusic[])
-  }, [tempPlayList, playerMusicInfo.id, listVersion]);
+  }, [tempPlayList, playerMusicInfo.id, listVersion])
 
   // 依赖必须列出，否则 ref 暴露的 show() 会永久闭包首次渲染的旧值。
   useImperativeHandle(ref, () => ({
@@ -137,22 +137,22 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
       // 面板隐藏时 AnimatedSlideUpPanel 直接 return null，FlatList 每次打开都是全新挂载。
       // 因此必须在挂载前一次性备好数据与初始滚动位置：若数据/定位留到挂载后再 setState，
       // 首帧会先渲染上一次残留的列表并停在顶部，随后才被拉到当前播放项 —— 就是「跳一下」。
-      setInitialIndex(getInitialScrollIndex(playlist, playerMusicInfo.id, windowHeight));
-      setIsVisible(true);
+      setInitialIndex(getInitialScrollIndex(playlist, playerMusicInfo.id, windowHeight))
+      setIsVisible(true)
     },
-  }), [playlist, playerMusicInfo.id, windowHeight]);
+  }), [playlist, playerMusicInfo.id, windowHeight])
 
   const { activeIndex, totalCount } = useMemo(() => {
-    if (!playlist.length) return { activeIndex: -1, totalCount: 0 };
+    if (!playlist.length) return { activeIndex: -1, totalCount: 0 }
 
-    const index = playlist.findIndex(item => getMusicId(item) === playerMusicInfo.id);
-    return { activeIndex: index, totalCount: playlist.length };
-  }, [playlist, playerMusicInfo.id]);
+    const index = playlist.findIndex(item => getMusicId(item) === playerMusicInfo.id)
+    return { activeIndex: index, totalCount: playlist.length }
+  }, [playlist, playerMusicInfo.id])
 
   useEffect(() => {
-    if (!isVisible) return;
-    panelRef.current?.setVisible(true);
-  }, [isVisible]);
+    if (!isVisible) return
+    panelRef.current?.setVisible(true)
+  }, [isVisible])
 
   const handlePlay = useCallback((index: number) => {
     if (isTempMode) {
@@ -162,7 +162,7 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
     const listId = playerState.playInfo.playerListId
     if (!listId) return
     playCurrentListAt(listId, index)
-  }, [isTempMode]);
+  }, [isTempMode])
 
   const handleShowMenu = useCallback((musicInfo: LX.Music.MusicInfo, index: number, position: Position) => {
     const adaptedMusicInfo = {
@@ -173,19 +173,19 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
         qualitys: (musicInfo as LX.Music.MusicInfoOnline).meta.qualitys || [],
         _qualitys: (musicInfo as LX.Music.MusicInfoOnline).meta._qualitys || {},
       },
-    } as LX.Music.MusicInfoOnline;
+    } as LX.Music.MusicInfoOnline
 
     listMenuRef.current?.show({
       musicInfo: adaptedMusicInfo,
       index,
       single: true,
       selectedList: [],
-    }, position);
-  }, []);
+    }, position)
+  }, [])
 
 
   const renderItem = ({ item, index }: { item: LX.Player.PlayMusic, index: number }) => {
-    const originalMusicInfo = ('progress' in item ? item.metadata.musicInfo : item);
+    const originalMusicInfo = ('progress' in item ? item.metadata.musicInfo : item)
 
     const renderableMusicInfo: LX.Music.MusicInfoOnline = {
       ...originalMusicInfo,
@@ -206,18 +206,18 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
         fee: (originalMusicInfo as LX.Music.MusicInfoOnline).meta.fee ?? 0,
         originCoverType: (originalMusicInfo as LX.Music.MusicInfoOnline).meta.originCoverType ?? 0,
       },
-    } as LX.Music.MusicInfoOnline;
+    } as LX.Music.MusicInfoOnline
 
-    const listIdForIcon = playerState.playMusicInfo.listId ?? undefined;
+    const listIdForIcon = playerState.playMusicInfo.listId ?? undefined
 
     return (
       <OnlineListItem
         item={renderableMusicInfo}
         index={index}
-        onPress={() => handlePlay(index)}
+        onPress={() => { handlePlay(index) }}
         onLongPress={() => {}}
         onShowMenu={(musicInfo, index, position) => {
-          handleShowMenu(originalMusicInfo, index, position);
+          handleShowMenu(originalMusicInfo, index, position)
         }}
         selectedList={[]}
         playingId={playerMusicInfo.id}
@@ -228,67 +228,67 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
         showCover={showCover}
         hideMenu={false}
       />
-    );
-  };
+    )
+  }
 
   const getItemLayout = useCallback((data: any, index: number) => ({
     length: scaleSizeH(LIST_ITEM_HEIGHT),
     offset: scaleSizeH(LIST_ITEM_HEIGHT) * index,
     index,
-  }), []);
+  }), [])
 
   // 缓存容器样式：直接写字面量会每次渲染生成新对象，触发 FlatList 重复布局
-  const listContentStyle = useMemo(() => ({ paddingBottom: safeAreaBottom }), [safeAreaBottom]);
+  const listContentStyle = useMemo(() => ({ paddingBottom: safeAreaBottom }), [safeAreaBottom])
 
   const onAdd = (info: SelectInfo) => {
     musicAddModalRef.current?.show({
       musicInfo: info.musicInfo,
       isMove: false,
       listId: playerState.playMusicInfo.listId!,
-    });
-  };
+    })
+  }
 
   const onPlayLater = (info: SelectInfo) => {
     addTempPlayList([{
       listId: playerState.playMusicInfo.listId!,
       musicInfo: info.musicInfo,
       isTop: true,
-    }]);
-    toast('已添加到下一首播放');
-  };
+    }])
+    toast('已添加到下一首播放')
+  }
 
   const onDownload = (info: SelectInfo) => {
-    downloadMusic(info.musicInfo);
-  };
+    downloadMusic(info.musicInfo)
+  }
 
   const onArtistDetail = (info: SelectInfo) => {
     requestAnimationFrame(() => {
-      handleShowArtistDetail(commonState.componentIds[commonState.componentIds.length - 1]?.id!, info.musicInfo);
-      panelRef.current?.setVisible(false);
-    });
-  };
+      handleShowArtistDetail(commonState.componentIds[commonState.componentIds.length - 1]?.id, info.musicInfo)
+      panelRef.current?.setVisible(false)
+    })
+  }
 
   const onAlbumDetail = (info: SelectInfo) => {
     requestAnimationFrame(() => {
-      handleShowAlbumDetail(commonState.componentIds[commonState.componentIds.length - 1]?.id!, info.musicInfo);
-      panelRef.current?.setVisible(false);
-    });
-  };
+      handleShowAlbumDetail(commonState.componentIds[commonState.componentIds.length - 1]?.id, info.musicInfo)
+      panelRef.current?.setVisible(false)
+    })
+  }
 
   const onSimilarSongs = (info: SelectInfo) => {
-    panelRef.current?.setVisible(false);
-    similarSongsModalRef.current?.show(info.musicInfo);
-  };
+    panelRef.current?.setVisible(false)
+    similarSongsModalRef.current?.show(info.musicInfo)
+  }
 
   const onLike = (info: SelectInfo) => {
     if (info.musicInfo.source === 'wy') {
-      handleLikeMusic(info.musicInfo as LX.Music.MusicInfoOnline);
+      handleLikeMusic(info.musicInfo as LX.Music.MusicInfoOnline)
     } else if (info.musicInfo.source === 'tx') {
-      handleTxLikeMusic(info.musicInfo as LX.Music.MusicInfoOnline);
+      handleTxLikeMusic(info.musicInfo as LX.Music.MusicInfoOnline)
     } else if (info.musicInfo.source === 'kg') {
-      handleKgLikeMusic(info.musicInfo as LX.Music.MusicInfoOnline);
+      handleKgLikeMusic(info.musicInfo as LX.Music.MusicInfoOnline)
     }
-  };
+  }
 
   const onRemove = useCallback((info: SelectInfo) => {
     if (isTempMode) {
@@ -300,8 +300,8 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
   }, [isTempMode])
 
   const handlePanelHide = () => {
-    setIsVisible(false);
-  };
+    setIsVisible(false)
+  }
 
   return (
     <>
@@ -352,8 +352,8 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
       <MusicAddModal ref={musicAddModalRef} />
       <SimilarSongsModal ref={similarSongsModalRef} />
     </>
-  );
-});
+  )
+})
 
 const styles = createStyle({
   panelContent: {
@@ -387,4 +387,4 @@ const styles = createStyle({
   list: {
     flex: 1,
   },
-});
+})

@@ -30,7 +30,7 @@ export default memo(({ item, showSubscribeButton = false }: { item: any, showSub
     const albumMid = item.mid || extractMidFromPicUrl(item.picUrl) || String(item.id)
     log.info('[SubscribedAlbums/ListItem] === 点击专辑 ===', {
       albumId: item.id,
-      albumMid: albumMid,
+      albumMid,
       albumName: item.name,
       albumSource: item.source,
       albumSize: item.size,
@@ -51,10 +51,10 @@ export default memo(({ item, showSubscribeButton = false }: { item: any, showSub
       publishTime: item.publishTime,
     }
     log.info('[SubscribedAlbums/ListItem] === 传递的专辑信息 ===', albumInfo)
-    navigations.pushAlbumDetailScreen(commonState.componentIds[commonState.componentIds.length - 1]?.id!, albumInfo)
+    navigations.pushAlbumDetailScreen(commonState.componentIds[commonState.componentIds.length - 1]?.id, albumInfo)
     log.info('[SubscribedAlbums/ListItem] === 跳转请求已发送 ===', {
       albumId: item.id,
-      albumMid: albumMid,
+      albumMid,
       albumSource: item.source,
     })
   }

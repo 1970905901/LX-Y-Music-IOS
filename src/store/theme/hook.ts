@@ -44,7 +44,7 @@ export const useTextShadow = () => {
     const handleUpdate = (keys: Array<keyof LX.AppSetting>, setting: Partial<LX.AppSetting>) => {
       if (!keys.includes('theme.fontShadow')) return
       requestAnimationFrame(() => {
-        update(setting['theme.fontShadow']!)
+        update(setting['theme.fontShadow'])
       })
     }
     global.state_event.on('configUpdated', handleUpdate)

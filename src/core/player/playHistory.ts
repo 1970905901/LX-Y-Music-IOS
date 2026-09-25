@@ -5,7 +5,7 @@ import { getPlayHistory, savePlayHistory } from '@/utils/data'
 const MAX_HISTORY_SIZE = 5000
 const MAX_HISTORY_TIME = 31 * 24 * 60 * 60 * 1000
 
-type AddPlayHistoryParams = {
+interface AddPlayHistoryParams {
   musicInfo: LX.Music.MusicInfo
   playTime: number
   maxTime: number
@@ -33,7 +33,7 @@ export const resolvePlayHistorySource = (listId: string | null): LX.Player.PlayH
   return 'List'
 }
 
-const addPlayHistoryInternal = async ({
+const addPlayHistoryInternal = async({
   musicInfo,
   playTime,
   maxTime,
@@ -43,7 +43,7 @@ const addPlayHistoryInternal = async ({
   const day = getHistoryDay(playedAt)
   const history = await getPlayHistory()
   const existedIndex = history.findIndex(
-    item => item.musicInfo.id === musicInfo.id && getHistoryDay(item.playedAt) === day
+    item => item.musicInfo.id === musicInfo.id && getHistoryDay(item.playedAt) === day,
   )
 
   const source = resolvePlayHistorySource(listId)
@@ -69,13 +69,13 @@ const addPlayHistoryInternal = async ({
   markListsChanged()
 }
 
-export const addPlayHistory = (params: AddPlayHistoryParams) => {
-  const nextTask = addPlayHistoryQueue.catch(() => {}).then(() => addPlayHistoryInternal(params))
+export const addPlayHistory = async(params: AddPlayHistoryParams) => {
+  const nextTask = addPlayHistoryQueue.catch(() => {}).then(async() => addPlayHistoryInternal(params))
   addPlayHistoryQueue = nextTask.then(() => undefined, () => undefined)
   return nextTask
 }
 
-export const getPlayHistoryByRange = async (startTime: number, endTime: number) => {
+export const getPlayHistoryByRange = async(startTime: number, endTime: number) => {
   const history = await getPlayHistory()
   return history.filter(item => item.playedAt >= startTime && item.playedAt <= endTime)
 }

@@ -9,7 +9,7 @@ import { setPendingAction } from '@/core/pendingAction'
 import { extname, stat } from '@/utils/fs'
 import { handleFileMusicAction, handleFileJSAction, handleFileLXMCAction } from './fileAction'
 
-const handleLinkAction = async (link: string) => {
+const handleLinkAction = async(link: string) => {
   // console.log(link)
   const [url, hash] = link.split('#')
   const [type, action, ...paths] = url.replace('lxmusic://', '').split('/')
@@ -63,11 +63,11 @@ const handleLinkAction = async (link: string) => {
       if (action === 'search' || params.target === 'search') {
         setPendingAction({ type: 'searchFocus' })
         setNavActiveId('nav_search')
-        setTimeout(() => global.app_event.searchDeepLink(params.keyword || '', '', params.type || ''), 100)
+        setTimeout(() => { global.app_event.searchDeepLink(params.keyword || '', '', params.type || '') }, 100)
       } else if (action === 'songlist' || params.target === 'songlist') {
         setPendingAction({ type: 'songlistImport' })
         setNavActiveId('nav_songlist')
-        setTimeout(() => global.app_event.openSonglistImport(), 100)
+        setTimeout(() => { global.app_event.openSonglistImport() }, 100)
       } else if (action === 'setting' || params.target === 'setting') {
         setNavActiveId('nav_setting')
       }
@@ -76,7 +76,7 @@ const handleLinkAction = async (link: string) => {
   }
 }
 
-const handleFileAction = async (link: string) => {
+const handleFileAction = async(link: string) => {
   const file = await stat(link)
   // console.log(file)
   switch (extname(file.name)) {
@@ -103,7 +103,7 @@ const handleFileAction = async (link: string) => {
 // const handleHttpAction = async(link: string) => {
 // }
 
-const runLinkAction = async (link: string) => {
+const runLinkAction = async(link: string) => {
   if (link.startsWith('lxmusic://')) {
     try {
       await handleLinkAction(link)
@@ -129,7 +129,7 @@ const runLinkAction = async (link: string) => {
   // }
 }
 
-export const initDeeplink = async () => {
+export const initDeeplink = async() => {
   Linking.addEventListener('url', ({ url }) => {
     void runLinkAction(url)
     console.log('deeplink', url)

@@ -49,7 +49,7 @@ const StrategyItem = memo(({
   onDragRelease,
   onDragCancel,
 }: {
-  item: { key: string; label: string }
+  item: { key: string, label: string }
   index: number
   isDragging: boolean
   isDragSource: boolean
@@ -135,7 +135,7 @@ const StrategyItem = memo(({
         // 一旦接管手势（在拖拽手柄上按下）就不再释放给 ScrollView，避免整页被滚动。
         onPanResponderTerminationRequest: () => false,
       }),
-    [index]
+    [index],
   )
 
   const transform = isDragSource
@@ -145,7 +145,7 @@ const StrategyItem = memo(({
 
   return (
     <Animated.View
-      onLayout={(e) => onLayoutHeight(index, e.nativeEvent.layout.height)}
+      onLayout={(e) => { onLayoutHeight(index, e.nativeEvent.layout.height) }}
       style={[
         styles.item,
         {
@@ -193,7 +193,7 @@ export default memo(() => {
   const isEnableAutoToggleSource = useSettingValue('player.enableAutoToggleSource')
   const subContainerOpacity = useSettingValue('theme.subContainerOpacity')
 
-  const strategyList = useMemo((): Array<{ key: string; label: string }> => {
+  const strategyList = useMemo((): Array<{ key: string, label: string }> => {
     const labelMap: Record<string, string> = {
       togglePlatform: t('setting_play_failure_toggle_platform') || '切换平台',
       lowerQuality: t('setting_play_failure_lower_quality') || '降低音质',
@@ -320,7 +320,7 @@ export default memo(() => {
         animateLayout(from, target)
       }
     },
-    [computeTargetIndex, animateLayout]
+    [computeTargetIndex, animateLayout],
   )
 
   const handleDragRelease = useCallback(() => {

@@ -15,7 +15,7 @@ import { state } from '@/plugins/player/playList'
 export default memo(() => {
   const t = useI18n()
   const isShowBluetoothLyric = useSettingValue('player.isShowBluetoothLyric')
-  const setShowBluetoothLyric = async (isShowBluetoothLyric: boolean) => {
+  const setShowBluetoothLyric = async(isShowBluetoothLyric: boolean) => {
     if (isShowBluetoothLyric) {
       await remoteLyricTip()
     }
@@ -27,7 +27,7 @@ export default memo(() => {
         (state.prevDuration || 0) * 1000,
         playerState.musicInfo.name,
         playerState.musicInfo.singer ?? '',
-        playerState.musicInfo.album ?? ''
+        playerState.musicInfo.album ?? '',
       )
     }
   }

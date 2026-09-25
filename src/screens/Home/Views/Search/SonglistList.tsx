@@ -5,7 +5,7 @@ import Songlist, {
   type SonglistProps,
   type SonglistType,
 } from '@/screens/Home/Views/SongList/components/Songlist'
-import searchSonglistState, {ListInfoItem, type Source} from '@/store/search/songlist/state'
+import searchSonglistState, { type ListInfoItem, type Source } from '@/store/search/songlist/state'
 
 // export type MusicListProps = Pick<OnlineListProps,
 // 'onLoadMore'
@@ -22,7 +22,7 @@ interface SonglistListProps {
 }
 export default forwardRef<MusicListType, SonglistListProps>(({ header, onOpenDetail }, ref) => {
   const listRef = useRef<SonglistType>(null)
-  const searchInfoRef = useRef<{ text: string; source: Source }>({ text: '', source: 'kw' })
+  const searchInfoRef = useRef<{ text: string, source: Source }>({ text: '', source: 'kw' })
   const isUnmountedRef = useRef(false)
   useImperativeHandle(
     ref,
@@ -38,7 +38,7 @@ export default forwardRef<MusicListType, SonglistListProps>(({ header, onOpenDet
           requestAnimationFrame(() => {
             listRef.current?.setList(
               searchSonglistState.listInfos[searchSonglistState.source]!.list,
-              source == 'all'
+              source == 'all',
             )
           })
         } else {
@@ -53,7 +53,7 @@ export default forwardRef<MusicListType, SonglistListProps>(({ header, onOpenDet
               requestAnimationFrame(() => {
                 listRef.current?.setList(list, source == 'all')
                 listRef.current?.setStatus(
-                  searchSonglistState.maxPages[searchSonglistState.source] == page ? 'end' : 'idle'
+                  searchSonglistState.maxPages[searchSonglistState.source] == page ? 'end' : 'idle',
                 )
               })
             })
@@ -63,7 +63,7 @@ export default forwardRef<MusicListType, SonglistListProps>(({ header, onOpenDet
         }
       },
     }),
-    []
+    [],
   )
 
   useEffect(() => {
@@ -82,7 +82,7 @@ export default forwardRef<MusicListType, SonglistListProps>(({ header, onOpenDet
         if (isUnmountedRef.current) return
         listRef.current?.setList(list, searchInfoRef.current.source == 'all')
         listRef.current?.setStatus(
-          searchSonglistState.maxPages[searchSonglistState.source] == page ? 'end' : 'idle'
+          searchSonglistState.maxPages[searchSonglistState.source] == page ? 'end' : 'idle',
         )
       })
       .catch(() => {
@@ -99,7 +99,7 @@ export default forwardRef<MusicListType, SonglistListProps>(({ header, onOpenDet
         if (isUnmountedRef.current) return
         listRef.current?.setList(list, searchInfoRef.current.source == 'all')
         listRef.current?.setStatus(
-          searchSonglistState.maxPages[searchSonglistState.source] == page ? 'end' : 'idle'
+          searchSonglistState.maxPages[searchSonglistState.source] == page ? 'end' : 'idle',
         )
       })
       .catch(() => {

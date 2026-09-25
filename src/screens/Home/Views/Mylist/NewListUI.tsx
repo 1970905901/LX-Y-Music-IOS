@@ -31,7 +31,7 @@ import OpenList from '../SongList/HeaderBar/OpenList'
 import { navigations } from '@/navigation'
 import FeatureGrid from '@/components/home/FeatureGrid'
 
-const CARD_HEIGHT = scaleSizeH(90)
+const CARD_HEIGHT = scaleSizeH(64)
 const LONG_PRESS_MS = 350
 
 interface ListItemInfo {
@@ -800,8 +800,8 @@ const styles = createStyle({
     marginHorizontal: designSpacing.md,
     marginBottom: designSpacing.sm,
     borderWidth: 1,
-    borderRadius: designRadius.lg,
-    ...shadow(4),
+    borderRadius: designRadius.md,
+    ...shadow(2),
     overflow: 'hidden',
   },
   cardContent: {
@@ -810,9 +810,9 @@ const styles = createStyle({
     alignItems: 'center',
   },
   artwork: {
-    width: 64,
-    height: 64,
-    borderRadius: designRadius.md,
+    width: 40,
+    height: 40,
+    borderRadius: designRadius.sm,
   },
   info: {
     flex: 1,

@@ -6,7 +6,6 @@ import { confirmDialog, createStyle, exitApp as backHome } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
 import { useSettingValue } from '@/store/setting/hook'
 import { useI18n } from '@/lang'
-import { useHorizontalMode } from '@/utils/hooks'
 import { exitApp, setNavActiveId } from '@/core/common'
 import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
 import { Icon } from '@/components/common/Icon'
@@ -28,7 +27,7 @@ const TAB_IDS = new Set<NAV_ID_Type>([
   'nav_setting',
 ])
 
-// 已并入推荐页的入口不再出现在更多功能网格里：
+// 已并入推荐页的入口不再出现在更多功能列表里：
 // - 三大平台每日推荐 → 推荐页顶部「每日推荐」卡片（跟随平台切换 + Cookie 登录校验）
 // - 排行榜 → 推荐页「排行榜」区块（随平台切换，点卡片进入对应榜单）
 // - 播放历史 → 推荐页右上角时钟按钮
@@ -57,11 +56,11 @@ const renderIcon = (icon: string, color: string) => {
   return <Icon name={icon} size={21} color={color} />
 }
 
+// 更多功能列表：原卡片网格已改为与歌单卡片一致的行式列表。
 const FeatureGrid = memo(() => {
   const theme = useTheme()
   const t = useI18n()
   const navStatus = useSettingValue('common.navStatus')
-  const isHorizontal = useHorizontalMode()
   const showBackBtn = useSettingValue('common.showBackBtn')
   const showExitBtn = useSettingValue('common.showExitBtn')
   const wyCookie = useSettingValue('common.wy_cookie')
@@ -90,19 +89,16 @@ const FeatureGrid = memo(() => {
     [navStatus, showBackBtn, showExitBtn, wyCookie, kgCookie, txCookie],
   )
 
-  const rows = useMemo(() => {
-    const size = isHorizontal ? 6 : 3
-    return features.reduce<Array<typeof features>>((result, item, index) => {
-      if (index % size === 0) result.push([])
-      result[result.length - 1].push(item)
-      return result
-    }, [])
-  }, [features, isHorizontal])
-
-  const cardStyle = useMemo(
+  const rowStyle = useMemo(
     () => ({
-      backgroundColor: theme['c-primary-light-900-alpha-200'],
+      backgroundColor: theme['c-content-background'],
       borderColor: theme['c-border-background'],
+    }),
+    [theme],
+  )
+  const rowPressedStyle = useMemo(
+    () => ({
+      backgroundColor: theme['c-primary-background-hover'],
     }),
     [theme],
   )
@@ -116,42 +112,39 @@ const FeatureGrid = memo(() => {
       >
         {t('discovery_features_title')}
       </Text>
-      {rows.map((row, rowIndex) => (
-        <View key={rowIndex} style={styles.row}>
-          {row.map(item => (
-            <Pressable
-              key={item.id}
-              style={[styles.card, cardStyle]}
-              onPress={() => {
-                if (item.id === 'back_home') {
-                  backHome()
-                  return
-                }
-                if (item.id === 'nav_exit') {
-                  void confirmDialog({
-                    message: global.i18n.t('exit_app_tip'),
-                    confirmButtonText: global.i18n.t('list_remove_tip_button'),
-                  }).then((isExit) => {
-                    if (!isExit) return
-                    exitApp('Feature Grid')
-                  })
-                  return
-                }
-                setNavActiveId(item.id)
-              }}
-            >
-              {renderIcon(item.icon, theme['c-primary'])}
-              <Text
-                style={styles.label}
-                size={designTypography.caption}
-                color={theme['c-font']}
-                numberOfLines={1}
-              >
-                {t(item.id)}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+      {features.map(item => (
+        <Pressable
+          key={item.id}
+          style={({ pressed }) => [styles.row, rowStyle, pressed ? rowPressedStyle : null]}
+          onPress={() => {
+            if (item.id === 'back_home') {
+              backHome()
+              return
+            }
+            if (item.id === 'nav_exit') {
+              void confirmDialog({
+                message: global.i18n.t('exit_app_tip'),
+                confirmButtonText: global.i18n.t('list_remove_tip_button'),
+              }).then((isExit) => {
+                if (!isExit) return
+                exitApp('Feature Grid')
+              })
+              return
+            }
+            setNavActiveId(item.id)
+          }}
+        >
+          {renderIcon(item.icon, theme['c-primary'])}
+          <Text
+            style={styles.label}
+            size={15}
+            color={theme['c-font']}
+            numberOfLines={1}
+          >
+            {t(item.id)}
+          </Text>
+          <Icon name="chevron-right" size={14} color={theme['c-350']} />
+        </Pressable>
       ))}
     </View>
   )
@@ -168,21 +161,16 @@ const styles = createStyle({
   },
   row: {
     flexDirection: 'row',
-    marginBottom: designSpacing.sm,
-  },
-  card: {
-    flex: 1,
-    minHeight: 78,
-    marginRight: designSpacing.sm,
-    justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: designRadius.lg,
+    height: 52,
+    paddingHorizontal: designSpacing.md,
+    marginBottom: designSpacing.sm,
     borderWidth: 1,
-    paddingHorizontal: designSpacing.xs,
+    borderRadius: designRadius.md,
   },
   label: {
-    marginTop: designSpacing.xs,
-    textAlign: 'center',
+    flex: 1,
+    marginLeft: designSpacing.md,
     fontWeight: '600',
   },
 })

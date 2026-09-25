@@ -13,6 +13,7 @@ import { useTheme } from '@/store/theme/hook'
 import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
 
 import commonState from '@/store/common/state'
+import { pop } from '@/navigation'
 import { Icon } from '@/components/common/Icon'
 import { SvgIcon } from '@/components/common/SvgIcon'
 import Input from '@/components/common/Input'
@@ -143,7 +144,7 @@ const ListHeader = ({ detailInfo, info, onBack, showSearchBar, searchText, isFuz
   )
 }
 
-export default ({ info, onBack, initialScrollToInfo }: { info: ListInfoItem, onBack?: () => void, initialScrollToInfo: MusicInfoOnline | null }) => {
+export default ({ info, onBack, componentId, initialScrollToInfo }: { info: ListInfoItem, onBack?: () => void, componentId?: string, initialScrollToInfo: MusicInfoOnline | null }) => {
   const musicListRef = useRef<MusicListType>(null)
   const [detailInfo, setDetailInfo] = useState<DetailInfo>({
     name: info.name,
@@ -161,7 +162,11 @@ export default ({ info, onBack, initialScrollToInfo }: { info: ListInfoItem, onB
   const playerMusicInfo = usePlayerMusicInfo()
   const initialScrollDoneRef = useRef(false)
 
-  const handleBack = onBack
+  // 内嵌模式由宿主页面传入 onBack；独立 push 模式没有 onBack，用 componentId pop 自己，
+  // 否则返回按钮是个空操作
+  const handleBack = onBack ?? (componentId
+    ? () => { void pop(componentId) }
+    : undefined)
 
   const refreshList = useCallback((isRefresh = false) => {
     if (global.lx.isEnableLog) console.log(`[SonglistDetail] refreshList`, { source: info.source, id: info.id, isRefresh })

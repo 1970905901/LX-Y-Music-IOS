@@ -99,7 +99,8 @@ export const getList = async (
   }
 
   return musicSdk[source]?.songList.getList(sortId, tabId, page).then((result: ListInfo) => {
-    cache.set(pageKey, result)
+    // 空结果不写缓存：平台偶发返回空列表时若被缓存，会一直显示加载不出来
+    if (result.list.length) cache.set(pageKey, result)
     return result
     // if (pageKey != listInfo.key) return
     // setList(result, tabId, sortId, page)

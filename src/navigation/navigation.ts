@@ -232,6 +232,8 @@ export function pushSonglistDetailScreen(componentId: string, info: ListInfoItem
         name: SONGLIST_DETAIL_SCREEN,
         passProps: {
           info,
+          // 独立 push 时没有外部 onBack，详情页的返回按钮需要 componentId 才能pop自己
+          componentId,
         },
         options: {
           topBar: {

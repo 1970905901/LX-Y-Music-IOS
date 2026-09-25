@@ -1,20 +1,19 @@
 import { forwardRef, useImperativeHandle, useState } from 'react'
-import { TouchableOpacity } from 'react-native'
+import { View } from 'react-native'
 
 import { useTheme } from '@/store/theme/hook'
 import { createStyle } from '@/utils/tools'
 import Text from '@/components/common/Text'
 
-export interface ActiveListNameProps {
-  onShowBound: () => void
-}
 export interface ActiveListNameType {
   setBound: (id: string, name: string) => void
 }
 
-export default forwardRef<ActiveListNameType, ActiveListNameProps>(({ onShowBound }, ref) => {
+// 当前榜单名展示。原「点击打开侧边栏抽屉」交互已随抽屉一并移除，
+// 榜单切换入口统一收敛到推荐页的排行榜区块。
+export default forwardRef<ActiveListNameType>((_props, ref) => {
   const theme = useTheme()
-  let [currentListName, setCurrentListName] = useState('')
+  const [currentListName, setCurrentListName] = useState('')
 
   useImperativeHandle(
     ref,
@@ -23,15 +22,15 @@ export default forwardRef<ActiveListNameType, ActiveListNameProps>(({ onShowBoun
         setCurrentListName(name)
       },
     }),
-    []
+    [],
   )
 
   return (
-    <TouchableOpacity onPress={onShowBound} style={styles.currentList}>
+    <View style={styles.currentList}>
       <Text numberOfLines={1} style={styles.currentListText} color={theme['c-button-font']}>
         {currentListName}
       </Text>
-    </TouchableOpacity>
+    </View>
   )
 })
 
@@ -40,22 +39,10 @@ const styles = createStyle({
     flex: 1,
     flexDirection: 'row',
     paddingRight: 2,
-    // height: 36,
     alignItems: 'center',
-    // backgroundColor: 'rgba(0,0,0,0.2)',
-  },
-  currentListIcon: {
-    paddingLeft: 15,
-    paddingRight: 10,
-    // paddingTop: 10,
-    // paddingBottom: 0,
   },
   currentListText: {
     flex: 1,
-    // minWidth: 70,
-    // paddingLeft: 10,
     paddingRight: 10,
-    // paddingTop: 10,
-    // paddingBottom: 10,
   },
 })

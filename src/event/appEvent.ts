@@ -333,6 +333,15 @@ export class AppEvent extends Event {
     this.emit('showSonglistTagList', source, activeId)
   }
 
+  /**
+   * 显示指定榜单：推荐页排行榜区块点击榜单卡片时调用。排行榜页一旦挂载就不会因
+   * 切页而卸载（页面 visible 门控只在进入时置 true），仅靠“先存设置再跳转”无法
+   * 更新已挂载实例，必须通过事件实时切换到目标榜单。
+   */
+  showBoardDetail(info: { source: LX.OnlineSource, boardId: string }) {
+    this.emit('showBoardDetail', info)
+  }
+
   hideSonglistTagList() {
     this.emit('hideSonglistTagList')
   }

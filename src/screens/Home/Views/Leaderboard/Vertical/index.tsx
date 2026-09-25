@@ -1,168 +1,57 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { View } from 'react-native'
 import { createStyle } from '@/utils/tools'
-import { shadow } from '@/utils/shadow'
 
 import MusicList, { type MusicListType } from '../MusicList'
 import { getLeaderboardSetting, saveLeaderboardSetting } from '@/utils/data'
-import DrawerLayoutFixed, {
-  type DrawerLayoutFixedType,
-} from '@/components/common/DrawerLayoutFixed'
-import HeaderBar, { type HeaderBarType, type HeaderBarProps } from './HeaderBar'
-import { scaleSizeW } from '@/utils/pixelRatio'
-import { useTheme } from '@/store/theme/hook'
-// import { BorderWidths } from '@/theme'
-// import { useTheme } from '@/store/theme/hook'
-import BoardsList, { type BoardsListProps } from '../BoardsList'
-import type { InitState as CommonState } from '@/store/common/state'
-import settingState from '@/store/setting/state'
+import HeaderBar, { type HeaderBarType } from './HeaderBar'
 import { getBoardsList } from '@/core/leaderboard'
-import { COMPONENT_IDS } from '@/config/constant'
-import { handleCollect, handlePlay } from '../listAction'
-import boardState, { type BoardItem } from '@/store/leaderboard/state'
 import PageTopInset from '@/components/common/PageTopInset'
 
-const MAX_WIDTH = scaleSizeW(200)
-
+// 排行榜页：平台切换与榜单选择已由推荐页的排行榜区块承担（点榜单卡片跳转至此），
+// 原侧边栏抽屉（BoardsList）与平台下拉选择器已移除，页面仅展示当前榜单的歌曲列表。
 export default () => {
-  const drawer = useRef<DrawerLayoutFixedType>(null)
-  const theme = useTheme()
   const musicListRef = useRef<MusicListType>(null)
-  const isUnmountedRef = useRef(false)
   const headerBarRef = useRef<HeaderBarType>(null)
-  const boundInfo = useRef<{ source: LX.OnlineSource, id: string | null }>({
-    source: 'kw',
-    id: null,
-  })
-  // BoardsList 数据由父组件统一管理（状态提升），避免 navigationView 在
-  // DrawerLayoutAndroid 关闭→打开被 unmount/remount 后丢失内部 useState，
-  // 导致排行榜左侧空白（参见 BoardsList/List.tsx 说明）。
-  const [boardsList, setBoardsList] = useState<BoardItem[]>([])
-  const [boardsActiveId, setBoardsActiveId] = useState<string>('')
-
-  const handleBoundChange = (source: LX.OnlineSource, id: string) => {
-    musicListRef.current?.loadList(source, id)
-    void saveLeaderboardSetting({
-      source,
-      boardId: id,
-    })
-  }
-  const onBoundChange: BoardsListProps['onBoundChange'] = (id) => {
-    boundInfo.current.id = id
-    setBoardsActiveId(id)
-    void getBoardsList(boundInfo.current.source).then((list) => {
-      requestAnimationFrame(() => {
-        const bound = list.find((l) => l.id == id)
-        headerBarRef.current?.setBound(boundInfo.current.source, id, bound?.name ?? 'Unknown')
-      })
-    })
-    handleBoundChange(boundInfo.current.source, id)
-    requestAnimationFrame(() => {
-      drawer.current?.closeDrawer()
-    })
-  }
-  const onPlay: BoardsListProps['onPlay'] = (id) => {
-    boundInfo.current.id = id
-    void handlePlay(id, boardState.listDetailInfo.list)
-  }
-  const onCollect: BoardsListProps['onCollect'] = (id, name) => {
-    boundInfo.current.id = id
-    void handleCollect(id, name, boundInfo.current.source)
-  }
-  const onShowBound = () => {
-    requestAnimationFrame(() => {
-      drawer.current?.openDrawer()
-    })
-  }
-  const onSourceChange: HeaderBarProps['onSourceChange'] = (source) => {
-    boundInfo.current.source = source
-    void getBoardsList(source).then((list) => {
-      const id = list[0].id
-      const name = list[0].name
-      requestAnimationFrame(() => {
-        setBoardsList(list)
-        setBoardsActiveId(id)
-        headerBarRef.current?.setBound(source, id, name ?? 'Unknown')
-        requestAnimationFrame(() => {
-          handleBoundChange(source, id)
-        })
-      })
-    })
-  }
-
-  const navigationView = () => {
-    return (
-      <BoardsList
-        list={boardsList}
-        activeId={boardsActiveId}
-        onBoundChange={onBoundChange}
-        onCollect={onCollect}
-        onPlay={onPlay}
-      />
-    )
-  }
-
-  // const theme = useTheme()
 
   useEffect(() => {
-    const handleFixDrawer = (id: CommonState['navActiveId']) => {
-      if (id == 'nav_top') drawer.current?.fixWidth()
-    }
-    global.state_event.on('navActiveIdUpdated', handleFixDrawer)
-
-    isUnmountedRef.current = false
-    void getLeaderboardSetting().then(({ source, boardId }) => {
-      boundInfo.current.source = source
-      boundInfo.current.id = boardId
+    // 推荐页排行榜区块点卡片进入：页面已挂载时（切页不卸载）由事件实时切到目标榜单；
+    // 未挂载时错过事件，由下方 getLeaderboardSetting 读取的持久化设置兜底。
+    const handleShowBoard = ({ source, boardId }: { source: LX.OnlineSource, boardId: string }) => {
       void getBoardsList(source).then((list) => {
         const bound = list.find((l) => l.id == boardId)
-        setBoardsList(list)
-        setBoardsActiveId(boardId)
+        headerBarRef.current?.setBound(source, boardId, bound?.name ?? 'Unknown')
+      })
+      musicListRef.current?.loadList(source, boardId)
+      void saveLeaderboardSetting({ source, boardId })
+    }
+    global.app_event.on('showBoardDetail', handleShowBoard)
+
+    void getLeaderboardSetting().then(({ source, boardId }) => {
+      void getBoardsList(source).then((list) => {
+        const bound = list.find((l) => l.id == boardId)
         headerBarRef.current?.setBound(source, boardId, bound?.name ?? 'Unknown')
       })
       musicListRef.current?.loadList(source, boardId)
     })
 
     return () => {
-      global.state_event.off('navActiveIdUpdated', handleFixDrawer)
-      isUnmountedRef.current = true
+      global.app_event.off('showBoardDetail', handleShowBoard)
     }
   }, [])
 
   return (
-    <DrawerLayoutFixed
-      ref={drawer}
-      visibleNavNames={[COMPONENT_IDS.home]}
-      // drawerWidth={width}
-      widthPercentage={0.82}
-      widthPercentageMax={MAX_WIDTH}
-      drawerPosition={settingState.setting['common.drawerLayoutPosition']}
-      renderNavigationView={navigationView}
-      drawerBackgroundColor={theme['c-content-background']}
-      // iOS 浮层阴影（仅 iPhone/iPad）
-      style={{ ...shadow(1) }}
-    >
-      <View style={styles.container}>
-        <MusicList
-          ref={musicListRef}
-          header={
-            <>
-              <PageTopInset />
-              <HeaderBar ref={headerBarRef} onShowBound={onShowBound} onSourceChange={onSourceChange} />
-            </>
-          }
-        />
-      </View>
-    </DrawerLayoutFixed>
-    // <View style={styles.container}>
-    //   <LeftBar
-    //     ref={leftBarRef}
-    //     onChangeList={handleChangeBound}
-    //   />
-    //   <MusicList
-    //     ref={musicListRef}
-    //   />
-    // </View>
+    <View style={styles.container}>
+      <MusicList
+        ref={musicListRef}
+        header={
+          <>
+            <PageTopInset />
+            <HeaderBar ref={headerBarRef} />
+          </>
+        }
+      />
+    </View>
   )
 }
 
@@ -171,9 +60,5 @@ const styles = createStyle({
     width: '100%',
     flex: 1,
     flexDirection: 'column',
-    // borderTopWidth: BorderWidths.normal,
   },
-  // content: {
-  //   flex: 1,
-  // },
 })

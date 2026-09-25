@@ -191,10 +191,12 @@ export default memo(() => {
     void playLeaderboard(hotBoardId, hotSongs, index)
   }, [hotBoardId, hotSongs])
 
-  // 点榜单卡片进入排行榜页对应榜单：先持久化 source + boardId，排行榜页挂载时
-  // 会读取该设置定位到具体榜单（与页内切换榜单的持久化行为一致）。
+  // 点榜单卡片进入排行榜页对应榜单：
+  // 1) 持久化 source + boardId —— 排行榜页首次挂载时读取该设置兜底；
+  // 2) 发出 showBoardDetail 事件 —— 排行榜页已挂载（切页不卸载）时实时切换到目标榜单。
   const handleOpenBoard = useCallback((board: BoardItem) => {
     void saveLeaderboardSetting({ source: leaderboardSource, boardId: board.id })
+    global.app_event.showBoardDetail({ source: leaderboardSource, boardId: board.id })
     setNavActiveId('nav_top')
   }, [leaderboardSource])
 

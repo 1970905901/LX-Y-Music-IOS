@@ -679,7 +679,7 @@ export default memo(() => {
       <PageTopInset />
       <View style={styles.pageHeader}>
         <Text style={styles.pageTitle} size={34} color={theme['c-font']}>
-          {t('nav_songlist')}
+          {t('discovery_tab_playlists')}
         </Text>
         <OpenList onOpenDetail={handleOpenImportedDetail} />
       </View>

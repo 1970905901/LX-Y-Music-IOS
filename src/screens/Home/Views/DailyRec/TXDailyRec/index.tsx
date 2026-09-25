@@ -12,7 +12,9 @@ import { BorderWidths } from '@/theme'
 import SonglistDetail from '../../../../SonglistDetail'
 import { type ListInfoItem } from '@/store/songlist/state'
 import commonState from '@/store/common/state'
+import { setNavActiveId } from '@/core/common'
 import PageTopInset from '@/components/common/PageTopInset'
+import SwipeBackArea from '@/components/common/SwipeBackArea'
 
 type TabType = 'home' | 'radar' | 'songlist' | 'newsong'
 
@@ -93,6 +95,10 @@ export default memo(() => {
     setSelectedPlaylist(null)
   }, [])
 
+  const handleBackToDiscovery = useCallback(() => {
+    setNavActiveId('nav_discovery')
+  }, [])
+
   useEffect(() => {
     const onBackPress = () => {
       if (selectedPlaylistRef.current) {
@@ -168,6 +174,7 @@ export default memo(() => {
           <SonglistDetail info={selectedPlaylist} onBack={handleCloseDetail} initialScrollToInfo={null} />
         </View>
       )}
+      <SwipeBackArea onBack={handleBackToDiscovery} enabled={!selectedPlaylist} />
     </View>
   )
 })

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { View } from 'react-native'
 import { createStyle } from '@/utils/tools'
 
@@ -6,13 +6,18 @@ import MusicList, { type MusicListType } from '../MusicList'
 import HeaderBar, { type HeaderBarType } from '../Vertical/HeaderBar'
 import { getLeaderboardSetting, saveLeaderboardSetting } from '@/utils/data'
 import { getBoardsList } from '@/core/leaderboard'
+import { setNavActiveId } from '@/core/common'
 import PageTopInset from '@/components/common/PageTopInset'
+import SwipeBackArea from '@/components/common/SwipeBackArea'
 
 // 横屏排行榜页：平台切换与榜单选择已由推荐页的排行榜区块承担，
 // 页头为「排行榜」大标题 + 当前榜单名（与竖屏一致），歌曲列表铺满展示。
 export default () => {
   const musicListRef = useRef<MusicListType>(null)
   const headerBarRef = useRef<HeaderBarType>(null)
+  const handleBackToDiscovery = useCallback(() => {
+    setNavActiveId('nav_discovery')
+  }, [])
 
   useEffect(() => {
     void getLeaderboardSetting().then(({ source, boardId }) => {
@@ -51,6 +56,7 @@ export default () => {
           </>
         }
       />
+      <SwipeBackArea onBack={handleBackToDiscovery} />
     </View>
   )
 }

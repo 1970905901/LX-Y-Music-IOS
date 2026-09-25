@@ -1,8 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Keyboard, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native'
-import commonState from '@/store/common/state'
-import { COMPONENT_IDS, getDiscoveryPlatformOrder, type NAV_ID_Type } from '@/config/constant'
-import { navigations } from '@/navigation'
+import { BackHandler, Keyboard, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native'
+import { getDiscoveryPlatformOrder, type NAV_ID_Type } from '@/config/constant'
 import { useTheme } from '@/store/theme/hook'
 import { useStatusbarHeight } from '@/store/common/hook'
 import { useI18n } from '@/lang'
@@ -21,6 +19,7 @@ import Text from '@/components/common/Text'
 import PlatformChips from '@/components/home/PlatformChips'
 import DailyRecommendCard from '@/components/home/DailyRecommendCard'
 import HorizontalShelf from '@/components/home/HorizontalShelf'
+import SonglistDetail from '../../../SonglistDetail'
 
 // 每日推荐入口与「首页推荐平台」联动：网易/酷狗/QQ 有每日推荐页，
 // 进入前要求对应平台的 Cookie 已登录；酷我/咪咕无每日推荐页，隐藏入口。
@@ -135,6 +134,9 @@ export default memo(() => {
   )
   const [playlists, setPlaylists] = useState<ListInfoItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [selectedPlaylist, setSelectedPlaylist] = useState<ListInfoItem | null>(null)
+  const selectedPlaylistRef = useRef(selectedPlaylist)
+  selectedPlaylistRef.current = selectedPlaylist
   const loadIdRef = useRef(0)
   const [boards, setBoards] = useState<BoardItem[]>([])
   const boardsLoadIdRef = useRef(0)
@@ -180,8 +182,23 @@ export default memo(() => {
   }, [leaderboardSource, loadBoards])
 
   const handleOpenDetail = useCallback((item: ListInfoItem) => {
-    const homeComponentId = commonState.componentIds.find(({ name }) => name === COMPONENT_IDS.home)?.id
-    if (homeComponentId) navigations.pushSonglistDetailScreen(homeComponentId, item)
+    setSelectedPlaylist(item)
+  }, [])
+
+  const handleCloseDetail = useCallback(() => {
+    setSelectedPlaylist(null)
+  }, [])
+
+  useEffect(() => {
+    const onBackPress = () => {
+      if (selectedPlaylistRef.current) {
+        setSelectedPlaylist(null)
+        return true
+      }
+      return false
+    }
+    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress)
+    return () => { subscription.remove() }
   }, [])
 
   // 点榜单卡片进入排行榜页对应榜单：
@@ -235,9 +252,11 @@ export default memo(() => {
   return (
     <View style={styles.container}>
       <ScrollView
+        style={selectedPlaylist ? { opacity: 0 } : null}
         contentContainerStyle={styles.scrollContent}
         onScrollBeginDrag={Keyboard.dismiss}
         showsVerticalScrollIndicator={false}
+        pointerEvents={selectedPlaylist ? 'none' : 'auto'}
         delaysContentTouches={false}
       >
         <View style={headerStyle}>
@@ -328,6 +347,11 @@ export default memo(() => {
           </Text>
         ) : null}
       </ScrollView>
+      {selectedPlaylist ? (
+        <View style={StyleSheet.absoluteFill}>
+          <SonglistDetail info={selectedPlaylist} onBack={handleCloseDetail} initialScrollToInfo={null} />
+        </View>
+      ) : null}
     </View>
   )
 })

@@ -10,7 +10,9 @@ import RecSongs from './RecSongs'
 import { BorderWidths } from '@/theme'
 import SonglistDetail from '../../../SonglistDetail'
 import { type ListInfoItem } from '@/store/songlist/state'
+import { setNavActiveId } from '@/core/common'
 import PageTopInset from '@/components/common/PageTopInset'
+import SwipeBackArea from '@/components/common/SwipeBackArea'
 
 type TabType = 'recommend' | 'everyday'
 
@@ -78,6 +80,10 @@ export default memo(() => {
     [activeTab],
   )
 
+  const handleBackToDiscovery = useCallback(() => {
+    setNavActiveId('nav_discovery')
+  }, [])
+
   const pageHeader = (
     <>
       <PageTopInset />
@@ -108,6 +114,7 @@ export default memo(() => {
           </View>
         </PagerView>
       </View>
+      <SwipeBackArea onBack={handleBackToDiscovery} />
     </View>
   )
 })

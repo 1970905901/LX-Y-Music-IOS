@@ -165,30 +165,33 @@ export default () => {
     }
   }, [])
 
-  if (selectedList) {
-    return <SonglistDetail info={selectedList} onBack={handleBack} initialScrollToInfo={scrollToMusicInfo} />
-  }
-
   return (
     <View style={styles.container}>
-      <List
-        ref={listRef}
-        header={(
-          // 负边距抵消 Songlist 列表 FlatList 的 10pt 水平框架内边距，
-          // 让平台/分类/标签横滑行的滚动范围直达屏幕左右两缘（与推荐页一致）
-          <View style={{ marginHorizontal: -10 }}>
-            <HeaderBar
-              key={headerKey}
-              ref={headerBarRef}
-              title={t('discovery_tab_discover')}
-              onSortChange={handleSortChange}
-              onTagChange={handleTagChange}
-              onSourceChange={handleSourceChange}
-            />
-          </View>
-        )}
-        onOpenDetail={handleOpenDetail}
-      />
+      <View style={[styles.baseContent, selectedList ? { opacity: 0 } : null]} pointerEvents={selectedList ? 'none' : 'auto'}>
+        <List
+          ref={listRef}
+          header={(
+            // 负边距抵消 Songlist 列表 FlatList 的 10pt 水平框架内边距，
+            // 让平台/分类/标签横滑行的滚动范围直达屏幕左右两缘（与推荐页一致）
+            <View style={{ marginHorizontal: -10 }}>
+              <HeaderBar
+                key={headerKey}
+                ref={headerBarRef}
+                title={t('discovery_tab_discover')}
+                onSortChange={handleSortChange}
+                onTagChange={handleTagChange}
+                onSourceChange={handleSourceChange}
+              />
+            </View>
+          )}
+          onOpenDetail={handleOpenDetail}
+        />
+      </View>
+      {selectedList ? (
+        <View style={StyleSheet.absoluteFill}>
+          <SonglistDetail info={selectedList} onBack={handleBack} initialScrollToInfo={scrollToMusicInfo} />
+        </View>
+      ) : null}
     </View>
   )
 }
@@ -196,6 +199,9 @@ export default () => {
 const styles = StyleSheet.create({
   container: {
     position: 'relative',
+    flex: 1,
+  },
+  baseContent: {
     flex: 1,
   },
 })

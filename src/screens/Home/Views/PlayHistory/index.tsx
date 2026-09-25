@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { PanResponder, TouchableOpacity, View, type ImageSourcePropType } from 'react-native'
+import { TouchableOpacity, View, type ImageSourcePropType } from 'react-native'
 import OnlineList, { type OnlineListType } from '@/components/OnlineList'
 import Text from '@/components/common/Text'
 import Popup, { type PopupType } from '@/components/common/Popup'
@@ -18,6 +18,7 @@ import { defaultHeaders } from '@/components/common/Image'
 import { createStyle, toast } from '@/utils/tools'
 import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
 import PageTopInset from '@/components/common/PageTopInset'
+import SwipeBackArea from '@/components/common/SwipeBackArea'
 
 type HistoryMusicInfo = LX.Music.MusicInfoOnline & {
   playHistoryId: string
@@ -217,21 +218,11 @@ export default memo(() => {
     void playOnlineList('play_history', list, index)
   }, [list])
 
-  // 左缘侧滑返回来源页（推荐页）：从屏幕左缘向右拖动后松手即返回。
   // 进入播放历史时 setNavActiveId 不更新 lastNavActiveId（common.ts 对
   // nav_play_history 做了排除），它仍停留在来源页，直接恢复即可返回。
-  // 只在横向位移明显大于纵向时接管手势，不影响列表的纵向滚动；
-  // 侧滑条宽 12pt，与日期头部按钮的 12pt 内边距齐平，不遮挡任何按钮。
-  const backPanResponder = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponderCapture: (_evt, { dx, dy }) =>
-        dx > 12 && Math.abs(dx) > Math.abs(dy) * 2,
-      onPanResponderRelease: (_evt, { dx }) => {
-        // dx 从接管点起算，接管时手指已滑入 12pt，因此阈值放宽到 40
-        if (dx > 40) setNavActiveId(commonState.lastNavActiveId)
-      },
-    }),
-  ).current
+  const handleBackToSource = useCallback(() => {
+    setNavActiveId(commonState.lastNavActiveId)
+  }, [])
 
   const pageHeader = (
     <>
@@ -307,7 +298,7 @@ export default memo(() => {
         checkHomePagerIdle
       />
 
-      <View style={styles.backSwipeArea} {...backPanResponder.panHandlers} />
+      <SwipeBackArea onBack={handleBackToSource} />
 
       <Popup ref={popupRef} title="播放历史">
         <View style={styles.popupContent}>
@@ -461,14 +452,6 @@ const styles = createStyle({
     fontWeight: '800',
     lineHeight: 36,
     marginBottom: designSpacing.sm,
-  },
-  backSwipeArea: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 12,
-    zIndex: 10,
   },
   popupContent: {
     paddingHorizontal: 16,

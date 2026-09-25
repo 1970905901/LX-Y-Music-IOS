@@ -1,5 +1,5 @@
 import { memo, useCallback, useMemo, useState, useEffect, useRef } from 'react'
-import { View, TouchableOpacity, FlatList, ActivityIndicator, RefreshControl, Animated, PanResponder, BackHandler } from 'react-native'
+import { View, TouchableOpacity, FlatList, ActivityIndicator, RefreshControl, Animated, PanResponder, BackHandler, StyleSheet } from 'react-native'
 import { useMyList, useActiveListId, useListFetching } from '@/store/list/hook'
 import { setActiveList, updateUserListPosition } from '@/core/list'
 import { fetchCoverUrl } from '@/core/music/coverUrl'
@@ -620,15 +620,6 @@ export default memo(() => {
     }
   }, [allList])
 
-  if (!isHorizontal && showMusicList) {
-    return (
-      <View style={styles.content}>
-        <MusicList onBack={handleBackToList} />
-        <SwipeBackArea onBack={handleBackToList} />
-      </View>
-    )
-  }
-
   const renderItem = ({ item }: { item: ListItemInfo }) => {
     const userListIndex = userLists.findIndex(l => l.id === item.id)
 
@@ -766,10 +757,24 @@ export default memo(() => {
     )
   }
 
-  return listPanel
+  return (
+    <View style={styles.overlayContainer}>
+      {listPanel}
+      {!isHorizontal && showMusicList ? (
+        <View style={StyleSheet.absoluteFill}>
+          <MusicList onBack={handleBackToList} />
+          <SwipeBackArea onBack={handleBackToList} />
+        </View>
+      ) : null}
+    </View>
+  )
 })
 
 const styles = createStyle({
+  overlayContainer: {
+    position: 'relative',
+    flex: 1,
+  },
   content: {
     flex: 1,
   },

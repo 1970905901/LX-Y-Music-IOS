@@ -10,6 +10,7 @@ import { toast } from '@/utils/tools'
 import { setComponentId } from '@/core/common'
 import PlayerBar from '@/components/player/PlayerBar'
 import LandscapeDetailLayout from '@/components/LandscapeDetailLayout'
+import SwipeBackArea from '@/components/common/SwipeBackArea'
 
 import { playOnlineList } from '@/core/list'
 import { pop } from '@/navigation'
@@ -213,6 +214,7 @@ export default memo(({ componentId, albumInfo }: { componentId: string, albumInf
         }
         footer={<PlayerBar />}
       />
+      <SwipeBackArea onBack={handleBack} />
     </PageContent>
   )
 })

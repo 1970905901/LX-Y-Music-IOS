@@ -13,6 +13,7 @@ import { pop } from '@/navigation'
 import DetailActionBar from '@/components/DetailActionBar'
 import PlayerBar from '@/components/player/PlayerBar'
 import LandscapeDetailLayout from '@/components/LandscapeDetailLayout'
+import SwipeBackArea from '@/components/common/SwipeBackArea'
 import {
   getArtistCache, setArtistCache,
   clearArtistCache, getArtistDetailCache, setArtistDetailCache,
@@ -373,6 +374,7 @@ export default memo(({ componentId, artistInfo }: { componentId: string, artistI
         }
         footer={<PlayerBar />}
       />
+      <SwipeBackArea onBack={handleBack} />
     </PageContent>
   )
 })

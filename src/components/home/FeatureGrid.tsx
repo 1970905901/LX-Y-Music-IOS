@@ -104,6 +104,18 @@ const FeatureGrid = memo(() => {
     }),
     [theme],
   )
+  // 图标底框：与歌单卡片的封面占位同款圆角方块
+  const iconBoxStyle = useMemo(
+    () => ({
+      width: 40,
+      height: 40,
+      borderRadius: designRadius.md,
+      backgroundColor: theme['c-primary-background'],
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+    }),
+    [theme],
+  )
 
   return (
     <View style={styles.container}>
@@ -129,10 +141,12 @@ const FeatureGrid = memo(() => {
             setNavActiveId(item.id)
           }}
         >
-          {renderIcon(item.icon, theme['c-primary'])}
+          <View style={iconBoxStyle}>
+            {renderIcon(item.icon, theme['c-primary'])}
+          </View>
           <Text
             style={styles.label}
-            size={15}
+            size={16}
             color={theme['c-font']}
             numberOfLines={1}
           >
@@ -143,9 +157,9 @@ const FeatureGrid = memo(() => {
       ))}
     </View>
   )
-})
+}
 
-// 行样式与「我的」页歌单卡片完全一致（同高/同圆角/同阴影），两段列表浑然一体
+// 行样式与「我的」页歌单卡片完全一致（同高/同圆角/同阴影/同图标底框/同字号），两段列表浑然一体
 const styles = createStyle({
   container: {
     marginTop: designSpacing.xs,
@@ -164,7 +178,7 @@ const styles = createStyle({
   label: {
     flex: 1,
     marginLeft: designSpacing.md,
-    fontWeight: '600',
+    fontWeight: '700',
   },
 })
 

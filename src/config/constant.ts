@@ -151,6 +151,31 @@ export const getEffectiveFlatOrder = (
   return extra.length ? [...validBase, ...extra] : validBase
 }
 
+/**
+ * 推荐页平台按钮的有效顺序。
+ * 以用户自定义的 discoveryPlatformOrder 为先，过滤持久化里已下线的平台；
+ * 未排序过的平台（含后续新增平台）按默认顺序追加到末尾，保证按钮不丢项。
+ */
+export const getDiscoveryPlatformOrder = (
+  supportedSources: readonly string[],
+  platformOrder: readonly string[] | undefined | null,
+): string[] => {
+  const storedOrder: readonly string[] = Array.isArray(platformOrder) ? platformOrder : []
+  const ordered: string[] = []
+  const seen = new Set<string>()
+  for (const id of storedOrder) {
+    if (seen.has(id) || !supportedSources.includes(id)) continue
+    seen.add(id)
+    ordered.push(id)
+  }
+  for (const id of supportedSources) {
+    if (seen.has(id)) continue
+    seen.add(id)
+    ordered.push(id)
+  }
+  return ordered
+}
+
 export const LXM_FILE_EXT_RXP = ['json', 'lxmc', 'bin']
 export const USER_API_SOURCE_FILE_EXT_RXP = ['js']
 

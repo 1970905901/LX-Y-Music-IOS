@@ -66,6 +66,10 @@ const defaultSetting: LX.AppSetting = {
 
   'common.navFlatOrder': [],
 
+  // 推荐页平台按钮顺序（平台 id 数组）。空数组 = 按默认顺序显示；
+  // 排在第一位的平台为进入推荐页时的默认选中平台。
+  'common.discoveryPlatformOrder': [],
+
   'common.sectionExpandedStatus': {
     setting_player: true,
     setting_lyricDesktop: true,

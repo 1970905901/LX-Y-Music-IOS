@@ -17,11 +17,11 @@ const arraysEqual = (a: any[], b: any[]): boolean => {
   return true
 }
 
-const DEEP_KEYS = ['common.navStatus', 'common.navOrder', 'common.sectionExpandedStatus', 'player.failureStrategy', 'search.enabledSources', 'common.navFlatOrder']
+const DEEP_KEYS = ['common.navStatus', 'common.navOrder', 'common.sectionExpandedStatus', 'player.failureStrategy', 'search.enabledSources', 'common.navFlatOrder', 'common.discoveryPlatformOrder']
 
 const mergeSetting = (
   originSetting: LX.AppSetting,
-  targetSetting?: Partial<LX.AppSetting> | null
+  targetSetting?: Partial<LX.AppSetting> | null,
 ): {
   setting: LX.AppSetting
   updatedSettingKeys: Array<keyof LX.AppSetting>
@@ -39,7 +39,7 @@ const mergeSetting = (
       const targetValue: any = targetSetting[key]
       const isPrimitive = checkPrimitiveType(targetValue)
       let shouldSkip = false
-      
+
       if (!isPrimitive && !DEEP_KEYS.includes(key as string)) {
         shouldSkip = true
       } else if (DEEP_KEYS.includes(key as string)) {
@@ -93,7 +93,7 @@ export const updateSetting = (setting?: Partial<LX.AppSetting> | null, isInit: b
   return result
 }
 
-export const initSetting = async () => {
+export const initSetting = async() => {
   let setting: Partial<LX.AppSetting> | null = await getData(storageDataPrefix.setting)
 
   // try migrate setting before v1

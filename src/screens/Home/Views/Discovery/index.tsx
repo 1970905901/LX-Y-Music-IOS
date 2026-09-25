@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Keyboard, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native'
 import commonState from '@/store/common/state'
-import { COMPONENT_IDS, type NAV_ID_Type } from '@/config/constant'
+import { COMPONENT_IDS, getDiscoveryPlatformOrder, type NAV_ID_Type } from '@/config/constant'
 import { navigations } from '@/navigation'
 import { useTheme } from '@/store/theme/hook'
 import { useStatusbarHeight } from '@/store/common/hook'
@@ -108,7 +108,7 @@ export default memo(() => {
   const sourceNameType = useSettingValue('common.sourceNameType')
   // 平台文案走全局语言包别名（source_${sourceNameType}_${source}），与歌单页等处的显示一致
   const sourceLabel = useCallback(
-    (source: Source) => t(`source_${sourceNameType}_${source}` as any),
+    (source: string) => t(`source_${sourceNameType}_${source}`),
     [sourceNameType, t],
   )
   const supportedSources = useMemo(
@@ -117,10 +117,21 @@ export default memo(() => {
     ),
     [],
   )
-  const [selectedSource, setSelectedSource] = useState<Source>(supportedSources[0] ?? 'kw')
+  // 平台按钮顺序跟随「设置 → 列表设置」里的排序；排在第一位的平台为默认选中平台
+  const platformOrder = useSettingValue('common.discoveryPlatformOrder')
+  const orderedSources = useMemo(
+    () => getDiscoveryPlatformOrder(supportedSources, platformOrder),
+    [supportedSources, platformOrder],
+  )
+  const [selectedSource, setSelectedSource] = useState<Source>((orderedSources[0] as Source) ?? 'kw')
+  // 排序变化时选中平台跟随新的第一位，避免改完设置仍停留在旧平台
+  useEffect(() => {
+    const first = orderedSources[0] as Source | undefined
+    if (first) setSelectedSource(first)
+  }, [orderedSources])
   const platformOptions = useMemo(
-    () => supportedSources.map((source) => ({ id: source, label: sourceLabel(source) })),
-    [supportedSources, sourceLabel],
+    () => orderedSources.map((source) => ({ id: source, label: sourceLabel(source) })),
+    [orderedSources, sourceLabel],
   )
   const [playlists, setPlaylists] = useState<ListInfoItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -194,7 +205,7 @@ export default memo(() => {
       return
     }
     setNavActiveId(nav)
-  }, [selectedSource])
+  }, [selectedSource, sourceLabel])
 
   const headerStyle = useMemo(
     () => StyleSheet.compose(styles.header, {

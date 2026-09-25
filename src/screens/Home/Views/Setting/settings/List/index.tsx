@@ -2,15 +2,15 @@ import { memo } from 'react'
 
 import Section from '../../components/Section'
 import AddMusicLocationType from './AddMusicLocationType'
+import DiscoveryPlatformOrder from './DiscoveryPlatformOrder'
 import IsClickPlayList from './IsClickPlayList'
 import IsShowAlbumName from './IsShowAlbumName'
 import IsShowInterval from './IsShowInterval'
-import IsAutoSaveDailyRec from './IsAutoSaveDailyRec';
+import IsAutoSaveDailyRec from './IsAutoSaveDailyRec'
 
-import MenuSettings from "@/screens/Home/Views/Setting/settings/List/MenuSettings.tsx";
+import MenuSettings from './MenuSettings'
 
 export default memo(() => {
-
   return (
     <Section sectionId="setting_list">
       <IsClickPlayList />
@@ -19,6 +19,7 @@ export default memo(() => {
       <IsAutoSaveDailyRec />
       <AddMusicLocationType />
       <MenuSettings />
+      <DiscoveryPlatformOrder />
     </Section>
   )
 })

@@ -46,6 +46,11 @@ declare global {
       'common.allowProgressBarSeek': boolean
 
       /**
+       * 推荐页平台按钮顺序（平台 id 数组，空数组表示使用默认顺序）
+       */
+      'common.discoveryPlatformOrder': string[]
+
+      /**
        * 是否启用桌面歌词
        */
       'desktopLyric.enable': boolean

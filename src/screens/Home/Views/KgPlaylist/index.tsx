@@ -315,8 +315,9 @@ export default memo(() => {
           ListEmptyComponent={
             loading ? null : (
               <View style={styles.emptyContainer}>
+                {/* 入口已按 Cookie 登录态显隐，空态只提示列表为空 */}
                 <Text style={styles.emptyText}>
-                  {!kgCookie ? t('setting_basic_kg_cookie_placeholder') : playlists.length === 0 ? t('list_empty') : ''}
+                  {playlists.length === 0 ? t('list_empty') : ''}
                 </Text>
               </View>
             )

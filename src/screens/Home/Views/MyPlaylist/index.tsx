@@ -225,14 +225,7 @@ export default memo(() => {
     }
   }, [])
 
-  if (!cookie) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <Text>请先设置网易云 Cookie</Text>
-      </View>
-    )
-  }
-
+  // 入口已按 Cookie 登录态显隐（FeatureGrid 门控），不再渲染未登录占位页
   const handleBack = useCallback(() => {
     setSelectedPlaylist(null)
     setScrollToMusicInfo(null)

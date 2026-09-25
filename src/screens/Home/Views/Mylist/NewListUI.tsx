@@ -29,6 +29,7 @@ import Loading from '@/components/common/Loading'
 import { Navigation } from 'react-native-navigation'
 import OpenList from '../SongList/HeaderBar/OpenList'
 import { navigations } from '@/navigation'
+import FeatureGrid from '@/components/home/FeatureGrid'
 
 const CARD_HEIGHT = scaleSizeH(90)
 const LONG_PRESS_MS = 350
@@ -705,6 +706,9 @@ export default memo(() => {
             contentContainerStyle={{ paddingBottom: 80 + safeAreaBottom }}
             renderItem={renderItem}
             ListHeaderComponent={listHeader}
+            // 更多功能网格（网易/酷狗/QQ 歌单、关注歌手、收藏专辑、WebDAV、本地与下载）
+            // 已从推荐页迁移至此：作为列表底部内容随页滚动，各平台入口按 Cookie 登录态显隐。
+            ListFooterComponent={<FeatureGrid />}
             keyExtractor={item => item.id}
             style={styles.listContainer}
             scrollEnabled={draggingIndex == null}

@@ -40,6 +40,16 @@ const MOVED_INTO_DISCOVERY_IDS = new Set<NAV_ID_Type>([
   'nav_play_history',
 ])
 
+// 平台在线内容入口需要对应平台的 Cookie 登录后才展示；WebDAV、本地与下载等
+// 本地功能不受限。关注歌手 / 收藏专辑为网易特性，随网易 Cookie 一起显隐。
+const COOKIE_GATED_IDS: Partial<Record<NAV_ID_Type, 'common.wy_cookie' | 'common.kg_cookie' | 'common.tx_cookie'>> = {
+  nav_my_playlist: 'common.wy_cookie',
+  nav_kg_playlist: 'common.kg_cookie',
+  nav_tx_playlist: 'common.tx_cookie',
+  nav_followed_artists: 'common.wy_cookie',
+  nav_subscribed_albums: 'common.wy_cookie',
+}
+
 const renderIcon = (icon: string, color: string) => {
   if (icon.startsWith('svg:')) {
     return <SvgIcon name={icon.slice(4)} size={21} color={color} />
@@ -54,11 +64,22 @@ const FeatureGrid = memo(() => {
   const isHorizontal = useHorizontalMode()
   const showBackBtn = useSettingValue('common.showBackBtn')
   const showExitBtn = useSettingValue('common.showExitBtn')
+  const wyCookie = useSettingValue('common.wy_cookie')
+  const kgCookie = useSettingValue('common.kg_cookie')
+  const txCookie = useSettingValue('common.tx_cookie')
 
   const features = useMemo(
     () => {
+      const cookieMap: Partial<Record<FeatureId, string>> = {
+        nav_my_playlist: wyCookie,
+        nav_followed_artists: wyCookie,
+        nav_subscribed_albums: wyCookie,
+        nav_kg_playlist: kgCookie,
+        nav_tx_playlist: txCookie,
+      }
       const items: FeatureItem[] = NAV_MENUS.filter(
-        menu => !TAB_IDS.has(menu.id) && !MOVED_INTO_DISCOVERY_IDS.has(menu.id) && (navStatus[menu.id] ?? true),
+        menu => !TAB_IDS.has(menu.id) && !MOVED_INTO_DISCOVERY_IDS.has(menu.id) && (navStatus[menu.id] ?? true) &&
+          (!COOKIE_GATED_IDS[menu.id] || !!cookieMap[menu.id]),
       ).map(({ id, icon }) => ({ id, icon }))
 
       if (!global.lx.isCarMode) return items
@@ -66,7 +87,7 @@ const FeatureGrid = memo(() => {
       if (showExitBtn) items.push({ id: 'nav_exit', icon: 'exit2' })
       return items
     },
-    [navStatus, showBackBtn, showExitBtn],
+    [navStatus, showBackBtn, showExitBtn, wyCookie, kgCookie, txCookie],
   )
 
   const rows = useMemo(() => {

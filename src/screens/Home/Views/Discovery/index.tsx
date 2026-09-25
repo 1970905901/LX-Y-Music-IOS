@@ -21,7 +21,6 @@ import { Icon } from '@/components/common/Icon'
 import Text from '@/components/common/Text'
 import PlatformChips from '@/components/home/PlatformChips'
 import DailyRecommendCard from '@/components/home/DailyRecommendCard'
-import FeatureGrid from '@/components/home/FeatureGrid'
 import HorizontalShelf from '@/components/home/HorizontalShelf'
 import HotSongList from '@/components/home/HotSongList'
 
@@ -319,8 +318,6 @@ export default memo(() => {
             </ScrollView>
           </View>
         ) : null}
-
-        <FeatureGrid />
 
         <View style={styles.sectionGap}>
           <HorizontalShelf

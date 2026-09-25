@@ -14,6 +14,8 @@ interface PlatformChipsProps {
   options: PlatformOption[]
   selectedId: string
   onChange: (id: string) => void
+  /** 嵌入已带水平内边距的容器（如歌单页头部）时关闭自带的左右内边距 */
+  noInset?: boolean
 }
 
 const styles = createStyle({
@@ -24,6 +26,7 @@ const styles = createStyle({
     paddingHorizontal: designSpacing.lg,
     paddingRight: designSpacing.md,
   },
+  contentBare: {},
   chip: {
     height: 38,
     paddingHorizontal: designSpacing.lg,
@@ -37,7 +40,7 @@ const styles = createStyle({
   },
 })
 
-const PlatformChips = memo(({ options, selectedId, onChange }: PlatformChipsProps) => {
+const PlatformChips = memo(({ options, selectedId, onChange, noInset }: PlatformChipsProps) => {
   const theme = useTheme()
 
   const activeChipStyle = useMemo(
@@ -59,7 +62,7 @@ const PlatformChips = memo(({ options, selectedId, onChange }: PlatformChipsProp
   return (
     <ScrollView
       style={styles.scroll}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={noInset ? styles.contentBare : styles.content}
       horizontal
       showsHorizontalScrollIndicator={false}
     >

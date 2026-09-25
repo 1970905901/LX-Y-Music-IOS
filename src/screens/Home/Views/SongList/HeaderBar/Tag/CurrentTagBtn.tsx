@@ -3,7 +3,7 @@ import Text from '@/components/common/Text'
 import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
 import { createStyle } from '@/utils/tools'
-import { designRadius, designSpacing } from '@/theme/DesignTokens'
+import { designSpacing } from '@/theme/DesignTokens'
 import { forwardRef, useImperativeHandle, useState } from 'react'
 
 export interface CurrentTagBtnProps {
@@ -35,9 +35,10 @@ export default forwardRef<CurrentTagBtnType, CurrentTagBtnProps>(({ onShowList }
 
 const styles = createStyle({
   btn: {
-    height: 32,
-    paddingHorizontal: designSpacing.sm,
-    borderRadius: designRadius.pill,
+    height: 36,
+    paddingHorizontal: designSpacing.lg,
+    marginLeft: designSpacing.sm,
+    borderRadius: 999,
     justifyContent: 'center',
     alignItems: 'center',
   },

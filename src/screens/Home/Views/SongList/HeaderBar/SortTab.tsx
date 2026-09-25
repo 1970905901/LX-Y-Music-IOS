@@ -5,7 +5,7 @@ import { useI18n } from '@/lang'
 import { useTheme } from '@/store/theme/hook'
 import Text from '@/components/common/Text'
 import { createStyle } from '@/utils/tools'
-import { designRadius, designSpacing } from '@/theme/DesignTokens'
+import { designSpacing } from '@/theme/DesignTokens'
 
 export interface SortTabProps {
   onSortChange: (id: string) => void
@@ -46,28 +46,33 @@ export default forwardRef<SortTabType, SortTabProps>(({ onSortChange }, ref) => 
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps={'always'}
       horizontal
+      showsHorizontalScrollIndicator={false}
     >
-      {sorts.map((s) => (
-        <TouchableOpacity
-          style={{
-            ...styles.button,
-            backgroundColor: activeId == s.id ? theme['c-primary-background'] : 'rgba(0,0,0,0)',
-          }}
-          onPress={() => {
-            handleSortChange(s.id)
-          }}
-          key={s.id}
-        >
-          <Text
+      {sorts.map((s) => {
+        const isActive = activeId == s.id
+        return (
+          <TouchableOpacity
             style={{
-              ...styles.buttonText,
-              color: activeId == s.id ? theme['c-primary-font'] : theme['c-font-label'],
+              ...styles.button,
+              backgroundColor: isActive ? theme['c-primary'] : theme['c-primary-light-900-alpha-300'],
+              borderColor: isActive ? theme['c-primary'] : theme['c-border-background'],
             }}
+            onPress={() => {
+              handleSortChange(s.id)
+            }}
+            key={s.id}
           >
-            {s.label}
-          </Text>
-        </TouchableOpacity>
-      ))}
+            <Text
+              style={{
+                ...styles.buttonText,
+                color: isActive ? theme['c-primary-light-1000'] : theme['c-font'],
+              }}
+            >
+              {s.label}
+            </Text>
+          </TouchableOpacity>
+        )
+      })}
     </ScrollView>
   )
 })
@@ -80,13 +85,14 @@ const styles = createStyle({
     // paddingRight: 5,
   },
   button: {
-    height: 32,
+    height: 36,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingLeft: designSpacing.sm,
-    paddingRight: designSpacing.sm,
-    marginRight: designSpacing.xs,
-    borderRadius: designRadius.pill,
+    paddingLeft: designSpacing.lg,
+    paddingRight: designSpacing.lg,
+    marginRight: designSpacing.sm,
+    borderRadius: 999,
+    borderWidth: 1,
   },
   content: {
     alignItems: 'center',

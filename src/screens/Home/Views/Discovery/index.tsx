@@ -6,6 +6,7 @@ import { navigations } from '@/navigation'
 import { useTheme } from '@/store/theme/hook'
 import { useStatusbarHeight } from '@/store/common/hook'
 import { useI18n } from '@/lang'
+import { useSettingValue } from '@/store/setting/hook'
 import { setNavActiveId } from '@/core/common'
 import { createStyle, toast } from '@/utils/tools'
 import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
@@ -23,18 +24,6 @@ import DailyRecommendCard from '@/components/home/DailyRecommendCard'
 import FeatureGrid from '@/components/home/FeatureGrid'
 import HorizontalShelf from '@/components/home/HorizontalShelf'
 import HotSongList from '@/components/home/HotSongList'
-
-const SOURCE_LABELS: Partial<Record<Source, string>> = {
-  kw: '酷我',
-  kg: '酷狗',
-  tx: 'QQ音乐',
-  wy: '网易云',
-  mg: '咪咕',
-}
-
-const supportedSources = songlistState.sources.filter(
-  (source): source is Source => !!SOURCE_LABELS[source] && !!songlistState.sortList[source]?.length,
-)
 
 // 每日推荐入口与「首页推荐平台」联动：网易/酷狗/QQ 有每日推荐页，
 // 进入前要求对应平台的 Cookie 已登录；酷我/咪咕无每日推荐页，隐藏入口。
@@ -115,7 +104,23 @@ export default memo(() => {
   const theme = useTheme()
   const statusBarHeight = useStatusbarHeight()
   const t = useI18n()
+  const sourceNameType = useSettingValue('common.sourceNameType')
+  // 平台文案走全局语言包别名（source_${sourceNameType}_${source}），与歌单页等处的显示一致
+  const sourceLabel = useCallback(
+    (source: Source) => t(`source_${sourceNameType}_${source}` as any),
+    [sourceNameType, t],
+  )
+  const supportedSources = useMemo(
+    () => songlistState.sources.filter(
+      (source): source is Source => !!songlistState.sortList[source]?.length,
+    ),
+    [],
+  )
   const [selectedSource, setSelectedSource] = useState<Source>(supportedSources[0] ?? 'kw')
+  const platformOptions = useMemo(
+    () => supportedSources.map((source) => ({ id: source, label: sourceLabel(source) })),
+    [supportedSources, sourceLabel],
+  )
   const [playlists, setPlaylists] = useState<ListInfoItem[]>([])
   const [loading, setLoading] = useState(true)
   const loadIdRef = useRef(0)
@@ -124,14 +129,6 @@ export default memo(() => {
   const [hotLoading, setHotLoading] = useState(true)
   const hotLoadIdRef = useRef(0)
   const [boards, setBoards] = useState<BoardItem[]>([])
-
-  const platformOptions = useMemo(
-    () => supportedSources.map((source) => ({
-      id: source,
-      label: SOURCE_LABELS[source] ?? source,
-    })),
-    [],
-  )
 
   const loadPlaylists = useCallback(async(source: Source) => {
     const currentLoadId = ++loadIdRef.current
@@ -209,7 +206,7 @@ export default memo(() => {
     const cookieKey = DAILY_REC_COOKIE_KEYS[selectedSource]
     const logged = cookieKey ? !!settingState.setting[cookieKey] : false
     if (!logged) {
-      toast(`请先登录${SOURCE_LABELS[selectedSource] ?? ''}账号（设置 → 平台设置）`)
+      toast(`请先登录${sourceLabel(selectedSource)}账号（设置 → 平台设置）`)
       return
     }
     setNavActiveId(nav)
@@ -335,7 +332,7 @@ export default memo(() => {
         <View style={styles.sectionGap}>
           {hotSongs.length ? (
             <HotSongList
-              title={`${SOURCE_LABELS[selectedSource] ?? selectedSource}${t('discovery_hot_title')}`}
+              title={`${sourceLabel(selectedSource)}${t('discovery_hot_title')}`}
               actionLabel={t('discovery_hot_more')}
               onPressAction={() => { setNavActiveId('nav_top') }}
               songs={hotSongs}

@@ -1,12 +1,14 @@
 import { useState, useRef, useCallback, useMemo, forwardRef, useImperativeHandle } from 'react'
-import { Animated, View, TouchableOpacity } from 'react-native'
+import { Animated, View, TouchableOpacity, StyleSheet } from 'react-native'
 
 import Text from '@/components/common/Text'
 import Button from '@/components/common/Button'
 import { useTheme } from '@/store/theme/hook'
+import { useSafeAreaBottom } from '@/store/common/hook'
 import { createStyle } from '@/utils/tools'
-import { BorderWidths } from '@/theme'
+import { shadow } from '@/utils/shadow'
 import { scaleSizeH } from '@/utils/pixelRatio'
+import { designRadius, designSpacing } from '@/theme/DesignTokens'
 
 export type SelectMode = 'single' | 'range'
 
@@ -35,6 +37,7 @@ export default forwardRef<MultipleModeBarType, MultipleModeBarProps>(
     const [selectMode, setSelectMode] = useState<SelectMode>('single')
     const [isSelectAll, setIsSelectAll] = useState(false)
     const theme = useTheme()
+    const safeAreaBottom = useSafeAreaBottom()
 
     useImperativeHandle(ref, () => ({
       show() {
@@ -99,12 +102,14 @@ export default forwardRef<MultipleModeBarType, MultipleModeBarProps>(
       () => ({
         ...styles.container,
         height: MULTI_SELECT_BAR_HEIGHT,
-        // backgroundColor: theme['c-content-background'],
-        borderBottomColor: theme['c-border-background'],
+        // 悬浮在迷你播放器胶囊上方：胶囊 + tab 栏最高约到 safeAreaBottom + 150
+        bottom: 160 + safeAreaBottom,
+        backgroundColor: theme['c-content-background'],
+        borderColor: theme['c-border-background'],
         opacity: animFade, // Bind opacity to animated value
         transform: [{ translateY: animTranslateY }],
       }),
-      [animFade, animTranslateY, theme]
+      [animFade, animTranslateY, theme, safeAreaBottom]
     )
 
     const handleSelectAll = useCallback(() => {
@@ -174,14 +179,16 @@ export default forwardRef<MultipleModeBarType, MultipleModeBarProps>(
 
 const styles = createStyle({
   container: {
-    flex: 1,
     position: 'absolute',
-    left: 0,
-    bottom: 0,
-    width: '100%',
-    // height: 40,
+    left: designSpacing.md,
+    right: designSpacing.md,
     flexDirection: 'row',
-    borderBottomWidth: BorderWidths.normal,
+    alignItems: 'center',
+    paddingHorizontal: designSpacing.xs,
+    borderRadius: designRadius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    ...shadow(2),
+    overflow: 'hidden',
   },
   switchBtn: {
     flexDirection: 'row',

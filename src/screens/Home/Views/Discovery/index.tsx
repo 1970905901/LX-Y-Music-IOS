@@ -16,7 +16,6 @@ import { getBoardsList, getListDetail } from '@/core/leaderboard'
 import { handlePlay as playLeaderboard } from '../Leaderboard/listAction'
 import { Icon } from '@/components/common/Icon'
 import Text from '@/components/common/Text'
-import AnnouncementCard from '@/components/home/AnnouncementCard'
 import PlatformChips from '@/components/home/PlatformChips'
 import DailyRecommendCard from '@/components/home/DailyRecommendCard'
 import FeatureGrid from '@/components/home/FeatureGrid'
@@ -70,10 +69,6 @@ const styles = createStyle({
   daily: {
     marginTop: designSpacing.lg,
     paddingHorizontal: designSpacing.lg,
-  },
-  status: {
-    paddingHorizontal: designSpacing.lg,
-    marginTop: designSpacing.lg,
   },
   platformTitle: {
     paddingHorizontal: designSpacing.lg,
@@ -200,13 +195,6 @@ export default memo(() => {
           >
             <Icon name="music_time" size={21} color={theme['c-primary']} />
           </TouchableOpacity>
-        </View>
-
-        <View style={styles.status}>
-          <AnnouncementCard
-            title={t('discovery_notice_title')}
-            message={t('discovery_notice_body')}
-          />
         </View>
 
         <View style={styles.chips}>

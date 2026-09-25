@@ -10,7 +10,6 @@ import { NAV_SHEAR_NATIVE_IDS } from '@/config/constant'
 import { createStyle, toast } from '@/utils/tools'
 import { scaleSizeW } from '@/utils/pixelRatio'
 import { useTheme } from '@/store/theme/hook'
-import { BorderWidths } from '@/theme'
 import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
 
 import commonState from '@/store/common/state'
@@ -28,12 +27,14 @@ import playerState from '@/store/player/state'
 import { LIST_IDS } from '@/config/constant'
 import listState from '@/store/list/state'
 import {usePlayerMusicInfo} from "@/store/player/hook.ts"
+import { useStatusbarHeight } from '@/store/common/hook'
 import MusicInfoOnline = LX.Music.MusicInfoOnline
 
 const IMAGE_WIDTH = scaleSizeW(104)
 
 const ListHeader = ({ detailInfo, info, onBack, showSearchBar, searchText, isFuzzySearch, onToggleSearch, onSearchTextChanged, onToggleSearchMode }: { detailInfo: DetailInfo, info: ListInfoItem, onBack: () => void, showSearchBar: boolean, searchText: string, isFuzzySearch: boolean, onToggleSearch: () => void, onSearchTextChanged: (text: string) => void, onToggleSearchMode: () => void }) => {
   const theme = useTheme()
+  const statusBarHeight = useStatusbarHeight()
   const loggedInUserId = useWyUid()
   const isSubscribed = useIsWyPlaylistSubscribed(info.id)
 
@@ -69,7 +70,9 @@ const ListHeader = ({ detailInfo, info, onBack, showSearchBar, searchText, isFuz
 
   return (
     <>
-      <View style={{ ...styles.listHeaderContainer, borderBottomColor: theme['c-border-background'] }}>
+      {/* 内嵌在歌单/搜索等 Home 子页面时没有共享页头兜底状态栏，必须自行让出状态栏高度，
+          否则封面/标题与状态栏重叠；不再渲染底部分割线，头部与歌曲列表浑然一体 */}
+      <View style={{ ...styles.listHeaderContainer, paddingTop: statusBarHeight }}>
         <View style={styles.headerContent}>
           <View style={{ ...styles.listItemImg, width: IMAGE_WIDTH, height: IMAGE_WIDTH }}>
             {info.isFavorites ? (
@@ -308,7 +311,6 @@ const styles = createStyle({
   listHeaderContainer: {
     flexDirection: 'column',
     flexWrap: 'nowrap',
-    borderBottomWidth: BorderWidths.normal,
   },
   headerContent: {
     flexDirection: 'row',

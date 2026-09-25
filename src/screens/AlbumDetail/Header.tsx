@@ -79,7 +79,7 @@ export default memo(({ albumInfo, componentId }: Props) => {
   ))
 
   return (
-    <View style={{ paddingTop: statusBarHeight, backgroundColor: theme['c-content-background'] }}>
+    <View style={{ paddingTop: statusBarHeight }}>
       <View style={styles.headerContainer}>
         <TouchableOpacity activeOpacity={0.85} disabled={!albumPic} onPress={() => setPreviewVisible(true)}>
           <Image

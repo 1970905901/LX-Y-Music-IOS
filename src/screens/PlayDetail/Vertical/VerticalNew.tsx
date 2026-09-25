@@ -139,7 +139,7 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
                 <Pic componentId={componentId} />
               </View>
               <View style={[styles.infoContainer, { paddingHorizontal: containerPaddingH, marginTop: containerPaddingH }]}>
-                <SongInfo />
+                <SongInfo componentId={componentId} />
                 <MiniLyric
                   onPress={handleSwitchToLyricPage}
                   style={[styles.miniLyricContainerNew, miniLyricAlignStyles[miniLyricAlign as keyof typeof miniLyricAlignStyles]]}

@@ -3,7 +3,6 @@ import { View, TouchableOpacity } from 'react-native'
 import { usePlayMusicInfo } from '@/store/player/hook'
 import { useTheme } from '@/store/theme/hook'
 import { navigations } from '@/navigation'
-import commonState from '@/store/common/state'
 import { createStyle, toast, clipboardWriteText } from '@/utils/tools'
 import Text from '@/components/common/Text'
 import { Icon } from '@/components/common/Icon'
@@ -13,7 +12,7 @@ import { useIsWyLiked, useIsTxLiked, useIsKgLiked } from '@/store/user/hook'
 import { useWindowSize } from '@/utils/hooks'
 import SourceQualityBadge from '../../components/SourceQualityBadge'
 
-export default memo(() => {
+export default memo(({ componentId }: { componentId: string }) => {
   const playMusicInfo = usePlayMusicInfo()
   const theme = useTheme()
   const { height: winHeight } = useWindowSize()
@@ -23,13 +22,13 @@ export default memo(() => {
   const handleArtistPress = (artist: { id: string | number, mid?: string, name: string }) => {
     if (!musicInfo || (musicInfo.source !== 'wy' && musicInfo.source !== 'tx' && musicInfo.source !== 'kg')) return
     // 部分音源（如 QQ）的歌手数据可能缺 id，mid 也可作为标识
-    const artistId = artist.id ?? artist.mid
+    const artistId = artist.id || artist.mid
     if (!artistId) {
       // id/mid 都缺失时清空自带 artists，走歌手名搜索兜底定位
-      void handleShowArtistDetail(commonState.componentIds[commonState.componentIds.length - 1]?.id, { ...musicInfo, artists: [] } as LX.Music.MusicInfoOnline)
+      void handleShowArtistDetail(componentId, { ...musicInfo, artists: [] } as LX.Music.MusicInfoOnline)
       return
     }
-    navigations.pushArtistDetailScreen(commonState.componentIds[commonState.componentIds.length - 1]?.id, { id: String(artistId), mid: artist.mid, name: artist.name, source: musicInfo.source })
+    navigations.pushArtistDetailScreen(componentId, { id: String(artistId), mid: artist.mid, name: artist.name, source: musicInfo.source })
   }
 
   const handleAlbumPress = () => {
@@ -40,9 +39,9 @@ export default memo(() => {
     const albumMid = (musicInfo.meta as any)?.albumMid || musicInfo.albumMid || albumId
     if (!albumId || !albumName) return
     if (musicInfo.source === 'tx') {
-      navigations.pushAlbumDetailScreen(commonState.componentIds[commonState.componentIds.length - 1]?.id, { id: String(albumId), mid: albumMid, name: albumName, source: 'tx' })
+      navigations.pushAlbumDetailScreen(componentId, { id: String(albumId), mid: albumMid, name: albumName, source: 'tx' })
     } else {
-      navigations.pushAlbumDetailScreen(commonState.componentIds[commonState.componentIds.length - 1]?.id, { id: String(albumId), name: albumName, source: musicInfo.source })
+      navigations.pushAlbumDetailScreen(componentId, { id: String(albumId), name: albumName, source: musicInfo.source })
     }
   }
 
@@ -125,7 +124,7 @@ export default memo(() => {
             ))}
           </View>
         ) : (
-          <TouchableOpacity onPress={async() => handleShowArtistDetail(commonState.componentIds[commonState.componentIds.length - 1]?.id, musicInfo as LX.Music.MusicInfoOnline)}>
+          <TouchableOpacity onPress={() => { void handleShowArtistDetail(componentId, musicInfo as LX.Music.MusicInfoOnline) }}>
             <Text numberOfLines={1} size={16} color={(theme as unknown as Record<string, string>)['c-font-secondary']}>
               {artistText}
             </Text>

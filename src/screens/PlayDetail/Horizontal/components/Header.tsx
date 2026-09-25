@@ -23,7 +23,7 @@ const BACK_BTN_HIT_SLOP = {
   right: scaleSizeW(10),
 }
 
-const Title = () => {
+const Title = ({ componentId }: { componentId: string }) => {
   const theme = useTheme()
   const playMusicInfo = usePlayMusicInfo()
   const musicInfo = playMusicInfo.musicInfo ? ('progress' in playMusicInfo.musicInfo ? playMusicInfo.musicInfo.metadata.musicInfo : playMusicInfo.musicInfo) : null
@@ -31,14 +31,14 @@ const Title = () => {
   const handleArtistPress = useCallback((artist: { id: string | number, mid?: string, name: string }) => {
     if (!musicInfo || (musicInfo.source !== 'wy' && musicInfo.source !== 'tx' && musicInfo.source !== 'kg')) return
     // 部分音源（如 QQ）的歌手数据可能缺 id，mid 也可作为标识
-    const artistId = artist.id ?? artist.mid
+    const artistId = artist.id || artist.mid
     if (!artistId) {
       // id/mid 都缺失时清空自带 artists，走歌手名搜索兜底定位
-      void handleShowArtistDetail(commonState.componentIds[commonState.componentIds.length - 1]?.id, { ...musicInfo, artists: [] } as LX.Music.MusicInfoOnline)
+      void handleShowArtistDetail(componentId, { ...musicInfo, artists: [] } as LX.Music.MusicInfoOnline)
       return
     }
-    navigations.pushArtistDetailScreen(commonState.componentIds[commonState.componentIds.length - 1]?.id, { id: String(artistId), mid: artist.mid, name: artist.name, source: musicInfo.source })
-  }, [musicInfo])
+    navigations.pushArtistDetailScreen(componentId, { id: String(artistId), mid: artist.mid, name: artist.name, source: musicInfo.source })
+  }, [componentId, musicInfo])
 
   const handleAlbumPress = useCallback(() => {
     if (!musicInfo) return
@@ -48,11 +48,11 @@ const Title = () => {
     const albumMid = (musicInfo.meta as any)?.albumMid || musicInfo.albumMid || albumId
     if (!albumId || !albumName) return
     if (musicInfo.source === 'tx') {
-      navigations.pushAlbumDetailScreen(commonState.componentIds[commonState.componentIds.length - 1]?.id, { id: String(albumId), mid: albumMid, name: albumName, source: 'tx' })
+      navigations.pushAlbumDetailScreen(componentId, { id: String(albumId), mid: albumMid, name: albumName, source: 'tx' })
     } else {
-      navigations.pushAlbumDetailScreen(commonState.componentIds[commonState.componentIds.length - 1]?.id, { id: String(albumId), name: albumName, source: musicInfo.source })
+      navigations.pushAlbumDetailScreen(componentId, { id: String(albumId), name: albumName, source: musicInfo.source })
     }
-  }, [musicInfo])
+  }, [componentId, musicInfo])
 
 
   const singerRender = useMemo(() => {
@@ -63,7 +63,7 @@ const Title = () => {
     if (!musicInfo.artists?.length || musicInfo.source == 'local') {
       return (
         <View style={styles.singerContainer}>
-          <TouchableOpacity onPress={async() => handleShowArtistDetail(commonState.componentIds[commonState.componentIds.length - 1]?.id, musicInfo as LX.Music.MusicInfoOnline)}>
+          <TouchableOpacity onPress={() => { void handleShowArtistDetail(componentId, musicInfo as LX.Music.MusicInfoOnline) }}>
             <Text numberOfLines={1} size={12} color={theme['c-font-label']}>
               {musicInfo.singer}
             </Text>
@@ -98,7 +98,7 @@ const Title = () => {
         ) : null}
       </View>
     )
-  }, [musicInfo, theme, handleArtistPress, handleAlbumPress])
+  }, [componentId, musicInfo, theme, handleArtistPress, handleAlbumPress])
 
   return (
     <View style={styles.titleContent}>
@@ -115,7 +115,7 @@ const Title = () => {
   )
 }
 
-export default memo(() => {
+export default memo(({ componentId }: { componentId: string }) => {
   const popupRef = useRef<SettingPopupType>(null)
   const playMusicInfo = usePlayMusicInfo()
   const theme = useTheme()
@@ -135,7 +135,7 @@ export default memo(() => {
         >
           <Icon name="chevron-left" size={18} />
         </TouchableOpacity>
-        <Title />
+        <Title componentId={componentId} />
         <CommentBtn />
         <Btn icon="slider" onPress={showSetting} />
       </View>

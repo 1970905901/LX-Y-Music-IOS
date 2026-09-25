@@ -75,14 +75,14 @@ export default memo(({ componentId }: { componentId: string }) => {
       appstateListener.remove()
       screenUnkeepAwake()
     }
-  }, [])
+  }, [componentId])
 
   return (
     <PageContent>
       <StatusBar />
       <View style={{ ...styles.container, paddingTop: statusBarHeight }}>
         <View style={{ ...styles.left, width: `${layout.leftRatio * 100}%`, marginLeft: cutoutLeft }}>
-          <Header />
+          <Header componentId={componentId} />
           <View style={styles.leftContent}>
             <MoreBtn />
             <Pic componentId={componentId} />

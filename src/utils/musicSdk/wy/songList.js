@@ -212,7 +212,6 @@ export default {
             _qualitys: _types,
             originCoverType: item.originCoverType,
             noCopyrightRcmd: item.noCopyrightRcmd,
-            mv: item.mv,
           },
         })
       } else {
@@ -242,7 +241,6 @@ export default {
             _qualitys: _types,
             originCoverType: item.originCoverType,
             noCopyrightRcmd: item.noCopyrightRcmd,
-            mv: item.mv,
           }
         })
       }

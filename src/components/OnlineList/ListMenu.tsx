@@ -29,7 +29,6 @@ export interface ListMenuProps {
   onAlbumDetail: (selectInfo: SelectInfo) => void
   onSimilarSongs: (selectInfo: SelectInfo) => void
   onLike: (selectInfo: SelectInfo) => void
-  onPlayMv: (selectInfo: SelectInfo) => void
   onMove?: (selectInfo: SelectInfo) => void
   onRemove?: (selectInfo: SelectInfo) => void
   onClearCache?: (selectInfo: SelectInfo) => void
@@ -52,7 +51,6 @@ export default forwardRef<ListMenuType, ListMenuProps>((props: ListMenuProps, re
   const menuSetting = {
     playLater: useSettingValue('menu.playLater'),
     addTo: useSettingValue('menu.addTo'),
-    playMV: useSettingValue('menu.playMV'),
     dislike: useSettingValue('menu.dislike'),
   }
 
@@ -85,9 +83,6 @@ export default forwardRef<ListMenuType, ListMenuProps>((props: ListMenuProps, re
         { action: 'albumDetail', label: t('album_detail') },
         { action: 'similarSongs', label: '相似歌曲' },
       );
-      if (selectInfo.musicInfo.meta.mv && menuSetting.playMV) {
-        wyMenuItems.push({ action: 'playMv', label: '播放MV' });
-      }
     }
 
     if (selectInfo.musicInfo?.source === 'tx') {
@@ -95,9 +90,6 @@ export default forwardRef<ListMenuType, ListMenuProps>((props: ListMenuProps, re
         { action: 'artistDetail', label: t('artist_detail') },
         { action: 'albumDetail', label: t('album_detail') },
       );
-      if (selectInfo.musicInfo.meta.vid && menuSetting.playMV) {
-        wyMenuItems.push({ action: 'playMv', label: '播放MV' });
-      }
     }
 
     if (selectInfo.musicInfo?.source === 'kg') {
@@ -105,9 +97,6 @@ export default forwardRef<ListMenuType, ListMenuProps>((props: ListMenuProps, re
         { action: 'artistDetail', label: t('artist_detail') },
         { action: 'albumDetail', label: t('album_detail') },
       );
-      if (menuSetting.playMV) {
-        wyMenuItems.push({ action: 'playMv', label: '播放MV' });
-      }
     }
 
     const remainingMenu = []
@@ -154,9 +143,6 @@ export default forwardRef<ListMenuType, ListMenuProps>((props: ListMenuProps, re
       case 'dislike':
         props.onDislikeMusic(selectInfo)
         break
-      case 'playMv':
-        props.onPlayMv(selectInfo);
-        break;
       case 'move':
         props.onMove?.(selectInfo);
         break;

@@ -13,9 +13,6 @@ import { downloadMusic } from '@/core/download'
 import {handleLikeMusic, handleTxLikeMusic, handleKgLikeMusic, handleShowAlbumDetail, handleShowArtistDetail} from '@/components/OnlineList/listAction'
 import MusicAddModal, { type MusicAddModalType } from '@/components/MusicAddModal'
 import settingState from '@/store/setting/state'
-import {getMvUrl as getWyMvUrl} from "@/utils/musicSdk/wy/mv.js";
-import {getMvUrl as getTxMvUrl} from "@/utils/musicSdk/tx/mv.js";
-import {getMvUrl as getKgMvUrl} from "@/utils/musicSdk/kg/mv.js";
 import SimilarSongsModal, { type SimilarSongsModalType } from '@/components/SimilarSongsModal'
 import { usePlayMusicInfo } from '@/store/player/hook'
 
@@ -88,61 +85,6 @@ export default memo(({ componentId }: { componentId: string }) => {
     void handleDislikeMusic(info.musicInfo);
   };
 
-  const onPlayMv = useCallback((info: SelectInfo) => {
-    if (global.lx.isEnableLog) console.log('[MV] 点击播放MV, source:', info.musicInfo.source, 'musicInfo:', info.musicInfo)
-    
-    if (info.musicInfo.source === 'wy') {
-      const mvId = info.musicInfo.meta.mv;
-      if (!mvId) {
-        if (global.lx.isEnableLog) console.log('[MV] 网易云: 无MV ID')
-        return
-      }
-      if (global.lx.isEnableLog) console.log('[MV] 网易云: 获取MV URL, mvId:', mvId)
-      getWyMvUrl(mvId).then(data => {
-        if (global.lx.isEnableLog) console.log('[MV] 网易云: 获取MV URL成功:', data)
-        global.app_event.showVideoPlayer((data as any).url);
-      }).catch(err => {
-        console.error('[MV] 网易云: 获取MV失败:', err)
-        toast(err.message || '获取MV失败');
-      });
-    } else if (info.musicInfo.source === 'tx') {
-      const vid = info.musicInfo.meta.vid;
-      if (!vid) {
-        if (global.lx.isEnableLog) console.log('[MV] QQ: 无VID')
-        return
-      }
-      if (global.lx.isEnableLog) console.log('[MV] QQ: 获取MV URL, vid:', vid)
-      getTxMvUrl(vid).then(data => {
-        if (global.lx.isEnableLog) console.log('[MV] QQ: 获取MV URL成功:', data)
-        global.app_event.showVideoPlayer((data as any).url);
-      }).catch(err => {
-        console.error('[MV] QQ: 获取MV失败:', err)
-        toast(err.message || '获取MV失败');
-      });
-    } else if (info.musicInfo.source === 'kg') {
-      const mixSongId = info.musicInfo.meta.mixSongId || info.musicInfo.mixSongId || info.musicInfo.meta.songId;
-      const songName = info.musicInfo.name;
-      const singerName = info.musicInfo.singer;
-      if (!mixSongId) {
-        if (global.lx.isEnableLog) console.log('[MV] 酷狗: 无mixSongId')
-        toast('无法获取歌曲ID')
-        return
-      }
-      if (global.lx.isEnableLog) console.log('[MV] 酷狗: 开始获取MV, mixSongId:', mixSongId, 'songName:', songName, 'singerName:', singerName)
-      getKgMvUrl(String(mixSongId), songName, singerName).then(data => {
-        if (global.lx.isEnableLog) console.log('[MV] 酷狗: 获取MV URL成功:', data)
-        if (data && (data as any).url) {
-          global.app_event.showVideoPlayer((data as any).url);
-        } else {
-          if (global.lx.isEnableLog) console.log('[MV] 酷狗: 返回数据无URL:', data)
-          toast('获取MV链接失败')
-        }
-      }).catch(err => {
-        console.error('[MV] 酷狗: 获取MV失败:', err)
-        toast(err.message || '该歌曲暂无MV');
-      });
-    }
-  }, []);
 
   const onLike = (info: SelectInfo) => {
     if (info.musicInfo.source === 'wy') {
@@ -177,7 +119,6 @@ export default memo(({ componentId }: { componentId: string }) => {
         onAlbumDetail={onAlbumDetail}
         onSimilarSongs={onSimilarSongs}
         onDislikeMusic={onDislikeMusic}
-        onPlayMv={onPlayMv}
         onClearCache={onClearCache}
       />
       <MusicAddModal ref={musicAddModalRef} />

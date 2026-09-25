@@ -151,7 +151,6 @@ export default {
           fee: item.fee,
           originCoverType: item.originCoverType,
           noCopyrightRcmd: item.noCopyrightRcmd,
-          mv: item.mv,
         },
       }
     })

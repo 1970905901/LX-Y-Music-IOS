@@ -90,7 +90,6 @@ declare global {
     showTxWebLogin: () => void
     showKgWebLogin: () => void
     showYouTubeLogin: () => void
-    showVideoPlayer: (url: string) => void
   }
   var list_event: ListEventTypes
   var dislike_event: DislikeEventTypes

@@ -28,7 +28,6 @@ export interface ListMenuProps {
   onSimilarSongs: (selectInfo: SelectInfo) => void
   onDislikeMusic: (selectInfo: SelectInfo) => void
   onRemove: (selectInfo: SelectInfo) => void
-  onPlayMv: (selectInfo: SelectInfo) => void
   onClearCache: (selectInfo: SelectInfo) => void
 }
 export interface ListMenuType {
@@ -50,16 +49,14 @@ export default forwardRef<ListMenuType, ListMenuProps>((props, ref) => {
   const [menus, setMenus] = useState<Menus>([])
 
   const menuPlayLater = useSettingValue('menu.playLater')
-  const menuPlayMV = useSettingValue('menu.playMV')
   const menuDislike = useSettingValue('menu.dislike')
 
 
   const menuSetting = useMemo(() => ({
     playLater: menuPlayLater,
-    playMV: menuPlayMV,
     dislike: menuDislike,
   }), [
-    menuPlayLater, menuPlayMV, menuDislike,
+    menuPlayLater, menuDislike,
   ])
 
   useImperativeHandle(ref, () => ({
@@ -94,25 +91,16 @@ export default forwardRef<ListMenuType, ListMenuProps>((props, ref) => {
         menu.push({ action: 'artistDetail', label: t('artist_detail') })
         menu.push({ action: 'albumDetail', label: t('album_detail') })
         menu.push({ action: 'similarSongs', label: '相似歌曲' })
-        if (musicInfo.meta.mv && menuSetting.playMV) {
-          menu.push({ action: 'playMv', label: '播放MV' })
-        }
       }
 
       if (musicInfo.source === 'tx') {
         menu.push({ action: 'artistDetail', label: t('artist_detail') })
         menu.push({ action: 'albumDetail', label: t('album_detail') })
-        if (musicInfo.meta.vid && menuSetting.playMV) {
-          menu.push({ action: 'playMv', label: '播放MV' })
-        }
       }
 
       if (musicInfo.source === 'kg') {
         menu.push({ action: 'artistDetail', label: t('artist_detail') })
         menu.push({ action: 'albumDetail', label: t('album_detail') })
-        if (menuSetting.playMV) {
-          menu.push({ action: 'playMv', label: '播放MV' })
-        }
       }
 
       if (menuSetting.dislike) menu.push({ action: 'dislike', disabled: hasDislike(musicInfo), label: t('dislike') })
@@ -150,7 +138,6 @@ export default forwardRef<ListMenuType, ListMenuProps>((props, ref) => {
       case 'dislike': props.onDislikeMusic(info); break
       case 'clearCache': props.onClearCache(info); break
       case 'remove': props.onRemove(info); break
-      case 'playMv': props.onPlayMv(info); break
       default:
         break
     }

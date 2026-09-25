@@ -544,7 +544,6 @@ const artistApi = {
         albumName,
         albumId,
         albumMid: songInfo.album?.mid ?? '',
-        vid: songInfo.mv?.vid || '',
         picUrl: albumId === '' || albumId === '空'
           ? songInfo.singer?.length
             ? `https://y.gtimg.cn/music/photo_new/T001R500x500M000${songInfo.singer[0]?.mid}.jpg`
@@ -582,7 +581,6 @@ const artistApi = {
         types,
         _types,
         typeUrl: {},
-        vid: songInfo.mv?.vid || '',
         meta: processedMeta,
       })
     })

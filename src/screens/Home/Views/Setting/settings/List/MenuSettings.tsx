@@ -11,7 +11,6 @@ import { designRadius, designSpacing } from '@/theme/DesignTokens';
 
 type MenuSettingKey =
   | 'menu.playLater'
-  | 'menu.playMV'
   | 'menu.dislike'
 
 const SettingItem = ({ settingKey, label }: { settingKey: MenuSettingKey; label: string }) => {
@@ -37,7 +36,6 @@ export default memo(() => {
     <SubTitle title="菜单设置">
       <View style={{ ...styles.content, borderColor: theme['c-border-background'] }}>
         <SettingItem settingKey="menu.playLater" label={t('play_later')} />
-        <SettingItem settingKey="menu.playMV" label={'播放MV'} />
         <SettingItem settingKey="menu.dislike" label={t('dislike')} />
       </View>
     </SubTitle>

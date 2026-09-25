@@ -4,7 +4,6 @@ import { useI18n } from '@/lang'
 import Menu, { type MenuType, type Position, type Menus } from '@/components/common/Menu'
 import settingState from '@/store/setting/state'
 import userState from '@/store/user/state'
-import {useSettingValue} from "@/store/setting/hook.ts";
 import { Icon } from '@/components/common/Icon'
 import Text from '@/components/common/Text'
 import { useTheme } from '@/store/theme/hook'
@@ -23,7 +22,6 @@ export interface PlayDetailMenuProps {
   onAlbumDetail: (selectInfo: SelectInfo) => void
   onSimilarSongs: (selectInfo: SelectInfo) => void
   onLike: (selectInfo: SelectInfo) => void
-  onPlayMv: (selectInfo: SelectInfo) => void
   onClearCache: (selectInfo: SelectInfo) => void
 }
 
@@ -48,10 +46,6 @@ export default forwardRef<PlayDetailMenuType, PlayDetailMenuProps>((props, ref) 
       <Text size={15} color={theme['c-font']}>{liked ? '取消喜欢' : '喜欢'}</Text>
     </View>
   );
-
-  const menuSetting = {
-    playMV: useSettingValue('menu.playMV'),
-  }
 
   useImperativeHandle(ref, () => ({
     show(selectInfo, position) {
@@ -88,9 +82,6 @@ export default forwardRef<PlayDetailMenuType, PlayDetailMenuProps>((props, ref) 
       menuItems.push({ action: 'albumDetail', label: t('album_detail') });
       menuItems.push({ action: 'similarSongs', label: '相似歌曲' });
 
-      if (musicInfo.meta.mv && menuSetting.playMV) {
-        menuItems.push({ action: 'playMv', label: '播放MV' })
-      }
     }
 
     if (musicInfo?.source === 'tx') {
@@ -98,24 +89,18 @@ export default forwardRef<PlayDetailMenuType, PlayDetailMenuProps>((props, ref) 
       menuItems.push({ action: 'artistDetail', label: t('artist_detail') });
       menuItems.push({ action: 'albumDetail', label: t('album_detail') });
       menuItems.push({ action: 'similarSongs', label: '相似歌曲' });
-      if (musicInfo.meta.vid && menuSetting.playMV) {
-        menuItems.push({ action: 'playMv', label: '播放MV' })
-      }
     }
 
     if (musicInfo?.source === 'kg') {
       menuItems.push({ action: 'like', label: renderLikeLabel(isLiked) })
       menuItems.push({ action: 'artistDetail', label: t('artist_detail') });
       menuItems.push({ action: 'albumDetail', label: t('album_detail') });
-      if (menuSetting.playMV) {
-        menuItems.push({ action: 'playMv', label: '播放MV' })
-      }
     }
 
     menuItems.push({ action: 'clearCache', label: t('clear_music_cache') });
 
     return menuItems;
-  }, [t, isLiked, selectInfoRef.current.musicInfo, menuSetting]);
+  }, [t, isLiked, selectInfoRef.current.musicInfo]);
 
   const handleMenuPress = ({ action }: (typeof menus)[number]) => {
     const selectInfo = selectInfoRef.current;
@@ -125,9 +110,6 @@ export default forwardRef<PlayDetailMenuType, PlayDetailMenuProps>((props, ref) 
         break;
       case 'download':
         props.onDownload(selectInfo);
-        break;
-      case 'playMv':
-        props.onPlayMv(selectInfo);
         break;
       case 'artistDetail':
         props.onArtistDetail(selectInfo);

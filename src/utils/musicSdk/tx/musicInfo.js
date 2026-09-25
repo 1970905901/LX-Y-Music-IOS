@@ -117,7 +117,6 @@ export default (songmid) => {
       types,
       _types,
       typeUrl: {},
-      vid: item.mv?.vid || '',
     }
   })
 }

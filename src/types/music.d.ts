@@ -52,7 +52,6 @@ declare namespace LX {
         typeDesc?: string
       } | null
       _full?: boolean
-      mv?: number
     }
 
     interface MusicInfoMeta_local extends MusicInfoMetaBase {
@@ -107,7 +106,6 @@ declare namespace LX {
       songmid?: string
       id?: number
       albumMid?: string
-      vid?: string
     }
     interface MusicInfo_tx extends MusicInfoBase<'tx'> {
       meta: MusicInfoMeta_tx

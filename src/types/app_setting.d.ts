@@ -177,10 +177,9 @@ declare global {
 
       'list.isAutoSaveDailyRec': boolean
 
-      'menu.playLater': boolean
-      'menu.addTo': boolean
-      'menu.playMV': boolean
-      'menu.dislike': boolean
+  'menu.playLater': boolean
+  'menu.addTo': boolean
+  'menu.dislike': boolean
 
       'menu.moveTo': boolean
       'menu.changePosition': boolean

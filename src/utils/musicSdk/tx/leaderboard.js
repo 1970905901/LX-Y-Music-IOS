@@ -213,7 +213,6 @@ export default {
         types,
         _types,
         typeUrl: {},
-        vid: item.mv?.vid || '',
       }
     })
   },

@@ -405,7 +405,6 @@ export default {
         types,
         _types,
         typeUrl: {},
-        vid: item.mv?.vid || '',
       }
     })
     log.info(`[TX SongList] filterListDetailNew 输出`, { count: result.length, firstSong: result.length > 0 ? result[0].name : 'none' })
@@ -520,7 +519,6 @@ export default {
         types,
         _types,
         typeUrl: {},
-        vid: item.mv?.vid || '',
       }
     })
   },

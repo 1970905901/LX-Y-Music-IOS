@@ -54,7 +54,6 @@ export const toNewMusicInfo = (oldMusicInfo: any): LX.Music.MusicInfo | null => 
     meta.ext = oldMusicInfo.ext ?? /\.(\w+)$/.exec(meta.filePath as string)?.[1] ?? ''
   } else {
     meta.fee = oldMusicInfo.meta?.fee
-    meta.mv = oldMusicInfo.meta?.mv
     meta.noCopyrightRcmd = oldMusicInfo.noCopyrightRcmd || oldMusicInfo.meta?.noCopyrightRcmd
     if (oldMusicInfo.originCoverType || oldMusicInfo.meta?.originCoverType) {
       meta.originCoverType = oldMusicInfo.originCoverType || oldMusicInfo.meta.originCoverType;
@@ -108,7 +107,6 @@ export const toNewMusicInfo = (oldMusicInfo: any): LX.Music.MusicInfo | null => 
         meta.songmid = oldMusicInfo.songmid || oldMusicInfo.songId || oldMusicInfo.id
         meta.albumMid = oldMusicInfo.albumMid
         meta.id = oldMusicInfo.songId || oldMusicInfo.id
-        meta.vid = oldMusicInfo.vid || oldMusicInfo.meta?.vid || ''
         break
       case 'mg':
         meta.copyrightId = oldMusicInfo.copyrightId
@@ -157,7 +155,6 @@ export const toOldMusicInfo = (minfo: LX.Music.MusicInfo): any => {
         oInfo.songmid = minfo.meta.songmid || (minfo as any).songmid || minfo.meta.songId || minfo.meta.id || minfo.id || minfo.meta.strMediaMid || ''
         oInfo.albumMid = minfo.meta.albumMid || ''
         oInfo.songId = minfo.meta.id || minfo.id || ''
-        oInfo.vid = minfo.meta.vid || ''
         break
       case 'mg':
         oInfo.copyrightId = minfo.meta.copyrightId

@@ -25,9 +25,6 @@ import wyApi from '@/utils/musicSdk/wy/user'
 import txUserApi from '@/utils/musicSdk/tx/user'
 import { removeSongsFromPlaylist as removeKgSongsFromPlaylist, getPlaylistSongs as getKgPlaylistSongs } from '@/utils/musicSdk/kg/utils/api'
 import { batchDownload, downloadMusic } from '@/core/download'
-import {getMvUrl as getWyMvUrl} from "@/utils/musicSdk/wy/mv.js"
-import {getMvUrl as getTxMvUrl} from "@/utils/musicSdk/tx/mv.js"
-import {getMvUrl as getKgMvUrl} from "@/utils/musicSdk/kg/mv.js"
 import {useI18n} from "@/lang"
 import {removeWyLikedSong, updateWySubscribedPlaylistTrackCount} from "@/store/user/action.ts"
 import {clearListDetailCache} from "@/core/songlist.ts"
@@ -164,61 +161,6 @@ export default forwardRef<OnlineListType, OnlineListProps>(
       const componentId = componentId_raw ?? commonState.componentIds[commonState.componentIds.length - 1]?.id!
       handleShowAlbumDetail(componentId, info.musicInfo)
     }
-    const handlePlayMv = useCallback((info: SelectInfo) => {
-      console.log('[MV] 点击播放MV, source:', info.musicInfo.source, 'musicInfo:', info.musicInfo)
-      
-      if (info.musicInfo.source === 'wy') {
-        const mvId = info.musicInfo.meta.mv
-        if (!mvId) {
-          console.log('[MV] 网易云: 无MV ID')
-          return
-        }
-        console.log('[MV] 网易云: 获取MV URL, mvId:', mvId)
-        getWyMvUrl(mvId).then(data => {
-          console.log('[MV] 网易云: 获取MV URL成功:', data)
-          global.app_event.showVideoPlayer(data.url)
-        }).catch(err => {
-          console.error('[MV] 网易云: 获取MV失败:', err)
-          toast(err.message || '获取MV失败')
-        })
-      } else if (info.musicInfo.source === 'tx') {
-        const vid = info.musicInfo.meta.vid
-        if (!vid) {
-          console.log('[MV] QQ: 无VID')
-          return
-        }
-        console.log('[MV] QQ: 获取MV URL, vid:', vid)
-        getTxMvUrl(vid).then(data => {
-          console.log('[MV] QQ: 获取MV URL成功:', data)
-          global.app_event.showVideoPlayer(data.url)
-        }).catch(err => {
-          console.error('[MV] QQ: 获取MV失败:', err)
-          toast(err.message || '获取MV失败')
-        })
-      } else if (info.musicInfo.source === 'kg') {
-        const mixSongId = (info.musicInfo.meta as { mixSongId?: string | number }).mixSongId || (info.musicInfo as { mixSongId?: string | number }).mixSongId || info.musicInfo.meta.songId
-        const songName = info.musicInfo.name
-        const singerName = info.musicInfo.singer
-        if (!mixSongId) {
-          console.log('[MV] 酷狗: 无mixSongId')
-          toast('无法获取歌曲ID')
-          return
-        }
-        console.log('[MV] 酷狗: 开始获取MV, mixSongId:', mixSongId, 'songName:', songName, 'singerName:', singerName)
-        getKgMvUrl(String(mixSongId), songName, singerName).then((data: { url?: string }) => {
-          console.log('[MV] 酷狗: 获取MV URL成功:', data)
-          if (data && data.url) {
-            global.app_event.showVideoPlayer(data.url)
-          } else {
-            console.log('[MV] 酷狗: 返回数据无URL:', data)
-            toast('获取MV链接失败')
-          }
-        }).catch(err => {
-          console.error('[MV] 酷狗: 获取MV失败:', err)
-          toast(err.message || '该歌曲暂无MV')
-        })
-      }
-    }, [])
     const handleMoveMusic = (info: SelectInfo) => {
       if (info.selectedList.length) {
         listMusicMultiAddRef.current?.show({ selectedList: info.selectedList, listId: listId!, isMove: true })
@@ -382,7 +324,6 @@ export default forwardRef<OnlineListType, OnlineListProps>(
               handleKgLikeMusic(info.musicInfo)
             }
           }}
-          onPlayMv={handlePlayMv}
           onClearCache={(info) => {
             void handleClearMusicCache(info.musicInfo)
           }}

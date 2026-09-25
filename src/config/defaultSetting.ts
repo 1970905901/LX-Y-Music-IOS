@@ -153,7 +153,6 @@ const defaultSetting: LX.AppSetting = {
 
   'menu.playLater': true,
   'menu.addTo': true,
-  'menu.playMV': true,
   'menu.dislike': true,
 
   'menu.moveTo': true,

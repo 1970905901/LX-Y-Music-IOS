@@ -6,7 +6,6 @@ import InputItem from '../../components/InputItem'
 import Button from '../../components/Button'
 import CheckBoxItem from '../../components/CheckBoxItem'
 import History from './History'
-import { useI18n } from '@/lang'
 import { useSettingValue } from '@/store/setting/hook'
 import { updateSetting } from '@/core/common'
 import { createStyle, toast } from '@/utils/tools'
@@ -26,7 +25,6 @@ import {
 import IsEnable from '@/screens/Home/Views/Setting/settings/Sync/IsEnable.tsx'
 
 export default memo(() => {
-  const t = useI18n()
   const theme = useTheme()
   const isEnableWebdav = useSettingValue('sync.webdav.enable')
   const isSyncLists = useSettingValue('sync.webdav.syncLists')
@@ -138,7 +136,7 @@ export default memo(() => {
   }
 
   return (
-    <Section title={t('setting_sync')} sectionId="setting_sync">
+    <Section sectionId="setting_sync">
       <SubTitle title="WebDAV 同步">
         <CheckBoxItem
           check={isEnableWebdav}

@@ -1,30 +1,18 @@
 import { View } from 'react-native'
 
 import { createStyle } from '@/utils/tools'
-import { useTheme } from '@/store/theme/hook'
-import Text from '@/components/common/Text'
 import { scaleSizeH } from '@/utils/pixelRatio'
-import { designSpacing } from '@/theme/DesignTokens'
 
 interface Props {
-  title: string
   children: React.ReactNode | React.ReactNode[]
   sectionId?: keyof LX.AppSetting['common.sectionExpandedStatus']
 }
 
-export default ({ title, children }: Props) => {
-  const theme = useTheme()
-
+// 页面大标题已由 SettingDetail 顶部页头承担，Section 不再渲染自己的标题行，
+// 避免进入设置详情页后出现两行相同的标题。
+export default ({ children }: Props) => {
   return (
     <View style={styles.container}>
-      <View style={styles.titleContainer}>
-        <Text
-          style={{ ...styles.title, borderLeftColor: theme['c-primary'], color: theme['c-font'] }}
-          size={17}
-        >
-          {title}
-        </Text>
-      </View>
       <View>{children}</View>
     </View>
   )
@@ -33,17 +21,5 @@ export default ({ title, children }: Props) => {
 const styles = createStyle({
   container: {
     marginBottom: scaleSizeH(12),
-  },
-  titleContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: designSpacing.sm,
-  },
-  title: {
-    borderLeftWidth: 4,
-    paddingLeft: designSpacing.sm,
-    fontWeight: '600',
-    flex: 1,
   },
 })

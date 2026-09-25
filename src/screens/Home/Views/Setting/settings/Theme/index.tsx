@@ -12,12 +12,10 @@ import MiniPlayerOpacity from "@/screens/Home/Views/Setting/settings/Theme/MiniP
 import PicOpacity from "@/screens/Home/Views/Setting/settings/Theme/PicOpacity.tsx";
 import SectionOpacity from "@/screens/Home/Views/Setting/settings/Theme/SectionOpacity.tsx";
 import SubContainerOpacity from "@/screens/Home/Views/Setting/settings/Theme/SubContainerOpacity.tsx";
-import { useI18n } from '@/lang/i18n'
 
 export default memo(() => {
-  const t = useI18n()
   return (
-    <Section title={t('setting_theme')} sectionId="setting_theme">
+    <Section sectionId="setting_theme">
       <Theme />
       <ThemeMode />
       <IsDynamicBg />

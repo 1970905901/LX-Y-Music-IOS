@@ -5,13 +5,11 @@ import Section from '../components/Section'
 
 import { createStyle, openUrl } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
-import { useI18n } from '@/lang'
 import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
 import Text from '@/components/common/Text'
 
 export default memo(() => {
   const theme = useTheme()
-  const t = useI18n()
   const openHomePage = () => {
     void openUrl('https://github.com/1970905901/LX-Y-Music-IOS#readme')
   }
@@ -29,7 +27,7 @@ export default memo(() => {
   } as const
 
   return (
-    <Section title={t('setting_about')} sectionId="setting_about">
+    <Section sectionId="setting_about">
       <View style={styles.part}>
         <Text style={{ ...styles.text, color: theme['c-font'] }}>本软件(LX-Y Music)完全免费，代码已开源。开源地址：</Text>
         <TouchableOpacity onPress={openHomePage}>

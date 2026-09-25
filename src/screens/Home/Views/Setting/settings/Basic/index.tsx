@@ -10,13 +10,11 @@ import IsAllowProgressBarSeek from './IsAllowProgressBarSeek'
 import IsShowBackBtn from './IsShowBackBtn'
 import IsShowExitBtn from './IsShowExitBtn'
 import DrawerLayoutPosition from './DrawerLayoutPosition'
-import { useI18n } from '@/lang/i18n'
 
 export default memo(() => {
-  const t = useI18n()
 
   return (
-    <Section title={t('setting_basic')} sectionId="setting_basic">
+    <Section sectionId="setting_basic">
       {global.lx.isCarMode ? (
         <>
           <IsShowBackBtn />

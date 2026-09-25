@@ -24,6 +24,8 @@ export default forwardRef<TagRowsType, TagRowsProps>(({ onTagChange }, ref) => {
   const t = useI18n()
   const [groups, setGroups] = useState<TagInfo['tags']>([])
   const [activeId, setActiveId] = useState('')
+  // 「默认」已选中时再次点击 → 收起/展开下方各分组行（再次点击「默认」展开）
+  const [collapsed, setCollapsed] = useState(false)
   const prevSource = useRef('')
   const isUnmountedRef = useRef(false)
 
@@ -37,6 +39,8 @@ export default forwardRef<TagRowsType, TagRowsProps>(({ onTagChange }, ref) => {
   useImperativeHandle(ref, () => ({
     setSource(source, activeId) {
       setActiveId(activeId)
+      // 切换平台后分组默认收起，点「默认」展开
+      setCollapsed(true)
       if (source == prevSource.current) return
       prevSource.current = source
       // 先展示「默认」占位，标签数据到达后补齐各分组
@@ -75,13 +79,18 @@ export default forwardRef<TagRowsType, TagRowsProps>(({ onTagChange }, ref) => {
   }))
 
   const handlePress = (name: string, id: string) => {
+    // 「默认」被选中时再次点击 → 切换分组行的收起/展开（不重复触发筛选）
+    if (id === '' && activeId === '') {
+      setCollapsed(c => !c)
+      return
+    }
     setActiveId(id)
     onTagChange(name, id)
   }
 
   return (
     <View style={styles.container}>
-      {groups.map((group, index) => (
+      {(collapsed ? groups.slice(0, 1) : groups).map((group, index) => (
         <ScrollView
           key={`${group.name}-${index}`}
           style={styles.groupScroll}

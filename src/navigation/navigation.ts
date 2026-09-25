@@ -612,6 +612,10 @@ export function pushAlbumDetailScreen(componentId: string, albumInfo: any) {
 export function pushSettingDetailScreen(componentId: string, settingId: string) {
   if (!startPush(COMPONENT_IDS.SETTING_DETAIL, { recoverStaleTop: true })) return
   const theme = themeState.theme
+  // 原生转场背景色需与页面实际背景一致，否则 push 转场瞬间颜色跳变（闪屏），
+  // 判定方式与 pushPlayDetailScreen 一致：无背景图时页面实际是 c-main-background。
+  const hasBgPic = !!(commonState.bgPic || settingState.setting['theme.customBgPicPath'])
+  const componentBackgroundColor = hasBgPic ? theme['c-content-background'] : theme['c-main-background']
   void guardPush(Navigation.push(componentId, {
     component: {
       name: SETTING_DETAIL_SCREEN,
@@ -634,7 +638,7 @@ export function pushSettingDetailScreen(componentId: string, settingId: string) 
         },
         layout: {
           orientation: ['portrait', 'landscape'],
-          componentBackgroundColor: theme['c-content-background'],
+          componentBackgroundColor,
           fitSystemWindows: false,
         },
         // 不配置 animations，走系统默认转场：RNN iOS 的自定义转场（ScreenAnimationController）

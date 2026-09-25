@@ -29,6 +29,7 @@ import { Navigation } from 'react-native-navigation'
 import OpenList from '../SongList/HeaderBar/OpenList'
 import { navigations } from '@/navigation'
 import FeatureGrid from '@/components/home/FeatureGrid'
+import SwipeBackArea from '@/components/common/SwipeBackArea'
 
 const CARD_HEIGHT = scaleSizeH(64)
 const LONG_PRESS_MS = 350
@@ -623,6 +624,7 @@ export default memo(() => {
     return (
       <View style={styles.content}>
         <MusicList onBack={handleBackToList} />
+        <SwipeBackArea onBack={handleBackToList} />
       </View>
     )
   }

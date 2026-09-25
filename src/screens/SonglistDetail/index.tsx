@@ -24,6 +24,7 @@ import { addWySubscribedPlaylist, removeWySubscribedPlaylist } from '@/store/use
 import { type DetailInfo } from '@/screens/SonglistDetail/Header.tsx'
 import LandscapeDetailLayout from '@/components/LandscapeDetailLayout'
 import PageContent from '@/components/PageContent'
+import SwipeBackArea from '@/components/common/SwipeBackArea'
 import playerState from '@/store/player/state'
 
 import listState from '@/store/list/state'
@@ -164,9 +165,9 @@ export default ({ info, onBack, componentId, initialScrollToInfo }: { info: List
 
   // 内嵌模式由宿主页面传入 onBack；独立 push 模式没有 onBack，用 componentId pop 自己，
   // 否则返回按钮是个空操作
-  const handleBack = onBack ?? (componentId
+  const handleBack = useMemo(() => onBack ?? (componentId
     ? () => { void pop(componentId) }
-    : undefined)
+    : undefined), [onBack, componentId])
 
   const refreshList = useCallback((isRefresh = false) => {
     if (global.lx.isEnableLog) console.log('[SonglistDetail] refreshList', { source: info.source, id: info.id, isRefresh })
@@ -302,6 +303,7 @@ export default ({ info, onBack, componentId, initialScrollToInfo }: { info: List
           <MusicList ref={musicListRef} playingId={playerMusicInfo.id} componentId={commonState.componentIds[commonState.componentIds.length - 1]?.id} isCreator={true} searchText={searchText} isFuzzySearch={isFuzzySearch} onListUpdate={handleListUpdate} />
         </ListInfoContext.Provider>
       }
+      footer={handleBack ? <SwipeBackArea onBack={handleBack} /> : undefined}
     />
   )
 

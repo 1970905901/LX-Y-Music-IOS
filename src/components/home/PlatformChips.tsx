@@ -28,8 +28,8 @@ const styles = createStyle({
   },
   contentBare: {},
   chip: {
-    height: 38,
-    paddingHorizontal: designSpacing.lg,
+    height: 34,
+    paddingHorizontal: designSpacing.md,
     marginRight: designSpacing.sm,
     borderRadius: 999,
     justifyContent: 'center',

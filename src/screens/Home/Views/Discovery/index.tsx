@@ -85,15 +85,15 @@ const styles = createStyle({
     marginTop: designSpacing.md,
   },
   boardCard: {
-    width: 104,
-    minHeight: 76,
-    borderRadius: designRadius.lg,
+    width: 92,
+    minHeight: 64,
+    borderRadius: designRadius.md,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
     gap: designSpacing.xs,
     paddingHorizontal: designSpacing.sm,
-    paddingVertical: designSpacing.sm,
+    paddingVertical: designSpacing.xs,
   },
   boardName: {
     textAlign: 'center',
@@ -287,7 +287,7 @@ export default memo(() => {
                   }}
                   onPress={() => { handleOpenBoard(board) }}
                 >
-                  <Icon name="leaderboard" size={20} color={theme['c-primary']} />
+                  <Icon name="leaderboard" size={18} color={theme['c-primary']} />
                   <Text
                     style={styles.boardName}
                     numberOfLines={2}
@@ -306,7 +306,7 @@ export default memo(() => {
           <HorizontalShelf
             title={t('discovery_playlists_title')}
             data={shelfData}
-            cardWidth={150}
+            cardWidth={132}
             onPressItem={handleOpenDetail}
           />
         </View>

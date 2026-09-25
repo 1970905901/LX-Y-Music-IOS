@@ -16,26 +16,26 @@ const styles = createStyle({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 88,
+    height: 72,
     paddingHorizontal: designSpacing.md,
-    borderRadius: designRadius.lg,
+    borderRadius: designRadius.md,
   },
   iconContent: {
-    width: 56,
-    height: 56,
-    borderRadius: designRadius.md,
+    width: 44,
+    height: 44,
+    borderRadius: designRadius.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },
   content: {
     flex: 1,
-    paddingLeft: designSpacing.md,
+    paddingLeft: designSpacing.sm,
   },
   title: {
     fontWeight: '700',
   },
   subtitle: {
-    marginTop: 3,
+    marginTop: 2,
   },
 })
 
@@ -59,7 +59,7 @@ const DailyRecommendCard = memo(({ title, subtitle, onPress }: DailyRecommendCar
   return (
     <Pressable style={cardStyle} onPress={onPress}>
       <View style={iconContentStyle}>
-        <SvgIcon name="calendar" size={28} color={theme['c-primary-light-1000']} />
+        <SvgIcon name="calendar" size={22} color={theme['c-primary-light-1000']} />
       </View>
       <View style={styles.content}>
         <Text style={styles.title} size={designTypography.title} color={theme['c-font']}>

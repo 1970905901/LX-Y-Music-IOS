@@ -3,18 +3,21 @@ import { View } from 'react-native'
 
 import { createStyle } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
+import { useI18n } from '@/lang'
 import ActiveListName, { type ActiveListNameType } from './ActiveListName'
-import { BorderWidths } from '@/theme'
+import Text from '@/components/common/Text'
+import { designSpacing } from '@/theme/DesignTokens'
 
 export interface HeaderBarType {
   setBound: (source: LX.OnlineSource, id: string, name: string) => void
 }
 
-// 排行榜页顶部：仅展示当前榜单名。平台切换与榜单选择已由推荐页的排行榜区块承担，
-// 原平台下拉选择器（SourceSelector）与打开侧边栏抽屉的入口（onShowBound）已移除。
+// 页头：接管「排行榜」大标题（Home 共享页头已对 nav_top 隐藏），
+// 当前榜单名以黑色字体与大标题同行展示。
 export default forwardRef<HeaderBarType>((_props, ref) => {
   const activeListNameRef = useRef<ActiveListNameType>(null)
   const theme = useTheme()
+  const t = useI18n()
 
   useImperativeHandle(
     ref,
@@ -27,17 +30,22 @@ export default forwardRef<HeaderBarType>((_props, ref) => {
   )
 
   return (
-    <View style={{ ...styles.currentList, borderBottomColor: theme['c-border-background'] }}>
+    <View style={styles.titleRow}>
+      <Text style={styles.title} size={34} color={theme['c-font']}>{t('nav_top')}</Text>
       <ActiveListName ref={activeListNameRef} />
     </View>
   )
 })
 
 const styles = createStyle({
-  currentList: {
+  titleRow: {
     flexDirection: 'row',
-    height: 38,
-    zIndex: 2,
-    borderBottomWidth: BorderWidths.normal,
+    alignItems: 'flex-end',
+    paddingHorizontal: designSpacing.lg,
+    marginBottom: designSpacing.sm,
+  },
+  title: {
+    fontWeight: '800',
+    lineHeight: 36,
   },
 })

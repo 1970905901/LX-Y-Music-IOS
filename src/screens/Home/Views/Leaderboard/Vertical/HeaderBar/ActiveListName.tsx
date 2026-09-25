@@ -4,6 +4,7 @@ import { View } from 'react-native'
 import { useTheme } from '@/store/theme/hook'
 import { createStyle } from '@/utils/tools'
 import Text from '@/components/common/Text'
+import { designSpacing } from '@/theme/DesignTokens'
 
 export interface ActiveListNameType {
   setBound: (id: string, name: string) => void
@@ -27,7 +28,7 @@ export default forwardRef<ActiveListNameType>((_props, ref) => {
 
   return (
     <View style={styles.currentList}>
-      <Text numberOfLines={1} style={styles.currentListText} color={theme['c-button-font']}>
+      <Text numberOfLines={1} style={styles.currentListText} color={theme['c-font']}>
         {currentListName}
       </Text>
     </View>
@@ -36,13 +37,15 @@ export default forwardRef<ActiveListNameType>((_props, ref) => {
 
 const styles = createStyle({
   currentList: {
-    flex: 1,
+    flexShrink: 1,
     flexDirection: 'row',
-    paddingRight: 2,
+    paddingLeft: designSpacing.sm,
+    paddingRight: designSpacing.xs,
+    paddingBottom: 4,
     alignItems: 'center',
   },
   currentListText: {
-    flex: 1,
-    paddingRight: 10,
+    flexShrink: 1,
+    fontWeight: '600',
   },
 })

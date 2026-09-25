@@ -7,7 +7,8 @@ const defaultSetting: LX.AppSetting = {
   'common.apiSource': '',
   'common.sourceNameType': 'alias',
   'common.shareType': 'system',
-  'common.isAgreePact': true,
+  // 默认 false：首次安装启动时弹出协议弹窗（PactModal），同意后写入 true 不再弹出
+  'common.isAgreePact': false,
   'common.autoHidePlayBar': true,
   'common.drawerLayoutPosition': 'left',
   // 「启用竖屏首页横向滚动」设置已移除：首页固定，仅通过底部 tab / 侧边栏切换页面。

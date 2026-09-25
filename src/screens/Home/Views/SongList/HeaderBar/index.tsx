@@ -3,18 +3,18 @@ import { View } from 'react-native'
 
 import SortTab, { type SortTabProps, type SortTabType } from './SortTab'
 import SourceChips, { type SourceChipsProps, type SourceChipsType } from './SourceChips'
+import TagRows, { type TagRowsProps, type TagRowsType } from './TagRows'
 import { createStyle } from '@/utils/tools'
 import { type Source } from '@/store/songlist/state'
 import { useTheme } from '@/store/theme/hook'
 import { useStatusbarHeight } from '@/store/common/hook'
-import Tag, { type TagType, type TagProps } from './Tag'
 import { designSpacing } from '@/theme/DesignTokens'
 import Text from '@/components/common/Text'
 
 export interface HeaderBarProps {
   title: string
   onSortChange: SortTabProps['onSortChange']
-  onTagChange: TagProps['onTagChange']
+  onTagChange: TagRowsProps['onTagChange']
   onSourceChange: SourceChipsProps['onSourceChange']
 }
 
@@ -22,12 +22,12 @@ export interface HeaderBarType {
   setSource: (source: Source, sortId: string, tagName: string, tagId: string) => void
 }
 
-// 头部布局对齐参考设计：大标题 → 平台切换胶囊行（点击直接切平台）→ 分类胶囊行（可横滑）
-// + 行尾常驻的标签筛选胶囊。原「右侧平台下拉 + checkbox 筛选条」已移除。
+// 头部布局：大标题 → 平台切换胶囊行（点击直接切平台）→ 分类胶囊行（可横滑）
+// → 标签分组行（原侧边分组抽屉改为各组横向滚动行）。
 export default forwardRef<HeaderBarType, HeaderBarProps>(
   ({ title, onSortChange, onTagChange, onSourceChange }, ref) => {
     const sortTabRef = useRef<SortTabType>(null)
-    const tagRef = useRef<TagType>(null)
+    const tagRowsRef = useRef<TagRowsType>(null)
     const sourceChipsRef = useRef<SourceChipsType>(null)
     const theme = useTheme()
     const statusBarHeight = useStatusbarHeight()
@@ -35,9 +35,9 @@ export default forwardRef<HeaderBarType, HeaderBarProps>(
     useImperativeHandle(
       ref,
       () => ({
-        setSource(source, sortId, tagName, tagId) {
+        setSource(source, sortId, _tagName, tagId) {
           sortTabRef.current?.setSource(source, sortId)
-          tagRef.current?.setSelectedTagInfo(source, tagName, tagId)
+          tagRowsRef.current?.setSource(source, tagId)
           sourceChipsRef.current?.setSource(source)
         },
       }),
@@ -50,8 +50,8 @@ export default forwardRef<HeaderBarType, HeaderBarProps>(
         <SourceChips ref={sourceChipsRef} onSourceChange={onSourceChange} />
         <View style={styles.sortRow}>
           <SortTab ref={sortTabRef} onSortChange={onSortChange} />
-          <Tag ref={tagRef} onTagChange={onTagChange} />
         </View>
+        <TagRows ref={tagRowsRef} onTagChange={onTagChange} />
       </View>
     )
   },

@@ -1,7 +1,6 @@
 import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { ScrollView, TouchableOpacity } from 'react-native'
 import songlistState, { type SortInfo, type Source } from '@/store/songlist/state'
-import { useI18n } from '@/lang'
 import { useTheme } from '@/store/theme/hook'
 import Text from '@/components/common/Text'
 import { createStyle } from '@/utils/tools'
@@ -18,7 +17,6 @@ export interface SortTabType {
 export default forwardRef<SortTabType, SortTabProps>(({ onSortChange }, ref) => {
   const [sortList, setSortList] = useState<SortInfo[]>([])
   const [activeId, setActiveId] = useState<SortInfo['id']>('')
-  const t = useI18n()
   const theme = useTheme()
   const scrollViewRef = useRef<ScrollView>(null)
 
@@ -31,8 +29,10 @@ export default forwardRef<SortTabType, SortTabProps>(({ onSortChange }, ref) => 
   }))
 
   const sorts = useMemo(() => {
-    return sortList.map((s) => ({ label: t(`songlist_${s.tid}`), id: s.id }))
-  }, [sortList, t])
+    // 部分平台（kw/tx/git）的 sortList 没有 tid，i18n 键不存在会渲染成空胶囊，
+    // 直接使用音乐平台自带的中文分类名。
+    return sortList.map((s) => ({ label: s.name, id: s.id }))
+  }, [sortList])
 
   const handleSortChange = (id: string) => {
     onSortChange(id)

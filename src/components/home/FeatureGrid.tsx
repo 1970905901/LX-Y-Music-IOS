@@ -28,16 +28,15 @@ const TAB_IDS = new Set<NAV_ID_Type>([
   'nav_setting',
 ])
 
-// 三大平台每日推荐已并入推荐页顶部的「每日推荐」卡片（跟随平台切换 + Cookie 登录校验），
-// 更多功能网格里不再单独展示。
-const DAILY_REC_IDS = new Set<NAV_ID_Type>([
+// 已并入推荐页的入口不再出现在更多功能网格里：
+// - 三大平台每日推荐 → 推荐页顶部「每日推荐」卡片（跟随平台切换 + Cookie 登录校验）
+// - 排行榜 → 推荐页「排行榜」区块（随平台切换，点卡片进入对应榜单）
+// - 播放历史 → 推荐页右上角时钟按钮
+const MOVED_INTO_DISCOVERY_IDS = new Set<NAV_ID_Type>([
   'nav_daily_rec',
   'nav_kg_daily_rec',
   'nav_tx_daily_rec',
-])
-
-// 播放历史在推荐页右上角已有时钟入口，更多功能网格不再重复展示。
-const HISTORY_IDS = new Set<NAV_ID_Type>([
+  'nav_top',
   'nav_play_history',
 ])
 
@@ -59,7 +58,7 @@ const FeatureGrid = memo(() => {
   const features = useMemo(
     () => {
       const items: FeatureItem[] = NAV_MENUS.filter(
-        menu => !TAB_IDS.has(menu.id) && !DAILY_REC_IDS.has(menu.id) && !HISTORY_IDS.has(menu.id) && (navStatus[menu.id] ?? true),
+        menu => !TAB_IDS.has(menu.id) && !MOVED_INTO_DISCOVERY_IDS.has(menu.id) && (navStatus[menu.id] ?? true),
       ).map(({ id, icon }) => ({ id, icon }))
 
       if (!global.lx.isCarMode) return items

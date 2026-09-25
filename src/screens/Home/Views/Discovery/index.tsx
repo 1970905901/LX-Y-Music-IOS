@@ -8,12 +8,13 @@ import { useStatusbarHeight } from '@/store/common/hook'
 import { useI18n } from '@/lang'
 import { setNavActiveId } from '@/core/common'
 import { createStyle, toast } from '@/utils/tools'
-import { designSpacing, designTypography } from '@/theme/DesignTokens'
+import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
 import songlistState, { type ListInfoItem, type Source } from '@/store/songlist/state'
 import settingState from '@/store/setting/state'
-import boardState from '@/store/leaderboard/state'
+import boardState, { type BoardItem } from '@/store/leaderboard/state'
 import { getList } from '@/core/songlist'
 import { getBoardsList, getListDetail } from '@/core/leaderboard'
+import { saveLeaderboardSetting } from '@/utils/data'
 import { handlePlay as playLeaderboard } from '../Leaderboard/listAction'
 import { Icon } from '@/components/common/Icon'
 import Text from '@/components/common/Text'
@@ -88,6 +89,26 @@ const styles = createStyle({
   platformTitle: {
     paddingHorizontal: designSpacing.lg,
   },
+  boardContent: {
+    paddingHorizontal: designSpacing.lg,
+    gap: designSpacing.sm,
+    marginTop: designSpacing.md,
+  },
+  boardCard: {
+    width: 104,
+    minHeight: 76,
+    borderRadius: designRadius.lg,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: designSpacing.xs,
+    paddingHorizontal: designSpacing.sm,
+    paddingVertical: designSpacing.sm,
+  },
+  boardName: {
+    textAlign: 'center',
+    fontWeight: '600',
+  },
 })
 
 export default memo(() => {
@@ -102,6 +123,7 @@ export default memo(() => {
   const [hotBoardId, setHotBoardId] = useState('')
   const [hotLoading, setHotLoading] = useState(true)
   const hotLoadIdRef = useRef(0)
+  const [boards, setBoards] = useState<BoardItem[]>([])
 
   const platformOptions = useMemo(
     () => supportedSources.map((source) => ({
@@ -133,6 +155,8 @@ export default memo(() => {
     try {
       const boards = await getBoardsList(source)
       if (currentLoadId !== hotLoadIdRef.current) return
+      // 榜单列表与热歌同源加载：排行榜区块的卡片也跟随平台切换
+      setBoards(boards)
       const board = boards.find(({ name }) => name.includes('热歌')) ?? boards[0]
       if (!board) return
       const result = await getListDetail(board.id, 1)
@@ -169,6 +193,13 @@ export default memo(() => {
     if (!hotBoardId) return
     void playLeaderboard(hotBoardId, hotSongs, index)
   }, [hotBoardId, hotSongs])
+
+  // 点榜单卡片进入排行榜页对应榜单：先持久化 source + boardId，排行榜页挂载时
+  // 会读取该设置定位到具体榜单（与页内切换榜单的持久化行为一致）。
+  const handleOpenBoard = useCallback((board: BoardItem) => {
+    void saveLeaderboardSetting({ source: leaderboardSource, boardId: board.id })
+    setNavActiveId('nav_top')
+  }, [leaderboardSource])
 
   // 每日推荐入口跟随平台切换；进入前校验对应平台 Cookie 是否已登录
   const dailyRecNav = DAILY_REC_NAVS[selectedSource]
@@ -248,6 +279,45 @@ export default memo(() => {
               subtitle={t('discovery_daily_subtitle')}
               onPress={handleOpenDailyRec}
             />
+          </View>
+        ) : null}
+
+        {boards.length ? (
+          <View style={styles.sectionGap}>
+            <Text
+              style={styles.platformTitle}
+              size={designTypography.title}
+              color={theme['c-font']}
+            >
+              {t('nav_top')}
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.boardContent}
+            >
+              {boards.map((board) => (
+                <TouchableOpacity
+                  key={board.id}
+                  style={{
+                    ...styles.boardCard,
+                    backgroundColor: theme['c-primary-light-900-alpha-200'],
+                    borderColor: theme['c-border-background'],
+                  }}
+                  onPress={() => { handleOpenBoard(board) }}
+                >
+                  <Icon name="leaderboard" size={20} color={theme['c-primary']} />
+                  <Text
+                    style={styles.boardName}
+                    numberOfLines={2}
+                    size={designTypography.caption}
+                    color={theme['c-font']}
+                  >
+                    {board.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           </View>
         ) : null}
 

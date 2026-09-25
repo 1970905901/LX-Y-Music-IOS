@@ -9,6 +9,9 @@ import Text from '@/components/common/Text'
 import { useTheme } from '@/store/theme/hook'
 import { Icon } from '@/components/common/Icon'
 import type { Position } from '@/components/common/Menu'
+import { scaleSizeH } from '@/utils/pixelRatio'
+import { designRadius, designSpacing } from '@/theme/DesignTokens'
+import { shadow } from '@/utils/shadow'
 
 interface PlaylistItem {
   id: string
@@ -44,20 +47,20 @@ export default memo(({ item, rowWidth = '100%', onPress, onMenuPress }: ListItem
 
   return (
     <TouchableOpacity
-      style={[styles.container, { width: rowWidth, borderBottomColor: theme['c-list-header-border-bottom'] }]}
+      style={[styles.container, { width: rowWidth, backgroundColor: theme['c-content-background'], borderColor: theme['c-border-background'] }]}
       onPress={() => onPress(item)}
     >
       <View style={styles.coverContainer}>
         <Image url={item.cover} style={styles.cover} />
         {item.isFavorites && (
           <View style={styles.favoritesOverlay}>
-            <Icon name="love-filled" color="white" size={32} />
+            <Icon name="love-filled" color="white" size={20} />
           </View>
         )}
       </View>
 
       <View style={styles.info}>
-        <Text size={16} numberOfLines={2}>{item.name}</Text>
+        <Text size={16} numberOfLines={2} color={theme['c-font']} style={{ fontWeight: '700' }}>{item.name}</Text>
         {item.songCount > 0 ? (
           <Text size={12} color={theme['c-font-label']} style={{ marginTop: 4 }}>
             {item.songCount} 首
@@ -82,21 +85,27 @@ export default memo(({ item, rowWidth = '100%', onPress, onMenuPress }: ListItem
 })
 
 const styles = StyleSheet.create({
+  // 卡片行样式与「我的」tab 歌单卡片完全一致
   container: {
-    height: 90,
+    height: scaleSizeH(64),
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 15,
-    borderBottomWidth: 1,
+    paddingHorizontal: designSpacing.md,
+    marginHorizontal: designSpacing.md,
+    marginBottom: designSpacing.sm,
+    borderWidth: 1,
+    borderRadius: designRadius.md,
+    overflow: 'hidden',
+    ...shadow(2),
   },
   coverContainer: {
     position: 'relative',
-    marginRight: 15,
+    marginRight: designSpacing.md,
   },
   cover: {
-    width: 70,
-    height: 70,
-    borderRadius: 8,
+    width: 40,
+    height: 40,
+    borderRadius: designRadius.md,
   },
   favoritesOverlay: {
     position: 'absolute',
@@ -107,7 +116,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    borderRadius: 8,
+    borderRadius: designRadius.md,
   },
   info: {
     flex: 1,

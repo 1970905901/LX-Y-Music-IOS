@@ -9,6 +9,9 @@ import { SvgIcon } from '@/components/common/SvgIcon'
 import { Icon } from '@/components/common/Icon'
 import type { Position } from '@/components/common/Menu'
 import { useWyUid } from '@/store/user/hook.ts'
+import { scaleSizeH } from '@/utils/pixelRatio'
+import { designRadius, designSpacing } from '@/theme/DesignTokens'
+import { shadow } from '@/utils/shadow'
 
 export default memo(({ item, onPress, onHeartbeatPress, onMenuPress }: { item: any, onPress: (info: ListInfoItem) => void, onHeartbeatPress?: (info: ListInfoItem) => void, onMenuPress?: (item: any, position: Position) => void }) => {
   const theme = useTheme()
@@ -55,10 +58,13 @@ export default memo(({ item, onPress, onHeartbeatPress, onMenuPress }: { item: a
   }
 
   return (
-    <TouchableOpacity style={styles.container} onPress={handlePress}>
+    <TouchableOpacity
+      style={[styles.container, { backgroundColor: theme['c-content-background'], borderColor: theme['c-border-background'] }]}
+      onPress={handlePress}
+    >
       <Image url={item.coverImgUrl} style={styles.artwork} />
       <View style={styles.info}>
-        <Text size={16} numberOfLines={2}>{item.name}</Text>
+        <Text size={16} numberOfLines={2} color={theme['c-font']} style={{ fontWeight: '700' }}>{item.name}</Text>
         {item.trackCount > 0 ? (
           <Text size={12} color={theme['c-font-label']}>{item.trackCount} 首</Text>
         ) : null}
@@ -68,7 +74,7 @@ export default memo(({ item, onPress, onHeartbeatPress, onMenuPress }: { item: a
           e.stopPropagation()
           handleHeartbeatPress()
         }}>
-          <SvgIcon name="heartbeat" size={28} color={theme['c-primary']} />
+          <SvgIcon name="heartbeat" size={24} color={theme['c-primary']} />
         </TouchableOpacity>
       )}
       {isCreator && onMenuPress && !item.name.endsWith('喜欢的音乐') && (
@@ -88,22 +94,27 @@ export default memo(({ item, onPress, onHeartbeatPress, onMenuPress }: { item: a
 })
 
 const styles = createStyle({
+  // 卡片行样式与「我的」tab 歌单卡片完全一致
   container: {
-    height: 100,
+    height: scaleSizeH(64),
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
+    paddingHorizontal: designSpacing.md,
+    marginHorizontal: designSpacing.md,
+    marginBottom: designSpacing.sm,
+    borderWidth: 1,
+    borderRadius: designRadius.md,
+    overflow: 'hidden',
+    ...shadow(2),
   },
   artwork: {
-    width: 80,
-    height: 80,
-    borderRadius: 8,
+    width: 40,
+    height: 40,
+    borderRadius: designRadius.md,
   },
   info: {
     flex: 1,
-    marginLeft: 15,
+    marginLeft: designSpacing.md,
   },
   heartbeatBtn: {
     padding: 10,

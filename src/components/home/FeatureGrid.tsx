@@ -163,7 +163,8 @@ const FeatureGrid = memo(() => {
 const styles = createStyle({
   container: {
     marginTop: designSpacing.xs,
-    paddingHorizontal: designSpacing.lg,
+    // 与歌单卡片的 marginHorizontal(md=16) 对齐，整页列表左右缩进一致
+    paddingHorizontal: designSpacing.md,
   },
   row: {
     flexDirection: 'row',

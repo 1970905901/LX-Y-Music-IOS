@@ -220,6 +220,14 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHei
   const playLineLayoutRef = useRef({ spaceHeight: 0, lineHeights: [] as number[] })
   const scrollCancelRef = useRef<(() => void) | null>(null)
   const scrollYRef = useRef(0)
+  // 连续滚动指数平滑：rAF 算出的目标 offset 不直接写入列表，而是让跟随值按固定速率收敛到目标。
+  // 逐字歌词「句内停住」模式下两句之间没有间隙时，切行瞬间目标会从当前行中心硬跳到下一行中心
+  // （长句换行后行高更大、跳变越明显），行高测量后的回正修正同样是硬跳；
+  // 平滑收敛把这些瞬跳都变成约 200ms 的短滑动，消除换行长句切行时的顿挫感。
+  const smoothOffsetRef = useRef(0)
+  const lastWrittenOffsetRef = useRef(-1)
+  const lastFrameTsRef = useRef(0)
+  const wasPauseRef = useRef(true)
   // 跳转/首开时大量行尚未测量，定位落地后需在新行完成测量时静默回正一次。
   const recentreTimerRef = useRef<NodeJS.Timeout | null>(null)
   const isShowLyricProgressSetting = settingState.setting['playDetail.isShowLyricProgressSetting']
@@ -360,6 +368,12 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHei
       // force=true（切回歌词页 / 切歌 / 初次加载 / 拖动 / 点击）时立即定位，不用动画，避免高亮行“姗姗来迟”。
       flatListRef.current.scrollToOffset({ offset: targetOffset, animated: !force })
       lastScrolledLineRef.current = index
+      // force 瞬时定位后把平滑跟随值直接对齐目标：连续滚动循环从同一基准出发，
+      // 不会把列表拽回旧位置。非 force（动画滚动）不改动跟随值，交给循环平滑收敛。
+      if (force) {
+        smoothOffsetRef.current = targetOffset
+        lastWrittenOffsetRef.current = targetOffset
+      }
     } catch { }
   }, [lyricLines, pagerHeight])
 
@@ -370,9 +384,12 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHei
   // 无逐字歌词（纯 LRC）时回退为整行匀速连续滚动（卡拉OK 式顺滑上移），避免无逐字时整段硬跳。
   // 行级高亮着色仍由 useLrcPlay 的 line 驱动；本函数只负责位置连续（每帧基于精确时间计算）。
   const lastContinuousTimeRef = useRef(-1)
-  const scrollToActiveContinuous = () => {
+  const scrollToActiveContinuous = (ts: number) => {
     const t = audioClock.getTime() * 1000 // ms
-    if (t === lastContinuousTimeRef.current) return // 暂停/无推进时跳过，避免空转 Bridge 写
+    if (t === lastContinuousTimeRef.current) {
+      lastFrameTsRef.current = ts
+      return // 暂停/无推进时跳过，避免空转 Bridge 写
+    }
     lastContinuousTimeRef.current = t
     if (!flatListRef.current || !lyricLines.length) return
     const listHeight = pageHeightRef.current > 0 ? pageHeightRef.current : pagerHeight
@@ -409,8 +426,18 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHei
         continuousOffset = offsetI + progress * (offsetNext - offsetI)
       }
     }
+    // 指数平滑收敛到目标 offset（速率 12/s，约 200ms 收敛 95%）：
+    // - 普通推进：目标本身连续，跟随值几乎重合，无感；
+    // - 逐字歌词无间隙切行 / 回正修正：目标瞬跳，跟随值平滑滑到新位置，长句切行不再顿挫。
+    const dt = lastFrameTsRef.current > 0 ? Math.min(Math.max((ts - lastFrameTsRef.current) / 1000, 0.001), 0.05) : 0.016
+    lastFrameTsRef.current = ts
+    const delta = continuousOffset - smoothOffsetRef.current
+    if (Math.abs(delta) < 0.5) smoothOffsetRef.current = continuousOffset
+    else smoothOffsetRef.current += delta * (1 - Math.exp(-dt * 12))
+    if (Math.abs(smoothOffsetRef.current - lastWrittenOffsetRef.current) < 0.5) return
     try {
-      flatListRef.current.scrollToOffset({ offset: continuousOffset, animated: false })
+      flatListRef.current.scrollToOffset({ offset: smoothOffsetRef.current, animated: false })
+      lastWrittenOffsetRef.current = smoothOffsetRef.current
     } catch { }
   }
 
@@ -421,7 +448,8 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHei
     recentreTimerRef.current = setTimeout(() => {
       recentreTimerRef.current = null
       if (!active || isPauseScrollRef.current) return
-      handleScrollToActive(lineRef.current.line, true)
+      // 非 force：测量修正交给连续滚动循环平滑收敛，避免 force 硬跳在长句测量后产生可见顿挫。
+      handleScrollToActive(lineRef.current.line)
     }, 150)
   }, [active, handleScrollToActive])
   const handleScrollBeginDrag = () => {
@@ -512,6 +540,10 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHei
     if (!flatListRef.current) return
     flatListRef.current.scrollToOffset({ offset: 0, animated: false })
     scrollYRef.current = 0
+    // 平滑跟随基准同步归零，避免切歌后循环把列表从旧位置拽回顶部。
+    smoothOffsetRef.current = 0
+    lastWrittenOffsetRef.current = -1
+    lastFrameTsRef.current = 0
     if (!lyricLines.length) return
 
     // 切歌/异步歌词到达后，必须强制下一次 line 更新时立即定位到当前高亮行。
@@ -563,9 +595,19 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHei
   useEffect(() => {
     if (!active) return
     let rafId = 0
-    const loop = () => {
-      if (!isPauseScrollRef.current && flatListRef.current && lyricLines.length) {
-        scrollToActiveContinuous()
+    const loop = (ts: number) => {
+      if (isPauseScrollRef.current) {
+        wasPauseRef.current = true
+      } else if (flatListRef.current && lyricLines.length) {
+        // 从暂停（用户手动滚动/拖动歌词）恢复的首帧：把平滑基准重置为列表真实位置，
+        // 避免沿用暂停前的旧基准把列表瞬间拽回去。
+        if (wasPauseRef.current) {
+          wasPauseRef.current = false
+          smoothOffsetRef.current = scrollYRef.current
+          lastWrittenOffsetRef.current = scrollYRef.current
+          lastFrameTsRef.current = ts
+        }
+        scrollToActiveContinuous(ts)
       }
       rafId = requestAnimationFrame(loop)
     }

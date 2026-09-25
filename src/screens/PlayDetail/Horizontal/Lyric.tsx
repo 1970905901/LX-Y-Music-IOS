@@ -155,6 +155,13 @@ export default () => {
   const playLineRef = useRef<PlayLineType>(null)
   const playLineLayoutRef = useRef({ spaceHeight: 0, lineHeights: [] as number[] })
   const scrollCancelRef = useRef<(() => void) | null>(null)
+  // 连续滚动指数平滑：rAF 目标 offset 不直接写入列表，而是让跟随值按固定速率收敛到目标。
+  // 逐字歌词无间隙切行、行高测量后的回正修正都是瞬时硬跳（长句换行后行高更大、跳变越明显），
+  // 平滑收敛把这些瞬跳变成约 200ms 的短滑动，消除换行长句切行时的顿挫感。
+  const smoothOffsetRef = useRef(0)
+  const lastWrittenOffsetRef = useRef(-1)
+  const lastFrameTsRef = useRef(0)
+  const wasPauseRef = useRef(true)
   const isShowLyricProgressSetting = useSettingValue('playDetail.isShowLyricProgressSetting')
   // 拖动进度条 / 跳转 / 点击歌词期间强制立即定位，结束后（500ms）复位交由连续滚动循环驱动。
   const forceScrollRef = useRef(false)
@@ -273,6 +280,10 @@ export default () => {
       try {
         flatListRef.current.scrollToOffset({ offset: targetOffset, animated: false })
       } catch { }
+      // force 瞬时定位后把平滑跟随值直接对齐目标：连续滚动循环从同一基准出发，
+      // 不会把列表拽回旧位置。非 force（动画滚动）不改动跟随值，交给循环平滑收敛。
+      smoothOffsetRef.current = targetOffset
+      lastWrittenOffsetRef.current = targetOffset
     } else {
       const currentOffset = scrollInfoRef.current.contentOffset.y
       const distance = Math.abs(targetOffset - currentOffset)
@@ -311,9 +322,12 @@ export default () => {
   //   - 句末到下一句起的间隙 [lineEndTime, nextTime]：从当前行中心平滑滚动到下一行中心（放完再滚动）。
   // 无逐字歌词（纯 LRC）时回退为整行匀速连续滚动（卡拉OK 式顺滑上移），避免无逐字时整段硬跳。
   // 行级高亮着色仍由 useLrcPlay 的 line 驱动；本函数只负责位置连续（每帧基于精确时间计算）。
-  const scrollToActiveContinuous = useCallback(() => {
+  const scrollToActiveContinuous = useCallback((ts: number) => {
     const t = audioClock.getTime() * 1000 // ms
-    if (t === lastContinuousTimeRef.current) return // 暂停/无推进时跳过
+    if (t === lastContinuousTimeRef.current) {
+      lastFrameTsRef.current = ts
+      return // 暂停/无推进时跳过
+    }
     lastContinuousTimeRef.current = t
     if (!flatListRef.current || !lyricLines.length) return
     const listHeight = listHeightRef.current || scrollInfoRef.current?.layoutMeasurement.height || 0
@@ -350,8 +364,17 @@ export default () => {
         offset = offsetI + progress * (offsetNext - offsetI)
       }
     }
+    // 指数平滑收敛到目标 offset（速率 12/s，约 200ms 收敛 95%）：
+    // 普通推进目标连续、无感；无间隙切行 / 回正修正的瞬跳被平滑为短滑动，长句切行不再顿挫。
+    const dt = lastFrameTsRef.current > 0 ? Math.min(Math.max((ts - lastFrameTsRef.current) / 1000, 0.001), 0.05) : 0.016
+    lastFrameTsRef.current = ts
+    const delta = offset - smoothOffsetRef.current
+    if (Math.abs(delta) < 0.5) smoothOffsetRef.current = offset
+    else smoothOffsetRef.current += delta * (1 - Math.exp(-dt * 12))
+    if (Math.abs(smoothOffsetRef.current - lastWrittenOffsetRef.current) < 0.5) return
     try {
-      flatListRef.current.scrollToOffset({ offset, animated: false })
+      flatListRef.current.scrollToOffset({ offset: smoothOffsetRef.current, animated: false })
+      lastWrittenOffsetRef.current = smoothOffsetRef.current
     } catch { }
   }, [lyricLines])
 
@@ -395,7 +418,8 @@ export default () => {
     recentreTimerRef.current = setTimeout(() => {
       recentreTimerRef.current = null
       if (isPauseScrollRef.current) return
-      handleScrollToActive(lineRef.current.line, true)
+      // 非 force：测量修正交给连续滚动循环平滑收敛，避免 force 硬跳在长句测量后产生可见顿挫。
+      handleScrollToActive(lineRef.current.line)
     }, 150)
   }, [handleScrollToActive])
 
@@ -428,6 +452,10 @@ export default () => {
       offset: 0,
       animated: false,
     })
+    // 平滑跟随基准同步归零，避免切歌后循环把列表从旧位置拽回顶部。
+    smoothOffsetRef.current = 0
+    lastWrittenOffsetRef.current = -1
+    lastFrameTsRef.current = 0
     if (!lyricLines.length) return
 
     // 切歌/异步歌词到达后，必须强制下一次 line 更新时立即定位到当前高亮行。
@@ -463,9 +491,19 @@ export default () => {
   // iOS 后台 / 锁屏时 rAF 暂停（歌词停滚无妨）；前台播放每帧（~16ms）定位，消除原来的行级跳变。
   useEffect(() => {
     let rafId = 0
-    const loop = () => {
-      if (!isPauseScrollRef.current && !forceScrollRef.current && flatListRef.current && lyricLines.length) {
-        scrollToActiveContinuous()
+    const loop = (ts: number) => {
+      if (isPauseScrollRef.current) {
+        wasPauseRef.current = true
+      } else if (!forceScrollRef.current && flatListRef.current && lyricLines.length) {
+        // 从暂停（用户手动滚动/拖动歌词）恢复的首帧：把平滑基准重置为列表真实位置，
+        // 避免沿用暂停前的旧基准把列表瞬间拽回去。
+        if (wasPauseRef.current) {
+          wasPauseRef.current = false
+          smoothOffsetRef.current = scrollInfoRef.current?.contentOffset.y ?? 0
+          lastWrittenOffsetRef.current = smoothOffsetRef.current
+          lastFrameTsRef.current = ts
+        }
+        scrollToActiveContinuous(ts)
       }
       rafId = requestAnimationFrame(loop)
     }

@@ -240,13 +240,6 @@ export default memo(() => {
         </View>
 
         <View style={styles.chips}>
-          <Text
-            style={styles.platformTitle}
-            size={designTypography.caption}
-            color={theme['c-font-label']}
-          >
-            {t('discovery_platform_title')}
-          </Text>
           <PlatformChips
             options={platformOptions}
             selectedId={selectedSource}

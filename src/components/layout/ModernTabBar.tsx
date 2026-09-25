@@ -110,7 +110,8 @@ export default memo(() => {
               {isActive ? <View style={activeMaskStyle} pointerEvents="none" /> : null}
               <Icon
                 name={tab.icon}
-                size={21}
+                // love 字形在字体内占位偏小，放大一档与其他图标视觉等大
+                size={tab.icon === 'love' ? 24 : 21}
                 color={isActive ? theme['c-primary'] : theme['c-font-label']}
               />
               <Text

@@ -7,7 +7,9 @@ import { useTheme } from '@/store/theme/hook'
 import { useSettingValue } from '@/store/setting/hook'
 import { useI18n } from '@/lang'
 import { exitApp, setNavActiveId } from '@/core/common'
-import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
+import { designRadius, designSpacing } from '@/theme/DesignTokens'
+import { shadow } from '@/utils/shadow'
+import { scaleSizeH } from '@/utils/pixelRatio'
 import { Icon } from '@/components/common/Icon'
 import { SvgIcon } from '@/components/common/SvgIcon'
 import Text from '@/components/common/Text'
@@ -105,13 +107,6 @@ const FeatureGrid = memo(() => {
 
   return (
     <View style={styles.container}>
-      <Text
-        style={styles.title}
-        size={designTypography.title}
-        color={theme['c-font']}
-      >
-        {t('discovery_features_title')}
-      </Text>
       {features.map(item => (
         <Pressable
           key={item.id}
@@ -150,23 +145,21 @@ const FeatureGrid = memo(() => {
   )
 })
 
+// 行样式与「我的」页歌单卡片完全一致（同高/同圆角/同阴影），两段列表浑然一体
 const styles = createStyle({
   container: {
-    marginTop: designSpacing.lg,
+    marginTop: designSpacing.xs,
     paddingHorizontal: designSpacing.lg,
-  },
-  title: {
-    fontWeight: '800',
-    marginBottom: designSpacing.sm,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 52,
+    height: scaleSizeH(64),
     paddingHorizontal: designSpacing.md,
     marginBottom: designSpacing.sm,
     borderWidth: 1,
     borderRadius: designRadius.md,
+    ...shadow(2),
   },
   label: {
     flex: 1,

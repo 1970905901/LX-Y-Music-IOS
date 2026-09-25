@@ -16,6 +16,10 @@ const PAGE_OWNED_HEADER_IDS = new Set([
   'nav_daily_rec',
   'nav_tx_daily_rec',
   'nav_kg_daily_rec',
+  // 三大平台歌单页接管页头：大标题与 tab 切换同行展示
+  'nav_my_playlist',
+  'nav_tx_playlist',
+  'nav_kg_playlist',
 ])
 
 const Content = () => {

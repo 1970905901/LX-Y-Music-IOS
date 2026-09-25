@@ -9,6 +9,8 @@ import { MUSIC_TOGGLE_MODE } from '@/config/constant'
 import { updateSetting } from '@/core/common'
 import { useWySubscribedPlaylists, useWyUid } from '@/store/user/hook.ts'
 import { useHorizontalMode } from '@/utils/hooks'
+import { useI18n } from '@/lang'
+import { designSpacing } from '@/theme/DesignTokens'
 import PageTopInset from '@/components/common/PageTopInset'
 import userState from '@/store/user/state'
 import { useSettingValue } from '@/store/setting/hook'
@@ -32,6 +34,7 @@ export default memo(() => {
   const [loading, setLoading] = useState(true)
   const cookie = useSettingValue('common.wy_cookie')
   const theme = useTheme()
+  const t = useI18n()
   const isHorizontal = useHorizontalMode()
   const [selectedPlaylist, setSelectedPlaylist] = useState<ListInfoItem | null>(null)
   const [scrollToMusicInfo, setScrollToMusicInfo] = useState<MusicInfoOnline | null>(null)
@@ -240,7 +243,16 @@ export default memo(() => {
         <FlatList
           onScrollBeginDrag={Keyboard.dismiss}
           data={playlists}
-          ListHeaderComponent={PageTopInset}
+          ListHeaderComponent={
+            <>
+              <PageTopInset />
+              <View style={styles.titleRow}>
+                <Text style={styles.titleText} size={34} color={theme['c-font']}>
+                  {t('nav_my_playlist')}
+                </Text>
+              </View>
+            </>
+          }
           contentContainerStyle={{ paddingBottom: 80 }}
           key={isHorizontal ? 'horizontal' : 'vertical'}
           numColumns={isHorizontal ? 2 : 1}
@@ -276,4 +288,16 @@ export default memo(() => {
       <PlaylistEditModal ref={playlistEditModalRef} />
     </View>
   )
+})
+
+const styles = StyleSheet.create({
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    paddingHorizontal: designSpacing.lg,
+  },
+  titleText: {
+    fontWeight: '800',
+    lineHeight: 36,
+  },
 })

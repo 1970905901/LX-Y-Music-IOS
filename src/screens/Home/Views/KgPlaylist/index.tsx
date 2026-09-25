@@ -20,6 +20,7 @@ import playerState from '@/store/player/state'
 import listState from '@/store/list/state'
 import { LIST_IDS } from '@/config/constant'
 import { useHorizontalMode } from '@/utils/hooks'
+import { designSpacing } from '@/theme/DesignTokens'
 import PageTopInset from '@/components/common/PageTopInset'
 
 interface PlaylistInfo {
@@ -263,7 +264,7 @@ export default memo(() => {
       >
         <Text
           style={[styles.tabText, { borderBottomColor: isActive ? theme['c-primary-font-active'] : 'transparent' }]}
-          color={isActive ? theme['c-primary-font'] : theme['c-font']}
+          color={theme['c-font']}
         >
           {label}
         </Text>
@@ -284,9 +285,14 @@ export default memo(() => {
           ListHeaderComponent={
             <>
               <PageTopInset />
-              <View style={[styles.tabBar, { borderBottomColor: theme['c-border-background'] }]}>
-                {renderTab('created', `自建歌单 (${createdPlaylists.length})`)}
-                {renderTab('collected', `收藏歌单 (${collectedPlaylists.length})`)}
+              <View style={styles.titleRow}>
+                <Text style={styles.titleText} size={34} color={theme['c-font']}>
+                  {t('nav_kg_playlist')}
+                </Text>
+                <View style={[styles.tabBar]}>
+                  {renderTab('created', `自建歌单 (${createdPlaylists.length})`)}
+                  {renderTab('collected', `收藏歌单 (${collectedPlaylists.length})`)}
+                </View>
               </View>
             </>
           }
@@ -354,9 +360,19 @@ const styles = StyleSheet.create({
     flex: 1,
     maxWidth: '50%',
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    paddingHorizontal: designSpacing.lg,
+  },
+  titleText: {
+    fontWeight: '800',
+    lineHeight: 36,
+  },
   tabBar: {
     flexDirection: 'row',
-    borderBottomWidth: 1,
+    flex: 1,
+    alignItems: 'flex-end',
   },
   tabItem: {
     flex: 1,

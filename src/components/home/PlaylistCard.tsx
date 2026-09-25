@@ -25,11 +25,11 @@ const styles = createStyle({
     position: 'absolute',
     top: designRadius.sm,
     right: designRadius.sm,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    // 水平内边距 ≥ 圆角半径，且不裁剪内容，避免首尾字形被圆弧削掉
+    paddingHorizontal: 12,
+    paddingVertical: 4,
     borderRadius: 999,
     backgroundColor: 'rgba(0,0,0,0.55)',
-    overflow: 'hidden',
   },
   title: {
     marginTop: designRadius.sm,

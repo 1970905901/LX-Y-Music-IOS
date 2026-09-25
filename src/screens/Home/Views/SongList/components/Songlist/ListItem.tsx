@@ -101,20 +101,20 @@ const styles = createStyle({
     position: 'absolute',
     left: 8,
     bottom: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    // 水平内边距必须 ≥ 圆角半径（胶囊高度的一半），否则圆弧会削掉首尾字形；
+    // 圆角背景无需裁剪内容，移除 overflow: 'hidden'。
+    paddingHorizontal: 12,
+    paddingVertical: 4,
     borderRadius: 999,
-    overflow: 'hidden',
     backgroundColor: 'rgba(0, 0, 0, 0.55)',
   },
   playCount: {
     position: 'absolute',
     top: 8,
     right: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
     borderRadius: 999,
-    overflow: 'hidden',
     backgroundColor: 'rgba(0, 0, 0, 0.55)',
   },
   title: {

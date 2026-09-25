@@ -97,7 +97,7 @@ const SongListPage = () => {
       global.state_event.off('navActiveIdUpdated', handleNavIdUpdate)
       global.state_event.off('themeUpdated', handleHide)
       global.state_event.off('languageChanged', handleHide)
-      global.state_event.on('configUpdated', handleConfigUpdated)
+      global.state_event.off('configUpdated', handleConfigUpdated)
     }
   }, [])
 
@@ -159,7 +159,7 @@ const LeaderboardPage = () => {
       global.state_event.off('navActiveIdUpdated', handleNavIdUpdate)
       global.state_event.off('themeUpdated', handleHide)
       global.state_event.off('languageChanged', handleHide)
-      global.state_event.on('configUpdated', handleConfigUpdated)
+      global.state_event.off('configUpdated', handleConfigUpdated)
     }
   }, [])
 
@@ -195,7 +195,7 @@ const DailyRecPage = () => {
       global.state_event.off('navActiveIdUpdated', handleNavIdUpdate)
       global.state_event.off('themeUpdated', handleHide)
       global.state_event.off('languageChanged', handleHide)
-      global.state_event.on('configUpdated', handleConfigUpdated)
+      global.state_event.off('configUpdated', handleConfigUpdated)
     }
   }, [])
 
@@ -231,7 +231,7 @@ const TXDailyRecPage = () => {
       global.state_event.off('navActiveIdUpdated', handleNavIdUpdate)
       global.state_event.off('themeUpdated', handleHide)
       global.state_event.off('languageChanged', handleHide)
-      global.state_event.on('configUpdated', handleConfigUpdated)
+      global.state_event.off('configUpdated', handleConfigUpdated)
     }
   }, [])
 
@@ -267,7 +267,7 @@ const MylistPage = () => {
       global.state_event.off('navActiveIdUpdated', handleNavIdUpdate)
       global.state_event.off('themeUpdated', handleHide)
       global.state_event.off('languageChanged', handleHide)
-      global.state_event.on('configUpdated', handleConfigUpdated)
+      global.state_event.off('configUpdated', handleConfigUpdated)
     }
   }, [])
 
@@ -303,7 +303,7 @@ const MyPlaylistPage = () => {
       global.state_event.off('navActiveIdUpdated', handleNavIdUpdate)
       global.state_event.off('themeUpdated', handleHide)
       global.state_event.off('languageChanged', handleHide)
-      global.state_event.on('configUpdated', handleConfigUpdated)
+      global.state_event.off('configUpdated', handleConfigUpdated)
     }
   }, [])
 
@@ -339,7 +339,7 @@ const FollowedArtistsPage = () => {
       global.state_event.off('navActiveIdUpdated', handleNavIdUpdate)
       global.state_event.off('themeUpdated', handleHide)
       global.state_event.off('languageChanged', handleHide)
-      global.state_event.on('configUpdated', handleConfigUpdated)
+      global.state_event.off('configUpdated', handleConfigUpdated)
     }
   }, [])
 
@@ -375,7 +375,7 @@ const SubscribedAlbumsPage = () => {
       global.state_event.off('navActiveIdUpdated', handleNavIdUpdate)
       global.state_event.off('themeUpdated', handleHide)
       global.state_event.off('languageChanged', handleHide)
-      global.state_event.on('configUpdated', handleConfigUpdated)
+      global.state_event.off('configUpdated', handleConfigUpdated)
     }
   }, [])
   return visible ? component : null
@@ -620,6 +620,16 @@ const Main = () => {
     return idx ?? 0
   }
   const activeIndexRef = useRef(getInitialIndex())
+  // PagerView 非 idle 状态的兜底恢复定时器（防止 homePagerIdle 卡死在 false）
+  const pagerIdleFallbackRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    return () => {
+      if (pagerIdleFallbackRef.current) {
+        clearTimeout(pagerIdleFallbackRef.current)
+        pagerIdleFallbackRef.current = null
+      }
+    }
+  }, [])
   // 页面集（id + 顺序）签名：分组开关 / 侧边栏显隐变化时会改变页面集合。
   // iOS 上对运行中的 PagerView 原位重排子页面并立即 setPage，存在原生侧
   // “index out of bounds” 崩溃（release 下表现为整个 App 白屏）。用 key 让
@@ -643,8 +653,22 @@ const Main = () => {
   const onPageScrollStateChanged = useCallback(
     ({ nativeEvent }: PageScrollStateChangedNativeEvent) => {
       Keyboard.dismiss()
-      const idle = nativeEvent.pageScrollState == 'idle'
-      if (global.lx.homePagerIdle != idle) global.lx.homePagerIdle = idle
+      if (nativeEvent.pageScrollState == 'idle') {
+        if (pagerIdleFallbackRef.current) {
+          clearTimeout(pagerIdleFallbackRef.current)
+          pagerIdleFallbackRef.current = null
+        }
+        if (!global.lx.homePagerIdle) global.lx.homePagerIdle = true
+      } else {
+        // 兜底：setPageWithoutAnimation 切页期间可能丢失配对的 idle 事件，
+        // homePagerIdle 会永久停留在 false，列表点击被静默吞掉（表现为点了没反应）。
+        // 800ms 内未收到 idle 则强制恢复。
+        if (pagerIdleFallbackRef.current) clearTimeout(pagerIdleFallbackRef.current)
+        pagerIdleFallbackRef.current = setTimeout(() => {
+          pagerIdleFallbackRef.current = null
+          global.lx.homePagerIdle = true
+        }, 800)
+      }
     },
     [],
   )

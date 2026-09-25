@@ -6,7 +6,21 @@ const pendingOverlays = new Set<string>()
 
 export const getStatusBarStyle = (isDark: boolean) => (isDark ? 'light' : 'dark')
 
-export const dismissOverlay = async(compId: string) => Navigation.dismissOverlay(compId)
+// RNN dismissOverlay 偶发失败（重复 dismiss / 竞态时原生侧抛错且 Promise reject）。
+// 透明 overlay 一旦残留，interceptTouchOutside: true 会拦截全屏触摸，
+// 表现为整页点不动的“假死”，故失败时记录并重试一次。
+export const dismissOverlay = async(compId: string) => {
+  try {
+    await Navigation.dismissOverlay(compId)
+  } catch (err) {
+    console.warn('[navigation] dismissOverlay failed, retrying:', compId, err)
+    try {
+      await Navigation.dismissOverlay(compId)
+    } catch (retryErr) {
+      console.error('[navigation] dismissOverlay retry failed:', compId, retryErr)
+    }
+  }
+}
 
 // pop 不带自定义转场：RNN iOS 的自定义转场被取消（如动画期间再次导航）或 JS 空闲时
 // 永不调用 completeTransition，会把整个导航栈卡死。全 app 的 push/pop 统一走系统默认

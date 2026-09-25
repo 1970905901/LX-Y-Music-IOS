@@ -1,5 +1,6 @@
 import { useMemo, useState, useCallback, useEffect, useRef } from 'react'
 import { View, ScrollView, Image, TouchableOpacity } from 'react-native'
+import { Navigation } from 'react-native-navigation'
 import Clipboard from '@react-native-clipboard/clipboard'
 import Video, { type VideoRef } from 'react-native-video'
 
@@ -235,12 +236,20 @@ const AnnouncementModal = ({ componentId }: { componentId: string }) => {
   }, [announcementInfo])
 
   const handleClose = async() => {
-    // 先保存 ID，再隐藏内容，最后关闭弹窗
+    // 先保存 ID，再摘除 RNN overlay。dismiss 成功后整个 overlay（连同本组件）一起卸载，
+    // 本组件无需再渲染 null。旧实现先 setIsVisible(false)（渲染 null）再延迟 dismiss——
+    // 一旦 dismiss 静默失败，透明 overlay 会残留并拦截全屏触摸（整页点不动的“假死”）。
     await dismissAnnouncement()
+    const dismissed = await hideModal(componentId)
+    if (!dismissed) {
+      // 失败兜底：短暂延迟后直接重试 dismiss；期间本组件保持渲染（弹窗可见可交互），
+      // 不会产生「null 内容 + 活跃 overlay」的隐形拦截层。
+      setTimeout(() => {
+        Navigation.dismissOverlay(componentId).catch(() => {})
+      }, 100)
+      return
+    }
     setIsVisible(false)
-    setTimeout(() => {
-      hideModal(componentId)
-    }, 100)
   }
 
   const handleButtonPress = (url: string) => {
@@ -258,6 +267,14 @@ const AnnouncementModal = ({ componentId }: { componentId: string }) => {
     // 无论是否有链接，都关闭弹窗
     void handleClose()
   }
+
+  // 防御：overlay 已挂载但无内容可渲染（公告信息缺失等）时，透明 overlay 会拦截全屏触摸。
+  // 立刻自摘 overlay，绝不让「null 内容 + 活跃 overlay」共存。
+  useEffect(() => {
+    if (!announcementInfo || !isVisible) {
+      Navigation.dismissOverlay(componentId).catch(() => {})
+    }
+  }, [announcementInfo, isVisible])
 
   if (!announcementInfo || !isVisible) return null
 

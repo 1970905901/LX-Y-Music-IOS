@@ -32,11 +32,18 @@ export const showModal = async() => {
   showAnnouncementModal()
 }
 
-export const hideModal = (componentId: string) => {
+export const hideModal = (componentId: string): Promise<boolean> => {
   logger('关闭弹窗')
-  if (!announcementState.showModal) return
+  // 返回是否真正摘除了 overlay：调用方据此决定是否保持内容渲染、安排重试。
+  // 若 dismiss 失败而内容已被置空，透明 overlay 会残留并拦截全屏触摸（整页“假死”）。
+  if (!announcementState.showModal) return Promise.resolve(false)
   announcementActions.setShowModal(false)
-  void Navigation.dismissOverlay(componentId)
+  return Navigation.dismissOverlay(componentId)
+    .then(() => true)
+    .catch((err) => {
+      console.error('[Announcement] dismissOverlay failed:', err)
+      return false
+    })
 }
 
 export const checkAnnouncement = async(silent = false) => {

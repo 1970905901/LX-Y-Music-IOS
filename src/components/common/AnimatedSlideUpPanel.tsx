@@ -28,14 +28,13 @@ const AnimatedSlideUpPanel = forwardRef<AnimatedSlideUpPanelType, Props>(({ chil
   }, [animatedValue])
 
   const hide = useCallback(() => {
-    Animated.timing(animatedValue, {
-      toValue: windowHeight,
-      duration: 0,
-      useNativeDriver: true,
-    }).start(() => {
-      setIsVisible(false)
-      onHide?.()
-    })
+    // duration 为 0 本无动画过渡；若依赖 timing().start 回调卸载，原生动画回调可能被
+    // 后续动画抢占/丢失，蒙层会以 opacity=0 残留在视图树上继续拦截全屏触摸
+    // （表现为整页点不动的“假死”，乱点触发再次 hide 才恢复）。
+    // 改为立即同步卸载并直接落位动画值，保证状态与视图树一致。
+    animatedValue.setValue(windowHeight)
+    setIsVisible(false)
+    onHide?.()
   }, [animatedValue, windowHeight, onHide])
 
   useImperativeHandle(ref, () => ({

@@ -43,6 +43,8 @@ const HorizontalShelf = memo(({ title, data, cardWidth, onPressItem }: Horizonta
         data={data}
         horizontal
         showsHorizontalScrollIndicator={false}
+        // 嵌套滚动容器内卡片触摸立即下发，避免概率性点击无响应
+        delaysContentTouches={false}
         keyExtractor={(item) => `${item.source}-${item.id}`}
         renderItem={({ item }) => (
           <View style={styles.item}>

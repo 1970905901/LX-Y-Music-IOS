@@ -70,6 +70,8 @@ const PlatformChips = memo(({ options, selectedId, onChange, noInset }: Platform
       contentContainerStyle={noInset ? styles.contentBare : styles.content}
       horizontal
       showsHorizontalScrollIndicator={false}
+      // 嵌套滚动容器内按钮触摸立即下发，避免概率性点击无响应
+      delaysContentTouches={false}
     >
       {options.map((option) => {
         const isActive = option.id === selectedId

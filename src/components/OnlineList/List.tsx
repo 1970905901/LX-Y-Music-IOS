@@ -345,6 +345,8 @@ const List = forwardRef<ListType, ListProps>(
         // 触发一次，VirtualizedList 的渲染窗口无法跟随滚动推进，表现为
         // 列表滚动到下方一片空白。
         scrollEventThrottle={16}
+        // 列表头部的按钮触摸立即下发，避免概率性点击无响应
+        delaysContentTouches={false}
         // 行数据原地更新（musicInfoUpdate）+ 播放状态变化时驱动对应行重渲染；
         // data 引用保持稳定、renderItem 引用固定，VirtualizedList 不重置渲染窗口。
         extraData={`${listVersion}|${playingId ?? ''}|${showSource ? '1' : '0'}|${selectedList.length}`}

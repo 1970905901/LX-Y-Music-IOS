@@ -227,6 +227,7 @@ export default memo(() => {
         contentContainerStyle={styles.scrollContent}
         onScrollBeginDrag={Keyboard.dismiss}
         showsVerticalScrollIndicator={false}
+        delaysContentTouches={false}
       >
         <View style={headerStyle}>
           <Text style={titleStyle} size={34}>{t('nav_discovery')}</Text>
@@ -275,6 +276,7 @@ export default memo(() => {
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
+              delaysContentTouches={false}
               contentContainerStyle={styles.boardContent}
             >
               {boards.map((board) => (

@@ -74,6 +74,7 @@ const styles = createStyle({
     width: '100%',
     flexGrow: 0,
     flexShrink: 0,
+    marginTop: designSpacing.sm,
     paddingHorizontal: designSpacing.md,
     gap: designSpacing.sm,
     paddingBottom: designSpacing.md,

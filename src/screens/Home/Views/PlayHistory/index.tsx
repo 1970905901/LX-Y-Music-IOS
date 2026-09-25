@@ -8,6 +8,7 @@ import { playOnlineList } from '@/core/list'
 import { getPlayHistoryByRange } from '@/core/player/playHistory'
 import { setNavActiveId } from '@/core/common'
 import commonState from '@/store/common/state'
+import { useI18n } from '@/lang'
 import { usePlayerMusicInfo } from '@/store/player/hook'
 import { useTheme } from '@/store/theme/hook'
 import { useSettingValue } from '@/store/setting/hook'
@@ -91,6 +92,7 @@ const normalizeHistoryMusic = (item: LX.Player.PlayHistoryItem): HistoryMusicInf
 export default memo(() => {
   const listRef = useRef<OnlineListType>(null)
   const popupRef = useRef<PopupType>(null)
+  const t = useI18n()
   const [startDate, setStartDate] = useState(getTodayText())
   const [endDate, setEndDate] = useState('')
   const [pickerMode, setPickerMode] = useState<'single' | 'range'>('single')
@@ -234,6 +236,11 @@ export default memo(() => {
   const pageHeader = (
     <>
       <PageTopInset />
+      <View style={styles.pageTitleRow}>
+        <Text style={styles.pageTitleText} size={34} color={theme['c-font']}>
+          {t('nav_play_history')}
+        </Text>
+      </View>
       <View style={{ ...styles.header, borderBottomColor: theme['c-border-background'] }}>
         <TouchableOpacity
           style={{ ...styles.iconBtn, backgroundColor: theme['c-primary-background'] }}
@@ -446,6 +453,14 @@ const styles = createStyle({
   },
   title: {
     fontWeight: '700',
+  },
+  pageTitleRow: {
+    paddingHorizontal: designSpacing.lg,
+  },
+  pageTitleText: {
+    fontWeight: '800',
+    lineHeight: 36,
+    marginBottom: designSpacing.sm,
   },
   backSwipeArea: {
     position: 'absolute',

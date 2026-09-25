@@ -96,9 +96,10 @@ const LrcLine = memo(
         : ([theme['c-450'], theme['c-400'], 0.8] as const)
     }, [isActive, theme])
 
-    // 激活行会放大字号并加粗，可能把原本单行的文字挤成两行，导致本次测得的高度比非激活态更高。
-    // 需把 isActive 一并上报，让滚动布局把这种高度单独存放、不参与累计偏移，
-    // 否则每切一次行偏移都会突跳，滚动看起来一卡一卡的。
+    // 行布局（字号/字重/行高）与激活状态解耦：激活行仅靠颜色高亮，不再放大加粗。
+    // 否则切行瞬间文字变宽 → 换行数变化 → 行高突变，FlatList 重布局 + 回正滚动叠加
+    // 造成「换行时抖动」，且激活/非激活两套高度基准不一致会让高亮行偏离居中位置。
+    // 仍上报 isActive 供 LyricScrollLayout 记录（激活高度现恒等于非激活高度，两套基准天然一致）。
     const handleLayout = ({ nativeEvent }: LayoutChangeEvent) => {
       onLayout(lineNum, nativeEvent.layout.height, nativeEvent.layout.width, isActive)
     }
@@ -122,11 +123,11 @@ const LrcLine = memo(
                   ...styles.lineText,
                   textAlign,
                   lineHeight,
-                  fontWeight: '700',
+                  fontWeight: '400',
                 }}
                 words={words}
                 lineTime={line.time}
-                size={size + 3}
+                size={size}
                 playedColor={colors[0]}
                 inactiveColor={theme['c-450']}
               />
@@ -137,12 +138,12 @@ const LrcLine = memo(
                   ...styles.lineText,
                   textAlign,
                   lineHeight,
-                  fontWeight: isActive ? '700' : '400',
+                  fontWeight: '400',
                 }}
                 textBreakStrategy="simple"
                 color={colors[0]}
                 opacity={colors[2]}
-                size={isActive ? size + 3 : size}
+                size={size}
               >
                 {line.text}
               </AnimatedColorText>
@@ -160,7 +161,7 @@ const LrcLine = memo(
                 key={index}
                 color={colors[1]}
                 opacity={colors[2]}
-                size={isActive ? size * 0.8 + 2 : size * 0.8}
+                size={size * 0.8}
               >
                 {lrc}
               </AnimatedColorText>

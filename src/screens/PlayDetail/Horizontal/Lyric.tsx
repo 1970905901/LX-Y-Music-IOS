@@ -59,6 +59,8 @@ const LrcLine = memo(
     const handlePress = useCallback(() => {
       onPress(lineNum)
     }, [onPress, lineNum])
+    // 行布局（字号/字重/行高）与播放/激活状态解耦：已播放/当前行仅靠颜色区分，不再加粗。
+    // 否则行随播放从 normal→bold 变宽，换行数变化导致行高突变，滚动抖动且居中基准漂移。
     return (
       <TouchableOpacity
         activeOpacity={0.7}
@@ -74,7 +76,7 @@ const LrcLine = memo(
                   ...styles.lineText,
                   textAlign,
                   lineHeight,
-                  fontWeight: 'bold',
+                  fontWeight: 'normal',
                 }}
                 words={words}
                 lineTime={line.time}
@@ -89,7 +91,7 @@ const LrcLine = memo(
                   ...styles.lineText,
                   textAlign,
                   lineHeight,
-                  fontWeight: isPlayed || isActive ? 'bold' : 'normal',
+                  fontWeight: 'normal',
                 }}
                 textBreakStrategy="simple"
                 color={colors[0]}

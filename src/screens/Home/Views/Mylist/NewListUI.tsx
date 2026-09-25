@@ -672,7 +672,7 @@ export default memo(() => {
   )
 
   const listPanel = (
-    <View style={styles.content}>
+    <View style={[styles.content, !isHorizontal && showMusicList ? styles.hidden : null]}>
       {hasError ? (
         <View style={styles.errorContainer}>
           <Text size={16} color={theme['c-font']} style={styles.errorText}>加载失败</Text>
@@ -777,6 +777,9 @@ const styles = createStyle({
   },
   content: {
     flex: 1,
+  },
+  hidden: {
+    display: 'none',
   },
   listContainer: {
     flex: 1,

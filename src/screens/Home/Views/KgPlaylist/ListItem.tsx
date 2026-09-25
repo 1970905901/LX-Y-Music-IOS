@@ -11,7 +11,6 @@ import { Icon } from '@/components/common/Icon'
 import type { Position } from '@/components/common/Menu'
 import { scaleSizeH } from '@/utils/pixelRatio'
 import { designRadius, designSpacing } from '@/theme/DesignTokens'
-import { shadow } from '@/utils/shadow'
 
 interface PlaylistItem {
   id: string
@@ -44,7 +43,7 @@ export default memo(({ item, onPress, onMenuPress }: ListItemProps) => {
 
   return (
     <TouchableOpacity
-      style={[styles.container, { backgroundColor: theme['c-content-background'], borderColor: theme['c-border-background'] }]}
+      style={[styles.container, { backgroundColor: theme['c-primary-light-900-alpha-300'] }]}
       onPress={() => { onPress(item) }}
     >
       <View style={styles.coverContainer}>
@@ -92,10 +91,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: designSpacing.md,
     marginHorizontal: designSpacing.md,
     marginBottom: designSpacing.sm,
-    borderWidth: 1,
     borderRadius: designRadius.md,
     overflow: 'hidden',
-    ...shadow(2),
   },
   coverContainer: {
     position: 'relative',

@@ -11,7 +11,6 @@ import type { Position } from '@/components/common/Menu'
 import { useWyUid } from '@/store/user/hook.ts'
 import { scaleSizeH } from '@/utils/pixelRatio'
 import { designRadius, designSpacing } from '@/theme/DesignTokens'
-import { shadow } from '@/utils/shadow'
 
 export default memo(({ item, onPress, onHeartbeatPress, onMenuPress }: { item: any, onPress: (info: ListInfoItem) => void, onHeartbeatPress?: (info: ListInfoItem) => void, onMenuPress?: (item: any, position: Position) => void }) => {
   const theme = useTheme()
@@ -59,7 +58,7 @@ export default memo(({ item, onPress, onHeartbeatPress, onMenuPress }: { item: a
 
   return (
     <TouchableOpacity
-      style={[styles.container, { backgroundColor: theme['c-content-background'], borderColor: theme['c-border-background'] }]}
+      style={[styles.container, { backgroundColor: theme['c-primary-light-900-alpha-300'] }]}
       onPress={handlePress}
     >
       <Image url={item.coverImgUrl} style={styles.artwork} />
@@ -102,10 +101,8 @@ const styles = createStyle({
     paddingHorizontal: designSpacing.md,
     marginHorizontal: designSpacing.md,
     marginBottom: designSpacing.sm,
-    borderWidth: 1,
     borderRadius: designRadius.md,
     overflow: 'hidden',
-    ...shadow(2),
   },
   artwork: {
     width: 40,

@@ -2,14 +2,14 @@
  * Kugou Music playlist page - Displays user-created and collected playlists (replicating QQ Music playlist page)
  */
 
-import { memo, useEffect, useState, useCallback, useRef, useMemo } from 'react'
+import { memo, useEffect, useState, useCallback, useRef } from 'react'
 import { View, FlatList, RefreshControl, BackHandler, StyleSheet, Keyboard, TouchableOpacity } from 'react-native'
 import ListItem from './ListItem'
 import { getUserPlaylists, subscribePlaylist, unsubscribePlaylist } from '@/utils/musicSdk/kg/utils/api'
 import { useI18n } from '@/lang'
 import { useTheme } from '@/store/theme/hook'
 import Text from '@/components/common/Text'
-import { toast, confirmDialog, getRowInfo } from '@/utils/tools'
+import { toast, confirmDialog } from '@/utils/tools'
 import SonglistDetail from '../../../SonglistDetail'
 import commonState from '@/store/common/state'
 import { useSettingValue } from '@/store/setting/hook'
@@ -61,12 +61,11 @@ export default memo(() => {
   // 被拉成一行很长、左右留白；竖屏保持单列零回归。
   // numColumns 变更时 FlatList 必须重挂载（RN 不支持运行中改列数），故加 key。
   const isHorizontal = useHorizontalMode()
-  const rowInfo = useMemo(() => getRowInfo(), [isHorizontal])
-  const numColumns = rowInfo.rowNum ?? 1
+  const numColumns = isHorizontal ? 2 : 1
 
   const playlists = activeTab === 'created' ? createdPlaylists : collectedPlaylists
 
-  const fetchPlaylists = useCallback(async (isRefresh = false) => {
+  const fetchPlaylists = useCallback(async(isRefresh = false) => {
     if (!kgCookie) {
       setCreatedPlaylists([])
       setCollectedPlaylists([])
@@ -81,8 +80,8 @@ export default memo(() => {
       }
       const result = await getUserPlaylists(kgCookie)
       if (result.success && result.data) {
-        setCreatedPlaylists(result.data.createdList || [])
-        setCollectedPlaylists(result.data.collectedList || [])
+        setCreatedPlaylists((result.data.createdList || []) as PlaylistInfo[])
+        setCollectedPlaylists((result.data.collectedList || []) as PlaylistInfo[])
       } else if (!isRefresh) {
         toast(`获取歌单失败: ${result.message}`)
       }
@@ -98,58 +97,8 @@ export default memo(() => {
   }, [kgCookie])
 
   useEffect(() => {
-    fetchPlaylists()
+    void fetchPlaylists()
   }, [fetchPlaylists])
-
-  const handleJumpPosition = useCallback(async () => {
-    let listId = playerState.playMusicInfo.listId
-    // 当 listId 为 temp 时，从临时列表元数据中获取真实 listId
-    if (listId === LIST_IDS.TEMP) {
-      listId = listState.tempListMeta.id
-    }
-    if (!listId || !listId.startsWith('kg__')) return
-
-    const kgPlaylistId = listId.replace('kg__', '')
-    const allPlaylists = [...createdPlaylists, ...collectedPlaylists]
-    const targetPlaylist = allPlaylists.find(p => String(p.id) === kgPlaylistId || String(p.listid) === kgPlaylistId)
-    if (targetPlaylist) {
-      requestAnimationFrame(() => {
-        handleItemPress(targetPlaylist)
-      })
-    }
-  }, [createdPlaylists, collectedPlaylists])
-
-  useEffect(() => {
-    if (global.lx.jumpKgPlaylistPosition) {
-      global.lx.jumpKgPlaylistPosition = false
-      handleJumpPosition()
-    }
-
-    global.app_event.on('jumpListPosition', handleJumpPosition)
-    return () => {
-      global.app_event.off('jumpListPosition', handleJumpPosition)
-    }
-  }, [handleJumpPosition])
-
-  const onRefresh = useCallback(() => {
-    fetchPlaylists(true)
-  }, [fetchPlaylists])
-
-  useEffect(() => {
-    const onBackPress = () => {
-      if (selectedPlaylistRef.current) {
-        if (commonState.componentIds.length > 1) {
-          return false
-        }
-        setSelectedPlaylist(null)
-        return true
-      }
-      return false
-    }
-
-    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress)
-    return () => subscription.remove()
-  }, [])
 
   const handleItemPress = useCallback((info: PlaylistInfo) => {
     const playlistInfo = {
@@ -166,6 +115,56 @@ export default memo(() => {
       isFavorites: info.isFavorites,
     }
     setSelectedPlaylist(playlistInfo)
+  }, [])
+
+  const handleJumpPosition = useCallback(async() => {
+    let listId = playerState.playMusicInfo.listId
+    // 当 listId 为 temp 时，从临时列表元数据中获取真实 listId
+    if (listId === LIST_IDS.TEMP) {
+      listId = listState.tempListMeta.id
+    }
+    if (!listId || !listId.startsWith('kg__')) return
+
+    const kgPlaylistId = listId.replace('kg__', '')
+    const allPlaylists = [...createdPlaylists, ...collectedPlaylists]
+    const targetPlaylist = allPlaylists.find(p => String(p.id) === kgPlaylistId || String(p.listid) === kgPlaylistId)
+    if (targetPlaylist) {
+      requestAnimationFrame(() => {
+        handleItemPress(targetPlaylist)
+      })
+    }
+  }, [createdPlaylists, collectedPlaylists, handleItemPress])
+
+  useEffect(() => {
+    if (global.lx.jumpKgPlaylistPosition) {
+      global.lx.jumpKgPlaylistPosition = false
+      void handleJumpPosition()
+    }
+
+    global.app_event.on('jumpListPosition', handleJumpPosition)
+    return () => {
+      global.app_event.off('jumpListPosition', handleJumpPosition)
+    }
+  }, [handleJumpPosition])
+
+  const onRefresh = useCallback(() => {
+    void fetchPlaylists(true)
+  }, [fetchPlaylists])
+
+  useEffect(() => {
+    const onBackPress = () => {
+      if (selectedPlaylistRef.current) {
+        if (commonState.componentIds.length > 1) {
+          return false
+        }
+        setSelectedPlaylist(null)
+        return true
+      }
+      return false
+    }
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress)
+    return () => { subscription.remove() }
   }, [])
 
   const handleBack = useCallback(() => {
@@ -194,10 +193,10 @@ export default memo(() => {
         })
         break
       case 'delete':
-        confirmDialog({
+        void confirmDialog({
           message: `确定要删除歌单"${item.name}"吗？`,
           confirmButtonText: '删除',
-        }).then(async (confirmed) => {
+        }).then(async(confirmed) => {
           if (!confirmed) return
           if (!kgCookie) {
             toast('请先登录酷狗音乐，Cookie可能已失效')
@@ -223,7 +222,7 @@ export default memo(() => {
     }
   }, [fetchPlaylists, kgCookie])
 
-  const handleCreatePlaylist = useCallback(async () => {
+  const handleCreatePlaylist = useCallback(async() => {
     const name = newPlaylistName.trim()
     if (!name) {
       toast('歌单名不能为空')
@@ -260,7 +259,7 @@ export default memo(() => {
       <TouchableOpacity
         key={tab}
         style={styles.tabItem}
-        onPress={() => setActiveTab(tab)}
+        onPress={() => { setActiveTab(tab) }}
       >
         <Text
           style={[styles.tabText, { borderBottomColor: isActive ? theme['c-primary-font-active'] : 'transparent' }]}
@@ -334,14 +333,14 @@ export default memo(() => {
           ref={menuRef}
           menus={[{ action: 'create', label: '新建歌单' }, { action: 'delete', label: '删除歌单' }]}
           onPress={handleMenuAction}
-          onHide={() => setMenuVisible(false)}
+          onHide={() => { setMenuVisible(false) }}
         />
       )}
       {createModalVisible && (
         <ConfirmAlert
           ref={createModalRef}
           onConfirm={handleCreatePlaylist}
-          onHide={() => setCreateModalVisible(false)}
+          onHide={() => { setCreateModalVisible(false) }}
           title="新建歌单"
         >
           <Input

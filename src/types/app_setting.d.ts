@@ -1,6 +1,3 @@
-import type { I18n } from '@/lang/i18n'
-import { type NAV_ID_Type } from '@/config/constant.ts'
-
 declare global {
   namespace LX {
     type AddMusicLocationType = 'top' | 'bottom'
@@ -44,6 +41,13 @@ declare global {
        * 是否允许拖动播放进度条跳转（关闭后进度条仅展示，不可 seek）
        */
       'common.allowProgressBarSeek': boolean
+
+      /**
+       * 各平台 Cookie（默认空字符串 = 未登录）
+       */
+      'common.wy_cookie': string
+      'common.kg_cookie': string
+      'common.tx_cookie': string
 
       /**
        * 推荐页平台按钮顺序（平台 id 数组，空数组表示使用默认顺序）
@@ -235,3 +239,6 @@ declare global {
     }
   }
 }
+
+// 保持本文件为外部模块（否则 declare global 在全局脚本下非法，LX 命名空间扩充失效）
+export {}

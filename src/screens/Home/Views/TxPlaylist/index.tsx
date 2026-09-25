@@ -2,14 +2,14 @@
  * QQ音乐歌单页面 - 显示用户自建歌单和收藏歌单
  */
 
-import { memo, useEffect, useState, useCallback, useRef, useMemo } from 'react'
+import { memo, useEffect, useState, useCallback, useRef } from 'react'
 import { View, FlatList, RefreshControl, BackHandler, StyleSheet, Keyboard, TouchableOpacity } from 'react-native'
 import ListItem from './ListItem'
 import txUserApi from '@/utils/musicSdk/tx/user'
 import { useI18n } from '@/lang'
 import { useTheme } from '@/store/theme/hook'
 import Text from '@/components/common/Text'
-import { toast, confirmDialog, getRowInfo } from '@/utils/tools'
+import { toast, confirmDialog } from '@/utils/tools'
 import SonglistDetail from '../../../SonglistDetail'
 import commonState from '@/store/common/state'
 import Menu, { type MenuType, type Position } from '@/components/common/Menu'
@@ -59,22 +59,21 @@ export default memo(() => {
   // 被拉成一行很长、左右留白；竖屏保持单列零回归。
   // numColumns 变更时 FlatList 必须重挂载（RN 不支持运行中改列数），故加 key。
   const isHorizontal = useHorizontalMode()
-  const rowInfo = useMemo(() => getRowInfo(), [isHorizontal])
-  const numColumns = rowInfo.rowNum ?? 1
+  const numColumns = isHorizontal ? 2 : 1
 
   const playlists = activeTab === 'created' ? createdPlaylists : collectedPlaylists
 
-  const fetchCreatedPlaylists = useCallback(async (isRefresh = false) => {
+  const fetchCreatedPlaylists = useCallback(async(isRefresh = false) => {
     try {
       const lists = await txUserApi.getCreatedPlaylists()
-      
+
       const favoritesPlaylist = lists.find((p: PlaylistInfo) => p.isFavorites)
       if (favoritesPlaylist && favoritesPlaylist.songCount > 0) {
         try {
           const favSongs = await txUserApi.getFavSongs(1, 1)
           if (favSongs.list && favSongs.list.length > 0) {
             const firstSong = favSongs.list[0]
-            const coverUrl = firstSong.albumMid 
+            const coverUrl = firstSong.albumMid
               ? `https://y.gtimg.cn/music/photo_new/T002R800x800M000${firstSong.albumMid}.jpg`
               : favoritesPlaylist.cover
             favoritesPlaylist.cover = coverUrl
@@ -83,8 +82,8 @@ export default memo(() => {
           console.warn('获取"我喜欢"歌单详情失败:', err)
         }
       }
-      
-      setCreatedPlaylists(lists)
+
+      setCreatedPlaylists(lists as PlaylistInfo[])
     } catch (err: any) {
       console.error('获取自建歌单失败:', err)
       if (!isRefresh) {
@@ -93,10 +92,10 @@ export default memo(() => {
     }
   }, [])
 
-  const fetchCollectedPlaylists = useCallback(async (isRefresh = false) => {
+  const fetchCollectedPlaylists = useCallback(async(isRefresh = false) => {
     try {
       const result = await txUserApi.getFavPlaylists(1, 50)
-      setCollectedPlaylists(result.list || [])
+      setCollectedPlaylists((result.list || []) as PlaylistInfo[])
     } catch (err: any) {
       console.error('获取收藏歌单失败:', err)
       if (!isRefresh) {
@@ -105,7 +104,7 @@ export default memo(() => {
     }
   }, [])
 
-  const fetchPlaylists = useCallback(async (isRefresh = false) => {
+  const fetchPlaylists = useCallback(async(isRefresh = false) => {
     try {
       if (isRefresh) {
         setRefreshing(true)
@@ -125,10 +124,25 @@ export default memo(() => {
   }, [fetchCreatedPlaylists, fetchCollectedPlaylists])
 
   useEffect(() => {
-    fetchPlaylists()
+    void fetchPlaylists()
   }, [fetchPlaylists])
 
-  const handleJumpPosition = useCallback(async () => {
+  const handleItemPress = useCallback((info: PlaylistInfo) => {
+    const playlistInfo = {
+      id: info.id,
+      name: info.name,
+      author: '',
+      img: info.cover,
+      play_count: 0,
+      desc: info.desc,
+      source: 'tx',
+      userId: '',
+      total: info.songCount,
+    }
+    setSelectedPlaylist(playlistInfo)
+  }, [])
+
+  const handleJumpPosition = useCallback(async() => {
     let listId = playerState.playMusicInfo.listId
     // 当 listId 为 temp 时，从临时列表元数据中获取真实 listId
     if (listId === LIST_IDS.TEMP) {
@@ -145,12 +159,12 @@ export default memo(() => {
         handleItemPress(targetPlaylist)
       })
     }
-  }, [createdPlaylists, collectedPlaylists])
+  }, [createdPlaylists, collectedPlaylists, handleItemPress])
 
   useEffect(() => {
     if (global.lx.jumpTxPlaylistPosition) {
       global.lx.jumpTxPlaylistPosition = false
-      handleJumpPosition()
+      void handleJumpPosition()
     }
 
     global.app_event.on('jumpListPosition', handleJumpPosition)
@@ -160,7 +174,7 @@ export default memo(() => {
   }, [handleJumpPosition])
 
   const onRefresh = useCallback(() => {
-    fetchPlaylists(true)
+    void fetchPlaylists(true)
   }, [fetchPlaylists])
 
   useEffect(() => {
@@ -176,22 +190,7 @@ export default memo(() => {
     }
 
     const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress)
-    return () => subscription.remove()
-  }, [])
-
-  const handleItemPress = useCallback((info: PlaylistInfo) => {
-    const playlistInfo = {
-      id: info.id,
-      name: info.name,
-      author: '',
-      img: info.cover,
-      play_count: 0,
-      desc: info.desc,
-      source: 'tx',
-      userId: '',
-      total: info.songCount,
-    }
-    setSelectedPlaylist(playlistInfo)
+    return () => { subscription.remove() }
   }, [])
 
   const handleBack = useCallback(() => {
@@ -220,10 +219,10 @@ export default memo(() => {
         })
         break
       case 'delete':
-        confirmDialog({
+        void confirmDialog({
           message: `确定要删除歌单"${item.name}"吗？`,
           confirmButtonText: '删除',
-        }).then(async (confirmed) => {
+        }).then(async(confirmed) => {
           if (!confirmed) return
           if (!item.dirid) {
             toast('无法获取歌单信息')
@@ -241,7 +240,7 @@ export default memo(() => {
     }
   }, [fetchPlaylists])
 
-  const handleCreatePlaylist = useCallback(async () => {
+  const handleCreatePlaylist = useCallback(async() => {
     const name = newPlaylistName.trim()
     if (!name) {
       toast('歌单名不能为空')
@@ -265,7 +264,7 @@ export default memo(() => {
       <TouchableOpacity
         key={tab}
         style={styles.tabItem}
-        onPress={() => setActiveTab(tab)}
+        onPress={() => { setActiveTab(tab) }}
       >
         <Text
           style={[styles.tabText, { borderBottomColor: isActive ? theme['c-primary-font-active'] : 'transparent' }]}
@@ -338,14 +337,14 @@ export default memo(() => {
           ref={menuRef}
           menus={[{ action: 'create', label: '新建歌单' }, { action: 'delete', label: '删除歌单' }]}
           onPress={handleMenuAction}
-          onHide={() => setMenuVisible(false)}
+          onHide={() => { setMenuVisible(false) }}
         />
       )}
       {createModalVisible && (
         <ConfirmAlert
           ref={createModalRef}
           onConfirm={handleCreatePlaylist}
-          onHide={() => setCreateModalVisible(false)}
+          onHide={() => { setCreateModalVisible(false) }}
           title="新建歌单"
         >
           <Input

@@ -40,12 +40,12 @@ export default memo(({ item, onPress, onMenuPress }: ListItemProps) => {
     })
   }
 
-  const showMenu = !(item.isFavorites || item.isCollected)
+  const showMenu = !item.isFavorites && !item.isCollected
 
   return (
     <TouchableOpacity
       style={[styles.container, { backgroundColor: theme['c-content-background'], borderColor: theme['c-border-background'] }]}
-      onPress={() => onPress(item)}
+      onPress={() => { onPress(item) }}
     >
       <View style={styles.coverContainer}>
         {item.isFavorites ? (

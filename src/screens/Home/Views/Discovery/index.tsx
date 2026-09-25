@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Keyboard, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native'
 import commonState from '@/store/common/state'
-import { COMPONENT_IDS } from '@/config/constant'
+import { COMPONENT_IDS, type NAV_ID_Type } from '@/config/constant'
 import { navigations } from '@/navigation'
 import { useTheme } from '@/store/theme/hook'
 import { useStatusbarHeight } from '@/store/common/hook'
@@ -10,6 +10,7 @@ import { setNavActiveId } from '@/core/common'
 import { createStyle, toast } from '@/utils/tools'
 import { designSpacing, designTypography } from '@/theme/DesignTokens'
 import songlistState, { type ListInfoItem, type Source } from '@/store/songlist/state'
+import settingState from '@/store/setting/state'
 import boardState from '@/store/leaderboard/state'
 import { getList } from '@/core/songlist'
 import { getBoardsList, getListDetail } from '@/core/leaderboard'
@@ -33,6 +34,20 @@ const SOURCE_LABELS: Partial<Record<Source, string>> = {
 const supportedSources = songlistState.sources.filter(
   (source): source is Source => !!SOURCE_LABELS[source] && !!songlistState.sortList[source]?.length,
 )
+
+// 每日推荐入口与「首页推荐平台」联动：网易/酷狗/QQ 有每日推荐页，
+// 进入前要求对应平台的 Cookie 已登录；酷我/咪咕无每日推荐页，隐藏入口。
+const DAILY_REC_NAVS: Partial<Record<Source, NAV_ID_Type>> = {
+  wy: 'nav_daily_rec',
+  kg: 'nav_kg_daily_rec',
+  tx: 'nav_tx_daily_rec',
+}
+
+const DAILY_REC_COOKIE_KEYS: Partial<Record<Source, 'common.wy_cookie' | 'common.kg_cookie' | 'common.tx_cookie'>> = {
+  wy: 'common.wy_cookie',
+  kg: 'common.kg_cookie',
+  tx: 'common.tx_cookie',
+}
 
 const getSortId = (source: Source) => songlistState.sortList[source]?.[0]?.id ?? ''
 
@@ -155,6 +170,20 @@ export default memo(() => {
     void playLeaderboard(hotBoardId, hotSongs, index)
   }, [hotBoardId, hotSongs])
 
+  // 每日推荐入口跟随平台切换；进入前校验对应平台 Cookie 是否已登录
+  const dailyRecNav = DAILY_REC_NAVS[selectedSource]
+  const handleOpenDailyRec = useCallback(() => {
+    const nav = DAILY_REC_NAVS[selectedSource]
+    if (!nav) return
+    const cookieKey = DAILY_REC_COOKIE_KEYS[selectedSource]
+    const logged = cookieKey ? !!settingState.setting[cookieKey] : false
+    if (!logged) {
+      toast(`请先登录${SOURCE_LABELS[selectedSource] ?? ''}账号（设置 → 平台设置）`)
+      return
+    }
+    setNavActiveId(nav)
+  }, [selectedSource])
+
   const headerStyle = useMemo(
     () => StyleSheet.compose(styles.header, {
       paddingTop: Math.max(designSpacing.sm, statusBarHeight - designSpacing.md),
@@ -212,13 +241,15 @@ export default memo(() => {
           />
         </View>
 
-        <View style={styles.daily}>
-          <DailyRecommendCard
-            title={t('discovery_daily_title')}
-            subtitle={t('discovery_daily_subtitle')}
-            onPress={() => { setNavActiveId('nav_daily_rec') }}
-          />
-        </View>
+        {dailyRecNav ? (
+          <View style={styles.daily}>
+            <DailyRecommendCard
+              title={t('discovery_daily_title')}
+              subtitle={t('discovery_daily_subtitle')}
+              onPress={handleOpenDailyRec}
+            />
+          </View>
+        ) : null}
 
         <FeatureGrid />
 

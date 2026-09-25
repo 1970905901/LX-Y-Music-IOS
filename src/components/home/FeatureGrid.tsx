@@ -28,6 +28,14 @@ const TAB_IDS = new Set<NAV_ID_Type>([
   'nav_setting',
 ])
 
+// 三大平台每日推荐已并入推荐页顶部的「每日推荐」卡片（跟随平台切换 + Cookie 登录校验），
+// 更多功能网格里不再单独展示。
+const DAILY_REC_IDS = new Set<NAV_ID_Type>([
+  'nav_daily_rec',
+  'nav_kg_daily_rec',
+  'nav_tx_daily_rec',
+])
+
 const renderIcon = (icon: string, color: string) => {
   if (icon.startsWith('svg:')) {
     return <SvgIcon name={icon.slice(4)} size={21} color={color} />
@@ -46,7 +54,7 @@ const FeatureGrid = memo(() => {
   const features = useMemo(
     () => {
       const items: FeatureItem[] = NAV_MENUS.filter(
-        menu => !TAB_IDS.has(menu.id) && (navStatus[menu.id] ?? true),
+        menu => !TAB_IDS.has(menu.id) && !DAILY_REC_IDS.has(menu.id) && (navStatus[menu.id] ?? true),
       ).map(({ id, icon }) => ({ id, icon }))
 
       if (!global.lx.isCarMode) return items

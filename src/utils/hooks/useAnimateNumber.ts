@@ -24,6 +24,9 @@ export const useAnimateNumber = (
       toValue: 1,
       duration,
       useNativeDriver,
+      // 全局 Text 的补间不占用 InteractionManager 队列：页面挂载/主题变化时
+      // 会爆发式产生大量实例，占住队列会让列表单元格渲染被无限期推迟
+      isInteraction: false,
     }).start((finished) => {
       if (!finished) return
       // currentNumber.current = nextNumber
@@ -57,6 +60,7 @@ export const useAnimateOnecNumber = (
       toValue: 1,
       duration,
       useNativeDriver,
+      isInteraction: false,
     }).start((finished) => {
       if (!finished) return
       // currentNumber.current = nextNumber

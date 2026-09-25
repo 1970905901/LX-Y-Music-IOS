@@ -23,7 +23,6 @@ import { scrollTo } from '@/utils/scroll'
 import { LyricScrollLayout } from '@/utils/lyricScroll'
 import { audioClock } from '@/core/player/audioClock'
 import KaraokeLyric from '@/screens/PlayDetail/components/KaraokeLyric'
-import PlayLine, { type PlayLineType } from '@/screens/PlayDetail/components/PlayLine'
 
 type FlatListType = FlatListProps<Line>
 
@@ -156,8 +155,6 @@ export default () => {
   const scrollInfoRef = useRef<NativeSyntheticEvent<NativeScrollEvent>['nativeEvent'] | null>(null)
   // 缓存歌词行高与累计偏移，把滚动定位从 O(n²) 降到 O(1)。
   const lyricScrollLayoutRef = useRef(new LyricScrollLayout(54))
-  const playLineRef = useRef<PlayLineType>(null)
-  const playLineLayoutRef = useRef({ spaceHeight: 0, lineHeights: [] as number[] })
   const scrollCancelRef = useRef<(() => void) | null>(null)
   // 连续滚动指数平滑：rAF 目标 offset 不直接写入列表，而是让跟随值按固定速率收敛到目标。
   // 逐字歌词无间隙切行、行高测量后的回正修正都是瞬时硬跳（长句换行后行高更大、跳变越明显），
@@ -166,7 +163,6 @@ export default () => {
   const lastWrittenOffsetRef = useRef(-1)
   const lastFrameTsRef = useRef(0)
   const wasPauseRef = useRef(true)
-  const isShowLyricProgressSetting = useSettingValue('playDetail.isShowLyricProgressSetting')
   // 拖动进度条 / 跳转 / 点击歌词期间强制立即定位，结束后（500ms）复位交由连续滚动循环驱动。
   const forceScrollRef = useRef(false)
   const forceScrollTimer = useRef<NodeJS.Timeout | null>(null)
@@ -388,11 +384,9 @@ export default () => {
 
   const handleScroll = ({ nativeEvent }: NativeSyntheticEvent<NativeScrollEvent>) => {
     scrollInfoRef.current = nativeEvent
-    playLineRef.current?.updateScrollInfo(nativeEvent)
   }
   const handleScrollBeginDrag = () => {
     isPauseScrollRef.current = true
-    if (isShowLyricProgressSetting) playLineRef.current?.setVisible(true)
     if (delayScrollTimeout.current) {
       clearTimeout(delayScrollTimeout.current)
       delayScrollTimeout.current = null
@@ -412,7 +406,6 @@ export default () => {
     if (scrollTimoutRef.current) clearTimeout(scrollTimoutRef.current)
     scrollTimoutRef.current = setTimeout(() => {
       scrollTimoutRef.current = null
-      playLineRef.current?.setVisible(false)
       isPauseScrollRef.current = false
       if (!playerState.isPlay) return
       handleScrollToActive()
@@ -451,8 +444,6 @@ export default () => {
   useEffect(() => {
     // linesRef.current = lyricLines
     lyricScrollLayoutRef.current.reset()
-    playLineLayoutRef.current.lineHeights = []
-    playLineRef.current?.updateLayoutInfo({ ...playLineLayoutRef.current })
     lineRef.current.prevLine = 0
     lineRef.current.line = 0
     if (!flatListRef.current) return
@@ -470,7 +461,6 @@ export default () => {
     // 否则 play/setProgress 事件可能晚于 line 更新，forceScrollRef 仍为 false，
     // 导致高亮行无法居中（iPad 横屏切歌后歌词不居中的主因）。
     setForceScroll(true)
-    playLineRef.current?.updateLyricLines(lyricLines)
 
     requestAnimationFrame(() => {
       isPauseScrollRef.current = false
@@ -561,8 +551,6 @@ export default () => {
       isActive,
       isPlayed,
     )
-    playLineLayoutRef.current.lineHeights[lineNum] = height
-    playLineRef.current?.updateLayoutInfo({ ...playLineLayoutRef.current })
     if (isPauseScrollRef.current) return
     const current = lineRef.current.line
     // 当前行首次测量（切歌/跳转后激活行真实高度就位），或非激活行首次测量导致累计偏移变化时，
@@ -579,14 +567,11 @@ export default () => {
       listHeightRef.current = h
       setListHeight(h)
     }
-    playLineLayoutRef.current.spaceHeight = h * 0.5
-    playLineRef.current?.updateLayoutInfo({ ...playLineLayoutRef.current })
     // 列表高度就位（首帧 / 旋转 / 分栏宽度变化）后回正一次，确保高亮行在真实高度下居中。
     scheduleRecentre()
   }, [scheduleRecentre])
 
   const handleLinePress = useCallback((index: number) => {
-    if (!isShowLyricProgressSetting) return
     if (scrollTimoutRef.current) {
       clearTimeout(scrollTimoutRef.current)
       scrollTimoutRef.current = null
@@ -604,7 +589,7 @@ export default () => {
     }
 
     handleScrollToActive(index)
-  }, [isShowLyricProgressSetting, lyricLines, handleScrollToActive])
+  }, [lyricLines, handleScrollToActive])
 
   const renderItem: FlatListType['renderItem'] = ({ item, index }) => {
     return <LrcLine line={item} lineNum={index} activeLine={line} onLayout={handleLineLayout} onPress={handleLinePress} wordsByIndex={wordsByIndex} />
@@ -645,15 +630,6 @@ export default () => {
         removeClippedSubviews={false}
         extraData={[line, wordsByIndex]}
       />
-      {isShowLyricProgressSetting ? (
-        <PlayLine
-          ref={playLineRef}
-          onPlayLine={(time) => {
-            playLineRef.current?.setVisible(false)
-            global.app_event.setProgress(time)
-          }}
-        />
-      ) : null}
     </View>
   )
 }
@@ -665,8 +641,8 @@ const styles = createStyle({
     paddingRight: 20,
   },
   line: {
-    paddingTop: 10,
-    paddingBottom: 10,
+    paddingTop: 12,
+    paddingBottom: 12,
   },
   lineText: {
     textAlign: 'center',

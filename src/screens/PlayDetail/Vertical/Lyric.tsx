@@ -25,7 +25,6 @@ import settingState from '@/store/setting/state'
 import playerState from '@/store/player/state'
 import { useWindowSize } from '@/utils/hooks'
 import KaraokeLyric from '@/screens/PlayDetail/components/KaraokeLyric'
-import PlayLine, { type PlayLineType } from '@/screens/PlayDetail/components/PlayLine'
 // import { screenkeepAwake } from '@/utils/nativeModules/utils'
 // import { log } from '@/utils/log'
 // import { toast } from '@/utils/tools'
@@ -220,8 +219,6 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHei
   const activeRef = useRef(active)
   // 缓存歌词行高与累计偏移，把滚动定位从 O(n²) 降到 O(1)。
   const lyricScrollLayoutRef = useRef(new LyricScrollLayout(isSmallWindow ? 40 : 54))
-  const playLineRef = useRef<PlayLineType>(null)
-  const playLineLayoutRef = useRef({ spaceHeight: 0, lineHeights: [] as number[] })
   const scrollCancelRef = useRef<(() => void) | null>(null)
   const scrollYRef = useRef(0)
   // 连续滚动指数平滑：rAF 算出的目标 offset 不直接写入列表，而是让跟随值按固定速率收敛到目标。
@@ -234,7 +231,6 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHei
   const wasPauseRef = useRef(true)
   // 跳转/首开时大量行尚未测量，定位落地后需在新行完成测量时静默回正一次。
   const recentreTimerRef = useRef<NodeJS.Timeout | null>(null)
-  const isShowLyricProgressSetting = settingState.setting['playDetail.isShowLyricProgressSetting']
 
   // 用户动作（拖动进度条 / 跳转 / 恢复播放）期间强制让歌词列表立即滚动到高亮行，
   // 使高亮行与进度条（及音频）绝对同步；被动逐秒重锚时仍用舒适区节流，避免逐行微滚动卡顿。
@@ -462,7 +458,6 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHei
   }, [active, handleScrollToActive])
   const handleScrollBeginDrag = () => {
     isPauseScrollRef.current = true
-    if (isShowLyricProgressSetting) playLineRef.current?.setVisible(true)
     if (delayScrollTimeout.current) {
       clearTimeout(delayScrollTimeout.current)
       delayScrollTimeout.current = null
@@ -482,7 +477,6 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHei
     if (scrollTimoutRef.current) clearTimeout(scrollTimoutRef.current)
     scrollTimoutRef.current = setTimeout(() => {
       scrollTimoutRef.current = null
-      playLineRef.current?.setVisible(false)
       isPauseScrollRef.current = false
       if (!playerState.isPlay) return
       handleScrollToActive()
@@ -540,8 +534,6 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHei
   // 否则进入歌词页时缓存被清空、当前行之前的行退化为估算，高亮行会偶发不居中。
   useEffect(() => {
     lyricScrollLayoutRef.current.reset()
-    playLineLayoutRef.current.lineHeights = []
-    playLineRef.current?.updateLayoutInfo({ ...playLineLayoutRef.current })
     lastScrolledLineRef.current = -1
     lineRef.current.prevLine = 0
     lineRef.current.line = 0
@@ -558,7 +550,6 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHei
     // 否则 play/setProgress 事件可能晚于 line 更新，forceScrollRef 仍为 false，
     // 导致高亮行无法居中。
     setForceScroll(true)
-    playLineRef.current?.updateLyricLines(lyricLines)
 
     // 歌词内容更新后不再固定延迟 100ms；布局完成的下一帧直接按当前引擎行定位。
     // 这覆盖切歌后异步歌词到达、从封面切回歌词页等场景。
@@ -670,9 +661,6 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHei
   // 仅记录当前滚动偏移，供“舒适区感知滚动”判断使用；不触发重渲染。
   const handleScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
     scrollYRef.current = e.nativeEvent.contentOffset.y
-    // PlayLine.updateScrollInfo 期望 nativeEvent（内部直接读 contentOffset.y）；
-    // 传整个合成事件会因 contentOffset 为 undefined 在滑动歌词时抛错。
-    playLineRef.current?.updateScrollInfo(e.nativeEvent)
   }, [])
 
   const handleLineLayout = useCallback<LineProps['onLayout']>((lineNum, height, _width, isActive) => {
@@ -682,8 +670,6 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHei
     // 避免快进/快退到中后段时高亮行偏高/偏低一行。
     // isActive：激活态高度只用于该行自身定位，不计入累计偏移（见 LyricScrollLayout 说明）。
     layout.updateLineHeight(lineNum, height, !!(lyricLines[lineNum]?.extendedLyrics?.length), isActive)
-    playLineLayoutRef.current.lineHeights[lineNum] = height
-    playLineRef.current?.updateLayoutInfo({ ...playLineLayoutRef.current })
     if (!active || isPauseScrollRef.current) return
     const current = lineRef.current.line
     // 当前行首次测量（切歌/跳转后激活行真实高度就位），或非激活行首次测量导致累计偏移变化时，
@@ -699,7 +685,6 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHei
   }, [isSmallWindow])
 
   const handleLinePress = useCallback((index: number) => {
-    if (!isShowLyricProgressSetting) return
     if (scrollTimoutRef.current) {
       clearTimeout(scrollTimoutRef.current)
       scrollTimoutRef.current = null
@@ -722,7 +707,7 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHei
     // 越过“舒适区 15%”节流与动画延迟，使高亮行与音频（及进度条）绝对同步跟随。
     setForceScroll(true)
     handleScrollToActive(index, true)
-  }, [isShowLyricProgressSetting, lyricLines, setForceScroll, handleScrollToActive])
+  }, [lyricLines, setForceScroll, handleScrollToActive])
 
   // useCallback 稳定 renderItem：依赖项均为稳定引用或低频变化值（line 每行切换变化一次），
   // 配合 LrcLine 的 memo 比较器，行切换时只有新旧激活两行重渲染。
@@ -736,8 +721,6 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHei
     if (h > 0) {
       pageHeightRef.current = h
       if (h !== pageHeight) setPageHeight(h)
-      playLineLayoutRef.current.spaceHeight = h * 0.12
-      playLineRef.current?.updateLayoutInfo({ ...playLineLayoutRef.current })
     }
   }, [pageHeight])
 
@@ -777,24 +760,14 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHei
         removeClippedSubviews={false}
         {...panResponder.panHandlers}
       />
-      {isShowLyricProgressSetting ? (
-        <PlayLine
-          ref={playLineRef}
-          onPlayLine={(time) => {
-            playLineRef.current?.setVisible(false)
-            global.app_event.setProgress(time)
-          }}
-        />
-      ) : null}
     </View>
   )
 }
 
 const styles = createStyle({
   line: {
-    paddingTop: 10,
-    paddingBottom: 10,
-    // opacity: 0,
+    paddingTop: 12,
+    paddingBottom: 12,
   },
   lineText: {
     textAlign: 'center',

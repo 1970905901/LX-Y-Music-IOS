@@ -1,8 +1,10 @@
 import { memo, useRef, useState, useCallback, useEffect } from 'react'
-import { TouchableOpacity, View, BackHandler, StyleSheet } from 'react-native'
+import { TouchableOpacity, View, BackHandler, StyleSheet, ScrollView } from 'react-native'
 import Text from '@/components/common/Text'
 import { createStyle } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
+import { useI18n } from '@/lang'
+import { designSpacing } from '@/theme/DesignTokens'
 import PagerView, { type PagerViewOnPageSelectedEvent } from 'react-native-pager-view'
 import RecSongs from './RecSongs'
 import { BorderWidths } from '@/theme'
@@ -26,7 +28,12 @@ const Tabs = ({
 }) => {
   const theme = useTheme()
   return (
-    <View style={styles.tabsContainer}>
+    <ScrollView
+      style={styles.tabsScroll}
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.tabsContainer}
+    >
       {TABS.map((tab) => (
         <TouchableOpacity
           key={tab.id}
@@ -38,13 +45,13 @@ const Tabs = ({
               styles.tabText,
               { borderBottomColor: activeTab === tab.id ? theme['c-primary-font-active'] : 'transparent' },
             ]}
-            color={activeTab === tab.id ? theme['c-primary-font'] : theme['c-font']}
+            color={theme['c-font']}
           >
             {tab.label}
           </Text>
         </TouchableOpacity>
       ))}
-    </View>
+    </ScrollView>
   )
 }
 
@@ -52,6 +59,7 @@ export default memo(() => {
   const [activeTab, setActiveTab] = useState<TabType>('recommend')
   const pagerViewRef = useRef<PagerView>(null)
   const theme = useTheme()
+  const t = useI18n()
 
   const handleTabChange = (newTab: TabType) => {
     if (activeTab === newTab) return
@@ -73,7 +81,12 @@ export default memo(() => {
   const pageHeader = (
     <>
       <PageTopInset />
-      <Tabs activeTab={activeTab} onTabChange={handleTabChange} />
+      <View style={styles.titleRow}>
+        <Text style={styles.titleText} size={34} color={theme['c-font']}>
+          {t('nav_kg_daily_rec')}
+        </Text>
+        <Tabs activeTab={activeTab} onTabChange={handleTabChange} />
+      </View>
     </>
   )
 
@@ -100,16 +113,26 @@ export default memo(() => {
 })
 
 const styles = createStyle({
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    paddingHorizontal: designSpacing.lg,
+  },
+  titleText: {
+    fontWeight: '800',
+    lineHeight: 36,
+  },
+  tabsScroll: {
+    flexGrow: 0,
+    flexShrink: 1,
+  },
   tabsContainer: {
     flexDirection: 'row',
-    justifyContent: 'flex-start',
-    paddingHorizontal: 15,
-    borderBottomWidth: BorderWidths.normal,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
+    alignItems: 'center',
   },
   tab: {
     paddingVertical: 5,
-    paddingHorizontal: 15,
+    paddingHorizontal: 12,
   },
   tabText: {
     paddingBottom: 5,

@@ -3,6 +3,8 @@ import { TouchableOpacity, View, BackHandler, StyleSheet } from 'react-native'
 import Text from '@/components/common/Text'
 import { createStyle } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
+import { useI18n } from '@/lang'
+import { designSpacing } from '@/theme/DesignTokens'
 import PagerView, { type PagerViewOnPageSelectedEvent } from 'react-native-pager-view'
 import RecPlaylists from './RecPlaylists'
 import RecSongs from './RecSongs'
@@ -28,9 +30,28 @@ const Tabs = ({
 }) => {
   const theme = useTheme()
   return (
-    <View style={[styles.tabsContainer, { justifyContent: 'space-between', alignItems: 'center' }]}>
+    <View>
+      {/* 主 tab 与大标题同行（见 pageHeader 的 titleRow） */}
+      <View style={styles.titleTabs}>
+        <TouchableOpacity style={styles.tab} onPress={() => onTabChange('songs')}>
+          <Text
+            style={[styles.tabText, { borderBottomColor: activeTab === 'songs' ? theme['c-primary-font-active'] : 'transparent' }]}
+            color={theme['c-font']}
+          >
+            推荐歌曲
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.tab} onPress={() => onTabChange('playlists')}>
+          <Text
+            style={[styles.tabText, { borderBottomColor: activeTab === 'playlists' ? theme['c-primary-font-active'] : 'transparent' }]}
+            color={theme['c-font']}
+          >
+            推荐歌单
+          </Text>
+        </TouchableOpacity>
+      </View>
       {activeTab === 'songs' ? (
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <View style={[styles.subTabsRow, { justifyContent: 'flex-start', alignItems: 'center' }]}>
           <TouchableOpacity
             onPress={() => setIsStylized(false)}
             style={[
@@ -55,25 +76,7 @@ const Tabs = ({
             </Text>
           </TouchableOpacity>
         </View>
-      ) : <View style={{ flex: 1 }} />}
-      <View style={{ flexDirection: 'row' }}>
-        <TouchableOpacity style={styles.tab} onPress={() => onTabChange('songs')}>
-          <Text
-            style={[styles.tabText, { borderBottomColor: activeTab === 'songs' ? theme['c-primary-font-active'] : 'transparent' }]}
-            color={activeTab === 'songs' ? theme['c-primary-font'] : theme['c-font']}
-          >
-            推荐歌曲
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.tab} onPress={() => onTabChange('playlists')}>
-          <Text
-            style={[styles.tabText, { borderBottomColor: activeTab === 'playlists' ? theme['c-primary-font-active'] : 'transparent' }]}
-            color={activeTab === 'playlists' ? theme['c-primary-font'] : theme['c-font']}
-          >
-            推荐歌单
-          </Text>
-        </TouchableOpacity>
-      </View>
+      ) : null}
     </View>
   )
 }
@@ -95,6 +98,7 @@ export default memo(() => {
   const selectedPlaylistRef = useRef(selectedPlaylist)
   selectedPlaylistRef.current = selectedPlaylist
   const theme = useTheme()
+  const t = useI18n()
   const handleTabChange = (newTab: 'songs' | 'playlists') => {
     if (activeTab === newTab) return
     setActiveTab(newTab)
@@ -119,13 +123,18 @@ export default memo(() => {
   const pageHeader = (
     <>
       <PageTopInset />
-      <Tabs
-        activeTab={activeTab}
-        onTabChange={handleTabChange}
-        isStylized={isStylized}
-        setIsStylized={setIsStylized}
-        onOpenModal={() => setShowStylizedModal(true)}
-      />
+      <View style={styles.titleRow}>
+        <Text style={styles.titleText} size={34} color={theme['c-font']}>
+          {t('nav_daily_rec')}
+        </Text>
+        <Tabs
+          activeTab={activeTab}
+          onTabChange={handleTabChange}
+          isStylized={isStylized}
+          setIsStylized={setIsStylized}
+          onOpenModal={() => setShowStylizedModal(true)}
+        />
+      </View>
     </>
   )
 
@@ -188,16 +197,27 @@ export default memo(() => {
 })
 
 const styles = createStyle({
-  tabsContainer: {
+  titleRow: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
-    paddingHorizontal: 15,
-    borderBottomWidth: BorderWidths.normal,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
+    alignItems: 'flex-end',
+    paddingHorizontal: designSpacing.lg,
+  },
+  titleText: {
+    fontWeight: '800',
+    lineHeight: 36,
+  },
+  titleTabs: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  subTabsRow: {
+    paddingHorizontal: designSpacing.lg,
+    paddingTop: 2,
+    paddingBottom: 4,
   },
   tab: {
     paddingVertical: 5,
-    paddingLeft: 15,
+    paddingHorizontal: 12,
   },
   tabText: {
     paddingBottom: 5,

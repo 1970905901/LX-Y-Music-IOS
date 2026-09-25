@@ -38,6 +38,14 @@ export default () => {
 
   let isScreenOn = true
 
+  // 进度条拖动期间暂停 250ms 轮询：每次 tick 都有 getPosition/getPlaybackEngineState
+  // 两次原生桥往返 + setNowPlayTime → playProgressChanged 连锁的 PlayInfo 子树 React
+  // 重渲染（4 次/秒）+ playHistory/playStatus/preloadNextMusic 监听器执行。拖动的
+  // 手势事件同样走 JS 线程，这些负载会把 move 事件挤到排队（表现为拖动不跟手），
+  // 拖动期间整体跳过，JS 帧全部让给手势。播放继续走 audioClock 锚点外推，位置无感知
+  // 停顿；拖动结束的 setProgress 会统一重锚，无状态残留。
+  let isProgressDragging = false
+
   const isRestoringCurrentMusic = () => {
     const restorePlayInfo = global.lx.restorePlayInfo
     if (!restorePlayInfo) return false
@@ -109,6 +117,7 @@ export default () => {
     if (!isScreenOn) return
     clearUpdateTimeout()
     updateTimeout = BackgroundTimer.setInterval(() => {
+      if (isProgressDragging) return
       getCurrentTime()
     }, 250 / settingState.setting['player.playbackRate'])
     getCurrentTime()
@@ -241,6 +250,9 @@ export default () => {
   global.app_event.on('stop', handleStop)
   global.app_event.on('error', handleError)
   global.app_event.on('setProgress', setProgress)
+  global.app_event.on('progressDragState', (dragging: boolean) => {
+    isProgressDragging = dragging
+  })
   // global.app_event.on(eventPlayerNames.restorePlay, handleRestorePlay)
   // global.app_event.on('playerLoadeddata', handleLoadeddata)
   // global.app_event.on('playerCanplay', handleCanplay)

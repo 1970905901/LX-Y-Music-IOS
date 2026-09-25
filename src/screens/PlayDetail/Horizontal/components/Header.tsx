@@ -29,8 +29,15 @@ const Title = () => {
   const musicInfo = playMusicInfo.musicInfo ? ('progress' in playMusicInfo.musicInfo ? playMusicInfo.musicInfo.metadata.musicInfo : playMusicInfo.musicInfo) : null
 
   const handleArtistPress = useCallback((artist: { id: string | number, mid?: string, name: string }) => {
-    if (!musicInfo || (musicInfo.source !== 'wy' && musicInfo.source !== 'tx' && musicInfo.source !== 'kg') || !artist.id) return
-    navigations.pushArtistDetailScreen(commonState.componentIds[commonState.componentIds.length - 1]?.id!, { id: String(artist.id), mid: artist.mid, name: artist.name, source: musicInfo.source })
+    if (!musicInfo || (musicInfo.source !== 'wy' && musicInfo.source !== 'tx' && musicInfo.source !== 'kg')) return
+    // 部分音源（如 QQ）的歌手数据可能缺 id，mid 也可作为标识
+    const artistId = artist.id ?? artist.mid
+    if (!artistId) {
+      // id/mid 都缺失时清空自带 artists，走歌手名搜索兜底定位
+      void handleShowArtistDetail(commonState.componentIds[commonState.componentIds.length - 1]?.id!, { ...musicInfo, artists: [] } as LX.Music.MusicInfoOnline)
+      return
+    }
+    navigations.pushArtistDetailScreen(commonState.componentIds[commonState.componentIds.length - 1]?.id!, { id: String(artistId), mid: artist.mid, name: artist.name, source: musicInfo.source })
   }, [musicInfo])
 
   const handleAlbumPress = useCallback(() => {

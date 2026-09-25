@@ -89,11 +89,13 @@ export class LyricScrollLayout {
   // 故 bold 高度单独成档（playedLineHeights/played 桶），与 normal 档（lineHeights/measured 桶）互不影响；
   // 竖屏不传此参数（默认 false），行为与改动前一致。
   updateLineHeight(lineNum: number, height: number, hasTranslation?: boolean, isActive = false, isPlayed = false) {
-    // 激活态高度只影响该行自身的居中定位，不影响后续行的累计偏移，故无需重建缓存。
-    if (isActive) {
-      this.activeLineHeights[lineNum] = height
-      return
-    }
+    // 激活态高度单独记录一份，供 getActiveLineHeight 快速读取。
+    // 注意：渲染器恒定后激活高度恒等于非激活高度，激活行的实测高度【同样要写入
+    // lineHeights 与分桶平均】——否则「首次测量时即处于激活态」的行（切歌/恢复播放/
+    // 异步歌词到达时，当前行从激活态开始渲染）在 lineHeights 里永远是 undefined，
+    // 其后所有行的累计偏移只能用估算值，产生「真实高度−估算值」的恒定偏差，
+    // 表现为该行之后整首歌的高亮行都无法居中。
+    if (isActive) this.activeLineHeights[lineNum] = height
     const isBold = isPlayed
     const target = isBold ? this.playedLineHeights : this.lineHeights
     const prev = target[lineNum]
@@ -138,11 +140,12 @@ export class LyricScrollLayout {
     // 但不计入 normal 平均桶（避免污染未播放区的高度估算）。
     if (isBold) this.lineHeights[lineNum] = height
     // 行高变化后对应累计偏移失效，需要重建；精确偏移缓存同样失效。
-    if (isBold) this.precisePlayedOffsets = []
-    else {
-      this.cumulativeOffsets = []
-      this.preciseOffsets = []
-    }
+    // bold 行的真实高度同步写入了 lineHeights（影响 normal 缓存），normal 档测量
+    // 也影响 played 缓存的回退取值，故两套缓存统一全部失效，保证累计偏移始终
+    // 与最新实测一致。
+    this.cumulativeOffsets = []
+    this.preciseOffsets = []
+    this.precisePlayedOffsets = []
   }
 
   /** 该行是否已被真实测量过（用于判断累计偏移是否发生变化） */
@@ -221,7 +224,10 @@ export class LyricScrollLayout {
     const oldLen = cache.length
     if (oldLen === 0) cache[0] = 0
     for (let i = Math.max(oldLen, 1); i <= index; i++) {
-      const measured = heights[i - 1]
+      // 渲染器恒定后行高与激活/已播放状态无关：played 档缺测（该行未曾以 played 态
+      // 完成布局）时直接回退到 normal 档实测高度，再退分桶估算，
+      // 避免「横屏已播放行的累计偏移」因状态切换时序而缺测、引入恒定偏差。
+      const measured = heights[i - 1] ?? this.lineHeights[i - 1]
       const h = measured !== undefined
         ? measured
         : ((lines[i - 1]?.extendedLyrics?.length ?? 0) > 0 ? transAvg : plainAvg)

@@ -10,6 +10,7 @@ import Text from '@/components/common/Text'
 import ListItem from './ListItem'
 import { useHorizontalMode } from '@/utils/hooks'
 import PageTopInset from '@/components/common/PageTopInset'
+import { useBottomOverlayInset } from '@/store/common/hook'
 
 export default memo(() => {
   const subscribedAlbums = useWySubscribedAlbums()
@@ -17,6 +18,8 @@ export default memo(() => {
   const theme = useTheme()
   const cookie = useSettingValue('common.wy_cookie')
   const isHorizontal = useHorizontalMode()
+  // 底部悬浮层（迷你播放器 + 底部 Tab + 安全区）统一避让高度
+  const bottomInset = useBottomOverlayInset()
 
   const onRefresh = useCallback(() => {
     if (!cookie) {
@@ -57,7 +60,7 @@ export default memo(() => {
         onScrollBeginDrag={Keyboard.dismiss}
         data={subscribedAlbums}
         ListHeaderComponent={PageTopInset}
-        contentContainerStyle={{ paddingBottom: 80 }}
+        contentContainerStyle={{ paddingBottom: bottomInset }}
         key={isHorizontal ? 'horizontal' : 'vertical'}
         numColumns={isHorizontal ? 2 : 1}
         renderItem={({ item }) => (

@@ -17,7 +17,7 @@ import downloadActions from '@/store/download/action'
 import { mkdir, readDir, unlink, stat } from '@/utils/fs'
 import { sizeFormate } from '@/utils'
 import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
-import { useSafeAreaBottom } from '@/store/common/hook'
+import { useSafeAreaBottom, useBottomOverlayInset } from '@/store/common/hook'
 import PageTopInset from '@/components/common/PageTopInset'
 
 type TabId = 'local' | 'download'
@@ -151,6 +151,8 @@ export default memo(() => {
   const theme = useTheme()
   const isHorizontal = useHorizontalMode()
   const safeAreaBottom = useSafeAreaBottom()
+  // 底部悬浮层（迷你播放器 + 底部 Tab + 安全区）统一避让高度
+  const bottomInset = useBottomOverlayInset()
   const downloadPathSetting = useSettingValue('download.path')
   const tasks = useDownloadTasks()
   const playMusicInfo = usePlayMusicInfo()
@@ -377,7 +379,7 @@ export default memo(() => {
               style={styles.list}
               data={completedTasks}
               ListHeaderComponent={isHorizontal ? undefined : pageHeader}
-              contentContainerStyle={{ paddingBottom: 180 + safeAreaBottom }}
+              contentContainerStyle={{ paddingBottom: bottomInset }}
               key={isHorizontal ? 'horizontal' : 'vertical'}
               numColumns={isHorizontal ? 2 : 1}
               columnWrapperStyle={isHorizontal ? styles.columnWrapper : undefined}
@@ -414,7 +416,7 @@ export default memo(() => {
               style={styles.list}
               data={localFiles}
               ListHeaderComponent={isHorizontal ? undefined : pageHeader}
-              contentContainerStyle={{ paddingBottom: 180 + safeAreaBottom }}
+              contentContainerStyle={{ paddingBottom: bottomInset }}
               key={isHorizontal ? 'horizontal' : 'vertical'}
               numColumns={isHorizontal ? 2 : 1}
               columnWrapperStyle={isHorizontal ? styles.columnWrapper : undefined}

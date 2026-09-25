@@ -12,6 +12,7 @@ import { setTempList, setActiveList } from '@/core/list'
 import { playList } from '@/core/player/player'
 import { clearPlayedList } from '@/core/player/playedList'
 import { type ListInfoItem } from '@/store/songlist/state'
+import { useBottomOverlayInset } from '@/store/common/hook'
 
 type RecType = 'home' | 'radar' | 'newsong'
 
@@ -52,6 +53,8 @@ export default memo(({ header, type, onOpenDetail }: Props) => {
   const [loading, setLoading] = useState(false)
   const theme = useTheme()
   const isHorizontal = useHorizontalMode()
+  // 底部悬浮层（迷你播放器 + 底部 Tab + 安全区）统一避让高度
+  const bottomInset = useBottomOverlayInset()
 
   const loadPlaylists = useCallback(async(refresh = false) => {
     if (type !== 'home') return
@@ -152,7 +155,8 @@ export default memo(({ header, type, onOpenDetail }: Props) => {
         <FlatList
           data={playlists}
           ListHeaderComponent={header}
-          contentContainerStyle={{ paddingBottom: 80 }}
+          // 底部悬浮层（迷你播放器 + 底部 Tab + 安全区）统一避让高度
+          contentContainerStyle={{ paddingBottom: bottomInset }}
           key={isHorizontal ? 'horizontal' : 'vertical'}
           numColumns={isHorizontal ? 2 : 1}
           columnWrapperStyle={isHorizontal ? styles.columnWrapper : undefined}

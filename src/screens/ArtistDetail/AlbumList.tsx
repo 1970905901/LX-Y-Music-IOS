@@ -7,6 +7,7 @@ import { useI18n } from '@/lang'
 import { scaleSizeW } from '@/utils/pixelRatio'
 import Text from '@/components/common/Text'
 import { createStyle } from '@/utils/tools'
+import { useBottomOverlayInset } from '@/store/common/hook'
 
 const MIN_WIDTH = scaleSizeW(120)
 const HORIZONTAL_SPACING = 24
@@ -27,6 +28,8 @@ export default memo(({ componentId, albums, loading, hasMore, onLoadMore, onRefr
   const theme = useTheme()
   const t = useI18n()
   const isHorizontal = useHorizontalMode()
+  // 底部悬浮层（迷你播放器 + 安全区）统一避让高度
+  const bottomInset = useBottomOverlayInset()
 
   const rowInfo = useMemo(() => {
     if (width === 0) return { num: 3, itemWidth: 0 }
@@ -80,7 +83,7 @@ export default memo(({ componentId, albums, loading, hasMore, onLoadMore, onRefr
           numColumns={rowInfo.num}
           data={list}
           // 底部内边距：让专辑列表能滚到屏幕底部，最后一行停下时让位给悬浮的迷你播放器。
-          contentContainerStyle={{ paddingBottom: 80 }}
+          contentContainerStyle={{ paddingBottom: bottomInset }}
           renderItem={renderItem}
           keyExtractor={item => String(item.id)}
           onEndReached={onLoadMore}

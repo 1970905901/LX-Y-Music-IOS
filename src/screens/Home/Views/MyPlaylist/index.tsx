@@ -8,6 +8,7 @@ import { playOnlineList } from '@/core/list'
 import { MUSIC_TOGGLE_MODE, LIST_IDS } from '@/config/constant'
 import { updateSetting } from '@/core/common'
 import { useWySubscribedPlaylists, useWyUid } from '@/store/user/hook.ts'
+import { useBottomOverlayInset } from '@/store/common/hook'
 import { useHorizontalMode } from '@/utils/hooks'
 import { useI18n } from '@/lang'
 import { designSpacing } from '@/theme/DesignTokens'
@@ -31,6 +32,8 @@ import MusicInfoOnline = LX.Music.MusicInfoOnline
 export default memo(() => {
   const playlists = useWySubscribedPlaylists()
   const uid = useWyUid()
+  // 底部悬浮层（迷你播放器 + 底部 Tab + 安全区）统一避让高度
+  const bottomInset = useBottomOverlayInset()
   const [loading, setLoading] = useState(true)
   const cookie = useSettingValue('common.wy_cookie')
   const theme = useTheme()
@@ -246,7 +249,7 @@ export default memo(() => {
               </View>
             </>
           }
-          contentContainerStyle={{ paddingBottom: 80 }}
+          contentContainerStyle={{ paddingBottom: bottomInset }}
           key={isHorizontal ? 'horizontal' : 'vertical'}
           numColumns={isHorizontal ? 2 : 1}
           columnWrapperStyle={isHorizontal ? { paddingHorizontal: 8 } : undefined}

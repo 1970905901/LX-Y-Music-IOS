@@ -12,6 +12,7 @@ import { useI18n } from '@/lang'
 import Text from '@/components/common/Text'
 import { handlePlay } from './listAction'
 import { useSettingValue } from '@/store/setting/hook'
+import { useBottomOverlayInset } from '@/store/common/hook'
 
 type FlatListType = FlatListProps<LX.Music.MusicInfoOnline>
 export type { RowInfoType }
@@ -340,6 +341,9 @@ const List = forwardRef<ListType, ListProps>(
       if (listId !== 'search') Keyboard.dismiss()
     }
 
+    // 底部悬浮层（迷你播放器 + 底部 Tab + 安全区）统一避让高度
+    const bottomInset = useBottomOverlayInset()
+
     return (
       <FlatList
         // key：numColumns 变更（旋转/分屏）时强制重挂载 FlatList——
@@ -350,7 +354,7 @@ const List = forwardRef<ListType, ListProps>(
         // 底部内边距：让位给底部 Tab 与悬浮迷你播放器组合后的现代首页外壳。
         // 这里用 contentContainerStyle 而不是给外层容器加 paddingBottom，是因为
         // 后者会缩短列表的滚动范围（停在胶囊上方留空白），前者让列表占满整屏。
-        contentContainerStyle={{ paddingBottom: 180 }}
+        contentContainerStyle={{ paddingBottom: bottomInset }}
         data={currentList}
         numColumns={numColumns}
         horizontal={false}

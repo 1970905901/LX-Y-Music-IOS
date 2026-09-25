@@ -10,6 +10,7 @@ import { useI18n } from '@/lang'
 import { scaleSizeW } from '@/utils/pixelRatio'
 import { createStyle } from '@/utils/tools'
 import Text from '@/components/common/Text'
+import { useBottomOverlayInset } from '@/store/common/hook'
 
 type FlatListType = FlatListProps<ListInfoItem>
 
@@ -121,6 +122,8 @@ export default forwardRef<ListType, ListProps>(({ header, onRefresh, onLoadMore,
   // console.log(Math.trunc(width * 0.125), itemWidth)
   // console.log(itemWidth, MIN_WIDTH, GAP, width)
   const isHorizontal = useHorizontalMode()
+  // 底部悬浮层（迷你播放器 + 底部 Tab + 安全区）统一避让高度
+  const bottomInset = useBottomOverlayInset()
 
   const rowInfo = useMemo(() => {
     // FlatList 框架自带左右 10pt 内边距，列宽必须按扣除后的可用宽度计算，
@@ -168,7 +171,7 @@ export default forwardRef<ListType, ListProps>(({ header, onRefresh, onLoadMore,
           columnWrapperStyle={{ justifyContent: 'space-evenly' }}
           numColumns={rowInfo.num}
           data={list}
-          contentContainerStyle={{ paddingBottom: 80 }}
+          contentContainerStyle={{ paddingBottom: bottomInset }}
           maxToRenderPerBatch={4}
           onScrollBeginDrag={Keyboard.dismiss}
           // updateCellsBatchingPeriod={80}

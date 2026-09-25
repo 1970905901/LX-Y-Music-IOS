@@ -23,7 +23,7 @@ import { handleRemove, handleSync } from './MyList/listAction'
 import { LIST_IDS, COMPONENT_IDS } from '@/config/constant'
 import { scaleSizeH } from '@/utils/pixelRatio'
 import { designRadius, designSpacing } from '@/theme/DesignTokens'
-import { useSafeAreaBottom } from '@/store/common/hook'
+import { useBottomOverlayInset } from '@/store/common/hook'
 import PageTopInset from '@/components/common/PageTopInset'
 import Loading from '@/components/common/Loading'
 import { Navigation } from 'react-native-navigation'
@@ -299,7 +299,8 @@ const PlaylistCard = memo(({
 
 export default memo(() => {
   const theme = useTheme()
-  const safeAreaBottom = useSafeAreaBottom()
+  // 底部悬浮层（迷你播放器 + 底部 Tab + 安全区）统一避让高度
+  const bottomInset = useBottomOverlayInset()
   const t = useI18n()
   const allList = useMyList()
   const activeListId = useActiveListId()
@@ -700,7 +701,7 @@ export default memo(() => {
         <>
           <FlatList
             data={listItems}
-            contentContainerStyle={{ paddingBottom: 80 + safeAreaBottom }}
+            contentContainerStyle={{ paddingBottom: bottomInset }}
             renderItem={renderItem}
             ListHeaderComponent={listHeader}
             // 更多功能网格（网易/酷狗/QQ 歌单、关注歌手、收藏专辑、WebDAV、本地与下载）

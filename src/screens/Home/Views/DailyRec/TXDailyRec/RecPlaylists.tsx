@@ -7,6 +7,7 @@ import { createStyle, toast } from '@/utils/tools'
 import { useI18n } from '@/lang'
 import txApi from '@/utils/musicSdk/tx'
 import { type ListInfoItem } from '@/store/songlist/state'
+import { useBottomOverlayInset } from '@/store/common/hook'
 
 interface PlaylistInfo {
   id: number
@@ -45,6 +46,8 @@ export default memo(({ header, onOpenDetail }: Props) => {
   const theme = useTheme()
   const isHorizontal = useHorizontalMode()
   const t = useI18n()
+  // 底部悬浮层（迷你播放器 + 底部 Tab + 安全区）统一避让高度
+  const bottomInset = useBottomOverlayInset()
 
   const loadPlaylists = useCallback(async(refresh = false) => {
     if (!refresh && playlists.length > 0) return
@@ -89,7 +92,7 @@ export default memo(({ header, onOpenDetail }: Props) => {
         onScrollBeginDrag={() => {}}
         ListHeaderComponent={header}
         data={playlists}
-        contentContainerStyle={{ paddingBottom: 80 }}
+        contentContainerStyle={{ paddingBottom: bottomInset }}
         key={isHorizontal ? 'horizontal' : 'vertical'}
         numColumns={isHorizontal ? 2 : 1}
         columnWrapperStyle={isHorizontal ? styles.columnWrapper : undefined}

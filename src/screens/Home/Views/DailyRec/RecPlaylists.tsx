@@ -7,6 +7,7 @@ import { useHorizontalMode } from '@/utils/hooks'
 import wyApi from '@/utils/musicSdk/wy/dailyRec'
 import wy from '@/utils/musicSdk/wy/index'
 import ListItem from '../MyPlaylist/ListItem'
+import { useBottomOverlayInset } from '@/store/common/hook'
 import { getDailyRecPlaylistsCache, setDailyRecPlaylistsCache, clearDailyRecPlaylistsCache } from '@/core/cache'
 
 export default memo(({ header, onOpenDetail }: { header?: ReactElement, onOpenDetail: (info: any) => void }) => {
@@ -15,6 +16,8 @@ export default memo(({ header, onOpenDetail }: { header?: ReactElement, onOpenDe
   const cookie = useSettingValue('common.wy_cookie')
   const theme = useTheme()
   const isHorizontal = useHorizontalMode()
+  // 底部悬浮层（迷你播放器 + 底部 Tab + 安全区）统一避让高度
+  const bottomInset = useBottomOverlayInset()
 
   const loadPlaylists = useCallback((isRefresh = false) => {
     if (!cookie) {
@@ -91,7 +94,7 @@ export default memo(({ header, onOpenDetail }: { header?: ReactElement, onOpenDe
         ListHeaderComponent={header}
         onScrollBeginDrag={Keyboard.dismiss}
         data={playlists}
-        contentContainerStyle={{ paddingBottom: 80 }}
+        contentContainerStyle={{ paddingBottom: bottomInset }}
         key={isHorizontal ? 'horizontal' : 'vertical'}
         numColumns={isHorizontal ? 2 : 1}
         columnWrapperStyle={isHorizontal ? { paddingHorizontal: 8 } : undefined}

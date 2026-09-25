@@ -21,6 +21,7 @@ import { LIST_IDS } from '@/config/constant'
 import { useHorizontalMode } from '@/utils/hooks'
 import { designSpacing } from '@/theme/DesignTokens'
 import PageTopInset from '@/components/common/PageTopInset'
+import { useBottomOverlayInset } from '@/store/common/hook'
 
 interface PlaylistInfo {
   id: string
@@ -38,6 +39,8 @@ type TabType = 'created' | 'collected'
 export default memo(() => {
   const t = useI18n()
   const theme = useTheme()
+  // 底部悬浮层（迷你播放器 + 底部 Tab + 安全区）统一避让高度
+  const bottomInset = useBottomOverlayInset()
   const [activeTab, setActiveTab] = useState<TabType>('created')
   const [createdPlaylists, setCreatedPlaylists] = useState<PlaylistInfo[]>([])
   const [collectedPlaylists, setCollectedPlaylists] = useState<PlaylistInfo[]>([])
@@ -300,7 +303,7 @@ export default memo(() => {
               </View>
             </>
           }
-          contentContainerStyle={{ paddingBottom: 80, paddingRight: 0 }}
+          contentContainerStyle={{ paddingBottom: bottomInset, paddingRight: 0 }}
           numColumns={numColumns}
           renderItem={({ item }) => (
             <View style={numColumns > 1 ? styles.itemWrapper : undefined}>

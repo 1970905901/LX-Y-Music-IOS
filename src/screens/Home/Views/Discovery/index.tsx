@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { BackHandler, Keyboard, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native'
 import { getDiscoveryPlatformOrder, type NAV_ID_Type } from '@/config/constant'
 import { useTheme } from '@/store/theme/hook'
-import { useStatusbarHeight } from '@/store/common/hook'
+import { useStatusbarHeight, useBottomOverlayInset } from '@/store/common/hook'
 import { useI18n } from '@/lang'
 import { useSettingValue } from '@/store/setting/hook'
 import { setNavActiveId } from '@/core/common'
@@ -107,6 +107,8 @@ const styles = createStyle({
 export default memo(() => {
   const theme = useTheme()
   const statusBarHeight = useStatusbarHeight()
+  // 底部悬浮层（迷你播放器 + 底部 Tab + 安全区）统一避让高度
+  const bottomInset = useBottomOverlayInset()
   const t = useI18n()
   const sourceNameType = useSettingValue('common.sourceNameType')
   // 平台文案走全局语言包别名（source_${sourceNameType}_${source}），与歌单页等处的显示一致
@@ -257,7 +259,7 @@ export default memo(() => {
     <View style={styles.container}>
       <ScrollView
         style={selectedPlaylist ? { opacity: 0 } : null}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomInset }]}
         onScrollBeginDrag={Keyboard.dismiss}
         showsVerticalScrollIndicator={false}
         pointerEvents={selectedPlaylist ? 'none' : 'auto'}

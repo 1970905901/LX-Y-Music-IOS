@@ -36,7 +36,7 @@ import {
 } from '@/core/webdavMusic/drive'
 import settingState from '@/store/setting/state'
 import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
-import { useSafeAreaBottom } from '@/store/common/hook'
+import { useBottomOverlayInset } from '@/store/common/hook'
 import PageTopInset from '@/components/common/PageTopInset'
 import WebDAVListMenu, { type WebDAVListMenuType, type SelectInfo as WebDAVSelectInfo } from './WebDAVListMenu'
 import WebDAVDownloadPath from './components/WebDAVDownloadPath'
@@ -650,7 +650,8 @@ export default memo(() => {
   // 被拉得过长、左右留白；竖屏保持单列零回归。
   // numColumns 变更时 FlatList 必须重挂载（RN 不支持运行中改列数），故加 key。
   const isHorizontal = useHorizontalMode()
-  const safeAreaBottom = useSafeAreaBottom()
+  // 底部悬浮层（迷你播放器 + 底部 Tab + 安全区）统一避让高度
+  const bottomInset = useBottomOverlayInset()
   const rowInfo = useMemo(() => {
     void isHorizontal
     return getRowInfo()
@@ -903,7 +904,7 @@ export default memo(() => {
             </View>
           </>
         }
-        contentContainerStyle={{ paddingBottom: 180 + safeAreaBottom }}
+        contentContainerStyle={{ paddingBottom: bottomInset }}
         numColumns={numColumns}
         renderItem={renderSong}
         keyExtractor={item => item.id}

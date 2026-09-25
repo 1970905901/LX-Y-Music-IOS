@@ -51,6 +51,22 @@ export const useSafeAreaBottom = () => {
   return value
 }
 
+// 底部悬浮层（悬浮迷你播放器 + 底部 Tab）的固定部分总高（pt），
+// 实际避让高度还需叠加底部安全区（useBottomOverlayInset）。
+export const BOTTOM_OVERLAY_BASE_HEIGHT = 180
+
+/**
+ * 底部悬浮层避让高度（pt）：迷你播放器 + 底部 Tab + 底部安全区。
+ * 各列表 FlatList 的 contentContainerStyle.paddingBottom 统一使用该值：
+ * 相当于在列表末尾追加一段滚动空白，让最后一行能滚到悬浮层上方、可正常点击，
+ * 列表容器自身高度不变（仍占满页面），播放器与 Tab 仍是悬浮层、不移动不缩小。
+ * safeAreaBottom 随 iPad 旋转 / 窗口尺寸变化自动同步，横竖屏切换后依然准确。
+ */
+export const useBottomOverlayInset = () => {
+  const safeAreaBottom = useSafeAreaBottom()
+  return BOTTOM_OVERLAY_BASE_HEIGHT + safeAreaBottom
+}
+
 export const useComponentIds = () => {
   const [value, update] = useState(state.componentIds)
 

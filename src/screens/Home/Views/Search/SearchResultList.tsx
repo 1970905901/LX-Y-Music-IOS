@@ -9,6 +9,7 @@ import SingerListItem from '../FollowedArtists/ListItem'
 import AlbumListItem from '../../Views/SubscribedAlbums/ListItem'
 import { log } from '@/utils/log'
 import { createStyle, toast } from '@/utils/tools'
+import { useBottomOverlayInset } from '@/store/common/hook'
 
 interface SearchResultListProps {
   header?: ReactElement
@@ -24,6 +25,8 @@ export default forwardRef(({ header, searchType, source }: SearchResultListProps
   const theme = useTheme()
   // iPad 横屏下歌手/专辑结果双列展示（对齐 SubscribedAlbums / FollowedArtists 的既有模式）
   const isHorizontal = useHorizontalMode()
+  // 底部悬浮层（迷你播放器 + 底部 Tab + 安全区）统一避让高度
+  const bottomInset = useBottomOverlayInset()
 
   useEffect(() => {
     searchTypeRef.current = searchType
@@ -174,7 +177,7 @@ export default forwardRef(({ header, searchType, source }: SearchResultListProps
     <FlatList
       data={list}
       ListHeaderComponent={header}
-      contentContainerStyle={{ paddingBottom: 80 }}
+      contentContainerStyle={{ paddingBottom: bottomInset }}
       // numColumns 变更时必须重挂载（key 变更），RN 不支持运行中修改 numColumns
       key={isHorizontal ? 'horizontal' : 'vertical'}
       numColumns={isHorizontal ? 2 : 1}

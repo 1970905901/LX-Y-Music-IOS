@@ -21,6 +21,7 @@ import type { Position } from './ListMenu'
 import type { SelectMode } from './MultipleModeBar'
 import { useActiveListId } from '@/store/list/hook'
 import { useSettingValue } from '@/store/setting/hook'
+import { useBottomOverlayInset } from '@/store/common/hook'
 
 type FlatListType = FlatListProps<LX.Music.MusicInfo>
 
@@ -336,6 +337,8 @@ const List = forwardRef<ListType, ListProps>(
       showCover,
       playingId: playerState.playMusicInfo.musicInfo?.id ?? '',
     }
+    // 底部悬浮层（迷你播放器 + 底部 Tab + 安全区）统一避让高度
+    const bottomInset = useBottomOverlayInset()
     const renderItem = useCallback<NonNullable<FlatListType['renderItem']>>(({ item, index }) => {
       const d = renderDepsRef.current
       if (item.source === 'wy') {
@@ -385,7 +388,7 @@ const List = forwardRef<ListType, ListProps>(
         ref={flatListRef}
         onScroll={handleScroll}
         style={styles.list}
-        contentContainerStyle={{ paddingBottom: 80 }}
+        contentContainerStyle={{ paddingBottom: bottomInset }}
         data={currentList}
         ListHeaderComponent={header}
         maxToRenderPerBatch={20}

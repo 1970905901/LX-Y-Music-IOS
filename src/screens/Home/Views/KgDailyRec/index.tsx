@@ -1,5 +1,5 @@
-import { memo, useRef, useState, useCallback, useEffect, useMemo } from 'react'
-import { TouchableOpacity, View, BackHandler, StyleSheet, PanResponder } from 'react-native'
+import { memo, useRef, useState, useCallback, useEffect } from 'react'
+import { TouchableOpacity, View, BackHandler, StyleSheet } from 'react-native'
 import Text from '@/components/common/Text'
 import { createStyle } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
@@ -8,11 +8,6 @@ import RecSongs from './RecSongs'
 import { BorderWidths } from '@/theme'
 import SonglistDetail from '../../../SonglistDetail'
 import { type ListInfoItem } from '@/store/songlist/state'
-import commonState from '@/store/common/state'
-import { COMPONENT_IDS, NAV_MENUS } from '@/config/constant'
-import { useSettingValue } from '@/store/setting/hook'
-import { useNavActiveId } from '@/store/common/hook'
-import { setNavActiveId } from '@/core/common'
 import PageTopInset from '@/components/common/PageTopInset'
 
 type TabType = 'recommend' | 'everyday'
@@ -57,33 +52,6 @@ export default memo(() => {
   const [activeTab, setActiveTab] = useState<TabType>('recommend')
   const pagerViewRef = useRef<PagerView>(null)
   const theme = useTheme()
-  const isHomePageScrollEnabled = useSettingValue('common.homePageScroll')
-  const navStatus = useSettingValue('common.navStatus')
-  const visibleNavs = useMemo(() => {
-    return NAV_MENUS.filter(
-      (menu) => menu.id !== 'nav_play_history' && (menu.id === 'nav_search' || menu.id === 'nav_setting' || (navStatus[menu.id] ?? true))
-    )
-  }, [navStatus])
-  const activeNavId = useNavActiveId()
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (evt, gestureState) => {
-        if (!isHomePageScrollEnabled) return false
-        return Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.5 && Math.abs(gestureState.dx) > 10
-      },
-      onPanResponderRelease: (evt, gestureState) => {
-        const { dx } = gestureState
-        const currentIndex = visibleNavs.findIndex((nav) => nav.id === activeNavId)
-        if (dx > 50 && currentIndex > 0) {
-          setNavActiveId(visibleNavs[currentIndex - 1].id)
-        }
-        if (dx < -50 && currentIndex < visibleNavs.length - 1) {
-          setNavActiveId(visibleNavs[currentIndex + 1].id)
-        }
-      },
-    })
-  ).current
 
   const handleTabChange = (newTab: TabType) => {
     if (activeTab === newTab) return
@@ -111,16 +79,13 @@ export default memo(() => {
 
   return (
     <View style={{ flex: 1 }}>
-      <View
-        style={{ flex: 1 }}
-        {...(isHomePageScrollEnabled ? panResponder.panHandlers : {})}
-      >
+      <View style={{ flex: 1 }}>
         <PagerView
           ref={pagerViewRef}
           style={{ flex: 1 }}
           initialPage={TABS.findIndex((t) => t.id === activeTab)}
           onPageSelected={onPageSelected}
-          scrollEnabled={!isHomePageScrollEnabled}
+          scrollEnabled
         >
           <View key="recommend">
             <RecSongs header={pageHeader} type="recommend" />

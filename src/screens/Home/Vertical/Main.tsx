@@ -13,7 +13,6 @@ import PagerView, {
   type PagerViewOnPageSelectedEvent,
 } from 'react-native-pager-view'
 import { setNavActiveId } from '@/core/common'
-import settingState from '@/store/setting/state'
 import DailyRec from '../Views/DailyRec'
 import TXDailyRec from '../Views/DailyRec/TXDailyRec'
 import MyPlaylist from '../Views/MyPlaylist'
@@ -689,7 +688,6 @@ const Main = () => {
   useEffect(() => {
     const handleUpdate = (id: CommonState['navActiveId']) => {
       setActiveNavIdState(id)
-      pagerViewRef.current?.setScrollEnabled(!!settingState.setting['common.homePageScroll'] && id !== 'nav_play_history');
       // 播放历史是浮层，切到它时不要同步 PagerView 页面，否则 setPageWithoutAnimation(0)
       // 会触发 onPageSelected，进而把 navActiveId 又覆盖成我的列表。
       if (id === 'nav_play_history') return
@@ -703,20 +701,10 @@ const Main = () => {
         pagerViewRef.current?.setPageWithoutAnimation(index);
       }
     };
-    const handleConfigUpdate = (
-      keys: Array<keyof LX.AppSetting>,
-      setting: Partial<LX.AppSetting>
-    ) => {
-      if (!keys.includes('common.homePageScroll')) return;
-      const activeId = commonState.navActiveId;
-      pagerViewRef.current?.setScrollEnabled(!!settingState.setting['common.homePageScroll'] && activeId !== 'nav_play_history');
-    };
 
     global.state_event.on('navActiveIdUpdated', handleUpdate);
-    global.state_event.on('configUpdated', handleConfigUpdate);
     return () => {
       global.state_event.off('navActiveIdUpdated', handleUpdate);
-      global.state_event.off('configUpdated', handleConfigUpdate);
     };
   }, [viewMap, visibleNavs]);
 
@@ -756,7 +744,8 @@ const Main = () => {
         offscreenPageLimit={1}
         onPageSelected={onPageSelected}
         onPageScrollStateChanged={onPageScrollStateChanged}
-        scrollEnabled={settingState.setting['common.homePageScroll'] && activeNavId !== 'nav_play_history'}
+        // 首页横向滚动功能已移除：页面固定，仅通过底部 tab / 侧边栏切换
+        scrollEnabled={false}
         style={styles.pagerView}
       >
         {pages}

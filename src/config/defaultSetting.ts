@@ -10,8 +10,8 @@ const defaultSetting: LX.AppSetting = {
   'common.isAgreePact': true,
   'common.autoHidePlayBar': true,
   'common.drawerLayoutPosition': 'left',
-  'common.homePageScroll': true,
-  // 是否允许拖动播放进度条跳转（关闭后进度条仅展示，不可点击/拖动 seek）
+  // 「启用竖屏首页横向滚动」设置已移除：首页固定，仅通过底部 tab / 侧边栏切换页面。
+  // 该键不再被读取；旧安装里残留的 true 值为死数据，无任何代码引用。
   'common.allowProgressBarSeek': true,
   'common.showBackBtn': false,
   'common.showExitBtn': false,
@@ -145,7 +145,6 @@ const defaultSetting: LX.AppSetting = {
   'list.addMusicLocationType': 'top',
   'list.isAutoSaveDailyRec': true,
   'list.isShowCover': true,
-  'list.isNewListUI': true,
 
   'menu.playLater': true,
   'menu.addTo': true,

@@ -173,7 +173,9 @@ export default forwardRef<ListType, ListProps>(({ header, onRefresh, onLoadMore,
           onScrollBeginDrag={Keyboard.dismiss}
           // updateCellsBatchingPeriod={80}
           windowSize={8}
-          removeClippedSubviews={true}
+          // removeClippedSubviews 会按估算行高错误地裁剪变高网格行，
+          // 表现为封面下方标题的首尾字符随机缺失/半截，必须关闭
+          removeClippedSubviews={false}
           // initialNumToRender={12}
           renderItem={renderItem}
           ListHeaderComponent={header}

@@ -85,7 +85,8 @@ export default memo(({
 const styles = createStyle({
   card: {
     borderRadius: designRadius.md,
-    overflow: 'hidden',
+    // 不能加 overflow: 'hidden'：圆角 + 裁剪会把紧贴卡片边缘的标题字形削掉半截
+    // （封面自身的圆角裁剪由 cover 的 overflow: 'hidden' 负责）
     paddingBottom: 2,
   },
   coverWrapper: {

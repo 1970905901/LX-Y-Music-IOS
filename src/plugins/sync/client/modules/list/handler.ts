@@ -15,7 +15,7 @@ const handler: LX.Sync.ClientSyncHandlerListActions<LX.Sync.Socket> = {
     await handleRemoteListAction(action)
   },
 
-  async list_sync_get_md5(socket) {
+  async list_sync_get_md5(_socket) {
     logInfo('list:sync:list_sync_get_md5')
     return toMD5(JSON.stringify(await getLocalListData()))
   },
@@ -28,7 +28,7 @@ const handler: LX.Sync.ClientSyncHandlerListActions<LX.Sync.Socket> = {
     return selectSyncMode(socket.data.keyInfo.serverName, 'list').finally(unsubscribe)
   },
 
-  async list_sync_get_list_data(socket) {
+  async list_sync_get_list_data(_socket) {
     logInfo('list:sync:list_sync_get_list_data')
     return getLocalListData()
   },

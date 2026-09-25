@@ -22,7 +22,7 @@ import playerState from '@/store/player/state'
 //   })
 // }
 
-const initial = async({ volume, playRate, cacheSize, isHandleAudioFocus, isEnableAudioOffload }: {
+const initial = async({ volume, playRate, cacheSize, isHandleAudioFocus, isEnableAudioOffload: _isEnableAudioOffload }: {
   volume: number
   playRate: number
   cacheSize: number

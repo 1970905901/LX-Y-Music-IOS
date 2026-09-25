@@ -62,7 +62,7 @@ const parseSearchResult = (raw) => {
 
 export default {
   limit: 30,
-  search(keyword, page = 1) {
+  search(keyword, _page = 1) {
     return search(keyword).then(({ body }) => {
       const list = parseSearchResult(body)
       return Promise.resolve({

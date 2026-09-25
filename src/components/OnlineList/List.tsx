@@ -92,7 +92,10 @@ const List = forwardRef<ListType, ListProps>(
     // 否则 useRef 固化挂载时刻的值，numColumns 永不更新（单列残留/双列不生效）。
     // numColumns 变更时 FlatList 必须重挂载（见下方 key），否则 RN 会报错。
     const isHorizontal = useHorizontalMode()
-    const rowInfo = useMemo(() => getRowInfo(rowType), [isHorizontal, rowType])
+    const rowInfo = useMemo(() => {
+      void isHorizontal
+      return getRowInfo(rowType)
+    }, [isHorizontal, rowType])
     const numColumns = rowInfo.rowNum ?? 1
     const isShowAlbumName = useSettingValue('list.isShowAlbumName')
     const isShowInterval = useSettingValue('list.isShowInterval')
@@ -174,7 +177,7 @@ const List = forwardRef<ListType, ListProps>(
       return () => {
         global.app_event.off('musicInfoUpdate', handleMusicInfoUpdate)
       }
-    }, [])
+    }, [onListUpdate])
 
     const handleUpdateSelectedList = (newList: LX.Music.MusicInfoOnline[]) => {
       if (selectedListRef.current.length && newList.length == currentList.length) onSelectAll(true)
@@ -288,7 +291,7 @@ const List = forwardRef<ListType, ListProps>(
         />
       )
     }, [])
-    const getkey: FlatListType['keyExtractor'] = (item) => (item as any).playHistoryId ?? item.id
+    const getkey: FlatListType['keyExtractor'] = (item) => (item as { playHistoryId?: string }).playHistoryId ?? item.id
     const getItemLayout: FlatListType['getItemLayout'] = (data, index) => {
       const rowIndex = Math.floor(index / numColumns)
       return { length: ITEM_HEIGHT, offset: ITEM_HEIGHT * rowIndex, index }

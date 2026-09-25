@@ -1,4 +1,4 @@
-import { weapi, linuxapi } from './utils/crypto'
+import { weapi } from './utils/crypto'
 import { httpFetch } from '../../request'
 import { formatPlayTime, sizeFormate, dateFormat, formatPlayCount } from '../../index'
 import musicDetailApi from './musicDetail'

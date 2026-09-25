@@ -221,7 +221,7 @@ export default {
     }
     return list
   },
-  async getBoards(retryNum = 0) {
+  async getBoards(_retryNum = 0) {
     // if (++retryNum > 3) return Promise.reject(new Error('try max num'))
     // let response
     // try {
@@ -246,8 +246,8 @@ export default {
     }
   },
 
-  getList(id, page, retryNum = 0) {
-    if (++retryNum > 3) return Promise.reject(new Error('try max num'))
+  getList(id, page, _retryNum = 0) {
+    if (++_retryNum > 3) return Promise.reject(new Error('try max num'))
 
     const requestBody = {
       uid: '',
@@ -266,7 +266,7 @@ export default {
       const rawData = wbdCrypto.decodeData(body)
       // console.log(rawData)
       const data = rawData.data
-      if (statusCode !== 200 || rawData.code != 200 || !data.musiclist) { return this.getList(id, page, retryNum) }
+      if (statusCode !== 200 || rawData.code != 200 || !data.musiclist) { return this.getList(id, page, _retryNum) }
 
       const total = parseInt(data.total)
       const list = this.filterData(data.musiclist)

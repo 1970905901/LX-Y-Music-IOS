@@ -5,8 +5,6 @@ import Modal, { type ModalType } from './Modal'
 import { type ListInfoItem, type Source } from '@/store/songlist/state'
 import { createStyle } from '@/utils/tools'
 import { SvgIcon } from '@/components/common/Icon'
-import { navigations } from '@/navigation'
-import commonState from '@/store/common/state'
 import { designRadius, designSpacing } from '@/theme/DesignTokens'
 
 // export interface OpenListProps {

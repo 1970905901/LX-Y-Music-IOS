@@ -1,8 +1,7 @@
-import React, { useMemo, useRef, useImperativeHandle, forwardRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useImperativeHandle, forwardRef, useState } from 'react'
 import { View } from 'react-native'
 import { useI18n } from '@/lang'
 import Menu, { type MenuType, type Position, type Menus } from '@/components/common/Menu'
-import settingState from '@/store/setting/state'
 import userState from '@/store/user/state'
 import { Icon } from '@/components/common/Icon'
 import Text from '@/components/common/Text'
@@ -39,13 +38,13 @@ export default forwardRef<PlayDetailMenuType, PlayDetailMenuProps>((props, ref) 
   const selectInfoRef = useRef<SelectInfo>(initSelectInfo as SelectInfo)
   const [isLiked, setIsLiked] = useState(false)
 
-  const renderLikeLabel = (liked: boolean) => (
+  const renderLikeLabel = useCallback((liked: boolean) => (
     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
       <Icon name={liked ? 'love-filled' : 'love'} size={16} color={liked ? theme['c-liked'] : theme['c-350']} />
       <View style={{ width: 6 }} />
       <Text size={15} color={theme['c-font']}>{liked ? '取消喜欢' : '喜欢'}</Text>
     </View>
-  )
+  ), [theme])
 
   useImperativeHandle(ref, () => ({
     show(selectInfo, position) {
@@ -99,7 +98,7 @@ export default forwardRef<PlayDetailMenuType, PlayDetailMenuProps>((props, ref) 
     menuItems.push({ action: 'clearCache', label: t('clear_music_cache') })
 
     return menuItems
-  }, [t, isLiked, selectInfoRef.current.musicInfo])
+  }, [t, isLiked, renderLikeLabel])
 
   const handleMenuPress = ({ action }: (typeof menus)[number]) => {
     const selectInfo = selectInfoRef.current

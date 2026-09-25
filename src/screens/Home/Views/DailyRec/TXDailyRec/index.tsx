@@ -115,20 +115,6 @@ export default memo(() => {
     return () => { subscription.remove() }
   }, [])
 
-  const renderTabContent = () => {
-    switch (activeTab) {
-      case 'home':
-        return <RecSongs type="home" onOpenDetail={handleOpenDetail} />
-      case 'radar':
-        return <RecSongs type="radar" />
-      case 'songlist':
-        return <RecPlaylists onOpenDetail={handleOpenDetail} />
-      case 'newsong':
-        return <RecSongs type="newsong" />
-      default:
-        return <RecSongs type="home" onOpenDetail={handleOpenDetail} />
-    }
-  }
 
   const pageHeader = (
     <>

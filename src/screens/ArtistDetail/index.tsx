@@ -128,7 +128,7 @@ export default memo(({ componentId, artistInfo }: { componentId: string, artistI
         toast('获取歌手信息失败')
       })
     }
-  }, [componentId, artistInfo.id, artistInfo.source])
+  }, [componentId, artistInfo])
 
   const loadSongs = useCallback((sort: string, page: number, isRefresh = false) => {
     // FlatList 的 onEndReached 在 iOS 上可能连续触发多次。用 ref 做同步锁，
@@ -190,7 +190,7 @@ export default memo(({ componentId, artistInfo }: { componentId: string, artistI
         applyResult(data)
       })
       .catch(applyError)
-  }, [artistInfo.id, artistInfo.source])
+  }, [artistInfo])
 
   const loadAlbums = useCallback((page: number, isRefresh = false) => {
     const currentApi = getApi(artistInfo.source)
@@ -262,7 +262,7 @@ export default memo(({ componentId, artistInfo }: { componentId: string, artistI
       })
       return { ...prev, loading: true }
     })
-  }, [artistInfo.id, artistInfo.source])
+  }, [artistInfo])
 
 
   useEffect(() => {
@@ -271,7 +271,7 @@ export default memo(({ componentId, artistInfo }: { componentId: string, artistI
     } else {
       if (albums.list.length === 0) loadAlbums(1, false)
     }
-  }, [activeTab, artistInfo.id])
+  }, [activeTab, artistInfo, albums.list.length, loadAlbums, loadSongs, songs.list.length, songs.sort])
 
   useEffect(() => {
     if (isFirstSortEffect.current) {
@@ -280,7 +280,7 @@ export default memo(({ componentId, artistInfo }: { componentId: string, artistI
     }
     setSongs(prev => ({ ...prev, page: 1, list: [], hasMore: true }))
     loadSongs(songs.sort, 1, true)
-  }, [songs.sort])
+  }, [songs.sort, loadSongs])
 
   const handleLoadMoreSongs = () => {
     loadSongs(songs.sort, songs.page)
@@ -320,7 +320,7 @@ export default memo(({ componentId, artistInfo }: { componentId: string, artistI
       setAlbums(prev => ({ ...prev, page: 1, list: [], hasMore: true }))
       loadAlbums(1, true)
     }
-  }, [artistInfo.id, songs.sort, loadSongs, activeTab, loadAlbums])
+  }, [artistInfo, songs.sort, loadSongs, activeTab, loadAlbums])
 
 
   const handleAlbumViewModeChange = useCallback((mode: 'grid' | 'list') => {

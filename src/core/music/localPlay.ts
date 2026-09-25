@@ -230,7 +230,7 @@ const readSidecarLyric = async(filePath: string): Promise<string | null> => {
 
 export const getLyricInfo = async({
   target,
-  isRefresh = false,
+  isRefresh: _isRefresh = false,
 }: {
   target: LocalPlayTarget
   isRefresh?: boolean

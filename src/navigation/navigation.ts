@@ -15,7 +15,7 @@ import playerState from '@/store/player/state'
 import settingState from '@/store/setting/state'
 import commonState from '@/store/common/state'
 import commonActions from '@/store/common/action'
-import { NAV_SHEAR_NATIVE_IDS, COMPONENT_IDS } from '@/config/constant'
+import { COMPONENT_IDS } from '@/config/constant'
 import { getStatusBarStyle } from './utils'
 import { type ListInfoItem } from '@/store/songlist/state'
 

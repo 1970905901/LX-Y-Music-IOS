@@ -386,7 +386,7 @@ const getMusicPlayUrl = async(musicInfo: LX.Music.MusicInfo | LX.Download.ListIt
     return getMusicUrlInfo({
       musicInfo,
       isRefresh,
-      onToggleSource(mInfo) {
+      onToggleSource(_mInfo) {
         if (diffCurrentMusicInfo(musicInfo)) return
         setStatusText(global.i18n.t('toggle_source_try'))
       },

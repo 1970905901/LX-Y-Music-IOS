@@ -78,7 +78,7 @@ const setLists = (
   return listInfo.list
 }
 
-const setList = (datas: SearchResult, page: number, text: string): LX.Music.MusicInfoOnline[] => {
+const setList = (datas: SearchResult, page: number, _text: string): LX.Music.MusicInfoOnline[] => {
   // console.log(datas.source, datas.list)
   let listInfo = state.listInfos[datas.source]!
   const list = datas.list.map(convertMusicInfo).filter((item): item is LX.Music.MusicInfoOnline => item !== null)

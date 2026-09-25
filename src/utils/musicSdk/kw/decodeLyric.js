@@ -2,7 +2,7 @@ const { inflate } = require('pako')
 const iconv = require('iconv-lite')
 
 const handleInflate = (data) =>
-  new Promise((resolve, reject) => {
+  new Promise((resolve, _reject) => {
     resolve(Buffer.from(inflate(data)))
   })
 

@@ -87,7 +87,7 @@ export default ({ onChangeId }: { onChangeId: (id: SettingScreenIds) => void }) 
     global.lx.settingActiveId = id
   }
 
-  const renderItem: FlatListType['renderItem'] = ({ item, index }) => (
+  const renderItem: FlatListType['renderItem'] = ({ item, index: _index }) => (
     <ListItem key={item} id={item} activeId={activeId} onPress={handleChangeId} />
   )
   const getkey: FlatListType['keyExtractor'] = (item) => item

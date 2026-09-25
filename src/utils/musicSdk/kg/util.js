@@ -9,7 +9,7 @@ const enc_key = Buffer.from(
   'binary',
 )
 export const decodeLyric = (str) =>
-  new Promise((resolve, reject) => {
+  new Promise((resolve, _reject) => {
     if (!str.length) return
     const buf_str = Buffer.from(str, 'base64').slice(4)
     for (let i = 0, len = buf_str.length; i < len; i++) {

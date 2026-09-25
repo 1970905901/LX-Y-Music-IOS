@@ -159,7 +159,6 @@ const List = ({ source, lists, onPlay }: {
 const SourceDetail = ({ info, onConfirm, toggleSource }: { info: LX.Music.MusicInfo, onConfirm: (info: LX.Music.MusicInfoOnline) => void, toggleSource: LX.Music.MusicInfoOnline | null }) => {
   const theme = useTheme()
   const isHorizontalMode = useHorizontalMode()
-  const t = useI18n()
 
   return isHorizontalMode ? (
     <View style={styles.detailContainer}>

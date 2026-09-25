@@ -1,7 +1,6 @@
 import { useCallback, useRef } from 'react'
 
 import listState from '@/store/list/state'
-import settingState from '@/store/setting/state'
 import ListMenu, { type ListMenuType, type Position, type SelectInfo } from './ListMenu'
 import {
   handleDislikeMusic,
@@ -19,8 +18,8 @@ import ListMusicAdd, {
 import ListMusicMultiAdd, {
   type MusicMultiAddModalType as ListAddMultiType,
 } from '@/components/MusicMultiAddModal'
-import { createStyle, toast } from '@/utils/tools'
-import { type LayoutChangeEvent, TouchableOpacity, View, StyleSheet } from 'react-native'
+import { createStyle } from '@/utils/tools'
+import { type LayoutChangeEvent, View, StyleSheet } from 'react-native'
 import ActiveList, { type ActiveListType } from './ActiveList'
 import MultipleModeBar, { type SelectMode, type MultipleModeBarType } from './MultipleModeBar'
 import ListSearchBar, { type ListSearchBarType } from './ListSearchBar'

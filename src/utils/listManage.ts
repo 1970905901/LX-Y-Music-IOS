@@ -359,7 +359,6 @@ export async function applyListOperation(
     }
 
     case 'list_update_position': {
-      const allUserLists = Array.from(userListMap.values())
       const listsToMove: LX.List.UserListInfoFull[] = []
       const remainingMap = new Map(userListMap)
       const idsToMove = new Set(operation.data.ids)

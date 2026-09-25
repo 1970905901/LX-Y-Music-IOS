@@ -14,7 +14,7 @@ export default ({ componentId }: { componentId: string }) => {
 
   useEffect(() => {
     setComponentId(COMPONENT_IDS.playDetail, componentId)
-  }, [])
+  }, [componentId])
 
   return (
     <PageContent backgroundFadeIn>

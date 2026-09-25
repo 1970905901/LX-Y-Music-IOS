@@ -12,7 +12,6 @@ import { setActiveList } from '@/core/list'
 import Text from '@/components/common/Text'
 import { LIST_IDS } from '@/config/constant'
 import Loading from '@/components/common/Loading'
-import { useSettingValue } from '@/store/setting/hook'
 
 export interface ActiveListProps {
   onShowSearchBar: () => void
@@ -30,7 +29,6 @@ export default forwardRef<ActiveListType, ActiveListProps>(
     const theme = useTheme()
     const currentListId = useActiveListId()
     const fetching = useListFetching(currentListId)
-    const langId = useSettingValue('common.langId')
     const currentListName = useMemo(() => {
       switch (currentListId) {
         case LIST_IDS.TEMP:
@@ -42,7 +40,7 @@ export default forwardRef<ActiveListType, ActiveListProps>(
         default:
           return listState.allList.find((l) => l.id === currentListId)?.name ?? ''
       }
-    }, [currentListId, langId])
+    }, [currentListId])
     const [visibleBar, setVisibleBar] = useState(true)
 
     useImperativeHandle(ref, () => ({

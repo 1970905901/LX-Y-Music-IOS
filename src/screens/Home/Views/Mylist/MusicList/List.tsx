@@ -74,7 +74,10 @@ const List = forwardRef<ListType, ListProps>(
     // 否则 useRef 固化挂载时刻的值，numColumns 永不更新。
     // numColumns 变更时 FlatList 必须重挂载（见下方 key），否则 RN 会报错。
     const isHorizontal = useHorizontalMode()
-    const rowInfo = useMemo(() => getRowInfo(), [isHorizontal])
+    const rowInfo = useMemo(() => {
+      void isHorizontal
+      return getRowInfo()
+    }, [isHorizontal])
     const numColumns = rowInfo.rowNum ?? 1
     // [] 依赖的 effect（jumpListPosition 等）内需要读到最新列数，用 ref 镜像
     const rowInfoRef = useRef(rowInfo)

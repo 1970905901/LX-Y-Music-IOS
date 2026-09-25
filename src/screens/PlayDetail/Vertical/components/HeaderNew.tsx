@@ -59,7 +59,7 @@ const AnimatedIndicatorDot = ({ isActive }: { isActive: boolean }) => {
         friction: 7,
       }),
     ]).start()
-  }, [isActive])
+  }, [isActive, animatedOpacity, animatedWidth])
 
   return (
     <Animated.View

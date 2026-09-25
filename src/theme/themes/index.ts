@@ -45,7 +45,6 @@ export const removeTheme = async(id: string) => {
 
 export type LocalTheme = (typeof themes)[number]
 type ColorsKey = keyof LX.Theme['config']['themeColors']
-type ExtInfoKey = keyof LX.Theme['config']['extInfo']
 const varColorRxp = /^var\((.+)\)$/
 export const buildActiveThemeColors = (theme: LX.Theme): LX.ActiveTheme => {
   let bgImg: ImageSourcePropType | undefined

@@ -37,7 +37,7 @@ const artistApi = {
    * @param {number} offset - 偏移量
    * @returns {Object} 歌曲列表
    */
-  async getSongs(singerid, sort = 'hot', limit = 30, offset = 0) {
+  async getSongs(singerid, _sort = 'hot', limit = 30, offset = 0) {
     if (!singerid || singerid == 0) throw new Error('歌手不存在')
 
     const page = Math.floor(offset / limit) + 1

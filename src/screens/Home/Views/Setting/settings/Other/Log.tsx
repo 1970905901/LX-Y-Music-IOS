@@ -1,5 +1,5 @@
 import { memo, useRef, useState, useEffect } from 'react'
-import { View, Clipboard, Text as RNText, ScrollView } from 'react-native'
+import { View, Clipboard, Text as RNText } from 'react-native'
 import { getLogs, clearLogs } from '@/utils/log'
 
 import SubTitle from '../../components/SubTitle'

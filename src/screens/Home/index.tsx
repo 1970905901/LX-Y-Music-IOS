@@ -16,7 +16,6 @@ import { useBackHandler } from '@/utils/hooks/useBackHandler.ts'
 
 import { setSearchText as setSearchState } from '@/core/search/search'
 import DownloadBall from '@/components/DownloadBall'
-import YouTubeLoginManager from '@/components/YouTubeLoginManager.tsx'
 interface Props {
   componentId: string
 }

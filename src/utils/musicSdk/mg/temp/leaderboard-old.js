@@ -49,7 +49,7 @@ const boardList = [
 
 export default {
   limit: 10000,
-  getUrl(id, page) {
+  getUrl(id, _page) {
     const targetBoard = boardList.find((board) => board.bangid == id)
     return `https://music.migu.cn/v3/music/top/${targetBoard.webId}`
     // return `http://m.music.migu.cn/migu/remoting/cms_list_tag?nid=${id}&pageSize=${this.limit}&pageNo=${page - 1}`
@@ -150,7 +150,7 @@ export default {
     }
     return list
   },
-  async getBoards(retryNum = 0) {
+  async getBoards(_retryNum = 0) {
     // if (++retryNum > 3) return Promise.reject(new Error('try max num'))
     // let response
     // try {
@@ -174,12 +174,12 @@ export default {
       source: 'mg',
     }
   },
-  getList(bangid, page, retryNum = 0) {
-    if (++retryNum > 3) return Promise.reject(new Error('try max num'))
+  getList(bangid, page, _retryNum = 0) {
+    if (++_retryNum > 3) return Promise.reject(new Error('try max num'))
     return this.getData(this.getUrl(bangid, page)).then(({ statusCode, body }) => {
-      if (statusCode !== 200) return this.getList(bangid, page, retryNum)
+      if (statusCode !== 200) return this.getList(bangid, page, _retryNum)
       let listData = body.match(this.regExps.listData)
-      if (!listData) return this.getList(bangid, page, retryNum)
+      if (!listData) return this.getList(bangid, page, _retryNum)
       const datas = JSON.parse(RegExp.$1)
       // console.log(datas)
       listData = this.filterData(datas.songs.items)

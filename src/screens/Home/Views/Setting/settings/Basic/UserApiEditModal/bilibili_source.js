@@ -16,36 +16,6 @@ const headers = {
   'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6',
 }
 
-let cookie = null
-async function getCookie() {
-  if (!cookie) {
-    let cancel = request('https://api.bilibili.com/x/frontend/finger/spi', {
-      headers: { 'User-Agent': UA },
-    }, (err, resp) => {
-      if (!err) {
-        cookie = resp.body.data
-      }
-    })
-    await new Promise((resolve) => {
-      const timer = setTimeout(() => {
-        resolve()
-      }, 5000)
-      const originalOnComplete = cancel
-      cancel = () => {
-        clearTimeout(timer)
-        originalOnComplete?.()
-        resolve()
-      }
-    })
-  }
-  return cookie
-}
-
-function getCookieString() {
-  if (!cookie) return ''
-  return `buvid3=${cookie.b_3};buvid4=${cookie.b_4}`
-}
-
 async function getCid(bvid, aid) {
   return new Promise((resolve) => {
     const params = bvid ? { bvid } : { aid }
@@ -60,19 +30,6 @@ async function getCid(bvid, aid) {
       }
     })
   })
-}
-
-function durationToSec(duration) {
-  if (typeof duration === 'number') {
-    return duration
-  }
-  if (typeof duration === 'string') {
-    const dur = duration.split(':')
-    return dur.reduce(function(prev, curr) {
-      return 60 * prev + +curr
-    }, 0)
-  }
-  return 0
 }
 
 async function getMediaSource(musicInfo, quality) {
@@ -145,7 +102,7 @@ async function getMediaSource(musicInfo, quality) {
   })
 }
 
-on(EVENT_NAMES.request, ({ source, action, info }) => {
+on(EVENT_NAMES.request, ({ source: _source, action, info }) => {
   switch (action) {
     case 'musicUrl':
       return getMediaSource(info.musicInfo, info.type).catch(err => {

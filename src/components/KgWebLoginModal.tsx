@@ -1,5 +1,5 @@
 import { forwardRef, useImperativeHandle, useRef, useCallback, useState, useEffect } from 'react'
-import { View, StyleSheet, TouchableOpacity, TextInput, ScrollView, ActivityIndicator, Modal as RNModal } from 'react-native'
+import { View, StyleSheet, TouchableOpacity, TextInput, ScrollView, Modal as RNModal } from 'react-native'
 import WebView from 'react-native-webview'
 import Modal, { type ModalType } from '@/components/common/Modal'
 import { useTheme } from '@/store/theme/hook'
@@ -101,7 +101,7 @@ const KgWebLoginModal = forwardRef<KgWebLoginModalType, object>((_, ref) => {
       setSending(false); setCooldown(2)
       cdRef.current = setInterval(() => { setCooldown(p => { if (p <= 1) { if (cdRef.current) { clearInterval(cdRef.current); cdRef.current = null }; return 0 }; return p - 1 }) }, 1000)
     }
-  }, [phone, cooldown, sending])
+  }, [phone, cooldown])
   sendRef.current = () => { void handleSendCode() }
 
   const handleMultiLogin = useCallback(async(userId: string) => {

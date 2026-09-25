@@ -1,7 +1,6 @@
 import { memo } from 'react'
 
 import Section from '../../components/Section'
-import IsEnable from './IsEnable'
 import IsWriteLyrics from './IsWriteLyrics'
 import IsWriteRomaLyrics from './IsWriteRomaLyrics'
 import IsWriteEmbedLyrics from './IsWriteEmbedLyrics'

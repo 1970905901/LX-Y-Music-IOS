@@ -5,7 +5,7 @@ import { setLanguage as applyLanguage } from '@/lang/i18n'
 
 import settingActions from '@/store/setting/action'
 import commonActions from '@/store/common/action'
-import commonState, { type InitState as CommonStateType } from '@/store/common/state'
+import commonState, { } from '@/store/common/state'
 import { type COMPONENT_IDS } from '@/config/constant'
 
 import {

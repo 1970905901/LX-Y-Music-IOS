@@ -67,15 +67,6 @@ function wordArrayFromBuffer(uint8: Uint8Array): CryptoJS.lib.WordArray {
   return CryptoJS.lib.WordArray.create(words, uint8.length)
 }
 
-function wordArrayToBuffer(wordArray: CryptoJS.lib.WordArray): Uint8Array {
-  const { words, sigBytes } = wordArray
-  const uint8 = new Uint8Array(sigBytes)
-  for (let i = 0; i < sigBytes; i++) {
-    uint8[i] = (words[i >>> 2] >>> (24 - (i % 4) * 8)) & 0xff
-  }
-  return uint8
-}
-
 function uint8ArrayToHex(arr: Uint8Array): string {
   return Array.from(arr)
     .map(b => b.toString(16).padStart(2, '0'))

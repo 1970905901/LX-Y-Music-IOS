@@ -136,7 +136,7 @@ export default forwardRef(({ header, searchType, source }: SearchResultListProps
     },
   }))
 
-  const renderItemContent = ({ item, index }: { item: any, index: number }) => {
+  const renderItemContent = useCallback(({ item, index }: { item: any, index: number }) => {
     log.info('[SearchResultList] === 渲染列表项 ===', {
       index,
       searchType,
@@ -157,7 +157,7 @@ export default forwardRef(({ header, searchType, source }: SearchResultListProps
       return <AlbumListItem item={item} showSubscribeButton={true} />
     }
     return null
-  }
+  }, [searchType])
 
   // 横屏双列时每项包一层等宽容器（对齐 SubscribedAlbums / FollowedArtists 模式）
   const renderItem = useCallback(
@@ -167,7 +167,7 @@ export default forwardRef(({ header, searchType, source }: SearchResultListProps
       ) : (
         renderItemContent({ item, index })
       ),
-    [isHorizontal, searchType],
+    [isHorizontal, renderItemContent],
   )
 
   return (

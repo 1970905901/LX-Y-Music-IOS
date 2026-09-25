@@ -167,10 +167,6 @@ const getMergedExtraData = async(remoteData: ListsSyncFile): Promise<ListsSyncEx
   }
 }
 
-const getLocalExtraDataForSync = async(): Promise<ListsSyncExtraData> => ({
-  playHistory: settingState.setting['sync.webdav.syncPlayHistory'] ? await getPlayHistory() : [],
-  downloadTasks: settingState.setting['sync.webdav.syncDownloadTasks'] ? normalizeDownloadTasksForSync(downloadState.tasks) : [],
-})
 
 const hasLocalExtraDataChanges = async(remoteData: ListsSyncFile) => {
   const localHistory = settingState.setting['sync.webdav.syncPlayHistory'] ? await getPlayHistory() : []
@@ -393,7 +389,6 @@ export async function triggerWebDAVSync(isManual = false) {
 
   try {
     const remoteListsContent = await webdav.downloadFile(remoteListsPath)
-    const localOpQueue = getOperationQueue()
 
     if (remoteListsContent === null) {
       webDAVLog.info('[Sync] Remote lists not found. Uploading local state.')

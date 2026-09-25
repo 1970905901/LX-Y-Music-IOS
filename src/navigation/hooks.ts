@@ -6,7 +6,7 @@ export const useNavigationCommandComplete = (callback = () => {}) => {
   useEffect(() => {
     // Register the listener to all events related to our component
     let commandCompletedListener: EmitterSubscription | null =
-      Navigation.events().registerCommandCompletedListener(({ commandId }) => {
+      Navigation.events().registerCommandCompletedListener(({ commandId: _commandId }) => {
         callback()
         if (!commandCompletedListener) return
         commandCompletedListener.remove()

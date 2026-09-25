@@ -12,7 +12,6 @@ export interface SelectInfo {
   listId: string
   single: boolean
 }
-const initSelectInfo = {}
 
 export interface ListMenuProps {
   onPlay: (selectInfo: SelectInfo) => void

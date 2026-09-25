@@ -1,16 +1,14 @@
-import musicSdk, { findMusic } from '@/utils/musicSdk'
+import { findMusic } from '@/utils/musicSdk'
 import { getWebDAVConfig, updateWebDAVMusicMeta, getWebDAVDownloadUrl, saveWebDAVConfig } from '@/core/webdavMusic/drive'
 import { downloadFile, existsFile, mkdir, getWebDAVPrivateDirectory } from '@/utils/fs'
 import { toast, requestStoragePermission } from '@/utils/tools'
 import settingState from '@/store/setting/state'
-import playerState from '@/store/player/state'
 import { btoa } from 'react-native-quick-base64'
 import { updateListMusics, addListMusics } from '@/core/list'
 import { webDAVLog } from '@/core/webdavMusic/logger'
 import { readPic, readMetadata } from '@/utils/localMediaMetadata'
-import { getPicPath, handleGetOnlinePicUrl } from '@/core/music'
+import { handleGetOnlinePicUrl } from '@/core/music'
 import { LIST_IDS } from '@/config/constant'
-import { toOldMusicInfo } from '@/utils'
 
 
 const getAuthHeaders = (): Record<string, string> => {
@@ -250,7 +248,7 @@ export const handleWebDAVDownloadAndImport = async(
       async(listId, musicInfos) => {
         return updateListMusics(musicInfos.map((info) => ({ id: listId, musicInfo: info })))
       },
-      async(listId, errorPath) => {
+      async(_listId, _errorPath) => {
         return Promise.resolve()
       },
       LIST_IDS.DOWNLOAD,

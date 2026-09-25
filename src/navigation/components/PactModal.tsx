@@ -224,7 +224,7 @@ const Footer = ({ componentId }: { componentId: string }) => {
     return () => {
       timeoutTools.clear()
     }
-  }, [])
+  }, [isAgreePact])
 
   return (
     <>

@@ -2,7 +2,6 @@ import { memo, useCallback, useState } from 'react'
 import { View } from 'react-native'
 import SubTitle from '../../components/SubTitle'
 import Slider, { type SliderProps } from '../../components/Slider'
-import { useI18n } from '@/lang'
 import { useSettingValue } from '@/store/setting/hook'
 import { useTheme } from '@/store/theme/hook'
 import { createStyle } from '@/utils/tools'
@@ -10,7 +9,6 @@ import Text from '@/components/common/Text'
 import { updateSetting } from '@/core/common'
 
 export default memo(() => {
-  const t = useI18n()
   const picOpacity = useSettingValue('theme.picOpacity')
   const theme = useTheme()
 

@@ -1,4 +1,4 @@
-import { createStyle, toast } from '@/utils/tools'
+import { createStyle } from '@/utils/tools'
 import { View, type TouchableOpacity } from 'react-native'
 import PlayModeBtn from './PlayModeBtn'
 import CommentBtn from './CommentBtn'
@@ -15,7 +15,6 @@ import { handleLikeMusic, handleTxLikeMusic, handleKgLikeMusic, handleShowAlbumD
 import MusicAddModal, { type MusicAddModalType } from '@/components/MusicAddModal'
 import settingState from '@/store/setting/state'
 import SimilarSongsModal, { type SimilarSongsModalType } from '@/components/SimilarSongsModal'
-import { usePlayMusicInfo } from '@/store/player/hook'
 
 
 export default memo(({ componentId }: { componentId: string }) => {
@@ -23,7 +22,6 @@ export default memo(({ componentId }: { componentId: string }) => {
   const moreBtnRef = useRef<TouchableOpacity>(null)
   const musicAddModalRef = useRef<MusicAddModalType>(null)
   const similarSongsModalRef = useRef<SimilarSongsModalType>(null)
-  const playMusicInfo = usePlayMusicInfo()
 
   useEffect(() => {
     const handleMusicChange = () => {

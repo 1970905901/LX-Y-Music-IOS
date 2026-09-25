@@ -291,7 +291,7 @@ const DislikeModeModal = () => {
 export default ({ componentId }: { componentId: string }) => {
   useEffect(() => {
     setSyncModeComponentId(componentId)
-  }, [])
+  }, [componentId])
 
   return (
     <ModalContent>

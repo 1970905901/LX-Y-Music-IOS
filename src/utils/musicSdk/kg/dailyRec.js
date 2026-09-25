@@ -4,7 +4,6 @@
  */
 import { httpFetch } from '../../request'
 import { log } from '@/utils/log'
-import { stringMd5 } from 'react-native-quick-md5'
 import { formatPlayTime } from '../../index'
 import { getBatchMusicQualityInfo } from './quality_detail'
 import { signAndroidParams, getDeviceInfo, buildHeaders } from './utils/shared'

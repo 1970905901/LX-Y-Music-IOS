@@ -251,7 +251,7 @@ export default {
     }
     return list
   },
-  async getBoards(retryNum = 0) {
+  async getBoards(_retryNum = 0) {
     // if (++retryNum > 3) return Promise.reject(new Error('try max num'))
     // let response
     // try {
@@ -275,14 +275,14 @@ export default {
       source: 'tx',
     }
   },
-  getList(bangid, page, retryNum = 0) {
-    if (++retryNum > 3) return Promise.reject(new Error('try max num'))
+  getList(bangid, page, _retryNum = 0) {
+    if (++_retryNum > 3) return Promise.reject(new Error('try max num'))
     bangid = parseInt(bangid)
     let info = this.periods[bangid]
     let p = info ? Promise.resolve(info.period) : this.getPeriods(bangid)
     return p.then((period) => {
       return this.listDetailRequest(bangid, period, this.limit).then((resp) => {
-        if (resp.body.code !== 0) return this.getList(bangid, page, retryNum)
+        if (resp.body.code !== 0) return this.getList(bangid, page, _retryNum)
         const toplistData = resp.body.toplist?.data || {}
         const songInfoList = toplistData.songInfoList || []
         const totalNum = toplistData.totalNum ?? songInfoList.length

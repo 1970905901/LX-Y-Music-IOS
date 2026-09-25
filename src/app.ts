@@ -9,7 +9,6 @@ import { exitApp } from './utils/nativeModules/utils'
 import { windowSizeTools } from './utils/windowSizeTools'
 import { listenLaunchEvent } from './navigation/regLaunchedEvent'
 import { tipDialog } from './utils/tools'
-import settingState from '@/store/setting/state'
 
 // --- START: CONSOLE LOG PATCH (v2) ---
 const originalCreateElement = React.createElement

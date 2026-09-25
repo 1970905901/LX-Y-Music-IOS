@@ -30,7 +30,7 @@ const getMusicUrl = (songInfo, type) => {
 export default {
   musicSearch,
   getMusicUrl,
-  getLyric(songInfo) {
+  getLyric(_songInfo) {
     const requestObj = {}
     requestObj.promise = Promise.resolve({ lyric: '[00:00.000]暂无歌词', tlyric: '' })
     return requestObj

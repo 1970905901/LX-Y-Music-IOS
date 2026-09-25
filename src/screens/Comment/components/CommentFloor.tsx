@@ -70,7 +70,7 @@ const CommentFloor = memo(({
         ))}
       </View>
     )
-  }, [onReply, onDelete, canDelete, showActions])
+  }, [comment.id, comment.reply, onReply, onDelete, canDelete, showActions, theme])
 
   const likedCount = useMemo(() => {
     if (comment.likedCount == null) return null
@@ -82,7 +82,7 @@ const CommentFloor = memo(({
         </Text>
       </View>
     )
-  }, [])
+  }, [comment.likedCount, theme])
 
   const showDeleteBtn = showActions && canDelete?.(comment)
 

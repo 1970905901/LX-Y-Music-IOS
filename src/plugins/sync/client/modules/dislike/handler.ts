@@ -19,7 +19,7 @@ const handler: LX.Sync.ClientSyncHandlerDislikeActions<LX.Sync.Socket> = {
     await handleRemoteDislikeAction(action)
   },
 
-  async dislike_sync_get_md5(socket) {
+  async dislike_sync_get_md5(_socket) {
     logInfo('dislike:sync:dislike_sync_get_md5')
     return toMD5((await getLocalDislikeData()).trim())
   },
@@ -32,7 +32,7 @@ const handler: LX.Sync.ClientSyncHandlerDislikeActions<LX.Sync.Socket> = {
     return selectSyncMode(socket.data.keyInfo.serverName, 'dislike').finally(unsubscribe)
   },
 
-  async dislike_sync_get_list_data(socket) {
+  async dislike_sync_get_list_data(_socket) {
     logInfo('dislike:sync:dislike_sync_get_list_data')
     return getLocalDislikeData()
   },

@@ -152,7 +152,7 @@ export default memo(({ componentId }: { componentId: string }) => {
 
   useEffect(() => {
     setComponentId(COMPONENT_IDS.comment, componentId)
-  }, [])
+  }, [componentId])
 
   const tabs = useMemo(() => {
     return [

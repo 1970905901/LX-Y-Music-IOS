@@ -35,7 +35,7 @@ const AnimatedCover = Animated.createAnimatedComponent(FastImage)
  * - 不使用 RNN sharedElementTransitions：iOS 上会被原生层劫持成错位大图；封面与导航转场解耦。
  * - 尺寸：min(屏宽 * 0.65, 可用高 * 0.5)，居中。
  */
-export default memo(({ componentId }: { componentId: string }) => {
+export default memo(({ componentId: _componentId }: { componentId: string }) => {
   const playerMusicInfo = usePlayerMusicInfo()
   const playMusicInfo = usePlayMusicInfo()
   const { width: winWidth, height: winHeight } = useWindowSize()
@@ -126,7 +126,7 @@ export default memo(({ componentId }: { componentId: string }) => {
     if (isPlay && isCoverSpin && musicId) {
       startAnimation()
     }
-  }, [musicId, isCoverSpin, startAnimation, stopAnimation, spinValue])
+  }, [musicId, isPlay, isCoverSpin, startAnimation, stopAnimation, spinValue])
 
   useEffect(() => {
     return () => {

@@ -66,7 +66,7 @@ export default ({ onChangeId }: { onChangeId: (id: SettingScreenIds) => void }) 
     onChangeId(id)
     setActiveId(id)
     global.lx.settingActiveId = id
-  }, [])
+  }, [onChangeId])
 
   return (
     <ScrollView

@@ -1,4 +1,4 @@
-import { memo, useCallback, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { View } from 'react-native'
 import Status from './Status'
 import { createStyle } from '@/utils/tools'

@@ -309,7 +309,7 @@ export default () => {
   //   - 句末到下一句起的间隙 [lineEndTime, nextTime]：从当前行中心平滑滚动到下一行中心（放完再滚动）。
   // 无逐字歌词（纯 LRC）时回退为整行匀速连续滚动（卡拉OK 式顺滑上移），避免无逐字时整段硬跳。
   // 行级高亮着色仍由 useLrcPlay 的 line 驱动；本函数只负责位置连续（每帧基于精确时间计算）。
-  const scrollToActiveContinuous = () => {
+  const scrollToActiveContinuous = useCallback(() => {
     const t = audioClock.getTime() * 1000 // ms
     if (t === lastContinuousTimeRef.current) return // 暂停/无推进时跳过
     lastContinuousTimeRef.current = t
@@ -351,7 +351,7 @@ export default () => {
     try {
       flatListRef.current.scrollToOffset({ offset, animated: false })
     } catch { }
-  }
+  }, [lyricLines])
 
   const handleScroll = ({ nativeEvent }: NativeSyntheticEvent<NativeScrollEvent>) => {
     scrollInfoRef.current = nativeEvent
@@ -385,6 +385,17 @@ export default () => {
       handleScrollToActive()
     }, 3000)
   }
+
+  // 进入/切歌后布局（spaceComponent / 行高）可能尚未完成，首跳落点可能有偏差；
+  // 等行测量 / 列表高度就位（防抖 150ms）后静默回正一次，保证高亮行最终严格居中（对齐竖屏）。
+  const scheduleRecentre = useCallback(() => {
+    if (recentreTimerRef.current) clearTimeout(recentreTimerRef.current)
+    recentreTimerRef.current = setTimeout(() => {
+      recentreTimerRef.current = null
+      if (isPauseScrollRef.current) return
+      handleScrollToActive(lineRef.current.line, true)
+    }, 150)
+  }, [handleScrollToActive])
 
   useEffect(() => {
     return () => {
@@ -431,7 +442,7 @@ export default () => {
       // 布局（spaceComponent / 行高）可能尚未完成，150ms 后再次精确回正确保高亮行居中。
       scheduleRecentre()
     })
-  }, [lyricLines])
+  }, [lyricLines, handleScrollToActive, line, scheduleRecentre])
 
   useEffect(() => {
     if (line < 0) return
@@ -444,7 +455,7 @@ export default () => {
     if (forceScrollRef.current) {
       handleScrollToActive(lineRef.current.line, true)
     }
-  }, [line])
+  }, [line, handleScrollToActive])
 
   // 每帧连续平滑滚动循环：歌词页激活且非用户手动滚动、非强制定位时，基于外推时钟精确时间驱动歌词连续上移。
   // iOS 后台 / 锁屏时 rAF 暂停（歌词停滚无妨）；前台播放每帧（~16ms）定位，消除原来的行级跳变。
@@ -458,7 +469,7 @@ export default () => {
     }
     rafId = requestAnimationFrame(loop)
     return () => { cancelAnimationFrame(rafId) }
-  }, [lyricLines])
+  }, [lyricLines, scrollToActiveContinuous])
 
   // 拖动进度条 / 跳转 / 恢复播放等用户动作期间强制让歌词列表立即滚动到高亮行，
   // 保证高亮行与进度条（及音频）绝对同步，结束后回归连续滚动。
@@ -491,17 +502,6 @@ export default () => {
       handleScrollToActive(info.index, true)
     })
   }
-
-  // 进入/切歌后布局（spaceComponent / 行高）可能尚未完成，首跳落点可能有偏差；
-  // 等行测量 / 列表高度就位（防抖 150ms）后静默回正一次，保证高亮行最终严格居中（对齐竖屏）。
-  const scheduleRecentre = useCallback(() => {
-    if (recentreTimerRef.current) clearTimeout(recentreTimerRef.current)
-    recentreTimerRef.current = setTimeout(() => {
-      recentreTimerRef.current = null
-      if (isPauseScrollRef.current) return
-      handleScrollToActive(lineRef.current.line, true)
-    }, 150)
-  }, [handleScrollToActive])
 
   const handleLineLayout = useCallback<LineProps['onLayout']>((lineNum, height, _width, isPlayed, isActive) => {
     const layout = lyricScrollLayoutRef.current
@@ -556,7 +556,7 @@ export default () => {
     }
 
     handleScrollToActive(index)
-  }, [isShowLyricProgressSetting, lyricLines])
+  }, [isShowLyricProgressSetting, lyricLines, handleScrollToActive])
 
   const renderItem: FlatListType['renderItem'] = ({ item, index }) => {
     return <LrcLine line={item} lineNum={index} activeLine={line} onLayout={handleLineLayout} onPress={handleLinePress} wordsByIndex={wordsByIndex} />

@@ -8,7 +8,10 @@ export const useAnimateNumber = (
   duration = DEFAULT_DURATION,
   useNativeDriver = true,
 ) => {
-  const anim = useMemo(() => new Animated.Value(0), [val])
+  const anim = useMemo(() => {
+    void val
+    return new Animated.Value(0)
+  }, [val])
   const [finished, setFinished] = useState(true)
   const currentNumber = useRef(val)
   const nextNumber = useMemo(() => val, [val])
@@ -35,7 +38,7 @@ export const useAnimateNumber = (
     requestAnimationFrame(() => {
       currentNumber.current = nextNumber
     })
-  }, [nextNumber])
+  }, [nextNumber, anim, duration, useNativeDriver])
 
   return [animNumber, finished] as const
 }
@@ -66,7 +69,7 @@ export const useAnimateOnecNumber = (
       // currentNumber.current = nextNumber
       setFinished(true)
     })
-  }, [])
+  }, [anim, duration, useNativeDriver])
 
   return [animNumber, finished] as const
 }

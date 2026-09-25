@@ -1,4 +1,4 @@
-import { forwardRef, useImperativeHandle, useRef, useState, useEffect, useCallback, memo, useMemo } from 'react'
+import { forwardRef, useImperativeHandle, useRef, useState, useEffect, useCallback, useMemo } from 'react'
 import AnimatedSlideUpPanel, { type AnimatedSlideUpPanelType } from '@/components/common/AnimatedSlideUpPanel'
 import { useI18n } from '@/lang'
 import { FlatList, View, TouchableOpacity } from 'react-native'
@@ -7,7 +7,7 @@ import { useTheme } from '@/store/theme/hook'
 import playerState from '@/store/player/state'
 import listState from '@/store/list/state'
 import { usePlayerMusicInfo, useTempPlayList } from '@/store/player/hook'
-import { createStyle, toast, type RowInfo } from '@/utils/tools'
+import { createStyle, toast } from '@/utils/tools'
 import { scaleSizeH } from '@/utils/pixelRatio'
 import { LIST_ITEM_HEIGHT, LIST_IDS } from '@/config/constant'
 import MusicAddModal, { type MusicAddModalType } from '@/components/MusicAddModal'
@@ -30,7 +30,6 @@ import {
   handleShowAlbumDetail,
   handleShowArtistDetail,
 } from '@/components/OnlineList/listAction'
-import settingState from '@/store/setting/state'
 import commonState from '@/store/common/state'
 import SimilarSongsModal, { type SimilarSongsModalType } from '@/components/SimilarSongsModal'
 
@@ -94,7 +93,7 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
     if (id === LIST_IDS.LOVE) return t('list_name_love')
     if (id === LIST_IDS.DOWNLOAD) return t('list_name_download')
     return listState.allList.find(l => l.id === id)?.name ?? t('list_name_play')
-  }, [isTempMode, playerMusicInfo.id])
+  }, [isTempMode, t])
 
   // 普通列表模式下，playlist 直接读 store 中的歌单数据（getListMusicSync）。
   // 该数据变化只通过 global.list_event 广播，不会触发组件重新计算，
@@ -128,8 +127,9 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
     if (tempItems.length) return tempItems
     const listId = playerState.playInfo.playerListId
     if (!listId) return []
+    void listVersion
     return (getList(listId) as LX.Player.PlayMusic[])
-  }, [tempPlayList, playerMusicInfo.id, listVersion])
+  }, [tempPlayList, listVersion])
 
   // 依赖必须列出，否则 ref 暴露的 show() 会永久闭包首次渲染的旧值。
   useImperativeHandle(ref, () => ({

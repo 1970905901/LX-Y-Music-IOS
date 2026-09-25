@@ -213,7 +213,7 @@ export const getMusicUrl = async({
 
 export const getPicUrl = async({
   musicInfo,
-  listId,
+  listId: _listId,
   isRefresh,
   skipFilePic,
   onToggleSource = () => {},
@@ -348,7 +348,7 @@ export const getPicUrl = async({
       musicInfos: [...otherSource],
       onToggleSource,
       isRefresh,
-    }).then(async({ url, musicInfo: targetMusicInfo, isFromCache }) => {
+    }).then(async({ url }) => {
       return url
     })
   })

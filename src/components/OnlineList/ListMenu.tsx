@@ -48,11 +48,10 @@ export default forwardRef<ListMenuType, ListMenuProps>((props: ListMenuProps, re
   const [selectInfo, setSelectInfo] = useState<SelectInfo>(initSelectInfo as SelectInfo)
   const [isDislikeMusic, setDislikeMusic] = useState(false)
 
-  const menuSetting = {
-    playLater: useSettingValue('menu.playLater'),
-    addTo: useSettingValue('menu.addTo'),
-    dislike: useSettingValue('menu.dislike'),
-  }
+  const playLater = useSettingValue('menu.playLater')
+  const addTo = useSettingValue('menu.addTo')
+  const dislike = useSettingValue('menu.dislike')
+  const menuSetting = useMemo(() => ({ playLater, addTo, dislike }), [playLater, addTo, dislike])
 
   useImperativeHandle(ref, () => ({
     show(newSelectInfo, position) {
@@ -106,7 +105,7 @@ export default forwardRef<ListMenuType, ListMenuProps>((props: ListMenuProps, re
     remainingMenu.push({ action: 'remove', label: t('delete') })
 
     return [...menu, ...wyMenuItems, ...remainingMenu]
-  }, [t, isDislikeMusic, selectInfo, menuSetting, props.isCreator])
+  }, [t, isDislikeMusic, selectInfo, menuSetting])
 
   const handleMenuPress = ({ action }: (typeof menus)[number]) => {
     if ((action === 'move' || action === 'remove') && props.listId?.startsWith('tx__') && isTxCookieExpired()) {

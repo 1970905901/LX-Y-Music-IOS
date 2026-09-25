@@ -21,7 +21,7 @@ import { LIST_IDS } from '@/config/constant'
 import { designRadius, designSpacing } from '@/theme/DesignTokens'
 import { shadow } from '@/utils/shadow'
 
-export default memo(({ componentId, isHome = false }: { componentId?: string, isHome?: boolean }) => {
+export default memo(({ componentId: _componentId, isHome = false }: { componentId?: string, isHome?: boolean }) => {
   const { keyboardShown } = useKeyboard()
   const isHorizontalMode = useHorizontalMode()
   const theme = useTheme()
@@ -40,7 +40,7 @@ export default memo(({ componentId, isHome = false }: { componentId?: string, is
     void global.app_event.jumpListPosition()
   }, [])
 
-  const handleNavigate = () => {
+  const handleNavigate = useCallback(() => {
     if (longPressedRef.current) {
       longPressedRef.current = false
       return
@@ -57,11 +57,11 @@ export default memo(({ componentId, isHome = false }: { componentId?: string, is
     setTimeout(() => {
       navigatingRef.current = false
     }, 600)
-  }
+  }, [musicInfo.id])
 
-  const handleShowPlaylist = () => {
+  const handleShowPlaylist = useCallback(() => {
     playlistRef.current?.show()
-  }
+  }, [])
 
   // 注意：不要监听全局 showPlaylist 事件。该事件由播放详情页的控制条发出，
   // 详情页内有自己的 PlayerPlaylist 实例负责响应；若此处也监听，会导致
@@ -89,7 +89,7 @@ export default memo(({ componentId, isHome = false }: { componentId?: string, is
         }
         gestureAction.current = null
       },
-      onPanResponderTerminate: (evt, gestureState) => {
+      onPanResponderTerminate: (_evt, _gestureState) => {
         gestureAction.current = null
       },
     }),
@@ -141,7 +141,7 @@ export default memo(({ componentId, isHome = false }: { componentId?: string, is
         </View>
       )
     },
-    [theme, isHome, handleShowPlaylist, panResponder.panHandlers, miniPlayerOpacity, safeAreaBottom, isHorizontalMode],
+    [theme, isHome, handleLongPress, handleNavigate, handleShowPlaylist, panResponder.panHandlers, miniPlayerOpacity, safeAreaBottom, isHorizontalMode],
   )
 
   return (

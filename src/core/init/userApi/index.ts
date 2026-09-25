@@ -56,7 +56,7 @@ const getActualQualityBySize = (actualSizeMB: number, claimedQuality: string, mu
   return closestQuality
 }
 
-export default async(setting: LX.AppSetting) => {
+export default async(_setting: LX.AppSetting) => {
   const userApiRequestMap = new Map<
   string,
   {
@@ -67,7 +67,7 @@ export default async(setting: LX.AppSetting) => {
   >()
   const scriptRequestMap = new Map<string, { request: Promise<any>, abort: () => void }>()
 
-  const cancelRequest = (requestKey: string, message: string) => {
+  const cancelRequest = (requestKey: string, _message: string) => {
     const target = scriptRequestMap.get(requestKey)
     if (!target) return
     scriptRequestMap.delete(requestKey)

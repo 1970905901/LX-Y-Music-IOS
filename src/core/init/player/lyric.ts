@@ -41,7 +41,7 @@ export default async(setting: LX.AppSetting) => {
       'desktopLyric.position.y': position.y,
     })
   })
-  onLyricLinePlay(({ text, extendedLyrics }) => {
+  onLyricLinePlay(({ text, extendedLyrics: _extendedLyrics }) => {
     if (!text && !state.isPlaying) {
       void updateRemoteLyric()
     } else {

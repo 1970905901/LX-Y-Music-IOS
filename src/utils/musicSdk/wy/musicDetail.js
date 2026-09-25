@@ -125,7 +125,7 @@ export default {
     })
     return arr.join('、')
   },
-  async filterList({ songs, privileges }) {
+  async filterList({ songs, privileges: _privileges }) {
     if (songs.length && songs[0].album && songs[0].duration != null) {
       songs = songs.map(item => ({
         id: item.id,
@@ -198,7 +198,7 @@ export default {
       qualityInfoMap = await getBatchMusicQualityInfo(idList)
     }
 
-    songs.forEach((item, index) => {
+    songs.forEach((item, _index) => {
       const { types = [], _types = {} } = qualityInfoMap[item.id] || { types: [], _types: {} }
 
       if (item.pc) {

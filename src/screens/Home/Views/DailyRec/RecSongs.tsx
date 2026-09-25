@@ -238,7 +238,7 @@ export default memo(({ header, isStylized, stylizedSelection }: RecSongsProps) =
         setIsLoading(false)
       })
     }
-  }, [t, cookie, isStylized, stylizedSelection])
+  }, [t, cookie, isStylized, stylizedSelection, isLoading])
 
   useEffect(() => {
     const handleReplaceMusic = (oldMusicInfoId: string, newMusicInfo: LX.Music.MusicInfoOnline | null) => {

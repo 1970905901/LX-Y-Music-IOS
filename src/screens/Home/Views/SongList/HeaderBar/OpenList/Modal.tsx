@@ -59,7 +59,7 @@ export default forwardRef<ModalType, ModalProps>(({ onOpenId }, ref) => {
   const theme = useTheme()
   const t = useI18n()
 
-  const handleShow = (source: Source) => {
+  const handleShow = (_source: Source) => {
     setAlertKey(k => k + 1)
     requestAnimationFrame(() => {
       alertRef.current?.setVisible(true)

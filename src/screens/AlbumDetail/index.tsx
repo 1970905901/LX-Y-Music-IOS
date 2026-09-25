@@ -56,7 +56,7 @@ export default memo(({ componentId, albumInfo }: { componentId: string, albumInf
     return () => {
       global.app_event.off('jumpListPosition', handleJumpPosition as () => Promise<void>)
     }
-  }, [albumInfo.id])
+  }, [albumInfo.id, albumInfo.mid])
 
   useEffect(() => {
     log.info('[AlbumDetail] === 开始加载专辑详情 ===', {
@@ -82,7 +82,7 @@ export default memo(({ componentId, albumInfo }: { componentId: string, albumInf
       toast('获取专辑信息失败')
       listRef.current?.setStatus('error')
     })
-  }, [componentId, albumInfo.id, albumInfo.source, albumInfo.mid])
+  }, [componentId, albumInfo.id, albumInfo.source, albumInfo.mid, albumInfo.name])
 
   const onRefresh = useCallback(() => {
     log.info('[AlbumDetail] === 下拉刷新专辑详情 ===', {
@@ -134,7 +134,7 @@ export default memo(({ componentId, albumInfo }: { componentId: string, albumInf
     })
     void playOnlineList(listId, albumDetail.list, index)
     log.info('[AlbumDetail] === 播放请求已发送 ===')
-  }, [albumDetail.list, albumInfo.id])
+  }, [albumDetail.list, albumInfo.id, albumInfo.mid, albumInfo.source])
 
   const handleListUpdate = useCallback((newList: LX.Music.MusicInfoOnline[]) => {
     log.info('[AlbumDetail] === 列表数据更新 ===', {

@@ -119,7 +119,7 @@ const PlaylistCard = memo(({
   userListIndex,
   onPress,
   onShowMenu,
-  isDragging,
+  isDragging: _isDragging,
   isDragSource,
   translateY,
   scale,

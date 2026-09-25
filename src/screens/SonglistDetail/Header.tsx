@@ -33,7 +33,7 @@ const CountText = memo(
       </AnimatedText>
     )
   },
-  (prevProps, nextProps) => {
+  (_prevProps, _nextProps) => {
     return true
   },
 )

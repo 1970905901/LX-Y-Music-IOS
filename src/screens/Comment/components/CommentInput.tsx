@@ -1,5 +1,5 @@
-import { memo, useState, useCallback, useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
-import { View, TextInput, TouchableOpacity, Keyboard, Platform } from 'react-native'
+import { memo, useState, useCallback, useRef, forwardRef, useImperativeHandle } from 'react'
+import { View, TextInput, TouchableOpacity, Keyboard } from 'react-native'
 import { createStyle } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
 import Text from '@/components/common/Text'

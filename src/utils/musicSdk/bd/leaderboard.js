@@ -125,20 +125,20 @@ export default {
     // return rawData.map(item => JSON.parse(item.replace(this.regExps.item, '$1').replace(/&quot;/g, '"').replace(/\\\//g, '/').replace(/(@s_1,w_)\d+(,h_)\d+/, '$1500$2500')))
     return rawData.map(item => JSON.parse(item.replace(this.regExps.item, '$1').replace(/&quot;/g, '"').replace(/\\\//g, '/')))
   },
-  async getBoards(retryNum = 0) {
+  async getBoards(_retryNum = 0) {
     this.list = boardList
     return {
       list: boardList,
       source: 'bd',
     }
   },
-  getList(bangid, page, retryNum = 0) {
-    if (++retryNum > 3) return Promise.reject(new Error('try max num'))
+  getList(bangid, page, _retryNum = 0) {
+    if (++_retryNum > 3) return Promise.reject(new Error('try max num'))
     return this.getData(this.getUrl(bangid, page)).then(({ body }) => {
       let result = body.match(this.regExps.item)
-      if (!result) return this.getList(bangid, page, retryNum)
+      if (!result) return this.getList(bangid, page, _retryNum)
       let info = body.match(this.regExps.info)
-      if (!info) return this.getList(bangid, page, retryNum)
+      if (!info) return this.getList(bangid, page, _retryNum)
       const list = this.filterData(this.parseData(result))
       this.limit = parseInt(info[2])
       return {

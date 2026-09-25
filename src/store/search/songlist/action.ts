@@ -51,7 +51,7 @@ const setLists = (results: SearchResult[], page: number, text: string): ListInfo
   return listInfo.list
 }
 
-const setList = (datas: SearchResult, page: number, text: string): ListInfoItem[] => {
+const setList = (datas: SearchResult, page: number, _text: string): ListInfoItem[] => {
   // console.log(datas.source, datas.list)
   let listInfo = state.listInfos[datas.source]!
   listInfo.list = page == 1 ? datas.list : [...listInfo.list, ...datas.list]

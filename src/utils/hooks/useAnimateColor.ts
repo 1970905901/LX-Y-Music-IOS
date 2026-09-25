@@ -4,7 +4,10 @@ import { Animated } from 'react-native'
 const ANIMATION_DURATION = 800
 
 export const useAnimateColor = (color: string) => {
-  const anim = useMemo(() => new Animated.Value(0), [color])
+  const anim = useMemo(() => {
+    void color
+    return new Animated.Value(0)
+  }, [color])
   const [finished, setFinished] = useState(true)
   const currentColor = useRef(color)
   const nextColor = useMemo(() => color, [color])
@@ -30,7 +33,7 @@ export const useAnimateColor = (color: string) => {
     requestAnimationFrame(() => {
       currentColor.current = nextColor
     })
-  }, [nextColor])
+  }, [nextColor, anim])
 
   return [animColor, finished] as const
 }

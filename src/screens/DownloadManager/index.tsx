@@ -23,7 +23,10 @@ export default memo(({ componentId }: { componentId: string }) => {
   // 上被拉成一行很长、左右大片留白；竖屏保持单列零回归。
   // numColumns 变更时 FlatList 必须重挂载（RN 不支持运行中改列数），故加 key。
   const isHorizontal = useHorizontalMode()
-  const rowInfo = useMemo(() => getRowInfo(), [isHorizontal])
+  const rowInfo = useMemo(() => {
+    void isHorizontal
+    return getRowInfo()
+  }, [isHorizontal])
   const numColumns = rowInfo.rowNum ?? 1
 
   const handleRemove = useCallback((id: string) => {

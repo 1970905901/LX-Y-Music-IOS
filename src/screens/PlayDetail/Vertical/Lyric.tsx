@@ -85,7 +85,6 @@ const LrcLine = memo(
     const lrcFontSize = useSettingValue('playDetail.vertical.style.lrcFontSize')
     const textAlign = useSettingValue('playDetail.style.align')
     const isActive = activeLine == lineNum
-    const isPlayed = lineNum < activeLine
     const size = lrcFontSize / 10
     const lineHeight = setSpText(size) * 1.3
     // 当前激活行存在逐字时间轴时才走逐字卡拉OK渲染，否则退回整行高亮。
@@ -528,7 +527,7 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHei
       // 用 line（useLrcPlay 当前行）而非 lineRef.current.line（可能残留旧歌行号）
       handleScrollToActive(line >= 0 ? line : 0, true)
     })
-  }, [lyricLines])
+  }, [lyricLines, active, handleScrollToActive, line, setForceScroll])
 
   useEffect(() => {
     if (line < 0) return
@@ -556,7 +555,7 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHei
     if (force) {
       handleScrollToActive(lineRef.current.line, true)
     }
-  }, [line, active])
+  }, [line, active, handleScrollToActive])
 
   // 每帧连续平滑滚动循环：歌词页激活且非用户手动滚动时，基于外推时钟精确时间驱动歌词连续上移。
   // iOS 后台 / 锁屏时 rAF 暂停（歌词停滚无妨）；前台播放每帧（~16ms）定位，消除原来的行级跳变。
@@ -607,7 +606,7 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHei
         handleScrollToActive(lineRef.current.line, true)
       })
     })
-  }, [active])
+  }, [active, getLineIndexForTime, handleScrollToActive, setForceScroll])
 
   // 页面真实高度（onLayout）到来后用精确高度把高亮行重新定位到中央，
   // 修正首次用估算高度（winHeight-180）计算偏移、导致切到歌词页时高亮行偶发不居中的问题。
@@ -676,7 +675,7 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHei
 
   // useCallback 稳定 renderItem：依赖项均为稳定引用或低频变化值（line 每行切换变化一次），
   // 配合 LrcLine 的 memo 比较器，行切换时只有新旧激活两行重渲染。
-  const renderItem: FlatListType['renderItem'] = useCallback(({ item, index }) => {
+  const renderItem: FlatListType['renderItem'] = useCallback(({ item, index }: { item: Line, index: number }) => {
     return <LrcLine line={item} lineNum={index} activeLine={line} onLayout={handleLineLayout} onPress={handleLinePress} isSmallWindow={isSmallWindow} wordsByIndex={wordsByIndex} />
   }, [line, handleLineLayout, handleLinePress, isSmallWindow, wordsByIndex])
   const getkey: FlatListType['keyExtractor'] = (_item, index) => `${index}`

@@ -684,7 +684,7 @@ export async function getUserPlaylists(
             log(`歌单"${playlist.name}"获取歌曲失败或无歌曲`)
           }
         } catch (e) {
-          log(`获取歌单"${playlist.name}"封面失败: ${e}`)
+          log(`获取歌单"${playlist.name}"封面失败: ${String(e)}`)
         }
       }
       log(`获取成功: 自建${createdList.length}个, 收藏${collectedList.length}个`)

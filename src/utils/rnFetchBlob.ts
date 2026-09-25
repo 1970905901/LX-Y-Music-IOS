@@ -27,7 +27,7 @@ interface FetchResult {
 }
 
 const config = (opts: { path?: string } = {}) => ({
-  async fetch(_method: string, url: string): Promise<FetchResult> {
+  async fetch(_method: string, _url: string): Promise<FetchResult> {
     // 真实下载由调用方通过 react-native-fs 完成；此处仅提供兼容签名。
     // 由于本 shim 主要服务于 fs 工具方法，下载路径由各调用点自行实现，
     // 这里返回一个占位实现以避免直接崩溃。

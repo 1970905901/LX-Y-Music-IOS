@@ -157,7 +157,7 @@ export default ({
     if (playlistType !== 'local') {
       void refreshOnlinePlaylists(playlistType)
     }
-  }, [playlistType])
+  }, [playlistType, refreshOnlinePlaylists])
 
   const allList = useMemo(() => {
     if (playlistType === 'wy') {

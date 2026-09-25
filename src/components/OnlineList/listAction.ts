@@ -15,7 +15,6 @@ import userState from '@/store/user/state'
 import { weapi } from '@/utils/musicSdk/wy/utils/crypto.js'
 import { addWyLikedSong, removeWyLikedSong, addTxLikedSong, removeTxLikedSong, addKgLikedSong, removeKgLikedSong } from '@/store/user/action.ts'
 import { navigations } from '@/navigation'
-import commonState from '@/store/common/state'
 import wyApi from '@/utils/musicSdk/wy/user'
 import txApi from '@/utils/musicSdk/tx/user'
 import { log } from '@/utils/log'
@@ -277,7 +276,7 @@ export const handleKgLikeMusic = async(musicInfo: LX.Music.MusicInfoOnline) => {
 
   try {
     if (like) {
-      const { getUserPlaylists, getPlaylistSongs } = await import('@/utils/musicSdk/kg/utils/api')
+      const { getUserPlaylists } = await import('@/utils/musicSdk/kg/utils/api')
       const playlistsResult = await getUserPlaylists(cookie)
       if (!playlistsResult.success || !playlistsResult.data) {
         toast('获取歌单列表失败')

@@ -20,7 +20,7 @@ const LrcFontSize = ({ direction }: { direction: 'horizontal' | 'vertical' }) =>
   const [isSliding, setSliding] = useState(false)
   const t = useI18n()
 
-  const handleSlidingStart: SliderProps['onSlidingStart'] = (value) => {
+  const handleSlidingStart: SliderProps['onSlidingStart'] = (_value) => {
     setSliding(true)
   }
   const handleValueChange: SliderProps['onValueChange'] = (value) => {

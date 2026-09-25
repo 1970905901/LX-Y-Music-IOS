@@ -98,6 +98,10 @@ const styles = createStyle({
     textAlign: 'center',
     fontWeight: '600',
   },
+  status: {
+    textAlign: 'center',
+    marginTop: designSpacing.lg,
+  },
 })
 
 export default memo(() => {

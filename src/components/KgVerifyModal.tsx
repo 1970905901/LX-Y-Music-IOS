@@ -6,7 +6,6 @@ import { forwardRef, useImperativeHandle, useRef, useCallback, useState } from '
 import { View, StyleSheet, TouchableOpacity } from 'react-native'
 import Modal, { type ModalType } from '@/components/common/Modal'
 import WebView from 'react-native-webview'
-import { useTheme } from '@/store/theme/hook'
 import { useStatusbarHeight } from '@/store/common/hook'
 import { Icon } from '@/components/common/Icon'
 import Text from '@/components/common/Text'
@@ -17,7 +16,6 @@ export interface KgVerifyModalType {
 }
 
 const Header = ({ onClose }: { onClose: () => void }) => {
-  const theme = useTheme()
   const statusBarHeight = useStatusbarHeight()
 
   return (
@@ -94,7 +92,6 @@ document.head.appendChild(s);
 
 const KgVerifyModal = forwardRef<KgVerifyModalType, object>((props, ref) => {
   const modalRef = useRef<ModalType>(null)
-  const theme = useTheme()
   const [visible, setVisible] = useState(false)
   const [html, setHtml] = useState('')
   const onCompleteRef = useRef<((success: boolean) => void) | null>(null)

@@ -38,7 +38,7 @@ const hookTools = {
 }
 
 const useI18n = () => {
-  const [locale, updateLocale] = useState(i18n?.locale ?? 'zh_cn')
+  const [, updateLocale] = useState(i18n?.locale ?? 'zh_cn')
   // console.log('hook run')
   useEffect(() => {
     const hook: Hook = (locale) => {
@@ -54,7 +54,7 @@ const useI18n = () => {
     (key: string, val?: TranslateValues): string => {
       return i18n?.getMessage(key, val) ?? ''
     },
-    [locale],
+    [],
   )
 }
 

@@ -200,7 +200,7 @@ export default memo(() => {
     return () => {
       active = false
     }
-  }, [completedKey])
+  }, [completedKey, completedTasks])
 
   // 扫描下载路径下的「本地」文件夹
   const scanLocalDir = useCallback(async() => {

@@ -4,7 +4,7 @@ import { forwardRef, useImperativeHandle, useRef, useState } from 'react'
 export interface FileSelectType {
   show: (options: ReadOptions, onSelect: typeof noop) => void
 }
-const noop = (path: string) => {}
+const noop = (_path: string) => {}
 export default forwardRef<FileSelectType, {}>((props, ref) => {
   const [visible, setVisible] = useState(false)
   const choosePathRef = useRef<ChoosePathType>(null)

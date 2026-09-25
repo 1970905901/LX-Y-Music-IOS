@@ -21,7 +21,7 @@ interface Props {
   componentId: string
 }
 
-export default memo(({ artist, onFollow, componentId }: Props) => {
+export default memo(({ artist, onFollow: _onFollow, componentId }: Props) => {
   const theme = useTheme()
   const statusBarHeight = useStatusbarHeight()
   const similarArtistsModalRef = useRef<SimilarArtistsModalType>(null)

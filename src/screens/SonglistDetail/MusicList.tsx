@@ -236,7 +236,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, isCreat
         }
       },
     }),
-    [info.source, info.id],
+    [filterList, info.desc, info.img, info.name, info.play_count, info.source, info.id, info.userId, searchText],
   )
 
   useEffect(() => {

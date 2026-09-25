@@ -59,7 +59,7 @@ export default () => {
     resetPreloadInfo()
   }
 
-  const handleConfigUpdated: typeof global.state_event.configUpdated = (keys, settings) => {
+  const handleConfigUpdated: typeof global.state_event.configUpdated = (keys, _settings) => {
     if (!keys.includes('player.togglePlayMethod')) return
     if (!preloadMusicInfo.info || preloadMusicInfo.info.isTempPlay) return
     resetRandomNextMusicInfo()

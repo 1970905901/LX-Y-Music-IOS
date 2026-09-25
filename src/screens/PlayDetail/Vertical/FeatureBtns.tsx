@@ -1,22 +1,18 @@
-import { memo, useRef, useCallback, useState, useEffect } from 'react'
-import { View, TouchableOpacity, Alert } from 'react-native'
+import { memo, useRef, useCallback } from 'react'
+import { View, TouchableOpacity } from 'react-native'
 import { Icon } from '@/components/common/Icon'
 import { useTheme } from '@/store/theme/hook'
-import { createStyle, toast } from '@/utils/tools'
+import { createStyle } from '@/utils/tools'
 import { scaleSizeW } from '@/utils/pixelRatio'
 import { navigations } from '@/navigation'
-import commonState from '@/store/common/state'
 import playerState from '@/store/player/state'
-import { useSettingValue } from '@/store/setting/hook'
 import PlayDetailMenu, { type PlayDetailMenuType, type SelectInfo } from '@/screens/PlayDetail/components/PlayDetailMenu'
 import MusicAddModal, { type MusicAddModalType } from '@/components/MusicAddModal'
 import SimilarSongsModal, { type SimilarSongsModalType } from '@/components/SimilarSongsModal'
-import { updateSetting } from '@/core/common'
 import settingState from '@/store/setting/state'
 import { handleDislikeMusic, handleClearMusicCache } from '@/screens/Home/Views/Mylist/MusicList/listAction'
 import { downloadMusic } from '@/core/download'
 import { handleLikeMusic, handleTxLikeMusic, handleKgLikeMusic, handleShowAlbumDetail, handleShowArtistDetail } from '@/components/OnlineList/listAction'
-import { usePlayMusicInfo } from '@/store/player/hook'
 import { type Position } from '@/screens/Home/Views/Mylist/MusicList/ListMenu'
 import { useWindowSize } from '@/utils/hooks'
 
@@ -32,7 +28,6 @@ export default memo(({ componentId }: { componentId: string }) => {
 
   const similarSongsModalRef = useRef<SimilarSongsModalType>(null)
   const moreBtnRef = useRef<TouchableOpacity>(null)
-  const playMusicInfo = usePlayMusicInfo()
 
   const handleDownloadPress = useCallback(() => {
     const info = playerState.playMusicInfo.musicInfo

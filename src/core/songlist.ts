@@ -6,7 +6,6 @@ import songlistState, {
 import songlistActions, { LIST_LOAD_LIMIT } from '@/store/songlist/action'
 import { deduplicationList, toNewMusicInfo } from '@/utils'
 import musicSdk from '@/utils/musicSdk'
-import { log } from '@/utils/log'
 
 
 interface DetailPageCache {

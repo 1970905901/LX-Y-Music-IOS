@@ -145,7 +145,7 @@ export default {
     }
     return list
   },
-  async getBoards(retryNum = 0) {
+  async getBoards(_retryNum = 0) {
     // if (++retryNum > 3) return Promise.reject(new Error('try max num'))
     // let response
     // try {
@@ -169,8 +169,8 @@ export default {
       source: 'wy',
     }
   },
-  async getList(bangid, page, retryNum = 0) {
-    if (++retryNum > 6) return Promise.reject(new Error('try max num'))
+  async getList(bangid, page, _retryNum = 0) {
+    if (++_retryNum > 6) return Promise.reject(new Error('try max num'))
     // console.log(bangid)
     let resp
     try {
@@ -179,10 +179,10 @@ export default {
       if (err.message == 'try max num') {
         throw err
       } else {
-        return this.getList(bangid, page, retryNum)
+        return this.getList(bangid, page, _retryNum)
       }
     }
-    if (resp.statusCode !== 200 || resp.body.code !== 200) { return this.getList(bangid, page, retryNum) }
+    if (resp.statusCode !== 200 || resp.body.code !== 200) { return this.getList(bangid, page, _retryNum) }
     // console.log(resp.body)
     let musicDetail
     try {
@@ -194,7 +194,7 @@ export default {
       if (err.message == 'try max num') {
         throw err
       } else {
-        return this.getList(bangid, page, retryNum)
+        return this.getList(bangid, page, _retryNum)
       }
     }
     // console.log(musicDetail)

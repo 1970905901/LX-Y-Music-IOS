@@ -135,7 +135,7 @@ export default {
 
     return requestObj
   },
-  getLyric(songInfo, tryNum = 0) {
+  getLyric(songInfo, _tryNum = 0) {
     let requestObj = this.searchLyric(
       songInfo.name,
       songInfo.hash,

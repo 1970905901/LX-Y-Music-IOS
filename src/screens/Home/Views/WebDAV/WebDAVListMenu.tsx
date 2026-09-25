@@ -1,13 +1,11 @@
-import { useRef, useImperativeHandle, forwardRef, useState, useEffect, useMemo } from 'react'
+import { useRef, useImperativeHandle, forwardRef, useState, useEffect } from 'react'
 import { useI18n } from '@/lang'
 import Menu, { type Menus, type MenuType, type Position } from '@/components/common/Menu'
-import { toast } from '@/utils/tools'
 
 export interface SelectInfo {
   musicInfo: LX.WebDAV.MusicInfo
   index: number
 }
-const initSelectInfo = {}
 
 export interface WebDAVListMenuProps {
   onPlay: (selectInfo: SelectInfo) => void
@@ -49,8 +47,6 @@ export default forwardRef<WebDAVListMenuType, WebDAVListMenuProps>((props, ref) 
     if (!selectInfo) return
 
     const buildMenu = async() => {
-      const musicInfo = selectInfo.musicInfo
-
       const menu: Array<Menus[number]> = []
 
       menu.push({ action: 'playLater', label: t('play_later') })

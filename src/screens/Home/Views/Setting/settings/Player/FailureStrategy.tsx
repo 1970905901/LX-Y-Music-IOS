@@ -36,7 +36,7 @@ const createAnim = (): DragAnim => ({
 const StrategyItem = memo(({
   item,
   index,
-  isDragging,
+  isDragging: _isDragging,
   isDragSource,
   translateY,
   scale,

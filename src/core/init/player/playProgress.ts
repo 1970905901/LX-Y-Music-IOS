@@ -134,7 +134,6 @@ export default () => {
     // 参考项目对齐的 seek：音频与歌词用同一真实落点，保证普通音质快进/快退后二者同步。
     void setCurrentTime(time).then((targetPosition) => {
       if (!playerState.musicInfo.id) return
-      const actualTime = targetPosition > 0 ? targetPosition : time
       if (targetPosition > 0) setNowPlayTime(targetPosition)
 
       // 所有音质统一走 AVPlayer 系统级 seek：TrackPlayer 准确报告真实落点，
@@ -229,7 +228,7 @@ export default () => {
   //   }
   // })
 
-  const handleConfigUpdated: typeof global.state_event.configUpdated = (keys, settings) => {
+  const handleConfigUpdated: typeof global.state_event.configUpdated = (keys, _settings) => {
     if (keys.includes('player.playbackRate')) startUpdateTimeout()
   }
 

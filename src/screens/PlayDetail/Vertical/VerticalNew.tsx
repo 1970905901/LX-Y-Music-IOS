@@ -110,7 +110,7 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
       appstateListener.remove()
       screenUnkeepAwake()
     }
-  }, [])
+  }, [handleSwitchToLyricPage])
 
   const containerPaddingH = useMemo(() => scaleSizeW(10), [])
 

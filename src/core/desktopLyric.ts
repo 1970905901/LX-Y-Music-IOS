@@ -39,7 +39,6 @@ export const showDesktopLyric = async() => {
 
   if (positionX === 0 && positionY === 0) {
     const { width: screenWidth, height: screenHeight } = windowSizeTools.getSize()
-    const lyricWidthPercent = 100
     const lyricWidth = screenWidth
 
     positionX = (screenWidth - lyricWidth) / 2

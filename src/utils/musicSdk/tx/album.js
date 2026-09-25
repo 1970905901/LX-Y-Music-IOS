@@ -1,9 +1,8 @@
-import { httpFetch } from '../../request'
 import { formatPlayTime, sizeFormate } from '../../index'
 import { formatSingerName } from '../utils'
 import { signRequest } from './utils'
 import { txLog } from '@/utils/txLog'
-import { getComm, parseTxQualityTypes } from './utils/common'
+import { getComm } from './utils/common'
 
 export default {
   successCode: 0,

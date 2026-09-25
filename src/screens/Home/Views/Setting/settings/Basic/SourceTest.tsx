@@ -84,9 +84,6 @@ const ENCRYPTED_EXTENSIONS = new Set([
 ])
 
 // 可播放文件格式白名单
-const PLAYABLE_EXTENSIONS = new Set([
-  'mp3', 'flac', 'ogg', 'aac', 'm4a', 'wav', 'opus', 'mpeg', 'wma',
-])
 
 const isRateLimitError = (errorMessage: string): boolean => {
   return RATE_LIMIT_ERROR_KEYWORDS.some(keyword => errorMessage.includes(keyword))
@@ -193,7 +190,7 @@ export default memo(() => {
   const [qualityTimeoutSeconds, setQualityTimeoutSeconds] = useState('5')
   const [showErrors, setShowErrors] = useState(true)
   const [showDowngrades, setShowDowngrades] = useState(true)
-  const [isStopRequested, setIsStopRequested] = useState(false)
+  const [, setIsStopRequested] = useState(false)
   const [logText, setLogText] = useState('')
   const [testingSourceId, setTestingSourceId] = useState<string | null>(null)
   const [elapsedTime, setElapsedTime] = useState(0)
@@ -330,20 +327,20 @@ export default memo(() => {
     return 0
   }
 
-  const getQualityTestInterval = (): number => {
+  const getQualityTestInterval = useCallback((): number => {
     const seconds = parseInt(qualityIntervalSeconds)
     return (isNaN(seconds) ? 0 : seconds) * 1000
-  }
+  }, [qualityIntervalSeconds])
 
-  const getTestTimeout = (): number => {
+  const getTestTimeout = useCallback((): number => {
     const seconds = parseInt(testTimeoutSeconds)
     return (isNaN(seconds) || seconds <= 0 ? 20 : seconds) * 1000
-  }
+  }, [testTimeoutSeconds])
 
-  const getQualityTimeout = (): number => {
+  const getQualityTimeout = useCallback((): number => {
     const seconds = parseInt(qualityTimeoutSeconds)
     return (isNaN(seconds) || seconds <= 0 ? 5 : seconds) * 1000
-  }
+  }, [qualityTimeoutSeconds])
 
   const testSource = useCallback(async(source: typeof sources[0], keyword: string, qualityIntervalMs: number, abortController?: AbortController, onProgress?: (msg: string) => void): Promise<{
     delay: number | null
@@ -1058,7 +1055,7 @@ export default memo(() => {
         searchedSong: songDisplay,
       }
     }
-  }, [])
+  }, [getQualityTimeout])
 
   const handleTest = useCallback(async() => {
     shouldContinueTesting.current = true
@@ -1130,7 +1127,6 @@ export default memo(() => {
           } : r,
         ))
         setTestingSourceId(source.id)
-        const currentElapsed = Math.floor((Date.now() - testStartTimeRef.current) / 1000)
 
         const timeoutMs = getTestTimeout()
         const abortController = new AbortController()
@@ -1207,7 +1203,7 @@ export default memo(() => {
     }
 
     await runTest()
-  }, [testSource, keywords, intervalSeconds, qualityIntervalSeconds, testTimeoutSeconds, stopElapsedTimer])
+  }, [testSource, keywords, intervalSeconds, stopElapsedTimer, getQualityTestInterval, getTestTimeout])
 
   const handleTestSingleSource = useCallback(async(source: typeof sources[0]) => {
     const keyword = keywords[source.id as keyof SourceKeywords]
@@ -1309,7 +1305,7 @@ export default memo(() => {
     stopElapsedTimer()
     abortControllersRef.current.delete(source.id)
     setTestingSourceId(null)
-  }, [isTesting, keywords, testSource, qualityIntervalSeconds, testTimeoutSeconds, stopElapsedTimer])
+  }, [keywords, testSource, stopElapsedTimer, getQualityTestInterval, getTestTimeout])
 
   const getQualityLabel = (quality: string | null) => {
     if (!quality) return '可能是(接口挂掉了/网络问题/不支持该源)'

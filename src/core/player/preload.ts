@@ -1,6 +1,5 @@
 import { getMusicUrl, getLyricInfo } from '@/core/music'
 import { getNextPlayMusicInfo } from '@/core/player/player'
-import { getList } from '@/core/player/playInfo'
 import playerState from '@/store/player/state'
 import settingState from '@/store/setting/state'
 import { preloadLog } from '@/utils/preloadLog'

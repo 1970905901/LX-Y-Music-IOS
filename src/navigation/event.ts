@@ -3,7 +3,7 @@ import { Navigation } from 'react-native-navigation'
 
 export const onModalDismissed = (id: string, handler: () => void) => {
   let modalDismissedListener: EmitterSubscription | null =
-    Navigation.events().registerModalDismissedListener(({ componentId, modalsDismissed }) => {
+    Navigation.events().registerModalDismissedListener(({ componentId, modalsDismissed: _modalsDismissed }) => {
       if (componentId != id || !modalDismissedListener) return
       handler()
       modalDismissedListener.remove()

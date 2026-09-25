@@ -80,7 +80,7 @@ export default forwardRef<HotSearchType, ListProps>((props, ref) => {
         {t('search_hot_search')}
       </Text>
       <View style={styles.list}>
-        {list.slice(0, 12).map((keyword, index) => (
+        {list.slice(0, 12).map((keyword, _index) => (
           <ListItem
             keyword={keyword}
             key={keyword}

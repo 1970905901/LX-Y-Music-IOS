@@ -1,5 +1,5 @@
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react'
-import { View, TouchableOpacity, ScrollView } from 'react-native'
+import { TouchableOpacity, ScrollView } from 'react-native'
 import Dialog, { type DialogType } from '@/components/common/Dialog'
 import Text from '@/components/common/Text'
 import { createStyle } from '@/utils/tools'

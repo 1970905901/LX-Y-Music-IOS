@@ -20,7 +20,6 @@ let lyricSocket: InstanceType<typeof dgram.Socket> | null = null
 let commandSocket: InstanceType<typeof dgram.Socket> | null = null
 
 let isLyricListenerActive = false
-let unsubscribeLyricListener: (() => void) | null = null
 
 const adjustMediaVolume = (direction: 'up' | 'down') => {
   void adjustSystemMediaVolume(direction).catch(() => {})
@@ -120,7 +119,7 @@ const stopCommandListener = () => {
 const startLyricListener = () => {
   if (isLyricListenerActive) return
   setSendLyricTextEvent(true)
-  unsubscribeLyricListener = onLyricLinePlay((lineInfo) => {
+  onLyricLinePlay((lineInfo) => {
     if (targetIp) sendUdpPacket(lineInfo)
   })
   isLyricListenerActive = true

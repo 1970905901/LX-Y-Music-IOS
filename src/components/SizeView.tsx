@@ -95,7 +95,7 @@ export default memo(
         })
       })
       return () => { sub?.remove() }
-    }, [])
+    }, [syncSafeAreaBottom])
     return <View style={StyleSheet.absoluteFill} onLayout={handleLayout} />
   },
   () => true,

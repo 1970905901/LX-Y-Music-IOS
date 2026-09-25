@@ -12,7 +12,7 @@ import songlistState from '@/store/songlist/state'
 import { useI18n } from '@/lang'
 import { useListInfo } from './state'
 
-export default memo(({ onBack }: { onBack: () => void }) => {
+export default memo(({ onBack }: { onBack?: () => void }) => {
   const theme = useTheme()
   const t = useI18n()
   const info = useListInfo()

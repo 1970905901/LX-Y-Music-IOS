@@ -12,7 +12,7 @@ import { useStatusbarHeight } from '@/store/common/hook'
 import { useSettingValue } from '@/store/setting/hook'
 import { useLandscapeLayout, getLeftWidth } from '@/utils/landscapeLayout'
 
-export default memo(({ componentId }: { componentId: string }) => {
+export default memo(({ componentId: _componentId }: { componentId: string }) => {
   const musicInfo = usePlayerMusicInfo()
   const { width: winWidth, height: winHeight } = useWindowSize()
   const layout = useLandscapeLayout()
@@ -73,7 +73,7 @@ export default memo(({ componentId }: { componentId: string }) => {
     if (isPlay && isCoverSpin) {
       startAnimation()
     }
-  }, [musicInfo.id, isCoverSpin, startAnimation, stopAnimation, spinValue])
+  }, [musicInfo.id, isPlay, isCoverSpin, startAnimation, stopAnimation, spinValue])
 
   useEffect(() => {
     return () => {

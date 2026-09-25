@@ -149,7 +149,7 @@ const Menu = ({
       pointerEvents="auto"
     >
       <Animated.ScrollView keyboardShouldPersistTaps={'always'}>
-        {menus.map((menu, index) =>
+        {menus.map((menu, _index) =>
           menu.disabled ? (
             <View
               key={menu.action}

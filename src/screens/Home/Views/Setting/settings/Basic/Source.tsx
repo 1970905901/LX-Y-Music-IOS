@@ -102,7 +102,7 @@ const UserApiItem = memo(({
   item,
   index,
   isChecked,
-  isDragging,
+  isDragging: _isDragging,
   isDragSource,
   translateY,
   scale,
@@ -122,18 +122,18 @@ const UserApiItem = memo(({
   const currentDyRef = useRef(0)
   const activationDyRef = useRef(0)
 
-  const clearLongPressTimer = () => {
+  const clearLongPressTimer = useCallback(() => {
     if (longPressTimer.current != null) {
       clearTimeout(longPressTimer.current)
       longPressTimer.current = null
     }
-  }
+  }, [])
 
   useEffect(() => {
     return () => {
       clearLongPressTimer()
     }
-  }, [])
+  }, [clearLongPressTimer])
 
   const panResponder = useMemo(
     () =>
@@ -180,7 +180,7 @@ const UserApiItem = memo(({
         // 一旦接管手势就不再释放给 ScrollView，避免整页被滚动。
         onPanResponderTerminationRequest: () => false,
       }),
-    [index, onLongPressStart, onDragMove, onDragRelease, onDragCancel],
+    [clearLongPressTimer, index, onLongPressStart, onDragMove, onDragRelease, onDragCancel],
   )
 
   const transform = isDragSource
@@ -344,7 +344,7 @@ export default memo(() => {
       Animated.spring(anim.scale, { toValue: 1.03, useNativeDriver: true, friction: 7 }),
       Animated.timing(anim.opacity, { toValue: 0.92, duration: 120, useNativeDriver: true }),
     ]).start()
-  }, [])
+  }, [acquireDragLock])
 
   const computeTargetIndex = useCallback((from: number, dy: number) => {
     const heights = heightsRef.current

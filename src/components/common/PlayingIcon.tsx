@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { Animated, View } from 'react-native'
 import { createStyle } from '@/utils/tools'
 import { useIsPlay } from '@/store/player/hook'

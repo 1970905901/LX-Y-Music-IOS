@@ -1,5 +1,5 @@
 import { memo, useRef, useMemo, useCallback } from 'react'
-import { View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native'
+import { View, StyleSheet, TouchableOpacity } from 'react-native'
 import { Icon } from '@/components/common/Icon'
 import { pop, navigations } from '@/navigation'
 import { useTheme } from '@/store/theme/hook'
@@ -117,8 +117,6 @@ const Title = ({ componentId }: { componentId: string }) => {
 
 export default memo(({ componentId }: { componentId: string }) => {
   const popupRef = useRef<SettingPopupType>(null)
-  const playMusicInfo = usePlayMusicInfo()
-  const theme = useTheme()
   const back = () => {
     void pop(commonState.componentIds[commonState.componentIds.length - 1]?.id)
   }

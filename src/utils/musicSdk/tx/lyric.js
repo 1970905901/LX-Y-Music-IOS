@@ -175,9 +175,6 @@ const fetchLyric = (songmid) => {
   return requestObj
 }
 
-const isValidLyric = (result) => {
-  return result && typeof result.lyric === 'string' && result.lyric.trim().length > 0
-}
 
 export default {
   regexps: {

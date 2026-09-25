@@ -78,7 +78,7 @@ export default memo(
     isShowAlbumName,
     playingId,
     isShowInterval,
-    listId,
+    listId: _listId,
     showCover = true,
     hideMenu = false,
   }: {

@@ -269,7 +269,7 @@ const fixTimeLabel = (lrc, tlrc, romalrc) => {
 }
 
 // https://github.com/Binaryify/NeteaseCloudMusicApi/blob/master/module/lyric_new.js
-const getLyricWithRetry = (songmid, retryNum = 0) => {
+const getLyricWithRetry = (songmid, _retryNum = 0) => {
   const requestObj = eapiRequest('/api/song/lyric/v1', {
     id: songmid,
     cp: false,

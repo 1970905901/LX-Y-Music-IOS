@@ -32,7 +32,7 @@ const git = {
     return requestObj
   },
 
-  getMusicDetailPageUrl(songInfo) {
+  getMusicDetailPageUrl(_songInfo) {
     return `https://gitcode.com/${GITCODE_CONFIG.owner}/${GITCODE_CONFIG.repo}`
   },
 }

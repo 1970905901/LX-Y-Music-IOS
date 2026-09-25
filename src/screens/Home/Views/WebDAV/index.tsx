@@ -380,7 +380,7 @@ export default memo(() => {
         })
       })
     },
-    [songs],
+    [songs, syncSongsCover],
   )
 
   const handlePlayLater = useCallback((info: WebDAVSelectInfo) => {
@@ -651,7 +651,10 @@ export default memo(() => {
   // numColumns 变更时 FlatList 必须重挂载（RN 不支持运行中改列数），故加 key。
   const isHorizontal = useHorizontalMode()
   const safeAreaBottom = useSafeAreaBottom()
-  const rowInfo = useMemo(() => getRowInfo(), [isHorizontal])
+  const rowInfo = useMemo(() => {
+    void isHorizontal
+    return getRowInfo()
+  }, [isHorizontal])
   const numColumns = rowInfo.rowNum ?? 1
 
   const renderSong: ListRenderItem<LX.WebDAV.MusicInfo> = useCallback(

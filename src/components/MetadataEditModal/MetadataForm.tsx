@@ -116,7 +116,7 @@ export default forwardRef<MetadataFormType, {}>((props, ref) => {
         return downloadFile(pic, picPath, {
           connectionTimeout: 10000,
           readTimeout: 10000,
-        }).promise.then((res) => {
+        }).promise.then((_res) => {
           if (isUnmounted.current || path != filePath.current) return
           toast(t('metadata_edit_modal_form_match_pic_success'))
           setData((data) => {
@@ -132,7 +132,7 @@ export default forwardRef<MetadataFormType, {}>((props, ref) => {
       .finally(() => {
         matcheingPic.delete(path)
       })
-  }, [data.albumName, data.name, data.singer, t])
+  }, [data.albumName, data.interval, data.name, data.singer, isUnmounted, t])
   const handleOnlineMatchLyric = useCallback(() => {
     let path = filePath.current
     if (matcheingLrc.has(path)) return
@@ -173,7 +173,7 @@ export default forwardRef<MetadataFormType, {}>((props, ref) => {
       .finally(() => {
         matcheingLrc.delete(path)
       })
-  }, [data.albumName, data.name, data.singer, t])
+  }, [data.albumName, data.interval, data.name, data.singer, isUnmounted, t])
   const handleUpdatePic = useCallback((path: string) => {
     setData((data) => {
       return { ...data, pic: path }

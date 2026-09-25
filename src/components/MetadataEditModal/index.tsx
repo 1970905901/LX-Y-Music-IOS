@@ -11,7 +11,6 @@ import {
   writePic,
   writeLyric,
 } from '@/utils/localMediaMetadata'
-import { useUnmounted } from '@/utils/hooks'
 import MetadataForm, { defaultData, type Metadata, type MetadataFormType } from './MetadataForm'
 import { log } from '@/utils/log'
 import { formatPlayTime2 } from '@/utils'
@@ -34,7 +33,6 @@ export default forwardRef<MetadataEditType, MetadataEditProps>((props, ref) => {
   const metadata = useRef<Metadata>({ ...defaultData })
   const [visible, setVisible] = useState(false)
   const [processing, setProcessing] = useState(false)
-  const isUnmounted = useUnmounted()
   const musicInfoRef = useRef<LX.Music.MusicInfo | null>(null)
 
   const handleShow = (filePath: string, musicInfo?: LX.Music.MusicInfo) => {
@@ -143,7 +141,7 @@ export default forwardRef<MetadataEditType, MetadataEditProps>((props, ref) => {
           const fileStat = await stat(filePath.current)
           console.log(`[编辑标签] 文件状态: ${JSON.stringify(fileStat)}`)
         } catch (err) {
-          console.log(`[编辑标签] 无法获取文件状态: ${err}`)
+          console.log(`[编辑标签] 无法获取文件状态: ${String(err)}`)
         }
 
         await writeMetadata(filePath.current, {

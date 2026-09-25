@@ -1,5 +1,5 @@
 import { memo, useMemo } from 'react'
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native'
+import { Pressable, ScrollView } from 'react-native'
 import { useTheme } from '@/store/theme/hook'
 import { createStyle } from '@/utils/tools'
 import { designSpacing, designTypography } from '@/theme/DesignTokens'

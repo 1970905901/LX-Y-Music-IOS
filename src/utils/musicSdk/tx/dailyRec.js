@@ -179,9 +179,9 @@ export default {
         })
 
         const vNiche = shelf.v_niche || []
-        vNiche.forEach((niche, nicheIndex) => {
+        vNiche.forEach((niche, _nicheIndex) => {
           const vCard = niche.v_card || []
-          vCard.forEach((card, cardIndex) => {
+          vCard.forEach((card, _cardIndex) => {
             if (card.type === 500 || card.type === 700) {
               const playlist = {
                 id: String(card.id),

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { filterList, getNewComment } from './utils'
 import music from '@/utils/musicSdk'
 import List, { type ListType } from './components/List'
@@ -73,7 +73,7 @@ export default ({
       .finally(updateStatus)
   }
 
-  const handleListRefresh = () => {
+  const handleListRefresh = useCallback(() => {
     listRef.current?.setStatus('refreshing')
     void handleGetComment(musicInfo, 1)
       .then(({ comments, maxPage, total }) => {
@@ -85,9 +85,9 @@ export default ({
         listRef.current?.setList(filterList(comments))
       })
       .finally(updateStatus)
-  }
+  }, [musicInfo, onUpdateTotal])
 
-  const handleShowComment = (musicInfo: LX.Music.MusicInfoOnline) => {
+  const handleShowComment = useCallback((musicInfo: LX.Music.MusicInfoOnline) => {
     if (!musicInfo.id || !(music[musicInfo.source])?.comment) return
     listInfo.current.page = 1
     listInfo.current.total = 0
@@ -108,11 +108,11 @@ export default ({
         setTimeout(updateStatus, 300)
       }, 300)
     })
-  }
+  }, [onUpdateTotal])
 
   useEffect(() => {
     handleShowComment(musicInfo)
-  }, [musicInfo.id])
+  }, [handleShowComment, musicInfo])
 
   // Force refresh when refreshKey changes (after send/delete)
   const isFirstRender = useRef(true)
@@ -122,7 +122,7 @@ export default ({
       return
     }
     handleListRefresh()
-  }, [refreshKey])
+  }, [refreshKey, handleListRefresh])
 
   return <List ref={listRef} onLoadMore={handleListLoadMore} onRefresh={handleListRefresh} actions={actions} />
 }

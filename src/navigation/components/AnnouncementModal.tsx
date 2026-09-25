@@ -18,10 +18,11 @@ const VideoPlayer = ({ url }: { url: string }) => {
   const pausedRef = useRef(true)
 
   useEffect(() => {
+    const video = videoRef.current
     return () => {
       // 组件卸载时暂停并重置视频
       pausedRef.current = true
-      videoRef.current?.seek(0)
+      video?.seek(0)
     }
   }, [])
 

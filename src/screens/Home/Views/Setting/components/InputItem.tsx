@@ -63,7 +63,7 @@ export default memo(({ value, label, onChanged, ...props }: InputItemProps) => {
       setText(newValue)
       textRef.current = newValue
     }
-  }, [value])
+  }, [value, text])
 
   const handleSetSelectMode = useCallback((text: string) => {
     setText(text)

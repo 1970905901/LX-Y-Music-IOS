@@ -12,7 +12,6 @@ import settingState from '@/store/setting/state'
 import { requestMsg } from '@/utils/message'
 import BackgroundTimer from 'react-native-background-timer'
 import { apis } from '@/utils/musicSdk/api-source'
-import wySdk from '@/utils/musicSdk/wy'
 import { log } from '@/utils/log'
 import { state as userApiState } from '@/store/userApi'
 
@@ -74,7 +73,7 @@ const cleanFileName = (name: string): string => {
 
 export const getOtherSource = async(
   musicInfo: LX.Music.MusicInfo | LX.Download.ListItem,
-  isRefresh = false,
+  _isRefresh = false,
 ): Promise<LX.Music.MusicInfoOnline[]> => {
   const originalName = 'progress' in musicInfo ? musicInfo.metadata.musicInfo.name : musicInfo.name
   const originalSinger = 'progress' in musicInfo ? musicInfo.metadata.musicInfo.singer : musicInfo.singer
@@ -634,7 +633,7 @@ export const getUserDefinedSourceList = (
 
 export const tryUserDefinedSourceToggle = async({
   musicInfo,
-  isRefresh,
+  isRefresh: _isRefresh,
   maxRetry,
   onToggleSource,
 }: {

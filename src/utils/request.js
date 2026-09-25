@@ -5,7 +5,6 @@ import { requestMsg } from './message'
 import { bHh } from './musicSdk/options'
 import { deflateRaw } from 'pako'
 import settingState from '@/store/setting/state'
-import { toast } from '@/utils/tools'
 
 const defaultHeaders = {
   'User-Agent':
@@ -90,7 +89,7 @@ const fetchWithTimeout = (resource, options) => {
 } */
 
 const handleDeflateRaw = (data) =>
-  new Promise((resolve, reject) => {
+  new Promise((resolve, _reject) => {
     resolve(Buffer.from(deflateRaw(data)))
     // deflateRaw(data, (err, buf) => {
     //   if (err) return reject(err)
@@ -102,7 +101,7 @@ const regx = /(?:\d\w)+/g
 
 const handleRequestData = async(
   url,
-  { method = 'get', headers = {}, format = 'json', cache = 'no-store', params, ...options },
+  { method = 'get', headers = {}, format: _format = 'json', cache = 'no-store', params, ...options },
 ) => {
   // console.log(url, options)
   headers = Object.assign(

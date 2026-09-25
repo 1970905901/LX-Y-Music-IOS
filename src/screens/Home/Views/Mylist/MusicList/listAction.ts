@@ -347,7 +347,7 @@ export const handleDownload = async(musicInfo: LX.Music.MusicInfo, quality: LX.Q
       toast(`路径: ${filePath}`, 'long')
     } catch (e) {
       console.log(e)
-      toast(`文件下载失败：${e}`)
+      toast(`文件下载失败：${String(e)}`)
     }
   } catch (e) {
     console.log(e)

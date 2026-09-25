@@ -61,7 +61,7 @@ export const getMusicUrl = async({
 export const getPicUrl = async({
   musicInfo,
   isRefresh,
-  listId,
+  listId: _listId,
   onToggleSource = () => {},
 }: {
   musicInfo: LX.Download.ListItem

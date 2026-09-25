@@ -93,7 +93,7 @@ export default memo(({ host, setHost }: { host: string, setHost: (host: string) 
     return () => {
       isUnmountedRef.current = true
     }
-  }, [])
+  }, [setHost])
 
   useEffect(() => {
     switch (syncStatus.message) {

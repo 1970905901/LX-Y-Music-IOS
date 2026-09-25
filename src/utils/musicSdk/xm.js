@@ -23,19 +23,19 @@ const xm = {
       return Promise.reject(new Error('fail'))
     },
   },
-  getMusicUrl(songInfo, type) {
+  getMusicUrl(_songInfo, _type) {
     return {
       promise: Promise.reject(new Error('fail')),
     }
     // return apis('xm').getMusicUrl(songInfo, type)
   },
-  getLyric(songInfo) {
+  getLyric(_songInfo) {
     return {
       promise: Promise.reject(new Error('fail')),
     }
     // return lyric.getLyric(songInfo)
   },
-  getPic(songInfo) {
+  getPic(_songInfo) {
     return Promise.reject(new Error('fail'))
     // return pic.getPic(songInfo)
   },

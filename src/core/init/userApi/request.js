@@ -12,7 +12,7 @@ const defaultHeaders = {
 const handleRequestData = async({
   method = 'get',
   headers = {},
-  format = 'json',
+  format: _format = 'json',
   credentials = 'omit',
   cache = 'default',
   ...options

@@ -1,4 +1,4 @@
-import { saveLyric, saveMusicUrl, clearMusicUrl, getMusicUrl as getStoreMusicUrl, storageDataPrefix } from '@/utils/data'
+import { saveLyric, saveMusicUrl, getMusicUrl as getStoreMusicUrl } from '@/utils/data'
 import { updateListMusics } from '@/core/list'
 import settingState from '@/store/setting/state'
 
@@ -11,7 +11,6 @@ import {
   handleGetOnlinePicUrl,
   getCachedLyricInfo, QUALITY_RANK,
 } from './utils'
-import { toast } from '@/utils/tools.ts'
 import { fetchAndApplyDetailedQuality } from '@/utils/musicSdk/wy/musicDetail.js'
 import userState from '@/store/user/state'
 
@@ -159,7 +158,7 @@ export const getPicUrl = async({
 }): Promise<string> => {
   if (musicInfo.meta.picUrl && !isRefresh) return musicInfo.meta.picUrl
   return handleGetOnlinePicUrl({ musicInfo, onToggleSource, isRefresh, allowToggleSource }).then(
-    ({ url, musicInfo: targetMusicInfo, isFromCache }) => {
+    ({ url }) => {
       // picRequest = null
       if (listId) {
         musicInfo.meta.picUrl = url

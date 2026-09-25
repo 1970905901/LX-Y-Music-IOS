@@ -109,7 +109,7 @@ export default async() => {
  *      连同同名 .lrc 歌词一并移动）。
  *   迁移后同步改写下载任务的 filePath，保证列表内文件继续可播。
  */
-const initDownloadPath = async(setting: LX.AppSetting) => {
+const initDownloadPath = async(_setting: LX.AppSetting) => {
   const defaultPath = getDefaultDownloadPath()
 
   // 预创建默认下载目录（无论当前是否使用默认路径，都确保其存在）。

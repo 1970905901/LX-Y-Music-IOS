@@ -114,6 +114,6 @@ export const parseUrl = (href: string): LX.Sync.UrlInfo => {
   }
 }
 
-export const sendStatus = (status: LX.Sync.Status) => {
+export const sendStatus = (_status: LX.Sync.Status) => {
   // syncLog.log(JSON.stringify(status))
 }

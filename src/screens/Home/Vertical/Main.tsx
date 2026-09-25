@@ -586,7 +586,7 @@ const SettingPage = () => {
 
 const Main = () => {
   const pagerViewRef = useRef<ComponentRef<typeof PagerView>>(null)
-  const [activeNavId, setActiveNavIdState] = useState(commonState.navActiveId)
+  const [, setActiveNavIdState] = useState(commonState.navActiveId)
   const navStatus = useSettingValue('common.navStatus')
   const navOrder = useSettingValue('common.navOrder')
   const navFlatOrder = useSettingValue('common.navFlatOrder')

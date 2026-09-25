@@ -155,18 +155,18 @@ export default {
     }
     return list
   },
-  async getBoards(retryNum = 0) {
+  async getBoards(_retryNum = 0) {
     this.list = boardList
     return {
       list: boardList,
       source: 'kg',
     }
   },
-  async getList(bangid, page, retryNum = 0) {
-    if (++retryNum > 3) throw new Error('try max num')
+  async getList(bangid, page, _retryNum = 0) {
+    if (++_retryNum > 3) throw new Error('try max num')
     const { body } = await this.getData(this.getUrl(page, bangid, this.listDetailLimit))
 
-    if (body.errcode != 0) return this.getList(bangid, page, retryNum)
+    if (body.errcode != 0) return this.getList(bangid, page, _retryNum)
 
     // console.log(body)
     let total = body.data.total

@@ -7,7 +7,6 @@ import { useStatusbarHeight } from '@/store/common/hook'
 import { Icon } from '@/components/common/Icon'
 import Text from '@/components/common/Text'
 import { toast } from '@/utils/tools'
-import theme from '@/core/init/theme.ts'
 
 const LOGIN_URL = 'https://music.youtube.com/'
 const SUCCESS_URL_FLAG = 'music.youtube.com'

@@ -158,7 +158,7 @@ export default async(appSetting: LX.AppSetting) => {
         if (favoritesPlaylist) {
           bootLog('Kg like list init...')
           try {
-            const { getUserPlaylists, getPlaylistSongs } = await import('@/utils/musicSdk/kg/utils/api')
+            const { getPlaylistSongs } = await import('@/utils/musicSdk/kg/utils/api')
             const allLikedIds: string[] = []
             let page = 1
             const pageSize = 500

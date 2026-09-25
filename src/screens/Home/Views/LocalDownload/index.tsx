@@ -315,7 +315,9 @@ export default memo(() => {
 
   const pageHeader = (
     <>
-      <PageTopInset />
+      {/* 竖屏下共享页头已含状态栏占位，这里再叠加 PageTopInset 会出现大段空白；
+          仅横屏（LandscapeDetailLayout 自带页头、共享页头隐藏）需要保留 */}
+      {isHorizontal ? <PageTopInset /> : null}
           <View style={styles.header}>
             <View style={styles.headerActions}>
               <TouchableOpacity
@@ -443,6 +445,8 @@ export default memo(() => {
                   borderWidth: StyleSheet.hairlineWidth,
                   borderColor: theme['c-border-background'],
                   backgroundColor: theme['c-content-background'],
+                  // 悬浮在迷你播放器胶囊上方：胶囊 + tab 栏最高约到 safeAreaBottom + 150
+                  bottom: 160 + safeAreaBottom,
                 },
               ]}
             >
@@ -555,20 +559,21 @@ const styles = createStyle({
   },
   listArea: {
     flex: 1,
+    // selectBar 绝对定位的参照容器
+    position: 'relative',
   },
   list: {
     flex: 1,
   },
   selectBar: {
+    position: 'absolute',
+    left: designSpacing.md,
+    right: designSpacing.md,
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: designSpacing.md,
     paddingVertical: designSpacing.sm,
     paddingHorizontal: designSpacing.sm,
     borderRadius: designRadius.lg,
-    // 批量操作栏原贴在页面底部，会被底部浮动的迷你播放器胶囊遮住；
-    // 抬到胶囊上方：胶囊底部 18 + 内容约 60 + 间距，与列表 paddingBottom:80 的预留一致。
-    marginBottom: 88,
   },
   selectBarBtn: {
     paddingVertical: 4,

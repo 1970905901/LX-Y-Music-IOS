@@ -14,6 +14,10 @@ import { addWyFollowedArtist, removeWyFollowedArtist } from '@/store/user/action
 import { type FollowedArtistInfo } from '@/store/user/state'
 import SimilarArtistsModal, { type SimilarArtistsModalType } from './SimilarArtistsModal'
 import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
+import { useBlurredPic } from '@/utils/hooks/useBlurredPic'
+
+// 顶部封面背景的模糊半径（固定值，非主题里的 theme.blur）
+const HEADER_BLUR_RADIUS = 10
 
 interface Props {
   artist: any
@@ -33,6 +37,11 @@ export default memo(({ artist, onFollow: _onFollow, componentId }: Props) => {
   const artistAlias = artist?.alias?.length ? ` ${artist.alias[0]}` : ''
   const description = artist?.briefDesc || ''
   const artistPic = artist?.avatar || artist?.cover || artist?.picUrl || artist?.singerPic || (artist?.mid ? `https://y.gtimg.cn/music/photo_new/T001R500x500M000${artist.mid}.jpg` : '')
+
+  // 顶部封面背景同样走原生预模糊缓存：原先每次进入歌手页都要对整张封面重算一次模糊，
+  // 期间顶部只画得出底色会闪一下。缓存未就绪时仍用 blurRadius 兜底，观感一致。
+  const headerCover = (artist?.cover || artist?.picUrl || artistPic) ? (artist.cover || artist?.picUrl || artistPic) : null
+  const [blurredHeaderCover, onHeaderCoverError] = useBlurredPic(headerCover, HEADER_BLUR_RADIUS)
 
   const toggleFollow = () => {
     if (!artist.name) {
@@ -69,7 +78,14 @@ export default memo(({ artist, onFollow: _onFollow, componentId }: Props) => {
 
   return (
     <View style={{ paddingTop: statusBarHeight }}>
-      <ImageBackground source={(artist?.cover || artist?.picUrl || artistPic) ? { uri: artist.cover || artist?.picUrl || artistPic } : null} style={styles.headerContainer} blurRadius={10}>
+      <ImageBackground
+        source={headerCover
+          ? (blurredHeaderCover ? { uri: blurredHeaderCover } : { uri: headerCover })
+          : null}
+        style={styles.headerContainer}
+        blurRadius={headerCover && !blurredHeaderCover ? HEADER_BLUR_RADIUS : undefined}
+        onError={blurredHeaderCover ? onHeaderCoverError : undefined}
+      >
         <View style={styles.overlay}>
           <TouchableOpacity activeOpacity={0.85} disabled={!artistPic} onPress={() => { setPreviewVisible(true) }}>
             <Image url={artistPic} style={styles.avatar} />

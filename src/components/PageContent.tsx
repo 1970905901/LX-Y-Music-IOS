@@ -2,10 +2,11 @@
 import { View, StyleSheet, Animated } from 'react-native'
 import { useTheme } from '@/store/theme/hook'
 import ImageBackground from '@/components/common/ImageBackground'
-import { useMemo, useEffect, useRef } from 'react'
+import { useMemo, useEffect, useRef, useState } from 'react'
 import { defaultHeaders } from './common/Image'
 import SizeView from './SizeView'
 import { useBgPic } from '@/store/common/hook'
+import { useBlurredPic } from '@/utils/hooks/useBlurredPic'
 
 import { useSettingValue } from '@/store/setting/hook'
 interface Props {
@@ -27,6 +28,11 @@ export default ({ children, backgroundFadeIn = false }: Props) => {
   // const BLUR_RADIUS = Math.max(scaleSizeAbsHR(blur), 10)
   const BLUR_RADIUS = blur
 
+  // 已模糊背景图（本地缓存）地址：原生按 图片地址 + 模糊半径 生成一次并落盘复用。
+  // 拿到它之前仍用 Image 的 blurRadius 兜底，因此观感与改动前完全一致（同一套模糊算法），
+  // 只是进入页面时不再每次重算一遍整屏模糊——那几十毫秒的空白底就是“闪一下白色”。
+  const [blurredPicUri, handleBlurredPicError] = useBlurredPic(pic, BLUR_RADIUS)
+
   // 仅当“开启背景淡入”且“当前确实有动态/自定义背景”时才淡入；否则直接显示。
   const shouldFade = backgroundFadeIn && !!pic
   // 背景透明度动画：0（白）→ 1（完整动态背景）。初始值取决于是否淡入。
@@ -46,6 +52,18 @@ export default ({ children, backgroundFadeIn = false }: Props) => {
     anim.start()
     return () => { anim.stop() }
   }, [shouldFade, bgOpacity])
+
+  // 首帧只挂载背景层，页面内容延后一帧再挂载。
+  // 动态/自定义背景是一整屏图片，需要解码 + 高斯模糊（几十毫秒，绘制必须等它算完）；
+  // 若背景与页面内容在同一个 commit 里挂载，这段时间会被“先渲染整个页面”占满，
+  // 期间屏幕上什么都没有，只能看到转场底色（浅色主题是纯白）——即“进入设置 / 详情页闪一下白色”。
+  // 让背景层先挂载，图片解码与模糊能在内容就绪前就开始，内容随后补上，露白窗口明显缩短。
+  // SizeView 不受影响（它在 contentComponent 之外），窗口尺寸仍在首帧完成测量。
+  const [contentReady, setContentReady] = useState(false)
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => { setContentReady(true) })
+    return () => { cancelAnimationFrame(raf) }
+  }, [])
 
   const contentComponent = useMemo(() => {
     return (
@@ -72,9 +90,16 @@ export default ({ children, backgroundFadeIn = false }: Props) => {
               ...StyleSheet.absoluteFillObject,
               backgroundColor: theme['c-content-background'],
             }}
-            source={pic ? { uri: pic, headers: defaultHeaders } : theme['bg-image']}
+            // 优先用原生缓存的「已模糊本地图」（无需 blurRadius，首帧即可绘制）；
+            // 缓存尚未就绪时回退到原方案（远程图 + blurRadius），两者像素结果一致。
+            source={pic
+              ? (blurredPicUri ? { uri: blurredPicUri } : { uri: pic, headers: defaultHeaders })
+              : theme['bg-image']}
             resizeMode="cover"
-            blurRadius={pic ? BLUR_RADIUS : undefined}
+            blurRadius={pic && !blurredPicUri ? BLUR_RADIUS : undefined}
+            // 缓存文件被「清理缓存」删掉等异常情况：回退到原方案（远程图 + blurRadius），
+            // 自愈而不会留下一块空白底。
+            onError={blurredPicUri ? handleBlurredPicError : undefined}
           >
             {pic ? (
               <View
@@ -100,11 +125,11 @@ export default ({ children, backgroundFadeIn = false }: Props) => {
             // 淡入由上方背景层独立负责，二者同步即可形成连贯观感。
           ]}
         >
-          {children}
+          {contentReady ? children : null}
         </Animated.View>
       </View>
     )
-  }, [children, pic, theme, BLUR_RADIUS, picOpacity, shouldFade, bgOpacity])
+  }, [children, contentReady, pic, blurredPicUri, handleBlurredPicError, theme, BLUR_RADIUS, picOpacity, shouldFade, bgOpacity])
 
   return (
     <>

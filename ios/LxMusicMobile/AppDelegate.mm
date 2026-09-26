@@ -495,6 +495,149 @@ static BOOL LXClearDirectoryContents(NSString *directoryPath, NSError **error) {
   return YES;
 }
 
+// 背景图模糊：与 RN 的 Image blurRadius 用完全相同的算法（Accelerate vImage 三次 box convolve ≈ 高斯），
+// 保证缓存出来的图与原来每次挂载重算 blurRadius 的结果观感一致，只是「算一次、落盘复用」。
+// 背景（动态背景 = 整屏封面 / 自定义背景图）是整屏大图，原先每次进入页面都要重新解码 + 模糊一遍，
+// 这几十毫秒里页面只有底色（浅色主题是纯白）= 进入页面「闪一下白色」。缓存后页面首帧直接画本地图。
+static UIImage *LXBlurredBackgroundImage(UIImage *inputImage, CGFloat radius) {
+  // 算法移植自 RN Libraries/Image/RCTImageBlurUtils.mm 的 RCTBlurredImageWithRadius
+  CGImageRef imageRef = inputImage.CGImage;
+  CGFloat imageScale = inputImage.scale;
+  UIImageOrientation imageOrientation = inputImage.imageOrientation;
+
+  if (imageRef == NULL || CGImageGetWidth(imageRef) * CGImageGetHeight(imageRef) == 0) return inputImage;
+
+  // 转成 32 位带 alpha 位图，vImage 只接受这种格式
+  if (CGImageGetBitsPerPixel(imageRef) != 32 || !((CGImageGetBitmapInfo(imageRef) & kCGBitmapAlphaInfoMask))) {
+    UIGraphicsImageRendererFormat *const rendererFormat = [UIGraphicsImageRendererFormat defaultFormat];
+    rendererFormat.scale = inputImage.scale;
+    UIGraphicsImageRenderer *const renderer = [[UIGraphicsImageRenderer alloc] initWithSize:inputImage.size
+                                                                                    format:rendererFormat];
+    imageRef = [renderer imageWithActions:^(UIGraphicsImageRendererContext *_Nonnull context) {
+                 [inputImage drawAtPoint:CGPointZero];
+               }].CGImage;
+    if (imageRef == NULL) return inputImage;
+  }
+
+  vImage_Buffer buffer1, buffer2;
+  buffer1.width = buffer2.width = CGImageGetWidth(imageRef);
+  buffer1.height = buffer2.height = CGImageGetHeight(imageRef);
+  buffer1.rowBytes = buffer2.rowBytes = CGImageGetBytesPerRow(imageRef);
+  size_t bytes = buffer1.rowBytes * buffer1.height;
+  buffer1.data = malloc(bytes);
+  if (!buffer1.data) return inputImage;
+  buffer2.data = malloc(bytes);
+  if (!buffer2.data) {
+    free(buffer1.data);
+    return inputImage;
+  }
+
+  // 由高斯半径换算 box kernel 宽度（见 SVG spec 注释），与 RN 保持一致
+  uint32_t boxSize = floor((radius * imageScale * 3 * sqrt(2 * M_PI) / 4 + 0.5) / 2);
+  boxSize |= 1; // 保证为奇数
+
+  vImage_Error tempBufferSize = vImageBoxConvolve_ARGB8888(
+      &buffer1, &buffer2, NULL, 0, 0, boxSize, boxSize, NULL, kvImageGetTempBufferSize | kvImageEdgeExtend);
+  if (tempBufferSize <= 0) {
+    free(buffer1.data);
+    free(buffer2.data);
+    return inputImage;
+  }
+  void *tempBuffer = malloc(tempBufferSize);
+  if (!tempBuffer) {
+    free(buffer1.data);
+    free(buffer2.data);
+    return inputImage;
+  }
+
+  CFDataRef dataSource = CGDataProviderCopyData(CGImageGetDataProvider(imageRef));
+  if (dataSource == NULL) {
+    free(buffer1.data);
+    free(buffer2.data);
+    free(tempBuffer);
+    return inputImage;
+  }
+  memcpy(buffer1.data, CFDataGetBytePtr(dataSource), bytes);
+  CFRelease(dataSource);
+
+  vImageBoxConvolve_ARGB8888(&buffer1, &buffer2, tempBuffer, 0, 0, boxSize, boxSize, NULL, kvImageEdgeExtend);
+  vImageBoxConvolve_ARGB8888(&buffer2, &buffer1, tempBuffer, 0, 0, boxSize, boxSize, NULL, kvImageEdgeExtend);
+  vImageBoxConvolve_ARGB8888(&buffer1, &buffer2, tempBuffer, 0, 0, boxSize, boxSize, NULL, kvImageEdgeExtend);
+
+  free(buffer2.data);
+  free(tempBuffer);
+
+  CGContextRef ctx = CGBitmapContextCreate(buffer1.data,
+                                          buffer1.width,
+                                          buffer1.height,
+                                          8,
+                                          buffer1.rowBytes,
+                                          CGImageGetColorSpace(imageRef),
+                                          CGImageGetBitmapInfo(imageRef));
+  if (ctx == NULL) {
+    free(buffer1.data);
+    return inputImage;
+  }
+  CGImageRef blurredRef = CGBitmapContextCreateImage(ctx);
+  UIImage *outputImage = blurredRef
+      ? [UIImage imageWithCGImage:blurredRef scale:imageScale orientation:imageOrientation]
+      : inputImage;
+  if (blurredRef) CGImageRelease(blurredRef);
+  CGContextRelease(ctx);
+  free(buffer1.data);
+  return outputImage;
+}
+
+// 背景模糊图缓存路径：Caches/lx_bg_blur/v1_<地址哈希>_<半径>.jpg
+// 半径不同视为不同图；v1 用于将来改动算法时整体失效旧缓存。
+static NSString *LXBlurredBackgroundCachePath(NSString *uri, CGFloat radius) {
+  unsigned long long hash = 1469598103934665603ULL; // FNV-1a 64
+  NSUInteger length = uri.length;
+  for (NSUInteger i = 0; i < length; i++) {
+    unsigned int ch = (unsigned int)[uri characterAtIndex:i];
+    hash ^= (unsigned long long)(ch & 0xFF);
+    hash *= 1099511628211ULL;
+    hash ^= (unsigned long long)((ch >> 8) & 0xFF);
+    hash *= 1099511628211ULL;
+  }
+  NSString *name = [NSString stringWithFormat:@"v1_%016llx_%d.jpg", hash, (int)lround(radius)];
+  NSString *cacheRoot = LXCacheDirectories().firstObject;
+  if (cacheRoot.length == 0) return nil;
+  NSString *dir = [cacheRoot stringByAppendingPathComponent:@"lx_bg_blur"];
+  [[NSFileManager defaultManager] createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:nil error:nil];
+  return [dir stringByAppendingPathComponent:name];
+}
+
+// 控制背景模糊图缓存的规模：只保留最近生成的几张，其余按修改时间最旧优先删除。
+// 背景图随歌曲变化，一张约 1MB；而「缓存上限」默认是「不限制」，若无节制落盘会持续占用空间。
+static void LXTrimBlurredBackgroundCache(NSString *cachePath, NSUInteger keepCount) {
+  NSString *dir = [cachePath stringByDeletingLastPathComponent];
+  if (dir.length == 0) return;
+  NSFileManager *fileManager = [NSFileManager defaultManager];
+  NSArray<NSString *> *names = [fileManager contentsOfDirectoryAtPath:dir error:nil];
+  if (names.count <= keepCount) return;
+
+  NSMutableArray<NSDictionary *> *files = [NSMutableArray array];
+  for (NSString *name in names) {
+    if (![name hasPrefix:@"v1_"] || ![name hasSuffix:@".jpg"]) continue;
+    NSString *fullPath = [dir stringByAppendingPathComponent:name];
+    NSDictionary *attributes = [fileManager attributesOfItemAtPath:fullPath error:nil];
+    if (attributes == nil) continue;
+    [files addObject:@{
+      @"path": fullPath,
+      @"date": attributes[NSFileModificationDate] ?: [NSDate distantPast],
+    }];
+  }
+  if (files.count <= keepCount) return;
+
+  [files sortUsingComparator:^NSComparisonResult(NSDictionary *a, NSDictionary *b) {
+    return [b[@"date"] compare:a[@"date"]]; // 新 → 旧
+  }];
+  for (NSUInteger i = keepCount; i < files.count; i++) {
+    [fileManager removeItemAtPath:files[i][@"path"] error:nil];
+  }
+}
+
 static NSURLSessionDataTask *LXNowPlayingArtworkTask = nil;
 static NSMutableDictionary *LXNowPlayingInfoCache = nil;
 static NSString *LXNowPlayingArtworkPath = nil;
@@ -4885,6 +5028,84 @@ RCT_EXPORT_METHOD(endBackgroundTask:(nonnull NSNumber *)taskId) {
     if (LXBackgroundTaskId == UIBackgroundTaskInvalid) return;
     [[UIApplication sharedApplication] endBackgroundTask:LXBackgroundTaskId];
     LXBackgroundTaskId = UIBackgroundTaskInvalid;
+  });
+}
+
+// 生成并缓存一张「已模糊的背景图」到本地，返回 file:// 地址；无需模糊 / 失败时返回 nil。
+// 背景（动态背景 = 整屏封面 / 自定义背景图）原先由 JS 侧 Image 的 blurRadius 在每次挂载时重算，
+// 整屏图的解码 + 模糊要几十毫秒，期间页面只有底色（浅色主题纯白）= 进入页面「闪一下白色」。
+// 这里按 地址 + 半径 缓存到 Caches/lx_bg_blur（模糊算法与 RN 完全一致，观感不变），
+// 页面改用本地文件后首帧即可绘制；热缓存时异步往返只有几毫秒。
+RCT_REMAP_METHOD(getBlurredPic,
+                 getBlurredPic:(NSString *)uriString
+                 blurRadius:(nonnull NSNumber *)blurRadius
+                 resolver:(RCTPromiseResolveBlock)resolve
+                 rejecter:(RCTPromiseRejectBlock)reject) {
+  NSString *uri = [uriString isKindOfClass:[NSString class]] ? uriString : @"";
+  CGFloat radius = MAX(0, blurRadius.doubleValue);
+  if (uri.length == 0 || radius <= 0) {
+    resolve(nil);
+    return;
+  }
+
+  dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+    NSString *cachePath = LXBlurredBackgroundCachePath(uri, radius);
+    if (cachePath.length == 0) {
+      resolve(nil);
+      return;
+    }
+    NSFileManager *fileManager = [NSFileManager defaultManager];
+    if ([fileManager fileExistsAtPath:cachePath]) {
+      resolve([NSURL fileURLWithPath:cachePath].absoluteString);
+      return;
+    }
+
+    NSData *data = nil;
+    if ([uri hasPrefix:@"http://"] || [uri hasPrefix:@"https://"]) {
+      NSURL *url = [NSURL URLWithString:uri];
+      if (url == nil) {
+        resolve(nil);
+        return;
+      }
+      // 与 JS 侧 defaultHeaders、控制中心封面下载保持一致：部分音源封面 CDN 对无 UA 的请求返回 403
+      NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
+      [request setValue:@"Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.100 Safari/537.36" forHTTPHeaderField:@"User-Agent"];
+      request.timeoutInterval = 20;
+      __block NSData *fetched = nil;
+      dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
+      NSURLSessionDataTask *task = [[NSURLSession sharedSession] dataTaskWithRequest:request
+                                                                  completionHandler:^(NSData * _Nullable taskData, NSURLResponse * _Nullable response, NSError * _Nullable error) {
+        if (error == nil && taskData.length > 0) fetched = taskData;
+        dispatch_semaphore_signal(semaphore);
+      }];
+      [task resume];
+      // 本方法本身已在后台队列，这里同步等待下载完成（超时兜底，保证 Promise 一定会返回）
+      dispatch_semaphore_wait(semaphore, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(25 * NSEC_PER_SEC)));
+      data = fetched;
+    } else {
+      NSString *filePath = uri;
+      if ([filePath hasPrefix:@"file://"]) filePath = [NSURL URLWithString:filePath].path ?: filePath;
+      data = [NSData dataWithContentsOfFile:filePath.stringByStandardizingPath];
+    }
+
+    UIImage *image = data.length > 0 ? [UIImage imageWithData:data] : nil;
+    if (image == nil) {
+      resolve(nil);
+      return;
+    }
+
+    UIImage *blurred = LXBlurredBackgroundImage(image, radius);
+    NSData *output = UIImageJPEGRepresentation(blurred, 0.92);
+    if (output.length == 0) {
+      resolve(nil);
+      return;
+    }
+    BOOL written = [output writeToFile:cachePath atomically:YES];
+    if (written) {
+      // 只保留最近 6 张：够覆盖最近播放的几首歌（下一张进入前必定命中），又不会无限占空间
+      LXTrimBlurredBackgroundCache(cachePath, 6);
+    }
+    resolve(written ? [NSURL fileURLWithPath:cachePath].absoluteString : nil);
   });
 }
 

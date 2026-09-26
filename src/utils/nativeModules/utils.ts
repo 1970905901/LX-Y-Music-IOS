@@ -227,6 +227,42 @@ export const endBackgroundTask = (): void => {
   } catch {}
 }
 
+const blurredPicPending = new Map<string, Promise<string | null>>()
+
+/**
+ * 取「已模糊的背景图」本地地址（file://...）。
+ * 背景（动态背景 = 整屏封面 / 自定义背景图）原先由 Image 的 blurRadius 在每次挂载时重算，
+ * 整屏图解码 + 模糊要几十毫秒，这段时间页面只有底色（浅色主题是纯白）= 进入页面「闪一下白色」。
+ * 原生按 地址 + 半径 把模糊结果缓存到 Caches/lx_bg_blur（模糊算法与 RN 的 blurRadius 完全一致，
+ * 观感不变），页面改用本地文件后首帧即可绘制。
+ * 失败 / 原生未就绪 / 超时一律返回 null，调用方回退到 Image 的 blurRadius，不影响可用性。
+ */
+export const getBlurredPic = async(uri: string, blurRadius: number): Promise<string | null> => {
+  if (!isIOS || !UtilsModule?.getBlurredPic || !uri || blurRadius <= 0) return null
+  // 同一张背景图可能被多个页面同时请求（Home + 详情页…），这里按 地址 + 半径 复用同一个
+  // 在途 Promise，避免原生侧重复做整屏解码/模糊（内存与耗时的双重浪费）。
+  const cacheKey = `${uri}|${blurRadius}`
+  const pending = blurredPicPending.get(cacheKey)
+  if (pending) return pending
+  const task = (async(): Promise<string | null> => {
+    try {
+      const result = await Promise.race([
+        UtilsModule.getBlurredPic(uri, blurRadius) as Promise<string | null>,
+        // 原生兜底超时：即使原生侧意外没有回调，也不让调用方一直等（超时后原生仍会继续写完缓存）
+        new Promise<null>((resolve) => { setTimeout(() => { resolve(null) }, 8000) }),
+      ])
+      return typeof result == 'string' && result.length > 0 ? result : null
+    } catch {
+      return null
+    }
+  })()
+  blurredPicPending.set(cacheKey, task)
+  // 结束后立即移除记录：它只用于让「同时挂载的多个页面」共享同一次原生计算，
+  // 不长期记住路径——万一缓存文件被「清理缓存」删掉，下次挂载仍会向原生重新确认。
+  void task.finally(() => { blurredPicPending.delete(cacheKey) })
+  return task
+}
+
 export interface SafeAreaInsets {
   top: number
   bottom: number

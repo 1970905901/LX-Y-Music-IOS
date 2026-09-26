@@ -293,6 +293,16 @@ const AnnouncementModal = ({ componentId }: { componentId: string }) => {
         ) : null}
         <ScrollView style={styles.content} keyboardShouldPersistTaps={'always'}>
           <MarkdownText content={announcementInfo.content} />
+          {/* 赞赏码：本地固定公告用 App 内置图片（不支持远程地址，避免多页 image 数组之类
+              的格式问题；这里直接用 require 的模块号，release 包同样能解析） */}
+          {announcementInfo.showRewardQrcode ? (
+            <Image
+              source={require('@/resources/images/reward-qrcode.jpg')}
+              style={styles.rewardImage}
+              resizeMode="contain"
+              accessibilityLabel="赞赏码"
+            />
+          ) : null}
         </ScrollView>
       </View>
       <View style={styles.btns}>
@@ -409,6 +419,15 @@ const styles = createStyle({
     maxHeight: 150,
     marginVertical: designSpacing.xs,
     borderRadius: designRadius.sm,
+  },
+  rewardImage: {
+    // 赞赏码：正方形居中，不拉伸（原图 1:1）
+    width: 200,
+    height: 200,
+    alignSelf: 'center',
+    marginTop: designSpacing.xs,
+    marginBottom: designSpacing.sm,
+    borderRadius: designRadius.md,
   },
   markdownVideoContainer: {
     width: '100%',

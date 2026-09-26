@@ -1,20 +1,31 @@
-import { httpGet } from '@/utils/request'
+// 公告数据（本地固定，不联网）
+//
+// 原实现从 GitHub 远程 announcement.json 拉取，但远程已换成「多页 + 分页按钮」的新格式
+// （content 是数组、按钮改用 action 描述行为），与本 App 的单页公告弹窗不兼容；公告内容也
+// 不再需要联网下发，因此改为固定维护在本文件里，取数据不再发任何网络请求。
+//
+// 展示时机：首次安装启动、且用户签署「许可协议」之后弹一次（见 core/init 的注释与
+// PactModal 的 scheduleAnnouncementCheckAfterPact）。
+// 「只弹一次」由 announcementId 与本地已展示 ID 比对保证（见 core/announcement）。
+// 修改内容时请一并修改 announcementId，否则已经看过旧公告的机器不会再弹新内容。
 
 // ===== 调试开关 =====
-// DEBUG_MODE = true: 调试模式，每次启动直接弹出公告（忽略ID检查）
-// DEBUG_MODE = false: 正常模式，只有ID变化时才弹出公告
+// DEBUG_MODE = true: 调试模式，忽略「本地已展示 ID」比对，每次启动都弹
+// DEBUG_MODE = false: 正常模式，只在本地没有展示过该 announcementId 时弹
 export const DEBUG_MODE = false
 
-// ===== 本地测试模式 =====
-// 将 TEST_MODE 设为 true 使用本地测试数据
-// 将 TEST_MODE 设为 false 使用远程 GitHub 数据
-const TEST_MODE = true
-
-const testAnnouncementData = {
-  announcementId: 'qqgroup-1013518794',
-  title: '🎉 欢迎加入 LX-Y Music 交流群',
-  content: '## 加入 QQ 交流群\n\n欢迎加入 LX-Y Music 官方交流群，与开发者和其他用户一起交流：\n\n### 群号\n\n**1013518794**\n\n### 提示\n\n- 点击 **复制群号** 按钮可快速复制群号\n- 打开 QQ → 加群 → 粘贴群号即可加入\n- 有问题、建议或想获取最新版本，都可以在群里交流',
-  image: '',
+const localAnnouncement = {
+  // 内容有更新时改这里（例如 local-20261001-1），用于让已看过旧公告的机器也能看到新公告
+  announcementId: 'local-qqgroup-1013518794',
+  title: '🎉 欢迎使用 LX-Y Music',
+  content: [
+    '加入 QQ 群 **1013518794** 与开发者和音乐爱好者交流，点击下方「复制群号」按钮即可复制群号。',
+    '',
+    '赞赏支持：若你觉得本软件不错，欢迎赞赏支持开发者。',
+  ].join('\n'),
+  // 赞赏码用 App 内置图片（src/resources/images/reward-qrcode.jpg），由弹窗直接渲染，
+  // 不走图片地址，因此这里不设置 image。
+  showRewardQrcode: true,
   buttons: [
     {
       text: '复制群号',
@@ -28,63 +39,11 @@ const testAnnouncementData = {
     },
   ],
 }
-// ===== 测试模式结束 =====
 
-const address = [
-  ['https://gh.llkk.cc/https://raw.githubusercontent.com/WalnutBai/lx-lxwalnut-music-mobile/master/publish/announcement.json', 'direct'],
-  ['https://raw.githubusercontent.com/WalnutBai/lx-lxwalnut-music-mobile/master/publish/announcement.json', 'direct'],
-  ['https://cdn.jsdelivr.net/gh/WalnutBai/lx-lxwalnut-music-mobile/publish/announcement.json', 'direct'],
-  ['https://fastly.jsdelivr.net/gh/WalnutBai/lx-lxwalnut-music-mobile/publish/announcement.json', 'direct'],
-  ['https://gcore.jsdelivr.net/gh/WalnutBai/lx-lxwalnut-music-mobile/publish/announcement.json', 'direct'],
-]
-
-const request = async(url, retryNum = 0) => {
-  return new Promise((resolve, reject) => {
-    httpGet(
-      url,
-      {
-        timeout: 10000,
-      },
-      (err, resp, body) => {
-        if (err || resp.statusCode != 200) {
-          ++retryNum >= 3
-            ? reject(err || new Error(resp.statusMessage || resp.statusCode))
-            : request(url, retryNum).then(resolve).catch(reject)
-        } else resolve(body)
-      },
-    )
-  })
-}
-
-const getDirectInfo = async(url) => {
-  return request(url).then((info) => {
-    if (!info || !info.announcementId) throw new Error('Invalid announcement data')
-    return info
-  })
-}
-
-export const getAnnouncementInfo = async(index = 0) => {
-  // 本地测试模式：直接返回测试数据
-  // 每次调用都返回新对象，确保 ID 变化能被检测到
-  if (TEST_MODE) {
-    console.log('[Announcement] Running in TEST MODE, ID:', testAnnouncementData.announcementId)
-    return { ...testAnnouncementData }
+export const getAnnouncementInfo = async() => {
+  // 每次都返回新对象，避免调用方改到共享数据
+  return {
+    ...localAnnouncement,
+    buttons: localAnnouncement.buttons.map((btn) => ({ ...btn })),
   }
-
-  const [url, source] = address[index]
-  let promise
-
-  switch (source) {
-    case 'direct':
-      promise = getDirectInfo(url)
-      break
-    default:
-      promise = getDirectInfo(url)
-  }
-
-  return promise.catch(async(err) => {
-    index++
-    if (index >= address.length) throw err
-    return getAnnouncementInfo(index)
-  })
 }

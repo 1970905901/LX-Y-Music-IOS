@@ -13,7 +13,6 @@ import commonActions from '@/store/common/action'
 import settingState from '@/store/setting/state'
 import { bootLog } from '@/utils/bootLog'
 import { cheatTip } from '@/utils/tools'
-import { checkAnnouncement } from '@/core/announcement'
 import * as networkLyric from '@/core/networkLyric'
 import initUiMode from './uiMode'
 import { Platform } from 'react-native'
@@ -29,7 +28,8 @@ import defaultSetting from '@/config/defaultSetting'
 let isFirstPush = true
 const handlePushedHomeScreen = async() => {
   await cheatTip()
-  if (settingState.setting['common.isAgreePact']) {
+  const isAgreePact = !!settingState.setting['common.isAgreePact']
+  if (isAgreePact) {
     if (isFirstPush) {
       isFirstPush = false
       void initDeeplink()
@@ -39,14 +39,12 @@ const handlePushedHomeScreen = async() => {
     showPactModal()
   }
 
-  // 延迟检查公告，确保导航已就绪（来自安卓分支）
-  setTimeout(() => {
-    try {
-      void checkAnnouncement(false)
-    } catch (err) {
-      console.error('[Announcement] Error calling checkAnnouncement:', err)
-    }
-  }, 2000)
+  // 公告已改为本地固定内容，且只在「首次安装 + 签署许可协议之后」弹一次
+  // （由协议弹窗在接受后触发检查，见 PactModal.scheduleAnnouncementCheckAfterPact），
+  // 这里不再做启动检查：已同意协议的老用户不会在更新后突然被弹公告。
+  // 若将来又要向老用户推送新公告，需要在这里恢复一次检查（并把 utils/announcement 的
+  // announcementId 改掉，本地已展示 ID 不一致时才会弹）。
+
   networkLyric.init()
 }
 

@@ -154,9 +154,9 @@ export default () => {
   // 缓存歌词行高与累计偏移，把滚动定位从 O(n²) 降到 O(1)。
   const lyricScrollLayoutRef = useRef(new LyricScrollLayout(54))
   const scrollCancelRef = useRef<(() => void) | null>(null)
-  // 连续滚动指数平滑：rAF 目标 offset 不直接写入列表，而是让跟随值按固定速率收敛到目标。
+  // 连续滚动：rAF 目标 offset 不直接写入列表，而是让跟随值按固定时长/固定速率收敛到目标。
   // 逐字歌词无间隙切行、行高测量后的回正修正都是瞬时硬跳（长句换行后行高更大、跳变越明显），
-  // 平滑收敛把这些瞬跳变成约 200ms 的短滑动，消除换行长句切行时的顿挫感。
+  // 平滑收敛把这些瞬跳变成约 180ms 的短滑动，消除换行长句切行时的顿挫感。
   const smoothOffsetRef = useRef(0)
   const lastWrittenOffsetRef = useRef(-1)
   const lastFrameTsRef = useRef(0)
@@ -166,9 +166,17 @@ export default () => {
   const forceScrollTimer = useRef<NodeJS.Timeout | null>(null)
   // 连续滚动循环记录上一帧精确时间，暂停/无推进时跳过，避免空转重复写 scrollToOffset。
   const lastContinuousTimeRef = useRef(-1)
-  // 上一帧的高亮行索引 + 最近一次切行的时间戳：切行后短暂提速平滑，让新行尽快回到正中。
+  // 上一帧的高亮行索引（用于判断是否切行）。
   const lastContinuousIndexRef = useRef(-1)
-  const lastLineChangeTsRef = useRef(0)
+  // 切行滑动：起点偏移 / 终点偏移 / 起始时间戳（< 0 表示不在滑动中）；与竖屏同一套参数。
+  const glideFromRef = useRef(0)
+  const glideToRef = useRef(0)
+  const glideStartTsRef = useRef(-1)
+  // 切行滑动时长：固定时长 + easeInOut，起步/收尾平缓、每帧位移连续（原先 40/s 的指数逼近
+  // 单帧就吃掉 47% 距离，观感是“顿一下再猛追”，行高越大越明显）。
+  const LINE_CHANGE_GLIDE_MS = 180
+  // 同一行内的平滑速率：只吸收行高测量带来的一行内小幅修正（12/s ≈ 200ms 收敛 95%）。
+  const SMOOTH_RATE_NORMAL = 12
   // 列表可视高度（onLayout 测量），连续滚动按此计算居中偏移。
   const listHeightRef = useRef(0)
   // 列表可视高度 state：同时驱动 contentContainerStyle 的上下留白（50% 视高），
@@ -285,6 +293,10 @@ export default () => {
       // 不会把列表拽回旧位置。非 force（动画滚动）不改动跟随值，交给循环平滑收敛。
       smoothOffsetRef.current = targetOffset
       lastWrittenOffsetRef.current = targetOffset
+      // 硬跳定位后取消进行中的切行滑动，否则下一帧会被滑动轨迹拉回旧位置；
+      // 同时把“上一次滚动到的行”对齐，避免下一帧把这次硬跳当成切行再滑一次。
+      glideStartTsRef.current = -1
+      lastContinuousIndexRef.current = index
     } else {
       const currentOffset = scrollInfoRef.current.contentOffset.y
       const distance = Math.abs(targetOffset - currentOffset)
@@ -341,15 +353,27 @@ export default () => {
     const offset = layout.getTargetOffsetPrecise(i, listHeight, lyricLines, 0.5, paddingV, 0, false, true)
     if (i !== lastContinuousIndexRef.current) {
       lastContinuousIndexRef.current = i
-      lastLineChangeTsRef.current = ts
+      // 切行：以“列表当前实际位置”为起点、新行居中位置为终点，重新开始一段固定时长的滑动。
+      // 两句紧挨着时（上一段还没滑完就切行）也从当前位置接着滑，位移连续、不闪不跳。
+      glideFromRef.current = smoothOffsetRef.current
+      glideToRef.current = offset
+      glideStartTsRef.current = ts
     }
-    // 切行后 250ms 内提速平滑（12/s → 40/s），让新行尽快回到正中。
     const dt = lastFrameTsRef.current > 0 ? Math.min(Math.max((ts - lastFrameTsRef.current) / 1000, 0.001), 0.05) : 0.016
     lastFrameTsRef.current = ts
-    const rate = ts - lastLineChangeTsRef.current < 250 ? 40 : 12
-    const delta = offset - smoothOffsetRef.current
-    if (Math.abs(delta) < 0.5) smoothOffsetRef.current = offset
-    else smoothOffsetRef.current += delta * (1 - Math.exp(-dt * rate))
+    const glideElapsed = ts - glideStartTsRef.current
+    if (glideStartTsRef.current >= 0 && glideElapsed < LINE_CHANGE_GLIDE_MS) {
+      // 切行滑动中：easeInOutQuad。终点取切行当帧记录的新行偏移；若这期间行高测量修正了目标，
+      // 滑动结束后由下面的指数平滑继续收敛（小幅位移，无感），不会硬跳。
+      const p = glideElapsed / LINE_CHANGE_GLIDE_MS
+      const eased = p < 0.5 ? 2 * p * p : 1 - (((-2 * p) + 2) * ((-2 * p) + 2)) / 2
+      smoothOffsetRef.current = glideFromRef.current + (glideToRef.current - glideFromRef.current) * eased
+    } else {
+      glideStartTsRef.current = -1
+      const delta = offset - smoothOffsetRef.current
+      if (Math.abs(delta) < 0.5) smoothOffsetRef.current = offset
+      else smoothOffsetRef.current += delta * (1 - Math.exp(-dt * SMOOTH_RATE_NORMAL))
+    }
     if (Math.abs(smoothOffsetRef.current - lastWrittenOffsetRef.current) < 0.5) return
     try {
       flatListRef.current.scrollToOffset({ offset: smoothOffsetRef.current, animated: false })
@@ -472,6 +496,8 @@ export default () => {
     smoothOffsetRef.current = 0
     lastWrittenOffsetRef.current = -1
     lastFrameTsRef.current = 0
+    glideStartTsRef.current = -1
+    lastContinuousIndexRef.current = -1
     if (!lyricLines.length) {
       pendingInitialScrollRef.current = false
       isPauseScrollRef.current = false
@@ -523,6 +549,9 @@ export default () => {
           smoothOffsetRef.current = scrollInfoRef.current?.contentOffset.y ?? 0
           lastWrittenOffsetRef.current = smoothOffsetRef.current
           lastFrameTsRef.current = ts
+          // 恢复首帧不承接暂停前的切行滑动
+          glideStartTsRef.current = -1
+          lastContinuousIndexRef.current = -1
         }
         scrollToActiveContinuous(ts)
       }

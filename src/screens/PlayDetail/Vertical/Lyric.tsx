@@ -374,6 +374,10 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHei
       if (force) {
         smoothOffsetRef.current = targetOffset
         lastWrittenOffsetRef.current = targetOffset
+        // 硬跳定位后取消进行中的切行滑动，否则下一帧会被滑动轨迹拉回旧位置；
+        // 同时把“上一次滚动到的行”对齐，避免下一帧把这次硬跳当成切行再滑一次。
+        glideStartTsRef.current = -1
+        lastContinuousIndexRef.current = index
       }
     } catch { }
   }, [lyricLines, pagerHeight])
@@ -385,13 +389,20 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHei
   // 行高越大偏得越多——这正是两行及以上的长句最容易看出不居中的原因。
   // 同时不再做「句末提前滚到下一行」的预滚动：那会让整句末尾那段（最长约 0.7s）
   // 高亮行被持续拉离中心，与「高亮行必须居中」的要求冲突。
-  // 现在改为切行瞬间把目标切到新行，由指数平滑在约 100ms 内滑到位。
+  // 现在改为切行瞬间把目标切到新行，并用固定时长的 easeInOut 滑动滑到新行居中。
   const lastContinuousTimeRef = useRef(-1)
   const lastContinuousIndexRef = useRef(-1)
-  const lastLineChangeTsRef = useRef(0)
-  const LINE_CHANGE_SMOOTH_WINDOW = 250
+  // 切行滑动：起点偏移 / 终点偏移 / 起始时间戳（< 0 表示当前不在滑动中）。
+  const glideFromRef = useRef(0)
+  const glideToRef = useRef(0)
+  const glideStartTsRef = useRef(-1)
+  // 切行滑动时长。原先切行后用「指数速率 12/s → 40/s」追：40/s 单帧就吃掉 47% 的距离，
+  // 观感是“顿一下再猛追”。改成固定时长的 easeInOut 滑动后，起步/收尾都平缓、中段略快，
+  // 每帧位移连续变化，整段看起来才是平滑地滑上去（行高越大越明显）。
+  const LINE_CHANGE_GLIDE_MS = 180
+  // 同一行内的平滑速率：只用来吸收行高测量带来的小幅修正（12/s ≈ 200ms 收敛 95%），
+  // 目标本身基本不动，不会产生可见位移。
   const SMOOTH_RATE_NORMAL = 12
-  const SMOOTH_RATE_LINE_CHANGE = 40
   const scrollToActiveContinuous = (ts: number) => {
     const t = audioClock.getTime() * 1000 // ms
     if (t === lastContinuousTimeRef.current) {
@@ -410,16 +421,27 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHei
     const continuousOffset = lyricScrollLayoutRef.current.getTargetOffsetPrecise(i, listHeight, lyricLines, 0.5, paddingV, 0, false)
     if (i !== lastContinuousIndexRef.current) {
       lastContinuousIndexRef.current = i
-      lastLineChangeTsRef.current = ts
+      // 切行：以“列表当前实际位置”为起点、新行居中位置为终点，重新开始一段固定时长的滑动。
+      // 两句紧挨着时（上一段还没滑完就切行）也从当前位置接着滑，位移连续、不闪不跳。
+      glideFromRef.current = smoothOffsetRef.current
+      glideToRef.current = continuousOffset
+      glideStartTsRef.current = ts
     }
-    // 指数平滑收敛到目标 offset：常规速率 12/s（约 200ms 收敛 95%，普通推进目标本身连续、无感）；
-    // 切行后 250ms 内提速到 40/s，让新行尽快回到正中——否则长句切行后会有肉眼可见的半拍偏移。
     const dt = lastFrameTsRef.current > 0 ? Math.min(Math.max((ts - lastFrameTsRef.current) / 1000, 0.001), 0.05) : 0.016
     lastFrameTsRef.current = ts
-    const rate = ts - lastLineChangeTsRef.current < LINE_CHANGE_SMOOTH_WINDOW ? SMOOTH_RATE_LINE_CHANGE : SMOOTH_RATE_NORMAL
-    const delta = continuousOffset - smoothOffsetRef.current
-    if (Math.abs(delta) < 0.5) smoothOffsetRef.current = continuousOffset
-    else smoothOffsetRef.current += delta * (1 - Math.exp(-dt * rate))
+    const glideElapsed = ts - glideStartTsRef.current
+    if (glideStartTsRef.current >= 0 && glideElapsed < LINE_CHANGE_GLIDE_MS) {
+      // 切行滑动中：easeInOutQuad。终点取切行当帧记录的新行偏移；若这期间行高测量修正了目标，
+      // 滑动结束后由下面的指数平滑继续收敛（小幅位移，无感），不会硬跳。
+      const p = glideElapsed / LINE_CHANGE_GLIDE_MS
+      const eased = p < 0.5 ? 2 * p * p : 1 - (((-2 * p) + 2) * ((-2 * p) + 2)) / 2
+      smoothOffsetRef.current = glideFromRef.current + (glideToRef.current - glideFromRef.current) * eased
+    } else {
+      glideStartTsRef.current = -1
+      const delta = continuousOffset - smoothOffsetRef.current
+      if (Math.abs(delta) < 0.5) smoothOffsetRef.current = continuousOffset
+      else smoothOffsetRef.current += delta * (1 - Math.exp(-dt * SMOOTH_RATE_NORMAL))
+    }
     if (Math.abs(smoothOffsetRef.current - lastWrittenOffsetRef.current) < 0.5) return
     try {
       flatListRef.current.scrollToOffset({ offset: smoothOffsetRef.current, animated: false })
@@ -570,6 +592,8 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHei
     smoothOffsetRef.current = 0
     lastWrittenOffsetRef.current = -1
     lastFrameTsRef.current = 0
+    glideStartTsRef.current = -1
+    lastContinuousIndexRef.current = -1
     if (!lyricLines.length) {
       pendingInitialScrollRef.current = false
       isPauseScrollRef.current = false
@@ -637,6 +661,9 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHei
           smoothOffsetRef.current = scrollYRef.current
           lastWrittenOffsetRef.current = scrollYRef.current
           lastFrameTsRef.current = ts
+          // 恢复首帧不承接暂停前的切行滑动
+          glideStartTsRef.current = -1
+          lastContinuousIndexRef.current = -1
         }
         scrollToActiveContinuous(ts)
       }

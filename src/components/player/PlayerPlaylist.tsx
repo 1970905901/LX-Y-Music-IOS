@@ -6,7 +6,7 @@ import Text from '@/components/common/Text'
 import { useTheme } from '@/store/theme/hook'
 import playerState from '@/store/player/state'
 import listState from '@/store/list/state'
-import { usePlayerMusicInfo, useTempPlayList } from '@/store/player/hook'
+import { usePlayerMusicInfo, useTempPlayList, usePlayInfo } from '@/store/player/hook'
 import { createStyle, toast } from '@/utils/tools'
 import { scaleSizeH } from '@/utils/pixelRatio'
 import { LIST_ITEM_HEIGHT, LIST_IDS } from '@/config/constant'
@@ -66,6 +66,13 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
   const theme = useTheme()
   const playerMusicInfo = usePlayerMusicInfo()
   const tempPlayList = useTempPlayList()
+  // 当前播放列表 id 必须通过 hook 订阅 playInfoChanged，不能直接读 playerState.playInfo：
+  // 切「播放列表」本身（如歌单/专辑/歌手详情点「播放全部」，把播放列表换成临时列表）
+  // 只改 playInfo，不产生列表内容事件；面板以前没订阅它，于是切换后面板仍停留在
+  // 切换前那个列表的标题与歌曲上（表现为「点了某歌单的播放全部，播放列表面板里还是
+  // 试听列表 / 上一个列表的歌」）。
+  const playInfo = usePlayInfo()
+  const playerListId = playInfo.playerListId
   const { height: windowHeight } = useWindowSize()
   const [initialIndex, setInitialIndex] = useState(0)
   const [isVisible, setIsVisible] = useState(false)
@@ -86,14 +93,15 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
 
   // 面板标题需反映真实模式：临时队列显示「临时列表」，否则显示当前播放歌单名。
   // 原实现写死 list_name_temp，会让用户误以为展示当前歌单时也在「临时列表」中。
+  // 依赖里必须带 playerListId：切播放列表时标题也要跟着换（原因见上面 playerListId 注释）。
   const title = useMemo(() => {
     if (isTempMode) return t('list_name_temp')
-    const id = playerState.playInfo.playerListId
-    if (id === LIST_IDS.DEFAULT) return t('list_name_default')
-    if (id === LIST_IDS.LOVE) return t('list_name_love')
-    if (id === LIST_IDS.DOWNLOAD) return t('list_name_download')
-    return listState.allList.find(l => l.id === id)?.name ?? t('list_name_play')
-  }, [isTempMode, t])
+    if (playerListId === LIST_IDS.TEMP) return t('list_name_temp')
+    if (playerListId === LIST_IDS.DEFAULT) return t('list_name_default')
+    if (playerListId === LIST_IDS.LOVE) return t('list_name_love')
+    if (playerListId === LIST_IDS.DOWNLOAD) return t('list_name_download')
+    return listState.allList.find(l => l.id === playerListId)?.name ?? t('list_name_play')
+  }, [isTempMode, t, playerListId])
 
   // 普通列表模式下，playlist 直接读 store 中的歌单数据（getListMusicSync）。
   // 该数据变化只通过 global.list_event 广播，不会触发组件重新计算，
@@ -122,14 +130,17 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
     }
   }, [])
 
+  // playlist 的两类变化来源必须都在依赖里，否则面板会“卡”在旧列表上：
+  // - listVersion：同一个播放列表的歌曲被改动（增删/清空/覆盖）时刷新；
+  // - playerListId：播放列表本身被切换时刷新（切列表不一定改内容事件，见上面 playerListId 注释）；
+  //   切到「临时列表」后，其内容由 overwrite 事件（此时 playerListId 已是临时列表）经 listVersion 刷新。
   const playlist = useMemo<LX.Player.PlayMusic[]>(() => {
     const tempItems = (tempPlayList ?? []).map(item => item.musicInfo)
     if (tempItems.length) return tempItems
-    const listId = playerState.playInfo.playerListId
-    if (!listId) return []
+    if (!playerListId) return []
     void listVersion
-    return (getList(listId) as LX.Player.PlayMusic[])
-  }, [tempPlayList, listVersion])
+    return (getList(playerListId) as LX.Player.PlayMusic[])
+  }, [tempPlayList, listVersion, playerListId])
 
   // 依赖必须列出，否则 ref 暴露的 show() 会永久闭包首次渲染的旧值。
   useImperativeHandle(ref, () => ({
@@ -159,10 +170,9 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
       playTempListAt(index)
       return
     }
-    const listId = playerState.playInfo.playerListId
-    if (!listId) return
-    playCurrentListAt(listId, index)
-  }, [isTempMode])
+    if (!playerListId) return
+    playCurrentListAt(playerListId, index)
+  }, [isTempMode, playerListId])
 
   const handleShowMenu = useCallback((musicInfo: LX.Music.MusicInfo, index: number, position: Position) => {
     const adaptedMusicInfo = {

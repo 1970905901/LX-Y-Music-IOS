@@ -198,11 +198,13 @@ final class LiquidGlassRenderer {
         // Runtime shader compilation happens on-device, so the CI toolchain never
         // needs a Metal compiler and no metallib resource bundle is required.
         // (Upstream loads a SwiftPM-precompiled default.metallib here instead.)
-        let source = LiquidGlassShaderSource.vertex + "\n" + LiquidGlassShaderSource.fragment
-        let library = try! device.makeLibrary(source: source, options: nil)
+        // 两个 MSL 必须各自独立编译：两份源码都定义了 VertexOutput（上游是两个
+        // .metal 编译单元进同一个 metallib），拼成一个 source 会报重定义错误。
+        let vertexLibrary = try! device.makeLibrary(source: LiquidGlassShaderSource.vertex, options: nil)
+        let fragmentLibrary = try! device.makeLibrary(source: LiquidGlassShaderSource.fragment, options: nil)
 
-        let vertexFunction = library.makeFunction(name: "fullscreenQuad")!
-        let fragmentFunction = library.makeFunction(name: "liquidGlassEffect")!
+        let vertexFunction = vertexLibrary.makeFunction(name: "fullscreenQuad")!
+        let fragmentFunction = fragmentLibrary.makeFunction(name: "liquidGlassEffect")!
 
         let pipelineDescriptor = MTLRenderPipelineDescriptor()
         pipelineDescriptor.vertexFunction = vertexFunction
@@ -390,6 +392,11 @@ final class LiquidGlassView: MTKView {
     }
 
     func blurTexture() {
+        #if targetEnvironment(simulator)
+        // 模拟器上 MetalPerformanceShaders 内核不可用（初始化即断言崩溃）。
+        // 跳过高斯模糊只损失一点背景柔化，保住模拟器可用性；真机路径不受影响。
+        return
+        #else
         guard liquidGlass.backgroundTextureBlurRadius > 0,
               let device,
               let commandBuffer = commandQueue.makeCommandBuffer(),
@@ -404,6 +411,7 @@ final class LiquidGlassView: MTKView {
         blur.encode(commandBuffer: commandBuffer, inPlaceTexture: &backgroundTexture, fallbackCopyAllocator: nil)
         commandBuffer.commit()
         commandBuffer.waitUntilCompleted()
+        #endif
     }
 
     func updateUniforms() {

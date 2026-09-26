@@ -18,6 +18,14 @@ export default memo(({ onBack }: { onBack?: () => void }) => {
   const info = useListInfo()
 
   const handlePlayAll = () => {
+    // 兜底：歌单 id/source 来自 useListInfo()（由 SonglistDetail 的 Provider 提供）。
+    // 若 Provider 缺失，这里会拿到默认值（id=''、source='kw'），用空 id 去播放会写出一个
+    // 「只有页面已加载部分」的临时列表，且拉取完整歌单必然失败（静默），用户看到的就是
+    // 「播放全部后临时列表缺歌」。这里显式提示，避免再退化成静默的半截列表。
+    if (!info.id || !info.source) {
+      toast('歌单信息未就绪，请稍后重试')
+      return
+    }
     if (!songlistState.listDetailInfo.list.length) {
       toast('歌单加载失败，请返回重试')
       return
@@ -26,6 +34,10 @@ export default memo(({ onBack }: { onBack?: () => void }) => {
   }
 
   const handleCollection = () => {
+    if (!info.id || !info.source) {
+      toast('歌单信息未就绪，请稍后重试')
+      return
+    }
     const name = songlistState.listDetailInfo.info?.name || info.name || '未命名歌单'
     void handleCollect(info.id, info.source, name)
   }

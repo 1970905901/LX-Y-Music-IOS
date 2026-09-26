@@ -290,21 +290,28 @@ export default ({ info, onBack, componentId, initialScrollToInfo }: { info: List
     }))
   }, [])
 
+  // 歌单信息 context 必须包住【页头 + 歌曲列表】：
+  // 页头里的操作栏（播放全部 / 收藏歌单）是用 useListInfo() 取歌单 id/source 的，
+  // 之前 Provider 只包了 body（MusicList），页头落在 Provider 之外，拿到的是
+  // createContext 的默认值（id=''、source='kw'），于是：
+  //   「播放全部」→ 用空 id 写临时列表（只有页面已加载的那部分歌）+ 用空 id 去拉完整歌单
+  //   （必然失败，且失败被静默吞掉）→ 临时播放列表永远缺歌；
+  //   「收藏歌单」→ 同理用空 id，会收藏出一个空歌单。
   const detailContent = (
-    <LandscapeDetailLayout
-      header={ListHeaderComponent}
-      // 歌单详情内嵌在 Home 右栏（左侧已让出导航栏/标签栏宽度），
-      // 横屏若再左右分栏，列表会被挤到 ~400pt 还要拆两列，歌曲名/来源显示不全。
-      // 改为上下堆叠：header（封面/简介/收藏歌单·播放全部·返回）全宽在上，
-      // 歌曲列表占满下方整行宽度并延伸到最右侧，两列各自获得充足宽度。
-      stackOnLandscape
-      body={
-        <ListInfoContext.Provider value={info}>
+    <ListInfoContext.Provider value={info}>
+      <LandscapeDetailLayout
+        header={ListHeaderComponent}
+        // 歌单详情内嵌在 Home 右栏（左侧已让出导航栏/标签栏宽度），
+        // 横屏若再左右分栏，列表会被挤到 ~400pt 还要拆两列，歌曲名/来源显示不全。
+        // 改为上下堆叠：header（封面/简介/收藏歌单·播放全部·返回）全宽在上，
+        // 歌曲列表占满下方整行宽度并延伸到最右侧，两列各自获得充足宽度。
+        stackOnLandscape
+        body={
           <MusicList ref={musicListRef} playingId={playerMusicInfo.id} componentId={commonState.componentIds[commonState.componentIds.length - 1]?.id} isCreator={true} searchText={searchText} isFuzzySearch={isFuzzySearch} onListUpdate={handleListUpdate} />
-        </ListInfoContext.Provider>
-      }
-      footer={handleBack ? <SwipeBackArea onBack={handleBack} /> : undefined}
-    />
+        }
+        footer={handleBack ? <SwipeBackArea onBack={handleBack} /> : undefined}
+      />
+    </ListInfoContext.Provider>
   )
 
   // 作为独立页面 push 时（无 onBack）需要 PageContent 提供全局背景与窗口尺寸测量；

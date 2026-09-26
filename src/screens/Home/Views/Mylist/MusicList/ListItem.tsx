@@ -242,8 +242,11 @@ const styles = createStyle({
     // width: '50%',
     flexDirection: 'row',
     flexWrap: 'nowrap',
-    // paddingLeft: 10,
-    paddingRight: 2,
+    // 与 OnlineList/ListItem 保持一致：左右各留 16pt，封面（盒宽 70 居中溢出 8pt）
+    // 实际落在距屏幕边缘 24pt，与页头对齐；右侧 more 按钮 paddingRight 收窄为 8，
+    // 使按钮右缘同样落在 24pt。列表整体不再贴边。
+    paddingLeft: designSpacing.md,
+    paddingRight: designSpacing.md,
     alignItems: 'center',
     // borderBottomWidth: BorderWidths.normal,
   },
@@ -312,7 +315,7 @@ const styles = createStyle({
   moreButton: {
     height: '80%',
     paddingLeft: 10,
-    paddingRight: 16,
+    paddingRight: 8,
     // paddingTop: 10,
     // paddingBottom: 10,
     // backgroundColor: 'rgba(0,0,0,0.2)',

@@ -249,7 +249,12 @@ const styles = createStyle({
   listItem: {
     flexDirection: 'row',
     flexWrap: 'nowrap',
-    paddingRight: designSpacing.xs,
+    // 左右各留 16pt：封面盒（宽 70、内容居中溢出约 8pt）叠加后，封面实际落在距屏幕
+    // 边缘 24pt，与页头大标题（paddingHorizontal: lg=24）对齐；右侧 more 按钮
+    // （marginRight xs=8）同样收在 24pt。列表整体不再贴边；iPad 横屏双列时
+    // 两列间距对称（16+8 ｜ 8+16）。
+    paddingLeft: designSpacing.md,
+    paddingRight: designSpacing.md,
     alignItems: 'center',
   },
   listItemLeft: {

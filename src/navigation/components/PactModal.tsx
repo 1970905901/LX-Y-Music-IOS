@@ -1,18 +1,84 @@
 import { useMemo, useState, useEffect } from 'react'
-import { View, ScrollView, Alert, Image } from 'react-native'
+import { View, ScrollView, Alert, Image, Platform, AppState } from 'react-native'
 import { Navigation } from 'react-native-navigation'
 
 import Button from '@/components/common/Button'
-import { createStyle, openUrl } from '@/utils/tools'
+import { createStyle, openUrl, tipDialog } from '@/utils/tools'
 import { useSettingValue } from '@/store/setting/hook'
 import { useTheme } from '@/store/theme/hook'
 import Text from '@/components/common/Text'
 import ModalContent from './ModalContent'
 import { exitApp } from '@/utils/nativeModules/utils'
 import { updateSetting } from '@/core/common'
+import { checkAnnouncement } from '@/core/announcement'
 import { initDeeplink } from '@/core/init/deeplink'
 import settingState from '@/store/setting/state'
 import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
+
+// 「本软件完全免费且开源」提示：同意协议后延后 2s 弹出（等 overlay 关闭动画走完）。
+// 定时器与 AppState 监听都放在模块作用域——overlay 一经 dismiss，本组件立即卸载，
+// 写在组件里的定时器会被清掉，提示就丢了。
+// 应用不在前台时 iOS 无法呈现 Alert（会静默丢失），这种情况改为等下次回到前台再弹。
+let freeTipTimer: ReturnType<typeof setTimeout> | null = null
+let freeTipAppStateSub: { remove: () => void } | null = null
+
+const disposeFreeTipWaiters = () => {
+  if (freeTipTimer) {
+    clearTimeout(freeTipTimer)
+    freeTipTimer = null
+  }
+  if (freeTipAppStateSub) {
+    freeTipAppStateSub.remove()
+    freeTipAppStateSub = null
+  }
+}
+
+// 首次签署协议后的公告检查。
+// 放在免费开源提示的「好的」回调里（而不是签署瞬间）：让公告严格排在提示之后，
+// 避免原生 Alert 与公告 overlay 同时出现、互相遮挡（overlay window 可能压在 Alert 上，
+// 那样用户点不到提示上的按钮）。400ms 留给 Alert 的关闭动画。
+// 万一这一步没走到（例如期间应用被杀），下次启动仍会在「已同意协议」分支再检查一次，
+// 公告不会因此漏掉。
+const scheduleAnnouncementCheckAfterPact = () => {
+  setTimeout(() => {
+    void checkAnnouncement(false)
+  }, 400)
+}
+
+const showFreeOpenSourceTip = () => {
+  disposeFreeTipWaiters()
+  Alert.alert(
+    '',
+    Buffer.from(
+      'e69cace8bdafe4bbb6e5ae8ce585a8e5858de8b4b9e4b894e5bc80e6ba90efbc8ce5a682e69e9ce4bda0e698afe88b1e992b1e4b9b0e79a84efbc8ce8afb7e79bb4e68ea5e7bb99e5b7aee8af84efbc810a0a5468697320736f667477617265206973206672656520616e64206f70656e20736f757263652e',
+      'hex',
+    ).toString(),
+    [
+      {
+        text: Buffer.from('e5a5bde79a8420284f4b29', 'hex').toString(),
+        onPress: () => {
+          void initDeeplink()
+          scheduleAnnouncementCheckAfterPact()
+        },
+      },
+    ],
+  )
+}
+
+const scheduleFreeOpenSourceTip = () => {
+  disposeFreeTipWaiters()
+  freeTipTimer = setTimeout(() => {
+    freeTipTimer = null
+    if (AppState.currentState === 'active') {
+      showFreeOpenSourceTip()
+      return
+    }
+    // 后台状态：等回到前台再弹，避免 Alert 静默丢失
+    freeTipAppStateSub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') showFreeOpenSourceTip()
+    })
+  }, 2000)
+}
 
 const Content = () => {
   const theme = useTheme()
@@ -168,33 +234,28 @@ const Footer = ({ componentId }: { componentId: string }) => {
   const [time, setTime] = useState(5)
 
   const handleRejct = () => {
+    // 不接受协议就等于不能使用本软件。Android 上 exitApp 会真正结束进程；
+    // iOS 上 BackHandler.exitApp() 是空实现（RN 未提供，App Store 规范也不允许应用自行退出），
+    // 旧代码直接调用它使「不接受」成了死按钮——既不退出也不关弹窗，用户会以为卡死。
+    // iOS 改为明确告知：需要用户自己关闭应用并删除数据。
+    if (Platform.OS === 'ios') {
+      void tipDialog({
+        title: '无法继续使用',
+        message: '你选择了不接受本协议，本软件将无法继续使用。\n请从后台任务列表上滑关闭本应用（或重启设备），并在系统设置中删除本应用以清除数据。',
+        btnText: '我知道了',
+      })
+      return
+    }
     exitApp()
     // Navigation.dismissOverlay(componentId)
   }
 
   const handleConfirm = () => {
-    let _isAgreePact = isAgreePact
-    if (!isAgreePact) updateSetting({ 'common.isAgreePact': true })
+    const wasAgreed = !!isAgreePact
+    if (!wasAgreed) updateSetting({ 'common.isAgreePact': true })
     void Navigation.dismissOverlay(componentId)
-    if (!_isAgreePact) {
-      setTimeout(() => {
-        Alert.alert(
-          '',
-          Buffer.from(
-            'e69cace8bdafe4bbb6e5ae8ce585a8e5858de8b4b9e4b894e5bc80e6ba90efbc8ce5a682e69e9ce4bda0e698afe88ab1e992b1e8b4ade4b9b0e79a84efbc8ce8afb7e79bb4e68ea5e7bb99e5b7aee8af84efbc810a0a5468697320736f667477617265206973206672656520616e64206f70656e20736f757263652e',
-            'hex',
-          ).toString(),
-          [
-            {
-              text: Buffer.from('e5a5bde79a8420284f4b29', 'hex').toString(),
-              onPress: () => {
-                void initDeeplink()
-              },
-            },
-          ],
-        )
-      }, 2e3)
-    }
+    // 首次签署才提示“本软件免费开源”，延后 2s 等 overlay 关闭动画走完
+    if (!wasAgreed) scheduleFreeOpenSourceTip()
   }
 
   const confirmBtn = useMemo(() => {
@@ -204,33 +265,20 @@ const Footer = ({ componentId }: { componentId: string }) => {
 
   useEffect(() => {
     if (isAgreePact) return
-    const timeoutTools = {
-      timeout: null as NodeJS.Timeout | null,
-      start() {
-        this.timeout = setTimeout(() => {
-          setTime((time) => {
-            time--
-            if (time > 0) this.start()
-            return time
-          })
-        }, 1000)
-      },
-      clear() {
-        if (!this.timeout) return
-        clearTimeout(this.timeout)
-      },
-    }
-    timeoutTools.start()
-    return () => {
-      timeoutTools.clear()
-    }
+    // 倒计时用 interval 递减。旧实现把「排下一个 timeout」写在 setTime 的 updater 里，
+    // 而 updater 必须是纯函数：React 在并发渲染/严格模式下可能重复调用它，
+    // 会导致倒计时双倍速或重复排期（当前老架构且未使用 StrictMode 才没暴露）。
+    const timer = setInterval(() => {
+      setTime(t => (t > 0 ? t - 1 : 0))
+    }, 1000)
+    return () => { clearInterval(timer) }
   }, [isAgreePact])
 
   return (
     <>
       {isAgreePact ? null : (
         <Text selectable style={styles.tip} size={designTypography.caption}>
-          若你（使用者）接受以上协议，请点击下面的“接受”按钮签署本协议；若不接受，请点击“不接受”后退出软件并清除本软件的所有数据。
+          若你（使用者）接受以上协议，请点击下面的「接受」按钮签署本协议；若不接受，请点击「不接受」并手动退出软件、清除本软件的所有数据。
         </Text>
       )}
       <View style={styles.btns}>

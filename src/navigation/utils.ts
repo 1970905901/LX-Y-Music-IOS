@@ -35,50 +35,65 @@ export const showPactModal = () => {
   setTimeout(() => pendingOverlays.delete(PACT_MODAL), 500)
   const theme = themeState.theme
 
-  void Navigation.showOverlay({
-    component: {
-      name: PACT_MODAL,
-      options: {
-        layout: {
-          componentBackgroundColor: 'transparent',
-        },
-        overlay: {
-          interceptTouchOutside: true,
-        },
-        statusBar: {
-          drawBehind: true,
-          visible: true,
-          style: getStatusBarStyle(theme.isDark),
-          backgroundColor: 'transparent',
-        },
-        navigationBar: {
-          // visible: false,
-          backgroundColor: theme['c-content-background'],
-        },
-        // animations: {
+  // overlay 展示失败必须兜底重试：协议弹窗是首次安装的「准入」弹窗，一旦静默失败
+  // （窗口未就绪、转场竞态等），用户会在未同意协议的情况下直接使用，且要到下次启动才会再弹。
+  // 重试间隔取去抖窗口之后（600ms），最多 3 次；成功时 Promise resolve，不再重试。
+  const show = (attempt: number) => {
+    const handleFail = (err: unknown) => {
+      console.error('[Pact] showOverlay failed:', attempt, err)
+      if (attempt >= 3) return
+      setTimeout(() => { show(attempt + 1) }, 600)
+    }
+    try {
+      void Navigation.showOverlay({
+        component: {
+          name: PACT_MODAL,
+          options: {
+            layout: {
+              componentBackgroundColor: 'transparent',
+            },
+            overlay: {
+              interceptTouchOutside: true,
+            },
+            statusBar: {
+              drawBehind: true,
+              visible: true,
+              style: getStatusBarStyle(theme.isDark),
+              backgroundColor: 'transparent',
+            },
+            navigationBar: {
+              // visible: false,
+              backgroundColor: theme['c-content-background'],
+            },
+            // animations: {
 
-        //   showModal: {
-        //     enter: {
-        //       enabled: true,
-        //       alpha: {
-        //         from: 0,
-        //         to: 1,
-        //         duration: 300,
-        //       },
-        //     },
-        //     exit: {
-        //       enabled: true,
-        //       alpha: {
-        //         from: 1,
-        //         to: 0,
-        //         duration: 300,
-        //       },
-        //     },
-        //   },
-        // },
-      },
-    },
-  })
+            //   showModal: {
+            //     enter: {
+            //       enabled: true,
+            //       alpha: {
+            //         from: 0,
+            //         to: 1,
+            //         duration: 300,
+            //       },
+            //     },
+            //     exit: {
+            //       enabled: true,
+            //       alpha: {
+            //         from: 1,
+            //         to: 0,
+            //         duration: 300,
+            //       },
+            //     },
+            //   },
+            // },
+          },
+        },
+      }).catch(handleFail)
+    } catch (err) {
+      handleFail(err)
+    }
+  }
+  show(1)
 }
 
 export const showVersionModal = () => {

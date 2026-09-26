@@ -619,7 +619,12 @@ export default () => {
         contentContainerStyle={listPadding}
         onScrollBeginDrag={handleScrollBeginDrag}
         onScrollEndDrag={onScrollEndDrag}
-        initialNumToRender={Math.min(Math.max(line + 20, 20), 100)}
+        // 与竖屏歌词页一致：首屏把整首歌的歌词行全部渲染一次。
+        // 行高只能靠 onLayout 实测，未渲染过的行只能用「平均高度」估算；跳到中后段时
+        // FlatList 只渲染目标附近的窗口，开头这批行与窗口之间会留下一段永不渲染的行，
+        // 其中两行及以上的长句（真实行高约为单行的 2 倍）会让累计偏移持续偏差，
+        // 高亮行整段无法回到正中。全部渲染一次后所有行高均为实测值，居中无估算误差。
+        initialNumToRender={Math.max(lyricLines.length, 60)}
         windowSize={15}
         maxToRenderPerBatch={20}
         updateCellsBatchingPeriod={50}

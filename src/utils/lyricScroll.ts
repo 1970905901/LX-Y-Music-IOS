@@ -135,6 +135,10 @@ export class LyricScrollLayout {
       }
     }
     target[lineNum] = height
+    // 非激活行重新测得新高度（改字号 / 行内容变化）时，其缓存的「激活态高度」已经过期：
+    // 行高与激活状态无关（渲染器恒定），清掉旧值让 getActiveLineHeight 回退到最新实测高度，
+    // 否则点击歌词 / 拖动进度条 / 切歌这类一次性定位会拿旧高度算偏移，被定位的那一行反而偏离正中。
+    if (!isActive) this.activeLineHeights[lineNum] = undefined
     // 已播放（bold）行的真实高度也同步给 lineHeights，供跨行跳转定位
     // （getLineHeight / getCumulativeOffset）读到实测高度而非估算值；
     // 但不计入 normal 平均桶（避免污染未播放区的高度估算）。

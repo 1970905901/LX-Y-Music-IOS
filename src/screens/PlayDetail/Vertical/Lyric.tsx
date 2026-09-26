@@ -352,8 +352,11 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHei
     }
     const listHeight = pageHeightRef.current > 0 ? pageHeightRef.current : pagerHeight
     if (listHeight <= 0) return
-    // 上下留白收紧为约 12% 列表高：正常播放时高亮行仍严格居中；仅最开头第 1 行（起播一瞬）会略偏上，到第 2 行起整首歌死死居中。
-    const paddingV = pageHeightRef.current > 0 ? pageHeightRef.current * 0.12 : 0
+    // 上下留白必须等于列表高的 50%（与横屏歌词页、与 contentContainerStyle 同源）：
+    // 居中偏移 = 留白 + 前序行高累计 + 本行高/2 - 列表高/2，只有留白 >= 50% 时该值才恒落在
+    // [0, 最大可滚距离] 区间内。留白为 12% 时，歌曲开头会算出负偏移、结尾会超出最大可滚距离，
+    // 两端都被 FlatList 钳制，高亮行只能停在偏上/偏下的位置（两行及以上的长句行高更大，更显眼）。
+    const paddingV = pageHeightRef.current > 0 ? pageHeightRef.current * 0.5 : 0
     // 等效 viewPosition:0.5：让高亮行落在歌词界面【正中央】（第 5 条同步要求：高亮行居中）。
     // 第 7 条“高亮行上移一行”已取消，故不再额外偏移一个 itemHeight。
     // 使用精确偏移：已测量行用真实行高，未测量行按「是否有翻译」分档估算，
@@ -395,7 +398,8 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHei
     if (!flatListRef.current || !lyricLines.length) return
     const listHeight = pageHeightRef.current > 0 ? pageHeightRef.current : pagerHeight
     if (listHeight <= 0) return
-    const paddingV = pageHeightRef.current > 0 ? pageHeightRef.current * 0.12 : 0
+    // 与 handleScrollToActive 同源：留白 50% 视高，保证任何一行（含两行以上的长句）都能被精确居中。
+    const paddingV = pageHeightRef.current > 0 ? pageHeightRef.current * 0.5 : 0
     let i = findLineIndexByTime(lyricLines, t)
     if (i < 0) i = 0
     // 末位参数 false：连续滚动统一用非激活行高。下一行的激活高度在它真正激活前测不到，
@@ -732,13 +736,14 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHei
         keyExtractor={getkey}
         style={{ height: pageHeight > 0 ? pageHeight : pagerHeight, width: '100%' }}
         // 歌词列表从顶部排布，当前行由 scrollToOffset(viewPosition 0.5) 定位到【中央】；
-        // 不再用 justifyContent:'center' 整体垂直居中——否则歌词少时整页被顶到中间、
-        // 上下露出大片空白（即用户反馈的“被空白遮住 / 下面空白”）。
+        // 不再用 justifyContent:'center' 整体垂直居中——那样是把整个列表当成一个块居中，
+        // 歌词少时会整页被顶到中间、上下同时露白（即用户反馈的“被空白遮住 / 下面空白”）。
+        // 这里改为「首尾各补 50% 视高留白」：内容仍从顶部开始排布，只是让第一行/最后一行
+        // 也有足够空间滚到正中，行为与横屏歌词页一致。留白值必须与滚动计算的 paddingV 相等。
         contentContainerStyle={{
           paddingHorizontal: isSmallWindow ? 12 : 20,
-          // 上下留白收紧为约 12% 列表高：正常播放高亮行居中，仅首行（起播一瞬）略偏上
-          paddingTop: pageHeight > 0 ? pageHeight * 0.12 : 0,
-          paddingBottom: pageHeight > 0 ? pageHeight * 0.12 : 0,
+          paddingTop: pageHeight > 0 ? pageHeight * 0.5 : 0,
+          paddingBottom: pageHeight > 0 ? pageHeight * 0.5 : 0,
         }}
         ref={flatListRef}
         showsVerticalScrollIndicator={false}
@@ -747,7 +752,15 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHei
         scrollEventThrottle={16}
         onScrollBeginDrag={handleScrollBeginDrag}
         onScrollEndDrag={onScrollEndDrag}
-        initialNumToRender={60}
+        // 首屏把整首歌的歌词行全部渲染一次（而不是只渲染前 60 行）：
+        // 每行高度只能由 onLayout 实测，未渲染过的行只能用「已测量行平均高度」估算。
+        // 一旦播放中途拖动进度条跳到中后段，FlatList 只会渲染目标附近的窗口，
+        // 开头这批行与窗口之间会留下一段“永远不渲染”的行，它们的行高只能靠估算；
+        // 只要这段里出现两行及以上的长句（真实行高约为单行的 2 倍），累计偏移就会持续偏差，
+        // 表现为高亮行整段偏低/偏高、怎么都回不到正中。全部渲染一次后所有行高均为实测值，
+        // 累计偏移无估算误差，高亮行任何情况下都能精确居中（同时消除“歌词不全载”）。
+        // 行高实测值会被 LyricScrollLayout 长期缓存，之后 FlatList 正常回收行也不影响精度。
+        initialNumToRender={Math.max(lyricLines.length, 60)}
         windowSize={21}
         maxToRenderPerBatch={30}
         updateCellsBatchingPeriod={10}

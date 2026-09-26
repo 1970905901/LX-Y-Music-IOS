@@ -32,32 +32,33 @@ const Tabs = ({
 }) => {
   const theme = useTheme()
   return (
-    <View>
-      {/* 主 tab 与大标题同行（见 pageHeader 的 titleRow） */}
-      <View style={styles.titleTabs}>
-        <TouchableOpacity style={styles.tab} onPress={() => { onTabChange('songs') }}>
-          <Text
-            style={[styles.tabText, { borderBottomColor: activeTab === 'songs' ? theme['c-primary-font-active'] : 'transparent' }]}
-            color={theme['c-font']}
-          >
-            推荐歌曲
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.tab} onPress={() => { onTabChange('playlists') }}>
-          <Text
-            style={[styles.tabText, { borderBottomColor: activeTab === 'playlists' ? theme['c-primary-font-active'] : 'transparent' }]}
-            color={theme['c-font']}
-          >
-            推荐歌单
-          </Text>
-        </TouchableOpacity>
-      </View>
+    // 标题移到大标题下方独占一行（见 pageHeader 的 titleBlock），四个按钮并到同一行：
+    // 推荐歌曲 / 推荐歌单 是主 tab（下划线选区），默认推荐 / 风格化推荐 是「推荐歌曲」下的子模式
+    // （切到「推荐歌单」时没有风格化概念，故只在 songs 下显示）。
+    // flexWrap：字号被调大或窄屏（375pt）放不下时自动换行，不至于把最后一个按钮裁掉。
+    <View style={styles.tabsRow}>
+      <TouchableOpacity style={styles.tab} onPress={() => { onTabChange('songs') }}>
+        <Text
+          style={[styles.tabText, { borderBottomColor: activeTab === 'songs' ? theme['c-primary-font-active'] : 'transparent' }]}
+          color={theme['c-font']}
+        >
+          推荐歌曲
+        </Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.tab} onPress={() => { onTabChange('playlists') }}>
+        <Text
+          style={[styles.tabText, { borderBottomColor: activeTab === 'playlists' ? theme['c-primary-font-active'] : 'transparent' }]}
+          color={theme['c-font']}
+        >
+          推荐歌单
+        </Text>
+      </TouchableOpacity>
       {activeTab === 'songs' ? (
-        <View style={[styles.subTabsRow, { justifyContent: 'flex-start', alignItems: 'center' }]}>
+        <>
           <TouchableOpacity
             onPress={() => { setIsStylized(false) }}
             style={[
-              { marginRight: 5, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 0, borderWidth: BorderWidths.normal },
+              styles.subTab,
               !isStylized ? { borderColor: theme['c-primary-font'] } : { borderColor: 'transparent' },
             ]}
           >
@@ -69,7 +70,7 @@ const Tabs = ({
               else onOpenModal()
             }}
             style={[
-              { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 0, borderWidth: BorderWidths.normal },
+              styles.subTab,
               isStylized ? { borderColor: theme['c-primary-font'] } : { borderColor: 'transparent' },
             ]}
           >
@@ -77,7 +78,7 @@ const Tabs = ({
               {isStylized ? '风格化推荐 ▾' : '风格化推荐'}
             </Text>
           </TouchableOpacity>
-        </View>
+        </>
       ) : null}
     </View>
   )
@@ -129,7 +130,8 @@ export default memo(() => {
   const pageHeader = (
     <>
       <PageTopInset />
-      <View style={styles.titleRow}>
+      {/* 标题在上、四个按钮在同一行在其下方（原来按钮挤在标题右侧、子模式还另起一行） */}
+      <View style={styles.titleBlock}>
         <Text style={styles.titleText} size={34} color={theme['c-font']}>
           {t('nav_daily_rec')}
         </Text>
@@ -204,30 +206,35 @@ export default memo(() => {
 })
 
 const styles = createStyle({
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
+  // 标题独占一行，四个按钮在它下方另起一行（左右内边距与标题对齐）
+  titleBlock: {
     paddingHorizontal: designSpacing.lg,
   },
   titleText: {
     fontWeight: '800',
     lineHeight: 36,
   },
-  titleTabs: {
+  // 四个按钮同一行；窄屏 / 放大字号放不下时自动换行，避免最后一个按钮被裁掉
+  tabsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  subTabsRow: {
-    paddingHorizontal: designSpacing.lg,
-    paddingTop: 2,
-    paddingBottom: 4,
+    flexWrap: 'wrap',
+    marginTop: 4,
   },
   tab: {
     paddingVertical: 5,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
   },
   tabText: {
     paddingBottom: 5,
     borderBottomWidth: BorderWidths.normal3,
+  },
+  // 子模式按钮（默认推荐 / 风格化推荐）：与主 tab 间隔 6，描边 chip 样式
+  subTab: {
+    marginLeft: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 0,
+    borderWidth: BorderWidths.normal,
   },
 })

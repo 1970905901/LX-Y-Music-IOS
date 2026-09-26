@@ -219,20 +219,19 @@ const List = forwardRef<ListType, ListProps>(
     }
 
     const handlePress = (item: LX.Music.MusicInfoOnline, index: number) => {
-      requestAnimationFrame(() => {
-        if (checkHomePagerIdle && !global.lx.homePagerIdle) return
-        if (isMultiSelectModeRef.current) {
-          handleSelect(item, index)
-        } else {
-          if ((forcePlayList || settingState.setting['list.isClickPlayList']) && onPlayList != null) {
-            onPlayList(index)
-          } else {
-            // 用行数据本身（item）而不是 currentList[index]：列表在点击与 rAF 之间发生变化时，
-            // 下标可能越界取到 undefined，导致播放链路静默返回（表现为点了没反应）。
-            handlePlay(item)
-          }
-        }
-      })
+      // 不要再用 requestAnimationFrame 延迟执行：rAF 依赖 JS 帧驱动（RCTDisplayLink），
+      // 帧驱动一旦停摆（后台切换、系统浮层收起后偶发不恢复等），rAF 永不执行，
+      // 点击被无声吞掉 —— 表现为「页面卡住：列表能滑（原生驱动）、点歌曲没反应」。
+      // 这里直接同步调用，按压反馈仍由 TouchableOpacity 原生处理。
+      if (isMultiSelectModeRef.current) {
+        handleSelect(item, index)
+      } else if ((forcePlayList || settingState.setting['list.isClickPlayList']) && onPlayList != null) {
+        onPlayList(index)
+      } else {
+        // 用行数据本身（item）而不是 currentList[index]：列表在点击瞬间发生变化时，
+        // 下标可能越界取到 undefined，导致播放链路静默返回（表现为点了没反应）。
+        handlePlay(item)
+      }
     }
 
     const handleLongPress = (item: LX.Music.MusicInfoOnline, index: number) => {

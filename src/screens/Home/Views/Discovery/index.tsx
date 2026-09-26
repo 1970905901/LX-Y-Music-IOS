@@ -211,9 +211,15 @@ export default memo(() => {
   // 1) 持久化 source + boardId —— 排行榜页首次挂载时读取该设置兜底；
   // 2) 发出 showBoardDetail 事件 —— 排行榜页已挂载（切页不卸载）时实时切换到目标榜单。
   const handleOpenBoard = useCallback((board: BoardItem) => {
-    void saveLeaderboardSetting({ source: leaderboardSource, boardId: board.id })
-    global.app_event.showBoardDetail({ source: leaderboardSource, boardId: board.id })
-    setNavActiveId('nav_top')
+    void (async() => {
+      // 必须先完成持久化再切页：排行榜页首次挂载（切页前组件不存在）时收不到
+      // showBoardDetail 事件，只能靠挂载时 getLeaderboardSetting 兜底；而
+      // saveLeaderboardSetting 首次调用要先走一次异步存储读取才更新内存缓存，
+      // 若不等待，挂载读取可能抢先拿到旧榜单 → 表现为「点了榜单卡片没反应/切不过去」。
+      await saveLeaderboardSetting({ source: leaderboardSource, boardId: board.id })
+      global.app_event.showBoardDetail({ source: leaderboardSource, boardId: board.id })
+      setNavActiveId('nav_top')
+    })()
   }, [leaderboardSource])
 
   // 每日推荐入口跟随平台切换；进入前校验对应平台 Cookie 是否已登录

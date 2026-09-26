@@ -45,7 +45,12 @@ export const handlePlay = async(id: string, list?: LX.Music.MusicInfoOnline[], i
   if (playIndex < 0) playIndex = Math.min(Math.max(index, 0), currentList.length - 1)
 
   await setTempList(listId, [...currentList])
-  void playList(LIST_IDS.TEMP, playIndex)
+  // playList 内部任何一步失败（播放引擎异常等）都会以 Promise 拒绝收场且无 UI 反馈，
+  // 这里补兜底提示，避免表现为「点了没反应」。
+  void playList(LIST_IDS.TEMP, playIndex).catch((err: any) => {
+    console.log('[Leaderboard handlePlay] playList failed:', err?.message)
+    toast('播放失败，请重试')
+  })
 
   // 完整榜单拉全后补全临时列表；正在播的那首按歌曲身份维护位置，不受列表替换影响
   let fullList: LX.Music.MusicInfoOnline[] = []

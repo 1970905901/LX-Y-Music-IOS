@@ -373,7 +373,11 @@ export const handlePlay = async(musicInfo: LX.Music.MusicInfoOnline) => {
       index = getListMusicSync(listId).findIndex((m) => m.id == musicInfo.id)
     }
     if (index < 0) throw new Error('song not found in list after add')
-    void playList(listId, index)
+    // playList 内部失败（如播放引擎异常）会以 Promise 拒绝收场且无 UI 反馈，这里补兜底
+    void playList(listId, index).catch((err: any) => {
+      log.warn('[OnlineList] playList failed', { err: err?.message })
+      toast('播放失败，请重试')
+    })
   } catch (err: any) {
     log.warn('[OnlineList] 加入默认列表失败，回退临时列表播放', { err: err?.message, id: musicInfo.id })
     try {

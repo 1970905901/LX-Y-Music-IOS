@@ -280,16 +280,14 @@ const List = forwardRef<ListType, ListProps>(
     }
 
     const handlePress = (item: LX.Music.MusicInfo, index: number) => {
-      // console.log(global.lx.homePagerIdle)
-      requestAnimationFrame(() => {
-        // console.log(global.lx.homePagerIdle)
-        if (!global.lx.homePagerIdle) return
-        if (isMultiSelectModeRef.current) {
-          handleSelect(item, index)
-        } else {
-          handlePlay(index)
-        }
-      })
+      // 同 OnlineList/List.tsx：去掉 rAF 延迟与 homePagerIdle 守卫（PagerView 已
+      // scrollEnabled={false}，守卫已无意义，且历史上会把点击静默吞掉）。
+      // 点击直接同步进入播放链路，避免 JS 帧驱动停摆时「列表能滑、点了没反应」。
+      if (isMultiSelectModeRef.current) {
+        handleSelect(item, index)
+      } else {
+        handlePlay(index)
+      }
     }
 
     const handleLongPress = (item: LX.Music.MusicInfo, index: number) => {

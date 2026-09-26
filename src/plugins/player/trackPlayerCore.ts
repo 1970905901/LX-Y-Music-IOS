@@ -133,20 +133,27 @@ export const updateCurrentTrackMetadata = async(metadata: {
   elapsedTime?: number
   playbackRate?: number
 }) => {
+  if (Platform.OS == 'ios') {
+    // iOS 控制中心/锁屏媒体卡片由原生 NowPlayingModule 独家管理，不要再经 RNTP 写入：
+    // 1) TrackPlayer.updateMetadataForTrack 在原生侧会整包发布 RNTP 自己的 nowPlayingInfo
+    //    （artist 是歌手名、不含歌词行），携带封面 URL 时还会在异步封面下载完成后
+    //    再次整包重发。这与本模块的写入形成竞争：歌词（放在 artist 字段）会在任意时刻
+    //    被擦掉，到下一行歌词更新才恢复 —— 表现为控制中心歌词「时好时坏」。
+    // 2) artwork 键仅在确实有时才携带：原生侧对「含 artwork 键」的调用会走
+    //    LXSetNowPlayingArtwork，传空串会把缓存里已发布的封面清掉（逐行歌词更新即清一次，
+    //    表现为封面闪烁/消失，原生注释里「歌词更新不含 artwork 键」的约定此前被
+    //    这里的 `?? ''` 打破）。不带键时原生只重应用缓存信息，封面与进度保持不变。
+    const nowPlayingMetadata: Parameters<typeof updateNowPlayingInfo>[0] = { ...metadata }
+    if (metadata.artwork !== undefined) nowPlayingMetadata.artwork = metadata.artwork
+    if (metadata.playbackRate !== undefined) nowPlayingMetadata.playbackRate = metadata.playbackRate
+    await updateNowPlayingInfo(nowPlayingMetadata).catch(() => {})
+    return
+  }
   const currentTrackIndex = await TrackPlayer.getCurrentTrack().catch(() => null)
   if (currentTrackIndex != null && currentTrackIndex > -1) {
     await TrackPlayer.updateMetadataForTrack(currentTrackIndex, metadata).catch(() => {})
   }
-  if (Platform.OS == 'ios') {
-    const nowPlayingMetadata: Parameters<typeof updateNowPlayingInfo>[0] = {
-      ...metadata,
-      artwork: metadata.artwork ?? '',
-    }
-    if (metadata.playbackRate !== undefined) nowPlayingMetadata.playbackRate = metadata.playbackRate
-    await updateNowPlayingInfo(nowPlayingMetadata).catch(() => {})
-  } else {
-    await TrackPlayer.updateNowPlayingMetadata(metadata, trackPlayerState.isPlaying).catch(() => {})
-  }
+  await TrackPlayer.updateNowPlayingMetadata(metadata, trackPlayerState.isPlaying).catch(() => {})
 }
 
 export const ensureCurrentTrackMetadata = (metadata: {

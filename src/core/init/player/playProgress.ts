@@ -57,6 +57,11 @@ export default () => {
   }
 
   const getCurrentTime = () => {
+    // 后台（音频后台播放时 JS 线程仍存活）跳过全部轮询工作：
+    // 位置桥往返、React 渲染、进度条补间重启、存储写入在后台都没有意义，
+    // 只会持续占用 JS 线程，返回前台后叠加成明显的触摸延迟。
+    // 前台恢复后下一次 tick 会用引擎真实位置重锚时钟，状态无残留。
+    if (AppState.currentState !== 'active') return
     let id = playerState.musicInfo.id
     void getPosition().then(async position => {
       if (!position || id != playerState.musicInfo.id) return

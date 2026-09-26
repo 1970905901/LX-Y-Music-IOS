@@ -21,7 +21,6 @@ import SubscribedAlbums from '../Views/SubscribedAlbums'
 import { NAV_MENUS, type NAV_ID_Type, getEffectiveFlatOrder } from '@/config/constant.ts'
 import { useSettingValue } from '@/store/setting/hook.ts'
 import PlayHistory from '../Views/PlayHistory'
-import { useTheme } from '@/store/theme/hook'
 import WebDAV from '../Views/WebDAV'
 
 import LocalDownload from '../Views/LocalDownload'
@@ -104,27 +103,12 @@ const SongListPage = () => {
   return visible ? component : null
   // return activeId == 1 || activeId == 0  ? SongList : null
 }
-const PlayHistoryOverlay = () => {
-  const [visible, setVisible] = useState(commonState.navActiveId == 'nav_play_history')
+// 播放历史浮层：容器必须保持透明（只做定位与层级），不去铺不透明主题色底。
+// 浮层出现时由 Main 把 PagerView 隐藏，于是浮层直接透出 Home PageContent 已绘制好的背景层，
+// 进入瞬间不存在“新解码 + 新模糊一张整屏背景图”的过程，也就没有闪白（详见 PlayHistory 内注释）。
+const PlayHistoryOverlay = ({ visible }: { visible: boolean }) => {
   const component = useMemo(() => <PlayHistory />, [])
-  const theme = useTheme()
-  useEffect(() => {
-    const handleNavIdUpdate = (id: CommonState['navActiveId']) => {
-      requestAnimationFrame(() => {
-        setVisible(id == 'nav_play_history')
-      })
-    }
-    global.state_event.on('navActiveIdUpdated', handleNavIdUpdate)
-    return () => {
-      global.state_event.off('navActiveIdUpdated', handleNavIdUpdate)
-    }
-  }, [])
-
-  return visible ? (
-    <View style={{ ...styles.historyOverlay, backgroundColor: theme['c-content-background'] }}>
-      {component}
-    </View>
-  ) : null
+  return visible ? <View style={styles.historyOverlay}>{component}</View> : null
 }
 
 const isMenuVisible = (id: NAV_ID_Type, navStatus: Partial<Record<NAV_ID_Type, boolean>>) => (
@@ -620,6 +604,23 @@ const Main = () => {
     return idx ?? 0
   }
   const activeIndexRef = useRef(getInitialIndex())
+  // 播放历史浮层可见性：浮层是覆盖在 PagerView 之上的（不是 PagerView 的一页），
+  // 显示期间把 PagerView 隐藏，让浮层透出背景层而不是下面那一页的列表内容。
+  // 与原 PlayHistoryOverlay 内部一致地用 requestAnimationFrame 延后一帧，保持既有挂载时机。
+  const [isHistoryOverlayVisible, setHistoryOverlayVisible] = useState(commonState.navActiveId == 'nav_play_history')
+  useEffect(() => {
+    const handleNavIdUpdate = (id: CommonState['navActiveId']) => {
+      if (id == 'nav_play_history') {
+        requestAnimationFrame(() => { setHistoryOverlayVisible(true) })
+      } else {
+        setHistoryOverlayVisible(false)
+      }
+    }
+    global.state_event.on('navActiveIdUpdated', handleNavIdUpdate)
+    return () => {
+      global.state_event.off('navActiveIdUpdated', handleNavIdUpdate)
+    }
+  }, [])
   // PagerView 非 idle 状态的兜底恢复定时器（防止 homePagerIdle 卡死在 false）
   const pagerIdleFallbackRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => {
@@ -769,11 +770,13 @@ const Main = () => {
         onPageScrollStateChanged={onPageScrollStateChanged}
         // 首页横向滚动功能已移除：页面固定，仅通过底部 tab / 侧边栏切换
         scrollEnabled={false}
-        style={styles.pagerView}
+        // 播放历史浮层显示时整体隐藏（仅改透明度：页面仍挂载，返回后滚动位置/状态不丢），
+        // 让浮层透出 Home 已经绘制好的背景层，既有背景不会被下面的列表内容干扰。
+        style={isHistoryOverlayVisible ? styles.pagerViewHidden : styles.pagerView}
       >
         {pages}
       </PagerView>
-      <PlayHistoryOverlay />
+      <PlayHistoryOverlay visible={isHistoryOverlayVisible} />
     </View>
   )
 }
@@ -788,6 +791,11 @@ const styles = createStyle({
   pagerView: {
     flex: 1,
     overflow: 'hidden',
+  },
+  pagerViewHidden: {
+    flex: 1,
+    overflow: 'hidden',
+    opacity: 0,
   },
   historyOverlay: {
     position: 'absolute',

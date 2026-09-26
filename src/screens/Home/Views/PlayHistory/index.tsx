@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { TouchableOpacity, View, type ImageSourcePropType } from 'react-native'
+import { TouchableOpacity, View } from 'react-native'
 import OnlineList, { type OnlineListType } from '@/components/OnlineList'
 import Text from '@/components/common/Text'
 import Popup, { type PopupType } from '@/components/common/Popup'
@@ -11,10 +11,6 @@ import commonState from '@/store/common/state'
 import { useI18n } from '@/lang'
 import { usePlayerMusicInfo } from '@/store/player/hook'
 import { useTheme } from '@/store/theme/hook'
-import { useSettingValue } from '@/store/setting/hook'
-import { useBgPic } from '@/store/common/hook'
-import ImageBackground from '@/components/common/ImageBackground'
-import { defaultHeaders } from '@/components/common/Image'
 import { createStyle, toast } from '@/utils/tools'
 import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
 import PageTopInset from '@/components/common/PageTopInset'
@@ -103,18 +99,6 @@ export default memo(() => {
   const [list, setList] = useState<HistoryMusicInfo[]>([])
   const playerMusicInfo = usePlayerMusicInfo()
   const theme = useTheme()
-  const isDynamicBg = useSettingValue('theme.dynamicBg')
-  const dynamicPic = useBgPic()
-  const customBgPicPath = useSettingValue('theme.customBgPicPath')
-  const blur = useSettingValue('theme.blur')
-  const picOpacity = useSettingValue('theme.picOpacity')
-  const themeBg = theme['bg-image']
-  const bgSource: ImageSourcePropType | null = customBgPicPath
-    ? { uri: customBgPicPath, headers: defaultHeaders }
-    : isDynamicBg && dynamicPic
-      ? { uri: dynamicPic, headers: defaultHeaders }
-      : themeBg ?? null
-  const showBg = !!bgSource
 
   const isRange = !!endDate && endDate !== startDate
   const title = isRange ? `${startDate} ~ ${endDate}` : startDate
@@ -273,17 +257,12 @@ export default memo(() => {
   )
 
   return (
-    <View style={[styles.container, { backgroundColor: theme['c-content-background'] }]}>
-      {showBg ? (
-        <ImageBackground
-          style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0 }}
-          source={bgSource}
-          resizeMode="cover"
-          blurRadius={blur}
-        >
-          <View style={{ flex: 1, backgroundColor: theme['c-content-background'], opacity: picOpacity / 100 }} />
-        </ImageBackground>
-      ) : null}
+    // 本页不再自绘背景（动态背景图 + 主题色底）：它作为 Home 的子页面 / 浮层渲染，
+    // 上层 PageContent 已经铺好同一份背景（同一张图、同一 blur、同一 picOpacity）。
+    // 自绘一份会在进入时重新解码 + 重新高斯模糊整屏图片，这几十毫秒里先露出主题色底
+    // （浅色主题是纯白），表现为“进入播放历史闪一下白色”。复用上层背景后无任何新图层，
+    // 进入即与背景一致，同时也省掉一次整屏模糊开销。
+    <View style={styles.container}>
       {/* 日期切换只保留头部按钮（左右箭头 / 点击标题选日期），不再提供左右滑动切日，
           避免 PagerView 占位页与列表手势冲突导致的滑动异常。 */}
       <OnlineList

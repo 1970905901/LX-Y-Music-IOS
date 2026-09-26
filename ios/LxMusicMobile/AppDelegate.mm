@@ -5203,6 +5203,18 @@ RCT_REMAP_METHOD(getBgPicColor,
   });
 }
 
+// 当前安装包的版本号（CFBundleShortVersionString，CI 构建时按日期注入，如 20260926）。
+// 「关于」页展示用：JS 侧 package.json 里的 version 只是打包时的快照，可能与实际安装的包不一致，
+// 所以必须从运行中的主包读取。
+RCT_REMAP_METHOD(getVersionInfo,
+                 getVersionInfoWithResolver:(RCTPromiseResolveBlock)resolve
+                 rejecter:(RCTPromiseRejectBlock)reject) {
+  NSDictionary *info = [NSBundle mainBundle].infoDictionary;
+  NSString *version = info[@"CFBundleShortVersionString"];
+  if (version.length == 0) version = info[@"CFBundleVersion"];
+  resolve(version ?: @"");
+}
+
 // 安全区 insets：JS 侧据此给底部面板/列表补 padding，避免最后一行被 Home 指示器
 // （iPhone 刘海/灵动岛机型底部约 34pt）或 iPad 底部区域遮挡。
 // iOS 13+ 必须走 UIWindowScene 取 keyWindow：多场景/分屏下 UIApplication.keyWindow 可能为 nil。

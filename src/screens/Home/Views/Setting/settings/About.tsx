@@ -1,4 +1,4 @@
-import { memo } from 'react'
+import { memo, useEffect, useState } from 'react'
 import { View, TouchableOpacity, Image } from 'react-native'
 
 import Section from '../components/Section'
@@ -7,9 +7,27 @@ import { createStyle, openUrl } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
 import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
 import Text from '@/components/common/Text'
+import { getVersionInfo } from '@/utils/nativeModules/utils'
+
+// package.json 里的 version 只是打包时的快照，可能与实际安装包不一致，仅作原生读取失败时的兜底
+const getFallbackVersion = (): string => {
+  try {
+    // @ts-expect-error RN 环境的 process 由 metro polyfill，globalData 启动时已写入 versions.app
+    return process.versions?.app ?? ''
+  } catch {
+    return ''
+  }
+}
 
 export default memo(() => {
   const theme = useTheme()
+  // 当前安装包的版本号：优先读运行中的主包（CI 构建时按日期注入，如 20260926）
+  const [version, setVersion] = useState(getFallbackVersion())
+  useEffect(() => {
+    void getVersionInfo().then((v) => {
+      if (v) setVersion(v)
+    })
+  }, [])
   const openHomePage = () => {
     void openUrl('https://github.com/1970905901/LX-Y-Music-IOS#readme')
   }
@@ -28,6 +46,11 @@ export default memo(() => {
 
   return (
     <Section sectionId="setting_about">
+      <View style={styles.part}>
+        <Text style={{ ...styles.text, color: theme['c-font'] }}>
+          当前版本：<Text style={styles.boldText}>{version || '未知'}</Text>
+        </Text>
+      </View>
       <View style={styles.part}>
         <Text style={{ ...styles.text, color: theme['c-font'] }}>本软件(LX-Y Music)完全免费，代码已开源。开源地址：</Text>
         <TouchableOpacity onPress={openHomePage}>

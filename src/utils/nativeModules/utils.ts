@@ -43,6 +43,21 @@ export const getDeviceName = async(): Promise<string> => {
   return UtilsModule.getDeviceName().then((deviceName: string) => deviceName || 'Unknown')
 }
 
+/**
+ * 当前安装包的版本号（iOS 取 CFBundleShortVersionString，CI 构建时按日期注入，如 20260926）。
+ * package.json 里的 version 只是打包时的快照，可能与实际安装的包不一致，
+ * 所以「关于」页展示版本号必须走这里从运行中的主包读取；原生不可用时返回空串，由调用方回退。
+ */
+export const getVersionInfo = async(): Promise<string> => {
+  try {
+    if (isIOS && typeof UtilsModule.getVersionInfo == 'function') {
+      const version = await (UtilsModule.getVersionInfo() as Promise<string>)
+      return version || ''
+    }
+  } catch {}
+  return ''
+}
+
 export const isNotificationsEnabled = isIOS
   ? async(): Promise<boolean> => true
   : (UtilsModule.isNotificationsEnabled as () => Promise<boolean>)

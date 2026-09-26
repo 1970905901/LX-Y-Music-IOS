@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef, type ComponentType } from 'react'
+import { memo, useEffect, useMemo, useRef, useState, type ComponentType } from 'react'
 import { ScrollView, TouchableOpacity, View } from 'react-native'
 
 import PageContent from '@/components/PageContent'
@@ -14,6 +14,7 @@ import { designSpacing } from '@/theme/DesignTokens'
 import { setComponentId } from '@/core/common'
 import { COMPONENT_IDS } from '@/config/constant'
 import { type SettingScreenIds } from '@/screens/Home/Views/Setting/Main'
+import { subscribeScrollLock } from '@/utils/scrollLock'
 import WebLoginManager from '@/components/WebLoginManager'
 import QQWebLoginManager from '@/components/QQWebLoginManager'
 import KgWebLoginManager from '@/components/KgWebLoginManager'
@@ -52,6 +53,10 @@ export default memo(({ settingId, componentId }: {
   const safeAreaBottom = useSafeAreaBottom()
   const statusBarHeight = useStatusbarHeight()
   const appearedAtRef = useRef(0)
+  // 深层列表项（如自定义源拖拽排序）在拖拽期间通过 scrollLock 请求锁定祖先滚动容器，
+  // 避免iOS 原生 UIScrollView 抢手势导致整页随拖动滚动（与 Setting/Horizontal 的处理一致）。
+  const [scrollLocked, setScrollLocked] = useState(false)
+  useEffect(() => subscribeScrollLock(setScrollLocked), [])
 
   useEffect(() => {
     setComponentId(COMPONENT_IDS.SETTING_DETAIL, componentId)
@@ -93,6 +98,7 @@ export default memo(({ settingId, componentId }: {
           contentContainerStyle={contentStyle}
           keyboardShouldPersistTaps="always"
           showsVerticalScrollIndicator={false}
+          scrollEnabled={!scrollLocked}
         >
           <ActiveScreen />
         </ScrollView>

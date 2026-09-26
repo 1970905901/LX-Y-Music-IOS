@@ -78,10 +78,12 @@ interface UserApiItemProps {
   opacity: Animated.Value
   zIndex: number
   onLayoutHeight: (index: number, height: number) => void
+  onDragGrant: () => void
   onLongPressStart: (index: number) => void
   onDragMove: (dy: number) => void
   onDragRelease: () => void
   onDragCancel: () => void
+  onDragEnd: () => void
   onChange: (id: string) => void
   dragHandleHint: string
 }
@@ -109,10 +111,12 @@ const UserApiItem = memo(({
   opacity,
   zIndex,
   onLayoutHeight,
+  onDragGrant,
   onLongPressStart,
   onDragMove,
   onDragRelease,
   onDragCancel,
+  onDragEnd,
   onChange,
   dragHandleHint,
 }: UserApiItemProps) => {
@@ -147,6 +151,9 @@ const UserApiItem = memo(({
           clearLongPressTimer()
           isActivatedRef.current = false
           currentDyRef.current = 0
+          // 手指放上拖拽手柄瞬间即锁定祖先滚动（对齐 FailureStrategy），
+          // 避免 iOS 原生 UIScrollView 在长按激活前（350ms 窗口内）就开始滚动整页。
+          onDragGrant()
           longPressTimer.current = setTimeout(() => {
             longPressTimer.current = null
             isActivatedRef.current = true
@@ -165,6 +172,8 @@ const UserApiItem = memo(({
         },
         onPanResponderRelease: () => {
           clearLongPressTimer()
+          // 无论是否激活都释放滚动锁（与 grant 配对，防止泄漏）。
+          onDragEnd()
           if (isActivatedRef.current) {
             isActivatedRef.current = false
             onDragRelease()
@@ -172,6 +181,7 @@ const UserApiItem = memo(({
         },
         onPanResponderTerminate: () => {
           clearLongPressTimer()
+          onDragEnd()
           if (isActivatedRef.current) {
             isActivatedRef.current = false
             onDragCancel()
@@ -180,7 +190,7 @@ const UserApiItem = memo(({
         // 一旦接管手势就不再释放给 ScrollView，避免整页被滚动。
         onPanResponderTerminationRequest: () => false,
       }),
-    [clearLongPressTimer, index, onLongPressStart, onDragMove, onDragRelease, onDragCancel],
+    [clearLongPressTimer, index, onDragGrant, onLongPressStart, onDragMove, onDragRelease, onDragCancel, onDragEnd],
   )
 
   const transform = isDragSource
@@ -332,11 +342,12 @@ export default memo(() => {
     }
   }, [])
 
+  // 滚动锁的获取/释放已移到条目手势内（grant 时获取、release/terminate 时释放），
+  // 这里只负责激活拖拽态与动画。
   const handleLongPressStart = useCallback((index: number) => {
     draggingIndexRef.current = index
     targetIndexRef.current = index
     lastTargetRef.current = index
-    acquireDragLock()
     setDraggingIndex(index)
     const anim = animsRef.current[index]
     if (!anim) return
@@ -344,7 +355,7 @@ export default memo(() => {
       Animated.spring(anim.scale, { toValue: 1.03, useNativeDriver: true, friction: 7 }),
       Animated.timing(anim.opacity, { toValue: 0.92, duration: 120, useNativeDriver: true }),
     ]).start()
-  }, [acquireDragLock])
+  }, [])
 
   const computeTargetIndex = useCallback((from: number, dy: number) => {
     const heights = heightsRef.current
@@ -427,7 +438,6 @@ export default memo(() => {
     draggingIndexRef.current = null
     targetIndexRef.current = null
     lastTargetRef.current = null
-    releaseDragLock()
     if (from == null) return
     const needsReorder = to != null && to !== from
     if (needsReorder) {
@@ -435,16 +445,15 @@ export default memo(() => {
     }
     setTimeout(resetAllAnims, 100)
     setDraggingIndex(null)
-  }, [persistReorder, resetAllAnims, releaseDragLock])
+  }, [persistReorder, resetAllAnims])
 
   const handleDragCancel = useCallback(() => {
     draggingIndexRef.current = null
     targetIndexRef.current = null
     lastTargetRef.current = null
-    releaseDragLock()
     setDraggingIndex(null)
     resetAllAnims()
-  }, [resetAllAnims, releaseDragLock])
+  }, [resetAllAnims])
 
   useEffect(() => {
     return () => {
@@ -490,10 +499,12 @@ export default memo(() => {
                     opacity={anim.opacity}
                     zIndex={isDragSource ? 10 : 1}
                     onLayoutHeight={handleLayoutHeight}
+                    onDragGrant={acquireDragLock}
                     onLongPressStart={handleLongPressStart}
                     onDragMove={handleDragMove}
                     onDragRelease={handleDragRelease}
                     onDragCancel={handleDragCancel}
+                    onDragEnd={releaseDragLock}
                     onChange={setApiSourceId}
                     dragHandleHint={reorderHint}
                   />

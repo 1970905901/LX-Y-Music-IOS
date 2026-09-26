@@ -215,7 +215,9 @@ final class LiquidGlassRenderer {
 
 final class LiquidGlassView: MTKView {
 
-    let liquidGlass: LiquidGlass
+    // var 而非 let：LiquidGlassEffectView.setGlassTintColor 会写入 tintColor 成员。
+    // Swift 的可变性规则下，经 let 属性访问 struct 连成员赋值都被拒绝（需要写回整个属性）。
+    var liquidGlass: LiquidGlass
 
     var commandQueue: MTLCommandQueue!
     var uniformsBuffer: MTLBuffer!

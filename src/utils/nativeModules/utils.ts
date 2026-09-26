@@ -227,7 +227,64 @@ export const endBackgroundTask = (): void => {
   } catch {}
 }
 
+const blurredPicCacheKey = (uri: string, blurRadius: number) => `${uri}|${blurRadius}`
+
+interface BlurredPicCacheEntry {
+  /** 已模糊背景图本地地址；空串表示“平均色已到、地址还没到” */
+  path: string
+  /** 背景图平均色（#RRGGBB）；null 表示尚未取到 */
+  color: string | null
+}
+
+// 已解析的模糊图地址 / 平均色，按「地址 + 半径」记在内存里。
+// 原生落盘缓存只解决“不用重复模糊”，但页面每次挂载都要等一次异步桥调用才拿到地址，
+// 这 1~2 帧里页面画不出背景（浅色主题是纯白）= 进页面「闪一下白色」。
+// 记在内存后，同一张背景图（Home 与详情页共用同一个动态背景）第二次挂载即可【同步】拿到地址：
+// 首帧直接画本地图，push 转场也能用平均色作容器背景色（见 navigation 的 getPushBackgroundColor）。
+// 缓存文件被「清理缓存」删除时由图片 onError → invalidate 作废，不会留下空白底。
+// 背景图随歌曲变化，这里只保留最近若干条（原生侧留 6 张，JS 侧留多一些覆盖最近听过的歌），
+// 避免长时间播放让缓存无上限增长；被淘汰的条目最多让下次挂载多一次桥调用。
+const MAX_BLURRED_PIC_CACHE = 16
+const blurredPicCache = new Map<string, BlurredPicCacheEntry>()
 const blurredPicPending = new Map<string, Promise<string | null>>()
+const blurredPicColorPending = new Map<string, Promise<string | null>>()
+
+const rememberBlurredPic = (cacheKey: string, patch: { path?: string, color?: string }) => {
+  const entry = blurredPicCache.get(cacheKey)
+  // 先删再插：让它成为“最新”的一条（Map 按插入顺序迭代，淘汰时取最旧的 key）
+  if (entry) blurredPicCache.delete(cacheKey)
+  blurredPicCache.set(cacheKey, entry
+    ? { path: patch.path ?? entry.path, color: patch.color ?? entry.color }
+    : { path: patch.path ?? '', color: patch.color ?? null })
+  while (blurredPicCache.size > MAX_BLURRED_PIC_CACHE) {
+    const oldest = blurredPicCache.keys().next()
+    if (oldest.done) break
+    blurredPicCache.delete(oldest.value)
+  }
+}
+
+/** 同步读取已知的「已模糊背景图」本地地址；尚未解析过 / 不可用时返回 null。 */
+export const getCachedBlurredPic = (uri: string | null | undefined, blurRadius: number): string | null => {
+  // 纯读取 JS 内存缓存，不要求原生方法就绪（原生不可用时缓存里也不会有值）
+  if (!uri || blurRadius <= 0) return null
+  return blurredPicCache.get(blurredPicCacheKey(uri, blurRadius))?.path || null
+}
+
+/**
+ * 同步读取已知的「已模糊背景图平均色」（#RRGGBB）；尚未解析过 / 不可用时返回 null。
+ * 用途：push 转场背景色与页面首帧底色——转场期间页面内容还没画出来，容器只有一块纯色，
+ * 纯白（浅色主题）与整屏模糊封面的实际背景色差明显就是「转场闪白」，用平均色代替即可消除。
+ */
+export const getCachedBgPicColor = (uri: string | null | undefined, blurRadius: number): string | null => {
+  if (!isIOS || !uri || blurRadius <= 0) return null
+  return blurredPicCache.get(blurredPicCacheKey(uri, blurRadius))?.color ?? null
+}
+
+/** 作废某张背景图的本地记录（缓存文件被删除、图片加载失败时调用），下次挂载会重新向原生索取。 */
+export const invalidateBlurredPic = (uri: string | null | undefined, blurRadius: number): void => {
+  if (!uri || blurRadius <= 0) return
+  blurredPicCache.delete(blurredPicCacheKey(uri, blurRadius))
+}
 
 /**
  * 取「已模糊的背景图」本地地址（file://...）。
@@ -239,9 +296,11 @@ const blurredPicPending = new Map<string, Promise<string | null>>()
  */
 export const getBlurredPic = async(uri: string, blurRadius: number): Promise<string | null> => {
   if (!isIOS || !UtilsModule?.getBlurredPic || !uri || blurRadius <= 0) return null
+  const cacheKey = blurredPicCacheKey(uri, blurRadius)
+  const cached = blurredPicCache.get(cacheKey)?.path
+  if (cached) return cached
   // 同一张背景图可能被多个页面同时请求（Home + 详情页…），这里按 地址 + 半径 复用同一个
   // 在途 Promise，避免原生侧重复做整屏解码/模糊（内存与耗时的双重浪费）。
-  const cacheKey = `${uri}|${blurRadius}`
   const pending = blurredPicPending.get(cacheKey)
   if (pending) return pending
   const task = (async(): Promise<string | null> => {
@@ -251,15 +310,49 @@ export const getBlurredPic = async(uri: string, blurRadius: number): Promise<str
         // 原生兜底超时：即使原生侧意外没有回调，也不让调用方一直等（超时后原生仍会继续写完缓存）
         new Promise<null>((resolve) => { setTimeout(() => { resolve(null) }, 8000) }),
       ])
-      return typeof result == 'string' && result.length > 0 ? result : null
+      const path = typeof result == 'string' && result.length > 0 ? result : null
+      if (path) rememberBlurredPic(cacheKey, { path })
+      return path
     } catch {
       return null
     }
   })()
   blurredPicPending.set(cacheKey, task)
-  // 结束后立即移除记录：它只用于让「同时挂载的多个页面」共享同一次原生计算，
-  // 不长期记住路径——万一缓存文件被「清理缓存」删掉，下次挂载仍会向原生重新确认。
+  // 在途记录只用于合并“同时挂载”的多次请求；已拿到的地址会长期留在内存缓存里，
+  // 供后续页面挂载时同步取用（首帧即可绘制，不再有等待桥调用的空白帧）。
   void task.finally(() => { blurredPicPending.delete(cacheKey) })
+  return task
+}
+
+/**
+ * 取「已模糊背景图」的平均色（#RRGGBB），用于 push 转场背景色与页面首帧底色。
+ * 调用时机有要求：必须在 getBlurredPic 已返回地址之后调用——原生侧模糊图（及同名色值文件）
+ * 生成后才有色值可取，顺序反了会拿到 null 且不会自动重试。
+ * 取不到（原生未就绪 / 计算失败）返回 null，调用方退回主题纯色，不影响可用性。
+ */
+export const getBgPicColor = async(uri: string, blurRadius: number): Promise<string | null> => {
+  if (!isIOS || !UtilsModule?.getBgPicColor || !uri || blurRadius <= 0) return null
+  const cacheKey = blurredPicCacheKey(uri, blurRadius)
+  const cached = blurredPicCache.get(cacheKey)?.color
+  if (cached) return cached
+  const pending = blurredPicColorPending.get(cacheKey)
+  if (pending) return pending
+  const task = (async(): Promise<string | null> => {
+    try {
+      const result = await Promise.race([
+        UtilsModule.getBgPicColor(uri, blurRadius) as Promise<string | null>,
+        new Promise<null>((resolve) => { setTimeout(() => { resolve(null) }, 8000) }),
+      ])
+      const color = typeof result == 'string' && result.length > 0 ? result : null
+      // 只记成功结果：null 表示“暂时取不到”（如模糊图还没生成），下次调用应当重试。
+      if (color) rememberBlurredPic(cacheKey, { color })
+      return color
+    } catch {
+      return null
+    }
+  })()
+  blurredPicColorPending.set(cacheKey, task)
+  void task.finally(() => { blurredPicColorPending.delete(cacheKey) })
   return task
 }
 

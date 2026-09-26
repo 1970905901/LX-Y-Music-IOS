@@ -11,8 +11,9 @@ import { useBlurredPic } from '@/utils/hooks/useBlurredPic'
 import { useSettingValue } from '@/store/setting/hook'
 interface Props {
   children: React.ReactNode
-  // 进入该页面时，动态背景从白色平滑淡入到彩色（用于从纯白迷你播放器进入详情页，
-  // 避免“白块→动态背景”的生硬跳变）。仅在存在动态/自定义背景时生效。
+  // 进入该页面时，动态背景从底色平滑淡入到完整背景（用于从迷你播放器进入详情页，
+  // 避免“空白底色→动态背景”的生硬跳变）。仅在存在动态/自定义背景、且首帧还画不出
+  // 背景（模糊图尚未就绪）时生效；首帧就能画出背景时直接显示，否则那段淡入就是闪白。
   backgroundFadeIn?: boolean
 }
 
@@ -31,11 +32,19 @@ export default ({ children, backgroundFadeIn = false }: Props) => {
   // 已模糊背景图（本地缓存）地址：原生按 图片地址 + 模糊半径 生成一次并落盘复用。
   // 拿到它之前仍用 Image 的 blurRadius 兜底，因此观感与改动前完全一致（同一套模糊算法），
   // 只是进入页面时不再每次重算一遍整屏模糊——那几十毫秒的空白底就是“闪一下白色”。
-  const [blurredPicUri, handleBlurredPicError] = useBlurredPic(pic, BLUR_RADIUS)
+  const [blurredPicUri, handleBlurredPicError, blurredPicColor] = useBlurredPic(pic, BLUR_RADIUS)
 
-  // 仅当“开启背景淡入”且“当前确实有动态/自定义背景”时才淡入；否则直接显示。
-  const shouldFade = backgroundFadeIn && !!pic
-  // 背景透明度动画：0（白）→ 1（完整动态背景）。初始值取决于是否淡入。
+  // 挂载当帧是否已同步拿到模糊图（Home 与详情页共用同一张背景图，缓存命中的是常态）。
+  // 已拿到就说明第一帧就能画出真实背景，此时必须【跳过白底淡入】——那段 350ms 的白底
+  // 正是“点迷你播放器进入播放详情页闪白”的主因；不满足时（冷启动 / 首次遇到该背景，
+  // 模糊还没算好）仍保留淡入，避免“空白底 → 背景”的硬跳变。
+  const hadBlurredPicAtMount = useRef(blurredPicUri != null).current
+  // 首帧底色 / 淡入起点色：优先用背景图平均色（与该页真实背景接近），未知时退回主题底色。
+  const bgLayerColor = blurredPicColor ?? theme['c-content-background']
+
+  // 仅当“开启背景淡入”且“当前确实有动态/自定义背景”且“首帧画不出背景”时才淡入；否则直接显示。
+  const shouldFade = backgroundFadeIn && !!pic && !hadBlurredPicAtMount
+  // 背景透明度动画：0（底色）→ 1（完整动态背景）。初始值取决于是否淡入。
   const bgOpacity = useRef(new Animated.Value(shouldFade ? 0 : 1)).current
   useEffect(() => {
     if (!shouldFade) {
@@ -45,7 +54,7 @@ export default ({ children, backgroundFadeIn = false }: Props) => {
     bgOpacity.setValue(0)
     const anim = Animated.timing(bgOpacity, {
       toValue: 1,
-      // 与 navigation 整页 alpha 转场（350ms）对齐，确保背景白→彩与整页淡入同步完成。
+      // 与 navigation 整页 alpha 转场（350ms）对齐，确保底色→背景与整页淡入同步完成。
       duration: 350,
       useNativeDriver: true,
     })
@@ -68,10 +77,12 @@ export default ({ children, backgroundFadeIn = false }: Props) => {
   const contentComponent = useMemo(() => {
     return (
       <View style={{ flex: 1, overflow: 'hidden' }}>
-        {/* 淡入时的白色底：动画进行中背景半透明，透出此白色，形成“白→彩色”的平滑过渡；
-            动画结束后动态背景完全不透明，白色底被完全覆盖、无残留影响。仅淡入时存在。 */}
+        {/* 淡入时的底色：动画进行中背景半透明，透出此底色形成平滑过渡；动画结束后动态背景
+            完全不透明，底色被完全覆盖、无残留影响。仅淡入时存在。
+            底色用「背景图平均色」而非纯白：纯白会在浅色主题下与整屏模糊封面形成明显色差，
+            淡入过程本身就是一次肉眼可见的“闪白”；用平均色后过渡几乎不可察觉。 */}
         {shouldFade ? (
-          <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#ffffff' }]} />
+          <View style={[StyleSheet.absoluteFillObject, { backgroundColor: bgLayerColor }]} />
         ) : null}
         <Animated.View
           style={[StyleSheet.absoluteFillObject, { opacity: bgOpacity }]}
@@ -88,7 +99,9 @@ export default ({ children, backgroundFadeIn = false }: Props) => {
             // 用 absoluteFill 由布局系统保证精确铺满，自动适配手机/iPad/横竖屏/分屏。
             style={{
               ...StyleSheet.absoluteFillObject,
-              backgroundColor: theme['c-content-background'],
+              // 图片解码完成前透出的底色：用背景平均色（与该图接近）代替纯白，
+              // 使「转场/首帧 → 图片」这几帧不再是白 → 彩的突变。
+              backgroundColor: bgLayerColor,
             }}
             // 优先用原生缓存的「已模糊本地图」（无需 blurRadius，首帧即可绘制）；
             // 缓存尚未就绪时回退到原方案（远程图 + blurRadius），两者像素结果一致。
@@ -129,7 +142,7 @@ export default ({ children, backgroundFadeIn = false }: Props) => {
         </Animated.View>
       </View>
     )
-  }, [children, contentReady, pic, blurredPicUri, handleBlurredPicError, theme, BLUR_RADIUS, picOpacity, shouldFade, bgOpacity])
+  }, [children, contentReady, pic, blurredPicUri, handleBlurredPicError, theme, BLUR_RADIUS, picOpacity, shouldFade, bgOpacity, bgLayerColor, hadBlurredPicAtMount])
 
   return (
     <>

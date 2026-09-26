@@ -608,6 +608,36 @@ static NSString *LXBlurredBackgroundCachePath(NSString *uri, CGFloat radius) {
   return [dir stringByAppendingPathComponent:name];
 }
 
+// 背景模糊图「平均色」文件路径：与模糊图同名，后缀换成 .color（内容是 #RRGGBB 文本，几十字节）。
+// 用于 JS 侧的 push 转场背景色与页面首帧底色：转场期间页面内容还没画出来，原生容器只有一块纯色，
+// 浅色主题的 c-content-background 是纯白，与「整屏模糊封面」的实际背景形成明显色差 = 转场闪白。
+// 用该图的平均色代替纯色后，转场底色与目的页背景接近，观感上不再有白色块跳动。
+static NSString *LXBlurredBackgroundColorPath(NSString *blurredPath) {
+  if (blurredPath.length == 0) return nil;
+  return [[blurredPath stringByDeletingPathExtension] stringByAppendingPathExtension:@"color"];
+}
+
+// 计算图片平均色，返回 #RRGGBB；无法计算时返回 nil。
+// 做法：把整图直接画进 1x1 的 8bit RGBA 位图上下文，Core Graphics 会插值下采样，
+// 读出的那一个像素即为整图平均色（模糊图本身是整屏大图，一次绘制约几毫秒）。
+static NSString *LXAverageColorHexOfImage(UIImage *image) {
+  CGImageRef imageRef = image.CGImage;
+  if (imageRef == NULL) return nil;
+  CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+  if (colorSpace == NULL) return nil;
+  unsigned char pixel[4] = {0, 0, 0, 0};
+  CGContextRef ctx = CGBitmapContextCreate(pixel, 1, 1, 8, 4, colorSpace,
+                                           kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big);
+  CGColorSpaceRelease(colorSpace);
+  if (ctx == NULL) return nil;
+  CGContextSetInterpolationQuality(ctx, kCGInterpolationHigh);
+  CGContextDrawImage(ctx, CGRectMake(0, 0, 1, 1), imageRef);
+  CGContextRelease(ctx);
+  // 显式转 unsigned int：变参提升下若直接传 unsigned char 会与 %X 的类型不匹配（-Wformat）
+  return [NSString stringWithFormat:@"#%02X%02X%02X",
+                                    (unsigned int)pixel[0], (unsigned int)pixel[1], (unsigned int)pixel[2]];
+}
+
 // 控制背景模糊图缓存的规模：只保留最近生成的几张，其余按修改时间最旧优先删除。
 // 背景图随歌曲变化，一张约 1MB；而「缓存上限」默认是「不限制」，若无节制落盘会持续占用空间。
 static void LXTrimBlurredBackgroundCache(NSString *cachePath, NSUInteger keepCount) {
@@ -634,7 +664,11 @@ static void LXTrimBlurredBackgroundCache(NSString *cachePath, NSUInteger keepCou
     return [b[@"date"] compare:a[@"date"]]; // 新 → 旧
   }];
   for (NSUInteger i = keepCount; i < files.count; i++) {
-    [fileManager removeItemAtPath:files[i][@"path"] error:nil];
+    NSString *expiredPath = files[i][@"path"];
+    [fileManager removeItemAtPath:expiredPath error:nil];
+    // 平均色文件与该模糊图同生共死：一并删除，避免留下孤儿文件
+    NSString *expiredColorPath = LXBlurredBackgroundColorPath(expiredPath);
+    if (expiredColorPath.length > 0) [fileManager removeItemAtPath:expiredColorPath error:nil];
   }
 }
 
@@ -5102,10 +5136,70 @@ RCT_REMAP_METHOD(getBlurredPic,
     }
     BOOL written = [output writeToFile:cachePath atomically:YES];
     if (written) {
+      // 顺带把平均色落盘（此刻模糊图已在内存里，求平均色几乎不额外花时间）：
+      // JS 侧据此把 push 转场背景色设成与该页背景接近的颜色，消除转场时的闪白。
+      NSString *colorPath = LXBlurredBackgroundColorPath(cachePath);
+      NSString *colorHex = LXAverageColorHexOfImage(blurred);
+      if (colorPath.length > 0 && colorHex.length > 0) {
+        [colorHex writeToFile:colorPath atomically:YES encoding:NSUTF8StringEncoding error:nil];
+      }
       // 只保留最近 6 张：够覆盖最近播放的几首歌（下一张进入前必定命中），又不会无限占空间
       LXTrimBlurredBackgroundCache(cachePath, 6);
     }
     resolve(written ? [NSURL fileURLWithPath:cachePath].absoluteString : nil);
+  });
+}
+
+// 取「背景模糊图」的平均色（#RRGGBB），供 JS 侧作为 push 转场背景色与页面首帧底色。
+// 与 getBlurredPic 共用同一份缓存命名：模糊图存在时读同名 .color 文本（几十字节，读取极快）。
+// 旧版本生成的模糊图没有 .color（升级兼容）时现场补算一次并落盘，此后直接读文件。
+// 模糊图尚不存在时返回 nil——JS 侧会在拿到模糊图地址后再调用本方法，顺序由 JS 保证。
+RCT_REMAP_METHOD(getBgPicColor,
+                 getBgPicColor:(NSString *)uriString
+                 blurRadius:(nonnull NSNumber *)blurRadius
+                 resolver:(RCTPromiseResolveBlock)resolve
+                 rejecter:(RCTPromiseRejectBlock)reject) {
+  NSString *uri = [uriString isKindOfClass:[NSString class]] ? uriString : @"";
+  CGFloat radius = MAX(0, blurRadius.doubleValue);
+  if (uri.length == 0 || radius <= 0) {
+    resolve(nil);
+    return;
+  }
+
+  dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+    NSString *cachePath = LXBlurredBackgroundCachePath(uri, radius);
+    if (cachePath.length == 0) {
+      resolve(nil);
+      return;
+    }
+    NSFileManager *fileManager = [NSFileManager defaultManager];
+    if (![fileManager fileExistsAtPath:cachePath]) {
+      resolve(nil);
+      return;
+    }
+
+    NSString *colorPath = LXBlurredBackgroundColorPath(cachePath);
+    if (colorPath.length > 0) {
+      NSString *cachedColor = [NSString stringWithContentsOfFile:colorPath
+                                                       encoding:NSUTF8StringEncoding
+                                                          error:nil];
+      cachedColor = [cachedColor stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+      if (cachedColor.length > 0) {
+        resolve(cachedColor);
+        return;
+      }
+    }
+
+    UIImage *image = [UIImage imageWithContentsOfFile:cachePath];
+    NSString *colorHex = image ? LXAverageColorHexOfImage(image) : nil;
+    if (colorHex.length == 0) {
+      resolve(nil);
+      return;
+    }
+    if (colorPath.length > 0) {
+      [colorHex writeToFile:colorPath atomically:YES encoding:NSUTF8StringEncoding error:nil];
+    }
+    resolve(colorHex);
   });
 }
 

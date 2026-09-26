@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo } from 'react'
+import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { Pressable, StyleSheet, View } from 'react-native'
 import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
@@ -6,12 +6,14 @@ import { useNavActiveId, useSafeAreaBottom } from '@/store/common/hook'
 import { useSettingValue } from '@/store/setting/hook'
 import { setNavActiveId } from '@/core/common'
 import { createStyle } from '@/utils/tools'
+import { scaleSizeH, scaleSizeW } from '@/utils/pixelRatio'
 import { designRadius, designSpacing } from '@/theme/DesignTokens'
 import { shadow } from '@/utils/shadow'
 import { pulseLiquidGlass } from '@/utils/liquidGlassActivity'
 import { Icon } from '@/components/common/Icon'
 import Text from '@/components/common/Text'
 import LiquidGlass from '@/components/common/LiquidGlass'
+import LiquidLens from '@/components/common/LiquidLens'
 
 const styles = createStyle({
   wrapper: {
@@ -43,16 +45,6 @@ const styles = createStyle({
     right: 0,
     bottom: 0,
   },
-  // 选中态整格遮罩：绝对定位垫在图标/文字下层，覆盖整个 tab 格。
-  // 不能用带高度的底衬 View 包图标——那会在选中时把文字向下顶出，造成“文字跑到遮罩下方”。
-  activeMask: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderRadius: designRadius.md,
-  },
   label: {
     marginTop: 2,
     fontWeight: '600',
@@ -80,6 +72,10 @@ const TAB_LABEL_KEYS: Record<(typeof TAB_IDS)[number]['id'], string> = {
   nav_love: 'discovery_tab_playlists',
   nav_setting: 'nav_setting',
 }
+
+const BAR_HEIGHT = 64
+const LENS_VERTICAL_INSET = 6
+const LENS_PILL_WIDTH = 52
 
 export default memo(() => {
   const theme = useTheme()
@@ -110,12 +106,27 @@ export default memo(() => {
     pulseLiquidGlass()
   }, [activeId, theme, miniPlayerOpacity])
 
-  const activeMaskStyle = useMemo(
-    () => StyleSheet.compose(styles.activeMask, {
-      backgroundColor: theme['c-primary-background'],
-    }),
-    [theme],
-  )
+  // 透镜药丸：替换旧的主色高亮遮罩（iOS 26 风格）。切 Tab 时药丸原生弹簧滑动
+  // 到目标项，按压时 morph 成完整液态玻璃。
+  const [barWidth, setBarWidth] = useState(0)
+  const [lifted, setLifted] = useState(false)
+
+  const handleBarLayout = useCallback((e: { nativeEvent: { layout: { width: number } } }) => {
+    setBarWidth(e.nativeEvent.layout.width)
+  }, [])
+
+  const activeIndex = Math.max(0, TAB_IDS.findIndex((tab) => tab.id === activeId))
+  const itemWidth = barWidth > 0 ? barWidth / TAB_IDS.length : 0
+  const lensX = itemWidth * activeIndex + itemWidth / 2
+  const lensStripHeight = scaleSizeH(BAR_HEIGHT - LENS_VERTICAL_INSET * 2)
+  const lensPillColor = theme.isDark ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.55)'
+
+  const handlePressIn = useCallback(() => {
+    setLifted(true)
+  }, [])
+  const handlePressOut = useCallback(() => {
+    setLifted(false)
+  }, [])
 
   return (
     <View
@@ -125,10 +136,26 @@ export default memo(() => {
       ]}
       pointerEvents="box-none"
     >
-      <View style={barStyle}>
+      <View style={barStyle} onLayout={handleBarLayout}>
         <LiquidGlass />
         {/* 染色层：垫在玻璃之上、内容之下，跟随主题明暗与透明度设置 */}
         <View style={[styles.tint, tintStyle]} pointerEvents="none" />
+        {/* 透镜药丸条带：垫在 tab 内容之下，切 Tab 时原生弹簧滑动，按压时液态变形 */}
+        {barWidth > 0 ? (
+          <LiquidLens
+            style={{
+              position: 'absolute',
+              top: scaleSizeH(LENS_VERTICAL_INSET),
+              left: 0,
+              width: barWidth,
+              height: lensStripHeight,
+            }}
+            x={lensX}
+            lifted={lifted}
+            pillColor={lensPillColor}
+            pillWidth={scaleSizeW(LENS_PILL_WIDTH)}
+          />
+        ) : null}
         {TAB_IDS.map((tab) => {
           const isActive = activeId === tab.id
           return (
@@ -136,8 +163,9 @@ export default memo(() => {
               key={tab.id}
               style={styles.item}
               onPress={() => { setNavActiveId(tab.id) }}
+              onPressIn={handlePressIn}
+              onPressOut={handlePressOut}
             >
-              {isActive ? <View style={activeMaskStyle} pointerEvents="none" /> : null}
               {/* 所有 tab 的图标统一放进同尺寸容器：love 字形占位偏小需放大一档，
                   但不能让它撑高布局把文字顶下去（与其他 tab 错位） */}
               <View style={styles.iconWrap}>

@@ -19,6 +19,7 @@
 //    render continuously for ~1s to cover mount/transition animations.
 //
 
+#import <React/RCTConvert.h>
 #import <React/RCTView.h>
 #import <React/RCTViewManager.h>
 
@@ -92,6 +93,129 @@ RCT_CUSTOM_VIEW_PROPERTY(fps, NSNumber, LGLiquidGlassHostView) {
 RCT_CUSTOM_VIEW_PROPERTY(active, NSNumber, LGLiquidGlassHostView) {
   if (json != nil) {
     [view.glassView setJsActive:[json boolValue]];
+  }
+}
+
+@end
+
+// ============================================================================
+// LiquidGlassLens —— Tab 切换的液态透镜药丸（上游 LiquidLensView）
+// ============================================================================
+// 用法（JS，见 src/components/common/LiquidLens.tsx + ModernTabBar）：
+// - 组件本身是一条横向条带（RN 绝对定位放在 tab 图标带上），透镜药丸在其内部；
+// - `x` prop：药丸目标中心 X（相对本组件）。首次设置直接落位，之后由原生
+//   UIView 弹簧动画滑动过去（避免 RN 布局逐帧过桥的卡顿）；被抬起时药丸内部
+//   的 CADisplayLink 会跟踪自身位置做加速度挤压/拉伸变形；
+// - `lifted` prop：按下态（药丸 morph 成完整液态玻璃），松开回落为半透明药丸；
+//   静止（未抬起）时透镜内部不跑任何 Metal 渲染，零功耗。
+// - `pillColor` prop：静止药丸底色（rgba 字符串，按主题明暗传不同值）。
+
+@interface LGLiquidLensHostView : RCTView
+@end
+
+@implementation LGLiquidLensHostView {
+  LiquidLensView *_lens;
+  CGFloat _x;
+  BOOL _hasX;
+  CGFloat _pillWidth;
+}
+
+- (instancetype)initWithFrame:(CGRect)frame {
+  if (self = [super initWithFrame:frame]) {
+    _lens = [LGLensFactory createLens];
+    // 透镜不参与命中测试：触摸一律穿透到上层的 tab Pressable
+    _lens.userInteractionEnabled = NO;
+    _lens.autoresizingMask = UIViewAutoresizingFlexibleHeight;
+    [self addSubview:_lens];
+    _pillWidth = 56.0;
+    self.clipsToBounds = NO; // 挤压/拉伸变形时允许略微越界，整体仍由 tab 栏容器裁剪
+  }
+  return self;
+}
+
+- (void)layoutSubviews {
+  [super layoutSubviews];
+  _lens.frame = CGRectMake(0, 0, _pillWidth, self.bounds.size.height);
+  _lens.center = CGPointMake(_x, self.bounds.size.height / 2.0);
+}
+
+- (void)setTargetX:(CGFloat)x animated:(BOOL)animated {
+  _x = x;
+  if (!_hasX) {
+    // 首次落位不动画：避免应用启动时药丸从左边缘飞入
+    _hasX = YES;
+    [self setNeedsLayout];
+    return;
+  }
+  if (animated) {
+    [UIView animateWithDuration:0.4
+                          delay:0
+         usingSpringWithDamping:0.78
+          initialSpringVelocity:0
+                        options:UIViewAnimationOptionBeginFromCurrentState |
+                                UIViewAnimationOptionAllowUserInteraction
+                     animations:^{
+      self->_lens.center = CGPointMake(x, self.bounds.size.height / 2.0);
+    } completion:nil];
+  } else {
+    _lens.center = CGPointMake(x, self.bounds.size.height / 2.0);
+  }
+}
+
+- (void)setPillWidth:(CGFloat)width {
+  _pillWidth = width;
+  [self setNeedsLayout];
+}
+
+- (LiquidLensView *)lens {
+  return _lens;
+}
+
+@end
+
+@interface LiquidGlassLensManager : RCTViewManager
+@end
+
+@implementation LiquidGlassLensManager
+
+RCT_EXPORT_MODULE(LiquidGlassLens)
+
++ (BOOL)requiresMainQueueSetup {
+  return NO;
+}
+
+- (UIView *)view {
+  return [[LGLiquidLensHostView alloc] init];
+}
+
+// 药丸目标中心 X（相对本组件）；除首次外均带原生弹簧动画
+RCT_CUSTOM_VIEW_PROPERTY(x, NSNumber, LGLiquidLensHostView) {
+  if (json != nil) {
+    [view setTargetX:[json doubleValue] animated:YES];
+  }
+}
+
+// 按下态：药丸 morph 成完整液态玻璃（内部按需渲染时钟随 lift 启停，静止零开销）
+RCT_CUSTOM_VIEW_PROPERTY(lifted, NSNumber, LGLiquidLensHostView) {
+  if (json != nil) {
+    [view.lens setLifted:[json boolValue]
+                animated:YES
+     alongsideAnimations:nil
+              completion:nil];
+  }
+}
+
+// 静止药丸底色（跟随应用主题明暗，由 JS 传入 rgba 字符串）
+RCT_CUSTOM_VIEW_PROPERTY(pillColor, NSString, LGLiquidLensHostView) {
+  if (json != nil) {
+    view.lens.restingBackgroundColor = [RCTConvert UIColor:json];
+  }
+}
+
+// 药丸宽度（默认 56）
+RCT_CUSTOM_VIEW_PROPERTY(pillWidth, NSNumber, LGLiquidLensHostView) {
+  if (json != nil) {
+    [view setPillWidth:[json doubleValue]];
   }
 }
 

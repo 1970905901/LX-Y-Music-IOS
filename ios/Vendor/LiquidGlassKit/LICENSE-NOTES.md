@@ -23,7 +23,7 @@ changes:
 | 3 | Shader loading → `MTLDevice.makeLibrary(source:)` with embedded MSL (`LiquidGlassShaderSource.swift`) | Upstream loads a SwiftPM-precompiled `default.metallib`; a CocoaPods static lib has no resource bundle and CI must not run a Metal compile step. Runtime compilation happens on-device |
 | 4 | Added `@objc convenience init()`, `setPreferredFramesPerSecond(_:)`, `setGlassTintColor(_:)`, `setJsActive(_:)` (LiquidGlassEffectView.swift) | React Native view-manager bridge needs ObjC-visible entry points |
 | 5 | Added `LiquidGlassViewManager.mm` | Registers the `LiquidGlassView` native component for RN Paper |
-| 6 | Slider / Switch / LiquidLensView sources not included | Unused by this project; smaller compile surface |
+| 6 | LiquidLensView included with changes; Slider / Switch sources not included | The lens pill drives the tab-switch liquid-glass morph (RN component `LiquidGlassLens`): `internal import` fixed, `restingBackgroundColor`/`setLifted` marked `@objc`, `LGLensFactory` added for ObjC construction, and the lens's internal LiquidGlassView is wired to the demand-rendering clock (renders only while lifted) |
 | 7 | Demand rendering: MTKView paused when inactive, active on mount window / JS pulses / window-level pan gestures (LiquidGlassView.swift, LiquidGlassEffectView.swift) | Upstream renders continuously (`isPaused = false`), which burns GPU/CPU 24/7. Pausing when nothing moves behind the glass removes the idle cost |
 
 ## Runtime notes

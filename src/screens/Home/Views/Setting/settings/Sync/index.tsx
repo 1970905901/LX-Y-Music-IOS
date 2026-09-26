@@ -167,36 +167,38 @@ export default memo(() => {
           </View>
         </View>
 
-        <View style={{ opacity: isEnableWebdav ? 1 : 0.5 }}>
-          <InputItem
-            label="服务器地址"
-            value={webdavUrl}
-            onChanged={handleWebdavSettingChanged('sync.webdav.url')}
-            placeholder="https://example.com/webdav"
-            editable={isEnableWebdav}
-          />
-          <InputItem
-            label="用户名"
-            value={webdavUsername}
-            onChanged={handleWebdavSettingChanged('sync.webdav.username')}
-            placeholder="请输入用户名"
-            editable={isEnableWebdav}
-          />
-          <InputItem
-            label="密码"
-            value={webdavPassword}
-            onChanged={handleWebdavSettingChanged('sync.webdav.password')}
-            placeholder="请输入密码"
-            editable={isEnableWebdav}
-          />
-          <InputItem
-            label="同步路径"
-            value={webdavPath}
-            onChanged={handleWebdavSettingChanged('sync.webdav.path')}
-            placeholder="例如: /LX_Music/"
-            editable={isEnableWebdav && !isSyncing}
-          />
+        {/* WebDAV 凭据字段始终可编辑（去掉 editable={isEnableWebdav} 门控）：
+            用户必须先填好地址/账号/密码才能「测试连接」、也才能把同步打开；而 editable={false} 时
+            iOS 的 TextInput 会直接忽略点击，键盘根本唤不起来，表现为“填写栏点不动、无法使用”。
+            该区块同时不再套 opacity:0.5——半透明会被误读成“已禁用”，进一步让人以为不能填。 */}
+        <InputItem
+          label="服务器地址"
+          value={webdavUrl}
+          onChanged={handleWebdavSettingChanged('sync.webdav.url')}
+          placeholder="https://example.com/webdav"
+        />
+        <InputItem
+          label="用户名"
+          value={webdavUsername}
+          onChanged={handleWebdavSettingChanged('sync.webdav.username')}
+          placeholder="请输入用户名"
+        />
+        <InputItem
+          label="密码"
+          value={webdavPassword}
+          onChanged={handleWebdavSettingChanged('sync.webdav.password')}
+          placeholder="请输入密码"
+        />
+        {/* 同步路径仅在同步进行中锁定，避免写入与同步任务并发；空闲时始终可改 */}
+        <InputItem
+          label="同步路径"
+          value={webdavPath}
+          onChanged={handleWebdavSettingChanged('sync.webdav.path')}
+          placeholder="例如: /LX_Music/"
+          editable={!isSyncing}
+        />
 
+        <View style={{ opacity: isEnableWebdav ? 1 : 0.5 }}>
           <View style={styles.btnRow}>
             <Button onPress={handleTestConnection} disabled={!isEnableWebdav || isTesting}>
               {isTesting ? '测试中...' : '测试连接'}

@@ -14,7 +14,10 @@ import { AppState } from 'react-native'
 // 不参与歌词行同步（行高亮已交由歌词引擎内部 ticker 驱动）。
 import { audioClock } from '@/core/player/audioClock'
 import { syncLyric } from '@/core/lyric'
-import { syncToTime as lrcSyncToTime } from '@/plugins/lyric'
+// 行级高亮的两种同步方式：
+// - syncToTimeFromPosition：250ms 轮询用引擎真实位置同步（带“每帧推进”的回退迟滞，见插件内注释）
+// - advanceToTime：每帧用 audioClock 外推时钟把当前行向前推进（见下）
+import { advanceToTime, syncToTimeFromPosition } from '@/plugins/lyric'
 
 import {
   updateScrobbleInfo,
@@ -77,7 +80,7 @@ export default () => {
 
       audioClock.setAnchor(position * 1000, settingState.setting['player.playbackRate'], playerState.isPlay)
 
-      lrcSyncToTime(position * 1000, playerState.isPlay)
+      syncToTimeFromPosition(position * 1000, playerState.isPlay)
 
 
       updateScrobblePlayTime(position)
@@ -123,6 +126,33 @@ export default () => {
     getCurrentTime()
   }
 
+  // 行级高亮的每帧推进（消除 250ms 轮询带来的跨行延迟）：
+  // 逐字/卡拉OK 高亮由 audioClock 每帧驱动，而行级高亮原先只能等 250ms 轮询（最坏晚 250ms），
+  // 于是跨行瞬间会看到「新行已经开始唱、行高亮与滚动还没切过去」。这里用同一个外推时钟
+  // 每帧把当前行向前推进，把跨行延迟压到一帧内；只前进不后退，回退交给上面的精确路径。
+  let lyricTickRaf = 0
+  let lastLyricTickMs = -1
+  const tickLyricLine = () => {
+    lyricTickRaf = requestAnimationFrame(tickLyricLine)
+    const t = audioClock.getTime() * 1000
+    // 时钟未推进（暂停 / 缓冲被 hold 在 seek 目标 / 屏幕关闭）时跳过：
+    // 否则会按 hold 住的目标位置提前切行，也与“音频没动、字幕不动”相悖。
+    if (t === lastLyricTickMs) return
+    lastLyricTickMs = t
+    advanceToTime(t, playerState.isPlay)
+  }
+  const startLyricTick = () => {
+    if (lyricTickRaf) return
+    lastLyricTickMs = -1
+    lyricTickRaf = requestAnimationFrame(tickLyricLine)
+  }
+  const stopLyricTick = () => {
+    if (!lyricTickRaf) return
+    cancelAnimationFrame(lyricTickRaf)
+    lyricTickRaf = 0
+    lastLyricTickMs = -1
+  }
+
   const setProgress = (time: number, maxTime?: number) => {
     if (!playerState.musicInfo.id) return
     // console.log('setProgress', time, maxTime)
@@ -158,6 +188,8 @@ export default () => {
     // handleSetTaskBarState(playProgress.progress, prevProgressStatus)
     audioClock.setPlaying(true)
     startUpdateTimeout()
+    // 逐帧推进行高亮（与逐字高亮同一个时钟），让跨行切得跟音频一样准
+    startLyricTick()
 
     // 暂停期间轮询停止，恢复时 progress.nowPlayTime 可能过期；
     // lyric.play() 用 getReliableLyricPosition 启动 ticker 可能用了旧值。
@@ -169,10 +201,12 @@ export default () => {
     // clearBufferTimeout()
     audioClock.setPlaying(false)
     clearUpdateTimeout()
+    stopLyricTick()
   }
 
   const handleStop = () => {
     clearUpdateTimeout()
+    stopLyricTick()
     audioClock.reset()
     setNowPlayTime(0)
     setMaxplayTime(0)
@@ -186,6 +220,7 @@ export default () => {
     // prevProgressStatus = 'error'
     // handleSetTaskBarState(playProgress.progress, prevProgressStatus)
     clearUpdateTimeout()
+    stopLyricTick()
   }
 
 
@@ -235,8 +270,15 @@ export default () => {
   const handleScreenStateChanged: Parameters<typeof onScreenStateChange>[0] = (state) => {
     isScreenOn = state == 'ON'
     if (isScreenOn) {
-      if (playerState.isPlay) startUpdateTimeout()
-    } else clearUpdateTimeout()
+      if (playerState.isPlay) {
+        startUpdateTimeout()
+        // 熄屏期间两者都停：唤醒后一起恢复，保持行高亮与轮询同步
+        startLyricTick()
+      }
+    } else {
+      clearUpdateTimeout()
+      stopLyricTick()
+    }
   }
 
   // 修复在某些设备上屏幕状态改变事件未触发导致的进度条未更新的问题

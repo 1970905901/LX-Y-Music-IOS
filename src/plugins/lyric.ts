@@ -264,6 +264,49 @@ export const syncToTime = (time: number, isPlaying: boolean) => {
   setPlayTime(time)
 }
 
+/**
+ * 每帧把当前行【向前】推进到给定时间（ms）对应的行。
+ *
+ * 背景：行级高亮原先只由 playProgress 的 250ms 轮询驱动，最坏情况比音频真实跨行时刻晚
+ * 250ms（平均约 125ms）；而逐字/卡拉OK 高亮是每帧由 audioClock 外推时钟驱动的，于是跨行
+ * 瞬间会出现「新行已经开始唱、行高亮与歌词滚动却还没切过去」的滞后感（用户反馈的“换行慢了一点”）。
+ * 这里用同一个外推时钟每帧推导目标行，把跨行延迟压到一帧内，两者从同一时钟出发、天然一致。
+ *
+ * 只前进不后退：回退（拖动进度条 / 点击歌词 / 切歌 / 停播重锚）都走 syncToTime 的精确路径。
+ */
+export const advanceToTime = (time: number, isPlaying: boolean) => {
+  lrcTools.isPlay = isPlaying
+  const lines = lrcTools.currentLines
+  if (!lines.length) return
+  const index = findLineIndexByTime(lines, time)
+  if (index <= lrcTools.currentLineData.line) return
+  setPlayTime(time)
+}
+
+// 每帧推进用的是「外推时钟」（此刻真实播放位置的估计），而 250ms 轮询拿到的是几十毫秒前
+// 测到的引擎位置，两者天然有几帧到百毫秒级的先后差。若不设迟滞，轮询会在这段窗口里把刚刚
+// 被推进的新行“拉回”上一行，下一帧又被推进——高亮与滚动就会在跨行瞬间来回闪跳。
+// 该迟滞只作用于轮询（见 syncToTimeFromPosition）；真正的回退走 syncToTime，不受影响。
+const POSITION_SYNC_BACK_TOLERANCE_MS = 250
+
+/**
+ * 250ms 轮询专用：用引擎真实位置同步当前行（语义与 syncToTime 相同），
+ * 但对「刚被每帧推进提前切过去的那一行」保留 POSITION_SYNC_BACK_TOLERANCE_MS 的回退迟滞（见上）。
+ * 真正的回退（seek / 点击歌词 / 切歌 / 停播重锚）走 syncToTime，不受此迟滞影响。
+ */
+export const syncToTimeFromPosition = (time: number, isPlaying: boolean) => {
+  lrcTools.isPlay = isPlaying
+  const lines = lrcTools.currentLines
+  if (!lines.length) {
+    setPlayTime(time)
+    return
+  }
+  const current = lrcTools.currentLineData.line
+  const index = findLineIndexByTime(lines, time)
+  if (index < current && current < lines.length && time > lines[current].time - POSITION_SYNC_BACK_TOLERANCE_MS) return
+  setPlayTime(time)
+}
+
 // 逐行歌词 play hook：iOS 无原生 LyricModule，蓝牙歌词 / 网络歌词改用此 JS 引擎钩子驱动。
 export const addPlayHook = (hook: PlayHook) => { lrcTools.addPlayHook(hook) }
 export const removePlayHook = (hook: PlayHook) => { lrcTools.removePlayHook(hook) }

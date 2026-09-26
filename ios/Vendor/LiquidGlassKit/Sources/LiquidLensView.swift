@@ -392,12 +392,12 @@ public typealias UILiquidLensView = UIView & AnyLiquidLensView
     /// 透镜，遵循与自研类相同的 AnyLiquidLensView 方法面），旧系统返回自研实现。
     @objc @MainActor public static func createLens() -> UIView {
         // iOS 26+：优先系统原生透镜。私有 API，本项目仅侧载分发（不上架 App Store）。
+        // 私有类编译期无法声明遵循公开协议，运行时把协议挂上去供 ObjC 侧调用；
+        // Swift 6.2 禁止协议存在类型到基类的隐式转换，故经 NSObject alloc/init
+        // 实例化后按 UIView 下转。类不存在或实例化失败时回退自研 Metal 透镜。
         if #available(iOS 26.0, *), let nativeClass = NSClassFromString("_UILiquidLensView") {
-            // 私有类编译期无法声明遵循公开协议，运行时把协议挂上去再实例化；
-            // 类不存在或实例化失败时回退自研 Metal 透镜。
             class_addProtocol(nativeClass, AnyLiquidLensView.self)
-            if let lens = (nativeClass as? AnyLiquidLensView.Type)?.init() {
-                lens.restingBackgroundColor = UIColor.white.withAlphaComponent(0.3)
+            if let lens = (nativeClass as? NSObject.Type)?.init() as? UIView {
                 return lens
             }
         }

@@ -11,6 +11,12 @@
 
 <p align="center">一个基于 React Native 开发的音乐软件（LX-Y Music）</p>
 
+<p align="center">
+  <img src="doc/images/screenshot-home.jpg" width="300" alt="LX-Y Music 首页（推荐）界面预览">
+  <br>
+  <sub>首页 · 推荐</sub>
+</p>
+
 ## 说明
 
 所用技术栈：

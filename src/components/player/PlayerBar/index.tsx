@@ -121,7 +121,7 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
             style={[styles.container, containerStyle, isHorizontalMode ? styles.horizontalContainer : null]}
             {...panResponder.panHandlers}
           >
-            <LiquidGlass dark={theme.isDark} />
+            <LiquidGlass />
             <TouchableOpacity style={styles.left} onPress={handleNavigate} onLongPress={handleLongPress} activeOpacity={0.8}>
               <Pic />
               <View style={styles.center}>

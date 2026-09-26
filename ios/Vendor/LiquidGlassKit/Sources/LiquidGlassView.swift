@@ -123,7 +123,32 @@ struct LiquidGlass {
         backgroundTextureSizeCoefficient: 1,
         backgroundTextureScaleCoefficient: 0.2,
         backgroundTextureBlurRadius: 0.3,
-        tintColor: UIColor { $0.userInterfaceStyle == .dark ? #colorLiteral(red: 0, green: 0.04958364581, blue: 0.09951775161, alpha: 0.7981493615) : #colorLiteral(red: 0.9023525731, green: 0.9509486998, blue: 1, alpha: 0.8002892298) }//.systemBackground.withAlphaComponent(0.8)
+        tintColor: UIColor { $0.userInterfaceStyle == .dark ? #colorLiteral(red: 0, green: 0.04958364581, blue: 0.09951775161, alpha: 0.7981493615) : #colorLiteral(red: 0.9023525731, green: 0.9509486998, blue: 1, alpha: 0.8002892298) }//.systemBackground.withAlphaComponent(0.8),
+    )
+
+    /// Vendored addition: 纯透明玻璃 —— 不随主题明暗变化、几乎无染色、不做模糊，
+    /// 只保留折射与边缘光，背景直接透过（对齐 iOS 26 原生 .clear 变体的观感）。
+    /// tintColor 为 nil：materialTint 直接用上面的极淡值，updateUniforms 不再覆盖。
+    static let clear = Self.init(
+        shaderUniforms: .init(
+            materialTint: .init(x: 1, y: 1, z: 1, w: 0.08),
+            glassThickness: 8,
+            refractiveIndex: 1.45,
+            dispersionStrength: 8,
+            fresnelDistanceRange: 70,
+            fresnelIntensity: 0.3,
+            fresnelEdgeSharpness: 2,
+            glareDistanceRange: 30,
+            glareAngleConvergence: 0.1,
+            glareOppositeSideBias: 1,
+            glareIntensity: 0.12,
+            glareEdgeSharpness: -0.15,
+            glareDirectionOffset: -.pi / 4
+        ),
+        backgroundTextureSizeCoefficient: 1,
+        backgroundTextureScaleCoefficient: 0.5,
+        backgroundTextureBlurRadius: 0,
+        shadowOverlay: true
     )
 }
 

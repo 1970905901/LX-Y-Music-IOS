@@ -97,7 +97,6 @@ export default memo(() => {
   const itemWidth = barWidth > 0 ? barWidth / TAB_IDS.length : 0
   const lensX = itemWidth * activeIndex + itemWidth / 2
   const lensStripHeight = scaleSizeH(BAR_HEIGHT - LENS_VERTICAL_INSET * 2)
-  const lensPillColor = theme.isDark ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.55)'
 
   const handlePressIn = useCallback(() => {
     setLifted(true)
@@ -115,7 +114,7 @@ export default memo(() => {
       pointerEvents="box-none"
     >
       <View style={barStyle} onLayout={handleBarLayout}>
-        <LiquidGlass dark={theme.isDark} />
+        <LiquidGlass />
         {/* 透镜药丸条带：垫在 tab 内容之下，切 Tab 时原生弹簧滑动，按压时液态变形 */}
         {barWidth > 0 ? (
           <LiquidLens
@@ -128,7 +127,6 @@ export default memo(() => {
             }}
             x={lensX}
             lifted={lifted}
-            pillColor={lensPillColor}
             pillWidth={scaleSizeW(LENS_PILL_WIDTH)}
           />
         ) : null}

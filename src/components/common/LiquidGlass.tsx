@@ -13,19 +13,13 @@ type LiquidGlassProps = ViewProps & {
    * 恢复，挂载后自带约 1s 活跃窗，无触摸的内容变化由 pulseLiquidGlass() 脉冲驱动。
    */
   active?: boolean
-  /**
-   * App 主题明暗（而非系统明暗）。玻璃材质的染色是动态颜色，默认跟随系统深浅色；
-   * App 内手动切换主题（与系统不一致）时必须传入此值，原生侧据此覆盖
-   * overrideUserInterfaceStyle，iOS 26 原生玻璃则会按需重建。
-   */
-  dark?: boolean
 }
 
 const NativeLiquidGlass = requireNativeComponent<LiquidGlassProps>('LiquidGlassView')
 
 /**
- * 液态玻璃背景层（vendored LiquidGlassKit：iOS 26+ 用系统原生 UIGlassEffect，
- * iOS 13-25 用 MTKView + Metal 着色器自研折射）。
+ * 液态玻璃背景层（vendored LiquidGlassKit：iOS 26+ 用系统原生 UIGlassEffect(.clear)，
+ * iOS 13-25 用 MTKView + Metal 着色器自研折射）。纯透明玻璃：透背景、不随主题变化。
  *
  * 用法：作为容器的第一个子元素渲染，默认绝对定位铺满父容器；
  * 父容器需设置 `borderRadius` + `overflow: 'hidden'` 裁出圆角玻璃形状，
@@ -36,13 +30,13 @@ const NativeLiquidGlass = requireNativeComponent<LiquidGlassProps>('LiquidGlassV
  * 换歌）由业务代码调用 pulseLiquidGlass()（@/utils/liquidGlassActivity）恢复。
  * iOS 26 原生路径由系统合成，本身零逐帧开销。
  */
-const LiquidGlass = memo(({ fps = 30, dark = false, style }: LiquidGlassProps) => {
+const LiquidGlass = memo(({ fps = 30, style }: LiquidGlassProps) => {
   const active = useLiquidGlassActive()
   const glassStyle = useMemo<StyleProp<ViewStyle>>(
     () => StyleSheet.compose(StyleSheet.absoluteFill, style),
     [style],
   )
-  return <NativeLiquidGlass style={glassStyle} fps={fps} active={active} dark={dark} pointerEvents="none" />
+  return <NativeLiquidGlass style={glassStyle} fps={fps} active={active} pointerEvents="none" />
 })
 
 export default LiquidGlass

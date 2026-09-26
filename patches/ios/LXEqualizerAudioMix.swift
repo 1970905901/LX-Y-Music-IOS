@@ -512,7 +512,7 @@ final class LXEqualizerAudioMixController {
             }
         )
 
-        var tap: Unmanaged<MTAudioProcessingTap>?
+        var tap: MTAudioProcessingTap?
         let status = MTAudioProcessingTapCreate(
             kCFAllocatorDefault,
             &callbacks,
@@ -520,7 +520,7 @@ final class LXEqualizerAudioMixController {
             &tap
         )
         guard status == noErr else { return nil }
-        return tap?.takeRetainedValue()
+        return tap
     }
 
     private func prepare(with format: AudioStreamBasicDescription) {

@@ -52,13 +52,11 @@
 
 @implementation LGLiquidGlassHostView {
   UIView *_glassView;
-  BOOL _isDark;
 }
 
 - (instancetype)initWithFrame:(CGRect)frame {
   if (self = [super initWithFrame:frame]) {
-    _isDark = NO;
-    [self installGlassBacking:[LGGlassViewFactory createGlassBackingWithDark:NO]];
+    [self installGlassBacking:[LGGlassViewFactory createGlassBacking]];
     self.clipsToBounds = YES;
   }
   return self;
@@ -72,13 +70,6 @@
   [self addSubview:glassView];
   glassView.layer.cornerRadius = self.layer.cornerRadius;
   _glassView = glassView;
-}
-
-- (void)rebuildGlassBackingForDark:(BOOL)dark {
-  if (_isDark == dark) return;
-  _isDark = dark;
-  [_glassView removeFromSuperview];
-  [self installGlassBacking:[LGGlassViewFactory createGlassBackingWithDark:dark]];
 }
 
 - (void)layoutSubviews {
@@ -123,15 +114,6 @@ RCT_CUSTOM_VIEW_PROPERTY(active, NSNumber, LGLiquidGlassHostView) {
   id<LGGlassMetalBacking> glass = (id<LGGlassMetalBacking>)view.glassView;
   if (![glass respondsToSelector:@selector(setJsActive:)]) return;
   [glass setJsActive:[json boolValue]];
-}
-
-// App 主题明暗（区别于系统明暗）：玻璃染色按此自适应。
-// UIVisualEffectView 不支持事后改 overrideUserInterfaceStyle，因此统一重建 backing
-// （自研路径重建后按需渲染时钟状态由挂载活跃窗与后续脉冲自然恢复，无视觉断层）。
-RCT_CUSTOM_VIEW_PROPERTY(dark, NSNumber, LGLiquidGlassHostView) {
-  if (json != nil) {
-    [view rebuildGlassBackingForDark:[json boolValue]];
-  }
 }
 
 @end

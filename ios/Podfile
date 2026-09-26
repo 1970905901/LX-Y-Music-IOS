@@ -181,36 +181,7 @@ target 'LxMusicMobile' do
             hsp << vendor_inc
           end
           config.build_settings['HEADER_SEARCH_PATHS'] = hsp
-
-          # Xcode 26：Swift pods 以 Swift 5 模式编译到低部署目标时会自动链接
-          # swiftCompatibility56/Concurrency/Packs 兼容库，但 RN 0.73 的 app 配置
-          # 未把 Swift 工具链库目录放进库搜索路径，链接期 autolink 解析不到
-          # （Undefined symbols __swift_FORCE_LOAD_$_swiftCompatibility56）。
-          lsp = config.build_settings['LIBRARY_SEARCH_PATHS'] || '$(inherited)'
-          lsp = [lsp] unless lsp.is_a?(Array)
-          unless lsp.any? { |p| p.to_s.include?('usr/lib/swift') }
-            lsp << '"$(TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME)"'
-          end
-          config.build_settings['LIBRARY_SEARCH_PATHS'] = lsp
         end
-      end
-    end
-    # Xcode 26：Swift pods 以 Swift 5 模式编译到低部署目标时自动链接 swiftCompatibility*
-    # 兼容库，RN 0.73 的链接配置没有 Swift 工具链库目录，autolink 解析不到
-    # （Undefined symbols __swift_FORCE_LOAD_$_swiftCompatibility*）。直接把搜索路径
-    # 追加到生成的 app xcconfig 末尾（最后一条赋值生效，$(inherited) 保留原值）。
-    pod_xcconfig_dir = File.join(__dir__, 'Pods/Target Support Files/Pods-LxMusicMobile')
-    %w(
-      Pods-LxMusicMobile.xcconfig
-      Pods-LxMusicMobile.debug.xcconfig
-      Pods-LxMusicMobile.release.xcconfig
-    ).each do |name|
-      path = File.join(pod_xcconfig_dir, name)
-      next unless File.exist?(path)
-      content = File.read(path)
-      addition = 'LIBRARY_SEARCH_PATHS = $(inherited) "$(TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME)"'
-      unless content.include?('usr/lib/swift/$(PLATFORM_NAME)')
-        File.write(path, content.rstrip + "\n" + addition + "\n")
       end
     end
   end

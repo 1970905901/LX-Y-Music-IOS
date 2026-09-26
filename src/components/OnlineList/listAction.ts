@@ -1,5 +1,5 @@
 import { LIST_IDS } from '@/config/constant'
-import { addListMusics } from '@/core/list'
+import { addListMusics, setTempList } from '@/core/list'
 import { playList, playNext } from '@/core/player/player'
 import { addTempPlayList } from '@/core/player/tempPlayList'
 import settingState from '@/store/setting/state'
@@ -352,16 +352,37 @@ export const handleKgLikeMusic = async(musicInfo: LX.Music.MusicInfoOnline) => {
   }
 }
 
-export const handlePlay = (musicInfo: LX.Music.MusicInfoOnline) => {
-  void addListMusics(
-    LIST_IDS.DEFAULT,
-    [musicInfo],
-    settingState.setting['list.addMusicLocationType'],
-  ).then(() => {
-    const index = getListMusicSync(LIST_IDS.DEFAULT).findIndex((m) => m.id == musicInfo.id)
-    if (index < 0) return
-    void playList(LIST_IDS.DEFAULT, index)
-  })
+/**
+ * 列表里点一首歌：加入默认列表并从该位置开始播放。
+ *
+ * 必须保证「点了一定有反馈」：原先的实现是
+ *   加入默认列表 → 在列表里按 id 找回下标 → 找不到就 return（静默）
+ * 写列表失败（存储异常 / 写入被拒）时 .then 根本不会执行，或 findIndex 返回 -1 时静默返回，
+ * 用户看到的就是「点了没反应」——榜单这类分页列表偶发命中，正是这类时序/失败导致。
+ * 现在改成：写列表失败或找不到时，直接用临时列表播这一首，任何情况下都有响应。
+ */
+export const handlePlay = async(musicInfo: LX.Music.MusicInfoOnline) => {
+  if (!musicInfo) return
+  const listId = LIST_IDS.DEFAULT
+  const addMusicLocationType = settingState.setting['list.addMusicLocationType']
+  try {
+    // 已在列表里就不必再写一次，直接播
+    let index = getListMusicSync(listId).findIndex((m) => m.id == musicInfo.id)
+    if (index < 0) {
+      await addListMusics(listId, [musicInfo], addMusicLocationType)
+      index = getListMusicSync(listId).findIndex((m) => m.id == musicInfo.id)
+    }
+    if (index < 0) throw new Error('song not found in list after add')
+    void playList(listId, index)
+  } catch (err: any) {
+    log.warn('[OnlineList] 加入默认列表失败，回退临时列表播放', { err: err?.message, id: musicInfo.id })
+    try {
+      await setTempList(`click__${musicInfo.id}`, [musicInfo])
+      void playList(LIST_IDS.TEMP, 0)
+    } catch {
+      toast('播放失败，请重试')
+    }
+  }
 }
 export const handlePlayLater = (
   musicInfo: LX.Music.MusicInfoOnline,

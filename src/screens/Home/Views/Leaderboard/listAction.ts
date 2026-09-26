@@ -8,25 +8,55 @@ import { confirmDialog, toMD5, toast } from '@/utils/tools'
 
 const getListId = (id: string) => `board__${id}`
 
+/**
+ * 榜单点歌：把榜单写进临时列表并从点的那一首开始播。
+ *
+ * 必须保证「点了一定有响应」：原先直接用入参 index 去 playList，
+ * 而榜单切换/刷新期间传进来的 list 与 index 可能不同源（快照为空或是第 1 页、行下标来自另一份数据），
+ * index 越界时播放链路会静默返回（找不到歌曲就不播）→ 表现为「点了没反应」，正好是偶发。
+ * 现在：以「点的那一首」的身份定位下标、做边界收敛，列表/请求失败时给出提示。
+ */
 export const handlePlay = async(id: string, list?: LX.Music.MusicInfoOnline[], index = 0) => {
-  let isPlayingList = false
   const listId = getListId(id)
-  if (!list?.length) list = (await getListDetail(id, 1)).list
-  if (list?.length) {
-    await setTempList(listId, [...list])
-    void playList(LIST_IDS.TEMP, index)
-    isPlayingList = true
-  }
-  const fullList = await getListDetailAll(id)
-  if (!fullList.length) return
-  if (isPlayingList) {
-    if (listState.tempListMeta.id == listId && fullList.length > (list?.length ?? 0)) {
-      console.log(`[Leaderboard handlePlay] 完整榜单已加载：${fullList.length} 首，更新临时列表`)
-      await setTempList(listId, [...fullList])
+  const targetMusic = list?.[index]
+  let currentList: LX.Music.MusicInfoOnline[] | undefined = list?.length ? list : undefined
+  if (!currentList) {
+    try {
+      currentList = (await getListDetail(id, 1)).list
+    } catch (err) {
+      currentList = undefined
     }
-  } else {
+  }
+  if (!currentList?.length) {
+    // 分页接口拿不到时再尝试整榜，避免一次网络失败就「点了没反应」
+    try {
+      currentList = await getListDetailAll(id)
+    } catch (err) {
+      currentList = undefined
+    }
+  }
+  if (!currentList?.length) {
+    toast('榜单加载失败，请重试')
+    return
+  }
+
+  // 以点中的歌曲身份定位下标；定位不到再退回原始下标并收敛到合法范围
+  let playIndex = targetMusic ? currentList.findIndex((m) => m.id == targetMusic.id) : -1
+  if (playIndex < 0) playIndex = Math.min(Math.max(index, 0), currentList.length - 1)
+
+  await setTempList(listId, [...currentList])
+  void playList(LIST_IDS.TEMP, playIndex)
+
+  // 完整榜单拉全后补全临时列表；正在播的那首按歌曲身份维护位置，不受列表替换影响
+  let fullList: LX.Music.MusicInfoOnline[] = []
+  try {
+    fullList = await getListDetailAll(id)
+  } catch (err) {
+    fullList = []
+  }
+  if (fullList.length > currentList.length && listState.tempListMeta.id == listId) {
+    console.log(`[Leaderboard handlePlay] 完整榜单已加载：${fullList.length} 首，更新临时列表`)
     await setTempList(listId, [...fullList])
-    void playList(LIST_IDS.TEMP, index)
   }
 }
 

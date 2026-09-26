@@ -227,7 +227,9 @@ const List = forwardRef<ListType, ListProps>(
           if ((forcePlayList || settingState.setting['list.isClickPlayList']) && onPlayList != null) {
             onPlayList(index)
           } else {
-            handlePlay(currentList[index])
+            // 用行数据本身（item）而不是 currentList[index]：列表在点击与 rAF 之间发生变化时，
+            // 下标可能越界取到 undefined，导致播放链路静默返回（表现为点了没反应）。
+            handlePlay(item)
           }
         }
       })

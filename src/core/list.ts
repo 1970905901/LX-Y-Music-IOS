@@ -1,6 +1,7 @@
 import { LIST_IDS } from '@/config/constant'
 import listAction from '@/store/list/action'
 import listState from '@/store/list/state'
+import playerState from '@/store/player/state'
 import settingState from '@/store/setting/state'
 import { fixNewMusicInfoQuality } from '@/utils'
 import { saveListPrevSelectId } from '@/utils/data'
@@ -36,6 +37,40 @@ export const playOnlineList = async(listId: string, list: LX.Music.MusicInfoOnli
   setActiveList(LIST_IDS.TEMP)
   if (!isSkipPlay) void playList(LIST_IDS.TEMP, index)
 }
+
+/**
+ * 播放一个「可能只加载了一部分」的在线列表，并在后台把临时列表补齐为完整列表。
+ *
+ * 背景：详情类页面的歌曲列表是分页加载的（歌手详情每页 100 首），页面上只有已加载的
+ * 那部分歌；直接把已加载部分写进临时列表，用户看到的「播放全部」就只有前 N 首。
+ * 这里先用已有数据立即开播（不阻塞交互），随后调用 loadAll 拉完整列表，若确实更长
+ * 且期间用户没有切到别的列表播放，就整体替换临时列表（当前播放歌曲按 id 在新列表里
+ * 位置不变，播放下标由 watchList 的 updatePlayIndex 自动重算）。
+ *
+ * @param listId 临时列表的来源标识（用于判断期间是否切走了）
+ * @param curList 页面上已加载的歌曲
+ * @param index 从第几首开始播
+ * @param loadAll 拉取完整列表；失败或为空时返回 null/空数组，静默跳过补齐（不影响已开始的播放）
+ */
+export const playOnlineListEnsureAll = async(
+  listId: string,
+  curList: LX.Music.MusicInfoOnline[],
+  index: number,
+  loadAll: () => Promise<LX.Music.MusicInfoOnline[] | null>,
+) => {
+  await playOnlineList(listId, curList, index)
+  try {
+    const fullList = await loadAll()
+    if (!fullList?.length || fullList.length <= curList.length) return
+    // 期间用户可能已经点了别的列表的播放全部：只补齐仍是同一个临时列表的情况
+    if (listState.tempListMeta.id !== listId) return
+    const playingId = playerState.playMusicInfo.musicInfo?.id
+    // 完整列表里必须还包含当前播放的歌曲，否则替换后 watchList 会判定“歌曲被移除”而自动切歌
+    if (playingId && !fullList.some(m => m.id === playingId)) return
+    await setTempList(listId, [...fullList])
+  } catch { /* 补齐失败不影响已开始的播放 */ }
+}
+
 
 
 /**

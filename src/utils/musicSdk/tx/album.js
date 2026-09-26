@@ -4,6 +4,11 @@ import { signRequest } from './utils'
 import { txLog } from '@/utils/txLog'
 import { getComm } from './utils/common'
 
+// 专辑歌曲分页：GetAlbumSongList 单页取 20（与旧行为一致），由 getAlbum 循环翻页取全量；
+// 翻页安全上限防止接口异常返回固定长度导致死循环
+const ALBUM_SONG_PAGE_SIZE = 20
+const ALBUM_SONG_MAX_PAGES = 30
+
 export default {
   successCode: 0,
 
@@ -72,13 +77,14 @@ export default {
     }
   },
 
-  async getAlbum(albumMid, retryNum = 0) {
+  // 单页请求：GetAlbumSongList（begin/num 分页），成功返回 { data, songList }
+  async getAlbumSongPage(albumMid, begin, num, retryNum = 0) {
     if (retryNum > 2) {
-      txLog.error('=== txApi.getAlbum 重试次数超限 ===', { albumMid, retryNum })
-      return Promise.reject(new Error('获取专辑详情失败'))
+      txLog.error('=== txApi.getAlbumSongPage 重试次数超限 ===', { albumMid, begin, retryNum })
+      return Promise.reject(new Error('获取专辑歌曲失败'))
     }
 
-    txLog.info('=== txApi.getAlbum 开始 ===', { albumMid, retryNum })
+    txLog.info('=== txApi.getAlbumSongPage 开始 ===', { albumMid, begin, num, retryNum })
 
     const requestData = {
       comm: getComm(),
@@ -87,106 +93,103 @@ export default {
         method: 'GetAlbumSongList',
         param: {
           albumMid,
-          begin: 0,
-          num: 20,
+          begin,
+          num,
         },
       },
     }
 
-    txLog.info('=== txApi.getAlbum 请求参数 ===', {
-      albumMid,
-      module: requestData.req.module,
-      method: requestData.req.method,
-      uid: requestData.comm.uid,
-    })
-
-    const request = signRequest(requestData)
-
     try {
-      const { body } = await request
-
-      txLog.info('=== txApi.getAlbum 原始响应 ===', {
-        albumMid,
-        bodyCode: body?.code,
-        reqCode: body?.req?.code,
-        reqSubcode: body?.req?.subcode,
-        bodyPreview: JSON.stringify(body).slice(0, 200),
-      })
+      const { body } = await signRequest(requestData)
 
       const bodyCode = body?.code
       const reqCode = body?.req?.code
 
       if (!body || !body.req || bodyCode != this.successCode || reqCode != this.successCode) {
-        txLog.warn('=== txApi.getAlbum 获取失败 ===', {
+        txLog.warn('=== txApi.getAlbumSongPage 获取失败 ===', {
           albumMid,
+          begin,
           bodyCode,
           reqCode,
           retryNum: retryNum + 1,
         })
 
         if (reqCode === 104400 || reqCode === 500003) {
-          txLog.warn('=== txApi.getAlbum 需要登录或参数错误，跳过重试 ===', { albumMid, reqCode })
-          return Promise.reject(new Error(`获取专辑详情失败: 错误码${reqCode}`))
+          txLog.warn('=== txApi.getAlbumSongPage 需要登录或参数错误，跳过重试 ===', { albumMid, begin, reqCode })
+          return Promise.reject(new Error(`获取专辑歌曲失败: 错误码${reqCode}`))
         }
 
-        return this.getAlbum(albumMid, ++retryNum)
+        return this.getAlbumSongPage(albumMid, begin, num, ++retryNum)
       }
 
       const data = body.req.data
       const songList = data.songList || data.list || []
-      songList.sort((a, b) => {
-        const ai = (a.songInfo ?? a).index_album ?? (a.songInfo ?? a).index_cd ?? (a.songInfo ?? a).id ?? Infinity
-        const bi = (b.songInfo ?? b).index_album ?? (b.songInfo ?? b).index_cd ?? (b.songInfo ?? b).id ?? Infinity
-        return ai - bi
-      })
-
-      const list = this.handleResult(songList)
-
-      let detailInfo = null
-      try {
-        detailInfo = await this.getAlbumDetail(albumMid)
-        txLog.info('=== txApi.getAlbum 获取专辑详情成功 ===', {
-          albumMid,
-          hasDetailInfo: !!detailInfo,
-          detailInfoKeys: detailInfo ? Object.keys(detailInfo) : [],
-          basicInfo: detailInfo?.basicInfo ? {
-            name: detailInfo.basicInfo.name,
-            time_public: detailInfo.basicInfo.time_public,
-            publishDate: detailInfo.basicInfo.publishDate,
-            subtitle: detailInfo.basicInfo.subtitle,
-            language: detailInfo.basicInfo.language,
-            genre: detailInfo.basicInfo.genre,
-          } : null,
-          singers: detailInfo?.singers ? detailInfo.singers.slice(0, 3).map(s => ({ id: s.id, name: s.name || s.singerName })) : null,
-          singerList: detailInfo?.singer?.singerList ? detailInfo.singer.singerList.slice(0, 3).map(s => ({ id: s.id, name: s.name || s.singerName })) : null,
-        })
-      } catch (e) {
-        txLog.warn('=== txApi.getAlbum 获取专辑详情失败，使用默认信息 ===', { albumMid, error: e.message })
-      }
-
-      const info = this.handleAlbumInfo(data, albumMid, detailInfo)
-
-      txLog.info('=== txApi.getAlbum 最终专辑信息 ===', {
-        albumMid,
-        albumName: info.name,
-        artist: info.artist,
-        publishTime: info.publishTime,
-        size: info.size,
-        artistId: info.artistId,
-      })
-
-      return {
-        list,
-        info,
-      }
+      return { data, songList }
     } catch (error) {
-      txLog.error('=== txApi.getAlbum 出错 ===', {
+      txLog.error('=== txApi.getAlbumSongPage 出错 ===', {
         albumMid,
+        begin,
         error: error.message,
         stack: error.stack,
         retryNum: retryNum + 1,
       })
-      return this.getAlbum(albumMid, ++retryNum)
+      return this.getAlbumSongPage(albumMid, begin, num, ++retryNum)
+    }
+  },
+
+  async getAlbum(albumMid) {
+    // 专辑歌曲分页拉全量：原先只请求第一页（num: 20），
+    // 超过 20 首的专辑在页面和「播放全部」写入的临时列表里都缺歌。
+
+    let detailInfo = null
+    try {
+      detailInfo = await this.getAlbumDetail(albumMid)
+      txLog.info('=== txApi.getAlbum 获取专辑详情成功 ===', { albumMid, hasDetailInfo: !!detailInfo })
+    } catch (e) {
+      txLog.warn('=== txApi.getAlbum 获取专辑详情失败，使用默认信息 ===', { albumMid, error: e.message })
+    }
+
+    const rawSongList = []
+    let firstPageData = null
+    for (let page = 0; page < ALBUM_SONG_MAX_PAGES; page++) {
+      let pageResult
+      try {
+        pageResult = await this.getAlbumSongPage(albumMid, page * ALBUM_SONG_PAGE_SIZE, ALBUM_SONG_PAGE_SIZE)
+      } catch (error) {
+        // 首页失败按原语义整体失败；后续页失败用已拿到的部分继续（不阻塞「播放全部」）
+        if (page === 0) throw error
+        txLog.warn('=== txApi.getAlbum 后续分页失败，使用已获取部分 ===', { albumMid, page, error: error.message })
+        break
+      }
+      if (firstPageData == null) firstPageData = pageResult.data
+      if (!pageResult.songList.length) break
+      // 与原逻辑一致：按专辑内曲目顺序排序后再交给 handleResult
+      pageResult.songList.sort((a, b) => {
+        const ai = (a.songInfo ?? a).index_album ?? (a.songInfo ?? a).index_cd ?? (a.songInfo ?? a).id ?? Infinity
+        const bi = (b.songInfo ?? b).index_album ?? (b.songInfo ?? b).index_cd ?? (b.songInfo ?? b).id ?? Infinity
+        return ai - bi
+      })
+      rawSongList.push(...pageResult.songList)
+      // 返回数量不足一页说明已经到专辑末尾
+      if (pageResult.songList.length < ALBUM_SONG_PAGE_SIZE) break
+    }
+
+    const list = this.handleResult(rawSongList)
+    // 专辑信息沿用首页 data 的字段（albumName/time_public/totalNum 等），歌曲清单换成全量
+    const info = this.handleAlbumInfo({ ...(firstPageData || {}), songList: rawSongList }, albumMid, detailInfo)
+
+    txLog.info('=== txApi.getAlbum 最终专辑信息 ===', {
+      albumMid,
+      albumName: info.name,
+      artist: info.artist,
+      publishTime: info.publishTime,
+      size: info.size,
+      songCount: list.length,
+    })
+
+    return {
+      list,
+      info,
     }
   },
 

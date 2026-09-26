@@ -5,7 +5,7 @@ import AlbumList from './AlbumList'
 import Text from '@/components/common/Text'
 import { useTheme } from '@/store/theme/hook'
 import { createStyle } from '@/utils/tools'
-import { playOnlineList } from '@/core/list'
+import { playOnlineListEnsureAll } from '@/core/list'
 import { BorderWidths } from '@/theme'
 import { Icon } from '@/components/common/Icon.tsx'
 import { type OnlineListType } from '@/components/OnlineList'
@@ -20,6 +20,7 @@ interface SongListProps {
   playingId: string | null
   onTabChange: (tab: 'songs' | 'albums') => void
   onLoadMoreSongs: () => void
+  onLoadAllSongs: () => Promise<LX.Music.MusicInfoOnline[]>
   onLoadMoreAlbums: () => void
   onSortChange: (sort: 'hot' | 'time') => void
   onRefresh: () => void
@@ -35,7 +36,7 @@ const SongList = forwardRef<SongListRef, SongListProps>(({
   componentId,
   artistId,
   songs, albums, activeTab, onTabChange,
-  onLoadMoreSongs, onLoadMoreAlbums,
+  onLoadMoreSongs, onLoadAllSongs, onLoadMoreAlbums,
   onSortChange, onRefresh,
   playingId,
   albumViewMode, onAlbumViewModeChange,
@@ -59,8 +60,9 @@ const SongList = forwardRef<SongListRef, SongListProps>(({
   const onPlayList = useCallback((index: number) => {
     if (!songs.list.length) return
     const listId = `artist_detail_${artistId}`
-    void playOnlineList(listId, songs.list, index)
-  }, [songs.list, artistId])
+    // 行点击与「播放全部」同源：临时列表同样在后台补齐为歌手全部歌曲
+    void playOnlineListEnsureAll(listId, songs.list, index, onLoadAllSongs)
+  }, [songs.list, artistId, onLoadAllSongs])
 
   useEffect(() => {
     if (activeTab === 'songs') {

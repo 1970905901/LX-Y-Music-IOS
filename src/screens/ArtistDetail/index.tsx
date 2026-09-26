@@ -8,7 +8,7 @@ import txApi from '@/utils/musicSdk/tx/artist'
 import kgApi from '@/utils/musicSdk/kg/artist'
 import { toast } from '@/utils/tools'
 import { setComponentId, updateSetting } from '@/core/common'
-import { playOnlineList } from '@/core/list'
+import { playOnlineListEnsureAll } from '@/core/list'
 import { pop } from '@/navigation'
 import DetailActionBar from '@/components/DetailActionBar'
 import PlayerBar from '@/components/player/PlayerBar'
@@ -28,6 +28,8 @@ import { log } from '@/utils/log'
 
 const SONG_LIMIT = 100
 const ALBUM_LIMIT = 100
+// 「播放全部」拉取歌手全量歌曲的翻页安全上限（30 页 × 100 首），防止接口 hasMore 异常导致无限翻页
+const MAX_LOAD_ALL_PAGES = 30
 
 const getApi = (source?: string) => {
   if (source === 'tx') return txApi
@@ -192,6 +194,49 @@ export default memo(({ componentId, artistInfo }: { componentId: string, artistI
       .catch(applyError)
   }, [artistInfo])
 
+  // 按当前排序分页拉取歌手【全部】歌曲（复用分页缓存，直到 hasMore 为 false）：
+  // 「播放全部」原先只把页面上已加载的歌（每页 100 首）写进临时列表，
+  // 歌手歌曲数多于已加载部分时，临时列表就会缺歌。
+  // 某一页失败时返回已拿到的部分（首页失败返回空数组，调用方跳过补齐）。
+  const loadAllSongs = useCallback(async(sort: string): Promise<LX.Music.MusicInfoOnline[]> => {
+    const currentApi = getApi(artistInfo.source)
+    const currentArtistParam = getArtistParam(artistInfo)
+    const all: LX.Music.MusicInfoOnline[] = []
+    const seenIds = new Set<string>()
+    for (let page = 1; page <= MAX_LOAD_ALL_PAGES; page++) {
+      const cacheKey = `${currentArtistParam}_songs_v2_${sort}_${page}`
+      let data: any = getArtistCache(cacheKey)
+      if (!data) {
+        try {
+          data = await currentApi.getSongs(currentArtistParam, sort, SONG_LIMIT, (page - 1) * SONG_LIMIT)
+        } catch {
+          return all
+        }
+        if (data) {
+          setArtistCache(cacheKey, {
+            list: Array.isArray(data.list) ? data.list : [],
+            hasMore: Boolean(data.hasMore),
+          })
+        }
+      }
+      const pageList: any[] = Array.isArray(data?.list) ? data.list : []
+      if (!pageList.length) break
+      for (const m of pageList) {
+        if (!seenIds.has(m.id)) {
+          seenIds.add(m.id)
+          all.push(m)
+        }
+      }
+      if (!data?.hasMore || pageList.length < SONG_LIMIT) break
+    }
+    return all
+  }, [artistInfo])
+
+  // 传给 SongList 的稳定引用：列表行点击与「播放全部」共用同一套全量补齐逻辑
+  const handleLoadAllSongs = useCallback(() => {
+    return loadAllSongs(songs.sort)
+  }, [loadAllSongs, songs.sort])
+
   const loadAlbums = useCallback((page: number, isRefresh = false) => {
     const currentApi = getApi(artistInfo.source)
     const currentArtistParam = getArtistParam(artistInfo)
@@ -340,9 +385,10 @@ export default memo(({ componentId, artistInfo }: { componentId: string, artistI
       toast('歌曲列表加载中，请稍后再试')
       return
     }
-    // listId 与 SongList.onPlayList / jumpListPosition 保持一致
-    void playOnlineList(`artist_detail_${artistInfo.id}`, songs.list, 0)
-  }, [songs.list, artistInfo.id])
+    // listId 与 SongList.onPlayList / jumpListPosition 保持一致；
+    // 先用已加载的歌立即开播，随后把临时列表补齐为歌手全部歌曲（见 playOnlineListEnsureAll）
+    void playOnlineListEnsureAll(`artist_detail_${artistInfo.id}`, songs.list, 0, handleLoadAllSongs)
+  }, [songs.list, artistInfo.id, handleLoadAllSongs])
 
   return (
     <PageContent>
@@ -364,6 +410,7 @@ export default memo(({ componentId, artistInfo }: { componentId: string, artistI
             albumViewMode={albumViewMode}
             onTabChange={handleTabChange}
             onLoadMoreSongs={handleLoadMoreSongs}
+            onLoadAllSongs={handleLoadAllSongs}
             onLoadMoreAlbums={handleLoadMoreAlbums}
             onSortChange={handleSortChange}
             onRefresh={handleRefresh}

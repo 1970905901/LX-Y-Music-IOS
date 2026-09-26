@@ -102,7 +102,12 @@ public class LiquidGlassEffectView: UIView, AnyVisualEffectView, UIGestureRecogn
 
     /// RN bridge entry: forward tint changes into the immutable glass preset.
     @objc public func setGlassTintColor(_ color: UIColor?) {
-        liquidGlassView?.liquidGlass.tintColor = color
+        // 不能写成 liquidGlassView?.liquidGlass.tintColor = color：
+        // Swift 不允许经可选链给「struct 成员」赋值（链式临时值不可写），
+        // 须先解包引用，再改 let 持有的 struct 的 var 成员
+        if let liquidGlassView {
+            liquidGlassView.liquidGlass.tintColor = color
+        }
     }
 
     // MARK: - Demand rendering internals

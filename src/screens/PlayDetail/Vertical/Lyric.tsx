@@ -194,8 +194,6 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHei
   // 逐字时间轴（与 lyricLines 同序）：第 i 项为第 i 行歌词的逐字数组；无逐字（纯 LRC）为 null。
   // 激活行据此走逐字卡拉OK渲染，否则退回整行高亮。
   const wordsByIndex = useLrcWordsMap()
-  const wordsMapRef = useRef(wordsByIndex)
-  wordsMapRef.current = wordsByIndex
   const { height: winHeight } = useWindowSize()
   const isSmallWindow = winHeight < 700
   // 歌词页实际可用高度由父容器（PagerView 子页面）的 onLayout 给出，
@@ -380,14 +378,20 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHei
     } catch { }
   }, [lyricLines, pagerHeight])
 
-  // 连续平滑滚动：基于外推时钟的精确播放时间计算当前应滚动到的偏移。
-  // 逐字歌词（有逐字时间轴）时采用「句内暂停、句末再滚」：
-  //   - 演唱区间 [curTime, lineEndTime]：高亮行停在【正中央】，歌词不滚动（符合“播放时暂停滚动”）。
-  //   - 句末到下一句起的间隙 [lineEndTime, nextTime]：从当前行中心平滑滚动到下一行中心（放完再滚动）。
-  // 无逐字歌词（纯 LRC）：句内保持高亮行居中，仅在临近下一句的短窗口（约 0.25~0.7s）内
-  // 滚动到下一行中心，与逐字模式观感一致；配合指数平滑，切行也是短滑动而非硬跳。
-  // 行级高亮着色仍由 useLrcPlay 的 line 驱动；本函数只负责位置连续（每帧基于精确时间计算）。
+  // 连续平滑滚动：每帧把「当前高亮行」精确居中。
+  // 目标行一律取高亮行本身（lineRef.current.line，与行着色同一个来源）：
+  // 原先这里用 audioClock 另算一个行号，两处时间基准不同，换行边界附近会出现
+  // 「滚动目标已到下一行、而高亮还停在当前行」，视觉上就是高亮行整行偏离中心；
+  // 行高越大偏得越多——这正是两行及以上的长句最容易看出不居中的原因。
+  // 同时不再做「句末提前滚到下一行」的预滚动：那会让整句末尾那段（最长约 0.7s）
+  // 高亮行被持续拉离中心，与「高亮行必须居中」的要求冲突。
+  // 现在改为切行瞬间把目标切到新行，由指数平滑在约 100ms 内滑到位。
   const lastContinuousTimeRef = useRef(-1)
+  const lastContinuousIndexRef = useRef(-1)
+  const lastLineChangeTsRef = useRef(0)
+  const LINE_CHANGE_SMOOTH_WINDOW = 250
+  const SMOOTH_RATE_NORMAL = 12
+  const SMOOTH_RATE_LINE_CHANGE = 40
   const scrollToActiveContinuous = (ts: number) => {
     const t = audioClock.getTime() * 1000 // ms
     if (t === lastContinuousTimeRef.current) {
@@ -400,48 +404,22 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHei
     if (listHeight <= 0) return
     // 与 handleScrollToActive 同源：留白 50% 视高，保证任何一行（含两行以上的长句）都能被精确居中。
     const paddingV = pageHeightRef.current > 0 ? pageHeightRef.current * 0.5 : 0
-    let i = findLineIndexByTime(lyricLines, t)
-    if (i < 0) i = 0
-    // 末位参数 false：连续滚动统一用非激活行高。下一行的激活高度在它真正激活前测不到，
-    // 若起点/终点分属「已测得 / 未测得」两套高度，切行瞬间会突跳一下（文字被挤成两行的行最明显）。
-    // 统一基准后插值严格连续；居中偏差恒定且仅约半个额外行高，远好于每次切行都顿一下。
-    const offsetI = lyricScrollLayoutRef.current.getTargetOffsetPrecise(i, listHeight, lyricLines, 0.5, paddingV, 0, false)
-    let continuousOffset = offsetI
-    if (i + 1 < lyricLines.length) {
-      const curTime = lyricLines[i].time
-      const nextTime = lyricLines[i + 1].time
-      const offsetNext = lyricScrollLayoutRef.current.getTargetOffsetPrecise(i + 1, listHeight, lyricLines, 0.5, paddingV, 0, false)
-      const words = wordsMapRef.current[i] ?? undefined
-      if (words?.length) {
-        // 逐字歌词：以最后一个字的结束时间作为“本句唱完”的边界。
-        const lastW = words[words.length - 1]
-        const lineEndTime = curTime + lastW.startTime + lastW.duration
-        if (lineEndTime >= nextTime) {
-          // 逐字结束点晚于/等于下一句起点：没有可滚动的空闲间隔，
-          // 整段保持当前行居中（下一句到来瞬间整体切换），即“播放时暂停滚动”。
-          continuousOffset = offsetI
-        } else {
-          // 演唱区间保持居中；间隙内才滚动到下一句中心（放完再滚动）。
-          const progress = nextTime > lineEndTime ? (t - lineEndTime) / (nextTime - lineEndTime) : 0
-          continuousOffset = offsetI + Math.min(1, Math.max(0, progress)) * (offsetNext - offsetI)
-        }
-      } else {
-        // 无逐字：句内保持当前行【居中】，仅在临近下一句的短窗口内平滑滚动到下一行中心。
-        // 不再整行线性插值——那会让高亮行在行内持续上移、绝大部分时间偏离中心位置。
-        const duration = Math.max(nextTime - curTime, 1)
-        const scrollWindow = Math.min(Math.max(duration * 0.35, Math.min(250, duration * 0.9)), 700)
-        const progress = Math.min(1, Math.max(0, (t - (nextTime - scrollWindow)) / scrollWindow))
-        continuousOffset = offsetI + progress * (offsetNext - offsetI)
-      }
+    // 末位参数 false：统一用非激活行高做基准，切行前后同基准，不会突跳。
+    let i = lineRef.current.line
+    if (i < 0 || i >= lyricLines.length) i = 0
+    const continuousOffset = lyricScrollLayoutRef.current.getTargetOffsetPrecise(i, listHeight, lyricLines, 0.5, paddingV, 0, false)
+    if (i !== lastContinuousIndexRef.current) {
+      lastContinuousIndexRef.current = i
+      lastLineChangeTsRef.current = ts
     }
-    // 指数平滑收敛到目标 offset（速率 12/s，约 200ms 收敛 95%）：
-    // - 普通推进：目标本身连续，跟随值几乎重合，无感；
-    // - 逐字歌词无间隙切行 / 回正修正：目标瞬跳，跟随值平滑滑到新位置，长句切行不再顿挫。
+    // 指数平滑收敛到目标 offset：常规速率 12/s（约 200ms 收敛 95%，普通推进目标本身连续、无感）；
+    // 切行后 250ms 内提速到 40/s，让新行尽快回到正中——否则长句切行后会有肉眼可见的半拍偏移。
     const dt = lastFrameTsRef.current > 0 ? Math.min(Math.max((ts - lastFrameTsRef.current) / 1000, 0.001), 0.05) : 0.016
     lastFrameTsRef.current = ts
+    const rate = ts - lastLineChangeTsRef.current < LINE_CHANGE_SMOOTH_WINDOW ? SMOOTH_RATE_LINE_CHANGE : SMOOTH_RATE_NORMAL
     const delta = continuousOffset - smoothOffsetRef.current
     if (Math.abs(delta) < 0.5) smoothOffsetRef.current = continuousOffset
-    else smoothOffsetRef.current += delta * (1 - Math.exp(-dt * 12))
+    else smoothOffsetRef.current += delta * (1 - Math.exp(-dt * rate))
     if (Math.abs(smoothOffsetRef.current - lastWrittenOffsetRef.current) < 0.5) return
     try {
       flatListRef.current.scrollToOffset({ offset: smoothOffsetRef.current, animated: false })

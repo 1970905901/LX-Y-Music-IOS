@@ -129,6 +129,11 @@ target 'LxMusicMobile' do
   # CocoaPods trunk CDN (jsdelivr) intermittently returns 400 for this spec; pin via vendored podspec.
   pod 'SwiftAudioEx', :podspec => './Vendor/SwiftAudioEx.podspec.json'
 
+  # 液态玻璃背景（迷你播放器 / 底部 Tab）：vendored 自 DnV1eX/LiquidGlassKit。
+  # 上游仅支持 SPM（swift-tools 6.2 需 Xcode 26，CI 的 Xcode 15.4 无法解析），
+  # 已本地 pod 化并做 Swift 5.10 / iOS 17.5 SDK 兼容改造，见 Vendor/LiquidGlassKit/LICENSE-NOTES.md。
+  pod 'LiquidGlassKit', :path => './Vendor/LiquidGlassKit'
+
   use_react_native!(
     :path => config[:reactNativePath],
     # Enables Flipper.

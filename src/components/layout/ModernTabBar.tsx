@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react'
+import { memo, useEffect, useMemo } from 'react'
 import { Pressable, StyleSheet, View } from 'react-native'
 import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
@@ -8,8 +8,10 @@ import { setNavActiveId } from '@/core/common'
 import { createStyle } from '@/utils/tools'
 import { designRadius, designSpacing } from '@/theme/DesignTokens'
 import { shadow } from '@/utils/shadow'
+import { pulseLiquidGlass } from '@/utils/liquidGlassActivity'
 import { Icon } from '@/components/common/Icon'
 import Text from '@/components/common/Text'
+import LiquidGlass from '@/components/common/LiquidGlass'
 
 const styles = createStyle({
   wrapper: {
@@ -32,6 +34,14 @@ const styles = createStyle({
     height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  // 液态玻璃上方的主题染色层：绝对铺满，容器 borderRadius + overflow hidden 裁圆角
+  tint: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   // 选中态整格遮罩：绝对定位垫在图标/文字下层，覆盖整个 tab 格。
   // 不能用带高度的底衬 View 包图标——那会在选中时把文字向下顶出，造成“文字跑到遮罩下方”。
@@ -76,18 +86,29 @@ export default memo(() => {
   const t = useI18n()
   const activeId = useNavActiveId()
   const safeAreaBottom = useSafeAreaBottom()
-  // 视觉与迷你播放器同源：底色/描边跟随 theme.miniPlayerOpacity 半透明，深浅色分别以黑/白为基色
+  // 视觉与迷你播放器同源：液态玻璃背景由原生渲染，这里只保留描边与玻璃上方的
+  // 染色层（底色/描边跟随 theme.miniPlayerOpacity 半透明，深浅色分别以黑/白为基色）
   const miniPlayerOpacity = useSettingValue('theme.miniPlayerOpacity')
   const opacity = (Number(miniPlayerOpacity) || 0) / 100
   const bgRgb = theme.isDark ? '0, 0, 0' : '255, 255, 255'
 
   const barStyle = useMemo(
     () => StyleSheet.compose(styles.bar, {
-      backgroundColor: `rgba(${bgRgb}, ${Math.min(1, opacity)})`,
       borderColor: `rgba(${bgRgb}, ${Math.min(0.8, opacity * 0.7 + 0.15)})`,
     }),
     [bgRgb, opacity],
   )
+
+  const tintStyle = useMemo(
+    () => ({ backgroundColor: `rgba(${bgRgb}, ${Math.min(1, opacity * 0.5)})` }),
+    [bgRgb, opacity],
+  )
+
+  // 无触摸的内容变化时恢复玻璃渲染（静止时原生渲染时钟是暂停的）：
+  // 切 Tab 会整体替换背后内容，换主题/透明度会改变玻璃外观
+  useEffect(() => {
+    pulseLiquidGlass()
+  }, [activeId, theme, miniPlayerOpacity])
 
   const activeMaskStyle = useMemo(
     () => StyleSheet.compose(styles.activeMask, {
@@ -105,6 +126,9 @@ export default memo(() => {
       pointerEvents="box-none"
     >
       <View style={barStyle}>
+        <LiquidGlass />
+        {/* 染色层：垫在玻璃之上、内容之下，跟随主题明暗与透明度设置 */}
+        <View style={[styles.tint, tintStyle]} pointerEvents="none" />
         {TAB_IDS.map((tab) => {
           const isActive = activeId === tab.id
           return (

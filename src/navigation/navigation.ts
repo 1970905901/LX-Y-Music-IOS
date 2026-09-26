@@ -18,6 +18,7 @@ import commonActions from '@/store/common/action'
 import { COMPONENT_IDS } from '@/config/constant'
 import { getStatusBarStyle } from './utils'
 import { type ListInfoItem } from '@/store/songlist/state'
+import { getCachedBgPicColor } from '@/utils/nativeModules/utils'
 
 // const store = getStore()
 // const getTheme = () => getter('common', 'theme')(store.getState())
@@ -68,6 +69,23 @@ const guardPush = async(promise: Promise<string> | undefined, id: COMPONENT_IDS)
     await promise
   } catch {}
   endPush(id)
+}
+
+/**
+ * 页面容器的原生背景色（push 转场期间 / 首屏挂载时可见）。
+ *
+ * 这些时刻页面内容还没画出来，原生容器只显示这一块纯色；而开了动态背景/自定义背景的页面
+ * 实际是「整屏模糊封面 + 底色」的图片背景，浅色主题的 c-content-background 是纯白，
+ * 白色容器与彩色封面形成明显色差——这正是「点迷你播放器进播放详情页闪白」的原生侧来源。
+ *
+ * 因此优先用该封面图的平均色（页面背景层解析后已缓存，见 utils.getCachedBgPicColor）：
+ * 转场底色与目的页背景接近，不再有白色块跳动。取不到时（未开背景图 / 冷启动第一次进页面，
+ * 平均色还没算出来）退回主题底色，与改动前行为一致。
+ */
+const getPushBackgroundColor = (theme: LX.ActiveTheme) => {
+  const bgPic = commonState.bgPic || settingState.setting['theme.customBgPicPath']
+  if (!bgPic) return theme['c-main-background']
+  return getCachedBgPicColor(bgPic, Number(settingState.setting['theme.blur']) || 0) ?? theme['c-content-background']
 }
 
 // 方向策略（一个包适配 iPhone/iPad）：
@@ -151,7 +169,7 @@ export async function pushHomeScreen() {
                 },
                 layout: {
                   orientation: ['portrait', 'landscape'],
-                  componentBackgroundColor: theme['c-content-background'],
+                  componentBackgroundColor: getPushBackgroundColor(theme),
                   fitSystemWindows: false,
                   // @ts-expect-error RNN 运行期支持的安全区选项，当前类型未声明
                   safeAreaInsets: {
@@ -168,6 +186,7 @@ export async function pushHomeScreen() {
     },
   })
 }
+
 export function pushPlayDetailScreen(componentId: string) {
   if (!startPush(COMPONENT_IDS.playDetail)) return
   // 未载入任何歌曲时不打开播放详情页，避免空状态导致卡死
@@ -177,11 +196,7 @@ export function pushPlayDetailScreen(componentId: string) {
   }
   requestAnimationFrame(() => {
     const theme = themeState.theme
-    // 原生转场背景色需与页面实际背景一致，否则 push 转场瞬间颜色跳变（闪屏）。
-    // PageContent 有背景图时实际背景是 c-content-background（模糊封面 + 底色），
-    // 无背景图时内容层用 c-main-background，两者在深色主题下色值不同，需动态匹配。
-    const hasBgPic = !!(commonState.bgPic || settingState.setting['theme.customBgPicPath'])
-    const componentBackgroundColor = hasBgPic ? theme['c-content-background'] : theme['c-main-background']
+    const componentBackgroundColor = getPushBackgroundColor(theme)
 
     void guardPush(Navigation.push(componentId, {
       component: {
@@ -253,7 +268,7 @@ export function pushSonglistDetailScreen(componentId: string, info: ListInfoItem
           },
           layout: {
             orientation: ['portrait', 'landscape'],
-            componentBackgroundColor: theme['c-content-background'],
+            componentBackgroundColor: getPushBackgroundColor(theme),
             fitSystemWindows: false,
             // @ts-expect-error RNN 运行期支持的安全区选项，当前类型未声明
             safeAreaInsets: {
@@ -327,7 +342,7 @@ export function pushCommentScreen(componentId: string) {
           },
           layout: {
             orientation: ['portrait', 'landscape'],
-            componentBackgroundColor: theme['c-content-background'],
+            componentBackgroundColor: getPushBackgroundColor(theme),
             fitSystemWindows: false,
             // @ts-expect-error RNN 运行期支持的安全区选项，当前类型未声明
             safeAreaInsets: {
@@ -569,7 +584,7 @@ export function pushArtistDetailScreen(componentId: string, artistInfo: { id: st
         },
         layout: {
           orientation: ['portrait', 'landscape'],
-          componentBackgroundColor: theme['c-content-background'],
+          componentBackgroundColor: getPushBackgroundColor(theme),
           fitSystemWindows: false,
         },
         // 走系统默认转场，原因见 pushPlayDetailScreen 注释
@@ -601,7 +616,7 @@ export function pushAlbumDetailScreen(componentId: string, albumInfo: any) {
         },
         layout: {
           orientation: ['portrait', 'landscape'],
-          componentBackgroundColor: theme['c-content-background'],
+          componentBackgroundColor: getPushBackgroundColor(theme),
           fitSystemWindows: false,
         },
         // 走系统默认转场，原因见 pushPlayDetailScreen 注释
@@ -614,10 +629,9 @@ export function pushAlbumDetailScreen(componentId: string, albumInfo: any) {
 export function pushSettingDetailScreen(componentId: string, settingId: string) {
   if (!startPush(COMPONENT_IDS.SETTING_DETAIL, { recoverStaleTop: true })) return
   const theme = themeState.theme
-  // 原生转场背景色需与页面实际背景一致，否则 push 转场瞬间颜色跳变（闪屏），
-  // 判定方式与 pushPlayDetailScreen 一致：无背景图时页面实际是 c-main-background。
-  const hasBgPic = !!(commonState.bgPic || settingState.setting['theme.customBgPicPath'])
-  const componentBackgroundColor = hasBgPic ? theme['c-content-background'] : theme['c-main-background']
+  // 原生转场背景色：优先与目的页实际背景（整屏模糊封面）的平均色一致，避免转场闪白，
+  // 详见 getPushBackgroundColor。
+  const componentBackgroundColor = getPushBackgroundColor(theme)
   void guardPush(Navigation.push(componentId, {
     component: {
       name: SETTING_DETAIL_SCREEN,
@@ -671,7 +685,7 @@ export function pushDownloadManagerScreen(componentId: string) {
         },
         layout: {
           orientation: ['portrait', 'landscape'],
-          componentBackgroundColor: theme['c-content-background'],
+          componentBackgroundColor: getPushBackgroundColor(theme),
           fitSystemWindows: false,
         },
         // 走系统默认转场，原因见 pushPlayDetailScreen 注释
@@ -704,7 +718,7 @@ export function pushSimilarSongsScreen(componentId: string, similarSongs: LX.Mus
         },
         layout: {
           orientation: ['portrait', 'landscape'],
-          componentBackgroundColor: theme['c-content-background'],
+          componentBackgroundColor: getPushBackgroundColor(theme),
           fitSystemWindows: false,
         },
         // 走系统默认转场，原因见 pushPlayDetailScreen 注释

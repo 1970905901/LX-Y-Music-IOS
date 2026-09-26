@@ -80,5 +80,8 @@ const styles = createStyle({
   },
   playButton: {
     borderRadius: 999,
+    // 播放/暂停与下一首的 40×40 热区原本紧贴排列（零间距），点按边缘容易误触；
+    // 右移 6 让两个热区间留出空隙（横屏时与前一首的间距也相应缩小，40pt 热区仍足够大）。
+    marginRight: 6,
   },
 })

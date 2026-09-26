@@ -6,7 +6,10 @@ import { updateNowPlayingTitles } from '@/plugins/player/utils'
 import { updateMetaData } from '@/plugins/player'
 import { setLastLyric } from '@/core/player/playInfo'
 import { state } from '@/plugins/player/playList'
-import { Platform } from 'react-native'
+import { audioClock } from '@/core/player/audioClock'
+import { getLyricLineTextByTime } from '@/plugins/lyric'
+import BackgroundTimer from 'react-native-background-timer'
+import { Platform, AppState } from 'react-native'
 
 const updateRemoteLyric = async(lrc?: string) => {
   setLastLyric(lrc)
@@ -59,6 +62,22 @@ export default async(setting: LX.AppSetting) => {
         void updateMetaData(playerState.musicInfo, playerState.isPlay, lyric, true)
       }
     })
+
+    // 后台/锁屏兜底：前台由 250ms 轮询 + rAF 每帧驱动歌词行（见 playProgress.ts），
+    // 但退后台 / 熄屏时轮询被 AppState 守卫跳过、rAF 与歌词 ticker 一并停掉，
+    // 蓝牙设备（车机 / 耳机屏）上的歌词会卡在退后台前那一行。音频后台播放时
+    // JS 线程仍存活，原生 BackgroundTimer 照常触发，这里每秒按 audioClock 外推
+    // 位置推导当前行并推送 NowPlaying；前台时跳过，完全交给原有链路避免双写。
+    let lastBackgroundLyric: string | undefined
+    BackgroundTimer.setInterval(() => {
+      if (AppState.currentState === 'active') return
+      if (!playerState.isPlay || !playerState.playMusicInfo.musicInfo) return
+      if (global.lx.gettingUrlId) return
+      const text = getLyricLineTextByTime(audioClock.getTime() * 1000)
+      if (!text || text === lastBackgroundLyric) return
+      lastBackgroundLyric = text
+      void updateMetaData(playerState.musicInfo, playerState.isPlay, text, true)
+    }, 1000)
   }
 
 

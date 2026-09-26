@@ -78,6 +78,19 @@ export default () => {
         return
       }
 
+      // seek 生效窗口内：引擎可能仍回报 seek 前的旧位置（seek 异步生效）。
+      // 此时不能用旧位置重新锚定/同步歌词——否则点击歌词行/拖动进度条后音频已跳转，
+      // 歌词与进度却回到旧位置（音频与歌词不同步）。保持冻结在落点，等下一次轮询；
+      // 引擎已在落点附近恢复播放时解除窗口，正常锚定。
+      if (seekTargetPosition != null && Date.now() < seekHoldUntil) {
+        if (Math.abs(position - seekTargetPosition) >= 1.5) {
+          audioClock.hold(seekTargetPosition * 1000)
+          return
+        }
+        seekTargetPosition = null
+        seekHoldUntil = 0
+      }
+
       audioClock.setAnchor(position * 1000, settingState.setting['player.playbackRate'], playerState.isPlay)
 
       syncToTimeFromPosition(position * 1000, playerState.isPlay)
@@ -153,18 +166,35 @@ export default () => {
     lastLyricTickMs = -1
   }
 
+  // seek 生效窗口：从发起到引擎在落点恢复播放之间，引擎的 getPosition() 可能仍回报
+  // seek 前的旧位置（seek 是异步生效的，普通音质下尤其明显）。窗口内不能用旧位置
+  // 重新锚定 UI 时钟 / 同步歌词，否则「点击歌词行 / 拖动进度条」后音频已跳到新位置，
+  // 歌词与进度却回到旧位置（音频与歌词不同步）。窗口超时自愈（2s），
+  // 引擎在落点附近恢复播放时提前结束窗口（见 getCurrentTime）。
+  let seekTargetPosition: number | null = null
+  let seekHoldUntil = 0
+
   const setProgress = (time: number, maxTime?: number) => {
     if (!playerState.musicInfo.id) return
     // console.log('setProgress', time, maxTime)
     setNowPlayTime(time)
     // seek 期间先冻结 UI 时钟在目标位置，等引擎返回真实落点后再重锚。
     audioClock.hold(time * 1000)
+    seekTargetPosition = time
+    seekHoldUntil = Date.now() + 2000
     syncLyric(time, playerState.isPlay)
 
     // 参考项目对齐的 seek：音频与歌词用同一真实落点，保证普通音质快进/快退后二者同步。
     void setCurrentTime(time).then((targetPosition) => {
       if (!playerState.musicInfo.id) return
-      if (targetPosition > 0) setNowPlayTime(targetPosition)
+      if (targetPosition > 0) {
+        setNowPlayTime(targetPosition)
+        // seek 已被引擎接受：把 UI 时钟冻结在真实落点上，直到轮询确认引擎在落点恢复播放。
+        // 期间轮询即使取到 seek 未生效时的旧位置，也不会把时钟/歌词拽回旧位置。
+        audioClock.hold(targetPosition * 1000)
+        seekTargetPosition = targetPosition
+        seekHoldUntil = Date.now() + 2000
+      }
 
       // 所有音质统一走 AVPlayer 系统级 seek：TrackPlayer 准确报告真实落点，
       // 直接以该落点锚定 UI 时钟并同步歌词，由每秒 getCurrentTime 校准防止长期漂移。
@@ -202,11 +232,16 @@ export default () => {
     audioClock.setPlaying(false)
     clearUpdateTimeout()
     stopLyricTick()
+    // 暂停/停止时解除 seek 窗口，避免恢复播放后仍被窗口逻辑钉在旧落点
+    seekTargetPosition = null
+    seekHoldUntil = 0
   }
 
   const handleStop = () => {
     clearUpdateTimeout()
     stopLyricTick()
+    seekTargetPosition = null
+    seekHoldUntil = 0
     audioClock.reset()
     setNowPlayTime(0)
     setMaxplayTime(0)

@@ -413,14 +413,56 @@ export default () => {
         clearTimeout(recentreTimerRef.current)
         recentreTimerRef.current = null
       }
+      if (pendingInitialScrollTimerRef.current) {
+        clearTimeout(pendingInitialScrollTimerRef.current)
+        pendingInitialScrollTimerRef.current = null
+      }
     }
   }, [])
 
+  // 「引擎当前行号」的镜像：重置 effect 不能再把 line 放进依赖（原因见下）。
+  const latestLineRef = useRef(line)
+  latestLineRef.current = line
+  // 首跳等待标记 + 兜底定时器：切歌后换 key 重新挂载列表，等新列表 onContentSizeChange 再定位。
+  const pendingInitialScrollRef = useRef(false)
+  const pendingInitialScrollTimerRef = useRef<NodeJS.Timeout | null>(null)
+  // handleScrollToActive / scheduleRecentre 的稳定引用：重置 effect 不把它们放进依赖项。
+  const handleScrollToActiveRef = useRef(handleScrollToActive)
+  useEffect(() => {
+    handleScrollToActiveRef.current = handleScrollToActive
+  }, [handleScrollToActive])
+  const scheduleRecentreRef = useRef(scheduleRecentre)
+  useEffect(() => {
+    scheduleRecentreRef.current = scheduleRecentre
+  }, [scheduleRecentre])
+  // 歌词内容版本号：内容变化时给 FlatList 换 key 强制重新挂载，
+  // 使 initialNumToRender（整首行数）在“歌词异步到达/切歌”时同样生效，
+  // 首屏把每一行都渲染一次并完成实测（详见竖屏同名注释）。
+  const [lyricKey, setLyricKey] = useState(0)
+  // 首次挂载不必换 key（首挂本身就会按 initialNumToRender 渲染整首），只在后续内容变化时换。
+  const isFirstLyricKeyRef = useRef(true)
+  useEffect(() => {
+    if (isFirstLyricKeyRef.current) {
+      isFirstLyricKeyRef.current = false
+      return
+    }
+    setLyricKey(key => key + 1)
+  }, [lyricLines])
+
+  // 仅歌词内容真正变化（切歌 / 异步歌词到达）时才重置行高缓存并重新挂载列表。
+  // ⚠️ 依赖项里【绝不能】放 line：
+  // 修复前依赖了 line，导致【每切一行】都执行一次 reset() —— 清空全部实测行高、
+  // 把列表拽回顶部；之后累计偏移只能用 defaultHeight（54pt）估算累加，
+  // 两行及以上的歌词行真实高度约 71pt，每行少算约 17pt，偏移随播放逐行偏小，
+  // 高亮行越来越靠下（与竖屏同源问题，iPad 横屏同样存在）。
   useEffect(() => {
     // linesRef.current = lyricLines
     lyricScrollLayoutRef.current.reset()
     lineRef.current.prevLine = 0
     lineRef.current.line = 0
+    // 等新列表内容布局完成后再首跳；期间暂停连续滚动循环，避免它按归零后的行号把旧列表拽回顶部。
+    pendingInitialScrollRef.current = true
+    isPauseScrollRef.current = true
     if (!flatListRef.current) return
     flatListRef.current.scrollToOffset({
       offset: 0,
@@ -430,22 +472,28 @@ export default () => {
     smoothOffsetRef.current = 0
     lastWrittenOffsetRef.current = -1
     lastFrameTsRef.current = 0
-    if (!lyricLines.length) return
+    if (!lyricLines.length) {
+      pendingInitialScrollRef.current = false
+      isPauseScrollRef.current = false
+      return
+    }
 
     // 切歌/异步歌词到达后，必须强制下一次 line 更新时立即定位到当前高亮行。
     // 否则 play/setProgress 事件可能晚于 line 更新，forceScrollRef 仍为 false，
     // 导致高亮行无法居中（iPad 横屏切歌后歌词不居中的主因）。
     setForceScroll(true)
 
-    requestAnimationFrame(() => {
+    // 兜底：onContentSizeChange 未触发时也要解除暂停并定位。
+    if (pendingInitialScrollTimerRef.current) clearTimeout(pendingInitialScrollTimerRef.current)
+    pendingInitialScrollTimerRef.current = setTimeout(() => {
+      pendingInitialScrollTimerRef.current = null
+      if (!pendingInitialScrollRef.current) return
+      pendingInitialScrollRef.current = false
       isPauseScrollRef.current = false
-      // 进入/切歌：立即无动画定位到【引擎当前高亮行】，让歌词与封面同步出现，
-      // 避免“从顶部慢慢滚到中间”造成的加载慢观感（对齐竖屏实现）。
-      handleScrollToActive(line >= 0 ? line : 0, true)
-      // 布局（spaceComponent / 行高）可能尚未完成，150ms 后再次精确回正确保高亮行居中。
-      scheduleRecentre()
-    })
-  }, [lyricLines, handleScrollToActive, line, scheduleRecentre])
+      handleScrollToActiveRef.current(Math.max(0, latestLineRef.current), true)
+    }, 800)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lyricLines])
 
   useEffect(() => {
     if (line < 0) return
@@ -546,6 +594,23 @@ export default () => {
     scheduleRecentre()
   }, [scheduleRecentre])
 
+  // 列表内容尺寸就绪（切歌换 key 重新挂载后的首批布局完成）：执行等待中的首跳定位，
+  // 用最新行号镜像，避免用刚被重置为 0 / 残留旧歌的行号定位。
+  const handleContentSizeChange = useCallback(() => {
+    if (pendingInitialScrollTimerRef.current) {
+      clearTimeout(pendingInitialScrollTimerRef.current)
+      pendingInitialScrollTimerRef.current = null
+    }
+    if (!pendingInitialScrollRef.current) return
+    pendingInitialScrollRef.current = false
+    isPauseScrollRef.current = false
+    // 进入/切歌：立即无动画定位到【引擎当前高亮行】，让歌词与封面同步出现，
+    // 避免“从顶部慢慢滚到中间”造成的加载慢观感（对齐竖屏实现）。
+    handleScrollToActiveRef.current(Math.max(0, latestLineRef.current), true)
+    // 布局（spaceComponent / 行高）可能尚未完成，150ms 后再次精确回正确保高亮行居中。
+    scheduleRecentreRef.current()
+  }, [])
+
   const handleLinePress = useCallback((index: number) => {
     if (scrollTimoutRef.current) {
       clearTimeout(scrollTimoutRef.current)
@@ -585,6 +650,9 @@ export default () => {
   return (
     <View style={[styles.container, { paddingBottom: safeAreaBottom }]} {...panResponder.panHandlers}>
       <FlatList
+        // key 随歌词内容变化：强制重新挂载，使 initialNumToRender（整首行数）在
+        // “切歌 / 异步歌词到达”时也生效，首屏把每一行都渲染一次并完成实测（对齐竖屏）。
+        key={lyricKey}
         data={lyricLines}
         renderItem={renderItem}
         keyExtractor={getkey}
@@ -592,6 +660,7 @@ export default () => {
         ref={flatListRef}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={listPadding}
+        onContentSizeChange={handleContentSizeChange}
         onScrollBeginDrag={handleScrollBeginDrag}
         onScrollEndDrag={onScrollEndDrag}
         // 与竖屏歌词页一致：首屏把整首歌的歌词行全部渲染一次。

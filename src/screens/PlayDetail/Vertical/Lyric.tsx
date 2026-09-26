@@ -479,6 +479,10 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHei
         clearTimeout(recentreTimerRef.current)
         recentreTimerRef.current = null
       }
+      if (pendingInitialScrollTimerRef.current) {
+        clearTimeout(pendingInitialScrollTimerRef.current)
+        pendingInitialScrollTimerRef.current = null
+      }
     }
   }, [])
 
@@ -511,14 +515,54 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHei
     }
   }, [setForceScroll])
 
-  // 仅歌词内容真正变化（切歌 / 异步歌词到达）时才重置行高缓存并回顶；
-  // 从封面页切回歌词页（仅 active 变化）不再 reset，保留已测得的真实行高。
-  // 否则进入歌词页时缓存被清空、当前行之前的行退化为估算，高亮行会偶发不居中。
+  // 「引擎当前行号」的镜像：重置 effect 不能再把 line 放进依赖（原因见下），
+  // 但首跳又必须用最新行号，故用 ref 镜像替代依赖项。
+  const latestLineRef = useRef(line)
+  latestLineRef.current = line
+  // 首跳等待标记：切歌 / 异步歌词到达后会换 key 重新挂载 FlatList，
+  // 必须等新列表内容布局完成（onContentSizeChange）再定位，
+  // 否则会在“马上要被卸载的旧列表”上定位，位置随后丢失。
+  const pendingInitialScrollRef = useRef(false)
+  // 首跳兜底定时器：万一 onContentSizeChange 未触发，也要解除暂停并定位，
+  // 避免列表永久卡在暂停态（不跟随播放滚动）。
+  const pendingInitialScrollTimerRef = useRef<NodeJS.Timeout | null>(null)
+  // handleScrollToActive 的稳定引用：重置 effect 不把它放进依赖项（否则其引用变化会连带触发重置）。
+  const handleScrollToActiveRef = useRef(handleScrollToActive)
+  useEffect(() => {
+    handleScrollToActiveRef.current = handleScrollToActive
+  }, [handleScrollToActive])
+  // 歌词内容版本号：内容变化时给 FlatList 换 key 强制重新挂载。
+  // 重新挂载的首次渲染会按 initialNumToRender（= 整首歌行数）把每一行都渲染一次并完成
+  // onLayout 实测 —— 只在“已挂载列表”上换 data 时 FlatList 只渲染当前窗口，
+  // 首播位置之前/之后的大量行永远不被渲染、行高只能估算，累计偏移因此持续偏差
+  // （高亮行越走越偏的直接原因之一）。
+  const [lyricKey, setLyricKey] = useState(0)
+  // 首次挂载不必换 key（首挂本身就会按 initialNumToRender 渲染整首），只在后续内容变化时换。
+  const isFirstLyricKeyRef = useRef(true)
+  useEffect(() => {
+    if (isFirstLyricKeyRef.current) {
+      isFirstLyricKeyRef.current = false
+      return
+    }
+    setLyricKey(key => key + 1)
+  }, [lyricLines])
+
+  // 仅歌词内容真正变化（切歌 / 异步歌词到达）时才重置行高缓存并重新挂载列表。
+  // ⚠️ 依赖项里【绝不能】放 line / active：
+  // 修复前依赖了 line，导致【每切一行】都执行一次 reset() —— 清空全部实测行高、把列表
+  // 拽回顶部、并把平滑跟随基准归零。清空之后累计偏移只能用 defaultHeight（54pt）等
+  // 估算值累加，而两行及以上的歌词行真实高度约 71pt，每行少算约 17pt，于是偏移随播放
+  // 逐行偏小、高亮行越来越靠下（用户录屏中的现象：高亮行从居中一路漂到屏幕下方）。
+  // active 同理：切页只应重新定位，不该清空缓存（下面的 [active] effect 负责定位）。
   useEffect(() => {
     lyricScrollLayoutRef.current.reset()
     lastScrolledLineRef.current = -1
     lineRef.current.prevLine = 0
     lineRef.current.line = 0
+    // 标记等待首跳：等新列表 onContentSizeChange 里再定位；
+    // 期间暂停连续滚动循环，避免它按刚归零的行号把旧列表拽回顶部造成闪动。
+    pendingInitialScrollRef.current = true
+    isPauseScrollRef.current = true
     if (!flatListRef.current) return
     flatListRef.current.scrollToOffset({ offset: 0, animated: false })
     scrollYRef.current = 0
@@ -526,22 +570,28 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHei
     smoothOffsetRef.current = 0
     lastWrittenOffsetRef.current = -1
     lastFrameTsRef.current = 0
-    if (!lyricLines.length) return
+    if (!lyricLines.length) {
+      pendingInitialScrollRef.current = false
+      isPauseScrollRef.current = false
+      return
+    }
 
     // 切歌/异步歌词到达后，必须强制下一次 line 更新时立即定位到当前高亮行。
     // 否则 play/setProgress 事件可能晚于 line 更新，forceScrollRef 仍为 false，
     // 导致高亮行无法居中。
     setForceScroll(true)
 
-    // 歌词内容更新后不再固定延迟 100ms；布局完成的下一帧直接按当前引擎行定位。
-    // 这覆盖切歌后异步歌词到达、从封面切回歌词页等场景。
-    requestAnimationFrame(() => {
-      if (!active) return
+    // 兜底：onContentSizeChange 未触发时也要解除暂停并定位（见 pendingInitialScrollTimerRef 注释）
+    if (pendingInitialScrollTimerRef.current) clearTimeout(pendingInitialScrollTimerRef.current)
+    pendingInitialScrollTimerRef.current = setTimeout(() => {
+      pendingInitialScrollTimerRef.current = null
+      if (!pendingInitialScrollRef.current) return
+      pendingInitialScrollRef.current = false
       isPauseScrollRef.current = false
-      // 用 line（useLrcPlay 当前行）而非 lineRef.current.line（可能残留旧歌行号）
-      handleScrollToActive(line >= 0 ? line : 0, true)
-    })
-  }, [lyricLines, active, handleScrollToActive, line, setForceScroll])
+      handleScrollToActiveRef.current(Math.max(0, latestLineRef.current), true)
+    }, 800)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lyricLines])
 
   useEffect(() => {
     if (line < 0) return
@@ -706,12 +756,29 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHei
     }
   }, [pageHeight])
 
+  // 列表内容尺寸就绪（切歌换 key 重新挂载后的首批布局完成）：执行等待中的首跳定位。
+  // 用最新行号镜像（latestLineRef），而不是 lineRef.current.line（刚被重置为 0 或残留旧歌行号）。
+  const handleContentSizeChange = useCallback(() => {
+    if (pendingInitialScrollTimerRef.current) {
+      clearTimeout(pendingInitialScrollTimerRef.current)
+      pendingInitialScrollTimerRef.current = null
+    }
+    if (!pendingInitialScrollRef.current) return
+    pendingInitialScrollRef.current = false
+    isPauseScrollRef.current = false
+    handleScrollToActiveRef.current(Math.max(0, latestLineRef.current), true)
+  }, [])
+
   return (
     <View style={{ flex: 1, width: '100%' }} onLayout={handlePageLayout} collapsable={false}>
       <FlatList
+        // key 随歌词内容变化：强制重新挂载，使 initialNumToRender（整首行数）生效，
+        // 首屏把每一行都渲染一次并完成实测（详见上方 lyricKey 注释）。
+        key={lyricKey}
         data={lyricLines}
         renderItem={renderItem}
         keyExtractor={getkey}
+        onContentSizeChange={handleContentSizeChange}
         style={{ height: pageHeight > 0 ? pageHeight : pagerHeight, width: '100%' }}
         // 歌词列表从顶部排布，当前行由 scrollToOffset(viewPosition 0.5) 定位到【中央】；
         // 不再用 justifyContent:'center' 整体垂直居中——那样是把整个列表当成一个块居中，

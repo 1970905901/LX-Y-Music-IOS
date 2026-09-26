@@ -33,33 +33,58 @@
 #error "LiquidGlassKit-Swift.h not found: mixed ObjC/Swift static pod interface header import failed"
 #endif
 
+// 自研 Metal 路径（LiquidGlassEffectView）独有的按需渲染控制；原生 UIGlassEffect
+// backing 不实现这些方法（系统合成，无需控制），宿主按 respondsToSelector 分流。
+@protocol LGGlassMetalBacking <NSObject>
+@optional
+- (void)setPreferredFramesPerSecond:(NSInteger)fps;
+- (void)setJsActive:(BOOL)active;
+@end
+
 // Host view: an RCTView so all standard RN view props (borderRadius, overflow, pointerEvents,
-// opacity, shadow*) keep working; the LiquidGlassEffectView is pinned as its only subview.
+// opacity, shadow*) keep working; the glass backing (native UIGlassEffect on iOS 26+ built with
+// Xcode 26, vendored Metal implementation otherwise) is pinned as its only subview.
+// LGGlassViewFactory selects the backing; dark-theme changes rebuild it
+// (UIVisualEffectView does not support changing overrideUserInterfaceStyle after creation).
 @interface LGLiquidGlassHostView : RCTView
-@property (nonatomic, readonly) LiquidGlassEffectView *glassView;
+@property (nonatomic, readonly) UIView *glassView;
 @end
 
 @implementation LGLiquidGlassHostView {
-  LiquidGlassEffectView *_glassView;
+  UIView *_glassView;
+  BOOL _isDark;
 }
 
 - (instancetype)initWithFrame:(CGRect)frame {
   if (self = [super initWithFrame:frame]) {
-    _glassView = [[LiquidGlassEffectView alloc] init];
-    // 背景层不参与命中测试：触摸一律穿透到上层的 RN 内容视图（Tab 项、播放条按钮、宿主手势）
-    _glassView.userInteractionEnabled = NO;
-    _glassView.backgroundColor = [UIColor clearColor];
-    _glassView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    [self addSubview:_glassView];
-    // 圆角玻璃需要裁剪：shader 自身按 cornerRadius 折射成形，这里再兜底裁一次
+    _isDark = NO;
+    [self installGlassBacking:[LGGlassViewFactory createGlassBackingWithDark:NO]];
     self.clipsToBounds = YES;
   }
   return self;
 }
 
+- (void)installGlassBacking:(UIView *)glassView {
+  // 背景层不参与命中测试：触摸一律穿透到上层的 RN 内容视图（Tab 项、播放条按钮、宿主手势）
+  glassView.userInteractionEnabled = NO;
+  glassView.backgroundColor = [UIColor clearColor];
+  glassView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+  [self addSubview:glassView];
+  glassView.layer.cornerRadius = self.layer.cornerRadius;
+  _glassView = glassView;
+}
+
+- (void)rebuildGlassBackingForDark:(BOOL)dark {
+  if (_isDark == dark) return;
+  _isDark = dark;
+  [_glassView removeFromSuperview];
+  [self installGlassBacking:[LGGlassViewFactory createGlassBackingWithDark:dark]];
+}
+
 - (void)layoutSubviews {
   [super layoutSubviews];
-  // RN 设置在宿主 RCTView 上的圆角转发给玻璃视图（shader uniforms.cornerRadius 驱动折射形状）
+  // RN 设置在宿主 RCTView 上的圆角转发给玻璃视图（自研路径的 shader uniforms.cornerRadius
+  // 驱动折射形状；原生路径由系统按 layer.cornerRadius 裁剪）
   _glassView.layer.cornerRadius = self.layer.cornerRadius;
   _glassView.layer.cornerCurve = self.layer.cornerCurve;
 }
@@ -82,17 +107,30 @@ RCT_EXPORT_MODULE(LiquidGlassView)
 }
 
 RCT_CUSTOM_VIEW_PROPERTY(fps, NSNumber, LGLiquidGlassHostView) {
+  // 仅自研 Metal 路径支持（原生 UIGlassEffect 由系统合成，无需该控制）；
   // prop 被移除/重置时 json 为 nil，回到 30 的默认值
-  [view.glassView setPreferredFramesPerSecond:(json != nil ? [json intValue] : 30)];
+  id<LGGlassMetalBacking> glass = (id<LGGlassMetalBacking>)view.glassView;
+  if (![glass respondsToSelector:@selector(setPreferredFramesPerSecond:)]) return;
+  [glass setPreferredFramesPerSecond:(json != nil ? [json integerValue] : 30)];
 }
 
 // JS 脉冲活跃开关（省电核心）：玻璃背后内容在无触摸交互下发生变化（切 Tab、换主题、
 // 换歌封面）时 JS 置 true 让玻璃恢复渲染，静止时置 false —— 渲染时钟完全停止，仅保留
 // 最后一帧。滚动/拖拽由原生窗口级手势观察自动覆盖，无需 JS 参与。
-// json 为 nil（prop 未传）时不动作：原生挂载后自带 1s 活跃窗兜底，之后保持当前状态。
+// 仅自研 Metal 路径支持；json 为 nil（prop 未传）时不动作。
 RCT_CUSTOM_VIEW_PROPERTY(active, NSNumber, LGLiquidGlassHostView) {
+  if (json == nil) return;
+  id<LGGlassMetalBacking> glass = (id<LGGlassMetalBacking>)view.glassView;
+  if (![glass respondsToSelector:@selector(setJsActive:)]) return;
+  [glass setJsActive:[json boolValue]];
+}
+
+// App 主题明暗（区别于系统明暗）：玻璃染色按此自适应。
+// UIVisualEffectView 不支持事后改 overrideUserInterfaceStyle，因此统一重建 backing
+// （自研路径重建后按需渲染时钟状态由挂载活跃窗与后续脉冲自然恢复，无视觉断层）。
+RCT_CUSTOM_VIEW_PROPERTY(dark, NSNumber, LGLiquidGlassHostView) {
   if (json != nil) {
-    [view.glassView setJsActive:[json boolValue]];
+    [view rebuildGlassBackingForDark:[json boolValue]];
   }
 }
 
@@ -114,7 +152,9 @@ RCT_CUSTOM_VIEW_PROPERTY(active, NSNumber, LGLiquidGlassHostView) {
 @end
 
 @implementation LGLiquidLensHostView {
-  LiquidLensView *_lens;
+  // iOS 26+ 为系统原生 _UILiquidLensView，旧系统为自研 LiquidLensView，
+  // 两者共同遵循 AnyLiquidLensView 方法面（自研类/原生类经运行时挂协议）
+  UIView<AnyLiquidLensView> *_lens;
   CGFloat _x;
   BOOL _hasX;
   CGFloat _pillWidth;
@@ -167,7 +207,7 @@ RCT_CUSTOM_VIEW_PROPERTY(active, NSNumber, LGLiquidGlassHostView) {
   [self setNeedsLayout];
 }
 
-- (LiquidLensView *)lens {
+- (UIView<AnyLiquidLensView> *)lens {
   return _lens;
 }
 

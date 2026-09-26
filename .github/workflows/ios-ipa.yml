@@ -15,7 +15,8 @@ permissions:
 jobs:
   build-ios-ipa:
     name: iOS IPA
-    runs-on: macos-14
+    # Xcode 26（Swift 6.2）：液态玻璃的 iOS 26 原生 UIGlassEffect 路径依赖新 SDK 编译
+    runs-on: macos-26
     env:
       NO_FLIPPER: 1
       IOS_SCHEME: LxMusicMobile
@@ -44,7 +45,7 @@ jobs:
       - name: Install CocoaPods dependencies
         shell: bash
         run: |
-          gem install cocoapods -v '~> 1.12' --no-document
+          gem install cocoapods -v '~> 1.15' --no-document
           cd ios
           # CocoaPods trunk CDN (jsdelivr) occasionally returns 400/404 for spec files; retry on failure
           for attempt in 1 2 3; do

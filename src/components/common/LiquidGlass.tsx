@@ -13,32 +13,36 @@ type LiquidGlassProps = ViewProps & {
    * 恢复，挂载后自带约 1s 活跃窗，无触摸的内容变化由 pulseLiquidGlass() 脉冲驱动。
    */
   active?: boolean
+  /**
+   * App 主题明暗（而非系统明暗）。玻璃材质的染色是动态颜色，默认跟随系统深浅色；
+   * App 内手动切换主题（与系统不一致）时必须传入此值，原生侧据此覆盖
+   * overrideUserInterfaceStyle，iOS 26 原生玻璃则会按需重建。
+   */
+  dark?: boolean
 }
 
 const NativeLiquidGlass = requireNativeComponent<LiquidGlassProps>('LiquidGlassView')
 
 /**
- * 液态玻璃背景层（原生 vendored LiquidGlassKit，MTKView + Metal 着色器实时折射）。
+ * 液态玻璃背景层（vendored LiquidGlassKit：iOS 26+ 用系统原生 UIGlassEffect，
+ * iOS 13-25 用 MTKView + Metal 着色器自研折射）。
  *
  * 用法：作为容器的第一个子元素渲染，默认绝对定位铺满父容器；
  * 父容器需设置 `borderRadius` + `overflow: 'hidden'` 裁出圆角玻璃形状，
  * 内容子元素渲染在其上层。原生的 userInteractionEnabled 已关闭，触摸全部穿透。
  *
- * 省电机制：静止时原生渲染时钟停止（保留最后一帧）；滚动/拖拽由原生窗口手势观察
- * 自动恢复，挂载后自带约 1s 活跃窗；无触摸的内容变化（切 Tab、换主题、换歌）由业务
- * 代码调用 pulseLiquidGlass()（@/utils/liquidGlassActivity）恢复。
- *
- * 原生组件由 `ios/Vendor/LiquidGlassKit` 提供（RCT_EXPORT_MODULE 注册名 LiquidGlassView），
- * 需要 `pod install` 后重新编译原生包；仅跑旧包 + 新 JS 时本组件会渲染失败（红屏提示
- * 找不到原生组件），属预期行为——重新构建原生即可。
+ * 省电机制（自研路径）：静止时原生渲染时钟停止（保留最后一帧）；滚动/拖拽由原生
+ * 窗口手势观察自动恢复，挂载后自带约 1s 活跃窗；无触摸的内容变化（切 Tab、换主题、
+ * 换歌）由业务代码调用 pulseLiquidGlass()（@/utils/liquidGlassActivity）恢复。
+ * iOS 26 原生路径由系统合成，本身零逐帧开销。
  */
-const LiquidGlass = memo(({ fps = 30, style }: LiquidGlassProps) => {
+const LiquidGlass = memo(({ fps = 30, dark = false, style }: LiquidGlassProps) => {
   const active = useLiquidGlassActive()
   const glassStyle = useMemo<StyleProp<ViewStyle>>(
     () => StyleSheet.compose(StyleSheet.absoluteFill, style),
     [style],
   )
-  return <NativeLiquidGlass style={glassStyle} fps={fps} active={active} pointerEvents="none" />
+  return <NativeLiquidGlass style={glassStyle} fps={fps} active={active} dark={dark} pointerEvents="none" />
 })
 
 export default LiquidGlass

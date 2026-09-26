@@ -30,15 +30,14 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
   const longPressedRef = useRef(false)
   const navigatingRef = useRef(false)
   const playlistRef = useRef<PlayerPlaylistType>(null)
-  const miniPlayerOpacity = useSettingValue('theme.miniPlayerOpacity')
   const isSwipeToShowPlaylist = useSettingValue('player.isSwipeToShowPlaylist')
   const safeAreaBottom = useSafeAreaBottom()
 
   // 无触摸的内容变化时恢复玻璃渲染（静止时原生渲染时钟是暂停的）：
-  // 切歌换封面、换主题/透明度、旋转（安全区/横竖屏变化改变玻璃位置与形状）
+  // 切歌换封面、换主题、旋转（安全区/横竖屏变化改变玻璃位置与形状）
   useEffect(() => {
     pulseLiquidGlass()
-  }, [musicInfo, theme, miniPlayerOpacity, safeAreaBottom, isHorizontalMode])
+  }, [musicInfo, theme, safeAreaBottom, isHorizontalMode])
 
   const handleLongPress = useCallback(() => {
     longPressedRef.current = true
@@ -105,16 +104,8 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
   const playerComponent = useMemo(
     () => {
       // 液态玻璃模式：背景折射由原生 LiquidGlass（vendored LiquidGlassKit）实时渲染，
-      // 容器本身透明，只保留描边与投影。
-      // theme.miniPlayerOpacity（0–100）语义不变——仍控制背景染色浓度，只是现在
-      // 染色是叠在玻璃上方的半透明层（减半系数让玻璃保持可见），0 = 纯玻璃。
-      const opacity = (Number(miniPlayerOpacity) || 0) / 100
-      const bgRgb = theme.isDark ? '0, 0, 0' : '255, 255, 255'
-      const containerStyle = {
-        borderColor: `rgba(${bgRgb}, ${Math.min(0.8, opacity * 0.7 + 0.15)})`,
-        ...shadow(8),
-      }
-      const tintStyle = { backgroundColor: `rgba(${bgRgb}, ${Math.min(1, opacity * 0.5)})` }
+      // 容器透明、无描边（纯玻璃质感，玻璃材质自带明暗自适应的染色与边缘光），只保留投影。
+      const containerStyle = { ...shadow(8) }
       return (
         <View
           style={[
@@ -130,9 +121,7 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
             style={[styles.container, containerStyle, isHorizontalMode ? styles.horizontalContainer : null]}
             {...panResponder.panHandlers}
           >
-            <LiquidGlass />
-            {/* 染色层：垫在玻璃之上、内容之下，跟随主题明暗与透明度设置 */}
-            <View style={[styles.tint, tintStyle]} pointerEvents="none" />
+            <LiquidGlass dark={theme.isDark} />
             <TouchableOpacity style={styles.left} onPress={handleNavigate} onLongPress={handleLongPress} activeOpacity={0.8}>
               <Pic />
               <View style={styles.center}>
@@ -150,7 +139,7 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
         </View>
       )
     },
-    [theme, isHome, handleLongPress, handleNavigate, handleShowPlaylist, panResponder.panHandlers, miniPlayerOpacity, safeAreaBottom, isHorizontalMode],
+    [theme, isHome, handleLongPress, handleNavigate, handleShowPlaylist, panResponder.panHandlers, safeAreaBottom, isHorizontalMode],
   )
 
   return (
@@ -179,20 +168,11 @@ const styles = createStyle({
     borderRadius: designRadius.xl,
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 0.8,
     overflow: 'hidden',
   },
   horizontalContainer: {
     maxWidth: 760,
     alignSelf: 'center',
-  },
-  // 液态玻璃上方的主题染色层：绝对铺满，容器 borderRadius + overflow hidden 裁圆角
-  tint: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
   },
   left: {
     flexGrow: 1,

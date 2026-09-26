@@ -9,7 +9,8 @@ on:
 jobs:
   launch-simulator:
     name: Launch iOS Simulator
-    runs-on: macos-14
+    # Xcode 26 (Swift 6.2): same toolchain as ios-ipa.yml (iOS 26 native glass path)
+    runs-on: macos-26
     env:
       NO_FLIPPER: 1
       SOURCEMAP_FILE: ${{ github.workspace }}/build/main.jsbundle.map

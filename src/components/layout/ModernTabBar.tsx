@@ -1,9 +1,8 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react'
-import { Pressable, StyleSheet, View } from 'react-native'
+import { Pressable, View } from 'react-native'
 import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
 import { useNavActiveId, useSafeAreaBottom } from '@/store/common/hook'
-import { useSettingValue } from '@/store/setting/hook'
 import { setNavActiveId } from '@/core/common'
 import { createStyle } from '@/utils/tools'
 import { scaleSizeH, scaleSizeW } from '@/utils/pixelRatio'
@@ -27,7 +26,6 @@ const styles = createStyle({
     height: 64,
     flexDirection: 'row',
     borderRadius: designRadius.xl,
-    borderWidth: 0.8,
     ...shadow(8),
     overflow: 'hidden',
   },
@@ -37,14 +35,8 @@ const styles = createStyle({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // 液态玻璃上方的主题染色层：绝对铺满，容器 borderRadius + overflow hidden 裁圆角
-  tint: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
+  // 深色模式下去掉描边（避免玻璃边缘出现黑线），浅色模式保留白色细描边
+  // （无独立样式，见 barStyle）
   label: {
     marginTop: 2,
     fontWeight: '600',
@@ -82,29 +74,15 @@ export default memo(() => {
   const t = useI18n()
   const activeId = useNavActiveId()
   const safeAreaBottom = useSafeAreaBottom()
-  // 视觉与迷你播放器同源：液态玻璃背景由原生渲染，这里只保留描边与玻璃上方的
-  // 染色层（底色/描边跟随 theme.miniPlayerOpacity 半透明，深浅色分别以黑/白为基色）
-  const miniPlayerOpacity = useSettingValue('theme.miniPlayerOpacity')
-  const opacity = (Number(miniPlayerOpacity) || 0) / 100
-  const bgRgb = theme.isDark ? '0, 0, 0' : '255, 255, 255'
 
-  const barStyle = useMemo(
-    () => StyleSheet.compose(styles.bar, {
-      borderColor: `rgba(${bgRgb}, ${Math.min(0.8, opacity * 0.7 + 0.15)})`,
-    }),
-    [bgRgb, opacity],
-  )
-
-  const tintStyle = useMemo(
-    () => ({ backgroundColor: `rgba(${bgRgb}, ${Math.min(1, opacity * 0.5)})` }),
-    [bgRgb, opacity],
-  )
+  // 深浅色模式均无描边（纯玻璃质感，玻璃材质自带边缘光）
+  const barStyle = useMemo(() => styles.bar, [])
 
   // 无触摸的内容变化时恢复玻璃渲染（静止时原生渲染时钟是暂停的）：
-  // 切 Tab 会整体替换背后内容，换主题/透明度会改变玻璃外观
+  // 切 Tab 会整体替换背后内容，换主题会改变玻璃外观
   useEffect(() => {
     pulseLiquidGlass()
-  }, [activeId, theme, miniPlayerOpacity])
+  }, [activeId, theme])
 
   // 透镜药丸：替换旧的主色高亮遮罩（iOS 26 风格）。切 Tab 时药丸原生弹簧滑动
   // 到目标项，按压时 morph 成完整液态玻璃。
@@ -137,9 +115,7 @@ export default memo(() => {
       pointerEvents="box-none"
     >
       <View style={barStyle} onLayout={handleBarLayout}>
-        <LiquidGlass />
-        {/* 染色层：垫在玻璃之上、内容之下，跟随主题明暗与透明度设置 */}
-        <View style={[styles.tint, tintStyle]} pointerEvents="none" />
+        <LiquidGlass dark={theme.isDark} />
         {/* 透镜药丸条带：垫在 tab 内容之下，切 Tab 时原生弹簧滑动，按压时液态变形 */}
         {barWidth > 0 ? (
           <LiquidLens

@@ -19,11 +19,11 @@ changes:
 | # | Change | Reason |
 |---|--------|--------|
 | 1 | `internal import X` → `import X` (LiquidGlassView.swift) | `internal import` is Swift 6.0+ syntax; Swift 5.10 cannot parse it |
-| 2 | Removed `UIGlassEffect` / `UIGlassContainerEffect` references (LiquidGlassEffectView.swift) | iOS 26 SDK-only types are absent from the CI SDK (iOS 17.5); `#available` cannot fix compile-time symbol resolution. The custom Metal implementation covers iOS 26+ too |
+| 2 | iOS 26 `UIGlassEffect` support behind `#if compiler(>=6.2)` + runtime availability (LGGlassViewFactory.swift) | Upstream references iOS 26-only types unguarded, which cannot compile on older SDKs. The factory picks native `UIGlassEffect` (and native `_UILiquidLensView` for the lens, private API — app is sideloaded, not App Store distributed) on iOS 26+ when built with Xcode 26, falling back to the custom Metal implementation on older OSes/toolchains |
 | 3 | Shader loading → `MTLDevice.makeLibrary(source:)` with embedded MSL (`LiquidGlassShaderSource.swift`) | Upstream loads a SwiftPM-precompiled `default.metallib`; a CocoaPods static lib has no resource bundle and CI must not run a Metal compile step. Runtime compilation happens on-device |
 | 4 | Added `@objc convenience init()`, `setPreferredFramesPerSecond(_:)`, `setGlassTintColor(_:)`, `setJsActive(_:)` (LiquidGlassEffectView.swift) | React Native view-manager bridge needs ObjC-visible entry points |
 | 5 | Added `LiquidGlassViewManager.mm` | Registers the `LiquidGlassView` native component for RN Paper |
-| 6 | LiquidLensView included with changes; Slider / Switch sources not included | The lens pill drives the tab-switch liquid-glass morph (RN component `LiquidGlassLens`): `internal import` fixed, `restingBackgroundColor`/`setLifted` marked `@objc`, `LGLensFactory` added for ObjC construction, and the lens's internal LiquidGlassView is wired to the demand-rendering clock (renders only while lifted) |
+| 6 | LiquidLensView included with changes; Slider / Switch sources not included | The lens pill drives the tab-switch liquid-glass morph (RN component `LiquidGlassLens`): `internal import` fixed, `restingBackgroundColor`/`setLifted` marked `@objc`, `LGLensFactory` added for ObjC construction (tries native `_UILiquidLensView` on iOS 26+), and the lens's internal LiquidGlassView is wired to the demand-rendering clock (renders only while lifted) |
 | 7 | Demand rendering: MTKView paused when inactive, active on mount window / JS pulses / window-level pan gestures (LiquidGlassView.swift, LiquidGlassEffectView.swift) | Upstream renders continuously (`isPaused = false`), which burns GPU/CPU 24/7. Pausing when nothing moves behind the glass removes the idle cost |
 
 ## Runtime notes

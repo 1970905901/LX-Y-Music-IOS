@@ -85,7 +85,8 @@ export default memo(() => {
   const pageHeader = (
     <>
       <PageTopInset />
-      <View style={styles.titleRow}>
+      {/* 标题在上、按钮在同一行在其下方（原来按钮挤在标题右侧） */}
+      <View style={styles.titleBlock}>
         <Text style={styles.titleText} size={34} color={theme['c-font']}>
           {t('nav_kg_daily_rec')}
         </Text>
@@ -118,18 +119,19 @@ export default memo(() => {
 })
 
 const styles = createStyle({
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
+  // 标题独占一行，两个 tab 在它下方另起一行（左右内边距与标题对齐）
+  titleBlock: {
     paddingHorizontal: designSpacing.lg,
   },
   titleText: {
     fontWeight: '800',
     lineHeight: 36,
   },
+  // 两个 tab 同一行：横向滚动兜底，字号放大 / 窄屏放不下时可左右滑动，不会换行或被裁掉
   tabsScroll: {
     flexGrow: 0,
     flexShrink: 1,
+    marginTop: 4,
   },
   tabsContainer: {
     flexDirection: 'row',
@@ -137,7 +139,7 @@ const styles = createStyle({
   },
   tab: {
     paddingVertical: 5,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
   },
   tabText: {
     paddingBottom: 5,

@@ -59,6 +59,20 @@ export default memo(({ visible, url, name = 'image', onClose }: Props) => {
     onClose()
   }, [onClose])
 
+  // 同 common/Modal：隐藏后延迟卸载，规避 iOS 透明 Modal 关闭竞态残留宿主视图、
+  // 吞掉整页触摸的问题（关闭时父组件仍会以 visible=false 挂载本组件）。
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => {
+    if (visible) {
+      setMounted(true)
+      return
+    }
+    const timer = setTimeout(() => { setMounted(false) }, 300)
+    return () => { clearTimeout(timer) }
+  }, [visible])
+
+  if (!mounted) return null
+
   return (
     <Modal
       animationType="fade"

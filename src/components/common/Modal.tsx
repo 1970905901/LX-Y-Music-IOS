@@ -1,5 +1,5 @@
 // import { createStyle } from '@/utils/tools'
-import { useImperativeHandle, forwardRef, useState, useMemo } from 'react'
+import { useImperativeHandle, forwardRef, useState, useMemo, useEffect } from 'react'
 import { Modal, TouchableWithoutFeedback, View, type ModalProps as _ModalProps } from 'react-native'
 import { useStatusbarHeight } from '@/store/common/hook'
 // import { useWindowSize } from '@/utils/hooks'
@@ -63,6 +63,23 @@ export default forwardRef<ModalType, ModalProps>(
     ref,
   ) => {
     const [visible, setVisible] = useState(false)
+    // ✅ 关键规避：iOS 上 transparent + overFullScreen 的 Modal 关闭时存在竞态，
+    // 偶发宿主视图（RCTModalHostView）不被移除，残留的不可见 Modal 会吞掉整页触摸——
+    // 页面看着正常、后台音乐照放，但点击/滚动全部无效，直到杀掉重进
+    // （上游 issue facebook/react-native#12872 等，长期未根治）。
+    // 规避方式：隐藏后不再保留 visible=false 的 Modal 常驻挂载——先等淡出动画走完
+    // （fade ≈ 250ms，取 300ms 冗余），再把 Modal 从组件树卸载；重新打开时立即恢复挂载，
+    // 淡入动画不受影响。这也是社区对该问题的标准 workaround。
+    const [mounted, setMounted] = useState(false)
+    useEffect(() => {
+      if (visible) {
+        setMounted(true)
+        return
+      }
+      // visible=false：延迟卸载，让淡出动画播完（提前重开则取消定时器、保持挂载）
+      const timer = setTimeout(() => { setMounted(false) }, 300)
+      return () => { clearTimeout(timer) }
+    }, [visible])
     // const { window: windowSize } = useWindowSize()
     const statusBarHeight = useStatusbarHeight()
     const handleRequestClose = () => {
@@ -87,6 +104,10 @@ export default forwardRef<ModalType, ModalProps>(
     }))
 
     const memoChildren = useMemo(() => children, [children])
+
+    // 已卸载（含淡出结束）时不渲染任何原生宿主——这是本修复的核心，
+    // 杜绝"看不见但还挂着"的 Modal 截胡整页触摸。
+    if (!mounted) return null
 
     return (
       <Modal

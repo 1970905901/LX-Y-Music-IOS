@@ -7,7 +7,6 @@ import { setNavActiveId } from '@/core/common'
 import { createStyle } from '@/utils/tools'
 import { scaleSizeH, scaleSizeW } from '@/utils/pixelRatio'
 import { applyOpacity } from '@/utils/colorOpacity'
-import { shadow } from '@/utils/shadow'
 import { pulseLiquidGlass } from '@/utils/liquidGlassActivity'
 import { useTabBarCollapsed, useMiniPlayerHeight } from '@/utils/tabBarCollapse'
 import { setTabBarExpanded } from '@/utils/nativeModules/utils'
@@ -30,7 +29,8 @@ const styles = createStyle({
     height: 56,
     flexDirection: 'row',
     borderRadius: designRadius.xl,
-    ...shadow(8),
+    // 外圈投影已移除（用户反馈胶囊下方有「底子」）：纯玻璃质感，立体感由玻璃
+    // 自身边缘光 + 原生 0.5pt 内缘线提供
     overflow: 'hidden',
   },
   item: {
@@ -50,7 +50,6 @@ const styles = createStyle({
     height: '100%',
     borderRadius: designRadius.pill,
     overflow: 'hidden',
-    ...shadow(6),
   },
   pillIcon: {
     position: 'absolute',

@@ -18,7 +18,6 @@ import playerState from '@/store/player/state'
 import { LIST_IDS } from '@/config/constant'
 import { designRadius, designSpacing, bottomFloatGap } from '@/theme/DesignTokens'
 import { applyOpacity } from '@/utils/colorOpacity'
-import { shadow } from '@/utils/shadow'
 import { pulseLiquidGlass } from '@/utils/liquidGlassActivity'
 import LiquidGlass from '@/components/common/LiquidGlass'
 
@@ -86,8 +85,8 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
   const playerComponent = useMemo(
     () => {
       // 液态玻璃模式：背景折射由原生 LiquidGlass（vendored LiquidGlassKit）实时渲染，
-      // 容器透明、无描边（纯玻璃质感，玻璃材质自带明暗自适应的染色与边缘光），只保留投影。
-      const containerStyle = { ...shadow(8) }
+      // 容器透明、无描边（纯玻璃质感，玻璃材质自带明暗自适应的染色与边缘光）。
+      // 外圈投影已移除（用户反馈胶囊下方有「底子」）。
       // 首页悬浮态比收起态高出一个 tab 栏高 + 12pt 间距；tab 栏底缝收紧
       // （12→4）后整体同步下移 8，保持与 tab 栏顶的相对间距不变
       const bottomExpanded = safeAreaBottom + (isHome
@@ -114,7 +113,7 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
           ]}
         >
           <View
-            style={[styles.container, containerStyle, isHorizontalMode ? styles.horizontalContainer : null]}
+            style={[styles.container, isHorizontalMode ? styles.horizontalContainer : null]}
             onLayout={(e) => { setMiniPlayerHeight(e.nativeEvent.layout.height) }}
           >
             <LiquidGlass tint={glassTint} style={{ borderRadius: designRadius.xl }} />

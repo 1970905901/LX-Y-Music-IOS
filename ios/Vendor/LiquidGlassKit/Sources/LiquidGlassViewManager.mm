@@ -109,7 +109,8 @@
   backing.layer.cornerCurve = self.layer.cornerCurve;
   // 边缘立体感（替代已移除的 ShadowView 阴影环）：0.5pt 半透明暗缘线。
   // 普通 layer border 无合成滤镜/混合模式，任何动画下稳定不产生黑边；
-  // 外圈氛围阴影由 RN 层容器的 shadow 提供（双层立体：内缘线 + 外部柔影）。
+  // 外圈氛围阴影已移除（用户反馈胶囊下方有「底子」），立体感由玻璃自身
+  // 边缘光 + 此内缘线提供。
   container.layer.borderWidth = 0.5;
   container.layer.borderColor = [UIColor colorWithWhite:0 alpha:0.12].CGColor;
   _glassBacking = backing;

@@ -7,6 +7,7 @@ import IsMylistDynamicBg from './Theme/IsMylistDynamicBg'
 import IsLandscapeStretch from './Theme/IsLandscapeStretch'
 import IsFontShadow from './Theme/IsFontShadow'
 import Blur from './Theme/Blur'
+import GlassOpacity from './Theme/GlassOpacity'
 import CustomBg from './Theme/CustomBg'
 import PicOpacity from './Theme/PicOpacity'
 import SubContainerOpacity from './Theme/SubContainerOpacity'
@@ -22,6 +23,7 @@ export default memo(() => {
       <CustomBg />
       <PicOpacity />
       <Blur />
+      <GlassOpacity />
       <SubContainerOpacity />
       <IsFontShadow />
     </Section>

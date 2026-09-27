@@ -125,6 +125,8 @@ public final class LiquidLensView: UIView, AnyLiquidLensView {
         // Setup liquid glass view - initially hidden
         liquidGlassView.alpha = 0
         liquidGlassView.isUserInteractionEnabled = false
+        // 透镜豁免错峰捕获：体积小、是唯一运动中的玻璃，保持每帧捕获保证折射实时
+        liquidGlassView.staggerExempt = true
         // Not added to view hierarchy initially - only shown when lifted
     }
 

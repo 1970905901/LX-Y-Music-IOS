@@ -277,6 +277,14 @@ final class LiquidGlassRenderer {
 private final class GlassInstanceRegistry {
     static let shared = GlassInstanceRegistry()
     let instances = NSHashTable<AnyObject>.weakObjects()
+    /// 错峰捕获槽位：注册时顺序分配，供 shouldCaptureThisFrame 的隔帧桶使用
+    private var nextStaggerSlot = 0
+
+    func add(_ view: LiquidGlassView) {
+        instances.add(view)
+        view.staggerSlot = nextStaggerSlot
+        nextStaggerSlot = (nextStaggerSlot + 1) & 0xFF
+    }
 }
 
 final class LiquidGlassView: MTKView {
@@ -309,6 +317,11 @@ final class LiquidGlassView: MTKView {
     /// 形成随滚动移动的黑影——冻结后两个症状同源消除。
     private var scrollFrozen = false
 
+    /// 错峰捕获槽位（registry 分配）与豁免标志：透镜等体积小、实时性要求高的
+    /// 实例可豁免隔帧错峰，保持每帧捕获。
+    var staggerSlot = 0
+    var staggerExempt = false
+
     var touchPoint: CGPoint? = nil
 
     var frames: [CGRect] = []
@@ -321,7 +334,7 @@ final class LiquidGlassView: MTKView {
 
         super.init(frame: .zero, device: LiquidGlassRenderer.shared.device)
 
-        GlassInstanceRegistry.shared.instances.add(self)
+        GlassInstanceRegistry.shared.add(self)
 
         // shadowOverlay（黑色边缘阴影环）已移除：其黑色环影在转场/拖动中被感知为
         // "黑弧"，且 multiplyBlend 合成在动画期间会失效变黑块。玻璃边缘定义由
@@ -407,6 +420,21 @@ final class LiquidGlassView: MTKView {
     }
 
     // MARK: - Background Capture
+
+    /// 错峰捕获闸门（列表性能隔离的核心裁剪）：多块玻璃同时实时渲染时，同一帧内
+    /// 每块各自整窗 drawHierarchy 是滚动掉帧的最大单项开销。以 30Hz 全局桶 + 实例
+    /// 槽位错峰：每块玻璃隔帧捕获，背景纹理滞后 ≤33ms（折射背景内容而已，shader
+    /// 本体仍 60fps 渲染），N 块玻璃的总捕获次数从 N×60 降到 60 次/秒。单块活跃
+    /// 或豁免实例（透镜）不隔帧。
+    private func shouldCaptureThisFrame() -> Bool {
+        let activeCount = GlassInstanceRegistry.shared.instances.allObjects
+            .compactMap { $0 as? LiquidGlassView }
+            .filter { $0.window === window && $0.renderActive && !$0.staggerExempt }
+            .count
+        guard activeCount > 1 else { return true }
+        let bucket = Int(CACurrentMediaTime() * 30.0)
+        return (bucket + staggerSlot) % 2 == 0
+    }
 
     func captureBackground() {
         if #available(iOS 26.2, *) {
@@ -550,7 +578,11 @@ final class LiquidGlassView: MTKView {
         // 跳过高斯模糊只损失一点背景柔化，保住模拟器可用性；真机路径不受影响。
         return
         #else
-        guard liquidGlass.backgroundTextureBlurRadius > 0,
+        // σ < 1 的模糊半径不足一像素级，视觉上完全不可辨（.regular 预设 0.3 即走
+        // 此路径直接跳过）；MPS pass + 同步 waitUntilCompleted 的每帧 GPU 往返
+        // 纯属浪费——这是捕获路径上除 drawHierarchy 外唯一的同步阻塞点，砍掉它
+        // 是玻璃与列表性能隔离的第二刀。
+        guard liquidGlass.backgroundTextureBlurRadius >= 1.0,
               let device,
               let commandBuffer = commandQueue.makeCommandBuffer(),
               var backgroundTexture else { return }
@@ -647,11 +679,14 @@ final class LiquidGlassView: MTKView {
 
     override func draw(_ rect: CGRect) {
         // 仅活跃渲染（renderActive）或 needsCapture 待补时捕获背景；静止且已捕获过
-        // 则跳过整窗捕获，复用上一帧纹理，避免高刷空转掉帧。滚动冻结期间绝不捕获：
-        // 此时背后内容正在移动，捕获必然滞后一帧并折射出黑影。
+        // 则跳过整窗捕获，复用上一帧纹理，避免高刷空转掉帧。滚动冻结期间绝不捕获。
+        // 连续渲染路径经错峰闸门：多实例并存时隔帧捕获（shouldCaptureThisFrame），
+        // needsCapture（布局/尺寸变化）始终立即捕获。
         if autoCapture && !scrollFrozen && (renderActive || needsCapture) {
-            captureBackground()
-            needsCapture = false
+            if needsCapture || shouldCaptureThisFrame() {
+                captureBackground()
+                needsCapture = false
+            }
         }
 
         // 背景纹理未就绪（刚挂载/缓冲尺寸未定，setupBuffer 尚未跑出有效像素缓冲）

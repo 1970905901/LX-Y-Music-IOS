@@ -79,6 +79,27 @@ public final class LiquidLensView: UIView, AnyLiquidLensView {
         liquidGlassView.liquidGlass.tintColor = color
     }
 
+    /// Vendored addition: 多矩形玻璃（kit frames 能力）——拖拽跨 tab 时传入「原 tab +
+    /// 目标 tab」两个矩形，shader 将其合并为一块连续玻璃（胶囊拉伸变形）。
+    /// 传空数组恢复单矩形（即自身 bounds）。
+    @objc public func setLensFrames(_ rects: [NSValue]) {
+        liquidGlassView.frames = rects.map { $0.cgRectValue }
+        spanFramesActive = !rects.isEmpty
+    }
+
+    /// Vendored addition: 手指位置驱动的眩光（玻璃坐标系）
+    @objc public func setLensTouchPoint(_ point: CGPoint) {
+        liquidGlassView.touchPoint = point
+    }
+
+    @objc public func clearLensTouchPoint() {
+        liquidGlassView.touchPoint = nil
+    }
+
+    /// Vendored addition: frames 合并进行中（宿主把透镜本体拉伸为跨 tab span），
+    /// 此时跳过挤压/拉伸尺寸动画，避免与 span 尺寸互相打架
+    private var spanFramesActive = false
+
     // MARK: - Initialization
 
     convenience public init() {
@@ -349,6 +370,8 @@ public final class LiquidLensView: UIView, AnyLiquidLensView {
 
     /// Applies squash/stretch size change to liquidGlassView based on acceleration.
     private func applyAccelerationSize(_ acceleration: CGFloat) {
+        // frames 合并（span）模式下玻璃尺寸由宿主决定，跳过挤压/拉伸
+        if spanFramesActive { return }
         let scaleFactor = acceleration * accelerationScaleCoefficient
 
         // Clamp to reasonable range for visual stability

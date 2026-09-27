@@ -192,23 +192,6 @@ export default memo(() => {
         pointerEvents={collapsed ? 'none' : 'auto'}
       >
         <LiquidGlass tint={glassTint} />
-        {/* 透镜药丸条带：垫在 tab 内容之下，切 Tab 时原生弹簧滑动，按压时液态变形 */}
-        {barWidth > 0 ? (
-          <LiquidLens
-            style={{
-              position: 'absolute',
-              top: scaleSizeH(LENS_VERTICAL_INSET),
-              left: 0,
-              width: barWidth,
-              height: lensStripHeight,
-            }}
-            x={lensX}
-            tabCount={TAB_IDS.length}
-            tint={glassTint}
-            onDragSelect={handleDragSelect}
-            pillWidth={lensPillWidth}
-          />
-        ) : null}
         {TAB_IDS.map((tab) => {
           const isActive = activeId === tab.id
           return (
@@ -237,6 +220,24 @@ export default memo(() => {
             </Pressable>
           )
         })}
+        {/* 透镜药丸条带：置于 tab 内容【之上】——抬起/滑动时玻璃罩住图标与文字，
+            内容经折射进入透镜（kit 的 tab 透镜效果）；触摸穿透不影响 tab 点击 */}
+        {barWidth > 0 ? (
+          <LiquidLens
+            style={{
+              position: 'absolute',
+              top: scaleSizeH(LENS_VERTICAL_INSET),
+              left: 0,
+              width: barWidth,
+              height: lensStripHeight,
+            }}
+            x={lensX}
+            tabCount={TAB_IDS.length}
+            tint={glassTint}
+            onDragSelect={handleDragSelect}
+            pillWidth={lensPillWidth}
+          />
+        ) : null}
       </Animated.View>
     </View>
   )

@@ -39,19 +39,25 @@
 @optional
 - (void)setPreferredFramesPerSecond:(NSInteger)fps;
 - (void)setJsActive:(BOOL)active;
+- (void)setTouchPoint:(CGPoint)point;
+- (void)clearTouchPoint;
 @end
 
-// 自研 LiquidLensView 的主题染色入口；iOS 26 原生透镜不接受自定义染色（走系统观感）
+// 自研 LiquidLensView 的主题染色 / frames / 眩光入口；iOS 26 原生透镜不接受
+// 自定义（走系统观感），宿主按 respondsToSelector 分流
 @protocol LGLensCustomizations <NSObject>
 @optional
 - (void)setLensTintColor:(UIColor *)color;
+- (void)setLensFrames:(NSArray<NSValue *> *)rects;
+- (void)setLensTouchPoint:(CGPoint)point;
+- (void)clearLensTouchPoint;
 @end
 
 // Host view: an RCTView so all standard RN view props (borderRadius, overflow, pointerEvents,
 // opacity, shadow*) keep working; the glass backing (native UIGlassEffect on iOS 26+ built with
 // Xcode 26, vendored Metal implementation otherwise) is pinned as its only subview.
-// LGGlassViewFactory selects the backing; dark-theme changes rebuild it
-// (UIVisualEffectView does not support changing overrideUserInterfaceStyle after creation).
+// LGGlassViewFactory selects the backing. Squircle（kit cornerRoundnessExponent=4）：
+// 宿主与玻璃层统一用 continuous 圆角曲线。
 @interface LGLiquidGlassHostView : RCTView
 @property (nonatomic, readonly) UIView *glassView;
 @end
@@ -64,6 +70,7 @@
   if (self = [super initWithFrame:frame]) {
     [self installGlassBacking:[LGGlassViewFactory createGlassBacking]];
     self.clipsToBounds = YES;
+    self.layer.cornerCurve = UIViewCornerCurveContinuous;
   }
   return self;
 }
@@ -84,6 +91,41 @@
   // 驱动折射形状；原生路径由系统按 layer.cornerRadius 裁剪）
   _glassView.layer.cornerRadius = self.layer.cornerRadius;
   _glassView.layer.cornerCurve = self.layer.cornerCurve;
+}
+
+// touchPoint 眩光（kit 能力）：手指在栏体空白区域按下/移动时，玻璃高光跟随手指。
+// 触摸落在 tab 项/按钮上时由对应视图接管，此宿主收不到——效果为部分区域生效，可接受。
+- (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+  [super touchesBegan:touches withEvent:event];
+  [self updateGlassTouchPoint:touches.anyObject];
+}
+
+- (void)touchesMoved:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+  [super touchesMoved:touches withEvent:event];
+  [self updateGlassTouchPoint:touches.anyObject];
+}
+
+- (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+  [super touchesEnded:touches withEvent:event];
+  [self clearGlassTouchPoint];
+}
+
+- (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+  [super touchesCancelled:touches withEvent:event];
+  [self clearGlassTouchPoint];
+}
+
+- (void)updateGlassTouchPoint:(UITouch *)touch {
+  if (touch == nil) return;
+  id<LGGlassMetalBacking> glass = (id<LGGlassMetalBacking>)_glassView;
+  if (![glass respondsToSelector:@selector(setTouchPoint:)]) return;
+  [glass setTouchPoint:[touch locationInView:_glassView]];
+}
+
+- (void)clearGlassTouchPoint {
+  id<LGGlassMetalBacking> glass = (id<LGGlassMetalBacking>)_glassView;
+  if (![glass respondsToSelector:@selector(clearTouchPoint)]) return;
+  [glass clearTouchPoint];
 }
 
 @end
@@ -168,6 +210,8 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
   UILongPressGestureRecognizer *_dragRecognizer;
   BOOL _dragging;
   NSInteger _dragZone; // 拖拽过程中透镜当前所在的 tab（-1 = 尚未采样）
+  CGFloat _dragStartCenterX; // 拖拽起点（frames 合并 span 的基准）
+  BOOL _spanActive; // frames 合并进行中（透镜本体检已拉伸为跨 tab 的 span）
 }
 
 - (instancetype)initWithFrame:(CGRect)frame {
@@ -210,13 +254,17 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
   CGFloat fingerX = [gesture locationInView:self].x;
   CGFloat half = _pillWidth / 2.0;
   CGFloat maxCenter = MAX(half, self.bounds.size.width - half);
+  CGFloat clampedFingerX = MIN(MAX(fingerX, half), maxCenter);
+  id<LGLensCustomizations> lensCustom = (id<LGLensCustomizations>)_lens;
 
   switch (gesture.state) {
     case UIGestureRecognizerStateBegan: {
       _dragging = YES;
       _dragZone = -1;
+      _dragStartCenterX = clampedFingerX;
+      _spanActive = NO;
       [_lens setLifted:YES animated:YES alongsideAnimations:nil completion:nil];
-      _lens.center = CGPointMake(MIN(MAX(fingerX, half), maxCenter), self.bounds.size.height / 2.0);
+      _lens.center = CGPointMake(clampedFingerX, self.bounds.size.height / 2.0);
       [UIView animateWithDuration:0.15 animations:^{
         self->_lens.alpha = 1;
       }];
@@ -227,7 +275,35 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
     }
     case UIGestureRecognizerStateChanged: {
       // 1:1 跟手（不做弹簧）：透镜内部的 displayLink 追踪自身位置变化产生挤压/拉伸
-      _lens.center = CGPointMake(MIN(MAX(fingerX, half), maxCenter), self.bounds.size.height / 2.0);
+      BOOL spanMode = fabs(fingerX - _dragStartCenterX) > _pillWidth;
+      if (spanMode) {
+        // frames 合并（kit 能力）：透镜本体拉伸为「起点 tab + 当前手指 tab」的
+        // 跨区 span，shader 将两个胶囊矩形合并成一块连续玻璃（对齐参考视频的
+        // 横跨变形）。squash/stretch 在 span 模式下由透镜内部跳过，避免打架。
+        CGFloat spanLeft = MIN(_dragStartCenterX, clampedFingerX) - half;
+        CGFloat spanWidth = MAX(_dragStartCenterX, clampedFingerX) + half - spanLeft;
+        _lens.frame = CGRectMake(spanLeft, 0, spanWidth, self.bounds.size.height);
+        _lens.center = CGPointMake(spanLeft + spanWidth / 2.0, self.bounds.size.height / 2.0);
+        _spanActive = YES;
+        if ([lensCustom respondsToSelector:@selector(setLensFrames:)]) {
+          CGRect r1 = CGRectMake(_dragStartCenterX - half - spanLeft, 0, _pillWidth, self.bounds.size.height);
+          CGRect r2 = CGRectMake(clampedFingerX - half - spanLeft, 0, _pillWidth, self.bounds.size.height);
+          [lensCustom setLensFrames:@[[NSValue valueWithCGRect:r1], [NSValue valueWithCGRect:r2]]];
+        }
+      } else if (_spanActive) {
+        // 拖回起点附近：退出 span 模式，恢复单胶囊
+        _spanActive = NO;
+        _lens.frame = CGRectMake(0, 0, _pillWidth, self.bounds.size.height);
+        _lens.center = CGPointMake(clampedFingerX, self.bounds.size.height / 2.0);
+        if ([lensCustom respondsToSelector:@selector(setLensFrames:)]) {
+          [lensCustom setLensFrames:@[]];
+        }
+      } else {
+        _lens.center = CGPointMake(clampedFingerX, self.bounds.size.height / 2.0);
+      }
+      if ([lensCustom respondsToSelector:@selector(setLensTouchPoint:)]) {
+        [lensCustom setLensTouchPoint:[gesture locationInView:_lens]];
+      }
       // 基于边缘的切换（对齐 LiquidGlassSwitch）：拖拽越过 tab 边界即刻
       // 切换页面并伴随轻触觉反馈，无需等松手
       NSInteger zone = LXTabZoneForX(fingerX, self.bounds.size.width, _tabCount);
@@ -252,6 +328,18 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
       [selection selectionChanged];
       NSInteger fingerZone = LXTabZoneForX(fingerX, self.bounds.size.width, _tabCount);
       NSInteger currentZone = LXTabZoneForX(_x, self.bounds.size.width, _tabCount);
+      // 退出 span 模式：frames 清空、透镜本体恢复药丸尺寸（以松手位置为基准）
+      if (_spanActive) {
+        _spanActive = NO;
+        if ([lensCustom respondsToSelector:@selector(setLensFrames:)]) {
+          [lensCustom setLensFrames:@[]];
+        }
+        _lens.frame = CGRectMake(0, 0, _pillWidth, self.bounds.size.height);
+        _lens.center = CGPointMake(clampedFingerX, self.bounds.size.height / 2.0);
+      }
+      if ([lensCustom respondsToSelector:@selector(clearLensTouchPoint)]) {
+        [lensCustom clearLensTouchPoint];
+      }
       if (fingerZone >= 0 && fingerZone != currentZone && _onDragSelect != nil) {
         // 切到落点 tab：保持抬起形态，JS 更新 x prop 后弹簧归位并回落淡出
         _dragZone = fingerZone;
@@ -277,6 +365,16 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
     case UIGestureRecognizerStateFailed: {
       _dragging = NO;
       [_lens setLifted:NO animated:YES alongsideAnimations:nil completion:nil];
+      if (_spanActive) {
+        _spanActive = NO;
+        if ([lensCustom respondsToSelector:@selector(setLensFrames:)]) {
+          [lensCustom setLensFrames:@[]];
+        }
+        _lens.frame = CGRectMake(0, 0, _pillWidth, self.bounds.size.height);
+      }
+      if ([lensCustom respondsToSelector:@selector(clearLensTouchPoint)]) {
+        [lensCustom clearLensTouchPoint];
+      }
       // 中断时弹回当前选中 tab 的位置并淡出
       [UIView animateWithDuration:0.3
                             delay:0
@@ -298,10 +396,9 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
 
 - (void)layoutSubviews {
   [super layoutSubviews];
+  if (_dragging) return; // 拖拽中透镜 frame/位置由手势逻辑接管
   _lens.frame = CGRectMake(0, 0, _pillWidth, self.bounds.size.height);
-  if (!_dragging) {
-    _lens.center = CGPointMake(_x, self.bounds.size.height / 2.0);
-  }
+  _lens.center = CGPointMake(_x, self.bounds.size.height / 2.0);
 }
 
 - (void)setTargetX:(CGFloat)x animated:(BOOL)animated {

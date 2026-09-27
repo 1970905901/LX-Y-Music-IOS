@@ -257,10 +257,9 @@ final class LiquidGlassView: MTKView {
     /// Set to false for manual control via `captureBackground()`.
     var autoCapture: Bool = true
 
-    /// Whether the render clock is running. Inactive views keep their last frame on screen
-    /// and only re-render on setNeedsDisplay (layout changes) — the battery-saving core:
-    /// nothing behind the glass moves most of the time, so continuous capture is pure waste.
-    private var renderActive = false
+    /// Whether the render clock is running. Kept for interface compatibility —
+    /// rendering is continuous (kit-aligned 60fps) per product decision.
+    private var renderActive = true
 
     var touchPoint: CGPoint? = nil
 
@@ -307,29 +306,16 @@ final class LiquidGlassView: MTKView {
         // Make view transparent so we can see the effect
         isOpaque = false
         layer.isOpaque = false
-        // 清屏色改为全透明：MTKView 默认清屏色是不透明黑，透镜抬起后首帧纹理
-        // 未就绪时会闪黑（用户实测）。透明清屏保证任何空帧都不改变画面。
+        // 清屏色全透明：空帧（纹理未就绪等）不改变画面，避免闪黑
         clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 0)
 
-        // Demand-driven rendering (see setRenderActive): the MTKView clock is paused and
-        // draws only when setNeedsDisplay is called, until something marks the view active.
+        // 常驻渲染（对齐上游 kit 60fps）：按需暂停机制保留接口但不再生效
         enableSetNeedsDisplay = true
-        isPaused = true
+        isPaused = false
     }
 
-    /// Toggle the render clock. Active → continuous capture + draw at preferredFramesPerSecond.
-    /// Inactive → one final fresh frame, then the clock stops until the next setNeedsDisplay
-    /// (layout) or reactivation. Callers must raise activity whenever the content behind the
-    /// glass changes (scroll gestures, tab switches, theme/cover changes, transitions).
+    /// 兼容接口：曾用于按需渲染省电；现按用户要求对齐 kit 常驻 60fps，为空实现。
     func setRenderActive(_ active: Bool) {
-        guard active != renderActive else { return }
-        renderActive = active
-        if active {
-            isPaused = false
-        } else {
-            isPaused = true
-            setNeedsDisplay()
-        }
     }
 
     // MARK: - Background Capture
@@ -484,6 +470,8 @@ final class LiquidGlassView: MTKView {
 
 //        uniforms.cornerRoundnessExponent = (layer.cornerCurve == .continuous) ? 4 : 2
         uniforms.cornerRadius = Float(layer.cornerRadius)
+        // squircle 圆角（对齐 kit）：宿主 layer 用 continuous 曲线时按 squircle 折射
+        uniforms.cornerRoundnessExponent = (layer.cornerCurve == .continuous) ? 4 : 2
 
         if let tintColor = liquidGlass.tintColor {
             uniforms.materialTint = tintColor.toSimdFloat4()

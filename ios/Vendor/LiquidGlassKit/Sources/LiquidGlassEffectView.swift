@@ -110,6 +110,15 @@ public class LiquidGlassEffectView: UIView, AnyVisualEffectView, UIGestureRecogn
         }
     }
 
+    /// RN bridge entry: 手指位置驱动的眩光（玻璃坐标系）；越界/停止时调 clearTouchPoint 清除
+    @objc public func setTouchPoint(_ point: CGPoint) {
+        liquidGlassView?.touchPoint = point
+    }
+
+    @objc public func clearTouchPoint() {
+        liquidGlassView?.touchPoint = nil
+    }
+
     // MARK: - Demand rendering internals
 
     /// Fresh views render continuously for a short window: covers RNN push/pop transitions and

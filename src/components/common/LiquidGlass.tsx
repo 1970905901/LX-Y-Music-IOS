@@ -4,8 +4,7 @@ import { useLiquidGlassActive } from '@/utils/liquidGlassActivity'
 
 type LiquidGlassProps = ViewProps & {
   /**
-   * 连续渲染帧率上限（MTKView preferredFramesPerSecond）。
-   * 玻璃活跃期（滚动/转场/内容变化）每帧都要捕获背后内容做折射，30 已足够平滑。
+   * 连续渲染帧率上限（MTKView preferredFramesPerSecond）。对齐 kit 常驻 60fps 渲染。
    */
   fps?: number
   /**
@@ -36,7 +35,7 @@ const NativeLiquidGlass = requireNativeComponent<LiquidGlassProps>('LiquidGlassV
  * 换歌）由业务代码调用 pulseLiquidGlass()（@/utils/liquidGlassActivity）恢复。
  * iOS 26 原生路径由系统合成，本身零逐帧开销。
  */
-const LiquidGlass = memo(({ fps = 30, tint, style }: LiquidGlassProps) => {
+const LiquidGlass = memo(({ fps = 60, tint, style }: LiquidGlassProps) => {
   const active = useLiquidGlassActive()
   const glassStyle = useMemo<StyleProp<ViewStyle>>(
     () => StyleSheet.compose(StyleSheet.absoluteFill, style),

@@ -17,12 +17,6 @@ type LiquidGlassProps = ViewProps & {
    * 不传时走玻璃默认材质色（浅色蓝白 / 深色近黑的动态色）。
    */
   tint?: string
-  /**
-   * resize 冻结令牌：数值变化时（如收起/展开动画开始前递增）玻璃被静态快照冻结
-   * 500ms——原生 UIGlassEffect 在逐帧 frame 变化下系统渲染器跟不上，未渲染区域
-   * 会输出黑色；转场期间由快照拉伸填充规避。不传则不冻结。
-   */
-  resizeFreezeToken?: number
 }
 
 const NativeLiquidGlass = requireNativeComponent<LiquidGlassProps>('LiquidGlassView')
@@ -41,22 +35,13 @@ const NativeLiquidGlass = requireNativeComponent<LiquidGlassProps>('LiquidGlassV
  * 换歌）由业务代码调用 pulseLiquidGlass()（@/utils/liquidGlassActivity）恢复。
  * iOS 26 原生路径由系统合成，本身零逐帧开销。
  */
-const LiquidGlass = memo(({ fps = 60, tint, style, resizeFreezeToken }: LiquidGlassProps) => {
+const LiquidGlass = memo(({ fps = 60, tint, style }: LiquidGlassProps) => {
   const active = useLiquidGlassActive()
   const glassStyle = useMemo<StyleProp<ViewStyle>>(
     () => StyleSheet.compose(StyleSheet.absoluteFill, style),
     [style],
   )
-  return (
-    <NativeLiquidGlass
-      style={glassStyle}
-      fps={fps}
-      active={active}
-      tint={tint}
-      resizeFreezeToken={resizeFreezeToken}
-      pointerEvents="none"
-    />
-  )
+  return <NativeLiquidGlass style={glassStyle} fps={fps} active={active} tint={tint} pointerEvents="none" />
 })
 
 export default LiquidGlass

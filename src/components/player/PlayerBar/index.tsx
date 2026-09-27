@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react'
 import { Animated, Easing, View, TouchableOpacity } from 'react-native'
 import { useHorizontalMode, useKeyboard } from '@/utils/hooks'
 import { scaleSizeW } from '@/utils/pixelRatio'
@@ -46,19 +46,6 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
   const tabBarCollapsed = useTabBarCollapsed()
   const effectiveCollapsed = isHome && tabBarCollapsed
   const collapseAnim = useRef(new Animated.Value(effectiveCollapsed ? 1 : 0)).current
-  // resize 冻结令牌：收起/展开动画开始前递增 → 玻璃被静态快照冻结 500ms，
-  // 转场期间逐帧 resize 由快照拉伸填充（原生玻璃逐帧 resize 会渲染黑块）。
-  // 首次挂载不触发（避免玻璃闪空）。
-  const [resizeFreezeToken, setResizeFreezeToken] = useState(0)
-  const freezeTokenRef = useRef(0)
-  useEffect(() => {
-    if (freezeTokenRef.current === 0) {
-      freezeTokenRef.current = 1
-      return
-    }
-    freezeTokenRef.current += 1
-    setResizeFreezeToken(freezeTokenRef.current)
-  }, [effectiveCollapsed])
   useEffect(() => {
     pulseLiquidGlass(400)
     // bottom/paddingLeft 属布局属性，原生驱动不支持，走 JS 驱动（状态变化低频，开销可忽略）
@@ -130,7 +117,7 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
             style={[styles.container, containerStyle, isHorizontalMode ? styles.horizontalContainer : null]}
             onLayout={(e) => { setMiniPlayerHeight(e.nativeEvent.layout.height) }}
           >
-            <LiquidGlass tint={glassTint} style={{ borderRadius: designRadius.xl }} resizeFreezeToken={resizeFreezeToken} />
+            <LiquidGlass tint={glassTint} style={{ borderRadius: designRadius.xl }} />
             <TouchableOpacity style={styles.left} onPress={handleNavigate} onLongPress={handleLongPress} activeOpacity={0.8}>
               <Pic />
               <View style={styles.center}>

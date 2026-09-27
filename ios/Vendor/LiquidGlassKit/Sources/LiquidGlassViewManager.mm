@@ -170,6 +170,9 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
     // 透镜本体不参与命中测试：触摸穿透到上层的 tab Pressable（长按拖拽由
     // 宿主挂在父容器上的手势识别器接管）
     _lens.userInteractionEnabled = NO;
+    // 静止时整体隐藏（对齐参考交互）：透镜只在移动过程（点击切换/长按拖拽）
+    // 中可见，静止态不显示圆形药丸遮罩
+    _lens.alpha = 0;
     _lens.autoresizingMask = UIViewAutoresizingFlexibleHeight;
     [self addSubview:_lens];
     _pillWidth = 56.0;
@@ -208,6 +211,9 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
       _dragZone = -1;
       [_lens setLifted:YES animated:YES alongsideAnimations:nil completion:nil];
       _lens.center = CGPointMake(MIN(MAX(fingerX, half), maxCenter), self.bounds.size.height / 2.0);
+      [UIView animateWithDuration:0.15 animations:^{
+        self->_lens.alpha = 1;
+      }];
       // 抬起触觉反馈（对齐 LiquidGlassSwitch 的抓取反馈）
       UIImpactFeedbackGenerator *haptic = [[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleMedium];
       [haptic impactOccurred];
@@ -235,23 +241,37 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
     }
     case UIGestureRecognizerStateEnded: {
       _dragging = NO;
-      [_lens setLifted:NO animated:YES alongsideAnimations:nil completion:nil];
       // 松手触觉确认；落点若与已切换的 tab 不一致（边界采样间隙）则补一次切换
       UISelectionFeedbackGenerator *selection = [[UISelectionFeedbackGenerator alloc] init];
       [selection selectionChanged];
-      NSInteger zone = LXTabZoneForX(fingerX, self.bounds.size.width, _tabCount);
-      if (zone >= 0 && zone != _dragZone && _onDragSelect != nil) {
-        _dragZone = zone;
-        _onDragSelect(@{ @"index": @(zone) });
+      NSInteger fingerZone = LXTabZoneForX(fingerX, self.bounds.size.width, _tabCount);
+      NSInteger currentZone = LXTabZoneForX(_x, self.bounds.size.width, _tabCount);
+      if (fingerZone >= 0 && fingerZone != currentZone && _onDragSelect != nil) {
+        // 切到落点 tab：保持抬起形态，JS 更新 x prop 后弹簧归位并回落淡出
+        _dragZone = fingerZone;
+        _onDragSelect(@{ @"index": @(fingerZone) });
+      } else {
+        // 落点即当前 tab：原地回落药丸并淡出（静止无遮罩）
+        [UIView animateWithDuration:0.35
+                              delay:0
+             usingSpringWithDamping:0.8
+              initialSpringVelocity:0
+                            options:UIViewAnimationOptionBeginFromCurrentState
+                         animations:^{
+          self->_lens.center = CGPointMake(self->_x, self.bounds.size.height / 2.0);
+        } completion:nil];
+        [_lens setLifted:NO animated:YES alongsideAnimations:nil completion:nil];
+        [UIView animateWithDuration:0.3 animations:^{
+          self->_lens.alpha = 0;
+        }];
       }
-      // JS 更新 x prop 后药丸弹簧归位
       break;
     }
     case UIGestureRecognizerStateCancelled:
     case UIGestureRecognizerStateFailed: {
       _dragging = NO;
       [_lens setLifted:NO animated:YES alongsideAnimations:nil completion:nil];
-      // 中断时弹回当前选中 tab 的位置
+      // 中断时弹回当前选中 tab 的位置并淡出
       [UIView animateWithDuration:0.3
                             delay:0
            usingSpringWithDamping:0.8
@@ -260,6 +280,9 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
                        animations:^{
         self->_lens.center = CGPointMake(self->_x, self.bounds.size.height / 2.0);
       } completion:nil];
+      [UIView animateWithDuration:0.3 animations:^{
+        self->_lens.alpha = 0;
+      }];
       break;
     }
     default:
@@ -278,12 +301,18 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
 - (void)setTargetX:(CGFloat)x animated:(BOOL)animated {
   _x = x;
   if (!_hasX) {
-    // 首次落位不动画：避免应用启动时药丸从左边缘飞入
+    // 首次落位不动画也不显示（静止无遮罩）：透镜已在正确位置待命（alpha 0）
     _hasX = YES;
     [self setNeedsLayout];
     return;
   }
   if (animated) {
+    // 点击切换：与长按拖拽一致的液态动画——淡入 + 抬起 morph + 弹簧滑动，
+    // 落定后回落药丸并整体淡出（静止无遮罩）
+    [UIView animateWithDuration:0.15 animations:^{
+      self->_lens.alpha = 1;
+    }];
+    [_lens setLifted:YES animated:YES alongsideAnimations:nil completion:nil];
     [UIView animateWithDuration:0.4
                           delay:0
          usingSpringWithDamping:0.78
@@ -292,7 +321,13 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
                                 UIViewAnimationOptionAllowUserInteraction
                      animations:^{
       self->_lens.center = CGPointMake(x, self.bounds.size.height / 2.0);
-    } completion:nil];
+    } completion:^(BOOL finished) {
+      if (!finished) return; // 连续点击时被新动画接管，由最后一次动画负责收尾
+      [self->_lens setLifted:NO animated:YES alongsideAnimations:nil completion:nil];
+      [UIView animateWithDuration:0.3 animations:^{
+        self->_lens.alpha = 0;
+      }];
+    }];
   } else {
     _lens.center = CGPointMake(x, self.bounds.size.height / 2.0);
   }

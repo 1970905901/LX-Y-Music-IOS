@@ -9,7 +9,7 @@ import { state } from '@/plugins/player/playList'
 import { audioClock } from '@/core/player/audioClock'
 import { getLyricLineTextByTime } from '@/plugins/lyric'
 import BackgroundTimer from 'react-native-background-timer'
-import { Platform, AppState } from 'react-native'
+import { Platform } from 'react-native'
 
 const updateRemoteLyric = async(lrc?: string) => {
   setLastLyric(lrc)
@@ -53,28 +53,30 @@ export default async(setting: LX.AppSetting) => {
   })
   if (Platform.OS == 'ios') {
     let prevLyric: string | undefined
+    // 最近一次已推送到 NowPlaying 的歌词行（前台路径写入），供兜底定时器去重
+    let lastForegroundLyric: string | undefined
     onLyricPlay((line, text) => {
       const lyric = text || undefined
       if (lyric === prevLyric) return
       prevLyric = lyric
+      lastForegroundLyric = lyric
       void updateRemoteLyric(lyric)
       if (playerState.playMusicInfo.musicInfo) {
         void updateMetaData(playerState.musicInfo, playerState.isPlay, lyric, true)
       }
     })
 
-    // 后台/锁屏兜底：前台由 250ms 轮询 + rAF 每帧驱动歌词行（见 playProgress.ts），
-    // 但退后台 / 熄屏时轮询被 AppState 守卫跳过、rAF 与歌词 ticker 一并停掉，
-    // 蓝牙设备（车机 / 耳机屏）上的歌词会卡在退后台前那一行。音频后台播放时
-    // JS 线程仍存活，原生 BackgroundTimer 照常触发，这里每 500ms 按 audioClock
-    // 外推位置推导当前行并推送 NowPlaying；前台时跳过，完全交给原有链路避免双写。
+    // NowPlaying 歌词兜底（含控制中心/通知中心下拉的 inactive 态）：下拉控制中心时
+    // App 进入 inactive，前台 rAF 与歌词 ticker 停转，控制中心里的歌词会冻结在
+    // 打开前的那一行。这里无条件定时运行，用 audioClock 外推位置推导当前行，
+    // 且仅当与最近一次已推送行不同时才推送——前台正常时自动静默无双写，
+    // 前台驱动一旦停转（任意原因）立即接管，控制中心歌词持续跟进。
     let lastBackgroundLyric: string | undefined
     BackgroundTimer.setInterval(() => {
-      if (AppState.currentState === 'active') return
       if (!playerState.isPlay || !playerState.playMusicInfo.musicInfo) return
       if (global.lx.gettingUrlId) return
       const text = getLyricLineTextByTime(audioClock.getTime() * 1000)
-      if (!text || text === lastBackgroundLyric) return
+      if (!text || text === lastBackgroundLyric || text === lastForegroundLyric) return
       lastBackgroundLyric = text
       void updateMetaData(playerState.musicInfo, playerState.isPlay, text, true)
     }, 500)

@@ -102,7 +102,12 @@
 - (void)handlePressObserver:(UILongPressGestureRecognizer *)gesture {
   switch (gesture.state) {
     case UIGestureRecognizerStateBegan: {
-      // 幅度取肉眼清晰可辨的水平（竖向压扁 ~8%，64pt 栏上边缘位移 ~2.6pt×2）
+      // 幅度取肉眼清晰可辨的水平（竖向压扁 8%）。以底边为锚（tab 栏/播放条均沉底）：
+      // 按压力把玻璃往下压，顶边明显下沉、底边保持贴合不露缝；中心锚点的对称内缩
+      // 会在上下各露出生内容缝，观感像"玻璃脱框"。
+      CGFloat anchorCompensation = self.bounds.size.height * (1.0 - 0.92) / 2.0;
+      CGAffineTransform squish = CGAffineTransformMakeTranslation(0, anchorCompensation);
+      squish = CGAffineTransformScale(squish, 0.97, 0.92);
       [UIView animateWithDuration:0.12
                             delay:0
            usingSpringWithDamping:0.85
@@ -110,7 +115,7 @@
                           options:UIViewAnimationOptionBeginFromCurrentState |
                                   UIViewAnimationOptionAllowUserInteraction
                        animations:^{
-        self->_glassView.transform = CGAffineTransformMakeScale(0.97, 0.92);
+        self->_glassView.transform = squish;
       } completion:nil];
       break;
     }
@@ -222,7 +227,11 @@ RCT_CUSTOM_VIEW_PROPERTY(fps, NSNumber, LGLiquidGlassHostView) {
 // 仅自研 Metal 路径生效（原生路径的染色在 Swift 工厂内处理或走系统默认）。
 RCT_CUSTOM_VIEW_PROPERTY(tint, NSString, LGLiquidGlassHostView) {
   if (json == nil) return;
-  [LGGlassViewFactory applyGlassTint:view.glassView tint:[RCTConvert UIColor:json]];
+  UIColor *tint = [RCTConvert UIColor:json];
+  // 宿主垫同色底：按压下陷时玻璃顶边内收，露出的窄条呈染色底而非生内容
+  // （静止态玻璃完全覆盖宿主，此底不可见，见 handlePressObserver:）
+  view.backgroundColor = tint;
+  [LGGlassViewFactory applyGlassTint:view.glassView tint:tint];
 }
 
 // JS 脉冲活跃开关（省电核心）：玻璃背后内容在无触摸交互下发生变化（切 Tab、换主题、

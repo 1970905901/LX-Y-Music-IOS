@@ -142,6 +142,9 @@ export default memo(() => {
   const pillSize = miniPlayerHeight > 0 ? miniPlayerHeight : scaleSizeW(56)
   const collapseAnim = useRef(new Animated.Value(collapsed ? 1 : 0)).current
   useEffect(() => {
+    // 收起/展开过程玻璃容器逐帧变形：渲染时钟若保持暂停会拉伸旧帧、原生玻璃
+    // 采样也可能脱帧（边缘出黑带），给一次覆盖整个动画时长的渲染脉冲
+    pulseLiquidGlass(400)
     Animated.timing(collapseAnim, {
       toValue: collapsed ? 1 : 0,
       duration: 220,

@@ -45,6 +45,9 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
   const effectiveCollapsed = isHome && tabBarCollapsed
   const collapseAnim = useRef(new Animated.Value(effectiveCollapsed ? 1 : 0)).current
   useEffect(() => {
+    // 收起/展开过程容器位置/宽度逐帧变化：玻璃若保持暂停会拉伸旧帧、原生玻璃
+    // 采样也可能脱帧（右侧出黑带），给一次覆盖整个动画时长的渲染脉冲
+    pulseLiquidGlass(400)
     // bottom/paddingLeft 属布局属性，原生驱动不支持，走 JS 驱动（状态变化低频，开销可忽略）
     Animated.timing(collapseAnim, {
       toValue: effectiveCollapsed ? 1 : 0,

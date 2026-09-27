@@ -931,6 +931,13 @@ static NSNumber *LXNowPlayingDefaultPlaybackRateValue(void) {
 static void LXSetNowPlayingPlaybackState(MPNowPlayingPlaybackState state, NSDictionary *options) {
   LXNowPlayingState = state;
 
+  // 时钟冻结标志与 Now Playing 播放态联动：nativeFlac 驱动下 TrackPlayer 已
+  // reset，不再产生 state 生命周期事件，hold 只会停留在 reset 时的 YES ——
+  // 原生歌词时钟在控制中心/锁屏永远冻结在锚点行（歌词不实时同步）。
+  // 以 play/pause 发布为准解除/置位冻结；TrackPlayer 路径的 state 事件携带
+  // 同一引擎状态，仍会照常更新该标志，两条路径一致不冲突。
+  LXNowPlayingClockHold = (state != MPNowPlayingPlaybackStatePlaying);
+
   // 播放事件可能早于歌曲元数据到达。不要把只有 playbackRate、没有标题的
   // 空字典发布给 MPNowPlayingInfoCenter：iOS 27 Beta 7 会把它识别成“未在播放”，
   // 且后续补写元数据不一定重新显示控制中心媒体卡片。先缓存状态，等

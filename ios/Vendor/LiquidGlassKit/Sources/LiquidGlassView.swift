@@ -154,9 +154,20 @@ struct LiquidGlass {
 
 final class BackdropView: UIView {
 
+    /// iOS 26 重构了 backdrop 私有机制，`CABackdropLayer` 可能被移除/改名。
+    /// 该类不存在时 `layerClass` 退化成 `CALayer`，此时对普通 CALayer 设置私有
+    /// KVC key 会抛 `NSUnknownKeyException` 导致启动崩溃。故仅在 layer 确为
+    /// `CABackdropLayer` 时才写私有属性，否则标记为不可用、捕获时跳过。
+    private static let backdropLayerClass: AnyClass? = NSClassFromString("CABackdropLayer")
+
     override class var layerClass: AnyClass {
-        // CABackdropLayer is a private API that captures content behind the layer
-        NSClassFromString("CABackdropLayer") ?? CALayer.self
+        backdropLayerClass ?? CALayer.self
+    }
+
+    /// 真正的 CABackdropLayer 是否可用（决定 captureBackdrop 是否能工作）
+    var isBackdropAvailable: Bool {
+        guard let cls = BackdropView.backdropLayerClass else { return false }
+        return layer.isKind(of: cls)
     }
 
     init() {
@@ -164,6 +175,10 @@ final class BackdropView: UIView {
 
         // Configure backdrop view
         isUserInteractionEnabled = false
+
+        // 仅对真正的 CABackdropLayer 写私有属性；普通 CALayer 上写未知 key 会崩溃（iOS 26 常见）。
+        guard isBackdropAvailable else { return }
+
         layer.setValue(false, forKey: "layerUsesCoreImageFilters")
 
         // Configure backdrop layer properties (private API)
@@ -214,31 +229,44 @@ final class LiquidGlassRenderer {
     @MainActor static let shared = LiquidGlassRenderer()
 
     let device: MTLDevice
-    let pipelineState: MTLRenderPipelineState
+    /// nil 表示 shader 编译失败（如 iOS 26 Metal 运行时更严格）：此时玻璃退化为透明，
+    /// 不致命崩溃，App 仍可正常使用。
+    let pipelineState: MTLRenderPipelineState?
 
     private init() {
         guard let device = MTLCreateSystemDefaultDevice() else {
             fatalError("Metal not supported")
         }
         self.device = device
+        self.pipelineState = LiquidGlassRenderer.buildPipeline(device: device)
+    }
 
-        // Runtime shader compilation happens on-device, so the CI toolchain never
-        // needs a Metal compiler and no metallib resource bundle is required.
-        // (Upstream loads a SwiftPM-precompiled default.metallib here instead.)
-        // 两个 MSL 必须各自独立编译：两份源码都定义了 VertexOutput（上游是两个
-        // .metal 编译单元进同一个 metallib），拼成一个 source 会报重定义错误。
-        let vertexLibrary = try! device.makeLibrary(source: LiquidGlassShaderSource.vertex, options: nil)
-        let fragmentLibrary = try! device.makeLibrary(source: LiquidGlassShaderSource.fragment, options: nil)
+    /// 运行时编译 shader 并构建渲染管线；任何一步失败返回 nil（降级透明，不崩溃）。
+    private static func buildPipeline(device: MTLDevice) -> MTLRenderPipelineState? {
+        do {
+            // Runtime shader compilation happens on-device, so the CI toolchain never
+            // needs a Metal compiler and no metallib resource bundle is required.
+            // (Upstream loads a SwiftPM-precompiled default.metallib here instead.)
+            // 两个 MSL 必须各自独立编译：两份源码都定义了 VertexOutput（上游是两个
+            // .metal 编译单元进同一个 metallib），拼成一个 source 会报重定义错误。
+            let vertexLibrary = try device.makeLibrary(source: LiquidGlassShaderSource.vertex, options: nil)
+            let fragmentLibrary = try device.makeLibrary(source: LiquidGlassShaderSource.fragment, options: nil)
 
-        let vertexFunction = vertexLibrary.makeFunction(name: "fullscreenQuad")!
-        let fragmentFunction = fragmentLibrary.makeFunction(name: "liquidGlassEffect")!
+            guard let vertexFunction = vertexLibrary.makeFunction(name: "fullscreenQuad"),
+                  let fragmentFunction = fragmentLibrary.makeFunction(name: "liquidGlassEffect") else {
+                return nil
+            }
 
-        let pipelineDescriptor = MTLRenderPipelineDescriptor()
-        pipelineDescriptor.vertexFunction = vertexFunction
-        pipelineDescriptor.fragmentFunction = fragmentFunction
-        pipelineDescriptor.colorAttachments[0].pixelFormat = .bgra8Unorm  // Match MTKView
+            let pipelineDescriptor = MTLRenderPipelineDescriptor()
+            pipelineDescriptor.vertexFunction = vertexFunction
+            pipelineDescriptor.fragmentFunction = fragmentFunction
+            pipelineDescriptor.colorAttachments[0].pixelFormat = .bgra8Unorm  // Match MTKView
 
-        self.pipelineState = try! device.makeRenderPipelineState(descriptor: pipelineDescriptor)
+            return try device.makeRenderPipelineState(descriptor: pipelineDescriptor)
+        } catch {
+            print("[LiquidGlass] shader/pipeline build failed, falling back to transparent glass: \(error)")
+            return nil
+        }
     }
 }
 
@@ -259,9 +287,11 @@ final class LiquidGlassView: MTKView {
     /// Set to false for manual control via `captureBackground()`.
     var autoCapture: Bool = true
 
-    /// Whether the render clock is running. Kept for interface compatibility —
-    /// rendering is continuous (kit-aligned 60fps) per product decision.
+    /// Whether the render clock is running (driven by jsActive / gesture / mount).
+    /// 静止时为 false：MTKView 暂停，不渲染/不捕获，复用最后一帧（高刷不掉帧）。
     private var renderActive = true
+    /// 下一帧是否需要重新捕获背景纹理（布局/圆角/触摸/恢复活跃时置位）
+    private var needsCapture = true
 
     var touchPoint: CGPoint? = nil
 
@@ -306,13 +336,26 @@ final class LiquidGlassView: MTKView {
         // 清屏色全透明：空帧（纹理未就绪等）不改变画面，避免闪黑
         clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 0)
 
-        // 常驻渲染（对齐上游 kit 60fps）：按需暂停机制保留接口但不再生效
+        // 高刷设备（ProMotion 120Hz）下限制到 60fps：常驻满帧渲染 + 每帧整窗背景
+        // 捕获会导致严重掉帧。setRenderActive 在静止时暂停渲染时钟，运动时才满帧。
         enableSetNeedsDisplay = true
+        preferredFramesPerSecond = 60
         isPaused = false
     }
 
-    /// 兼容接口：曾用于按需渲染省电；现按用户要求对齐 kit 常驻 60fps，为空实现。
+    /// 按需渲染：活跃（背后内容在变，由 jsActive/手势/mount 三源驱动）时以
+    /// preferredFramesPerSecond 连续渲染并捕获；静止时暂停 MTKView 渲染时钟，
+    /// 完全不渲染/不捕获、复用最后一帧——高刷设备不再空转掉帧。
     func setRenderActive(_ active: Bool) {
+        let wasActive = renderActive
+        renderActive = active
+        if active {
+            needsCapture = true   // 恢复后首帧需重新捕获（静止期间背后内容可能已变）
+            isPaused = false
+            setNeedsDisplay()
+        } else if wasActive {
+            isPaused = true
+        }
     }
 
     // MARK: - Background Capture
@@ -359,8 +402,13 @@ final class LiquidGlassView: MTKView {
             context.translateBy(x: -captureRectInRoot.origin.x, y: -captureRectInRoot.origin.y)
 //            context.interpolationQuality = .none
 
-            let rootViewLayer = rootView.layer.presentation() ?? rootView.layer
-            rootViewLayer.render(in: context)
+            // 用官方 drawHierarchy 代替 layer.render(in:) —— 后者在 iOS 26 递归整窗
+            // 私有图层（状态栏/键盘/RNN 容器）时极易抛异常崩溃。drawHierarchy 走
+            // 标准 UIView 渲染路径，对私有 layer 兼容性更好。
+            // 注意：drawHierarchy 需在当前 UIKit 图形上下文内绘制，必须 push/pop context。
+            UIGraphicsPushContext(context)
+            rootView.drawHierarchy(in: rootView.bounds, afterScreenUpdates: false)
+            UIGraphicsPopContext()
         }
 
         blurTexture()
@@ -369,6 +417,9 @@ final class LiquidGlassView: MTKView {
     /// Captures the background content via CABackdropLayer using drawHierarchy.
     /// Noticeable rendering delay.
     func captureBackdrop() {
+        // iOS 26 上 CABackdropLayer 可能不可用（见 BackdropView），不可用则跳过捕获，
+        // 玻璃退化为透明（不崩溃，仅失去背后折射内容）。
+        guard backdropView.isBackdropAvailable else { return }
         guard let superview else { return }
 
         let sizeCoefficient = liquidGlass.backgroundTextureSizeCoefficient
@@ -497,26 +548,33 @@ final class LiquidGlassView: MTKView {
         let height = Int(bounds.height * scale)
         zeroCopyBridge.setupBuffer(width: width, height: height)
 
+        // 尺寸/圆角变化后需重新捕获背景，下一帧补一帧
+        needsCapture = true
         // 尺寸/圆角变化后立即重绘一帧：暂停状态下也保证玻璃形状与折射内容与布局一致
         setNeedsDisplay()
     }
 
     override func draw(_ rect: CGRect) {
-        // Auto-capture background from superview if enabled
-        if autoCapture {
+        // 仅活跃渲染（renderActive）或 needsCapture 待补时捕获背景；静止且已捕获过
+        // 则跳过整窗捕获，复用上一帧纹理，避免高刷空转掉帧。
+        if autoCapture && (renderActive || needsCapture) {
             captureBackground()
+            needsCapture = false
         }
 
         // 背景纹理未就绪（刚挂载/缓冲尺寸未定，setupBuffer 尚未跑出有效像素缓冲）
         // 时跳过本帧：视图保持透明，等下一帧再画，避免闪黑
         guard backgroundTexture != nil else { return }
 
+        // shader/pipeline 构建失败时玻璃降级为透明（iOS 26 兼容兜底），不崩溃
+        guard let pipeline = LiquidGlassRenderer.shared.pipelineState else { return }
+
         guard let drawable = currentDrawable,
               let renderPassDesc = currentRenderPassDescriptor,
               let commandBuffer = commandQueue.makeCommandBuffer(),
               let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDesc) else { return }
 
-        encoder.setRenderPipelineState(LiquidGlassRenderer.shared.pipelineState)
+        encoder.setRenderPipelineState(pipeline)
         encoder.setFragmentBuffer(uniformsBuffer, offset: 0, index: 0)
 
         if let texture = backgroundTexture {
@@ -546,8 +604,13 @@ extension UIColor {
 //}
 
 extension UIView {
-    /// Finds the root view in the view hierarchy.
+    /// Finds the topmost content view owning our window.
+    /// 直接对 `UIWindow.layer` 调 render/drawHierarchy 在 iOS 26 上易因私有状态栏/
+    /// 键盘/RNN 容器图层抛异常崩溃；优先返回 window.rootViewController.view。
     func findRootView() -> UIView? {
+        if let rootVCView = window?.rootViewController?.view {
+            return rootVCView
+        }
         var current: UIView? = superview
         while let parent = current?.superview {
             current = parent

@@ -96,8 +96,9 @@ public class LiquidGlassEffectView: UIView, AnyVisualEffectView, UIGestureRecogn
     }
 
     /// RN bridge entry: throttle continuous MTKView rendering (JS passes `fps`).
+    /// 高刷设备（ProMotion 120Hz）上限钳制到 60，避免满帧 Metal 渲染 + 整窗捕获掉帧。
     @objc public func setPreferredFramesPerSecond(_ fps: Int) {
-        liquidGlassView?.preferredFramesPerSecond = max(1, fps)
+        liquidGlassView?.preferredFramesPerSecond = min(max(1, fps), 60)
     }
 
     /// RN bridge entry: forward tint changes into the immutable glass preset.

@@ -99,7 +99,7 @@ public final class LiquidLensView: UIView, AnyLiquidLensView {
         } else {
             isBlurFallbackActive = false
             liquidGlassView.setRenderActive(true)
-            UIView.animate(withDuration: 0.15) {
+            UIView.animate(withDuration: 0.22) {
                 self.liquidGlassView.alpha = 1
                 self.fallbackBlurView?.alpha = 0
             }
@@ -108,7 +108,9 @@ public final class LiquidLensView: UIView, AnyLiquidLensView {
 
     private func ensureBlurFallback() {
         guard fallbackBlurView == nil else { return }
-        let blur = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterial))
+        // systemUltraThinMaterial：最轻磨砂档，与液态玻璃近透明的静止观感差最小
+        // （理由同 LiquidGlassEffectView.setupFallbackBlur）
+        let blur = UIVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterial))
         blur.isUserInteractionEnabled = false
         blur.alpha = 0
         blur.layer.cornerCurve = .circular

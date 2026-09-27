@@ -103,7 +103,10 @@ public class LiquidGlassEffectView: UIView, AnyVisualEffectView, UIGestureRecogn
     /// 创建滚动回退磨砂层：置于液态玻璃之下（滚动中液态玻璃淡出、磨砂淡入），
     /// 不参与命中测试；染色覆层放进 contentView 随 blur 一起淡入淡出。
     private func setupFallbackBlur(below sibling: UIView) {
-        let blur = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterial))
+        // systemUltraThinMaterial：系统最轻磨砂档——液态玻璃本体只做 σ≈0.3 微模糊
+        // （近透明折射），磨砂档位越轻与静止态的材质差越小；档位再往上（thin 及
+        // 以上）雾感明显，滚动开始/结束的材质切换肉眼可辨。
+        let blur = UIVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterial))
         blur.isUserInteractionEnabled = false
         blur.alpha = 0
         let overlay = UIView()
@@ -260,7 +263,8 @@ public class LiquidGlassEffectView: UIView, AnyVisualEffectView, UIGestureRecogn
         isFallbackActive = false
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
             guard !self.isFallbackActive else { return }
-            UIView.animate(withDuration: 0.18) {
+            // 切回过渡稍长（0.22s）：材质变化被拉平，肉眼更难捕捉切换瞬间
+            UIView.animate(withDuration: 0.22) {
                 self.liquidGlassView?.alpha = 1
                 self.fallbackBlurView?.alpha = 0
             }

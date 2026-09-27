@@ -90,7 +90,9 @@ const TAB_LABEL_KEYS: Record<(typeof TAB_IDS)[number]['id'], string> = {
 }
 
 const BAR_HEIGHT = 56
-const LENS_VERTICAL_INSET = 6
+// 透镜条带上下各收 10：药丸高度 = 56 - 20 = 36，配 ~56pt 药丸宽度呈明显长胶囊
+// （此前 44 高接近正方形，切换时观感如"圆形贴片"）
+const LENS_VERTICAL_INSET = 10
 
 export default memo(() => {
   const theme = useTheme()

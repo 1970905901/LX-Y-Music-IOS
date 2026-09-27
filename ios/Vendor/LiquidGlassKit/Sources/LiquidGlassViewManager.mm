@@ -53,9 +53,10 @@
 - (void)clearLensTouchPoint;
 @end
 
-// 按压下陷的竖向压缩率：handlePressObserver: 的形变与 layoutSubviews 的玻璃
-// 顶部预放量必须共用同一取值，才能保证压到底时玻璃顶边恰好与宿主顶边齐平
-static const CGFloat kPressSquishScaleY = 0.92;
+// 按压下陷的竖向压缩率：幅度取"肉眼可辨且露缝可忽略"的平衡点（顶边最大下沉
+// 约栏高 4%，收起/展开等容器变形时玻璃不越出宿主裁剪区——越出部分会让玻璃
+// 效果采样出错出黑边，故不再使用顶部预伸量方案）
+static const CGFloat kPressSquishScaleY = 0.96;
 
 // Host view: an RCTView so all standard RN view props (borderRadius, overflow, pointerEvents,
 // opacity, shadow*) keep working; the glass backing (native UIGlassEffect on iOS 26+ built with
@@ -106,13 +107,11 @@ static const CGFloat kPressSquishScaleY = 0.92;
 - (void)handlePressObserver:(UILongPressGestureRecognizer *)gesture {
   switch (gesture.state) {
     case UIGestureRecognizerStateBegan: {
-      // 幅度取肉眼清晰可辨的水平（竖向压缩 kPressSquishScaleY）。以底边为锚（tab 栏/
-      // 播放条均沉底）：按压力把玻璃往下压，顶边下沉、底边保持贴合；顶部的预伸量
-      // （见 layoutSubviews）恰好被这段下沉吃掉，压到底也不露缝。
-      // 注意位移补偿要按玻璃实际高度算（含顶部预伸量），不能用宿主 bounds。
+      // 幅度取肉眼可辨且露缝可忽略的平衡点：以底边为锚（tab 栏/播放条均沉底）
+      // 竖向下压 kPressSquishScaleY，顶边短暂下沉约栏高 4%、底边保持贴合
       CGFloat squishOffset = _glassView.frame.size.height * (1.0 - kPressSquishScaleY) / 2.0;
       CGAffineTransform squish = CGAffineTransformMakeTranslation(0, squishOffset);
-      squish = CGAffineTransformScale(squish, 0.97, kPressSquishScaleY);
+      squish = CGAffineTransformScale(squish, 0.98, kPressSquishScaleY);
       [UIView animateWithDuration:0.12
                             delay:0
            usingSpringWithDamping:0.85
@@ -163,15 +162,11 @@ static const CGFloat kPressSquishScaleY = 0.92;
 - (void)layoutSubviews {
   [super layoutSubviews];
   // RN 设置在宿主 RCTView 上的圆角转发给玻璃视图（自研路径的 shader uniforms.cornerRadius
-  // 驱动折射形状；原生路径由系统按 layer.cornerRadius 裁剪）
+  // 驱动折射形状；原生路径由系统按 layer.cornerRadius 裁剪）。
+  // 玻璃严格填满宿主（autoresizing 维护 frame），不向裁剪区外预伸——超界部分在
+  // 容器逐帧变形时会导致玻璃效果采样出错（黑边），见 handlePressObserver: 注释。
   _glassView.layer.cornerRadius = self.layer.cornerRadius;
   _glassView.layer.cornerCurve = self.layer.cornerCurve;
-  // 玻璃顶部向上预伸出最大下压量：静止态被父容器圆角裁剪、观感与铺满一致；按压缩到底
-  // （kPressSquishScaleY）时顶边恰好落回宿主顶边——全程不露缝，也无需在玻璃下垫
-  // 任何遮罩层（垫底会被玻璃的背景采样捕获，把材质染成一块实色"磨砂残留"）
-  CGFloat ratio = 1.0 - kPressSquishScaleY;
-  CGFloat overscan = self.bounds.size.height * ratio / (1.0 - ratio);
-  _glassView.frame = CGRectMake(0, -overscan, self.bounds.size.width, self.bounds.size.height + overscan);
 }
 
 // touchPoint 眩光（kit 能力）：手指在栏体空白区域按下/移动时，玻璃高光跟随手指。

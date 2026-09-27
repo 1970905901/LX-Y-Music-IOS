@@ -70,7 +70,9 @@
   if (self = [super initWithFrame:frame]) {
     [self installGlassBacking:[LGGlassViewFactory createGlassBacking]];
     self.clipsToBounds = YES;
-    self.layer.cornerCurve = UIViewCornerCurveContinuous;
+    // 常量名在旧 SDK(UIViewCornerCurveContinuous)与新 SDK(Xcode 26 起的 UICornerCurve 系列)间不一致,
+    // 直接用底层字符串值,两端 SDK 均可编译且运行时行为相同。
+    self.layer.cornerCurve = @"continuous";
   }
   return self;
 }

@@ -91,7 +91,6 @@ const TAB_LABEL_KEYS: Record<(typeof TAB_IDS)[number]['id'], string> = {
 
 const BAR_HEIGHT = 64
 const LENS_VERTICAL_INSET = 6
-const LENS_PILL_WIDTH = 52
 
 export default memo(() => {
   const theme = useTheme()

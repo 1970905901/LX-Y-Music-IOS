@@ -80,12 +80,10 @@ export default memo(() => {
   const barStyle = useMemo(() => styles.bar, [])
 
   // 主题染色：玻璃材质色跟随 App 主题（如绿主题 → 淡绿磨砂玻璃）。
-  // 动态/透明背景主题的氛围色本身近透明，此时不喂染色，走玻璃默认材质。
-  const glassTint = useMemo(() => {
-    const bg = theme['c-app-background']
-    if (/,\s*0\)$/.test(bg)) return undefined
-    return applyOpacity(bg, 78)
-  }, [theme])
+  // 用不透明的主题浅色（c-primary-light-600）× 85%：shader 有效混合度 =
+  // alpha × 0.8 ≈ 0.68，对齐上游 .regular 预设的磨砂强度（染色过弱时
+  // 深色内容会从玻璃后直接透出，视觉上如同闪黑）。
+  const glassTint = useMemo(() => applyOpacity(theme['c-primary-light-600'], 85), [theme])
 
   // 无触摸的内容变化时恢复玻璃渲染（静止时原生渲染时钟是暂停的）：
   // 切 Tab 会整体替换背后内容，换主题会改变玻璃外观

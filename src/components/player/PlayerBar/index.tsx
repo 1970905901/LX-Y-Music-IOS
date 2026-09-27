@@ -41,11 +41,7 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
   }, [musicInfo, theme, safeAreaBottom, isHorizontalMode])
 
   // 主题染色：玻璃材质色跟随 App 主题（同 ModernTabBar）
-  const glassTint = useMemo(() => {
-    const bg = theme['c-app-background']
-    if (/,\s*0\)$/.test(bg)) return undefined
-    return applyOpacity(bg, 78)
-  }, [theme])
+  const glassTint = useMemo(() => applyOpacity(theme['c-primary-light-600'], 85), [theme])
 
   const handleLongPress = useCallback(() => {
     longPressedRef.current = true

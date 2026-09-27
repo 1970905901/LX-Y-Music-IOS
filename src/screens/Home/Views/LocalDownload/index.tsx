@@ -384,6 +384,12 @@ export default memo(() => {
               numColumns={isHorizontal ? 2 : 1}
               columnWrapperStyle={isHorizontal ? styles.columnWrapper : undefined}
               keyExtractor={item => item.id}
+              // 低端 60fps：限制渲染窗口，数百项不一次进场
+              initialNumToRender={20}
+              windowSize={10}
+              maxToRenderPerBatch={10}
+              removeClippedSubviews={false}
+              updateCellsBatchingPeriod={50}
               renderItem={({ item, index }) => {
                 const fileSize = taskSizes[item.id] ?? item.progress?.total ?? 0
                 return (
@@ -421,6 +427,11 @@ export default memo(() => {
               numColumns={isHorizontal ? 2 : 1}
               columnWrapperStyle={isHorizontal ? styles.columnWrapper : undefined}
               keyExtractor={item => item.id}
+              initialNumToRender={20}
+              windowSize={10}
+              maxToRenderPerBatch={10}
+              removeClippedSubviews={false}
+              updateCellsBatchingPeriod={50}
               renderItem={({ item, index }) => (
                 <View style={isHorizontal ? styles.itemWrapper : null}>
                   <SongRow

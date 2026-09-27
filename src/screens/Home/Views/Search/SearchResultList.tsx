@@ -140,19 +140,6 @@ export default forwardRef(({ header, searchType, source }: SearchResultListProps
   }))
 
   const renderItemContent = useCallback(({ item, index }: { item: any, index: number }) => {
-    log.info('[SearchResultList] === 渲染列表项 ===', {
-      index,
-      searchType,
-      item: {
-        id: item.id,
-        name: item.name,
-        mid: item.mid,
-        source: item.source,
-        albumSize: item.albumSize,
-        songNum: item.songNum,
-        size: item.size,
-      },
-    })
     if (searchType === 'singer') {
       return <SingerListItem artist={item} showFollowButton={true} />
     }
@@ -183,6 +170,14 @@ export default forwardRef(({ header, searchType, source }: SearchResultListProps
       numColumns={isHorizontal ? 2 : 1}
       renderItem={renderItem}
       keyExtractor={item => String(item.id)}
+      // 低端 60fps 机型列表性能：限制渲染窗口与批量、关闭裁剪避免网格闪烁；
+      // 单元格高度不固定，故不补 getItemLayout（避免变高列表测量错乱）
+      initialNumToRender={10}
+      windowSize={8}
+      maxToRenderPerBatch={8}
+      removeClippedSubviews={false}
+      updateCellsBatchingPeriod={50}
+      scrollEventThrottle={16}
       columnWrapperStyle={isHorizontal ? styles.columnWrapper : undefined}
       onScrollBeginDrag={Keyboard.dismiss}
       onEndReached={() => {

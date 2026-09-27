@@ -336,6 +336,11 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
             renderItem={renderItem}
             keyExtractor={(item, index) => 'progress' in item ? item.id : item.id + index}
             initialNumToRender={10}
+            // 低端 60fps：限制渲染窗口与批量、关闭裁剪
+            windowSize={10}
+            maxToRenderPerBatch={20}
+            removeClippedSubviews={false}
+            updateCellsBatchingPeriod={50}
             getItemLayout={getItemLayout}
             // 挂载首帧就定位到当前播放歌曲，避免「先渲染在顶部、再跳到当前项」。
             // clamp 到最后一个下标，防止列表比上次打开更短时越界。

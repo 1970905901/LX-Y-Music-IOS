@@ -909,6 +909,12 @@ export default memo(() => {
         renderItem={renderSong}
         keyExtractor={item => item.id}
         style={{ flex: 1 }}
+        // 低端 60fps：限制渲染窗口与批量、关闭裁剪
+        initialNumToRender={20}
+        windowSize={10}
+        maxToRenderPerBatch={10}
+        removeClippedSubviews={false}
+        updateCellsBatchingPeriod={50}
         getItemLayout={(data, index) => ({
           length: ITEM_HEIGHT,
           offset: ITEM_HEIGHT * Math.floor(index / numColumns),

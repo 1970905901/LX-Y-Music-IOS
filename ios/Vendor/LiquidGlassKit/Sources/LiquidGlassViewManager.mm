@@ -545,11 +545,14 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
   if (_dragging) return; // 拖拽中透镜 frame/位置由手势逻辑接管
   _lens.frame = CGRectMake(0, 0, _pillWidth, self.bounds.size.height);
   _lens.center = CGPointMake(_x, self.bounds.size.height / 2.0);
-  // 圆角对齐宿主：JS 在条带样式上设置 borderRadius（= tab 栏圆角），转发给透镜，
-  // 透镜呈与栏体圆角一致的圆角矩形而非系统胶囊（自研透镜支持该定制）
+  // 圆角对齐宿主（JS 在条带样式上设置 borderRadius = tab 栏圆角），但必须钳制到
+  // 不超过胶囊几何极限（min(宽,高)/2）：圆角大于短边一半时自研 shader 的圆角
+  // SDF 不做钳制，会把透镜画成近矩形。钳制后高 56 的透镜取 28 = 标准圆角胶囊，
+  // 且与栏体圆角在视觉上一致（UIKit 对 layer.cornerRadius 同样按短边一半收敛）。
   id<LGLensCustomizations> lensCustom = (id<LGLensCustomizations>)_lens;
   if ([lensCustom respondsToSelector:@selector(setLensCornerRadius:)]) {
-    [lensCustom setLensCornerRadius:self.layer.cornerRadius];
+    CGFloat radius = MIN(MIN(self.layer.cornerRadius, _pillWidth / 2.0), self.bounds.size.height / 2.0);
+    [lensCustom setLensCornerRadius:radius];
   }
 }
 

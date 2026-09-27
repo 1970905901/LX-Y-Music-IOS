@@ -12,6 +12,8 @@ type LiquidLensProps = ViewProps & {
    * 静止零开销）。长按拖拽由原生手势直接驱动，一般无需从 JS 传此 prop。
    */
   lifted?: boolean
+  /** 磨砂染色覆层不透明度 0~1（用户设置 theme.glassOpacity / 100）。 */
+  glassOpacity?: number
   /** 药丸宽度，默认 56。 */
   pillWidth?: number
   /** tab 数量：长按拖拽松手时用于把落点位置换算成 tab 序号。 */
@@ -36,12 +38,13 @@ const NativeLiquidLens = requireNativeComponent<LiquidLensProps>('LiquidGlassLen
  * 之上、tab 内容之下；通过 `x` 指定目标中心。原生的 userInteractionEnabled
  * 已关闭，触摸全部穿透。
  */
-const LiquidLens = memo(({ x, lifted = false, pillWidth, tabCount, tint, onDragSelect, style }: LiquidLensProps) => {
+const LiquidLens = memo(({ x, lifted = false, glassOpacity = 0.6, pillWidth, tabCount, tint, onDragSelect, style }: LiquidLensProps) => {
   return (
     <NativeLiquidLens
       style={style}
       x={x}
       lifted={lifted}
+      glassOpacity={glassOpacity}
       pillWidth={pillWidth}
       tabCount={tabCount}
       tint={tint}

@@ -4,9 +4,9 @@ import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
 import { useNavActiveId, useSafeAreaBottom } from '@/store/common/hook'
 import { setNavActiveId } from '@/core/common'
+import { useSettingValue } from '@/store/setting/hook'
 import { createStyle } from '@/utils/tools'
 import { scaleSizeH, scaleSizeW } from '@/utils/pixelRatio'
-import { applyOpacity } from '@/utils/colorOpacity'
 import { pulseLiquidGlass } from '@/utils/liquidGlassActivity'
 import { useTabBarCollapsed, useMiniPlayerHeight } from '@/utils/tabBarCollapse'
 import { setTabBarExpanded } from '@/utils/nativeModules/utils'
@@ -102,11 +102,10 @@ export default memo(() => {
   // 深浅色模式均无描边（纯玻璃质感，玻璃材质自带边缘光）
   const barStyle = useMemo(() => styles.bar, [])
 
-  // 主题染色：玻璃材质色跟随 App 主题（如绿主题 → 淡绿磨砂玻璃）。
-  // 用不透明的主题浅色（c-primary-light-600）× 85%：shader 有效混合度 =
-  // alpha × 0.8 ≈ 0.68，对齐上游 .regular 预设的磨砂强度（染色过弱时
-  // 深色内容会从玻璃后直接透出，视觉上如同闪黑）。
-  const glassTint = useMemo(() => applyOpacity(theme['c-primary-light-600'], 80), [theme])
+  // 主题染色：磨砂覆层基色（不透明主题浅色，明暗自适应）；不透明度独立由
+  // theme.glassOpacity 用户设置驱动，实时响应滑杆调节
+  const glassTint = useMemo(() => theme['c-primary-light-600'], [theme])
+  const glassOpacity = useSettingValue('theme.glassOpacity') / 100
 
   // 无触摸的内容变化时恢复玻璃渲染（静止时原生渲染时钟是暂停的）：
   // 切 Tab 会整体替换背后内容（页面切换动画约 300ms，脉冲 500ms 足够覆盖，
@@ -188,7 +187,7 @@ export default memo(() => {
         pointerEvents={collapsed ? 'auto' : 'none'}
       >
         <Pressable style={styles.pillInner} onPress={handlePillPress}>
-          <LiquidGlass tint={glassTint} style={{ borderRadius: designRadius.pill }} />
+          <LiquidGlass tint={glassTint} glassOpacity={glassOpacity} style={{ borderRadius: designRadius.pill }} />
           <View style={styles.pillIcon} pointerEvents="none">
             <Icon name="menu" size={20} color={theme['c-primary']} />
           </View>
@@ -207,7 +206,7 @@ export default memo(() => {
         pointerEvents={collapsed ? 'none' : 'auto'}
       >
         {/* 玻璃衬底带与容器一致的圆角：按压下陷内缩时仍呈圆角，不露直角边 */}
-        <LiquidGlass tint={glassTint} style={{ borderRadius: designRadius.xl }} />
+        <LiquidGlass tint={glassTint} glassOpacity={glassOpacity} style={{ borderRadius: designRadius.xl }} />
         {TAB_IDS.map((tab) => {
           const isActive = activeId === tab.id
           return (
@@ -236,8 +235,8 @@ export default memo(() => {
             </Pressable>
           )
         })}
-        {/* 透镜药丸条带：置于 tab 内容【之上】——抬起/滑动时玻璃罩住图标与文字，
-            内容经折射进入透镜（kit 的 tab 透镜效果）；触摸穿透不影响 tab 点击 */}
+        {/* 透镜药丸条带：置于 tab 内容【之上】——抬起/滑动时磨砂药丸罩住图标与文字，
+            触摸穿透不影响 tab 点击 */}
         {barWidth > 0 ? (
           <LiquidLens
             style={{
@@ -251,6 +250,7 @@ export default memo(() => {
             x={lensX}
             tabCount={TAB_IDS.length}
             tint={glassTint}
+            glassOpacity={glassOpacity}
             onDragSelect={handleDragSelect}
             pillWidth={lensPillWidth}
           />

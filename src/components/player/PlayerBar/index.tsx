@@ -9,6 +9,7 @@ import PlayInfo from './components/PlayInfo'
 import ControlBtn from './components/ControlBtn'
 import { createStyle } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
+import { useSettingValue } from '@/store/setting/hook'
 import { navigations } from '@/navigation'
 import { PLAY_DETAIL_SCREEN } from '@/navigation/screenNames'
 import commonState from '@/store/common/state'
@@ -17,7 +18,6 @@ import { usePlayerMusicInfo } from '@/store/player/hook'
 import playerState from '@/store/player/state'
 import { LIST_IDS } from '@/config/constant'
 import { designRadius, designSpacing, bottomFloatGap } from '@/theme/DesignTokens'
-import { applyOpacity } from '@/utils/colorOpacity'
 import { pulseLiquidGlass } from '@/utils/liquidGlassActivity'
 import LiquidGlass from '@/components/common/LiquidGlass'
 
@@ -36,8 +36,10 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
     pulseLiquidGlass()
   }, [musicInfo, theme, safeAreaBottom, isHorizontalMode])
 
-  // 主题染色：玻璃材质色跟随 App 主题（同 ModernTabBar）
-  const glassTint = useMemo(() => applyOpacity(theme['c-primary-light-600'], 80), [theme])
+  // 主题染色：磨砂覆层基色（不透明主题浅色，同 ModernTabBar）；不透明度独立由
+  // theme.glassOpacity 用户设置驱动
+  const glassTint = useMemo(() => theme['c-primary-light-600'], [theme])
+  const glassOpacity = useSettingValue('theme.glassOpacity') / 100
 
   // Tab 栏收起时（仅 Home）：迷你播放器下移到收起按钮所在行并左侧让位（对齐参考交互）。
   // 动画为逐帧收窄：bottom/paddingLeft 两布局属性随 220ms 插值同步变化，胶囊边收窄
@@ -116,7 +118,7 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
             style={[styles.container, isHorizontalMode ? styles.horizontalContainer : null]}
             onLayout={(e) => { setMiniPlayerHeight(e.nativeEvent.layout.height) }}
           >
-            <LiquidGlass tint={glassTint} style={{ borderRadius: designRadius.xl }} />
+            <LiquidGlass tint={glassTint} glassOpacity={glassOpacity} style={{ borderRadius: designRadius.xl }} />
             <TouchableOpacity style={styles.left} onPress={handleNavigate} onLongPress={handleLongPress} activeOpacity={0.8}>
               <Pic />
               <View style={styles.center}>
@@ -131,7 +133,7 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
         </Animated.View>
       )
     },
-    [theme, glassTint, isHome, handleLongPress, handleNavigate, safeAreaBottom, isHorizontalMode, collapseAnim],
+    [theme, glassTint, glassOpacity, isHome, handleLongPress, handleNavigate, safeAreaBottom, isHorizontalMode, collapseAnim],
   )
 
   return keyboardShown ? null : playerComponent

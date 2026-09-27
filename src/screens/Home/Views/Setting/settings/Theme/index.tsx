@@ -8,6 +8,7 @@ import IsDynamicBg from './IsDynamicBg'
 import IsFontShadow from './IsFontShadow'
 import Blur from '@/screens/Home/Views/Setting/settings/Theme/Blur.tsx'
 import CustomBg from '@/screens/Home/Views/Setting/settings/Theme/CustomBg.tsx'
+import GlassOpacity from '@/screens/Home/Views/Setting/settings/Theme/GlassOpacity.tsx'
 import PicOpacity from '@/screens/Home/Views/Setting/settings/Theme/PicOpacity.tsx'
 import SectionOpacity from '@/screens/Home/Views/Setting/settings/Theme/SectionOpacity.tsx'
 import SubContainerOpacity from '@/screens/Home/Views/Setting/settings/Theme/SubContainerOpacity.tsx'
@@ -21,6 +22,7 @@ export default memo(() => {
       <CustomBg />
       <PicOpacity />
       <Blur />
+      <GlassOpacity />
       <SectionOpacity />
       <SubContainerOpacity />
       <IsFontShadow />

@@ -60,41 +60,42 @@ public final class LiquidLensView: UIView, AnyLiquidLensView {
 
     // MARK: - Private Views
 
-    /// The liquid glass view shown when lifted.
-    private let liquidGlassView = LiquidGlassView(.lens)
+    /// 抬起态的磨砂玻璃药丸（系统 UIBlurEffect + 染色覆层）。液态玻璃 Metal 路径
+    /// 随全局材质切换下线——透镜改为纯 GPU 合成的磨砂药丸，实时且零逐帧成本。
+    private let glassPillView = UIVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterial))
+    private let pillTintOverlay = UIView()
 
     // MARK: - Protocol Properties
 
-    /// Vendored：静止药丸层已移除——本项目静止态透镜整体隐藏（宿主 alpha 0），
-    /// 药丸只在抬起交叉淡化的一瞬露出来，在玻璃下方形成一层圆角矩形「底子」
-    /// （用户反馈的「透镜下面的方形底子」）。属性保留以满足 AnyLiquidLensView
-    /// 协议与 OC 桥接（pillColor prop 现为空操作）。
+    /// Vendored：静止药丸层已移除——本项目静止态透镜整体隐藏（宿主 alpha 0）。
+    /// 属性保留以满足 AnyLiquidLensView 协议与 OC 桥接（pillColor prop 现为空操作）。
     @objc public var restingBackgroundColor: UIColor? {
         get { nil }
         set {}
     }
 
-    /// Vendored addition: 主题染色转发到透镜内部的 LiquidGlassView（与底部栏玻璃同一
-    /// 材质色）。不设置时 .lens 预设近乎透明，滑过深色内容会呈现黑团（闪黑）。
+    /// Vendored addition: 主题染色（磨砂覆层基色，与底部栏玻璃一致）。不设置时为白色，
+    /// 滑过深色内容观感偏灰，建议始终随主题传入。
     @objc public func setLensTintColor(_ color: UIColor?) {
-        liquidGlassView.liquidGlass.tintColor = color
+        pillTintOverlay.backgroundColor = color ?? UIColor.white
     }
 
-    /// Vendored addition: 多矩形玻璃（kit frames 能力）——拖拽跨 tab 时传入「原 tab +
-    /// 目标 tab」两个矩形，shader 将其合并为一块连续玻璃（胶囊拉伸变形）。
-    /// 传空数组恢复单矩形（即自身 bounds）。
+    /// Vendored addition: 染色覆层不透明度（0~1，用户设置 theme.glassOpacity）。
+    @objc public func setLensGlassOpacity(_ opacity: CGFloat) {
+        pillTintOverlay.alpha = min(max(opacity, 0), 1)
+    }
+
+    /// Vendored addition: 多矩形玻璃（kit frames 能力）已随 Metal 路径下线——磨砂
+    /// 药丸的跨 tab 拉伸由宿主直接拉伸透镜 frame 表达。保留方法体为空操作以维持
+    /// OC 桥接面（respondsToSelector 分流）。
     @objc public func setLensFrames(_ rects: [NSValue]) {
-        liquidGlassView.frames = rects.map { $0.cgRectValue }
-        spanFramesActive = !rects.isEmpty
     }
 
-    /// Vendored addition: 手指位置驱动的眩光（玻璃坐标系）
+    /// Vendored addition: 手指位置驱动的眩光随 Metal 路径下线，保留空操作维持桥接面。
     @objc public func setLensTouchPoint(_ point: CGPoint) {
-        liquidGlassView.touchPoint = point
     }
 
     @objc public func clearLensTouchPoint() {
-        liquidGlassView.touchPoint = nil
     }
 
     /// Vendored addition: frames 合并进行中（宿主把透镜本体拉伸为跨 tab span），
@@ -122,11 +123,12 @@ public final class LiquidLensView: UIView, AnyLiquidLensView {
     private func commonInit() {
         clipsToBounds = false
 
-        // Setup liquid glass view - initially hidden
-        liquidGlassView.alpha = 0
-        liquidGlassView.isUserInteractionEnabled = false
-        // 透镜豁免错峰捕获：体积小、是唯一运动中的玻璃，保持每帧捕获保证折射实时
-        liquidGlassView.staggerExempt = true
+        // Setup frosted glass pill - initially hidden
+        glassPillView.isUserInteractionEnabled = false
+        glassPillView.alpha = 0
+        pillTintOverlay.isUserInteractionEnabled = false
+        pillTintOverlay.backgroundColor = UIColor.white
+        glassPillView.contentView.addSubview(pillTintOverlay)
         // Not added to view hierarchy initially - only shown when lifted
     }
 
@@ -145,20 +147,16 @@ public final class LiquidLensView: UIView, AnyLiquidLensView {
     public override func layoutSubviews() {
         super.layoutSubviews()
 
-        // Update liquid glass view to same bounds
-//        liquidGlassView.frame = bounds
-//        liquidGlassView.layer.cornerRadius = min(bounds.width, bounds.height) / 2
-
-        // Vendored（修「透镜偶发变矩形」）：抬起期间宿主任何一次重布局（圆角
-        // override 更新、尺寸变化、span 退出复位 frame）都同步重申玻璃的圆角与
-        // circular 曲线——玻璃的形状此前只在 liftUp 赋值一次，抬起期间发生的一切
-        // 变化（含曲线被系统/宿主改动为 continuous → 指数 4 → 近矩形）都无人纠正。
+        // Vendored：抬起期间宿主任何一次重布局（圆角 override 更新、尺寸变化、
+        // span 退出复位 frame）都同步重申药丸的圆角与 circular 曲线，保证任何
+        // 状态下透镜都是标准胶囊/圆角矩形，不会退化为方形。
         if isLifted {
             let halfShortSide = min(bounds.width, bounds.height) / 2
-            liquidGlassView.layer.cornerRadius = cornerRadiusOverride >= 0
+            glassPillView.layer.cornerRadius = cornerRadiusOverride >= 0
                 ? min(cornerRadiusOverride, halfShortSide)
                 : halfShortSide
-            liquidGlassView.layer.cornerCurve = .circular
+            glassPillView.layer.cornerCurve = .circular
+            pillTintOverlay.frame = glassPillView.contentView.bounds
         }
     }
 
@@ -207,39 +205,30 @@ public final class LiquidLensView: UIView, AnyLiquidLensView {
 
     /// Morphs from resting pill to liquid glass view.
     private func liftUp(animated: Bool, alongsideAnimations: (() -> Void)?, completion: ((Bool) -> Void)?) {
-        // Prepare liquid glass view at same position
-        liquidGlassView.frame = bounds
-        // Vendored（修「透镜偶发变矩形」）：圆角不取外部缓存的当前值——那依赖
-        // layoutSubviews 时序，宿主几何短暂无效（首帧/样式未应用）时曾被推成 0，
-        // shader 的圆角 SDF 以 0 渲染即矩形，且玻璃只在 liftUp 赋值一次、抬起期间
-        // 无处纠正。直接按 override 与短边一半现算，保证抬起的玻璃必为胶囊形态。
+        // Prepare frosted pill at same position
+        glassPillView.frame = bounds
+        // 抬起玻璃的圆角按 override 与短边一半现算并强制 circular 曲线：透镜恒为
+        // 圆角胶囊，不跟随系统默认（continuous 指数 4 会呈方形超椭圆观感）。
         let halfShortSide = min(bounds.width, bounds.height) / 2
-        liquidGlassView.layer.cornerRadius = cornerRadiusOverride >= 0
+        glassPillView.layer.cornerRadius = cornerRadiusOverride >= 0
             ? min(cornerRadiusOverride, halfShortSide)
             : halfShortSide
-        // 显式强制 circular 曲线（shader 超椭圆指数 = 2 = 圆）：透镜玻璃的圆角恒等于
-        // 胶囊短边一半，若系统默认曲线为 continuous（指数 4 = 方形超椭圆），整个形状
-        // 会退化为近似矩形。透镜必须是圆角胶囊，故不跟随系统默认。
-        liquidGlassView.layer.cornerCurve = .circular
-        liquidGlassView.alpha = 0
-        addSubview(liquidGlassView)
-
-        // Vendored: the glass view runs the demand-rendering clock (paused by default) —
-        // start it while lifted, stop it when resting again.
-        liquidGlassView.setRenderActive(true)
+        glassPillView.layer.cornerCurve = .circular
+        pillTintOverlay.frame = glassPillView.contentView.bounds
+        glassPillView.alpha = 0
+        addSubview(glassPillView)
 
         // Start position tracking for acceleration-based squash/stretch
         startPositionTracking()
 
         let animations = {
-            // Fade in liquid glass（静止药丸层已移除，直接淡入玻璃）
-            self.liquidGlassView.alpha = 1
+            // Fade in frosted pill
+            self.glassPillView.alpha = 1
 
             alongsideAnimations?()
         }
 
         let animationCompletion: (Bool) -> Void = { finished in
-            // Clean up resting pill state
             completion?(finished)
         }
 
@@ -259,14 +248,14 @@ public final class LiquidLensView: UIView, AnyLiquidLensView {
         }
     }
 
-    /// Morphs from liquid glass view back to resting pill.
+    /// Morphs back to resting (pill hidden).
     private func liftDown(animated: Bool, alongsideAnimations: (() -> Void)?, completion: ((Bool) -> Void)?) {
         // Stop position tracking
         stopPositionTracking()
 
         let animations = {
-            // Fade out liquid glass（静止药丸层已移除，玻璃淡出后由宿主整体淡出透镜）
-            self.liquidGlassView.alpha = 0
+            // Fade out frosted pill（淡出后由宿主整体淡出透镜）
+            self.glassPillView.alpha = 0
 
             alongsideAnimations?()
         }
@@ -276,11 +265,9 @@ public final class LiquidLensView: UIView, AnyLiquidLensView {
                 completion?(finished)
                 return
             }
-            // Clean up liquid glass view
-            self.liquidGlassView.removeFromSuperview()
-            self.liquidGlassView.alpha = 1
-            // Vendored: back to resting — pause the glass render clock (battery)
-            self.liquidGlassView.setRenderActive(false)
+            // Clean up frosted pill
+            self.glassPillView.removeFromSuperview()
+            self.glassPillView.alpha = 1
             completion?(finished)
         }
 
@@ -312,8 +299,8 @@ public final class LiquidLensView: UIView, AnyLiquidLensView {
         displayLink?.invalidate()
         displayLink = nil
         positionHistory.removeAll()
-        // Reset liquidGlassView to original bounds
-        liquidGlassView.frame = bounds
+        // Reset frosted pill to original bounds
+        glassPillView.frame = bounds
     }
 
     @objc private func updatePositionTracking() {
@@ -385,7 +372,7 @@ public final class LiquidLensView: UIView, AnyLiquidLensView {
         return avgAccelerationX - avgAccelerationY
     }
 
-    /// Applies squash/stretch size change to liquidGlassView based on acceleration.
+    /// Applies squash/stretch size change to glassPillView based on acceleration.
     private func applyAccelerationSize(_ acceleration: CGFloat) {
         // frames 合并（span）模式下玻璃尺寸由宿主决定，跳过挤压/拉伸
         if spanFramesActive { return }
@@ -404,7 +391,7 @@ public final class LiquidLensView: UIView, AnyLiquidLensView {
         let newHeight = bounds.height * scaleY
 
         // Center the new frame within bounds
-        liquidGlassView.frame = CGRect(
+        glassPillView.frame = CGRect(
             x: (bounds.width - newWidth) / 2,
             y: (bounds.height - newHeight) / 2,
             width: newWidth,

@@ -9,16 +9,13 @@
 //
 //  Usage contract (JS):
 //  - Render as a leaf element (<LiquidGlass />) absolutely positioned to fill its parent;
-//    it renders the live liquid-glass background of whatever is behind the parent container.
-//  - The parent container should have `borderRadius` + `overflow: 'hidden'` (rounds the bar);
-//    the corner radius set on this view itself is also forwarded to the glass shader.
-//  - `fps` throttles continuous rendering while active (default 60).
-//  - `active` (battery): the glass pauses its render clock when inactive and keeps the last
-//    frame. Raise it via JS pulses whenever content changes without touch (tab switch, theme,
-//    cover change). Scrolling is handled natively by a window-level pan observer: the glass
-//    renders live (per-frame capture) for the whole scroll (incl. inertia, velocity-tiered
-//    decay) and pauses after it settles. Fresh views render continuously for ~1s to cover
-//    mount/transition animations.
+//    it renders a frosted-glass (UIBlurEffect) background of whatever is behind the parent.
+//  - The parent container should have `borderRadius` + `overflow: 'hidden'` (rounds the bar).
+//  - `tint` prop：磨砂染色基色（不透明主题色，明暗自适应）。
+//  - `glassOpacity` prop：染色覆层不透明度 0~1（用户设置 theme.glassOpacity），
+//    控制磨砂玻璃的「实度」。
+//  - 历史 props `fps`/`active`：液态玻璃 Metal 路径下线后为无操作空档，JS 侧仍可
+//    传值（respondsToSelector 分流），不再有任何效果。
 //
 
 #import <React/RCTConvert.h>
@@ -50,6 +47,7 @@
 @protocol LGLensCustomizations <NSObject>
 @optional
 - (void)setLensTintColor:(UIColor *)color;
+- (void)setLensGlassOpacity:(CGFloat)opacity;
 - (void)setLensFrames:(NSArray<NSValue *> *)rects;
 - (void)setLensCornerRadius:(CGFloat)radius;
 - (void)setLensTouchPoint:(CGPoint)point;
@@ -194,6 +192,14 @@ RCT_CUSTOM_VIEW_PROPERTY(fps, NSNumber, LGLiquidGlassHostView) {
 RCT_CUSTOM_VIEW_PROPERTY(tint, NSString, LGLiquidGlassHostView) {
   if (json == nil) return;
   [LGGlassViewFactory applyGlassTint:view.glassBacking tint:[RCTConvert UIColor:json]];
+}
+
+// 染色覆层不透明度（0~1，用户设置 theme.glassOpacity 驱动）：磨砂玻璃的「实度」。
+// json 为 nil（prop 未传/重置）时回默认 0.6。
+RCT_CUSTOM_VIEW_PROPERTY(glassOpacity, NSNumber, LGLiquidGlassHostView) {
+  id backing = view.glassBacking;
+  if (![backing respondsToSelector:@selector(setGlassOpacity:)]) return;
+  [backing setGlassOpacity:(json != nil ? [json floatValue] : 0.6)];
 }
 
 // JS 脉冲活跃开关（省电核心）：玻璃背后内容在无触摸交互下发生变化（切 Tab、换主题、
@@ -618,8 +624,7 @@ RCT_CUSTOM_VIEW_PROPERTY(tabCount, NSNumber, LGLiquidLensHostView) {
   }
 }
 
-// 主题染色：透镜玻璃与底部栏玻璃同色（否则 .lens 预设近乎透明，
-// 滑过深色内容时呈黑团——用户反馈的拖拽闪黑）
+// 主题染色：透镜磨砂覆层与底部栏玻璃同色（不透明基色，明暗自适应）
 RCT_CUSTOM_VIEW_PROPERTY(tint, NSString, LGLiquidLensHostView) {
   if (json == nil) return;
   id<LGLensCustomizations> lens = (id<LGLensCustomizations>)view.lens;
@@ -627,7 +632,15 @@ RCT_CUSTOM_VIEW_PROPERTY(tint, NSString, LGLiquidLensHostView) {
   [lens setLensTintColor:[RCTConvert UIColor:json]];
 }
 
-// 按下态：药丸 morph 成完整液态玻璃（内部按需渲染时钟随 lift 启停，静止零开销）
+// 染色覆层不透明度（0~1，用户设置 theme.glassOpacity 驱动）：磨砂药丸的「实度」
+RCT_CUSTOM_VIEW_PROPERTY(glassOpacity, NSNumber, LGLiquidLensHostView) {
+  if (json == nil) return;
+  id<LGLensCustomizations> lens = (id<LGLensCustomizations>)view.lens;
+  if (![lens respondsToSelector:@selector(setLensGlassOpacity:)]) return;
+  [lens setLensGlassOpacity:[json floatValue]];
+}
+
+// 按下态：药丸 morph 成磨砂玻璃药丸（透明度/染色随设置）
 RCT_CUSTOM_VIEW_PROPERTY(lifted, NSNumber, LGLiquidLensHostView) {
   if (json != nil) {
     [view.lens setLifted:[json boolValue]

@@ -1,50 +1,37 @@
 import { memo, useMemo } from 'react'
 import { requireNativeComponent, StyleSheet, type StyleProp, type ViewProps, type ViewStyle } from 'react-native'
-import { useLiquidGlassActive } from '@/utils/liquidGlassActivity'
 
 type LiquidGlassProps = ViewProps & {
   /**
-   * 连续渲染帧率上限（MTKView preferredFramesPerSecond）。方案B 实时折射按 60fps
-   * 逐帧捕获；如需省电可显式传更低值。
-   */
-  fps?: number
-  /**
-   * 渲染活跃开关（省电核心）：静止时原生渲染时钟停止；滚动/拖拽期间玻璃冻结在
-   * 最后一帧（原生手势观察），滚动停止后自动补一帧；挂载后自带约 1s 活跃窗，
-   * 无触摸的内容变化由 pulseLiquidGlass() 脉冲驱动。
-   */
-  active?: boolean
-  /**
-   * 主题染色（rgba 字符串）：玻璃材质色跟随 App 主题（如绿主题 → 淡绿磨砂玻璃）。
-   * 不传时走玻璃默认材质色（浅色蓝白 / 深色近黑的动态色）。
+   * 磨砂染色基色（不透明主题色，明暗自适应由主题本身保证）。
+   * 透明度独立由 glassOpacity 控制。
    */
   tint?: string
+  /**
+   * 染色覆层不透明度 0~1（用户设置 theme.glassOpacity / 100），控制磨砂玻璃的「实度」。
+   */
+  glassOpacity?: number
 }
 
 const NativeLiquidGlass = requireNativeComponent<LiquidGlassProps>('LiquidGlassView')
 
 /**
- * 液态玻璃背景层（vendored LiquidGlassKit：iOS 26+ 用系统原生 UIGlassEffect(.regular)，
- * iOS 13-25 用 MTKView + Metal 着色器自研折射）。磨砂液态玻璃：染色 + 背景微模糊 +
- * 折射 + 边缘光，透出背后内容的轮廓。
+ * 高透磨砂玻璃背景层（原生 LGFrostedGlassView：UIBlurEffect(.systemUltraThinMaterial)
+ * + 主题染色覆层，Core Animation backdrop 通道 GPU 合成）。
+ *
+ * 液态玻璃（Metal 逐帧整窗捕获）已下线：实时性与列表主线程开销无法兼得，且材质
+ * 透明度不可调。磨砂路径实时、零逐帧 CPU、全 iOS 版本行为一致，不透明度可调。
  *
  * 用法：作为容器的第一个子元素渲染，默认绝对定位铺满父容器；
  * 父容器需设置 `borderRadius` + `overflow: 'hidden'` 裁出圆角玻璃形状，
  * 内容子元素渲染在其上层。原生的 userInteractionEnabled 已关闭，触摸全部穿透。
- *
- * 省电机制（自研路径）：静止时原生渲染时钟停止（保留最后一帧）；滚动/拖拽期间
- * 玻璃保持实时折射（方案B，逐帧整窗捕获，60fps），惯性收敛后自动暂停；挂载后
- * 自带约 1s 活跃窗；无触摸的内容变化（切 Tab、换主题、换歌）由业务代码调用
- * pulseLiquidGlass()（@/utils/liquidGlassActivity）恢复。
- * iOS 26 原生路径由系统合成，本身零逐帧开销。
  */
-const LiquidGlass = memo(({ fps = 60, tint, style }: LiquidGlassProps) => {
-  const active = useLiquidGlassActive()
-  const glassStyle = useMemo<StyleProp<ViewStyle>>(
+const LiquidGlass = memo(({ tint, glassOpacity = 0.6, style }: LiquidGlassProps) => {
+  const glassStyle = useMemo(
     () => StyleSheet.compose(StyleSheet.absoluteFill, style),
     [style],
   )
-  return <NativeLiquidGlass style={glassStyle} fps={fps} active={active} tint={tint} pointerEvents="none" />
+  return <NativeLiquidGlass style={glassStyle} glassOpacity={glassOpacity} tint={tint} pointerEvents="none" />
 })
 
 export default LiquidGlass

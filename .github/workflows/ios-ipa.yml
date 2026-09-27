@@ -127,13 +127,13 @@ jobs:
           path: build/LX-Y Music-v${{ env.PACKAGE_VERSION }}-ios-unsigned.ipa
 
       - name: Publish unsigned IPA to rolling "latest" release
-        if: github.ref == 'refs/heads/master'
+        if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/ios-adaptation'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           IPA_NAME="LX-Y Music-v${PACKAGE_VERSION}-ios-unsigned.ipa"
-          NOTES="Automated unsigned IPA build from master @ ${{ github.sha }}. Built on ${{ github.run_id }} — do not use as a stable release."
+          NOTES="Automated unsigned IPA build from ${{ github.ref_name }} @ ${{ github.sha }}. Built on ${{ github.run_id }} — do not use as a stable release."
           # 用 gh CLI（原生二进制，不受 Node 24 运行时影响）更新 rolling "latest" release。
           # 原先 softprops/action-gh-release 在 Node 24 强制环境下上传大文件会报
           # "Request body length does not match content-length header"。

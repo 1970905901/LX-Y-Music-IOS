@@ -22,7 +22,10 @@ export const useAnimateColor = (color: string) => {
     Animated.timing(anim, {
       toValue: 1,
       duration: ANIMATION_DURATION,
-      useNativeDriver: false,
+      // 颜色插值（backgroundColor/color）在原生驱动下受支持，转 true 后
+      // 主题切换的颜色过渡不再占用 JS 线程——ProMotion 120Hz 上不再因 JS
+      // 每帧计算颜色插值而掉帧（本 hook 在主题变化时被大量组件调用）。
+      useNativeDriver: true,
       // 主题色过渡动画不占用 InteractionManager 队列，避免阻塞列表渲染
       isInteraction: false,
     }).start((finished) => {

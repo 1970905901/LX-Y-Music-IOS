@@ -345,7 +345,7 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
         _dragZone = fingerZone;
         _onDragSelect(@{ @"index": @(fingerZone) });
       } else {
-        // 落点即当前 tab：原地回落药丸并淡出（静止无遮罩）
+        // 落点即当前 tab：原地回落药丸并快速淡出（静止无遮罩）
         [UIView animateWithDuration:0.35
                               delay:0
              usingSpringWithDamping:0.8
@@ -354,8 +354,8 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
                          animations:^{
           self->_lens.center = CGPointMake(self->_x, self.bounds.size.height / 2.0);
         } completion:nil];
-        [_lens setLifted:NO animated:YES alongsideAnimations:nil completion:nil];
-        [UIView animateWithDuration:0.3 animations:^{
+        [_lens setLifted:NO animated:NO alongsideAnimations:nil completion:nil];
+        [UIView animateWithDuration:0.15 animations:^{
           self->_lens.alpha = 0;
         }];
       }
@@ -364,7 +364,7 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
     case UIGestureRecognizerStateCancelled:
     case UIGestureRecognizerStateFailed: {
       _dragging = NO;
-      [_lens setLifted:NO animated:YES alongsideAnimations:nil completion:nil];
+      [_lens setLifted:NO animated:NO alongsideAnimations:nil completion:nil];
       if (_spanActive) {
         _spanActive = NO;
         if ([lensCustom respondsToSelector:@selector(setLensFrames:)]) {
@@ -375,7 +375,7 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
       if ([lensCustom respondsToSelector:@selector(clearLensTouchPoint)]) {
         [lensCustom clearLensTouchPoint];
       }
-      // 中断时弹回当前选中 tab 的位置并淡出
+      // 中断时弹回当前选中 tab 的位置并快速淡出
       [UIView animateWithDuration:0.3
                             delay:0
            usingSpringWithDamping:0.8
@@ -384,7 +384,7 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
                        animations:^{
         self->_lens.center = CGPointMake(self->_x, self.bounds.size.height / 2.0);
       } completion:nil];
-      [UIView animateWithDuration:0.3 animations:^{
+      [UIView animateWithDuration:0.15 animations:^{
         self->_lens.alpha = 0;
       }];
       break;
@@ -426,8 +426,10 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
       self->_lens.center = CGPointMake(x, self.bounds.size.height / 2.0);
     } completion:^(BOOL finished) {
       if (!finished) return; // 连续点击时被新动画接管，由最后一次动画负责收尾
-      [self->_lens setLifted:NO animated:YES alongsideAnimations:nil completion:nil];
-      [UIView animateWithDuration:0.3 animations:^{
+      // 落定立即快速消失：跳过回落 morph 动画（animated:NO）+ 0.15s 快速淡出，
+      // 修复"切换完成后药丸还停留一段时间才消失"
+      [self->_lens setLifted:NO animated:NO alongsideAnimations:nil completion:nil];
+      [UIView animateWithDuration:0.15 animations:^{
         self->_lens.alpha = 0;
       }];
     }];

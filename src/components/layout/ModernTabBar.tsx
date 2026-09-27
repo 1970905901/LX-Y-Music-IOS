@@ -133,7 +133,7 @@ export default memo(() => {
   const lensStripHeight = scaleSizeH(BAR_HEIGHT - LENS_VERTICAL_INSET * 2)
   // 胶囊透镜覆盖整个 tab 项（图标 + 文字，对齐参考视频），左右各留 6px 间隙；
   // 高度即条带高度，圆角自动取高度一半呈胶囊两端
-  const lensPillWidth = scaleSizeW(52)
+  const lensPillWidth = itemWidth > 0 ? itemWidth - scaleSizeW(12) : scaleSizeW(52)
 
   // 收起形态（iOS 26 风格）：歌曲列表滚动离开顶部 → 整条 tab 栏收成左下角
   // 圆形玻璃按钮（宫格图标）；点击按钮弹出，保持展开直到下一次滚动离开顶部。

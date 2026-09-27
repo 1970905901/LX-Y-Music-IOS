@@ -301,8 +301,8 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
     // 透镜本体不参与命中测试：触摸穿透到上层的 tab Pressable（长按拖拽由
     // 宿主挂在父容器上的手势识别器接管）
     _lens.userInteractionEnabled = NO;
-    // 首次落位前先隐藏；落位后静止态常显（对齐上游 LiquidLensView 的静止
-    // 状态：半透明白色药丸常驻在选中 tab 上，未交互时持续可见）
+    // 静止时整体隐藏：透镜只在运动过程（点击切换/长按拖拽）中可见，静止态
+    // 不显示圆形药丸（常显的半透明胶囊在真实界面上观感如"磨砂残留"）
     _lens.alpha = 0;
     _lens.autoresizingMask = UIViewAutoresizingFlexibleHeight;
     [self addSubview:_lens];
@@ -422,11 +422,11 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
         [lensCustom clearLensTouchPoint];
       }
       if (fingerZone >= 0 && fingerZone != currentZone && _onDragSelect != nil) {
-        // 切到落点 tab：保持抬起形态，JS 更新 x prop 后弹簧归位并保持常显
+        // 切到落点 tab：保持抬起形态，JS 更新 x prop 后弹簧归位并回落淡出
         _dragZone = fingerZone;
         _onDragSelect(@{ @"index": @(fingerZone) });
       } else {
-        // 落点即当前 tab：原地回落药丸并保持静止常显（上游 resting 状态）
+        // 落点即当前 tab：原地回落药丸并快速淡出（静止无遮罩）
         [UIView animateWithDuration:0.35
                               delay:0
              usingSpringWithDamping:0.8
@@ -436,6 +436,9 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
           self->_lens.center = CGPointMake(self->_x, self.bounds.size.height / 2.0);
         } completion:nil];
         [_lens setLifted:NO animated:NO alongsideAnimations:nil completion:nil];
+        [UIView animateWithDuration:0.15 animations:^{
+          self->_lens.alpha = 0;
+        }];
       }
       break;
     }
@@ -453,7 +456,7 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
       if ([lensCustom respondsToSelector:@selector(clearLensTouchPoint)]) {
         [lensCustom clearLensTouchPoint];
       }
-      // 中断时弹回当前选中 tab 的位置并保持静止常显
+      // 中断时弹回当前选中 tab 的位置并快速淡出
       [UIView animateWithDuration:0.3
                             delay:0
            usingSpringWithDamping:0.8
@@ -462,6 +465,9 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
                        animations:^{
         self->_lens.center = CGPointMake(self->_x, self.bounds.size.height / 2.0);
       } completion:nil];
+      [UIView animateWithDuration:0.15 animations:^{
+        self->_lens.alpha = 0;
+      }];
       break;
     }
     default:
@@ -479,17 +485,15 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
 - (void)setTargetX:(CGFloat)x animated:(BOOL)animated {
   _x = x;
   if (!_hasX) {
-    // 首次落位不动画：直接停在选中 tab 上并进入静止常显态（上游 LiquidLensView
-    // 的 resting 状态：半透明白色药丸常驻选中项）
+    // 首次落位不动画也不显示（静止无遮罩）：透镜已在正确位置待命（alpha 0）
     _hasX = YES;
     [self setNeedsLayout];
-    _lens.alpha = 1.0;
     return;
   }
   if (animated) {
-    // 点击切换：与长按拖拽一致的液态动画——抬起 morph + 弹簧滑动（加速度
-    // 挤压/拉伸由透镜内部 displayLink 跟踪位置产生），落定后回落药丸并
-    // 保持静止常显（上游 resting 状态）
+    // 点击切换：与长按拖拽一致的液态动画——淡入 + 抬起 morph + 弹簧滑动（加速度
+    // 挤压/拉伸由透镜内部 displayLink 跟踪位置产生），落定后回落药丸并快速淡出
+    // （静止无遮罩，见 completion）
     [UIView animateWithDuration:0.15 animations:^{
       self->_lens.alpha = 1;
     }];
@@ -504,8 +508,12 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
       self->_lens.center = CGPointMake(x, self.bounds.size.height / 2.0);
     } completion:^(BOOL finished) {
       if (!finished) return; // 连续点击时被新动画接管，由最后一次动画负责收尾
-      // 落定回落药丸（跳过 morph 动画），保持静止常显（上游 resting 状态）
+      // 落定立即快速消失：跳过回落 morph 动画（animated:NO）+ 0.15s 快速淡出，
+      // 避免"切换完成后药丸还停留一段时间"的残留感
       [self->_lens setLifted:NO animated:NO alongsideAnimations:nil completion:nil];
+      [UIView animateWithDuration:0.15 animations:^{
+        self->_lens.alpha = 0;
+      }];
     }];
   } else {
     _lens.center = CGPointMake(x, self.bounds.size.height / 2.0);

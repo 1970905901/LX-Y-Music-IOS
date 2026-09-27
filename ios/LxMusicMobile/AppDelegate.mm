@@ -1089,6 +1089,13 @@ static NSInteger LXNowPlayingLyricIndex = -1;
 // tick 依次把 playbackState 切反/切回，强制系统重绘媒体卡片（详见 tick 内注释）
 static NSInteger LXNowPlayingRedrawPending = 0;
 
+// 临时诊断（定位控制中心歌词冻结，定位后置 0 关闭）：非前台时把时钟内部状态
+// 写进媒体卡片 artist 字段——D+计数前进=时钟运行且卡片可重绘；计数冻结=时钟
+// 未运行或卡片不重绘；文案（无时间轴/无锚点/已暂停/歌词行）指示命中的分支。
+#ifndef LX_LYRIC_DEBUG
+#define LX_LYRIC_DEBUG 1
+#endif
+
 // 时钟状态锁：tick 运行在专用串行队列，而 JS 元数据发布 / 清行 / 重锚发生在主线程，
 // 两侧都会读写锚点与行集，统一用该锁串行化。GCD 时钟不受 RunLoop 模式影响——
 // 控制中心盖住 App 时主线程 RunLoop 退入非 common 模式、主线程定时器停摆
@@ -1126,11 +1133,44 @@ static void LXClearNowPlayingLyricLines(void) {
 
 static void LXNowPlayingLyricStep(void) {
   @synchronized (LXLyricLock()) {
-    if (LXNowPlayingLyricLines.count == 0) return;
     NSNumber *rate = [LXNowPlayingInfoCache[MPNowPlayingInfoPropertyPlaybackRate] isKindOfClass:[NSNumber class]]
       ? LXNowPlayingInfoCache[MPNowPlayingInfoPropertyPlaybackRate]
       : nil;
-    if (rate.doubleValue <= 0) return; // 暂停时歌词不推进
+    BOOL isPlayingRate = rate.doubleValue > 0;
+    BOOL appActive = [UIApplication sharedApplication].applicationState == UIApplicationStateActive;
+
+#if LX_LYRIC_DEBUG
+    // 诊断模式：非前台时每 tick 把时钟状态写入卡片（普通链路停用）
+    if (!appActive) {
+      static NSInteger dbgTick = 0;
+      dbgTick += 1;
+      NSString *mark;
+      if (LXNowPlayingLyricLines.count == 0) {
+        mark = @"无时间轴";
+      } else if (LXNowPlayingLyricAnchorSystemMs <= 0) {
+        mark = @"无锚点";
+      } else if (!isPlayingRate) {
+        mark = @"已暂停";
+      } else if (LXNowPlayingLyricAnchorSystemMs > 0) {
+        double positionMs = LXNowPlayingLyricAnchorElapsedMs + ((CACurrentMediaTime() * 1000.0) - LXNowPlayingLyricAnchorSystemMs) * rate.doubleValue;
+        NSUInteger lo = 0, hi = LXNowPlayingLyricLines.count - 1;
+        NSInteger found = -1;
+        while (lo <= hi) {
+          NSUInteger mid = lo + (hi - lo) / 2;
+          double lineTime = [LXNowPlayingLyricLines[mid][@"time"] doubleValue];
+          if (lineTime <= positionMs) { found = (NSInteger)mid; lo = mid + 1; }
+          else { if (mid == 0) break; hi = mid - 1; }
+        }
+        NSString *text = found >= 0 ? LXNowPlayingLyricLines[(NSUInteger)found][@"text"] : nil;
+        mark = (text.length > 12 ? [text substringToIndex:12] : text) ?: @"无行";
+      }
+      LXNowPlayingInfoCache[MPMediaItemPropertyArtist] = [NSString stringWithFormat:@"D%ld %@", (long)dbgTick, mark ?: @""];
+      LXApplyNowPlayingInfo();
+      return;
+    }
+#endif
+
+    if (!isPlayingRate) return; // 暂停时歌词不推进
     if (LXNowPlayingLyricAnchorSystemMs <= 0) return;
     double positionMs = LXNowPlayingLyricAnchorElapsedMs + ((CACurrentMediaTime() * 1000.0) - LXNowPlayingLyricAnchorSystemMs) * rate.doubleValue;
     // 位置事件枢纽：前台播放时把外推位置广播给 JS（4Hz 单向事件），驱动进度条等

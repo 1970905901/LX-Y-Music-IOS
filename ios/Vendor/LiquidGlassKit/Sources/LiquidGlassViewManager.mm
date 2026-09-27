@@ -55,6 +55,9 @@
 - (void)setLensCornerRadius:(CGFloat)radius;
 - (void)setLensTouchPoint:(CGPoint)point;
 - (void)clearLensTouchPoint;
+// 拖拽期间切系统磨砂实时回退（拖拽可持续数秒，Metal 逐帧整窗捕获是透镜拖拽
+// 掉帧根源）；松手/取消时恢复实时折射。见 LiquidLensView.setBlurFallback。
+- (void)setBlurFallback:(BOOL)active;
 @end
 
 // Host view: an RCTView so all standard RN view props (borderRadius, overflow, pointerEvents,
@@ -324,6 +327,10 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
       _spanActive = NO;
       [_lens setLifted:YES animated:YES alongsideAnimations:nil completion:nil];
       _lens.center = CGPointMake(clampedFingerX, self.bounds.size.height / 2.0);
+      // 拖拽可能持续数秒：切磨砂实时回退，避免逐帧整窗捕获掉帧
+      if ([lensCustom respondsToSelector:@selector(setBlurFallback:)]) {
+        [lensCustom setBlurFallback:YES];
+      }
       [UIView animateWithDuration:0.15 animations:^{
         self->_lens.alpha = 1;
       }];
@@ -391,6 +398,10 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
     }
     case UIGestureRecognizerStateEnded: {
       _dragging = NO;
+      // 拖拽结束：恢复实时折射（补新鲜帧），落定弹簧动画期间展示液态玻璃
+      if ([lensCustom respondsToSelector:@selector(setBlurFallback:)]) {
+        [lensCustom setBlurFallback:NO];
+      }
       // 松手触觉确认；落点若与已切换的 tab 不一致（边界采样间隙）则补一次切换
       UISelectionFeedbackGenerator *selection = [[UISelectionFeedbackGenerator alloc] init];
       [selection selectionChanged];
@@ -450,6 +461,10 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
     case UIGestureRecognizerStateCancelled:
     case UIGestureRecognizerStateFailed: {
       _dragging = NO;
+      // 中断同样要退出磨砂回退，让透镜以液态玻璃形态弹回
+      if ([lensCustom respondsToSelector:@selector(setBlurFallback:)]) {
+        [lensCustom setBlurFallback:NO];
+      }
       if (_spanActive) {
         _spanActive = NO;
         if ([lensCustom respondsToSelector:@selector(setLensFrames:)]) {

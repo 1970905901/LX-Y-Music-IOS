@@ -77,6 +77,58 @@ public final class LiquidLensView: UIView, AnyLiquidLensView {
     /// 材质色）。不设置时 .lens 预设近乎透明，滑过深色内容会呈现黑团（闪黑）。
     @objc public func setLensTintColor(_ color: UIColor?) {
         liquidGlassView.liquidGlass.tintColor = color
+        fallbackTintOverlay?.backgroundColor = color
+    }
+
+    // MARK: - 拖拽磨砂回退
+
+    /// Vendored addition: 拖拽期间切系统磨砂实时回退（宿主拖拽状态机驱动）。
+    /// YES = 停止 Metal 逐帧捕获、磨砂实时接管；NO = 恢复实时折射（补新鲜帧）。
+    /// 仅在抬起态有效；非拖拽的抬起（点击滑动 morph）不受影响。
+    @objc public func setBlurFallback(_ active: Bool) {
+        guard isLifted else { return }
+        if active {
+            isBlurFallbackActive = true
+            ensureBlurFallback()
+            layoutFallbackBlur()
+            liquidGlassView.setRenderActive(false)
+            UIView.animate(withDuration: 0.1) {
+                self.liquidGlassView.alpha = 0
+                self.fallbackBlurView?.alpha = 1
+            }
+        } else {
+            isBlurFallbackActive = false
+            liquidGlassView.setRenderActive(true)
+            UIView.animate(withDuration: 0.15) {
+                self.liquidGlassView.alpha = 1
+                self.fallbackBlurView?.alpha = 0
+            }
+        }
+    }
+
+    private func ensureBlurFallback() {
+        guard fallbackBlurView == nil else { return }
+        let blur = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterial))
+        blur.isUserInteractionEnabled = false
+        blur.alpha = 0
+        blur.layer.cornerCurve = .circular
+        let overlay = UIView()
+        overlay.isUserInteractionEnabled = false
+        overlay.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        overlay.backgroundColor = liquidGlassView.liquidGlass.tintColor
+        blur.contentView.addSubview(overlay)
+        addSubview(blur)
+        fallbackBlurView = blur
+        fallbackTintOverlay = overlay
+    }
+
+    /// 磨砂层跟随玻璃几何：frame 抄 liquidGlassView（含挤压/拉伸后的瞬时 frame）、
+    /// 圆角抄其 layer，两种材质形状完全一致。
+    private func layoutFallbackBlur() {
+        guard let blur = fallbackBlurView else { return }
+        blur.frame = liquidGlassView.frame
+        blur.layer.cornerRadius = liquidGlassView.layer.cornerRadius
+        fallbackTintOverlay?.frame = blur.contentView.bounds
     }
 
     /// Vendored addition: 多矩形玻璃（kit frames 能力）——拖拽跨 tab 时传入「原 tab +
@@ -99,6 +151,16 @@ public final class LiquidLensView: UIView, AnyLiquidLensView {
     /// Vendored addition: frames 合并进行中（宿主把透镜本体拉伸为跨 tab span），
     /// 此时跳过挤压/拉伸尺寸动画，避免与 span 尺寸互相打架
     private var spanFramesActive = false
+
+    // MARK: - 拖拽实时磨砂回退（vendored，与 LiquidGlassEffectView 同思路）
+    // 长按拖拽可持续数秒，Metal 实时折射必须逐帧整窗 drawHierarchy（iOS 26 无便宜
+    // 背景路径），是透镜拖拽掉帧的根源；拖拽期间透镜高速移动，切系统磨砂（GPU
+    // backdrop 合成，实时且零逐帧成本）观感无损。抬起 morph/点击滑动的时长有界
+    //（≤0.5s），保留 Metal 实时折射展示「液态」质感。
+
+    private var fallbackBlurView: UIVisualEffectView?
+    private var fallbackTintOverlay: UIView?
+    private var isBlurFallbackActive = false
 
     // MARK: - Initialization
 
@@ -171,6 +233,9 @@ public final class LiquidLensView: UIView, AnyLiquidLensView {
                 ? min(cornerRadiusOverride, halfShortSide)
                 : halfShortSide
             liquidGlassView.layer.cornerCurve = .circular
+            if isBlurFallbackActive {
+                layoutFallbackBlur()
+            }
         }
     }
 
@@ -235,6 +300,11 @@ public final class LiquidLensView: UIView, AnyLiquidLensView {
         liquidGlassView.layer.cornerCurve = .circular
         liquidGlassView.alpha = 0
         addSubview(liquidGlassView)
+
+        // 上一次拖拽若以异常路径结束，磨砂层可能残留可见：重新抬起时强制隐藏，
+        // 液态玻璃（morph 动画）始终是抬起的初始材质
+        fallbackBlurView?.alpha = 0
+        isBlurFallbackActive = false
 
         // Vendored: the glass view runs the demand-rendering clock (paused by default) —
         // start it while lifted, stop it when resting again.
@@ -340,6 +410,9 @@ public final class LiquidLensView: UIView, AnyLiquidLensView {
         positionHistory.removeAll()
         // Reset liquidGlassView to original bounds
         liquidGlassView.frame = bounds
+        if isBlurFallbackActive {
+            layoutFallbackBlur()
+        }
     }
 
     @objc private func updatePositionTracking() {
@@ -436,6 +509,10 @@ public final class LiquidLensView: UIView, AnyLiquidLensView {
             width: newWidth,
             height: newHeight
         )
+        // 磨砂回退层跟随挤压/拉伸的瞬时 frame，两种材质形变一致
+        if isBlurFallbackActive {
+            layoutFallbackBlur()
+        }
     }
 }
 

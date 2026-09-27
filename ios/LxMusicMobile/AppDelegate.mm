@@ -1116,7 +1116,7 @@ static NSInteger LXNowPlayingRedrawPending = 0;
 // 写进媒体卡片 artist 字段——D+计数前进=时钟运行且卡片可重绘；计数冻结=时钟
 // 未运行或卡片不重绘；文案（无时间轴/无锚点/已暂停/歌词行）指示命中的分支。
 #ifndef LX_LYRIC_DEBUG
-#define LX_LYRIC_DEBUG 1
+#define LX_LYRIC_DEBUG 0
 #endif
 
 // 时钟状态锁：tick 运行在专用串行队列，而 JS 元数据发布 / 清行 / 重锚发生在主线程，

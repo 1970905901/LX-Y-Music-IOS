@@ -72,7 +72,6 @@ const defaultSetting: LX.AppSetting = {
 
   'common.sectionExpandedStatus': {
     setting_player: true,
-    setting_lyricDesktop: true,
     setting_download: true,
     setting_theme: true,
     setting_sync: true,
@@ -106,7 +105,6 @@ const defaultSetting: LX.AppSetting = {
   'player.isShowLyricRoma': false,
   'player.isShowNotificationImage': true,
   'player.isS2t': true,
-  'player.isShowBluetoothLyric': false,
   'player.autoPlayOnReturn': false,
   'player.enableAutoToggleSource': true,
   'player.toggleSourceMaxRetry': 5,
@@ -120,22 +118,6 @@ const defaultSetting: LX.AppSetting = {
   'playDetail.vertical.style.lrcFontSize': 200,
   'playDetail.horizontal.style.lrcFontSize': 220,
   'playDetail.isShowLyricProgressSetting': true,
-
-  'desktopLyric.enable': false,
-  'desktopLyric.isLock': false,
-  'desktopLyric.width': 100,
-  'desktopLyric.maxLineNum': 5,
-  'desktopLyric.isSingleLine': false,
-  'desktopLyric.showToggleAnima': true,
-  'desktopLyric.position.x': 0,
-  'desktopLyric.position.y': 0,
-  'desktopLyric.textPosition.x': 'center',
-  'desktopLyric.textPosition.y': 'center',
-  'desktopLyric.style.fontSize': 180,
-  'desktopLyric.style.opacity': 100,
-  'desktopLyric.style.lyricUnplayColor': 'rgba(255, 255, 255, 1)',
-  'desktopLyric.style.lyricPlayedColor': 'rgba(7, 197, 86, 1)',
-  'desktopLyric.style.lyricShadowColor': 'rgba(0, 0, 0, 0.6)',
 
   'search.isShowHotSearch': false,
   'search.isShowHistorySearch': true,
@@ -200,7 +182,6 @@ const defaultSetting: LX.AppSetting = {
 
 if (new Date().getMonth() < 2) {
   defaultSetting['theme.id'] = 'happy_new_year'
-  defaultSetting['desktopLyric.style.lyricPlayedColor'] = 'rgba(255, 18, 34, 1)'
 }
 
 export default defaultSetting

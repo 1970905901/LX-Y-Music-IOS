@@ -9,14 +9,6 @@ import {
   init as lrcInit,
   syncToTime as lrcSyncToTime,
 } from '@/plugins/lyric'
-import {
-  playDesktopLyric,
-  setDesktopLyric,
-  pauseDesktopLyric,
-  setDesktopLyricPlaybackRate,
-  toggleDesktopLyricTranslation,
-  toggleDesktopLyricRoma,
-} from '@/core/desktopLyric'
 import { getPosition } from '@/plugins/player/utils'
 import playerState from '@/store/player/state'
 // import settingState from '@/store/setting/state'
@@ -55,7 +47,6 @@ const handleSetLyric = async(lyric: string, translation = '', romalrc = '', lxLy
   // 逐字时间轴。参考分支把 lxlrc当作主歌词（它用 LxLyricPlayer 直接播），
   // 若照搬会让 lrc-file-parser 解析出带 <...> 标记的行，逐字与行文本都会错乱。
   lrcSetLyric(lyric, translation, romalrc, lxLyric)
-  await setDesktopLyric(lyric, translation, romalrc)
 }
 
 /**
@@ -64,7 +55,6 @@ const handleSetLyric = async(lyric: string, translation = '', romalrc = '', lxLy
  */
 export const handlePlay = (time: number) => {
   lrcPlay(time)
-  void playDesktopLyric(time)
 }
 
 /**
@@ -72,7 +62,6 @@ export const handlePlay = (time: number) => {
  */
 export const pause = () => {
   lrcPause()
-  void pauseDesktopLyric()
 }
 
 export const onLyricPlay = onPluginLyricPlay
@@ -90,7 +79,6 @@ export const stop = () => {
  */
 export const setPlaybackRate = async(playbackRate: number) => {
   lrcSetPlaybackRate(playbackRate)
-  await setDesktopLyricPlaybackRate(playbackRate)
   if (playerState.isPlay) {
     setTimeout(() => {
       void getReliableLyricPosition().then((position) => {
@@ -106,7 +94,6 @@ export const setPlaybackRate = async(playbackRate: number) => {
  */
 export const toggleTranslation = async(isShowTranslation: boolean) => {
   lrcToggleTranslation(isShowTranslation)
-  await toggleDesktopLyricTranslation(isShowTranslation)
   if (playerState.isPlay) play()
 }
 
@@ -116,7 +103,6 @@ export const toggleTranslation = async(isShowTranslation: boolean) => {
  */
 export const toggleRoma = async(isShowLyricRoma: boolean) => {
   lrcToggleRoma(isShowLyricRoma)
-  await toggleDesktopLyricRoma(isShowLyricRoma)
   if (playerState.isPlay) play()
 }
 
@@ -142,8 +128,6 @@ export const seek = (time: number) => {
  */
 export const syncLyric = (time: number, isPlaying: boolean) => {
   lrcSyncToTime(time * 1000, isPlaying)
-  if (isPlaying) void playDesktopLyric(time * 1000)
-  else void pauseDesktopLyric()
 }
 
 

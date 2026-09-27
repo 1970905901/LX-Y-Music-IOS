@@ -8,7 +8,6 @@ import IsEnableAudioOffload from './IsEnableAudioOffload'
 import IsEnableAudioPreload from './IsEnableAudioPreload'
 import UseNativeFlacPlayer from './UseNativeFlacPlayer'
 import IsAutoCleanPlayedList from './IsAutoCleanPlayedList'
-import IsShowBluetoothLyric from './IsShowBluetoothLyric'
 import IsShowLyricTranslation from './IsShowLyricTranslation'
 import IsShowLyricRoma from './IsShowLyricRoma'
 import IsS2T from './IsS2T'
@@ -29,7 +28,6 @@ export default memo(() => {
       <IsEnableAudioOffload />
       <IsEnableAudioPreload />
       <UseNativeFlacPlayer />
-      <IsShowBluetoothLyric />
       <IsShowLyricTranslation />
       <IsShowLyricRoma />
       <IsS2T />

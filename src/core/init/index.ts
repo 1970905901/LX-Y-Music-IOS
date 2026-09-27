@@ -13,7 +13,6 @@ import commonActions from '@/store/common/action'
 import settingState from '@/store/setting/state'
 import { bootLog } from '@/utils/bootLog'
 import { cheatTip } from '@/utils/tools'
-import * as networkLyric from '@/core/networkLyric'
 import initUiMode from './uiMode'
 import { Platform } from 'react-native'
 import RNFS from 'react-native-fs'
@@ -44,8 +43,6 @@ const handlePushedHomeScreen = async() => {
   // 这里不再做启动检查：已同意协议的老用户不会在更新后突然被弹公告。
   // 若将来又要向老用户推送新公告，需要在这里恢复一次检查（并把 utils/announcement 的
   // announcementId 改掉，本地已展示 ID 不一致时才会弹）。
-
-  networkLyric.init()
 }
 
 let isInited = false

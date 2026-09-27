@@ -1,23 +1,10 @@
 import { init as initLyricPlayer, toggleTranslation, toggleRoma, play, pause, stop, setLyric, setPlaybackRate, seek, onLyricPlay } from '@/core/lyric'
-import { updateSetting } from '@/core/common'
-import { onDesktopLyricPositionChange, showDesktopLyric, onLyricLinePlay, showRemoteLyric } from '@/core/desktopLyric'
 import playerState from '@/store/player/state'
-import { updateNowPlayingTitles } from '@/plugins/player/utils'
 import { updateMetaData } from '@/plugins/player'
 import { setLastLyric } from '@/core/player/playInfo'
-import { state } from '@/plugins/player/playList'
 import { getCurrentLyricLines } from '@/plugins/lyric'
 import { setNowPlayingLyrics } from '@/utils/nativeModules/nowPlaying'
 import { Platform } from 'react-native'
-
-const updateRemoteLyric = async(lrc?: string) => {
-  setLastLyric(lrc)
-  if (lrc == null) {
-    void updateNowPlayingTitles((state.prevDuration || 0) * 1000, playerState.musicInfo.name, playerState.musicInfo.singer ?? '', playerState.musicInfo.album ?? '')
-  } else {
-    void updateNowPlayingTitles((state.prevDuration || 0) * 1000, lrc, `${playerState.musicInfo.name}${playerState.musicInfo.singer ? ` - ${playerState.musicInfo.singer}` : ''}`, playerState.musicInfo.album ?? '')
-  }
-}
 
 export default async(setting: LX.AppSetting) => {
   await initLyricPlayer()
@@ -27,36 +14,13 @@ export default async(setting: LX.AppSetting) => {
     toggleRoma(setting['player.isShowLyricRoma']),
   ])
 
-  if (setting['desktopLyric.enable']) {
-    showDesktopLyric().catch(() => {
-      updateSetting({ 'desktopLyric.enable': false })
-    })
-  }
-  if (setting['player.isShowBluetoothLyric']) {
-    showRemoteLyric(true).catch(() => {
-      updateSetting({ 'player.isShowBluetoothLyric': false })
-    })
-  }
-  onDesktopLyricPositionChange(position => {
-    updateSetting({
-      'desktopLyric.position.x': position.x,
-      'desktopLyric.position.y': position.y,
-    })
-  })
-  onLyricLinePlay(({ text, extendedLyrics: _extendedLyrics }) => {
-    if (!text && !state.isPlaying) {
-      void updateRemoteLyric()
-    } else {
-      void updateRemoteLyric(text)
-    }
-  })
   if (Platform.OS == 'ios') {
     let prevLyric: string | undefined
     onLyricPlay((line, text) => {
       const lyric = text || undefined
       if (lyric === prevLyric) return
       prevLyric = lyric
-      void updateRemoteLyric(lyric)
+      setLastLyric(lyric)
       if (playerState.playMusicInfo.musicInfo) {
         void updateMetaData(playerState.musicInfo, playerState.isPlay, lyric, true)
       }

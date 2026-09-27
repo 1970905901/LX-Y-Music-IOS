@@ -153,6 +153,9 @@ public final class LiquidLensView: UIView, AnyLiquidLensView {
         restingPillView.layer.cornerRadius = cornerRadiusOverride >= 0
             ? cornerRadiusOverride
             : min(bounds.width, bounds.height) / 2
+        // 静止药丸与抬起玻璃同为胶囊形态：不跟随系统默认曲线（iOS 26 起默认
+        // continuous 会让贴边的圆角呈方形超椭圆观感）
+        restingPillView.layer.cornerCurve = .circular
 
         // Update liquid glass view to same bounds
 //        liquidGlassView.frame = bounds
@@ -207,6 +210,10 @@ public final class LiquidLensView: UIView, AnyLiquidLensView {
         // Prepare liquid glass view at same position
         liquidGlassView.frame = bounds
         liquidGlassView.layer.cornerRadius = restingPillView.layer.cornerRadius
+        // 显式强制 circular 曲线（shader 超椭圆指数 = 2 = 圆）：透镜玻璃的圆角恒等于
+        // 胶囊短边一半，若系统默认曲线为 continuous（指数 4 = 方形超椭圆），整个形状
+        // 会退化为近似矩形。透镜必须是圆角胶囊，故不跟随系统默认。
+        liquidGlassView.layer.cornerCurve = .circular
         liquidGlassView.alpha = 0
         addSubview(liquidGlassView)
 

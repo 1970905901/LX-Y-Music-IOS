@@ -40,22 +40,37 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
   // 主题染色：玻璃材质色跟随 App 主题（同 ModernTabBar）
   const glassTint = useMemo(() => applyOpacity(theme['c-primary-light-600'], 80), [theme])
 
-  // Tab 栏收起时（仅 Home）：迷你播放器下移到收起按钮所在行并左侧让位（对齐参考交互）
+  // Tab 栏收起时（仅 Home）：迷你播放器下移到收起按钮所在行并左侧让位（对齐参考交互）。
+  // 动画用 FLIP：布局一次性切到目标态（玻璃只重排一次），旧位置用原生驱动 transform
+  // 补偿后滑入——全程玻璃尺寸不变，规避逐帧 resize 的玻璃采样黑边，动画也不受 JS 掉帧影响
   const tabBarCollapsed = useTabBarCollapsed()
   const effectiveCollapsed = isHome && tabBarCollapsed
-  const collapseAnim = useRef(new Animated.Value(effectiveCollapsed ? 1 : 0)).current
+  const slideX = useRef(new Animated.Value(0)).current
+  const slideY = useRef(new Animated.Value(0)).current
   useEffect(() => {
-    // 收起/展开过程容器位置/宽度逐帧变化：玻璃若保持暂停会拉伸旧帧、原生玻璃
-    // 采样也可能脱帧（右侧出黑带），给一次覆盖整个动画时长的渲染脉冲
+    // 布局切换的那一次重排会让玻璃重新采样，给一次短脉冲保证新帧及时渲染
     pulseLiquidGlass(400)
-    // bottom/paddingLeft 属布局属性，原生驱动不支持，走 JS 驱动（状态变化低频，开销可忽略）
-    Animated.timing(collapseAnim, {
-      toValue: effectiveCollapsed ? 1 : 0,
-      duration: 220,
-      easing: Easing.out(Easing.quad),
-      useNativeDriver: false,
-    }).start()
-  }, [effectiveCollapsed, collapseAnim])
+    const shiftX = scaleSizeW(56) + designSpacing.sm
+    const bottomExpanded = safeAreaBottom + (isHome ? (isHorizontalMode ? 76 : designSpacing.xl + 48) : bottomFloatGap)
+    const shiftY = bottomExpanded - (safeAreaBottom + bottomFloatGap)
+    // 收起：从旧（展开）位置滑向目标 → 初始向左上偏移；展开相反
+    slideX.setValue(effectiveCollapsed ? -shiftX : shiftX)
+    slideY.setValue(effectiveCollapsed ? -shiftY : shiftY)
+    Animated.parallel([
+      Animated.timing(slideX, {
+        toValue: 0,
+        duration: 260,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideY, {
+        toValue: 0,
+        duration: 260,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+    ]).start()
+  }, [effectiveCollapsed, slideX, slideY, safeAreaBottom, isHome, isHorizontalMode])
 
   const handleLongPress = useCallback(() => {
     longPressedRef.current = true
@@ -99,14 +114,11 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
           style={[
             styles.wrapper,
             {
-              bottom: collapseAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [bottomExpanded, bottomCollapsed],
-              }),
-              paddingLeft: collapseAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [designSpacing.lg, designSpacing.lg + scaleSizeW(56) + designSpacing.sm],
-              }),
+              bottom: effectiveCollapsed ? bottomCollapsed : bottomExpanded,
+              paddingLeft: effectiveCollapsed
+                ? designSpacing.lg + scaleSizeW(56) + designSpacing.sm
+                : designSpacing.lg,
+              transform: [{ translateX: slideX }, { translateY: slideY }],
             },
             // 关键：wrapper 全宽且盖在收起按钮上层，必须 box-none——否则透明区域
             // 拦截触摸，导致点击收起按钮无效
@@ -132,7 +144,7 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
         </Animated.View>
       )
     },
-    [theme, glassTint, isHome, handleLongPress, handleNavigate, safeAreaBottom, isHorizontalMode, collapseAnim],
+    [theme, glassTint, isHome, handleLongPress, handleNavigate, safeAreaBottom, isHorizontalMode, effectiveCollapsed, slideX, slideY],
   )
 
   return keyboardShown ? null : playerComponent

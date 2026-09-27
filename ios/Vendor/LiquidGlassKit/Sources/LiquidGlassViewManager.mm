@@ -400,12 +400,29 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
         [lensCustom clearLensTouchPoint];
       }
       if (fingerZone >= 0 && fingerZone != currentZone && _onDragSelect != nil) {
-        // 切到落点 tab：保持抬起形态，JS 更新 x prop 后弹簧归位并回落淡出
+        // 切到落点 tab：原生自洽落定——直接弹簧滑到落点中心并淡出，不依赖 JS
+        // 回传 x（落点在拖拽中多半已被越界逻辑选中，JS 重复 setNavActiveId 时
+        // x 值不变、属性不推送，透镜会以抬起形态永久残留）
         _dragZone = fingerZone;
         _onDragSelect(@{ @"index": @(fingerZone) });
+        CGFloat targetX = ((CGFloat)fingerZone + 0.5) * (self.bounds.size.width / (CGFloat)_tabCount);
+        _x = targetX;
+        [UIView animateWithDuration:0.3
+                              delay:0
+             usingSpringWithDamping:0.8
+              initialSpringVelocity:0
+                            options:UIViewAnimationOptionBeginFromCurrentState
+                         animations:^{
+          self->_lens.center = CGPointMake(targetX, self.bounds.size.height / 2.0);
+        } completion:nil];
+        [UIView animateWithDuration:0.12 animations:^{
+          self->_lens.alpha = 0;
+        } completion:^(BOOL done) {
+          if (done) [self->_lens setLifted:NO animated:NO alongsideAnimations:nil completion:nil];
+        }];
       } else {
-        // 落点即当前 tab：原地回落药丸并快速淡出（静止无遮罩）
-        [UIView animateWithDuration:0.35
+        // 落点即当前 tab：原地弹簧归位，先淡出再回落药丸（静止无遮罩）
+        [UIView animateWithDuration:0.3
                               delay:0
              usingSpringWithDamping:0.8
               initialSpringVelocity:0
@@ -413,9 +430,10 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
                          animations:^{
           self->_lens.center = CGPointMake(self->_x, self.bounds.size.height / 2.0);
         } completion:nil];
-        [_lens setLifted:NO animated:NO alongsideAnimations:nil completion:nil];
-        [UIView animateWithDuration:0.15 animations:^{
+        [UIView animateWithDuration:0.12 animations:^{
           self->_lens.alpha = 0;
+        } completion:^(BOOL done) {
+          if (done) [self->_lens setLifted:NO animated:NO alongsideAnimations:nil completion:nil];
         }];
       }
       break;
@@ -423,7 +441,6 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
     case UIGestureRecognizerStateCancelled:
     case UIGestureRecognizerStateFailed: {
       _dragging = NO;
-      [_lens setLifted:NO animated:NO alongsideAnimations:nil completion:nil];
       if (_spanActive) {
         _spanActive = NO;
         if ([lensCustom respondsToSelector:@selector(setLensFrames:)]) {
@@ -434,7 +451,7 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
       if ([lensCustom respondsToSelector:@selector(clearLensTouchPoint)]) {
         [lensCustom clearLensTouchPoint];
       }
-      // 中断时弹回当前选中 tab 的位置并快速淡出
+      // 中断时弹回当前选中 tab 的位置，先淡出再回落药丸
       [UIView animateWithDuration:0.3
                             delay:0
            usingSpringWithDamping:0.8
@@ -443,8 +460,10 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
                        animations:^{
         self->_lens.center = CGPointMake(self->_x, self.bounds.size.height / 2.0);
       } completion:nil];
-      [UIView animateWithDuration:0.15 animations:^{
+      [UIView animateWithDuration:0.12 animations:^{
         self->_lens.alpha = 0;
+      } completion:^(BOOL done) {
+        if (done) [self->_lens setLifted:NO animated:NO alongsideAnimations:nil completion:nil];
       }];
       break;
     }
@@ -488,6 +507,12 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
 }
 
 - (void)setTargetX:(CGFloat)x animated:(BOOL)animated {
+  // 同位守卫：目标与当前一致（典型场景：拖拽落定已原生归位，JS 回传同一 x）
+  // 时不重播动画——否则透镜会重新淡入再淡出，表现为"不消失/闪现"
+  if (_hasX && fabs(x - _x) < 0.5) {
+    _x = x;
+    return;
+  }
   _x = x;
   if (!_hasX) {
     // 首次落位不动画也不显示（静止无遮罩）：透镜已在正确位置待命（alpha 0）
@@ -496,16 +521,15 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
     return;
   }
   if (animated) {
-    // 点击切换：与长按拖拽一致的液态动画——淡入 + 抬起 morph + 弹簧滑动（加速度
-    // 挤压/拉伸由透镜内部 displayLink 跟踪位置产生），落定后回落药丸并快速淡出
-    // （静止无遮罩，见 completion）
-    [UIView animateWithDuration:0.15 animations:^{
+    // 点击切换：淡入 + 抬起 morph + 弹簧滑动（加速度挤压/拉伸由透镜内部
+    // displayLink 跟踪位置产生），落定后先淡出再回落药丸（见 completion）
+    [UIView animateWithDuration:0.1 animations:^{
       self->_lens.alpha = 1;
     }];
     [_lens setLifted:YES animated:YES alongsideAnimations:nil completion:nil];
-    [UIView animateWithDuration:0.4
+    [UIView animateWithDuration:0.3
                           delay:0
-         usingSpringWithDamping:0.78
+         usingSpringWithDamping:0.8
           initialSpringVelocity:0
                         options:UIViewAnimationOptionBeginFromCurrentState |
                                 UIViewAnimationOptionAllowUserInteraction
@@ -513,11 +537,12 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
       self->_lens.center = CGPointMake(x, self.bounds.size.height / 2.0);
     } completion:^(BOOL finished) {
       if (!finished) return; // 连续点击时被新动画接管，由最后一次动画负责收尾
-      // 落定立即快速消失：跳过回落 morph 动画（animated:NO）+ 0.15s 快速淡出，
-      // 避免"切换完成后药丸还停留一段时间"的残留感
-      [self->_lens setLifted:NO animated:NO alongsideAnimations:nil completion:nil];
-      [UIView animateWithDuration:0.15 animations:^{
+      // 先淡出、淡出完成后再回落药丸：回落会让白色静止药丸显现，
+      // 边淡出边显现会拖长"消失"的视觉残留
+      [UIView animateWithDuration:0.12 animations:^{
         self->_lens.alpha = 0;
+      } completion:^(BOOL done) {
+        if (done) [self->_lens setLifted:NO animated:NO alongsideAnimations:nil completion:nil];
       }];
     }];
   } else {

@@ -144,6 +144,13 @@ RCT_CUSTOM_VIEW_PROPERTY(active, NSNumber, LGLiquidGlassHostView) {
 @property (nonatomic, readonly) BOOL dragging;
 @end
 
+// 把横条内的 X 坐标换算成 tab 序号（越界收敛到两端）
+static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
+  if (count <= 0 || width <= 0) return -1;
+  NSInteger zone = (NSInteger)floor(x / (width / count));
+  return MIN(MAX(zone, 0), count - 1);
+}
+
 @implementation LGLiquidLensHostView {
   // iOS 26+ 为系统原生 _UILiquidLensView，旧系统为自研 LiquidLensView，
   // 两者共同遵循 AnyLiquidLensView 方法面（自研类/原生类经运行时挂协议）
@@ -154,6 +161,7 @@ RCT_CUSTOM_VIEW_PROPERTY(active, NSNumber, LGLiquidGlassHostView) {
   NSInteger _tabCount;
   UILongPressGestureRecognizer *_dragRecognizer;
   BOOL _dragging;
+  NSInteger _dragZone; // 拖拽过程中透镜当前所在的 tab（-1 = 尚未采样）
 }
 
 - (instancetype)initWithFrame:(CGRect)frame {
@@ -197,25 +205,46 @@ RCT_CUSTOM_VIEW_PROPERTY(active, NSNumber, LGLiquidGlassHostView) {
   switch (gesture.state) {
     case UIGestureRecognizerStateBegan: {
       _dragging = YES;
+      _dragZone = -1;
       [_lens setLifted:YES animated:YES alongsideAnimations:nil completion:nil];
       _lens.center = CGPointMake(MIN(MAX(fingerX, half), maxCenter), self.bounds.size.height / 2.0);
+      // 抬起触觉反馈（对齐 LiquidGlassSwitch 的抓取反馈）
+      UIImpactFeedbackGenerator *haptic = [[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleMedium];
+      [haptic impactOccurred];
       break;
     }
     case UIGestureRecognizerStateChanged: {
       // 1:1 跟手（不做弹簧）：透镜内部的 displayLink 追踪自身位置变化产生挤压/拉伸
       _lens.center = CGPointMake(MIN(MAX(fingerX, half), maxCenter), self.bounds.size.height / 2.0);
+      // 基于边缘的切换（对齐 LiquidGlassSwitch）：拖拽越过 tab 边界即刻
+      // 切换页面并伴随轻触觉反馈，无需等松手
+      NSInteger zone = LXTabZoneForX(fingerX, self.bounds.size.width, _tabCount);
+      if (zone >= 0) {
+        if (_dragZone == -1) {
+          _dragZone = zone;
+        } else if (zone != _dragZone) {
+          _dragZone = zone;
+          if (_onDragSelect != nil) {
+            _onDragSelect(@{ @"index": @(zone) });
+          }
+          UIImpactFeedbackGenerator *haptic = [[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleLight];
+          [haptic impactOccurred];
+        }
+      }
       break;
     }
     case UIGestureRecognizerStateEnded: {
       _dragging = NO;
       [_lens setLifted:NO animated:YES alongsideAnimations:nil completion:nil];
-      // 松手落点所在的 tab 被选中，通知 JS 切页；随后 JS 更新 x prop，药丸弹簧归位
-      if (_onDragSelect != nil && _tabCount > 0 && self.bounds.size.width > 0) {
-        CGFloat itemWidth = self.bounds.size.width / _tabCount;
-        NSInteger index = floor(fingerX / itemWidth);
-        index = MIN(MAX(index, 0), _tabCount - 1);
-        _onDragSelect(@{ @"index": @(index) });
+      // 松手触觉确认；落点若与已切换的 tab 不一致（边界采样间隙）则补一次切换
+      UISelectionFeedbackGenerator *selection = [[UISelectionFeedbackGenerator alloc] init];
+      [selection selectionChanged];
+      NSInteger zone = LXTabZoneForX(fingerX, self.bounds.size.width, _tabCount);
+      if (zone >= 0 && zone != _dragZone && _onDragSelect != nil) {
+        _dragZone = zone;
+        _onDragSelect(@{ @"index": @(zone) });
       }
+      // JS 更新 x prop 后药丸弹簧归位
       break;
     }
     case UIGestureRecognizerStateCancelled:

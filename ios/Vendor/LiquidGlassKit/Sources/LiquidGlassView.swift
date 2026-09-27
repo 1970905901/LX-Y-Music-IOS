@@ -372,11 +372,12 @@ final class LiquidGlassView: MTKView {
     func setRenderActive(_ active: Bool) {
         let wasActive = renderActive
         renderActive = active
-        // 冻结期间只记录状态：不渲染、不捕获，恢复交给 refreshAfterScroll
-        //（否则挂载窗/JS 脉冲与滚动重叠时会绕过冻结逐帧捕获）
-        if scrollFrozen { return }
         if active {
-            needsCapture = true   // 恢复后首帧需重新捕获（静止期间背后内容可能已变）
+            // JS 脉冲（切 Tab/换主题/换歌）= 背后内容已变化：无条件解除滚动冻结并
+            // 重截。这是冻结的强制出口——否则冻结期间到达的脉冲被吞掉，玻璃会停留
+            // 在过期帧上直到下一次滚动结束（表现为「玻璃变成静态图片」）。
+            scrollFrozen = false
+            needsCapture = true
             isPaused = false
             setNeedsDisplay()
         } else if wasActive {

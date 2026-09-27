@@ -35,6 +35,9 @@ public class LiquidGlassEffectView: UIView, AnyVisualEffectView, UIGestureRecogn
     private var mountActive = true
     private var mountDecayTimer: Timer?
     private var gestureDecayTimer: Timer?
+    /// 冻结看门狗：pan 的 .ended/.cancelled 万一丢失（手势系统异常、事件竞争），
+    /// 冻结最多持续 freezeWatchdogInterval 秒即强制补帧，玻璃不会永久停留在一帧。
+    private var freezeWatchdogTimer: Timer?
     private weak var windowPanObserver: UIPanGestureRecognizer?
 
     var liquidGlassView: LiquidGlassView? {
@@ -166,13 +169,24 @@ public class LiquidGlassEffectView: UIView, AnyVisualEffectView, UIGestureRecogn
             gestureDecayTimer?.invalidate()
             gestureDecayTimer = nil
             liquidGlassView?.pauseForScroll()
+            if freezeWatchdogTimer == nil {
+                freezeWatchdogTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: false) { [weak self] _ in
+                    guard let self else { return }
+                    self.freezeWatchdogTimer = nil
+                    self.liquidGlassView?.refreshAfterScroll()
+                }
+            }
         case .ended:
+            freezeWatchdogTimer?.invalidate()
+            freezeWatchdogTimer = nil
             // 惯性滚动越快，冻结保持得越久：等滑行收敛后再补一帧刷新，避免
             // 滑行中途补帧又落入逐帧捕获的老路
             let velocity = gesture.velocity(in: nil)
             let speed = max(abs(velocity.x), abs(velocity.y))
             scheduleGestureDecay(speed > 1200 ? 2.2 : (speed > 300 ? 1.2 : 0.6))
         case .cancelled, .failed:
+            freezeWatchdogTimer?.invalidate()
+            freezeWatchdogTimer = nil
             scheduleGestureDecay(0.3)
         default:
             break

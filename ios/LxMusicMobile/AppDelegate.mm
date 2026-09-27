@@ -5308,10 +5308,13 @@ static void LX_RCTScrollView_scrollViewDidScroll(id self, SEL _cmd, UIScrollView
   }
   CGPoint offset = scrollView.contentOffset;
   if (offset.y > 48) {
-    // 离开顶部：任何列表滚动都收起（手动展开态也在这次滚动后失效）
-    LXTabBarManualExpanded = NO;
-    LXSetTabBarCollapsed(YES);
+    // 仅「主动拖动」的滚动才收起：惯性滑行（decelerating）与被动偏移不收起——
+    // 否则手动展开会被原列表残留的惯性滚动瞬间收回（点击展开失效的根因之一）；
+    // 新的主动拖动会清除手动展开标记（再次滚动重新收起）
+    if (scrollView.isTracking) LXTabBarManualExpanded = NO;
+    if (!LXTabBarManualExpanded) LXSetTabBarCollapsed(YES);
   } else if (offset.y <= 2) {
+    LXTabBarManualExpanded = NO;
     LXSetTabBarCollapsed(NO);
   }
   // (2, 48] 迟滞区：保持当前状态，避免顶部抖动来回切换

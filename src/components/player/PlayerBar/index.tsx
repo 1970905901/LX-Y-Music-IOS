@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useRef } from 'react'
 import { Animated, Easing, PanResponder, View, TouchableOpacity } from 'react-native'
 import { useHorizontalMode, useKeyboard } from '@/utils/hooks'
 import { scaleSizeW } from '@/utils/pixelRatio'
-import { useTabBarCollapsed } from '@/utils/tabBarCollapse'
+import { useTabBarCollapsed, setMiniPlayerHeight } from '@/utils/tabBarCollapse'
 import Pic from './components/Pic'
 import Title from './components/Title'
 import PlayInfo from './components/PlayInfo'
@@ -144,11 +144,15 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
                 outputRange: [designSpacing.lg, designSpacing.lg + scaleSizeW(56) + designSpacing.sm],
               }),
             },
+            // 关键：wrapper 全宽且盖在收起按钮上层，必须 box-none——否则透明区域
+            // 拦截触摸，导致点击收起按钮无效
+            { pointerEvents: 'box-none' },
           ]}
         >
           <View
             style={[styles.container, containerStyle, isHorizontalMode ? styles.horizontalContainer : null]}
             {...panResponder.panHandlers}
+            onLayout={(e) => { setMiniPlayerHeight(e.nativeEvent.layout.height) }}
           >
             <LiquidGlass tint={glassTint} />
             <TouchableOpacity style={styles.left} onPress={handleNavigate} onLongPress={handleLongPress} activeOpacity={0.8}>

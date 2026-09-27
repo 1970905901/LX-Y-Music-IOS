@@ -9,7 +9,7 @@ import { scaleSizeH, scaleSizeW } from '@/utils/pixelRatio'
 import { applyOpacity } from '@/utils/colorOpacity'
 import { shadow } from '@/utils/shadow'
 import { pulseLiquidGlass } from '@/utils/liquidGlassActivity'
-import { useTabBarCollapsed } from '@/utils/tabBarCollapse'
+import { useTabBarCollapsed, useMiniPlayerHeight } from '@/utils/tabBarCollapse'
 import { setTabBarExpanded } from '@/utils/nativeModules/utils'
 import { designRadius, designSpacing } from '@/theme/DesignTokens'
 import { Icon } from '@/components/common/Icon'
@@ -42,8 +42,7 @@ const styles = createStyle({
   pillWrapper: {
     position: 'absolute',
     left: designSpacing.lg,
-    width: scaleSizeW(56),
-    height: scaleSizeW(56),
+    // 宽=高，运行时对齐迷你播放器高度（见 pillSize）
   },
   pillInner: {
     width: '100%',
@@ -138,6 +137,9 @@ export default memo(() => {
   // 收起形态（iOS 26 风格）：歌曲列表滚动离开顶部 → 整条 tab 栏收成左下角
   // 圆形玻璃按钮（宫格图标）；点击按钮弹出，保持展开直到下一次滚动离开顶部。
   const collapsed = useTabBarCollapsed()
+  // 圆钮尺寸对齐收起态迷你播放器高度（宽=高保持圆形）；未测量时 56 兜底
+  const miniPlayerHeight = useMiniPlayerHeight()
+  const pillSize = miniPlayerHeight > 0 ? miniPlayerHeight : scaleSizeW(56)
   const collapseAnim = useRef(new Animated.Value(collapsed ? 1 : 0)).current
   useEffect(() => {
     Animated.timing(collapseAnim, {
@@ -160,12 +162,14 @@ export default memo(() => {
       ]}
       pointerEvents="box-none"
     >
-      {/* 收起态圆形玻璃按钮（宫格图标）：点击弹出完整 tab 栏 */}
+      {/* 收起态圆形玻璃按钮（宫格图标）：点击弹出完整 tab 栏；尺寸对齐迷你播放器高度 */}
       <Animated.View
         style={[
           styles.pillWrapper,
           {
             bottom: safeAreaBottom + designSpacing.sm,
+            width: pillSize,
+            height: pillSize,
             opacity: collapseAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 1] }),
             transform: [{ scale: collapseAnim.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1] }) }],
           },
@@ -173,7 +177,7 @@ export default memo(() => {
         pointerEvents={collapsed ? 'auto' : 'none'}
       >
         <Pressable style={styles.pillInner} onPress={handlePillPress}>
-          <LiquidGlass />
+          <LiquidGlass tint={glassTint} />
           <View style={styles.pillIcon} pointerEvents="none">
             <Icon name="menu" size={20} color={theme['c-primary']} />
           </View>

@@ -11,7 +11,9 @@ import { onTabBarCollapseChanged } from '@/utils/nativeModules/utils'
  */
 
 let collapsed = false
+let miniPlayerHeight = 0
 const listeners = new Set<(v: boolean) => void>()
+const heightListeners = new Set<(h: number) => void>()
 let inited = false
 
 const init = (): void => {
@@ -38,4 +40,27 @@ export const useTabBarCollapsed = (): boolean => {
     }
   }, [])
   return value
+}
+
+/** 迷你播放器实际高度（收起按钮据此对齐高度）；未测量时返回 0（调用方用默认值兜底） */
+export const useMiniPlayerHeight = (): number => {
+  const [value, setValue] = useState(miniPlayerHeight)
+  useEffect(() => {
+    const listener = (h: number): void => {
+      setValue(h)
+    }
+    heightListeners.add(listener)
+    listener(miniPlayerHeight)
+    return () => {
+      heightListeners.delete(listener)
+    }
+  }, [])
+  return value
+}
+
+/** PlayerBar 测量到自身高度后上报（供收起按钮对齐） */
+export const setMiniPlayerHeight = (height: number): void => {
+  if (!Number.isFinite(height) || height <= 0 || Math.abs(height - miniPlayerHeight) < 0.5) return
+  miniPlayerHeight = height
+  for (const listener of heightListeners) listener(height)
 }

@@ -149,8 +149,8 @@ const styles = createStyle({
   },
   container: {
     width: '100%',
-    // 缩小：垂直内边距从 10 收到 8，整体高度更紧凑
-    paddingVertical: 9,
+    // 胶囊瘦身：垂直内边距 9 → 7，配合封面 46 → 40，整体高度 ~64 → ~54
+    paddingVertical: 7,
     paddingLeft: designSpacing.sm,
     paddingRight: designSpacing.sm,
     borderRadius: designRadius.xl,

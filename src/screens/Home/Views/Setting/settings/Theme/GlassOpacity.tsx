@@ -1,6 +1,6 @@
 // screens/Home/Views/Setting/settings/Theme/GlassOpacity.tsx
-// 磨砂玻璃（Tab 栏 / 迷你播放条 / 透镜药丸）的染色覆层不透明度。
-// 实时生效：原生 LGFrostedGlassView / 透镜药丸的覆层 alpha 由该设置驱动。
+// 玻璃（Tab 栏 / 迷你播放条 / 收起圆钮）的染色覆层不透明度。
+// 实时生效：原生 LGFrostedGlassView 的覆层 alpha 由该设置驱动。
 
 import { memo, useCallback, useState } from 'react'
 import { View } from 'react-native'

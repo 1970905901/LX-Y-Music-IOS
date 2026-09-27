@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react'
 import { Animated, Easing, Pressable, View } from 'react-native'
 import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
@@ -6,7 +6,7 @@ import { useNavActiveId, useSafeAreaBottom } from '@/store/common/hook'
 import { setNavActiveId } from '@/core/common'
 import { useSettingValue } from '@/store/setting/hook'
 import { createStyle } from '@/utils/tools'
-import { scaleSizeH, scaleSizeW } from '@/utils/pixelRatio'
+import { scaleSizeW } from '@/utils/pixelRatio'
 import { pulseLiquidGlass } from '@/utils/liquidGlassActivity'
 import { useTabBarCollapsed, useMiniPlayerHeight } from '@/utils/tabBarCollapse'
 import { setTabBarExpanded } from '@/utils/nativeModules/utils'
@@ -14,7 +14,6 @@ import { designRadius, designSpacing, bottomFloatGap } from '@/theme/DesignToken
 import { Icon } from '@/components/common/Icon'
 import Text from '@/components/common/Text'
 import LiquidGlass from '@/components/common/LiquidGlass'
-import LiquidLens from '@/components/common/LiquidLens'
 
 const styles = createStyle({
   wrapper: {
@@ -88,11 +87,6 @@ const TAB_LABEL_KEYS: Record<(typeof TAB_IDS)[number]['id'], string> = {
   nav_setting: 'nav_setting',
 }
 
-const BAR_HEIGHT = 56
-// 透镜条带与 tab 栏玻璃同高（上下不留内缩）：切换/拖拽时透镜胶囊与栏体
-// 圆角边沿完全对齐，观感是"栏体玻璃的一部分"而非浮在栏上的独立贴片
-const LENS_VERTICAL_INSET = 0
-
 export default memo(() => {
   const theme = useTheme()
   const t = useI18n()
@@ -117,29 +111,6 @@ export default memo(() => {
   useEffect(() => {
     pulseLiquidGlass(1200)
   }, [theme])
-
-  // 透镜药丸：替换旧的主色高亮遮罩（iOS 26 风格）。切 Tab 时药丸原生弹簧滑动
-  // 到目标项；长按 0.35s 立即选中按住的 tab、抬起后可拖动，或按住 tab 直接横向
-  // 滑动切到目标 tab（透镜跟手 + 挤压/拉伸，原生手势驱动，点击切换不受影响）。
-  const [barWidth, setBarWidth] = useState(0)
-
-  const handleBarLayout = useCallback((e: { nativeEvent: { layout: { width: number } } }) => {
-    setBarWidth(e.nativeEvent.layout.width)
-  }, [])
-
-  const handleDragSelect = useCallback((e: { nativeEvent: { index: number } }) => {
-    const tab = TAB_IDS[e.nativeEvent.index]
-    if (tab) setNavActiveId(tab.id)
-  }, [])
-
-  const activeIndex = Math.max(0, TAB_IDS.findIndex((tab) => tab.id === activeId))
-  const itemWidth = barWidth > 0 ? barWidth / TAB_IDS.length : 0
-  const lensX = itemWidth * activeIndex + itemWidth / 2
-  const lensStripHeight = scaleSizeH(BAR_HEIGHT - LENS_VERTICAL_INSET * 2)
-  // 胶囊透镜横向宽度 = 栏宽均分（5 个 tab 等分，与 tab 项边界对齐）；
-  // 高度即条带高度（与栏体同高），圆角与 tab 栏圆角一致（经样式 borderRadius
-  // 传入原生，透镜呈与栏体圆角对齐的圆角矩形）
-  const lensPillWidth = itemWidth > 0 ? itemWidth : scaleSizeW(52)
 
   // 收起形态（iOS 26 风格）：歌曲列表滚动离开顶部 → 整条 tab 栏收成左下角
   // 圆形玻璃按钮（宫格图标）；点击按钮弹出，保持展开直到下一次滚动离开顶部。
@@ -202,7 +173,6 @@ export default memo(() => {
             transform: [{ translateY: collapseAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 28] }) }],
           },
         ]}
-        onLayout={handleBarLayout}
         pointerEvents={collapsed ? 'none' : 'auto'}
       >
         {/* 玻璃衬底带与容器一致的圆角：按压下陷内缩时仍呈圆角，不露直角边 */}
@@ -235,26 +205,6 @@ export default memo(() => {
             </Pressable>
           )
         })}
-        {/* 透镜药丸条带：置于 tab 内容【之上】——抬起/滑动时磨砂药丸罩住图标与文字，
-            触摸穿透不影响 tab 点击 */}
-        {barWidth > 0 ? (
-          <LiquidLens
-            style={{
-              position: 'absolute',
-              top: scaleSizeH(LENS_VERTICAL_INSET),
-              left: 0,
-              width: barWidth,
-              height: lensStripHeight,
-              borderRadius: designRadius.xl,
-            }}
-            x={lensX}
-            tabCount={TAB_IDS.length}
-            tint={glassTint}
-            glassOpacity={glassOpacity}
-            onDragSelect={handleDragSelect}
-            pillWidth={lensPillWidth}
-          />
-        ) : null}
       </Animated.View>
     </View>
   )

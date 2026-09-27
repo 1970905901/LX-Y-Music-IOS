@@ -3,21 +3,19 @@
 //  LiquidGlassKit (vendored from DnV1eX/LiquidGlassKit)
 //
 //  ObjC-visible factory that picks the glass backing for the current OS:
-//  统一高透磨砂玻璃（LGFrostedGlassView：系统 UIBlurEffect + 主题染色覆层）。
+//  纯透明玻璃（LGFrostedGlassView：主题染色覆层，无模糊、无捕获，GPU 合成零成本）。
 //  液态玻璃（Metal 逐帧整窗捕获）在长列表场景对主线程的压力与实时性无法兼得，
-//  且材质无法满足「透明度可调」，整体下线；磨砂走 Core Animation backdrop 通道
-//  在 GPU 合成——实时、零逐帧 CPU、全 iOS 版本行为一致。
-//  宿主（LiquidGlassViewManager.mm 的 LGLiquidGlassHostView）只持有 UIView，
-//  宿主侧圆角裁剪容器 + 0.5pt 内缘线。
+//  系统磨砂档位又不可调——最终形态：纯透明染色覆层，透明度由用户设置驱动，
+//  全 iOS 版本行为一致。宿主（LiquidGlassViewManager.mm 的 LGLiquidGlassHostView）
+//  侧圆角裁剪容器 + 0.5pt 内缘线提供轮廓。
 //
 
 import UIKit
 
-/// 高透磨砂玻璃底衬：UIBlurEffect(.systemUltraThinMaterial) 打底 + 主题染色覆层。
-/// 不透明度（覆层 alpha）由用户设置驱动；blurView 本体不设透明度（系统约束）。
+/// 纯透明玻璃底衬：单一主题染色覆层，无模糊。不透明度（覆层 alpha）由用户
+/// 设置驱动；随主题明暗切换染色基色。
 @objc public final class LGFrostedGlassView: UIView {
 
-    private let blurView = UIVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterial))
     private let tintOverlay = UIView()
 
     /// 染色基色（不透明主题色；透明度由 glassOpacity 独立控制）
@@ -25,19 +23,17 @@ import UIKit
         didSet { tintOverlay.backgroundColor = glassTintColor ?? UIColor.white }
     }
 
-    /// 0~1：染色覆层不透明度（用户设置）。1 = 最实的磨砂，0 = 几乎全透明。
-    @objc public var glassOpacity: CGFloat = 0.6 {
+    /// 0~1：覆层不透明度（用户设置）。1 = 全实色块，0 = 完全隐形。
+    @objc public var glassOpacity: CGFloat = 0.4 {
         didSet { tintOverlay.alpha = min(max(glassOpacity, 0), 1) }
     }
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        blurView.isUserInteractionEnabled = false
         tintOverlay.isUserInteractionEnabled = false
         tintOverlay.backgroundColor = UIColor.white
         tintOverlay.alpha = min(max(glassOpacity, 0), 1)
-        blurView.contentView.addSubview(tintOverlay)
-        addSubview(blurView)
+        addSubview(tintOverlay)
     }
 
     required init?(coder: NSCoder) {
@@ -46,8 +42,7 @@ import UIKit
 
     public override func layoutSubviews() {
         super.layoutSubviews()
-        blurView.frame = bounds
-        tintOverlay.frame = blurView.contentView.bounds
+        tintOverlay.frame = bounds
     }
 }
 

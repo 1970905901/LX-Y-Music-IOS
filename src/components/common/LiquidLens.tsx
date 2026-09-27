@@ -38,7 +38,7 @@ const NativeLiquidLens = requireNativeComponent<LiquidLensProps>('LiquidGlassLen
  * 之上、tab 内容之下；通过 `x` 指定目标中心。原生的 userInteractionEnabled
  * 已关闭，触摸全部穿透。
  */
-const LiquidLens = memo(({ x, lifted = false, glassOpacity = 0.6, pillWidth, tabCount, tint, onDragSelect, style }: LiquidLensProps) => {
+const LiquidLens = memo(({ x, lifted = false, glassOpacity = 0.4, pillWidth, tabCount, tint, onDragSelect, style }: LiquidLensProps) => {
   return (
     <NativeLiquidLens
       style={style}

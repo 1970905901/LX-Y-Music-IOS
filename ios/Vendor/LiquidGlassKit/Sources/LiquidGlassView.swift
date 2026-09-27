@@ -307,6 +307,9 @@ final class LiquidGlassView: MTKView {
         // Make view transparent so we can see the effect
         isOpaque = false
         layer.isOpaque = false
+        // 清屏色改为全透明：MTKView 默认清屏色是不透明黑，透镜抬起后首帧纹理
+        // 未就绪时会闪黑（用户实测）。透明清屏保证任何空帧都不改变画面。
+        clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 0)
 
         // Demand-driven rendering (see setRenderActive): the MTKView clock is paused and
         // draws only when setNeedsDisplay is called, until something marks the view active.
@@ -513,6 +516,10 @@ final class LiquidGlassView: MTKView {
         if autoCapture {
             captureBackground()
         }
+
+        // 背景纹理未就绪（刚挂载/缓冲尺寸未定，setupBuffer 尚未跑出有效像素缓冲）
+        // 时跳过本帧：视图保持透明，等下一帧再画，避免闪黑
+        guard backgroundTexture != nil else { return }
 
         guard let drawable = currentDrawable,
               let renderPassDesc = currentRenderPassDescriptor,

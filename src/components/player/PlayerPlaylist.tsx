@@ -194,7 +194,10 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
   }, [])
 
 
-  const renderItem = ({ item, index }: { item: LX.Player.PlayMusic, index: number }) => {
+  // 渲染项提取为稳定 useCallback：避免父组件其它状态变化重渲时，内联 renderItem
+  // 每次重建函数引用导致所有可见 cell 重渲。依赖仅含低频项（切歌 id / 显示设置），
+  // 进度 tick 不进依赖，避免每帧重建；切歌时 playerMusicInfo.id 变化触发高亮刷新。
+  const renderItem = useCallback(({ item, index }: { item: LX.Player.PlayMusic, index: number }) => {
     const originalMusicInfo = ('progress' in item ? item.metadata.musicInfo : item)
 
     const renderableMusicInfo: LX.Music.MusicInfoOnline = {
@@ -239,7 +242,7 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
         hideMenu={false}
       />
     )
-  }
+  }, [playerMusicInfo?.id, isShowAlbumName, isShowInterval, showCover, rowInfo, handlePlay, handleShowMenu])
 
   const getItemLayout = useCallback((data: any, index: number) => ({
     length: scaleSizeH(LIST_ITEM_HEIGHT),

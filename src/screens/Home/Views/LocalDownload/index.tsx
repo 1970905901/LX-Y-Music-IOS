@@ -315,6 +315,47 @@ export default memo(() => {
 
   const isPlayingId = playMusicInfo.musicInfo?.id
 
+  // 渲染项提取为稳定 useCallback：避免父组件因加载更多/选择状态变化重渲时，
+  // 内联 renderItem 每次重建函数引用导致所有可见 cell 跟着重渲（低端机卡顿）
+  const renderDownloadItem = useCallback(
+    ({ item, index }: { item: LX.Download.DownloadTask, index: number }) => {
+      const fileSize = taskSizes[item.id] ?? item.progress?.total ?? 0
+      return (
+        <View style={isHorizontal ? styles.itemWrapper : null}>
+          <SongRow
+            title={item.musicInfo.name}
+            subText={[
+              item.musicInfo.singer,
+              item.quality ? item.quality.toUpperCase() : '',
+              fileSize ? sizeFormate(fileSize) : '',
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+            isPlaying={isPlayingId == item.id}
+            selected={selectedIds.has(item.id)}
+            onPress={() => { selecting ? toggleSelect(item.id) : handlePlayTask(item, index) }}
+          />
+        </View>
+      )
+    },
+    [isHorizontal, isPlayingId, selectedIds, selecting, toggleSelect, handlePlayTask, taskSizes],
+  )
+
+  const renderLocalItem = useCallback(
+    ({ item, index }: { item: LocalFileItem, index: number }) => (
+      <View style={isHorizontal ? styles.itemWrapper : null}>
+        <SongRow
+          title={item.name}
+          subText={[item.singer, item.size ? sizeFormate(item.size) : ''].filter(Boolean).join(' · ')}
+          isPlaying={isPlayingId == item.id}
+          selected={selectedIds.has(item.id)}
+          onPress={() => { selecting ? toggleSelect(item.id) : handlePlayLocal(item, index) }}
+        />
+      </View>
+    ),
+    [isHorizontal, isPlayingId, selectedIds, selecting, toggleSelect, handlePlayLocal],
+  )
+
   const pageHeader = (
     <>
       {/* 竖屏下共享页头已含状态栏占位，这里再叠加 PageTopInset 会出现大段空白；
@@ -390,27 +431,7 @@ export default memo(() => {
               maxToRenderPerBatch={10}
               removeClippedSubviews={false}
               updateCellsBatchingPeriod={50}
-              renderItem={({ item, index }) => {
-                const fileSize = taskSizes[item.id] ?? item.progress?.total ?? 0
-                return (
-                <View style={isHorizontal ? styles.itemWrapper : null}>
-                  <SongRow
-                    title={item.musicInfo.name}
-                    subText={[
-                      item.musicInfo.singer,
-                      item.quality ? item.quality.toUpperCase() : '',
-                      fileSize ? sizeFormate(fileSize) : '',
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')}
-                    isPlaying={isPlayingId == item.id}
-                    selected={selectedIds.has(item.id)}
-                    onPress={() => { selecting ? toggleSelect(item.id) : handlePlayTask(item, index) }}
-                  />
-                </View>
-                )
-              }
-            }
+              renderItem={renderDownloadItem}
               ListEmptyComponent={
                 <View style={styles.empty}>
                   <Text color={theme['c-500']}>{loading ? '加载中...' : t('no_item')}</Text>
@@ -432,17 +453,7 @@ export default memo(() => {
               maxToRenderPerBatch={10}
               removeClippedSubviews={false}
               updateCellsBatchingPeriod={50}
-              renderItem={({ item, index }) => (
-                <View style={isHorizontal ? styles.itemWrapper : null}>
-                  <SongRow
-                    title={item.name}
-                    subText={[item.singer, item.size ? sizeFormate(item.size) : ''].filter(Boolean).join(' · ')}
-                    isPlaying={isPlayingId == item.id}
-                    selected={selectedIds.has(item.id)}
-                    onPress={() => { selecting ? toggleSelect(item.id) : handlePlayLocal(item, index) }}
-                  />
-                </View>
-              )}
+              renderItem={renderLocalItem}
               ListEmptyComponent={
                 <View style={styles.empty}>
                   <Text color={theme['c-500']}>{loading ? '正在扫描...' : `「${getLocalDirName()}」文件夹为空`}</Text>

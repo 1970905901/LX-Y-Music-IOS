@@ -47,10 +47,14 @@ export interface ProgressDrag {
  * 做法：progress prop 每 tick 到达时，用原生驱动的 Animated.timing（UI 线程，
  * 不受 JS 帧影响）以 250ms 线性滑到新目标——原生动画从当前值起步，逐 tick 链式
  * 衔接，肉眼即匀速连续；seek 的大跳也变成 250ms 的平滑滑动。translateX 在原生
- * 驱动白名单内，故用「全宽条 + 负向位移」表达进度：translateX = (p-1) * 100%，
- * 溢出裁剪容器内可见右缘即播放位置。
+ * 驱动白名单内，用「全宽条 + 负向位移」表达进度：translateX = (p-1) × 容器宽。
+ *
+ * 返回 0~1 的 Animated.Value 本体：位移的像素换算由皮肤负责——容器宽度经
+ * onLayout 实测后插值成像素输出。不要用百分比字符串做 translateX 输出：
+ * RN 0.70 的原生动画模块对 transform 百分比不可靠（会静默失效为 0，表现为
+ * 进度条恒为满格），像素值则完全可靠。
  */
-export const useSmoothProgressAnim = (progress: number): Animated.AnimatedInterpolation<number> => {
+export const useSmoothProgressAnim = (progress: number): Animated.Value => {
   const anim = useRef(new Animated.Value(clamp01(progress))).current
   const targetRef = useRef(clamp01(progress))
 
@@ -68,10 +72,7 @@ export const useSmoothProgressAnim = (progress: number): Animated.AnimatedInterp
     }).start()
   }, [progress, anim])
 
-  return useMemo(
-    () => anim.interpolate({ inputRange: [0, 1], outputRange: ['-100%', '0%'] }),
-    [anim],
-  )
+  return anim
 }
 
 export const useProgressDrag = (progress: number, duration: number): ProgressDrag => {  // 「允许拖动进度条跳转」开关：关闭后进度条仅展示，不响应任何点击/拖动。

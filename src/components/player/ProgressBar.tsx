@@ -1,5 +1,5 @@
-import { memo, useMemo } from 'react'
-import { Animated, View } from 'react-native'
+import { memo, useCallback, useMemo, useState } from 'react'
+import { Animated, View, type LayoutChangeEvent } from 'react-native'
 
 import { ProgressTouchArea, useProgressDrag, useSmoothProgressAnim } from './progressCore'
 import { clamp01, createStyle } from '@/utils/tools'
@@ -61,8 +61,23 @@ const Progress = ({
 
   const activeColor = theme.isDark ? theme['c-font'] : theme['c-primary']
   // 非拖动进度条：原生驱动 translateX 平滑补间（4Hz tick 链式衔接成匀速运动，
-  // seek 大跳变 250ms 平滑滑动），不再渲染 width 百分比的阶梯跳变
-  const smoothTranslate = useSmoothProgressAnim(progress)
+  // seek 大跳变 250ms 平滑滑动），不再渲染 width 百分比的阶梯跳变。
+  // 位移像素由 onLayout 实测容器宽度换算（百分比 transform 原生动画不可靠，
+  // 见 useSmoothProgressAnim 注释）。
+  const smoothValue = useSmoothProgressAnim(progress)
+  const [barWidth, setBarWidth] = useState(0)
+  const handleInnerLayout = useCallback(
+    (e: LayoutChangeEvent) => { setBarWidth(e.nativeEvent.layout.width) },
+    [],
+  )
+  const smoothTranslate = useMemo(
+    () => smoothValue.interpolate({
+      inputRange: [0, 1],
+      outputRange: [-barWidth, 0],
+      extrapolate: 'clamp',
+    }),
+    [smoothValue, barWidth],
+  )
   // 手指层宽度由 Animated 直驱（拖动移动零 React 渲染），实时跟随手指
   const dragWidth = useMemo(
     () => dragProgressAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }),
@@ -71,7 +86,7 @@ const Progress = ({
 
   return (
     <View style={styles.progress}>
-      <View style={styles.progressInner}>
+      <View style={styles.progressInner} onLayout={handleInnerLayout}>
         <DefaultBar color={theme['c-primary-light-300-alpha-800']} />
         <BufferedBar progress={buffered} color={theme['c-primary-light-400-alpha-700']} />
         {draging ? (

@@ -15,12 +15,19 @@ interface NowPlayingStateOptions {
   playbackRate?: number
 }
 
+export interface NowPlayingLyricLine {
+  /** 行起始时间（ms） */
+  time: number
+  text: string
+}
+
 interface NativeNowPlayingModule {
   updateNowPlayingInfo?: (metadata: NowPlayingInfoMetadata) => Promise<void>
   playNowPlaying?: (options?: NowPlayingStateOptions) => Promise<void>
   pauseNowPlaying?: (options?: NowPlayingStateOptions) => Promise<void>
   stopNowPlaying?: (options?: NowPlayingStateOptions) => Promise<void>
   clearNowPlayingInfo?: () => Promise<void>
+  setNowPlayingLyrics?: (lines: NowPlayingLyricLine[]) => Promise<void>
 }
 
 const NowPlayingModule = NativeModules.NowPlayingModule as NativeNowPlayingModule | undefined
@@ -52,4 +59,10 @@ export const stopNowPlaying = async(options: NowPlayingStateOptions = {}) => {
 export const clearNowPlayingInfo = async() => {
   if (!hasMethod('clearNowPlayingInfo')) return
   return NowPlayingModule?.clearNowPlayingInfo?.()
+}
+
+/** 歌词时间轴交给原生：原生 NSTimer 直接驱动控制中心歌词（不依赖 JS 定时器） */
+export const setNowPlayingLyrics = async(lines: NowPlayingLyricLine[]) => {
+  if (!hasMethod('setNowPlayingLyrics')) return
+  return NowPlayingModule?.setNowPlayingLyrics?.(lines)
 }

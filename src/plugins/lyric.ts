@@ -232,6 +232,14 @@ export const getLyricLineTextByTime = (time: number): string => {
 }
 
 /**
+ * 当前歌词时间轴副本（time 单位 ms）：交给原生 NSTimer 驱动控制中心歌词。
+ * 原生侧按时间二分查行，直接写 MPNowPlayingInfoCenter，不经过 JS 定时器。
+ */
+export const getCurrentLyricLines = (): { time: number, text: string }[] => {
+  return lrcTools.currentLines.map(l => ({ time: l.time, text: l.text }))
+}
+
+/**
  * 仅按传入时间（ms）设置当前歌词行，不启动内部 ticker。
  * 用于音频暂停/seek 等需要“歌词位置跟上播放头但不自动走字”的场景。
  * 直接根据 currentLines 查找当前行，避免调用 play() 启动 ticker 导致暂停态歌词自行前进。

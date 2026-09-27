@@ -6,9 +6,8 @@ import { updateNowPlayingTitles } from '@/plugins/player/utils'
 import { updateMetaData } from '@/plugins/player'
 import { setLastLyric } from '@/core/player/playInfo'
 import { state } from '@/plugins/player/playList'
-import { audioClock } from '@/core/player/audioClock'
-import { getLyricLineTextByTime } from '@/plugins/lyric'
-import BackgroundTimer from 'react-native-background-timer'
+import { getCurrentLyricLines } from '@/plugins/lyric'
+import { setNowPlayingLyrics } from '@/utils/nativeModules/nowPlaying'
 import { Platform } from 'react-native'
 
 const updateRemoteLyric = async(lrc?: string) => {
@@ -53,35 +52,32 @@ export default async(setting: LX.AppSetting) => {
   })
   if (Platform.OS == 'ios') {
     let prevLyric: string | undefined
-    // 最近一次已推送到 NowPlaying 的歌词行（前台路径写入），供兜底定时器去重
-    let lastForegroundLyric: string | undefined
     onLyricPlay((line, text) => {
       const lyric = text || undefined
       if (lyric === prevLyric) return
       prevLyric = lyric
-      lastForegroundLyric = lyric
       void updateRemoteLyric(lyric)
       if (playerState.playMusicInfo.musicInfo) {
         void updateMetaData(playerState.musicInfo, playerState.isPlay, lyric, true)
       }
     })
-
-    // NowPlaying 歌词兜底（含控制中心/通知中心下拉的 inactive 态）：下拉控制中心时
-    // App 进入 inactive，前台 rAF 与歌词 ticker 停转，控制中心里的歌词会冻结在
-    // 打开前的那一行。这里无条件定时运行，用 audioClock 外推位置推导当前行，
-    // 且仅当与最近一次已推送行不同时才推送——前台正常时自动静默无双写，
-    // 前台驱动一旦停转（任意原因）立即接管，控制中心歌词持续跟进。
-    let lastBackgroundLyric: string | undefined
-    BackgroundTimer.setInterval(() => {
-      if (!playerState.isPlay || !playerState.playMusicInfo.musicInfo) return
-      if (global.lx.gettingUrlId) return
-      const text = getLyricLineTextByTime(audioClock.getTime() * 1000)
-      if (!text || text === lastBackgroundLyric || text === lastForegroundLyric) return
-      lastBackgroundLyric = text
-      void updateMetaData(playerState.musicInfo, playerState.isPlay, text, true)
-    }, 500)
   }
 
+
+  // 歌词加载完成：iOS 侧在解析完成后把整条时间轴交给原生 NSTimer 驱动控制中心
+  // 歌词（原生按锚点外推位置直接写 MPNowPlayingInfoCenter，不依赖 JS 定时器——
+  // 下拉控制中心/锁屏时 App inactive，JS 定时器停转，歌词会冻结在打开前那行）。
+  // 无歌词的歌（musicInfo.lrc 为空）传空数组，清掉原生侧残留的上一首时间轴。
+  global.app_event.on('lyricUpdated', () => {
+    if (Platform.OS == 'ios') {
+      void setLyric().then(() => {
+        const lines = playerState.musicInfo.lrc ? getCurrentLyricLines() : []
+        void setNowPlayingLyrics(lines)
+      })
+    } else {
+      setLyric()
+    }
+  })
 
   global.app_event.on('play', play)
   global.app_event.on('pause', pause)
@@ -89,5 +85,4 @@ export default async(setting: LX.AppSetting) => {
   global.app_event.on('error', pause)
   global.app_event.on('seekLyric', seek)
   global.app_event.on('musicToggled', stop)
-  global.app_event.on('lyricUpdated', setLyric)
 }

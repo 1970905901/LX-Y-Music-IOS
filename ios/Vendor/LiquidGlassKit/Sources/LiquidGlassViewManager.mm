@@ -102,24 +102,26 @@
 - (void)handlePressObserver:(UILongPressGestureRecognizer *)gesture {
   switch (gesture.state) {
     case UIGestureRecognizerStateBegan: {
-      [UIView animateWithDuration:0.15
+      // 幅度取肉眼清晰可辨的水平（竖向压扁 ~8%，64pt 栏上边缘位移 ~2.6pt×2）
+      [UIView animateWithDuration:0.12
                             delay:0
-           usingSpringWithDamping:0.9
+           usingSpringWithDamping:0.85
             initialSpringVelocity:0
                           options:UIViewAnimationOptionBeginFromCurrentState |
                                   UIViewAnimationOptionAllowUserInteraction
                        animations:^{
-        self->_glassView.transform = CGAffineTransformMakeScale(0.98, 0.94);
+        self->_glassView.transform = CGAffineTransformMakeScale(0.97, 0.92);
       } completion:nil];
       break;
     }
     case UIGestureRecognizerStateEnded:
     case UIGestureRecognizerStateCancelled:
     case UIGestureRecognizerStateFailed: {
-      [UIView animateWithDuration:0.55
+      // 低阻尼 + 初速：松手后玻璃有一次明显的果冻式过冲回弹
+      [UIView animateWithDuration:0.6
                             delay:0
-           usingSpringWithDamping:0.6
-            initialSpringVelocity:0.4
+           usingSpringWithDamping:0.55
+            initialSpringVelocity:0.5
                           options:UIViewAnimationOptionBeginFromCurrentState |
                                   UIViewAnimationOptionAllowUserInteraction
                        animations:^{

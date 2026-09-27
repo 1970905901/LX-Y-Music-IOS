@@ -695,6 +695,11 @@ static void LXStartNowPlayingLyricTimer(void);
 static NSObject *LXLyricLock(void);
 // 播放位置事件（原生 4Hz 外推位置广播给 JS，驱动进度条等 UI，替代 JS 侧桥接轮询）
 static NSNotificationName const LXPlayerPositionNotificationName = @"LXPlayerPosition";
+// 时钟冻结标志：RNTP state 事件报告 loading/暂停等非播放态时置 YES——网络流
+// 微缓冲会让音频走走停停，墙钟外推持续超前（表现为控制中心歌词"同步一句、
+// 停一会、隔几句又同步"）；冻结在最后已知位置才能与音频保持一致。
+// 定义在文件前部：生命周期通知处理器（歌词驱动区块之前）即需读写。
+static BOOL LXNowPlayingClockHold = NO;
 static void LXEndReceivingRemoteControlEvents(void);
 
 static void LXPostRemoteCommandNotification(NSString *command, NSDictionary *extra) {
@@ -1096,11 +1101,6 @@ static dispatch_queue_t LXNowPlayingLyricQueue = nil;
 static double LXNowPlayingLyricAnchorSystemMs = 0;  // CACurrentMediaTime() 毫秒
 static double LXNowPlayingLyricAnchorElapsedMs = 0; // 锚点对应的播放位置（ms）
 static NSInteger LXNowPlayingLyricIndex = -1;
-// 时钟冻结标志：RNTP state 事件报告 loading/暂停等非播放态时置 YES——网络流
-// 微缓冲会让音频走走停停，墙钟外推持续超前（表现为控制中心歌词"同步一句、
-// 停一会、隔几句又同步"）；冻结在最后已知位置才能与音频保持一致。
-// 定义在文件前部：生命周期通知处理器（歌词驱动区块之前）即需读写。
-static BOOL LXNowPlayingClockHold = NO;
 // 强制重绘排队步数：非前台（控制中心/锁屏打开）下推送歌词行后置 2，后续两个
 // tick 依次把 playbackState 切反/切回，强制系统重绘媒体卡片（详见 tick 内注释）
 static NSInteger LXNowPlayingRedrawPending = 0;

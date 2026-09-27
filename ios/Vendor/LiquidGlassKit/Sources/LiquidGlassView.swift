@@ -270,6 +270,15 @@ final class LiquidGlassRenderer {
     }
 }
 
+/// 全部存活玻璃实例的 weak 注册表（非隔离存储，init/deinit 均可安全访问）。
+/// 截背景时必须互相排除：若只隐藏 self，屏幕上其它玻璃（底部栏透镜、迷你播放器
+/// 等都是 LiquidGlassView）的 Metal 暗色内容会被 drawHierarchy 画进背景纹理，
+/// 经折射偏移后形成胶囊旁黑影（迷你播放器右侧 / 切 tab 时透镜周围）。
+private final class GlassInstanceRegistry {
+    static let shared = GlassInstanceRegistry()
+    let instances = NSHashTable<AnyObject>.weakObjects()
+}
+
 final class LiquidGlassView: MTKView {
 
     // var 而非 let：LiquidGlassEffectView.setGlassTintColor 会写入 tintColor 成员。
@@ -305,6 +314,8 @@ final class LiquidGlassView: MTKView {
 
         super.init(frame: .zero, device: LiquidGlassRenderer.shared.device)
 
+        GlassInstanceRegistry.shared.instances.add(self)
+
         // shadowOverlay（黑色边缘阴影环）已移除：其黑色环影在转场/拖动中被感知为
         // "黑弧"，且 multiplyBlend 合成在动画期间会失效变黑块。玻璃边缘定义由
         // shader 自身的 fresnel/glare 提供，不再叠加阴影环。
@@ -318,6 +329,10 @@ final class LiquidGlassView: MTKView {
 
     required init(coder: NSCoder) {
         fatalError("init(coder:) not implemented")
+    }
+
+    deinit {
+        GlassInstanceRegistry.shared.instances.remove(self)
     }
 
     func setupMetal() {
@@ -392,10 +407,22 @@ final class LiquidGlassView: MTKView {
                                        height: captureSize.height)
 
         backgroundTexture = zeroCopyBridge.render { context in
-            // Hide self temporarily for clean background capture
+            // Hide ALL glass instances in this window (incl. self) for a clean
+            // background capture. drawHierarchy 把整棵视图树画进纹理，只隐藏 self
+            // 时其它玻璃（底部栏透镜、迷你播放器等）的暗色内容会被捕获，经折射
+            // 形成胶囊旁黑影。只恢复本处临时隐藏的实例，不覆盖应用自身的
+            // isHidden 状态；隐藏/恢复在同一调用栈内完成，CA 事务合并后无闪烁。
+            let myWindow = window
+            let hiddenSiblings = GlassInstanceRegistry.shared.instances.allObjects
+                .compactMap { $0 as? LiquidGlassView }
+                .filter { $0 !== self && $0.window === myWindow && !$0.isHidden }
+            for sibling in hiddenSiblings { sibling.isHidden = true }
             let wasHidden = isHidden
             isHidden = true
-            defer { isHidden = wasHidden }
+            defer {
+                isHidden = wasHidden
+                for sibling in hiddenSiblings { sibling.isHidden = false }
+            }
 
             // Transform to render the portion of root view under our capture rect:
             context.scaleBy(x: scaleCoefficient, y: scaleCoefficient)

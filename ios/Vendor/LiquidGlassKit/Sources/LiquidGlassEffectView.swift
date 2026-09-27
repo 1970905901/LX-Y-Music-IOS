@@ -22,12 +22,10 @@ public class LiquidGlassEffectView: UIView, AnyVisualEffectView, UIGestureRecogn
     public var effect: UIVisualEffect?
 
     // MARK: - Demand rendering (battery)
-    // 玻璃静止时（背后内容不变）渲染是纯浪费：渲染时钟只在 JS 脉冲或挂载活跃窗为真时
-    // 运行，否则 MTKView 暂停、屏幕保留最后一帧。
-    // 滚动/拖拽：切系统磨砂实时回退（UIBlurEffect，GPU backdrop 合成，实时且零逐帧
-    // CPU 成本），自研 Metal 液态玻璃冻结淡出——滚动中逐帧整窗捕获（drawHierarchy +
-    // 同步 MPS 模糊 × 玻璃实例数）是列表滚动掉帧与玻璃边缘黑影的共同根源，已彻底
-    // 绕开；滚动停止（含惯性收敛）后补一帧新鲜画面再交叉切回液态玻璃。
+    // 玻璃静止时（背后内容不变）渲染是纯浪费：渲染时钟只在 JS 脉冲、挂载活跃窗或
+    // 滚动手势为真时运行，否则 MTKView 暂停、屏幕保留最后一帧。
+    // 方案B：滚动/拖拽期间玻璃保持实时折射（renderActive 连续逐帧捕获，60fps），
+    // 惯性收敛后暂停——实时性优先，代价是滚动中逐帧整窗捕获的 CPU 开销。
 
     /// JS 脉冲（切 Tab、换主题、换歌封面、无触摸的内容变化），由 RN 的 active prop 驱动
     private var jsActive = false
@@ -35,16 +33,9 @@ public class LiquidGlassEffectView: UIView, AnyVisualEffectView, UIGestureRecogn
     private var mountActive = true
     private var mountDecayTimer: Timer?
     private var gestureDecayTimer: Timer?
-    /// 冻结看门狗：pan 的 .ended/.cancelled 万一丢失（手势系统异常、事件竞争），
-    /// 冻结最多持续 freezeWatchdogInterval 秒即强制补帧，玻璃不会永久停留在一帧。
-    private var freezeWatchdogTimer: Timer?
-    /// 滚动实时回退材质（UIBlurEffect）：系统 backdrop 通道在 GPU 上合成，滚动期间
-    /// 内容实时透过且零逐帧 CPU 成本，补齐自研 Metal 路径「实时折射必须逐帧整窗
-    /// drawHierarchy」的死穴。静止态仍是液态玻璃（折射 + 边缘光），滚动期间切磨砂。
-    private var fallbackBlurView: UIVisualEffectView?
-    /// 主题染色覆层：跟随 setGlassTintColor，让磨砂回退态与液态玻璃的材质色一致
-    private var fallbackTintOverlay: UIView?
-    private var isFallbackActive = false
+    /// 窗口级拖拽手势观察（列表滚动、翻页、抽屉），惯性期按甩动速度延长。
+    /// 方案B：滚动期间玻璃保持实时折射（逐帧捕获），惯性收敛后暂停。
+    private var gestureActive = false
     private weak var windowPanObserver: UIPanGestureRecognizer?
 
     var liquidGlassView: LiquidGlassView? {
@@ -71,7 +62,6 @@ public class LiquidGlassEffectView: UIView, AnyVisualEffectView, UIGestureRecogn
         self.liquidGlassView = liquidGlassView
 
         setupContentView()
-        setupFallbackBlur(below: liquidGlassView)
         beginMountActivity()
     }
 
@@ -81,7 +71,6 @@ public class LiquidGlassEffectView: UIView, AnyVisualEffectView, UIGestureRecogn
         super.init(frame: .zero)
 
         setupContentView()
-        setupFallbackBlur(below: contentView)
         beginMountActivity()
     }
 
@@ -100,35 +89,12 @@ public class LiquidGlassEffectView: UIView, AnyVisualEffectView, UIGestureRecogn
         ])
     }
 
-    /// 创建滚动回退磨砂层：置于液态玻璃之下（滚动中液态玻璃淡出、磨砂淡入），
-    /// 不参与命中测试；染色覆层放进 contentView 随 blur 一起淡入淡出。
-    private func setupFallbackBlur(below sibling: UIView) {
-        // systemUltraThinMaterial：系统最轻磨砂档——液态玻璃本体只做 σ≈0.3 微模糊
-        // （近透明折射），磨砂档位越轻与静止态的材质差越小；档位再往上（thin 及
-        // 以上）雾感明显，滚动开始/结束的材质切换肉眼可辨。
-        let blur = UIVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterial))
-        blur.isUserInteractionEnabled = false
-        blur.alpha = 0
-        let overlay = UIView()
-        overlay.isUserInteractionEnabled = false
-        overlay.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        overlay.backgroundColor = LiquidGlass.regular.tintColor
-        blur.contentView.addSubview(overlay)
-        insertSubview(blur, belowSubview: sibling)
-        fallbackBlurView = blur
-        fallbackTintOverlay = overlay
-    }
-
     public override func layoutSubviews() {
         super.layoutSubviews()
 
         liquidGlassView?.frame = contentView.frame
         liquidGlassView?.layer.cornerRadius = layer.cornerRadius
         liquidGlassView?.layer.cornerCurve = layer.cornerCurve
-        fallbackBlurView?.frame = contentView.frame
-        if let overlay = fallbackTintOverlay {
-            overlay.frame = fallbackBlurView?.contentView.bounds ?? .zero
-        }
     }
 
     /// RN bridge entry: throttle continuous MTKView rendering (JS passes `fps`).
@@ -145,8 +111,6 @@ public class LiquidGlassEffectView: UIView, AnyVisualEffectView, UIGestureRecogn
         if let liquidGlassView {
             liquidGlassView.liquidGlass.tintColor = color
         }
-        // 磨砂回退态同步染色，两种材质观感一致
-        fallbackTintOverlay?.backgroundColor = color ?? LiquidGlass.regular.tintColor
     }
 
     /// RN bridge entry: 手指位置驱动的眩光（玻璃坐标系）；越界/停止时调 clearTouchPoint 清除
@@ -174,10 +138,6 @@ public class LiquidGlassEffectView: UIView, AnyVisualEffectView, UIGestureRecogn
     /// RN bridge entry: JS pulse activity on/off (the JS side owns pulse timing).
     @objc public func setJsActive(_ active: Bool) {
         jsActive = active
-        // 脉冲 = 背后内容已变化：若正处于磨砂回退态，立即切回液态玻璃并补新鲜帧
-        if active && isFallbackActive {
-            exitScrollFallback()
-        }
         applyRenderActive()
     }
 
@@ -202,30 +162,18 @@ public class LiquidGlassEffectView: UIView, AnyVisualEffectView, UIGestureRecogn
     @objc private func handleWindowPan(_ gesture: UIPanGestureRecognizer) {
         switch gesture.state {
         case .began, .changed:
-            // 滚动/翻页/抽屉开始：切系统磨砂实时回退 + 冻结 Metal 液态玻璃
-            //（见 enterScrollFallback）。取消未触发的补帧定时器——新一轮滚动
-            // 开始时画面保持上一轮的稳定帧。
+            // 方案B：滚动/翻页/抽屉期间玻璃保持实时折射（renderActive → 逐帧捕获）。
+            // 取消未触发的衰减定时器——滚动持续期间渲染时钟保持运行。
             gestureDecayTimer?.invalidate()
             gestureDecayTimer = nil
-            enterScrollFallback()
-            if freezeWatchdogTimer == nil {
-                freezeWatchdogTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: false) { [weak self] _ in
-                    guard let self else { return }
-                    self.freezeWatchdogTimer = nil
-                    self.exitScrollFallback()
-                }
-            }
+            gestureActive = true
+            applyRenderActive()
         case .ended:
-            freezeWatchdogTimer?.invalidate()
-            freezeWatchdogTimer = nil
-            // 惯性滚动越快，磨砂回退保持得越久：等滑行收敛后再切回液态玻璃，
-            // 避免滑行中途补帧又落入逐帧捕获的老路
+            // 惯性滚动越快，实时渲染保持得越久，避免长滑行中途冻结
             let velocity = gesture.velocity(in: nil)
             let speed = max(abs(velocity.x), abs(velocity.y))
             scheduleGestureDecay(speed > 1200 ? 2.2 : (speed > 300 ? 1.2 : 0.6))
         case .cancelled, .failed:
-            freezeWatchdogTimer?.invalidate()
-            freezeWatchdogTimer = nil
             scheduleGestureDecay(0.3)
         default:
             break
@@ -236,38 +184,8 @@ public class LiquidGlassEffectView: UIView, AnyVisualEffectView, UIGestureRecogn
         gestureDecayTimer?.invalidate()
         gestureDecayTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
             guard let self else { return }
-            self.exitScrollFallback()
-        }
-    }
-
-    // MARK: - Scroll fallback（滚动实时磨砂 ↔ 静止液态玻璃）
-
-    /// 滚动开始：液态玻璃淡出（Metal 时钟冻结、零捕获），系统磨砂实时接管——
-    /// GPU backdrop 合成让背后内容实时透过，且滚动全程零逐帧 CPU 成本。
-    private func enterScrollFallback() {
-        liquidGlassView?.pauseForScroll()
-        guard !isFallbackActive else { return }
-        isFallbackActive = true
-        UIView.animate(withDuration: 0.12) {
-            self.liquidGlassView?.alpha = 0
-            self.fallbackBlurView?.alpha = 1
-        }
-    }
-
-    /// 滚动结束（含惯性收敛/看门狗/脉冲触发）：先让液态玻璃补一帧新鲜画面
-    ///（refreshAfterScroll），再交叉切回——0.15s 足够 30fps 下渲染出 2 帧，
-    /// 避免切回瞬间闪过旧帧。切回前若又开始了新一轮滚动，guard 会跳过恢复。
-    private func exitScrollFallback() {
-        liquidGlassView?.refreshAfterScroll()
-        guard isFallbackActive else { return }
-        isFallbackActive = false
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-            guard !self.isFallbackActive else { return }
-            // 切回过渡稍长（0.22s）：材质变化被拉平，肉眼更难捕捉切换瞬间
-            UIView.animate(withDuration: 0.22) {
-                self.liquidGlassView?.alpha = 1
-                self.fallbackBlurView?.alpha = 0
-            }
+            self.gestureActive = false
+            self.applyRenderActive()
         }
     }
 

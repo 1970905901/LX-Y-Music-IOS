@@ -12,13 +12,12 @@
 //    it renders the live liquid-glass background of whatever is behind the parent container.
 //  - The parent container should have `borderRadius` + `overflow: 'hidden'` (rounds the bar);
 //    the corner radius set on this view itself is also forwarded to the glass shader.
-//  - `fps` throttles continuous rendering while active (default 30).
+//  - `fps` throttles continuous rendering while active (default 60).
 //  - `active` (battery): the glass pauses its render clock when inactive and keeps the last
 //    frame. Raise it via JS pulses whenever content changes without touch (tab switch, theme,
 //    cover change). Scrolling is handled natively by a window-level pan observer: the glass
-//    freezes on its last frame for the whole scroll (incl. inertia) and captures one fresh
-//    frame after it settles — per-frame whole-window capture during scroll was the cause of
-//    list jank and refracted edge shadows. Fresh views render continuously for ~1s to cover
+//    renders live (per-frame capture) for the whole scroll (incl. inertia, velocity-tiered
+//    decay) and pauses after it settles. Fresh views render continuously for ~1s to cover
 //    mount/transition animations.
 //
 
@@ -55,9 +54,6 @@
 - (void)setLensCornerRadius:(CGFloat)radius;
 - (void)setLensTouchPoint:(CGPoint)point;
 - (void)clearLensTouchPoint;
-// 拖拽期间切系统磨砂实时回退（拖拽可持续数秒，Metal 逐帧整窗捕获是透镜拖拽
-// 掉帧根源）；松手/取消时恢复实时折射。见 LiquidLensView.setBlurFallback。
-- (void)setBlurFallback:(BOOL)active;
 @end
 
 // Host view: an RCTView so all standard RN view props (borderRadius, overflow, pointerEvents,
@@ -186,10 +182,10 @@ RCT_EXPORT_MODULE(LiquidGlassView)
 
 RCT_CUSTOM_VIEW_PROPERTY(fps, NSNumber, LGLiquidGlassHostView) {
   // 仅自研 Metal 路径支持（原生 UIGlassEffect 由系统合成，无需该控制）；
-  // prop 被移除/重置时 json 为 nil，回到 30 的默认值
+  // prop 被移除/重置时 json 为 nil，回到 60 的默认值
   id<LGGlassMetalBacking> glass = (id<LGGlassMetalBacking>)view.glassBacking;
   if (![glass respondsToSelector:@selector(setPreferredFramesPerSecond:)]) return;
-  [glass setPreferredFramesPerSecond:(json != nil ? [json integerValue] : 30)];
+  [glass setPreferredFramesPerSecond:(json != nil ? [json integerValue] : 60)];
 }
 
 // 主题染色：玻璃材质色跟随 App 主题（JS 传入主题氛围色 rgba 字符串）。
@@ -327,10 +323,6 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
       _spanActive = NO;
       [_lens setLifted:YES animated:YES alongsideAnimations:nil completion:nil];
       _lens.center = CGPointMake(clampedFingerX, self.bounds.size.height / 2.0);
-      // 拖拽可能持续数秒：切磨砂实时回退，避免逐帧整窗捕获掉帧
-      if ([lensCustom respondsToSelector:@selector(setBlurFallback:)]) {
-        [lensCustom setBlurFallback:YES];
-      }
       [UIView animateWithDuration:0.15 animations:^{
         self->_lens.alpha = 1;
       }];
@@ -398,10 +390,6 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
     }
     case UIGestureRecognizerStateEnded: {
       _dragging = NO;
-      // 拖拽结束：恢复实时折射（补新鲜帧），落定弹簧动画期间展示液态玻璃
-      if ([lensCustom respondsToSelector:@selector(setBlurFallback:)]) {
-        [lensCustom setBlurFallback:NO];
-      }
       // 松手触觉确认；落点若与已切换的 tab 不一致（边界采样间隙）则补一次切换
       UISelectionFeedbackGenerator *selection = [[UISelectionFeedbackGenerator alloc] init];
       [selection selectionChanged];
@@ -461,10 +449,6 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
     case UIGestureRecognizerStateCancelled:
     case UIGestureRecognizerStateFailed: {
       _dragging = NO;
-      // 中断同样要退出磨砂回退，让透镜以液态玻璃形态弹回
-      if ([lensCustom respondsToSelector:@selector(setBlurFallback:)]) {
-        [lensCustom setBlurFallback:NO];
-      }
       if (_spanActive) {
         _spanActive = NO;
         if ([lensCustom respondsToSelector:@selector(setLensFrames:)]) {

@@ -358,11 +358,10 @@ final class LiquidGlassView: MTKView {
         // 清屏色全透明：空帧（纹理未就绪等）不改变画面，避免闪黑
         clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 0)
 
-        // 高刷设备（ProMotion 120Hz）下限制到 30fps：常驻满帧渲染 + 每帧整窗背景
-        // 捕获会导致严重掉帧。setRenderActive 在静止时暂停渲染时钟，运动时才渲染；
-        // RN 路径活跃帧率由 JS fps prop 覆盖（默认同为 30），透镜抬起路径显式压 30。
+        // 高刷设备（ProMotion 120Hz）下限制到 60fps：常驻满帧渲染 + 每帧整窗背景
+        // 捕获会导致严重掉帧。setRenderActive 在静止时暂停渲染时钟，运动时才满帧。
         enableSetNeedsDisplay = true
-        preferredFramesPerSecond = 30
+        preferredFramesPerSecond = 60
         isPaused = false
     }
 

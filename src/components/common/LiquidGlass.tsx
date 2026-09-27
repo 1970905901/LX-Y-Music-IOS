@@ -4,9 +4,8 @@ import { useLiquidGlassActive } from '@/utils/liquidGlassActivity'
 
 type LiquidGlassProps = ViewProps & {
   /**
-   * 连续渲染帧率上限（MTKView preferredFramesPerSecond）。默认 30：脉冲/挂载活跃
-   * 期间逐帧整窗捕获（drawHierarchy + 同步模糊）开销极高，30fps 减半且磨砂折射
-   * 内容观感无差异；需要更顺滑的个别场景可显式传更高值。
+   * 连续渲染帧率上限（MTKView preferredFramesPerSecond）。方案B 实时折射按 60fps
+   * 逐帧捕获；如需省电可显式传更低值。
    */
   fps?: number
   /**
@@ -34,13 +33,12 @@ const NativeLiquidGlass = requireNativeComponent<LiquidGlassProps>('LiquidGlassV
  * 内容子元素渲染在其上层。原生的 userInteractionEnabled 已关闭，触摸全部穿透。
  *
  * 省电机制（自研路径）：静止时原生渲染时钟停止（保留最后一帧）；滚动/拖拽期间
- * 原生切换为系统磨砂实时回退（UIBlurEffect，GPU backdrop 合成）——背后内容实时
- * 透过且零逐帧 CPU 成本，滚动停止后自动补一帧交叉切回液态玻璃；挂载后自带约
- * 1s 活跃窗；无触摸的内容变化（切 Tab、换主题、换歌）由业务代码调用
+ * 玻璃保持实时折射（方案B，逐帧整窗捕获，60fps），惯性收敛后自动暂停；挂载后
+ * 自带约 1s 活跃窗；无触摸的内容变化（切 Tab、换主题、换歌）由业务代码调用
  * pulseLiquidGlass()（@/utils/liquidGlassActivity）恢复。
  * iOS 26 原生路径由系统合成，本身零逐帧开销。
  */
-const LiquidGlass = memo(({ fps = 30, tint, style }: LiquidGlassProps) => {
+const LiquidGlass = memo(({ fps = 60, tint, style }: LiquidGlassProps) => {
   const active = useLiquidGlassActive()
   const glassStyle = useMemo<StyleProp<ViewStyle>>(
     () => StyleSheet.compose(StyleSheet.absoluteFill, style),

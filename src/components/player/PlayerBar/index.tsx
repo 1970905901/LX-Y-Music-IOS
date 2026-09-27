@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react'
 import { Animated, Easing, View, TouchableOpacity } from 'react-native'
 import { useHorizontalMode, useKeyboard } from '@/utils/hooks'
 import { scaleSizeW } from '@/utils/pixelRatio'
@@ -41,59 +41,21 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
   const glassTint = useMemo(() => applyOpacity(theme['c-primary-light-600'], 80), [theme])
 
   // Tab 栏收起时（仅 Home）：迷你播放器下移到收起按钮所在行并左侧让位（对齐参考交互）。
-  // 两段式 FLIP：①原位快速淡出；②在完全透明的窗口内把布局一次性切到目标态、transform
-  // 补偿定位到旧视觉位置，再淡入并原生驱动滑入目标位。布局跳变只发生在不可见期间，
-  // 不会出现"新布局先闪现一帧"的生硬弹跳；玻璃全程只重排一次，无逐帧 resize 采样问题。
+  // 动画为逐帧收窄：bottom/paddingLeft 两布局属性随 220ms 插值同步变化，胶囊边收窄
+  // 边滑入落点。收起/展开过程玻璃逐帧变形，渲染时钟用脉冲保持活跃防旧帧拉伸出黑带
   const tabBarCollapsed = useTabBarCollapsed()
   const effectiveCollapsed = isHome && tabBarCollapsed
-  // laidOutCollapsed：当前实际生效的布局形态（与视觉目标态解耦，切换发生在透明窗口内）
-  const [laidOutCollapsed, setLaidOutCollapsed] = useState(effectiveCollapsed)
-  const slideX = useRef(new Animated.Value(0)).current
-  const slideY = useRef(new Animated.Value(0)).current
-  const fadeAnim = useRef(new Animated.Value(1)).current
+  const collapseAnim = useRef(new Animated.Value(effectiveCollapsed ? 1 : 0)).current
   useEffect(() => {
-    if (effectiveCollapsed === laidOutCollapsed) return
-    // 布局切换的那一次重排会让玻璃重新采样，给一次短脉冲保证新帧及时渲染
     pulseLiquidGlass(400)
-    const shiftX = scaleSizeW(56) + designSpacing.sm
-    const bottomExpanded = safeAreaBottom + (isHome ? (isHorizontalMode ? 76 : designSpacing.xl + 48) : bottomFloatGap)
-    const shiftY = bottomExpanded - (safeAreaBottom + bottomFloatGap)
-    // 第一段：原位淡出（淡出期间布局/位移的跳变不可观察）
-    Animated.timing(fadeAnim, {
-      toValue: 0,
-      duration: 90,
-      easing: Easing.in(Easing.quad),
-      useNativeDriver: true,
-    }).start(({ finished }) => {
-      if (!finished) return
-      // 第二段准备（透明期间完成）：布局切到目标态 + 补偿定位到旧视觉位置
-      setLaidOutCollapsed(effectiveCollapsed)
-      slideX.setValue(effectiveCollapsed ? -shiftX : shiftX)
-      slideY.setValue(effectiveCollapsed ? -shiftY : shiftY)
-      // 第三段：淡入并滑向目标位（淡入带短延迟，确保 transform 补偿先生效）
-      Animated.parallel([
-        Animated.timing(slideX, {
-          toValue: 0,
-          duration: 240,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideY, {
-          toValue: 0,
-          duration: 240,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver: true,
-        }),
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 150,
-          delay: 40,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver: true,
-        }),
-      ]).start()
-    })
-  }, [effectiveCollapsed, laidOutCollapsed, slideX, slideY, fadeAnim, safeAreaBottom, isHome, isHorizontalMode])
+    // bottom/paddingLeft 属布局属性，原生驱动不支持，走 JS 驱动（状态变化低频，开销可忽略）
+    Animated.timing(collapseAnim, {
+      toValue: effectiveCollapsed ? 1 : 0,
+      duration: 220,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: false,
+    }).start()
+  }, [effectiveCollapsed, collapseAnim])
 
   const handleLongPress = useCallback(() => {
     longPressedRef.current = true
@@ -137,12 +99,14 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
           style={[
             styles.wrapper,
             {
-              bottom: laidOutCollapsed ? bottomCollapsed : bottomExpanded,
-              paddingLeft: laidOutCollapsed
-                ? designSpacing.lg + scaleSizeW(56) + designSpacing.sm
-                : designSpacing.lg,
-              opacity: fadeAnim,
-              transform: [{ translateX: slideX }, { translateY: slideY }],
+              bottom: collapseAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [bottomExpanded, bottomCollapsed],
+              }),
+              paddingLeft: collapseAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [designSpacing.lg, designSpacing.lg + scaleSizeW(56) + designSpacing.sm],
+              }),
             },
             // 关键：wrapper 全宽且盖在收起按钮上层，必须 box-none——否则透明区域
             // 拦截触摸，导致点击收起按钮无效
@@ -168,7 +132,7 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
         </Animated.View>
       )
     },
-    [theme, glassTint, isHome, handleLongPress, handleNavigate, safeAreaBottom, isHorizontalMode, laidOutCollapsed, slideX, slideY, fadeAnim],
+    [theme, glassTint, isHome, handleLongPress, handleNavigate, safeAreaBottom, isHorizontalMode, collapseAnim],
   )
 
   return keyboardShown ? null : playerComponent

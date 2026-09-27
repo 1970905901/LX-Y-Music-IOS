@@ -53,6 +53,10 @@
 - (void)clearLensTouchPoint;
 @end
 
+// 按压下陷的竖向压缩率：handlePressObserver: 的形变与 layoutSubviews 的玻璃
+// 顶部预放量必须共用同一取值，才能保证压到底时玻璃顶边恰好与宿主顶边齐平
+static const CGFloat kPressSquishScaleY = 0.92;
+
 // Host view: an RCTView so all standard RN view props (borderRadius, overflow, pointerEvents,
 // opacity, shadow*) keep working; the glass backing (native UIGlassEffect on iOS 26+ built with
 // Xcode 26, vendored Metal implementation otherwise) is pinned as its only subview.
@@ -102,12 +106,13 @@
 - (void)handlePressObserver:(UILongPressGestureRecognizer *)gesture {
   switch (gesture.state) {
     case UIGestureRecognizerStateBegan: {
-      // 幅度取肉眼清晰可辨的水平（竖向压扁 8%）。以底边为锚（tab 栏/播放条均沉底）：
-      // 按压力把玻璃往下压，顶边明显下沉、底边保持贴合不露缝；中心锚点的对称内缩
-      // 会在上下各露出生内容缝，观感像"玻璃脱框"。
-      CGFloat anchorCompensation = self.bounds.size.height * (1.0 - 0.92) / 2.0;
-      CGAffineTransform squish = CGAffineTransformMakeTranslation(0, anchorCompensation);
-      squish = CGAffineTransformScale(squish, 0.97, 0.92);
+      // 幅度取肉眼清晰可辨的水平（竖向压缩 kPressSquishScaleY）。以底边为锚（tab 栏/
+      // 播放条均沉底）：按压力把玻璃往下压，顶边下沉、底边保持贴合；顶部的预伸量
+      // （见 layoutSubviews）恰好被这段下沉吃掉，压到底也不露缝。
+      // 注意位移补偿要按玻璃实际高度算（含顶部预伸量），不能用宿主 bounds。
+      CGFloat squishOffset = _glassView.frame.size.height * (1.0 - kPressSquishScaleY) / 2.0;
+      CGAffineTransform squish = CGAffineTransformMakeTranslation(0, squishOffset);
+      squish = CGAffineTransformScale(squish, 0.97, kPressSquishScaleY);
       [UIView animateWithDuration:0.12
                             delay:0
            usingSpringWithDamping:0.85
@@ -161,6 +166,12 @@
   // 驱动折射形状；原生路径由系统按 layer.cornerRadius 裁剪）
   _glassView.layer.cornerRadius = self.layer.cornerRadius;
   _glassView.layer.cornerCurve = self.layer.cornerCurve;
+  // 玻璃顶部向上预伸出最大下压量：静止态被父容器圆角裁剪、观感与铺满一致；按压缩到底
+  // （kPressSquishScaleY）时顶边恰好落回宿主顶边——全程不露缝，也无需在玻璃下垫
+  // 任何遮罩层（垫底会被玻璃的背景采样捕获，把材质染成一块实色"磨砂残留"）
+  CGFloat ratio = 1.0 - kPressSquishScaleY;
+  CGFloat overscan = self.bounds.size.height * ratio / (1.0 - ratio);
+  _glassView.frame = CGRectMake(0, -overscan, self.bounds.size.width, self.bounds.size.height + overscan);
 }
 
 // touchPoint 眩光（kit 能力）：手指在栏体空白区域按下/移动时，玻璃高光跟随手指。
@@ -227,11 +238,7 @@ RCT_CUSTOM_VIEW_PROPERTY(fps, NSNumber, LGLiquidGlassHostView) {
 // 仅自研 Metal 路径生效（原生路径的染色在 Swift 工厂内处理或走系统默认）。
 RCT_CUSTOM_VIEW_PROPERTY(tint, NSString, LGLiquidGlassHostView) {
   if (json == nil) return;
-  UIColor *tint = [RCTConvert UIColor:json];
-  // 宿主垫同色底：按压下陷时玻璃顶边内收，露出的窄条呈染色底而非生内容
-  // （静止态玻璃完全覆盖宿主，此底不可见，见 handlePressObserver:）
-  view.backgroundColor = tint;
-  [LGGlassViewFactory applyGlassTint:view.glassView tint:tint];
+  [LGGlassViewFactory applyGlassTint:view.glassView tint:[RCTConvert UIColor:json]];
 }
 
 // JS 脉冲活跃开关（省电核心）：玻璃背后内容在无触摸交互下发生变化（切 Tab、换主题、

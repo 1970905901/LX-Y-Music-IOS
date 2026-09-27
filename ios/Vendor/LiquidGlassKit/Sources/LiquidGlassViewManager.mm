@@ -54,29 +54,25 @@
 - (void)clearLensTouchPoint;
 @end
 
-// 按压下陷的竖向压缩率：玻璃衬底已从 JS 样式转发容器同款圆角（layoutSubviews），
-// 这里以中心为锚做对称压缩——四边内缩 ≤1pt 且保持圆角，既读得出按压形变，
-// 也不会露出直角边/单侧底边（底边锚点方案会把玻璃推出裁剪区，出现"多出的边"）
-static const CGFloat kPressSquishScaleY = 0.97;
-
 // Host view: an RCTView so all standard RN view props (borderRadius, overflow, pointerEvents,
 // opacity, shadow*) keep working; the glass backing (native UIGlassEffect on iOS 26+ built with
 // Xcode 26, vendored Metal implementation otherwise) sits inside a rounded clipping container.
 // LGGlassViewFactory selects the backing. Squircle（kit cornerRoundnessExponent=4）：
 // 宿主与玻璃层统一用 continuous 圆角曲线。
-@interface LGLiquidGlassHostView : RCTView <UIGestureRecognizerDelegate>
+// 注：不做按压玻璃形变——玻璃材质自带高对比边缘光，在裁剪容器内任何内缩都会让
+// 材质自身的边缘线在胶囊内露出（方角/底边/内缘线均源于此），已验证两次故整体移除。
+@interface LGLiquidGlassHostView : RCTView
 /** 实际玻璃材质视图（原生 UIGlassEffect / 自研 Metal），tint/fps/active/触摸眩光作用于此 */
 @property (nonatomic, readonly) UIView *glassBacking;
 @end
 
 @implementation LGLiquidGlassHostView {
-  // _glassView = 圆角裁剪容器（按压形变与圆角作用层）；_glassBacking = 内部玻璃材质视图。
+  // _glassView = 圆角裁剪容器；_glassBacking = 内部玻璃材质视图。
   // 分两层的原因：iOS 26 原生 UIGlassEffect 的 UIVisualEffectView 不响应自身
-  // layer.cornerRadius（私有内容子视图不受裁剪）——玻璃直接形变会露出方角与底边，
-  // 包一层圆角裁剪容器后（UIKit 官方推荐的圆角毛玻璃做法），形变后仍是圆角。
+  // layer.cornerRadius（私有内容子视图不受裁剪），圆角裁剪容器是 UIKit 官方
+  // 推荐的圆角毛玻璃做法。
   UIView *_glassView;
   UIView *_glassBacking;
-  UILongPressGestureRecognizer *_pressObserver;
 }
 
 - (instancetype)initWithFrame:(CGRect)frame {
@@ -86,74 +82,12 @@ static const CGFloat kPressSquishScaleY = 0.97;
     // 常量名在旧 SDK(UIViewCornerCurveContinuous)与新 SDK(Xcode 26 起的 UICornerCurve 系列)间不一致,
     // 直接用底层字符串值,两端 SDK 均可编译且运行时行为相同。
     self.layer.cornerCurve = @"continuous";
-    // 按压回弹观察器（对齐 iOS 26 原生 interactive 玻璃的按压手感）：玻璃衬底永远被
-    // 上层内容盖住收不到触摸，故挂在父容器上只观察不消费（cancelsTouchesInView = NO），
-    // tab/按钮的 Pressable 点击与透镜长按拖拽完全不受影响
-    _pressObserver = [[UILongPressGestureRecognizer alloc] initWithTarget:self
-                                                                   action:@selector(handlePressObserver:)];
-    _pressObserver.minimumPressDuration = 0.01;
-    _pressObserver.cancelsTouchesInView = NO;
-    _pressObserver.delegate = self;
   }
   return self;
 }
 
-- (void)didMoveToWindow {
-  [super didMoveToWindow];
-  if (_pressObserver != nil && _pressObserver.view != nil) {
-    [_pressObserver.view removeGestureRecognizer:_pressObserver];
-  }
-  UIView *container = self.superview;
-  if (container != nil && _pressObserver != nil) {
-    [container addGestureRecognizer:_pressObserver];
-  }
-}
-
 // 按压玻璃回弹：按住 → 玻璃轻微下陷（快速弹簧）；松手/取消 → 带过冲的液态回弹。
 // 纯 UIView 弹簧 transform 动画，对原生 UIGlassEffect 与自研 Metal 两条衬底路径通用。
-- (void)handlePressObserver:(UILongPressGestureRecognizer *)gesture {
-  switch (gesture.state) {
-    case UIGestureRecognizerStateBegan: {
-      // 以中心为锚的对称压缩：竖向压扁 kPressSquishScaleY、横向轻微收拢，
-      // 玻璃圆角已与容器一致（见 layoutSubviews 圆角转发），内缩后仍是圆角
-      CGAffineTransform squish = CGAffineTransformMakeScale(0.99, kPressSquishScaleY);
-      [UIView animateWithDuration:0.12
-                            delay:0
-           usingSpringWithDamping:0.85
-            initialSpringVelocity:0
-                          options:UIViewAnimationOptionBeginFromCurrentState |
-                                  UIViewAnimationOptionAllowUserInteraction
-                       animations:^{
-        self->_glassView.transform = squish;
-      } completion:nil];
-      break;
-    }
-    case UIGestureRecognizerStateEnded:
-    case UIGestureRecognizerStateCancelled:
-    case UIGestureRecognizerStateFailed: {
-      // 低阻尼 + 初速：松手后玻璃有一次明显的果冻式过冲回弹
-      [UIView animateWithDuration:0.6
-                            delay:0
-           usingSpringWithDamping:0.55
-            initialSpringVelocity:0.5
-                          options:UIViewAnimationOptionBeginFromCurrentState |
-                                  UIViewAnimationOptionAllowUserInteraction
-                       animations:^{
-        self->_glassView.transform = CGAffineTransformIdentity;
-      } completion:nil];
-      break;
-    }
-    default:
-      break;
-  }
-}
-
-// 必须允许并行识别：否则本观察器（0.01s 即识别）会与透镜长按拖拽识别器
-// （0.35s）互斥，先识别的一方会把另一方强制 fail，长按拖拽将随机失效
-- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldRecognizeSimultaneouslyWithOtherGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer {
-  return YES;
-}
-
 - (void)installGlassBacking:(UIView *)backing {
   // 玻璃材质视图包进圆角裁剪容器：形变（按压下陷）与圆角作用在容器上，
   // 原生 UIVisualEffectView 不吃自身圆角的问题由此规避（见类注释）。
@@ -183,7 +117,7 @@ static const CGFloat kPressSquishScaleY = 0.97;
   // RN 设置在宿主 RCTView 上的圆角转发给玻璃容器与材质视图（自研路径的
   // shader uniforms.cornerRadius 驱动折射形状；原生路径由圆角容器裁剪）。
   // 玻璃严格填满宿主（autoresizing 维护 frame），不向裁剪区外预伸——超界部分在
-  // 容器逐帧变形时会导致玻璃效果采样出错（黑边），见 handlePressObserver: 注释。
+  // 容器逐帧变形时会导致玻璃效果采样出错（黑边）。
   _glassView.layer.cornerRadius = self.layer.cornerRadius;
   _glassView.layer.cornerCurve = self.layer.cornerCurve;
   _glassBacking.layer.cornerRadius = self.layer.cornerRadius;

@@ -18,8 +18,9 @@ type LiquidGlassProps = ViewProps & {
 const NativeLiquidGlass = requireNativeComponent<LiquidGlassProps>('LiquidGlassView')
 
 /**
- * 液态玻璃背景层（vendored LiquidGlassKit：iOS 26+ 用系统原生 UIGlassEffect(.clear)，
- * iOS 13-25 用 MTKView + Metal 着色器自研折射）。纯透明玻璃：透背景、不随主题变化。
+ * 液态玻璃背景层（vendored LiquidGlassKit：iOS 26+ 用系统原生 UIGlassEffect(.regular)，
+ * iOS 13-25 用 MTKView + Metal 着色器自研折射）。磨砂液态玻璃：染色 + 背景微模糊 +
+ * 折射 + 边缘光，透出背后内容的轮廓。
  *
  * 用法：作为容器的第一个子元素渲染，默认绝对定位铺满父容器；
  * 父容器需设置 `borderRadius` + `overflow: 'hidden'` 裁出圆角玻璃形状，

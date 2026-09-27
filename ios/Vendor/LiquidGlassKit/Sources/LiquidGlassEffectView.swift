@@ -45,9 +45,9 @@ public class LiquidGlassEffectView: UIView, AnyVisualEffectView, UIGestureRecogn
         }
     }
 
-    /// RN bridge entry: creates the view with the `.clear` glass preset（纯透明折射）.
+    /// RN bridge entry: creates the view with the `.regular` glass preset（磨砂液态玻璃）.
     @objc public convenience init() {
-        self.init(effect: LiquidGlassEffect(style: .clear, isNative: false))
+        self.init(effect: LiquidGlassEffect(style: .regular, isNative: false))
     }
 
     public required init(effect: LiquidGlassEffect) {

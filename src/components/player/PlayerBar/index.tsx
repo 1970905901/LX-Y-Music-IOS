@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef } from 'react'
-import { Animated, Easing, PanResponder, View, TouchableOpacity } from 'react-native'
+import { Animated, Easing, View, TouchableOpacity } from 'react-native'
 import { useHorizontalMode, useKeyboard } from '@/utils/hooks'
 import { scaleSizeW } from '@/utils/pixelRatio'
 import { useTabBarCollapsed, setMiniPlayerHeight } from '@/utils/tabBarCollapse'
@@ -9,14 +9,11 @@ import PlayInfo from './components/PlayInfo'
 import ControlBtn from './components/ControlBtn'
 import { createStyle } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
-import { useSettingValue } from '@/store/setting/hook'
-import { Icon } from '@/components/common/Icon'
 import { navigations } from '@/navigation'
 import { PLAY_DETAIL_SCREEN } from '@/navigation/screenNames'
 import commonState from '@/store/common/state'
 import { useSafeAreaBottom } from '@/store/common/hook'
 import { usePlayerMusicInfo } from '@/store/player/hook'
-import PlayerPlaylist, { type PlayerPlaylistType } from '@/components/player/PlayerPlaylist.tsx'
 import playerState from '@/store/player/state'
 import { LIST_IDS } from '@/config/constant'
 import { designRadius, designSpacing, bottomFloatGap } from '@/theme/DesignTokens'
@@ -32,8 +29,6 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
   const musicInfo = usePlayerMusicInfo()
   const longPressedRef = useRef(false)
   const navigatingRef = useRef(false)
-  const playlistRef = useRef<PlayerPlaylistType>(null)
-  const isSwipeToShowPlaylist = useSettingValue('player.isSwipeToShowPlaylist')
   const safeAreaBottom = useSafeAreaBottom()
 
   // 无触摸的内容变化时恢复玻璃渲染（静止时原生渲染时钟是暂停的）：
@@ -85,42 +80,6 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
     }, 600)
   }, [musicInfo.id])
 
-  const handleShowPlaylist = useCallback(() => {
-    playlistRef.current?.show()
-  }, [])
-
-  // 注意：不要监听全局 showPlaylist 事件。该事件由播放详情页的控制条发出，
-  // 详情页内有自己的 PlayerPlaylist 实例负责响应；若此处也监听，会导致
-  // 详情页打开队列面板时，主界面播放条的队列面板同时在底层打开——用户关闭
-  // 详情页面板返回主界面后会“又出现一个队列面板”。本组件的 ☰ 按钮与
-  // 上滑手势均直接调用本地 handleShowPlaylist，不依赖全局事件。
-
-  const gestureAction = useRef<'playlist' | null>(null)
-  const panResponder = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (evt, gestureState) => {
-        const { dx, dy } = gestureState
-        if (isSwipeToShowPlaylist && Math.abs(dy) > Math.abs(dx) * 1.5) {
-          if (dy < -10) {
-            gestureAction.current = 'playlist'
-            return true
-          }
-        }
-        return false
-      },
-      onPanResponderRelease: (evt, gestureState) => {
-        const { dy } = gestureState
-        if (gestureAction.current === 'playlist' && dy < -50) {
-          handleShowPlaylist()
-        }
-        gestureAction.current = null
-      },
-      onPanResponderTerminate: (_evt, _gestureState) => {
-        gestureAction.current = null
-      },
-    }),
-  ).current
-
   const playerComponent = useMemo(
     () => {
       // 液态玻璃模式：背景折射由原生 LiquidGlass（vendored LiquidGlassKit）实时渲染，
@@ -153,7 +112,6 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
         >
           <View
             style={[styles.container, containerStyle, isHorizontalMode ? styles.horizontalContainer : null]}
-            {...panResponder.panHandlers}
             onLayout={(e) => { setMiniPlayerHeight(e.nativeEvent.layout.height) }}
           >
             <LiquidGlass tint={glassTint} />
@@ -166,23 +124,15 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
             </TouchableOpacity>
             <View style={styles.right}>
               <ControlBtn />
-              <TouchableOpacity style={styles.menuBtn} onPress={handleShowPlaylist}>
-                <Icon name="menu" color={theme['c-button-font']} size={22} />
-              </TouchableOpacity>
             </View>
           </View>
         </Animated.View>
       )
     },
-    [theme, glassTint, isHome, handleLongPress, handleNavigate, handleShowPlaylist, panResponder.panHandlers, safeAreaBottom, isHorizontalMode, collapseAnim],
+    [theme, glassTint, isHome, handleLongPress, handleNavigate, safeAreaBottom, isHorizontalMode, collapseAnim],
   )
 
-  return (
-    <>
-      {keyboardShown ? null : playerComponent}
-      <PlayerPlaylist ref={playlistRef} />
-    </>
-  )
+  return keyboardShown ? null : playerComponent
 })
 
 const styles = createStyle({
@@ -231,14 +181,9 @@ const styles = createStyle({
     flexGrow: 0,
     flexShrink: 0,
     paddingLeft: 5,
-    paddingRight: 5,
-  },
-  menuBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 999,
-    justifyContent: 'center',
-    alignItems: 'center',
+    // 播放列表按钮已移除：去掉右侧内边距，播放/下一首贴向胶囊右缘
+    // （图标右缘距胶囊边 = container.paddingRight(12) + 图标在 40 热区内的居中留白 8 = 20pt）
+    paddingRight: 0,
   },
   // row: {
   //   flexDirection: 'row',

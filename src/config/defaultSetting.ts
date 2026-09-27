@@ -91,7 +91,6 @@ const defaultSetting: LX.AppSetting = {
   'player.togglePlayMethod': 'listLoop',
   'player.playQuality': '320k',
   'player.isSavePlayTime': true,
-  'player.isSwipeToShowPlaylist': true,
   'player.volume': 1,
   'player.playbackRate': 1,
   'player.cacheLimit': 0,

@@ -690,6 +690,7 @@ static void LXBeginReceivingRemoteControlEvents(void);
 // 歌词行时钟：锚点刷新 / 清行（定义在文件后部歌词驱动区块，此处前置声明）
 static void LXRefreshNowPlayingLyricAnchor(void);
 static void LXClearNowPlayingLyricLines(void);
+static void LXReanchorNowPlayingLyric(double elapsedMs);
 static void LXEndReceivingRemoteControlEvents(void);
 
 static void LXPostRemoteCommandNotification(NSString *command, NSDictionary *extra) {
@@ -984,8 +985,7 @@ static void LXHandleTrackPlayerLifecycleNotification(NSNotification *notificatio
   // 控制中心拖动进度条的 seek 事件同样经此链路重锚（见上分支）。
   if ([event isEqualToString:@"state"]) {
     if (position != nil) {
-      LXNowPlayingLyricAnchorElapsedMs = position.doubleValue * 1000.0;
-      LXNowPlayingLyricAnchorSystemMs = CACurrentMediaTime() * 1000.0;
+      LXReanchorNowPlayingLyric(position.doubleValue * 1000.0);
     }
     NSNumber *rate = [userInfo[@"rate"] isKindOfClass:[NSNumber class]] ? userInfo[@"rate"] : nil;
     if (rate != nil && LXNowPlayingInfoCache.count > 0) {
@@ -1016,6 +1016,7 @@ static void LXRegisterTrackPlayerLifecycleObserver(void) {
 // 歌词行时钟：锚点刷新 / 清行（定义在文件后部歌词驱动区块，此处前置声明）
 static void LXRefreshNowPlayingLyricAnchor(void);
 static void LXClearNowPlayingLyricLines(void);
+static void LXReanchorNowPlayingLyric(double elapsedMs);
 
 static void LXSetNowPlayingInfo(NSDictionary *metadata) {
   NSMutableDictionary *info = LXNowPlayingMutableInfo();
@@ -1072,7 +1073,12 @@ static void LXRefreshNowPlayingLyricAnchor(void) {
     ? LXNowPlayingInfoCache[MPNowPlayingInfoPropertyElapsedPlaybackTime]
     : nil;
   if (elapsed == nil) return;
-  LXNowPlayingLyricAnchorElapsedMs = elapsed.doubleValue * 1000.0;
+  LXReanchorNowPlayingLyric(elapsed.doubleValue * 1000.0);
+}
+
+// 以显式的引擎位置（ms）重锚歌词时钟（seek / state 事件携带的真实位置）
+static void LXReanchorNowPlayingLyric(double elapsedMs) {
+  LXNowPlayingLyricAnchorElapsedMs = elapsedMs;
   LXNowPlayingLyricAnchorSystemMs = CACurrentMediaTime() * 1000.0;
 }
 

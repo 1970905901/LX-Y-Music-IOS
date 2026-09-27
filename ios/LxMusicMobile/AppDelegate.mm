@@ -1041,6 +1041,15 @@ static void LXSetNowPlayingInfo(NSDictionary *metadata) {
     NSNumber *elapsedTime = [metadata[@"elapsedTime"] isKindOfClass:[NSNumber class]] ? metadata[@"elapsedTime"] : nil;
     NSNumber *playbackRate = [metadata[@"playbackRate"] isKindOfClass:[NSNumber class]] ? metadata[@"playbackRate"] : nil;
 
+    // 歌词时间轴归属判定：标题变化 = 换歌 → 清掉旧歌时间轴（新歌歌词经
+    // lyricUpdated 重新注入）。不能用"artist 为空"判定换歌——封面图等后到的
+    // 元数据发布时 artist 也为空，会把已注入的时间轴误清（真机实测表现为
+    // 控制中心歌词整首歌不显示，诊断模式显示"无时间轴"）。
+    NSString *previousTitle = [LXNowPlayingInfoCache[MPMediaItemPropertyTitle] isKindOfClass:[NSString class]]
+      ? LXNowPlayingInfoCache[MPMediaItemPropertyTitle]
+      : nil;
+    BOOL isNewSong = title != nil && previousTitle != nil && ![title isEqualToString:previousTitle];
+
     if (title != nil) info[MPMediaItemPropertyTitle] = title;
     if (artist != nil) info[MPMediaItemPropertyArtist] = artist;
     if (album != nil) info[MPMediaItemPropertyAlbumTitle] = album;
@@ -1049,9 +1058,7 @@ static void LXSetNowPlayingInfo(NSDictionary *metadata) {
     info[MPNowPlayingInfoPropertyPlaybackRate] = playbackRate ?: info[MPNowPlayingInfoPropertyPlaybackRate] ?: LXDefaultNowPlayingRate();
     info[MPNowPlayingInfoPropertyDefaultPlaybackRate] = info[MPNowPlayingInfoPropertyDefaultPlaybackRate] ?: LXNowPlayingDefaultPlaybackRateValue();
 
-    // 新歌元数据发布时 artist 为空串（新歌词尚未就绪）：清掉旧歌歌词行，防止原生
-    // 歌词时钟把上一首的行推到新歌的媒体卡片上
-    if (artist != nil && artist.length == 0) LXClearNowPlayingLyricLines();
+    if (isNewSong) LXClearNowPlayingLyricLines();
     // 歌词时钟锚点：以本次发布的引擎真实位置（elapsedTime）为基准外推；
     // 前台 JS 每行歌词都会发布一次，锚点随之持续校准
     LXRefreshNowPlayingLyricAnchor();

@@ -367,7 +367,6 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
           [lensCustom setLensFrames:@[]];
         }
         _lens.frame = CGRectMake(0, 0, _pillWidth, self.bounds.size.height);
-        _lens.center = CGPointMake(clampedFingerX, self.bounds.size.height / 2.0); else {
         _lens.center = CGPointMake(clampedFingerX, self.bounds.size.height / 2.0);
       }
       if ([lensCustom respondsToSelector:@selector(setLensTouchPoint:)]) {

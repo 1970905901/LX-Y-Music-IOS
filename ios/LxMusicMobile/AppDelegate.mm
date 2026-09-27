@@ -977,6 +977,22 @@ static void LXHandleTrackPlayerLifecycleNotification(NSNotification *notificatio
     });
     return;
   }
+
+  // 状态变化（原生事件携带引擎真实位置 + 真实速率）：重锚歌词时钟并修正缓存速率。
+  // 缓冲起停 / 暂停恢复 / 倍速变化若发生在外推期间，线性外推会漂移（表现为控制
+  // 中心歌词超前或滞后音乐），这里用引擎真实位置 + 真实速率把时钟拉回正轨，
+  // 控制中心拖动进度条的 seek 事件同样经此链路重锚（见上分支）。
+  if ([event isEqualToString:@"state"]) {
+    if (position != nil) {
+      LXNowPlayingLyricAnchorElapsedMs = position.doubleValue * 1000.0;
+      LXNowPlayingLyricAnchorSystemMs = CACurrentMediaTime() * 1000.0;
+    }
+    NSNumber *rate = [userInfo[@"rate"] isKindOfClass:[NSNumber class]] ? userInfo[@"rate"] : nil;
+    if (rate != nil && LXNowPlayingInfoCache.count > 0) {
+      LXNowPlayingInfoCache[MPNowPlayingInfoPropertyPlaybackRate] = rate;
+    }
+    return;
+  }
 }
 
 static void LXRegisterTrackPlayerLifecycleObserver(void) {

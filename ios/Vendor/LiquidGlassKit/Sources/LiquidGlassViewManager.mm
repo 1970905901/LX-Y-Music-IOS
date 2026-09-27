@@ -64,15 +64,25 @@
 @interface LGLiquidGlassHostView : RCTView
 /** 实际玻璃材质视图（原生 UIGlassEffect / 自研 Metal），tint/fps/active/触摸眩光作用于此 */
 @property (nonatomic, readonly) UIView *glassBacking;
+/** resize 冻结令牌（JS 变更触发冻结） */
+@property (nonatomic, assign) NSInteger lastFreezeToken;
+- (void)freezeGlassForResize:(double)durationMs;
 @end
 
 @implementation LGLiquidGlassHostView {
-  // _glassView = 圆角裁剪容器；_glassBacking = 内部玻璃材质视图。
+  // _glassView = 圆角裁剪容器（圆角作用层）；_glassBacking = 内部玻璃材质视图。
   // 分两层的原因：iOS 26 原生 UIGlassEffect 的 UIVisualEffectView 不响应自身
   // layer.cornerRadius（私有内容子视图不受裁剪），圆角裁剪容器是 UIKit 官方
   // 推荐的圆角毛玻璃做法。
   UIView *_glassView;
   UIView *_glassBacking;
+  // 容器 resize 冻结：原生 UIGlassEffect 在逐帧 frame 变化时系统玻璃渲染器
+  // 跟不上，未渲染区域输出黑色（表现为收起/展开转场中胶囊端部黑弧）。
+  // 冻结 = 拍静态快照盖住真玻璃，转场期间由快照拉伸填充，结束后换回真玻璃
+  // （仅一次 resize，无黑）。JS 经 resizeFreezeToken prop 触发。
+  UIView *_resizeSnapshot;
+  NSInteger _lastFreezeToken;
+  NSInteger _freezeGeneration;
 }
 
 - (instancetype)initWithFrame:(CGRect)frame {
@@ -82,8 +92,39 @@
     // 常量名在旧 SDK(UIViewCornerCurveContinuous)与新 SDK(Xcode 26 起的 UICornerCurve 系列)间不一致,
     // 直接用底层字符串值,两端 SDK 均可编译且运行时行为相同。
     self.layer.cornerCurve = @"continuous";
+    _lastFreezeToken = 0; // JS 侧 token 从 0 计数且首次挂载不触发冻结
   }
   return self;
+}
+
+// resize 冻结：快照盖住真玻璃 durationMs 毫秒（覆盖整个布局动画），期间布局
+// 逐帧变化由快照（普通图层，autoresizing 拉伸）填充，绝无系统玻璃渲染黑块。
+// 重复触发（快速连续收起/展开）只延长冻结窗口，不重复拍快照（玻璃隐藏时
+// 再拍会得到空快照）；代号不匹配的旧解冻回调自动作废。
+- (void)freezeGlassForResize:(double)durationMs {
+  dispatch_async(dispatch_get_main_queue(), ^{
+    self->_freezeGeneration += 1;
+    NSInteger generation = self->_freezeGeneration;
+    if (self->_resizeSnapshot == nil) {
+      UIView *snapshot = [self->_glassView snapshotViewAfterScreenUpdates:NO];
+      if (snapshot == nil) return;
+      snapshot.frame = self->_glassView.frame;
+      snapshot.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+      snapshot.userInteractionEnabled = NO;
+      [self insertSubview:snapshot aboveSubview:self->_glassView];
+      self->_glassView.hidden = YES;
+      self->_resizeSnapshot = snapshot;
+    }
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(MAX(durationMs, 300) * NSEC_PER_MSEC)), dispatch_get_main_queue(), ^{
+      if (generation != self->_freezeGeneration) return; // 期间有新冻结，解冻由最新回调负责
+      self->_glassView.hidden = NO;
+      [self->_resizeSnapshot removeFromSuperview];
+      self->_resizeSnapshot = nil;
+      // 自研 Metal 路径恢复渲染时钟；原生路径解除隐藏后系统自动重绘
+      id<LGGlassMetalBacking> glass = (id<LGGlassMetalBacking>)self->_glassBacking;
+      if ([glass respondsToSelector:@selector(setJsActive:)]) [glass setJsActive:YES];
+    });
+  });
 }
 
 // 按压玻璃回弹：按住 → 玻璃轻微下陷（快速弹簧）；松手/取消 → 带过冲的液态回弹。
@@ -189,6 +230,16 @@ RCT_CUSTOM_VIEW_PROPERTY(fps, NSNumber, LGLiquidGlassHostView) {
 RCT_CUSTOM_VIEW_PROPERTY(tint, NSString, LGLiquidGlassHostView) {
   if (json == nil) return;
   [LGGlassViewFactory applyGlassTint:view.glassBacking tint:[RCTConvert UIColor:json]];
+}
+
+// resize 冻结令牌：token 变化（JS 收起/展开动画开始前递增）即冻结玻璃 500ms，
+// 由静态快照填充转场，规避原生玻璃逐帧 resize 的渲染黑块
+RCT_CUSTOM_VIEW_PROPERTY(resizeFreezeToken, NSNumber, LGLiquidGlassHostView) {
+  if (json == nil) return;
+  NSInteger token = [json integerValue];
+  if (view.lastFreezeToken == token) return;
+  view.lastFreezeToken = token;
+  [view freezeGlassForResize:500];
 }
 
 // JS 脉冲活跃开关（省电核心）：玻璃背后内容在无触摸交互下发生变化（切 Tab、换主题、

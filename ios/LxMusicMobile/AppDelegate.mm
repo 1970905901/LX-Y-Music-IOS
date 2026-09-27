@@ -1139,6 +1139,7 @@ static void LXClearNowPlayingLyricLines(void) {
     : nil;
   if ([currentArtist isEqualToString:text]) return;
   LXNowPlayingInfoCache[MPMediaItemPropertyArtist] = text;
+  NSLog(@"[LXLyric] tick push line %ld @ %.0fms: %@", (long)LXNowPlayingLyricIndex, positionMs, text);
   LXApplyNowPlayingInfo();
 }
 @end
@@ -1165,6 +1166,7 @@ static void LXSetNowPlayingLyricLines(NSArray<NSDictionary *> *lines) {
   }
   LXNowPlayingLyricLines = merged.count ? merged : nil;
   LXNowPlayingLyricIndex = -1;
+  NSLog(@"[LXLyric] setNowPlayingLyrics: %lu lines, timer=%@", (unsigned long)LXNowPlayingLyricLines.count, LXNowPlayingLyricTimer != nil ? @"running" : @"nil");
   if (LXNowPlayingLyricLines != nil) LXStartNowPlayingLyricTimer();
 }
 

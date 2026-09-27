@@ -339,16 +339,17 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
 }
 
 - (void)handleDrag:(UILongPressGestureRecognizer *)gesture {
-  [self updateDragWithState:gesture.state fingerX:[gesture locationInView:self].x fromLongPress:YES];
+  [self updateDragWithState:gesture.state location:[gesture locationInView:self] fromLongPress:YES];
 }
 
 // 滑动切换入口：按住 tab 按钮直接横向滑动（不停顿）即进入拖拽切页
 - (void)handlePan:(UIPanGestureRecognizer *)gesture {
-  [self updateDragWithState:gesture.state fingerX:[gesture locationInView:self].x fromLongPress:NO];
+  [self updateDragWithState:gesture.state location:[gesture locationInView:self] fromLongPress:NO];
 }
 
 // 长按与滑动两条手势路径共用的拖拽状态机
-- (void)updateDragWithState:(UIGestureRecognizerState)state fingerX:(CGFloat)fingerX fromLongPress:(BOOL)fromLongPress {
+- (void)updateDragWithState:(UIGestureRecognizerState)state location:(CGPoint)location fromLongPress:(BOOL)fromLongPress {
+  CGFloat fingerX = location.x;
   CGFloat half = _pillWidth / 2.0;
   CGFloat maxCenter = MAX(half, self.bounds.size.width - half);
   CGFloat clampedFingerX = MIN(MAX(fingerX, half), maxCenter);
@@ -407,7 +408,7 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
         _lens.center = CGPointMake(clampedFingerX, self.bounds.size.height / 2.0);
       }
       if ([lensCustom respondsToSelector:@selector(setLensTouchPoint:)]) {
-        [lensCustom setLensTouchPoint:[gesture locationInView:_lens]];
+        [lensCustom setLensTouchPoint:CGPointMake(location.x - (_lens.center.x - _pillWidth / 2.0), location.y)];
       }
       // 基于边缘的切换（对齐 LiquidGlassSwitch）：拖拽越过 tab 边界即刻
       // 切换页面并伴随轻触觉反馈，无需等松手

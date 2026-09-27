@@ -135,12 +135,24 @@ public final class LiquidLensView: UIView, AnyLiquidLensView {
 
     // MARK: - Layout
 
+    /// 圆角覆盖（Vendored addition）：默认 -1 = 胶囊圆角（min(w,h)/2）；宿主 tab 栏
+    /// 传入与其一致的圆角后，透镜呈与栏体圆角对齐的圆角矩形而非胶囊。
+    private var cornerRadiusOverride: CGFloat = -1
+
+    @objc public func setLensCornerRadius(_ radius: CGFloat) {
+        guard cornerRadiusOverride != radius else { return }
+        cornerRadiusOverride = radius
+        setNeedsLayout()
+    }
+
     public override func layoutSubviews() {
         super.layoutSubviews()
 
         // Update resting pill to fill bounds with pill shape
         restingPillView.frame = bounds
-        restingPillView.layer.cornerRadius = min(bounds.width, bounds.height) / 2
+        restingPillView.layer.cornerRadius = cornerRadiusOverride >= 0
+            ? cornerRadiusOverride
+            : min(bounds.width, bounds.height) / 2
 
         // Update liquid glass view to same bounds
 //        liquidGlassView.frame = bounds
@@ -417,19 +429,10 @@ public typealias UILiquidLensView = UIView & AnyLiquidLensView
 @objc public final class LGLensFactory: NSObject {
 
     /// UIView 初始化是 MainActor 隔离的；RN 的 view 创建固定发生在主线程。
-    /// 返回类型为 UIView：iOS 26+ 返回系统原生 _UILiquidLensView（UITabBar 同款液态
-    /// 透镜，遵循与自研类相同的 AnyLiquidLensView 方法面），旧系统返回自研实现。
+    /// 统一返回自研 Metal 透镜：iOS 26 系统私有 _UILiquidLensView 的圆角/形状由
+    /// 系统内部决定（恒为胶囊，setLensCornerRadius 不可达），无法与宿主 tab 栏的
+    /// 圆角对齐；自研类形状完全受控（setLensCornerRadius / frames / tint）。
     @objc @MainActor public static func createLens() -> UIView {
-        // iOS 26+：优先系统原生透镜。私有 API，本项目仅侧载分发（不上架 App Store）。
-        // 私有类编译期无法声明遵循公开协议，运行时把协议挂上去供 ObjC 侧调用；
-        // Swift 6.2 禁止协议存在类型到基类的隐式转换，故经 NSObject alloc/init
-        // 实例化后按 UIView 下转。类不存在或实例化失败时回退自研 Metal 透镜。
-        if #available(iOS 26.0, *), let nativeClass = NSClassFromString("_UILiquidLensView") {
-            class_addProtocol(nativeClass, AnyLiquidLensView.self)
-            if let lens = (nativeClass as? NSObject.Type)?.init() as? UIView {
-                return lens
-            }
-        }
         return LiquidLensView()
     }
 }

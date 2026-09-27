@@ -133,9 +133,10 @@ export default memo(() => {
   const itemWidth = barWidth > 0 ? barWidth / TAB_IDS.length : 0
   const lensX = itemWidth * activeIndex + itemWidth / 2
   const lensStripHeight = scaleSizeH(BAR_HEIGHT - LENS_VERTICAL_INSET * 2)
-  // 胶囊透镜覆盖整个 tab 项（图标 + 文字，对齐参考视频），左右各留 6px 间隙；
-  // 高度即条带高度，圆角自动取高度一半呈胶囊两端
-  const lensPillWidth = itemWidth > 0 ? itemWidth - scaleSizeW(12) : scaleSizeW(52)
+  // 胶囊透镜横向宽度 = 栏宽均分（5 个 tab 等分，与 tab 项边界对齐）；
+  // 高度即条带高度（与栏体同高），圆角与 tab 栏圆角一致（经样式 borderRadius
+  // 传入原生，透镜呈与栏体圆角对齐的圆角矩形）
+  const lensPillWidth = itemWidth > 0 ? itemWidth : scaleSizeW(52)
 
   // 收起形态（iOS 26 风格）：歌曲列表滚动离开顶部 → 整条 tab 栏收成左下角
   // 圆形玻璃按钮（宫格图标）；点击按钮弹出，保持展开直到下一次滚动离开顶部。
@@ -240,6 +241,7 @@ export default memo(() => {
               left: 0,
               width: barWidth,
               height: lensStripHeight,
+              borderRadius: designRadius.xl,
             }}
             x={lensX}
             tabCount={TAB_IDS.length}

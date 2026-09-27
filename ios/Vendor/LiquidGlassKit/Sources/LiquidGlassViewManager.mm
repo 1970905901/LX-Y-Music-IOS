@@ -49,6 +49,7 @@
 @optional
 - (void)setLensTintColor:(UIColor *)color;
 - (void)setLensFrames:(NSArray<NSValue *> *)rects;
+- (void)setLensCornerRadius:(CGFloat)radius;
 - (void)setLensTouchPoint:(CGPoint)point;
 - (void)clearLensTouchPoint;
 @end
@@ -475,6 +476,12 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
   if (_dragging) return; // 拖拽中透镜 frame/位置由手势逻辑接管
   _lens.frame = CGRectMake(0, 0, _pillWidth, self.bounds.size.height);
   _lens.center = CGPointMake(_x, self.bounds.size.height / 2.0);
+  // 圆角对齐宿主：JS 在条带样式上设置 borderRadius（= tab 栏圆角），转发给透镜，
+  // 透镜呈与栏体圆角一致的圆角矩形而非系统胶囊（自研透镜支持该定制）
+  id<LGLensCustomizations> lensCustom = (id<LGLensCustomizations>)_lens;
+  if ([lensCustom respondsToSelector:@selector(setLensCornerRadius:)]) {
+    [lensCustom setLensCornerRadius:self.layer.cornerRadius];
+  }
 }
 
 - (void)setTargetX:(CGFloat)x animated:(BOOL)animated {

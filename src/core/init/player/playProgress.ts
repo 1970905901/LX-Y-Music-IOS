@@ -8,7 +8,8 @@ import { throttleBackgroundTimer } from '@/utils/tools'
 import BackgroundTimer from 'react-native-background-timer'
 import playerState from '@/store/player/state'
 import settingState from '@/store/setting/state'
-import { onScreenStateChange } from '@/utils/nativeModules/utils'
+import { onScreenStateChange, onPlayerPosition } from '@/utils/nativeModules/utils'
+import { reanchorNowPlayingLyric } from '@/utils/nativeModules/nowPlaying'
 import { AppState } from 'react-native'
 // UI 平滑时钟：仅服务于逐字歌词高亮与歌词连续滚动的每帧插值，
 // 不参与歌词行同步（行高亮已交由歌词引擎内部 ticker 驱动）。
@@ -49,6 +50,15 @@ export default () => {
   // 停顿；拖动结束的 setProgress 会统一重锚，无状态残留。
   let isProgressDragging = false
 
+  // 快慢双路径：
+  // - 快路径：原生歌词时钟 4Hz 外推位置事件（仅前台播放时发布），免桥接查询直接
+  //   驱动进度 UI 与歌词行同步；
+  // - 慢路径（2s）：引擎真实位置查询，负责校准（含回传原生重锚）、引擎状态/缓冲
+  //   检测、seek 生效窗口、scrobble 与进度持久化。
+  // 快路径仅在慢路径确认引擎在播后启用；缓冲 hold / seek 窗口 / 拖动期间冻结。
+  let engineConfirmedPlaying = false
+  let isBufferingHold = false
+
   const isRestoringCurrentMusic = () => {
     const restorePlayInfo = global.lx.restorePlayInfo
     if (!restorePlayInfo) return false
@@ -74,6 +84,8 @@ export default () => {
       // 等 state 变为 playing（解码器真正从目标位置渲染）后再恢复同步。
       const engineState = await getPlaybackEngineState()
       const isBuffering = engineState === 'buffering' || engineState === 'loading'
+      isBufferingHold = isBuffering
+      engineConfirmedPlaying = !isBuffering && engineState === 'playing' && !!playerState.isPlay
 
       if (!playerState.isPlay) return
 
@@ -97,6 +109,8 @@ export default () => {
       }
 
       audioClock.setAnchor(position * 1000, settingState.setting['player.playbackRate'], playerState.isPlay)
+      // 回传引擎真实位置：重锚原生歌词/位置时钟（控制中心歌词与进度 UI 同源校准）
+      void reanchorNowPlayingLyric(position * 1000)
 
       syncToTimeFromPosition(position * 1000, playerState.isPlay)
 
@@ -137,10 +151,12 @@ export default () => {
   const startUpdateTimeout = () => {
     if (!isScreenOn) return
     clearUpdateTimeout()
+    // 慢速校准 tick（2s）：引擎真实位置重锚（快路径由原生 4Hz 位置事件驱动）+
+    // 引擎状态/缓冲检测 + seek 生效窗口确认 + scrobble/播放记录/进度持久化
     updateTimeout = BackgroundTimer.setInterval(() => {
       if (isProgressDragging) return
       getCurrentTime()
-    }, 250 / settingState.setting['player.playbackRate'])
+    }, 2000)
     getCurrentTime()
   }
 
@@ -237,6 +253,9 @@ export default () => {
     audioClock.setPlaying(false)
     clearUpdateTimeout()
     stopLyricTick()
+    // 快路径随暂停冻结，恢复播放后由慢速 tick 重新确认引擎状态再启用
+    engineConfirmedPlaying = false
+    isBufferingHold = false
     // 暂停/停止时解除 seek 窗口，避免恢复播放后仍被窗口逻辑钉在旧落点
     seekTargetPosition = null
     seekHoldUntil = 0
@@ -250,6 +269,8 @@ export default () => {
     audioClock.reset()
     setNowPlayTime(0)
     setMaxplayTime(0)
+    engineConfirmedPlaying = false
+    isBufferingHold = false
     // prevProgressStatus = 'none'
     // handleSetTaskBarState(playProgress.progress, prevProgressStatus)
   }
@@ -324,6 +345,20 @@ export default () => {
   // 修复在某些设备上屏幕状态改变事件未触发导致的进度条未更新的问题
   AppState.addEventListener('change', (state) => {
     if (state == 'active' && !isScreenOn) handleScreenStateChanged('ON')
+  })
+
+  // 原生位置事件快路径（4Hz，仅前台播放时由歌词时钟发布）：免桥接查询驱动
+  // 进度 UI 与歌词行同步。启用条件：慢路径已确认引擎在播、非缓冲 hold、
+  // 非进度拖动、非 seek 生效窗口、App 前台。
+  onPlayerPosition((position, rate) => {
+    if (AppState.currentState !== 'active') return
+    if (!engineConfirmedPlaying || isBufferingHold) return
+    if (isProgressDragging) return
+    if (!playerState.isPlay || !playerState.musicInfo.id) return
+    if (seekTargetPosition != null && Date.now() < seekHoldUntil) return
+    setNowPlayTime(position)
+    audioClock.setAnchor(position * 1000, rate || settingState.setting['player.playbackRate'], true)
+    syncToTimeFromPosition(position * 1000, true)
   })
 
   global.app_event.on('play', handlePlay)

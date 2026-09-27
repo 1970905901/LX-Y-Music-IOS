@@ -691,6 +691,9 @@ static void LXBeginReceivingRemoteControlEvents(void);
 static void LXRefreshNowPlayingLyricAnchor(void);
 static void LXClearNowPlayingLyricLines(void);
 static void LXReanchorNowPlayingLyric(double elapsedMs);
+static void LXStartNowPlayingLyricTimer(void);
+// 播放位置事件（原生 4Hz 外推位置广播给 JS，驱动进度条等 UI，替代 JS 侧桥接轮询）
+static NSNotificationName const LXPlayerPositionNotificationName = @"LXPlayerPosition";
 static void LXEndReceivingRemoteControlEvents(void);
 
 static void LXPostRemoteCommandNotification(NSString *command, NSDictionary *extra) {
@@ -1042,6 +1045,8 @@ static void LXSetNowPlayingInfo(NSDictionary *metadata) {
   // 歌词时钟锚点：以本次发布的引擎真实位置（elapsedTime）为基准外推；
   // 前台 JS 每行歌词都会发布一次，锚点随之持续校准
   LXRefreshNowPlayingLyricAnchor();
+  // 位置事件枢纽不依赖歌词存在：无歌词的歌也要有时钟（驱动 JS 进度 UI）
+  LXStartNowPlayingLyricTimer();
 
   // 仅当调用方显式携带 artwork 字段时才更新封面。蓝牙歌词 / 逐行歌词更新只传
   // { artist: 歌词 }（不含 artwork 键），若仍触发 LXSetNowPlayingArtwork(@"") 会把
@@ -1100,13 +1105,21 @@ static void LXClearNowPlayingLyricLines(void) {
   return driver;
 }
 - (void)step:(NSTimer *)timer {
-  if (LXNowPlayingLyricLines.count == 0) return;
   NSNumber *rate = [LXNowPlayingInfoCache[MPNowPlayingInfoPropertyPlaybackRate] isKindOfClass:[NSNumber class]]
     ? LXNowPlayingInfoCache[MPNowPlayingInfoPropertyPlaybackRate]
     : nil;
   if (rate.doubleValue <= 0) return; // 暂停时歌词不推进
   if (LXNowPlayingLyricAnchorSystemMs <= 0) return;
   double positionMs = LXNowPlayingLyricAnchorElapsedMs + ((CACurrentMediaTime() * 1000.0) - LXNowPlayingLyricAnchorSystemMs) * rate.doubleValue;
+  // 位置事件枢纽：前台播放时把外推位置广播给 JS（4Hz 单向事件），驱动进度条等
+  // UI，替代 JS 侧每 250ms 两次桥接查询（getPosition + 引擎状态）。后台/熄屏
+  // 不发（无 UI 需要更新）。
+  if ([UIApplication sharedApplication].applicationState == UIApplicationStateActive) {
+    [[NSNotificationCenter defaultCenter] postNotificationName:LXPlayerPositionNotificationName
+                                                        object:nil
+                                                      userInfo:@{ @"position": @(positionMs / 1000.0), @"rate": rate }];
+  }
+  if (LXNowPlayingLyricLines.count == 0) return;
   // 二分查找当前行（lines 按 time 升序）
   NSUInteger lo = 0, hi = LXNowPlayingLyricLines.count - 1;
   NSInteger found = -1;
@@ -5062,6 +5075,14 @@ RCT_REMAP_METHOD(setNowPlayingLyrics, setNowPlayingLyrics:(NSArray *)lines resol
   });
 }
 
+// JS 慢速校准 tick（~2s 一次的引擎真实位置查询）回传位置：重锚原生歌词/位置时钟
+RCT_REMAP_METHOD(reanchorNowPlayingLyric, reanchorNowPlayingLyric:(double)positionMs resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
+  dispatch_async(dispatch_get_main_queue(), ^{
+    LXReanchorNowPlayingLyric(positionMs);
+    resolve(nil);
+  });
+}
+
 @end
 
 // 当前持有的后台任务（切歌取链期间申请）。放在原生侧而非依赖 JS 回传：
@@ -5101,6 +5122,10 @@ RCT_EXPORT_MODULE();
                                              selector:@selector(handleTabBarCollapseChanged:)
                                                  name:LXTabBarCollapseChangedNotification
                                                object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(handlePlayerPositionChanged:)
+                                                 name:LXPlayerPositionNotificationName
+                                               object:nil];
   }
   return self;
 }
@@ -5112,7 +5137,7 @@ RCT_EXPORT_MODULE();
 - (NSArray<NSString *> *)supportedEvents {
   // screen-size-changed 已移除：iOS 端从未发送该事件（窗口尺寸由 JS 侧 SizeView onLayout 同步），
   // 声明而不发送属于死事件，且避免误导后续接入
-  return @[ @"headphones-disconnected", @"remote-command", @"screen-state", @"tabBarCollapseChanged" ];
+  return @[ @"headphones-disconnected", @"remote-command", @"screen-state", @"tabBarCollapseChanged", @"player-position" ];
 }
 
 // Tab 栏收起状态（原生跟踪器维护，JS 经 tabBarCollapseChanged 事件与 setTabBarExpanded 命令交互）
@@ -5126,6 +5151,17 @@ RCT_EXPORT_MODULE();
   BOOL collapsed = [notification.userInfo[@"collapsed"] boolValue];
   dispatch_async(dispatch_get_main_queue(), ^{
     [self sendEventWithName:@"tabBarCollapseChanged" body:@(collapsed)];
+  });
+}
+
+// 播放位置事件（原生歌词时钟 4Hz 外推位置，仅前台播放时发布）：转发给 JS 驱动进度 UI
+- (void)handlePlayerPositionChanged:(NSNotification *)notification {
+  if (!self.hasListeners) return;
+  NSNumber *position = [notification.userInfo[@"position"] isKindOfClass:[NSNumber class]] ? notification.userInfo[@"position"] : nil;
+  NSNumber *rate = [notification.userInfo[@"rate"] isKindOfClass:[NSNumber class]] ? notification.userInfo[@"rate"] : nil;
+  if (position == nil) return;
+  dispatch_async(dispatch_get_main_queue(), ^{
+    [self sendEventWithName:@"player-position" body:@{ @"position": position, @"rate": rate ?: @1 }];
   });
 }
 

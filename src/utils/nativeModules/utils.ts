@@ -187,6 +187,19 @@ export const onTabBarCollapseChanged = (handler: (collapsed: boolean) => void): 
   }
 }
 
+// 播放位置（原生歌词时钟 4Hz 外推位置，仅前台播放时发布）：替代 JS 侧桥接轮询
+export const onPlayerPosition = (handler: (position: number, rate: number) => void): (() => void) => {
+  if (!isIOS || !UtilsModule) return () => {}
+  const eventEmitter = new NativeEventEmitter(UtilsModule)
+  const eventListener = eventEmitter.addListener('player-position', (event: { position: number, rate: number }) => {
+    if (typeof event?.position != 'number') return
+    handler(event.position, typeof event.rate == 'number' ? event.rate : 1)
+  })
+  return () => {
+    eventListener.remove()
+  }
+}
+
 // 点击收起按钮手动展开：保持展开直到下一次列表滚动离开顶部
 export const setTabBarExpanded = (): void => {
   if (!isIOS || !UtilsModule?.setTabBarExpanded) return

@@ -66,3 +66,9 @@ export const setNowPlayingLyrics = async(lines: NowPlayingLyricLine[]) => {
   if (!hasMethod('setNowPlayingLyrics')) return
   return NowPlayingModule?.setNowPlayingLyrics?.(lines)
 }
+
+/** 引擎真实位置回传：重锚原生歌词/位置时钟（慢速校准 tick 调用） */
+export const reanchorNowPlayingLyric = async(positionMs: number) => {
+  if (!hasMethod('reanchorNowPlayingLyric')) return
+  return NowPlayingModule?.reanchorNowPlayingLyric?.(positionMs)
+}

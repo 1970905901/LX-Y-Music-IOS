@@ -29,12 +29,19 @@ const resolveMetadataDuration = (duration: number) => {
   return getTimelineDuration(playerState.playMusicInfo.musicInfo, duration)
 }
 
+// 逐行歌词 force 更新的时长缓存：同一首歌内时长不变，首次解析后直接复用，
+// 省去每行歌词一次的时长桥接往返（getTrackDuration / getNativeFlacDuration）
+let cachedDurationMusicId: string | undefined
+
 export const updateMetaData = async(musicInfo: LX.Player.MusicInfo, isPlay: boolean, lyric?: string, force = false) => {
   const prevIsPlaying = state.isPlaying
   state.isPlaying = isPlay
   if (force) {
-    const duration = resolveMetadataDuration(isNativeFlacActive() ? await getNativeFlacDuration() : await getTrackDuration())
-    state.prevDuration = duration
+    if (!(state.prevDuration > 0) || cachedDurationMusicId != musicInfo.id) {
+      const duration = resolveMetadataDuration(isNativeFlacActive() ? await getNativeFlacDuration() : await getTrackDuration())
+      state.prevDuration = duration
+      cachedDurationMusicId = musicInfo.id
+    }
     delayUpdateMusicInfo(musicInfo, lyric, isPlay)
     return
   }
@@ -42,6 +49,7 @@ export const updateMetaData = async(musicInfo: LX.Player.MusicInfo, isPlay: bool
     const duration = resolveMetadataDuration(isNativeFlacActive() ? await getNativeFlacDuration() : await getTrackDuration())
     if (state.prevDuration != duration) {
       state.prevDuration = duration
+      cachedDurationMusicId = musicInfo.id
       const trackInfo = await getCurrentTrack()
       if (trackInfo && musicInfo) {
         delayUpdateMusicInfo(musicInfo, lyric, isPlay)
@@ -50,6 +58,7 @@ export const updateMetaData = async(musicInfo: LX.Player.MusicInfo, isPlay: bool
   } else {
     const [duration, trackInfo] = await Promise.all([isNativeFlacActive() ? getNativeFlacDuration() : getTrackDuration(), getCurrentTrack()])
     state.prevDuration = resolveMetadataDuration(duration)
+    cachedDurationMusicId = musicInfo.id
     if (trackInfo && musicInfo) {
       delayUpdateMusicInfo(musicInfo, lyric, isPlay)
     }

@@ -1,5 +1,5 @@
-import { memo, useCallback, useEffect, useRef, useState } from 'react'
-import { Animated, Easing, PanResponder, View } from 'react-native'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Animated, PanResponder, View } from 'react-native'
 
 import { useDrag } from '@/utils/hooks'
 import { setPagerScrollEnabled } from '@/utils/pagerScrollControl'
@@ -15,17 +15,6 @@ const emitDragState = (isDrag: boolean) => {
   } catch {}
 }
 
-// Animated.Value 没有公开的读取接口，__getValue() 是内部实现。
-// 包一层兜底：任何异常 / 非有限值一律按 0 处理，避免 NaN 污染后续动画。
-const readAnimValue = (value: Animated.Value): number => {
-  try {
-    const raw = (value as unknown as { __getValue?: () => number }).__getValue?.()
-    return typeof raw == 'number' && Number.isFinite(raw) ? raw : 0
-  } catch {
-    return 0
-  }
-}
-
 export interface ProgressDrag {
   /** 是否允许拖动 seek（由「允许拖动播放进度条跳转」开关控制） */
   seekEnabled: boolean
@@ -34,8 +23,6 @@ export interface ProgressDrag {
   /** 手指当前对应的进度（0~1）。Animated 直驱：移动回调里 setValue 直连原生属性，
    *  不经 React 渲染——播放详情页歌词动画并发负载下，走 setState 会因 JS 帧不足拖动不跟手。 */
   dragProgressAnim: Animated.Value
-  /** 非拖动时的补间进度值，直接用于 width 插值 */
-  animProgress: Animated.Value
   onDragState: (drag: boolean) => void
   setDragProgress: (progress: number) => void
   onSetProgress: (progress: number) => void
@@ -43,8 +30,12 @@ export interface ProgressDrag {
 }
 
 /**
- * 播放器进度条的公共逻辑：平滑补间 + 拖动 seek + 歌词预览。
+ * 播放器进度条的公共逻辑：拖动 seek + 歌词预览。
  * iPhone（ProgressBar）与 iPad（Progress）两份皮肤共用，避免一侧修了另一侧漏掉。
+ *
+ * 注：非拖动进度条由 playProgressChanged 驱动 `width` 百分比直接渲染（4Hz），
+ * 不再做 Animated 线性补间——旧补间没有任何皮肤消费其输出值（两份皮肤都用
+ * `progress` prop 渲染），却在播放期间以 JS 帧率空转，纯属浪费。
  */
 export const useProgressDrag = (progress: number, duration: number): ProgressDrag => {
   // 「允许拖动进度条跳转」开关：关闭后进度条仅展示，不响应任何点击/拖动。
@@ -55,51 +46,6 @@ export const useProgressDrag = (progress: number, duration: number): ProgressDra
   // 会以同一频率渲染整棵进度条子树，在播放详情页（歌词逐字动画等并发负载）上 JS 帧不足，
   // 表现为进度条拖动不跟手。setValue 绕过 React 渲染直接更新原生属性，实时跟随手指。
   const dragProgressAnim = useRef(new Animated.Value(0)).current
-  // 播放中 playProgressChanged 约每 1s 触发一次，进度条原本是秒级跳变。
-  // 非拖动时用 Animated 在两次更新之间做线性补间，让进度条连续平滑滑动。
-  const animProgress = useRef(new Animated.Value(clamp01(progress))).current
-  const lastUpdateTimeRef = useRef(0)
-  const wasDragingRef = useRef(false)
-
-  useEffect(() => {
-    if (draging) {
-      wasDragingRef.current = true
-      return
-    }
-    const target = clamp01(progress)
-    const current = readAnimValue(animProgress)
-
-    // 拖动刚结束：把补间值立即对齐到释放位置，避免「从拖动前旧值缓慢追到目标」
-    // 造成的进度条回退 + 慢动画（表现为手动滑动进度条动画太慢）。
-    if (wasDragingRef.current) {
-      wasDragingRef.current = false
-      animProgress.setValue(target)
-      lastUpdateTimeRef.current = 0
-      return
-    }
-
-    // 切歌 / 后退 seek / 重播等进度回退时直接跳到目标，避免反向补间把进度条往回拉。
-    if (target < current - 1e-6) {
-      animProgress.setValue(target)
-      lastUpdateTimeRef.current = Date.now()
-      return
-    }
-
-    const now = Date.now()
-    const dt = lastUpdateTimeRef.current ? now - lastUpdateTimeRef.current : 1000
-    lastUpdateTimeRef.current = now
-
-    const anim = Animated.timing(animProgress, {
-      toValue: target,
-      duration: Math.min(Math.max(dt, 250), 1500),
-      easing: Easing.linear,
-      useNativeDriver: false,
-      // 播放时该补间每秒接力，不占用 InteractionManager 队列（原因同 MiniProgressBar）
-      isInteraction: false,
-    })
-    anim.start()
-    return () => { anim.stop() }
-  }, [progress, draging, animProgress])
 
   const durationRef = useRef(duration)
   useEffect(() => {

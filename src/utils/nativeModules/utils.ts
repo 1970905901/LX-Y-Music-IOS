@@ -175,6 +175,24 @@ export const onHeadphonesDisconnected = (handler: () => void): (() => void) => {
   }
 }
 
+// Tab 栏收起状态（iOS 26 风格）：原生滚动跟踪器维护，状态变化时才发事件
+export const onTabBarCollapseChanged = (handler: (collapsed: boolean) => void): (() => void) => {
+  if (!isIOS || !UtilsModule) return () => {}
+  const eventEmitter = new NativeEventEmitter(UtilsModule)
+  const eventListener = eventEmitter.addListener('tabBarCollapseChanged', (event: boolean | { collapsed: boolean }) => {
+    handler(typeof event == 'boolean' ? event : !!event?.collapsed)
+  })
+  return () => {
+    eventListener.remove()
+  }
+}
+
+// 点击收起按钮手动展开：保持展开直到下一次列表滚动离开顶部
+export const setTabBarExpanded = (): void => {
+  if (!isIOS || !UtilsModule?.setTabBarExpanded) return
+  UtilsModule.setTabBarExpanded()
+}
+
 export const isIgnoringBatteryOptimization = async(): Promise<boolean> => {
   if (isIOS) return true
   return UtilsModule.isIgnoringBatteryOptimization()

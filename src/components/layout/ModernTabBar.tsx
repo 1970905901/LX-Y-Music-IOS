@@ -1,5 +1,5 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react'
-import { Pressable, View } from 'react-native'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Animated, Easing, Pressable, View } from 'react-native'
 import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
 import { useNavActiveId, useSafeAreaBottom } from '@/store/common/hook'
@@ -7,9 +7,11 @@ import { setNavActiveId } from '@/core/common'
 import { createStyle } from '@/utils/tools'
 import { scaleSizeH, scaleSizeW } from '@/utils/pixelRatio'
 import { applyOpacity } from '@/utils/colorOpacity'
-import { designRadius, designSpacing } from '@/theme/DesignTokens'
 import { shadow } from '@/utils/shadow'
 import { pulseLiquidGlass } from '@/utils/liquidGlassActivity'
+import { useTabBarCollapsed } from '@/utils/tabBarCollapse'
+import { setTabBarExpanded } from '@/utils/nativeModules/utils'
+import { designRadius, designSpacing } from '@/theme/DesignTokens'
 import { Icon } from '@/components/common/Icon'
 import Text from '@/components/common/Text'
 import LiquidGlass from '@/components/common/LiquidGlass'
@@ -36,8 +38,29 @@ const styles = createStyle({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // 深色模式下去掉描边（避免玻璃边缘出现黑线），浅色模式保留白色细描边
-  // （无独立样式，见 barStyle）
+  // 深浅色模式均无描边（纯玻璃质感，玻璃材质自带边缘光）——染色/描边见 barStyle 与 glassTint
+  pillWrapper: {
+    position: 'absolute',
+    left: designSpacing.lg,
+    width: scaleSizeW(56),
+    height: scaleSizeW(56),
+  },
+  pillInner: {
+    width: '100%',
+    height: '100%',
+    borderRadius: designRadius.pill,
+    overflow: 'hidden',
+    ...shadow(6),
+  },
+  pillIcon: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   label: {
     marginTop: 2,
     fontWeight: '600',
@@ -110,6 +133,23 @@ export default memo(() => {
   const lensX = itemWidth * activeIndex + itemWidth / 2
   const lensStripHeight = scaleSizeH(BAR_HEIGHT - LENS_VERTICAL_INSET * 2)
 
+  // 收起形态（iOS 26 风格）：歌曲列表滚动离开顶部 → 整条 tab 栏收成左下角
+  // 圆形玻璃按钮（宫格图标）；点击按钮弹出，保持展开直到下一次滚动离开顶部。
+  const collapsed = useTabBarCollapsed()
+  const collapseAnim = useRef(new Animated.Value(collapsed ? 1 : 0)).current
+  useEffect(() => {
+    Animated.timing(collapseAnim, {
+      toValue: collapsed ? 1 : 0,
+      duration: 220,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: true,
+    }).start()
+  }, [collapsed, collapseAnim])
+
+  const handlePillPress = useCallback(() => {
+    setTabBarExpanded()
+  }, [])
+
   return (
     <View
       style={[
@@ -118,7 +158,37 @@ export default memo(() => {
       ]}
       pointerEvents="box-none"
     >
-      <View style={barStyle} onLayout={handleBarLayout}>
+      {/* 收起态圆形玻璃按钮（宫格图标）：点击弹出完整 tab 栏 */}
+      <Animated.View
+        style={[
+          styles.pillWrapper,
+          {
+            bottom: safeAreaBottom + designSpacing.sm,
+            opacity: collapseAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 1] }),
+            transform: [{ scale: collapseAnim.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1] }) }],
+          },
+        ]}
+        pointerEvents={collapsed ? 'auto' : 'none'}
+      >
+        <Pressable style={styles.pillInner} onPress={handlePillPress}>
+          <LiquidGlass />
+          <View style={styles.pillIcon} pointerEvents="none">
+            <Icon name="menu" size={20} color={theme['c-primary']} />
+          </View>
+        </Pressable>
+      </Animated.View>
+      {/* 完整 tab 栏：列表在顶部或手动展开时显示，收起时下滑淡出且不再响应触摸 */}
+      <Animated.View
+        style={[
+          barStyle,
+          {
+            opacity: collapseAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
+            transform: [{ translateY: collapseAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 28] }) }],
+          },
+        ]}
+        onLayout={handleBarLayout}
+        pointerEvents={collapsed ? 'none' : 'auto'}
+      >
         <LiquidGlass tint={glassTint} />
         {/* 透镜药丸条带：垫在 tab 内容之下，切 Tab 时原生弹簧滑动，按压时液态变形 */}
         {barWidth > 0 ? (
@@ -164,7 +234,7 @@ export default memo(() => {
             </Pressable>
           )
         })}
-      </View>
+      </Animated.View>
     </View>
   )
 })

@@ -2,9 +2,11 @@
 #import <CommonCrypto/CommonCryptor.h>
 #import <CommonCrypto/CommonDigest.h>
 #import <React/RCTBridgeModule.h>
+#import <React/RCTBridge.h>
 #import <React/RCTBundleURLProvider.h>
 #import <React/RCTEventEmitter.h>
 #import <React/RCTLinkingManager.h>
+#import <React/RCTScrollView.h>
 #import <ReactNativeNavigation/ReactNativeNavigation.h>
 
 @class SceneDelegate;
@@ -4922,6 +4924,10 @@ RCT_REMAP_METHOD(clearNowPlayingInfo, clearNowPlayingInfoWithResolver:(RCTPromis
 // 这里做幂等管理：重复 begin 复用同一个任务，end 一律结束当前任务。
 static UIBackgroundTaskIdentifier LXBackgroundTaskId = UIBackgroundTaskInvalid;
 
+// Tab 栏收起状态机（定义在文件后部的跟踪器区块；此处前置声明供 setTabBarExpanded 使用）
+static BOOL LXTabBarManualExpanded;
+static void LXSetTabBarCollapsed(BOOL collapsed);
+
 @interface UtilsModule : RCTEventEmitter<RCTBridgeModule>
 @property (nonatomic, assign) BOOL hasListeners;
 @end
@@ -4956,7 +4962,13 @@ RCT_EXPORT_MODULE();
 - (NSArray<NSString *> *)supportedEvents {
   // screen-size-changed 已移除：iOS 端从未发送该事件（窗口尺寸由 JS 侧 SizeView onLayout 同步），
   // 声明而不发送属于死事件，且避免误导后续接入
-  return @[ @"headphones-disconnected", @"remote-command", @"screen-state" ];
+  return @[ @"headphones-disconnected", @"remote-command", @"screen-state", @"tabBarCollapseChanged" ];
+}
+
+// Tab 栏收起状态（原生跟踪器维护，JS 经 tabBarCollapseChanged 事件与 setTabBarExpanded 命令交互）
+- (void)sendTabBarCollapseChanged:(NSNumber *)collapsed {
+  if (!self.hasListeners) return;
+  [self sendEventWithName:@"tabBarCollapseChanged" body:collapsed];
 }
 
 - (void)startObserving {
@@ -5027,6 +5039,14 @@ RCT_EXPORT_METHOD(screenkeepAwake) {
 RCT_EXPORT_METHOD(screenUnkeepAwake) {
   dispatch_async(dispatch_get_main_queue(), ^{
     [UIApplication sharedApplication].idleTimerDisabled = NO;
+  });
+}
+
+// Tab 栏手动展开（点击左下角收起按钮）：保持展开直到下一次列表滚动离开顶部
+RCT_EXPORT_METHOD(setTabBarExpanded) {
+  dispatch_async(dispatch_get_main_queue(), ^{
+    LXTabBarManualExpanded = YES;
+    LXSetTabBarCollapsed(NO);
   });
 }
 
@@ -5245,6 +5265,55 @@ RCT_REMAP_METHOD(getSafeAreaInsets,
       @"right": @(insets.right),
     });
   });
+}
+
+@end
+
+// ============================================================================
+// Tab 栏收起跟踪器（iOS 26 风格：列表滚动收起、回顶展开、点收起按钮手动展开）
+// ============================================================================
+// 监听所有 RN 滚动视图（Home 各页歌曲列表、详情页列表……无需逐页接线）：
+// swizzle -[RCTScrollView scrollViewDidScroll:]，原生侧维护收起状态机
+// （offset > 48 收起 / ≤ 2 展开，中间为迟滞区防抖），仅在状态变化时把
+// tabBarCollapseChanged 事件发给 JS——滚动事件本身不过桥，性能无损。
+static BOOL LXTabBarCollapsedState = NO;
+static BOOL LXTabBarManualExpanded = NO;
+static IMP LXOrigRCTScrollViewDidScroll = NULL;
+
+static void LXSetTabBarCollapsed(BOOL collapsed) {
+  if (LXTabBarCollapsedState == collapsed) return;
+  LXTabBarCollapsedState = collapsed;
+  id module = [[RCTBridge currentBridge] moduleForClass:[UtilsModule class]];
+  if (module != nil && [module respondsToSelector:@selector(sendTabBarCollapseChanged:)]) {
+    NSNumber *body = collapsed ? @YES : @NO;
+    [module performSelectorOnMainThread:@selector(sendTabBarCollapseChanged:) withObject:body waitUntilDone:NO];
+  }
+}
+
+static void LX_RCTScrollView_scrollViewDidScroll(id self, SEL _cmd, UIScrollView *scrollView) {
+  if (LXOrigRCTScrollViewDidScroll != NULL) {
+    ((void (*)(id, SEL, UIScrollView *))LXOrigRCTScrollViewDidScroll)(self, _cmd, scrollView);
+  }
+  CGPoint offset = scrollView.contentOffset;
+  if (offset.y > 48) {
+    // 离开顶部：任何列表滚动都收起（手动展开态也在这次滚动后失效）
+    LXTabBarManualExpanded = NO;
+    LXSetTabBarCollapsed(YES);
+  } else if (offset.y <= 2) {
+    LXSetTabBarCollapsed(NO);
+  }
+  // (2, 48] 迟滞区：保持当前状态，避免顶部抖动来回切换
+}
+
+@interface LXTabBarCollapseSetup : NSObject
+@end
+@implementation LXTabBarCollapseSetup
+
++ (void)load {
+  Method method = class_getInstanceMethod([RCTScrollView class], @selector(scrollViewDidScroll:));
+  if (method == nil) return;
+  LXOrigRCTScrollViewDidScroll = method_getImplementation(method);
+  method_setImplementation(method, (IMP)LX_RCTScrollView_scrollViewDidScroll);
 }
 
 @end

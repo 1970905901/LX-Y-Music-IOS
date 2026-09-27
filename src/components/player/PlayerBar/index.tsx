@@ -1,6 +1,8 @@
 import { memo, useCallback, useEffect, useMemo, useRef } from 'react'
-import { PanResponder, View, TouchableOpacity } from 'react-native'
+import { Animated, Easing, PanResponder, View, TouchableOpacity } from 'react-native'
 import { useHorizontalMode, useKeyboard } from '@/utils/hooks'
+import { scaleSizeW } from '@/utils/pixelRatio'
+import { useTabBarCollapsed } from '@/utils/tabBarCollapse'
 import Pic from './components/Pic'
 import Title from './components/Title'
 import PlayInfo from './components/PlayInfo'
@@ -42,6 +44,20 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
 
   // 主题染色：玻璃材质色跟随 App 主题（同 ModernTabBar）
   const glassTint = useMemo(() => applyOpacity(theme['c-primary-light-600'], 85), [theme])
+
+  // Tab 栏收起时（仅 Home）：迷你播放器下移到收起按钮所在行并左侧让位（对齐参考交互）
+  const tabBarCollapsed = useTabBarCollapsed()
+  const effectiveCollapsed = isHome && tabBarCollapsed
+  const collapseAnim = useRef(new Animated.Value(effectiveCollapsed ? 1 : 0)).current
+  useEffect(() => {
+    // bottom/paddingLeft 属布局属性，原生驱动不支持，走 JS 驱动（状态变化低频，开销可忽略）
+    Animated.timing(collapseAnim, {
+      toValue: effectiveCollapsed ? 1 : 0,
+      duration: 220,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: false,
+    }).start()
+  }, [effectiveCollapsed, collapseAnim])
 
   const handleLongPress = useCallback(() => {
     longPressedRef.current = true
@@ -110,14 +126,23 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
       // 液态玻璃模式：背景折射由原生 LiquidGlass（vendored LiquidGlassKit）实时渲染，
       // 容器透明、无描边（纯玻璃质感，玻璃材质自带明暗自适应的染色与边缘光），只保留投影。
       const containerStyle = { ...shadow(8) }
+      const bottomExpanded = safeAreaBottom + (isHome
+        ? (isHorizontalMode ? 84 : designSpacing.xl + 56)
+        : designSpacing.sm)
+      const bottomCollapsed = safeAreaBottom + designSpacing.sm
       return (
-        <View
+        <Animated.View
           style={[
             styles.wrapper,
             {
-              bottom: safeAreaBottom + (isHome
-                ? (isHorizontalMode ? 84 : designSpacing.xl + 56)
-                : designSpacing.sm),
+              bottom: collapseAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [bottomExpanded, bottomCollapsed],
+              }),
+              paddingLeft: collapseAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [designSpacing.lg, designSpacing.lg + scaleSizeW(56) + designSpacing.sm],
+              }),
             },
           ]}
         >
@@ -140,10 +165,10 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </Animated.View>
       )
     },
-    [theme, glassTint, isHome, handleLongPress, handleNavigate, handleShowPlaylist, panResponder.panHandlers, safeAreaBottom, isHorizontalMode],
+    [theme, glassTint, isHome, handleLongPress, handleNavigate, handleShowPlaylist, panResponder.panHandlers, safeAreaBottom, isHorizontalMode, collapseAnim],
   )
 
   return (

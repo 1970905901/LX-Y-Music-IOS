@@ -26,7 +26,8 @@ const styles = createStyle({
     paddingHorizontal: designSpacing.lg,
   },
   bar: {
-    height: 64,
+    // 与迷你播放条胶囊(~54)接近的纤细高度；透镜条带高度按 BAR_HEIGHT 推导
+    height: 56,
     flexDirection: 'row',
     borderRadius: designRadius.xl,
     ...shadow(8),
@@ -88,7 +89,7 @@ const TAB_LABEL_KEYS: Record<(typeof TAB_IDS)[number]['id'], string> = {
   nav_setting: 'nav_setting',
 }
 
-const BAR_HEIGHT = 64
+const BAR_HEIGHT = 56
 const LENS_VERTICAL_INSET = 6
 
 export default memo(() => {

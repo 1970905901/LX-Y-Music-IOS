@@ -75,6 +75,21 @@ export default () => {
     let id = playerState.musicInfo.id
     void getPosition().then(async position => {
       if (!position || id != playerState.musicInfo.id) return
+
+      // seek 生效窗口内：引擎可能仍回报 seek 前的旧位置（seek 异步生效）。
+      // 此时绝不能把旧位置发布进 UI 状态（setNowPlayTime → playProgressChanged
+      // → 进度条/时间标签/歌词监听器）——否则进度条先跳回旧位置、窗口结束后再
+      // 跳回落点，表现为快进/快退后进度条抽帧。只把歌词/UI 时钟冻结在落点，
+      // 等下一次轮询；引擎已在落点附近恢复播放时解除窗口，正常锚定。
+      if (seekTargetPosition != null && Date.now() < seekHoldUntil) {
+        if (Math.abs(position - seekTargetPosition) >= 1.5) {
+          audioClock.hold(seekTargetPosition * 1000)
+          return
+        }
+        seekTargetPosition = null
+        seekHoldUntil = 0
+      }
+
       setNowPlayTime(position)
 
       // 先检查引擎状态：buffering 期间音频没有真正渲染，getPosition() 返回的是
@@ -93,19 +108,6 @@ export default () => {
         // 解码器还在 buffering：硬冻结时钟，不外推、不同步歌词。
         audioClock.hold(position * 1000)
         return
-      }
-
-      // seek 生效窗口内：引擎可能仍回报 seek 前的旧位置（seek 异步生效）。
-      // 此时不能用旧位置重新锚定/同步歌词——否则点击歌词行/拖动进度条后音频已跳转，
-      // 歌词与进度却回到旧位置（音频与歌词不同步）。保持冻结在落点，等下一次轮询；
-      // 引擎已在落点附近恢复播放时解除窗口，正常锚定。
-      if (seekTargetPosition != null && Date.now() < seekHoldUntil) {
-        if (Math.abs(position - seekTargetPosition) >= 1.5) {
-          audioClock.hold(seekTargetPosition * 1000)
-          return
-        }
-        seekTargetPosition = null
-        seekHoldUntil = 0
       }
 
       audioClock.setAnchor(position * 1000, settingState.setting['player.playbackRate'], playerState.isPlay)

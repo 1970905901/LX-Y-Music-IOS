@@ -1,7 +1,7 @@
 import { memo, useMemo } from 'react'
 import { Animated, View } from 'react-native'
 
-import { ProgressTouchArea, useProgressDrag } from './progressCore'
+import { ProgressTouchArea, useProgressDrag, useSmoothProgressAnim } from './progressCore'
 import { clamp01, createStyle } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
 
@@ -65,7 +65,8 @@ const Progress = ({
   // 主题里 alpha-NNN 的数值越大越淡（alpha-100 = 90% 不透明，alpha-900 = 10%）。
   // 已播放用实心主色，参照线用半透明主色。
   const activeColor = theme.isDark ? theme['c-font'] : theme['c-primary']
-  const progressStr: `${number}%` = `${clamp01(progress) * 100}%`
+  // 非拖动进度条：原生驱动 translateX 平滑补间（理由与结构同 iPhone 侧 ProgressBar）
+  const smoothTranslate = useSmoothProgressAnim(progress)
   // 手指层宽度由 Animated 直驱（拖动移动零 React 渲染），实时跟随手指
   const dragWidth = useMemo(
     () => dragProgressAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }),
@@ -80,14 +81,15 @@ const Progress = ({
         {draging ? (
           <>
             {/* 底层：音频当前真实位置（半透明参照线）——拖动时仍能看出「正在播放到哪里」 */}
-            <View
+            <Animated.View
               style={{
                 ...styles.progressBar,
                 backgroundColor: theme['c-primary-alpha-500'],
-                width: progressStr,
+                width: '100%',
                 position: 'absolute',
                 left: 0,
                 top: 0,
+                transform: [{ translateX: smoothTranslate }],
               }}
             />
             {/* 上层：手指所在位置（实心高亮），Animated 直驱实时跟随手指 */}
@@ -103,14 +105,15 @@ const Progress = ({
             />
           </>
         ) : (
-          <View
+          <Animated.View
             style={{
               ...styles.progressBar,
               backgroundColor: activeColor,
-              width: progressStr,
+              width: '100%',
               position: 'absolute',
               left: 0,
               top: 0,
+              transform: [{ translateX: smoothTranslate }],
             }}
           />
         )}

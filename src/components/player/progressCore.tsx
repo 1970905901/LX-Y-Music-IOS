@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Animated, PanResponder, View } from 'react-native'
+import { Animated, Easing, PanResponder, View } from 'react-native'
 
 import { useDrag } from '@/utils/hooks'
 import { setPagerScrollEnabled } from '@/utils/pagerScrollControl'
@@ -37,8 +37,44 @@ export interface ProgressDrag {
  * 不再做 Animated 线性补间——旧补间没有任何皮肤消费其输出值（两份皮肤都用
  * `progress` prop 渲染），却在播放期间以 JS 帧率空转，纯属浪费。
  */
-export const useProgressDrag = (progress: number, duration: number): ProgressDrag => {
-  // 「允许拖动进度条跳转」开关：关闭后进度条仅展示，不响应任何点击/拖动。
+/**
+ * 非拖动进度条的平滑补间（原生驱动 translateX 滑动条）。
+ *
+ * 背景：快路径位置事件 4Hz 发布，皮肤若把 progress 直接渲染成 width 百分比，
+ * 进度条每 250ms 阶梯跳一格——播放详情页歌词动画并发负载下 JS 帧不稳时尤其
+ * 明显，表现为进度条动画不流畅。且 width 不在原生动画白名单，无法原生驱动。
+ *
+ * 做法：progress prop 每 tick 到达时，用原生驱动的 Animated.timing（UI 线程，
+ * 不受 JS 帧影响）以 250ms 线性滑到新目标——原生动画从当前值起步，逐 tick 链式
+ * 衔接，肉眼即匀速连续；seek 的大跳也变成 250ms 的平滑滑动。translateX 在原生
+ * 驱动白名单内，故用「全宽条 + 负向位移」表达进度：translateX = (p-1) * 100%，
+ * 溢出裁剪容器内可见右缘即播放位置。
+ */
+export const useSmoothProgressAnim = (progress: number): Animated.AnimatedInterpolation<number> => {
+  const anim = useRef(new Animated.Value(clamp01(progress))).current
+  const targetRef = useRef(clamp01(progress))
+
+  useEffect(() => {
+    const target = clamp01(progress)
+    // 目标未变（重渲染但事件未推进）不重启动画，省掉无谓的桥往返
+    if (Math.abs(target - targetRef.current) < 0.0001) return
+    targetRef.current = target
+    Animated.timing(anim, {
+      toValue: target,
+      duration: 250,
+      easing: Easing.linear,
+      isInteraction: false,
+      useNativeDriver: true,
+    }).start()
+  }, [progress, anim])
+
+  return useMemo(
+    () => anim.interpolate({ inputRange: [0, 1], outputRange: ['-100%', '0%'] }),
+    [anim],
+  )
+}
+
+export const useProgressDrag = (progress: number, duration: number): ProgressDrag => {  // 「允许拖动进度条跳转」开关：关闭后进度条仅展示，不响应任何点击/拖动。
   const seekEnabled = useSettingValue('common.allowProgressBarSeek')
 
   const [draging, setDraging] = useState(false)

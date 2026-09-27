@@ -1,7 +1,7 @@
 import { memo, useMemo } from 'react'
 import { Animated, View } from 'react-native'
 
-import { ProgressTouchArea, useProgressDrag } from './progressCore'
+import { ProgressTouchArea, useProgressDrag, useSmoothProgressAnim } from './progressCore'
 import { clamp01, createStyle } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
 
@@ -60,7 +60,9 @@ const Progress = ({
   } = useProgressDrag(progress, duration)
 
   const activeColor = theme.isDark ? theme['c-font'] : theme['c-primary']
-  const progressStr: `${number}%` = `${clamp01(progress) * 100}%`
+  // 非拖动进度条：原生驱动 translateX 平滑补间（4Hz tick 链式衔接成匀速运动，
+  // seek 大跳变 250ms 平滑滑动），不再渲染 width 百分比的阶梯跳变
+  const smoothTranslate = useSmoothProgressAnim(progress)
   // 手指层宽度由 Animated 直驱（拖动移动零 React 渲染），实时跟随手指
   const dragWidth = useMemo(
     () => dragProgressAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }),
@@ -74,15 +76,17 @@ const Progress = ({
         <BufferedBar progress={buffered} color={theme['c-primary-light-400-alpha-700']} />
         {draging ? (
           <>
-            {/* 参考项目：拖动时同时显示当前真实进度（底层浅色参照）和手指拖动进度（顶层高亮） */}
-            <View
+            {/* 参考项目：拖动时同时显示当前真实进度（底层浅色参照）和手指拖动进度（顶层高亮）。
+                真实进度同样走 translateX 平滑补间，与两态共用同一运动表达 */}
+            <Animated.View
               style={{
                 ...styles.progressBar,
                 backgroundColor: theme['c-primary-alpha-500'],
-                width: progressStr,
+                width: '100%',
                 position: 'absolute',
                 left: 0,
                 top: 0,
+                transform: [{ translateX: smoothTranslate }],
               }}
             />
             <Animated.View
@@ -97,14 +101,15 @@ const Progress = ({
             />
           </>
         ) : (
-          <View
+          <Animated.View
             style={{
               ...styles.progressBar,
               backgroundColor: activeColor,
-              width: progressStr,
+              width: '100%',
               position: 'absolute',
               left: 0,
               top: 0,
+              transform: [{ translateX: smoothTranslate }],
             }}
           />
         )}

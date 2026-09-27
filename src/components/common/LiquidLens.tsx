@@ -1,5 +1,5 @@
-import { memo } from 'react'
-import { requireNativeComponent, type ViewProps } from 'react-native'
+import { memo, useMemo } from 'react'
+import { processColor, requireNativeComponent, type ViewProps } from 'react-native'
 
 type LiquidLensProps = ViewProps & {
   /**
@@ -39,6 +39,12 @@ const NativeLiquidLens = requireNativeComponent<LiquidLensProps>('LiquidGlassLen
  * 已关闭，触摸全部穿透。
  */
 const LiquidLens = memo(({ x, lifted = false, glassOpacity = 0.4, pillWidth, tabCount, tint, onDragSelect, style }: LiquidLensProps) => {
+  // 原生 RCTConvert UIColor: 只认 processColor 预处理后的数值（rgb() 字符串会静默
+  // 转成 nil），与 LiquidGlass 同因同修
+  const nativeTint = useMemo(
+    () => (tint != null ? processColor(tint) ?? undefined : undefined),
+    [tint],
+  )
   return (
     <NativeLiquidLens
       style={style}
@@ -47,7 +53,7 @@ const LiquidLens = memo(({ x, lifted = false, glassOpacity = 0.4, pillWidth, tab
       glassOpacity={glassOpacity}
       pillWidth={pillWidth}
       tabCount={tabCount}
-      tint={tint}
+      tint={nativeTint}
       onDragSelect={onDragSelect}
       pointerEvents="none"
     />

@@ -1,5 +1,5 @@
 import { memo, useMemo } from 'react'
-import { requireNativeComponent, StyleSheet, type StyleProp, type ViewProps, type ViewStyle } from 'react-native'
+import { processColor, requireNativeComponent, StyleSheet, type StyleProp, type ViewProps, type ViewStyle } from 'react-native'
 
 type LiquidGlassProps = ViewProps & {
   /**
@@ -27,11 +27,17 @@ const NativeLiquidGlass = requireNativeComponent<LiquidGlassProps>('LiquidGlassV
  * 内容子元素渲染在其上层。原生的 userInteractionEnabled 已关闭，触摸全部穿透。
  */
 const LiquidGlass = memo(({ tint, glassOpacity = 0.4, style }: LiquidGlassProps) => {
+  // 原生 RCTConvert UIColor: 只认 processColor 预处理后的数值（rgb()/rgba() 字符串
+  // 会被静默转成 nil——染色曾因此从不跟随主题），必须过一次 processColor 再过桥
+  const nativeTint = useMemo(
+    () => (tint != null ? processColor(tint) ?? undefined : undefined),
+    [tint],
+  )
   const glassStyle = useMemo(
     () => StyleSheet.compose(StyleSheet.absoluteFill, style),
     [style],
   )
-  return <NativeLiquidGlass style={glassStyle} glassOpacity={glassOpacity} tint={tint} pointerEvents="none" />
+  return <NativeLiquidGlass style={glassStyle} glassOpacity={glassOpacity} tint={nativeTint} pointerEvents="none" />
 })
 
 export default LiquidGlass

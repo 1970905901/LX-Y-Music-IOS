@@ -18,6 +18,7 @@ import PlayerPlaylist, { type PlayerPlaylistType } from '@/components/player/Pla
 import playerState from '@/store/player/state'
 import { LIST_IDS } from '@/config/constant'
 import { designRadius, designSpacing } from '@/theme/DesignTokens'
+import { applyOpacity } from '@/utils/colorOpacity'
 import { shadow } from '@/utils/shadow'
 import { pulseLiquidGlass } from '@/utils/liquidGlassActivity'
 import LiquidGlass from '@/components/common/LiquidGlass'
@@ -38,6 +39,13 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
   useEffect(() => {
     pulseLiquidGlass()
   }, [musicInfo, theme, safeAreaBottom, isHorizontalMode])
+
+  // 主题染色：玻璃材质色跟随 App 主题（同 ModernTabBar）
+  const glassTint = useMemo(() => {
+    const bg = theme['c-app-background']
+    if (/,\s*0\)$/.test(bg)) return undefined
+    return applyOpacity(bg, 78)
+  }, [theme])
 
   const handleLongPress = useCallback(() => {
     longPressedRef.current = true
@@ -121,7 +129,7 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
             style={[styles.container, containerStyle, isHorizontalMode ? styles.horizontalContainer : null]}
             {...panResponder.panHandlers}
           >
-            <LiquidGlass />
+            <LiquidGlass tint={glassTint} />
             <TouchableOpacity style={styles.left} onPress={handleNavigate} onLongPress={handleLongPress} activeOpacity={0.8}>
               <Pic />
               <View style={styles.center}>
@@ -139,7 +147,7 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
         </View>
       )
     },
-    [theme, isHome, handleLongPress, handleNavigate, handleShowPlaylist, panResponder.panHandlers, safeAreaBottom, isHorizontalMode],
+    [theme, glassTint, isHome, handleLongPress, handleNavigate, handleShowPlaylist, panResponder.panHandlers, safeAreaBottom, isHorizontalMode],
   )
 
   return (

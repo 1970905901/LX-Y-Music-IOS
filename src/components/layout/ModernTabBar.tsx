@@ -6,6 +6,7 @@ import { useNavActiveId, useSafeAreaBottom } from '@/store/common/hook'
 import { setNavActiveId } from '@/core/common'
 import { createStyle } from '@/utils/tools'
 import { scaleSizeH, scaleSizeW } from '@/utils/pixelRatio'
+import { applyOpacity } from '@/utils/colorOpacity'
 import { designRadius, designSpacing } from '@/theme/DesignTokens'
 import { shadow } from '@/utils/shadow'
 import { pulseLiquidGlass } from '@/utils/liquidGlassActivity'
@@ -78,6 +79,14 @@ export default memo(() => {
   // 深浅色模式均无描边（纯玻璃质感，玻璃材质自带边缘光）
   const barStyle = useMemo(() => styles.bar, [])
 
+  // 主题染色：玻璃材质色跟随 App 主题（如绿主题 → 淡绿磨砂玻璃）。
+  // 动态/透明背景主题的氛围色本身近透明，此时不喂染色，走玻璃默认材质。
+  const glassTint = useMemo(() => {
+    const bg = theme['c-app-background']
+    if (/,\s*0\)$/.test(bg)) return undefined
+    return applyOpacity(bg, 78)
+  }, [theme])
+
   // 无触摸的内容变化时恢复玻璃渲染（静止时原生渲染时钟是暂停的）：
   // 切 Tab 会整体替换背后内容，换主题会改变玻璃外观
   useEffect(() => {
@@ -114,7 +123,7 @@ export default memo(() => {
       pointerEvents="box-none"
     >
       <View style={barStyle} onLayout={handleBarLayout}>
-        <LiquidGlass />
+        <LiquidGlass tint={glassTint} />
         {/* 透镜药丸条带：垫在 tab 内容之下，切 Tab 时原生弹簧滑动，按压时液态变形 */}
         {barWidth > 0 ? (
           <LiquidLens

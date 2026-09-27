@@ -105,6 +105,13 @@ RCT_CUSTOM_VIEW_PROPERTY(fps, NSNumber, LGLiquidGlassHostView) {
   [glass setPreferredFramesPerSecond:(json != nil ? [json integerValue] : 30)];
 }
 
+// 主题染色：玻璃材质色跟随 App 主题（JS 传入主题氛围色 rgba 字符串）。
+// 仅自研 Metal 路径生效（原生路径的染色在 Swift 工厂内处理或走系统默认）。
+RCT_CUSTOM_VIEW_PROPERTY(tint, NSString, LGLiquidGlassHostView) {
+  if (json == nil) return;
+  [LGGlassViewFactory applyGlassTint:view.glassView tint:[RCTConvert UIColor:json]];
+}
+
 // JS 脉冲活跃开关（省电核心）：玻璃背后内容在无触摸交互下发生变化（切 Tab、换主题、
 // 换歌封面）时 JS 置 true 让玻璃恢复渲染，静止时置 false —— 渲染时钟完全停止，仅保留
 // 最后一帧。滚动/拖拽由原生窗口级手势观察自动覆盖，无需 JS 参与。

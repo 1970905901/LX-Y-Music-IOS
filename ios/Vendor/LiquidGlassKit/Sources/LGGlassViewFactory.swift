@@ -31,5 +31,22 @@ import UIKit
         glassView.backgroundColor = .clear
         return glassView
     }
+
+    /// 主题染色：玻璃材质色跟随 App 主题（而非固定蓝白/黑）。
+    /// - 自研 Metal 路径：写入 shader 的 materialTint（ LiquidGlassEffectView.setGlassTintColor）；
+    /// - iOS 26 原生路径：UIGlassEffect 支持 tintColor，但 effect 不可变，需整体重新赋值；
+    /// - tint 为 nil 时回退玻璃默认材质色（.regular 预设的动态色）。
+    @objc @MainActor public static func applyGlassTint(_ glassView: UIView, tint: UIColor?) {
+        #if compiler(>=6.2)
+        if #available(iOS 26.0, *), let effectView = glassView as? UIVisualEffectView,
+           effectView.effect is UIGlassEffect {
+            let effect = UIGlassEffect(style: .regular)
+            effect.tintColor = tint
+            effectView.effect = effect
+            return
+        }
+        #endif
+        (glassView as? LiquidGlassEffectView)?.setGlassTintColor(tint)
+    }
 }
 

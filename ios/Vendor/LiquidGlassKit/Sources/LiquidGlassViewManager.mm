@@ -220,8 +220,9 @@ RCT_CUSTOM_VIEW_PROPERTY(active, NSNumber, LGLiquidGlassHostView) {
 //   长按 0.35s 抬起透镜并立即选中按住的 tab；或按住 tab 直接横向滑动（无需
 //   停顿）抬起透镜跟手（挤压/拉伸），越过 tab 边界即切换页面；松手时落点
 //   tab 通过 onDragSelect 事件通知 JS 切页；快速点击不受影响；
-// - `tabCount` prop：tab 数量，用于把松手位置换算成 tab 序号；
-// - `pillColor` prop：静止药丸底色（rgba 字符串，按主题明暗传不同值）。
+// - `tabCount` prop：tab 数量，用于把松手位置换算成 tab 序号。
+// - 静止药丸层已移除（本项目静止态透镜整体隐藏，药丸只在抬起瞬间露出形成
+//   「方形底子」），pillColor prop 已随之下线。
 
 @interface LGLiquidLensHostView : RCTView <UIGestureRecognizerDelegate>
 @property (nonatomic, copy) RCTDirectEventBlock onDragSelect;
@@ -632,13 +633,6 @@ RCT_CUSTOM_VIEW_PROPERTY(lifted, NSNumber, LGLiquidLensHostView) {
                 animated:YES
      alongsideAnimations:nil
               completion:nil];
-  }
-}
-
-// 静止药丸底色（跟随应用主题明暗，由 JS 传入 rgba 字符串）
-RCT_CUSTOM_VIEW_PROPERTY(pillColor, NSString, LGLiquidLensHostView) {
-  if (json != nil) {
-    view.lens.restingBackgroundColor = [RCTConvert UIColor:json];
   }
 }
 

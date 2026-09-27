@@ -60,17 +60,18 @@ public final class LiquidLensView: UIView, AnyLiquidLensView {
 
     // MARK: - Private Views
 
-    /// The resting background view - semi-transparent white pill shown in resting state.
-    private let restingPillView = UIView()
-
     /// The liquid glass view shown when lifted.
     private let liquidGlassView = LiquidGlassView(.lens)
 
     // MARK: - Protocol Properties
 
+    /// Vendored：静止药丸层已移除——本项目静止态透镜整体隐藏（宿主 alpha 0），
+    /// 药丸只在抬起交叉淡化的一瞬露出来，在玻璃下方形成一层圆角矩形「底子」
+    /// （用户反馈的「透镜下面的方形底子」）。属性保留以满足 AnyLiquidLensView
+    /// 协议与 OC 桥接（pillColor prop 现为空操作）。
     @objc public var restingBackgroundColor: UIColor? {
-        get { restingPillView.backgroundColor }
-        set { restingPillView.backgroundColor = newValue }
+        get { nil }
+        set {}
     }
 
     /// Vendored addition: 主题染色转发到透镜内部的 LiquidGlassView（与底部栏玻璃同一
@@ -109,9 +110,8 @@ public final class LiquidLensView: UIView, AnyLiquidLensView {
     public init(restingBackground backgroundView: UIView?) {
         super.init(frame: .zero)
         commonInit()
-        if let backgroundView {
-            restingPillView.addSubview(backgroundView)
-        }
+        // Vendored：静止药丸层已移除，restingBackground 背景视图不再挂载（上游
+        // 停留药丸模式，本项目不使用）
     }
 
     required init?(coder: NSCoder) {
@@ -121,11 +121,6 @@ public final class LiquidLensView: UIView, AnyLiquidLensView {
 
     private func commonInit() {
         clipsToBounds = false
-
-        // Setup resting pill view - semi-transparent white
-        restingPillView.backgroundColor = UIColor.white.withAlphaComponent(0.3)
-        restingPillView.isUserInteractionEnabled = false
-        addSubview(restingPillView)
 
         // Setup liquid glass view - initially hidden
         liquidGlassView.alpha = 0
@@ -147,15 +142,6 @@ public final class LiquidLensView: UIView, AnyLiquidLensView {
 
     public override func layoutSubviews() {
         super.layoutSubviews()
-
-        // Update resting pill to fill bounds with pill shape
-        restingPillView.frame = bounds
-        restingPillView.layer.cornerRadius = cornerRadiusOverride >= 0
-            ? cornerRadiusOverride
-            : min(bounds.width, bounds.height) / 2
-        // 静止药丸与抬起玻璃同为胶囊形态：不跟随系统默认曲线（iOS 26 起默认
-        // continuous 会让贴边的圆角呈方形超椭圆观感）
-        restingPillView.layer.cornerCurve = .circular
 
         // Update liquid glass view to same bounds
 //        liquidGlassView.frame = bounds
@@ -221,7 +207,7 @@ public final class LiquidLensView: UIView, AnyLiquidLensView {
     private func liftUp(animated: Bool, alongsideAnimations: (() -> Void)?, completion: ((Bool) -> Void)?) {
         // Prepare liquid glass view at same position
         liquidGlassView.frame = bounds
-        // Vendored（修「透镜偶发变矩形」）：圆角不取 restingPill 当前值——它依赖
+        // Vendored（修「透镜偶发变矩形」）：圆角不取外部缓存的当前值——那依赖
         // layoutSubviews 时序，宿主几何短暂无效（首帧/样式未应用）时曾被推成 0，
         // shader 的圆角 SDF 以 0 渲染即矩形，且玻璃只在 liftUp 赋值一次、抬起期间
         // 无处纠正。直接按 override 与短边一半现算，保证抬起的玻璃必为胶囊形态。
@@ -244,10 +230,7 @@ public final class LiquidLensView: UIView, AnyLiquidLensView {
         startPositionTracking()
 
         let animations = {
-            // Fade out resting pill
-            self.restingPillView.alpha = 0
-
-            // Fade in liquid glass
+            // Fade in liquid glass（静止药丸层已移除，直接淡入玻璃）
             self.liquidGlassView.alpha = 1
 
             alongsideAnimations?()
@@ -279,14 +262,8 @@ public final class LiquidLensView: UIView, AnyLiquidLensView {
         // Stop position tracking
         stopPositionTracking()
 
-        // Prepare resting pill for fade in
-        restingPillView.alpha = 0
-
         let animations = {
-            // Fade in resting pill
-            self.restingPillView.alpha = 1
-
-            // Fade out liquid glass
+            // Fade out liquid glass（静止药丸层已移除，玻璃淡出后由宿主整体淡出透镜）
             self.liquidGlassView.alpha = 0
 
             alongsideAnimations?()

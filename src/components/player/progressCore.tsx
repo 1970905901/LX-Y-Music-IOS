@@ -46,26 +46,36 @@ export interface ProgressDrag {
  *
  * 做法：progress prop 每 tick 到达时，用原生驱动的 Animated.timing（UI 线程，
  * 不受 JS 帧影响）以 250ms 线性滑到新目标——原生动画从当前值起步，逐 tick 链式
- * 衔接，肉眼即匀速连续；seek 的大跳也变成 250ms 的平滑滑动。translateX 在原生
- * 驱动白名单内，用「全宽条 + 负向位移」表达进度：translateX = (p-1) × 容器宽。
+ * 衔接，肉眼即匀速连续。translateX 在原生驱动白名单内，用「全宽条 + 负向位移」
+ * 表达进度：translateX = (p-1) × 容器宽。
  *
- * 返回 0~1 的 Animated.Value 本体：位移的像素换算由皮肤负责——容器宽度经
- * onLayout 实测后插值成像素输出。不要用百分比字符串做 translateX 输出：
- * RN 0.70 的原生动画模块对 transform 百分比不可靠（会静默失效为 0，表现为
- * 进度条恒为满格），像素值则完全可靠。
+ * seek 例外（产品要求）：点按进度条 / 拖动松手 / 歌词跳转后进度条**直接跳到目标
+ * 位置，无变化过程**。监听 setProgress 事件标记 800ms 吸附窗口，窗口内的进度
+ * 变更用 0 时长原生动画瞬间落位（0 时长动画同时会接管正在运行的补间，避免
+ * setValue 与运行中动画打架）。
  */
+let seekSnapUntil = 0
 export const useSmoothProgressAnim = (progress: number): Animated.Value => {
   const anim = useRef(new Animated.Value(clamp01(progress))).current
   const targetRef = useRef(clamp01(progress))
+
+  useEffect(() => {
+    const handleSeek = () => { seekSnapUntil = Date.now() + 800 }
+    global.app_event.on('setProgress', handleSeek)
+    return () => {
+      global.app_event.off('setProgress', handleSeek)
+    }
+  }, [])
 
   useEffect(() => {
     const target = clamp01(progress)
     // 目标未变（重渲染但事件未推进）不重启动画，省掉无谓的桥往返
     if (Math.abs(target - targetRef.current) < 0.0001) return
     targetRef.current = target
+    const isSeekSnap = Date.now() < seekSnapUntil
     Animated.timing(anim, {
       toValue: target,
-      duration: 250,
+      duration: isSeekSnap ? 0 : 250,
       easing: Easing.linear,
       isInteraction: false,
       useNativeDriver: true,

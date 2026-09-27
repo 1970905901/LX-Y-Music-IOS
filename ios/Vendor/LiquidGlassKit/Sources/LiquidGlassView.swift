@@ -466,7 +466,14 @@ final class LiquidGlassView: MTKView {
         }
 
 //        uniforms.cornerRoundnessExponent = (layer.cornerCurve == .continuous) ? 4 : 2
-        uniforms.cornerRadius = Float(layer.cornerRadius)
+        // 圆角钳制到短边一半：传入的 borderRadius 可能超过玻璃短边一半
+        // （designRadius.xl=32，而迷你播放器胶囊高约 54、半高仅 27；tab 栏高 56、
+        // 半高 28；透镜被挤压拉伸时 frame 变窄使其短边更小）。UIKit 会自动收敛为
+        // 圆角胶囊，但 shader 的 roundedRectangleSDF 不收敛，圆角退化会让形状 SDF
+        // 在边缘算错、把黑色背景折射进胶囊边缘，表现为胶囊右侧/透镜周围的黑影。
+        // 对齐 LGLiquidLensHostView.setLensCornerRadius 的钳制处理（min(宽,高)/2）。
+        let maxGlassRadius = min(bounds.width, bounds.height) / 2.0
+        uniforms.cornerRadius = Float(min(layer.cornerRadius, CGFloat(maxGlassRadius)))
         // squircle 圆角（对齐 kit）：宿主 layer 用 continuous 曲线时按 squircle 折射
         uniforms.cornerRoundnessExponent = (layer.cornerCurve == .continuous) ? 4 : 2
 

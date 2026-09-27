@@ -398,9 +398,18 @@ final class LiquidGlassView: MTKView {
         let currentLayer = layer.presentation() ?? layer
         let frameInRoot = currentLayer.convert(currentLayer.bounds, to: rootView.layer)
 
-        // Expand capture area around the MTKView center (in root view coordinates)
-        let captureSize = CGSize(width: frameInRoot.width * sizeCoefficient,
-                                 height: frameInRoot.height * sizeCoefficient)
+        // Expand capture area around the MTKView center (in root view coordinates).
+        // 【尺寸】必须与背景像素缓冲同源（model bounds，见 layoutSubviews 的
+        // setupBuffer），【中心】跟随 presentation 保持动画位置跟踪：逐帧变形动画
+        // （迷你播放器收窄/放出、透镜 span 拉伸）期间 presentation 尺寸比 model
+        // 慢一拍，若用 presentation 尺寸，变宽瞬间缓冲右/下侧会留下一条
+        // drawHierarchy 没画到的黑带，被 shader 折射进胶囊边缘——迷你播放器
+        // 放出/收起时右侧黑弧、切 tab 时透镜周围黑影（静止时两者一致故干净）。
+        // 再外扩 1 缓冲像素盖住 Int 取整缝隙，保证缓冲无未绘制纹理，
+        // clamp_to_edge 边缘采样不会读到黑边。
+        let devicePixel = 1.0 / scaleCoefficient
+        let captureSize = CGSize(width: bounds.width * sizeCoefficient + devicePixel * 2,
+                                 height: bounds.height * sizeCoefficient + devicePixel * 2)
         let captureRectInRoot = CGRect(x: frameInRoot.midX - captureSize.width / 2,
                                        y: frameInRoot.midY - captureSize.height / 2,
                                        width: captureSize.width,
@@ -469,11 +478,14 @@ final class LiquidGlassView: MTKView {
         let sizeCoefficient = liquidGlass.backgroundTextureSizeCoefficient
         let scaleCoefficient = layer.contentsScale * liquidGlass.backgroundTextureScaleCoefficient
 
-        // Calculate frame using presentation layer for smooth animation tracking
+        // Calculate frame using presentation layer for smooth animation tracking.
+        // 尺寸与缓冲同源（model bounds）+ 1 缓冲像素外扩，理由同 captureRootView：
+        // 逐帧变形动画期间 presentation 尺寸滞后一拍，会在缓冲边缘留下黑带。
         let currentLayer = layer.presentation() ?? layer
         let frameInSuperview = currentLayer.convert(currentLayer.bounds, to: superview.layer)
-        let captureSize = CGSize(width: frameInSuperview.width * sizeCoefficient,
-                                 height: frameInSuperview.height * sizeCoefficient)
+        let devicePixel = 1.0 / scaleCoefficient
+        let captureSize = CGSize(width: bounds.width * sizeCoefficient + devicePixel * 2,
+                                 height: bounds.height * sizeCoefficient + devicePixel * 2)
         let captureOrigin = CGPoint(x: frameInSuperview.midX - captureSize.width / 2,
                                     y: frameInSuperview.midY - captureSize.height / 2)
 

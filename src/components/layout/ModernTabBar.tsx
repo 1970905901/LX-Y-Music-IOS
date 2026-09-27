@@ -202,6 +202,7 @@ export default memo(() => {
             }}
             x={lensX}
             tabCount={TAB_IDS.length}
+            tint={glassTint}
             onDragSelect={handleDragSelect}
             pillWidth={scaleSizeW(LENS_PILL_WIDTH)}
           />

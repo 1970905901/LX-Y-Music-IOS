@@ -73,6 +73,12 @@ public final class LiquidLensView: UIView, AnyLiquidLensView {
         set { restingPillView.backgroundColor = newValue }
     }
 
+    /// Vendored addition: 主题染色转发到透镜内部的 LiquidGlassView（与底部栏玻璃同一
+    /// 材质色）。不设置时 .lens 预设近乎透明，滑过深色内容会呈现黑团（闪黑）。
+    @objc public func setLensTintColor(_ color: UIColor?) {
+        liquidGlassView.liquidGlass.tintColor = color
+    }
+
     // MARK: - Initialization
 
     convenience public init() {

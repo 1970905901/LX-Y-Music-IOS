@@ -18,6 +18,8 @@ type LiquidLensProps = ViewProps & {
   pillWidth?: number
   /** tab 数量：长按拖拽松手时用于把落点位置换算成 tab 序号。 */
   tabCount?: number
+  /** 主题染色（rgba 字符串）：透镜玻璃与底部栏玻璃同色（防止深色内容上闪黑）。 */
+  tint?: string
   /** 长按拖拽松手事件：落点所在 tab 序号。JS 收到后切换对应页面。 */
   onDragSelect?: (event: { nativeEvent: { index: number } }) => void
 }
@@ -36,7 +38,7 @@ const NativeLiquidLens = requireNativeComponent<LiquidLensProps>('LiquidGlassLen
  * 之上、tab 内容之下；通过 `x` 指定目标中心。原生的 userInteractionEnabled
  * 已关闭，触摸全部穿透。
  */
-const LiquidLens = memo(({ x, lifted = false, pillColor, pillWidth, tabCount, onDragSelect, style }: LiquidLensProps) => {
+const LiquidLens = memo(({ x, lifted = false, pillColor, pillWidth, tabCount, tint, onDragSelect, style }: LiquidLensProps) => {
   return (
     <NativeLiquidLens
       style={style}
@@ -45,6 +47,7 @@ const LiquidLens = memo(({ x, lifted = false, pillColor, pillWidth, tabCount, on
       pillColor={pillColor}
       pillWidth={pillWidth}
       tabCount={tabCount}
+      tint={tint}
       onDragSelect={onDragSelect}
       pointerEvents="none"
     />

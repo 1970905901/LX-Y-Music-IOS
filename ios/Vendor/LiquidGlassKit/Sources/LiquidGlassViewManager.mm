@@ -41,6 +41,12 @@
 - (void)setJsActive:(BOOL)active;
 @end
 
+// 自研 LiquidLensView 的主题染色入口；iOS 26 原生透镜不接受自定义染色（走系统观感）
+@protocol LGLensCustomizations <NSObject>
+@optional
+- (void)setLensTintColor:(UIColor *)color;
+@end
+
 // Host view: an RCTView so all standard RN view props (borderRadius, overflow, pointerEvents,
 // opacity, shadow*) keep working; the glass backing (native UIGlassEffect on iOS 26+ built with
 // Xcode 26, vendored Metal implementation otherwise) is pinned as its only subview.
@@ -384,6 +390,15 @@ RCT_CUSTOM_VIEW_PROPERTY(tabCount, NSNumber, LGLiquidLensHostView) {
   if (json != nil) {
     [view setTabCount:[json integerValue]];
   }
+}
+
+// 主题染色：透镜玻璃与底部栏玻璃同色（否则 .lens 预设近乎透明，
+// 滑过深色内容时呈黑团——用户反馈的拖拽闪黑）
+RCT_CUSTOM_VIEW_PROPERTY(tint, NSString, LGLiquidLensHostView) {
+  if (json == nil) return;
+  id<LGLensCustomizations> lens = (id<LGLensCustomizations>)view.lens;
+  if (![lens respondsToSelector:@selector(setLensTintColor:)]) return;
+  [lens setLensTintColor:[RCTConvert UIColor:json]];
 }
 
 // 按下态：药丸 morph 成完整液态玻璃（内部按需渲染时钟随 lift 启停，静止零开销）

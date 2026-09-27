@@ -267,9 +267,6 @@ final class LiquidGlassView: MTKView {
 
     var frames: [CGRect] = []
 
-    // Shadow overlay subview
-    private weak var shadowView: ShadowView?
-
     // Backdrop capture view (stays in superview, contains only CABackdropLayer)
     private let backdropView = BackdropView()
 
@@ -278,11 +275,9 @@ final class LiquidGlassView: MTKView {
 
         super.init(frame: .zero, device: LiquidGlassRenderer.shared.device)
 
-        if liquidGlass.shadowOverlay {
-            let shadowView = ShadowView()
-            addSubview(shadowView)
-            self.shadowView = shadowView
-        }
+        // shadowOverlay（黑色边缘阴影环）已移除：其黑色环影在转场/拖动中被感知为
+        // "黑弧"，且 multiplyBlend 合成在动画期间会失效变黑块。玻璃边缘定义由
+        // shader 自身的 fresnel/glare 提供，不再叠加阴影环。
         setupMetal()
 //        layer.shouldRasterize = true
 //        preferredFramesPerSecond = 30
@@ -494,8 +489,6 @@ final class LiquidGlassView: MTKView {
         let width = Int(bounds.width * scale)
         let height = Int(bounds.height * scale)
         zeroCopyBridge.setupBuffer(width: width, height: height)
-
-        shadowView?.frame = bounds
 
         // 尺寸/圆角变化后立即重绘一帧：暂停状态下也保证玻璃形状与折射内容与布局一致
         setNeedsDisplay()

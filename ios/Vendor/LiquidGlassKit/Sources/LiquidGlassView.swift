@@ -186,8 +186,10 @@ final class ShadowView: UIView {
         super.init(frame: .zero)
 
         isUserInteractionEnabled = false
-        backgroundColor = .clear
-        layer.compositingFilter = "multiplyBlendMode"
+        // 注：曾用 compositingFilter = "multiplyBlendMode" 合成阴影。CA 合成滤镜在
+        // 图层动画/变形期间会失效，失效时该图层直接以黑色原样绘制——表现为收起/
+        // 展开转场与透镜拖动时，胶囊边缘出现粗黑弧。移除合成滤镜后阴影以普通
+        // 图层渲染，动画期间稳定。
     }
 
     required init?(coder: NSCoder) {

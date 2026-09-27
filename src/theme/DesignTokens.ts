@@ -27,3 +27,7 @@ export const designMotion = {
 } as const
 
 export type DesignSpacingToken = keyof typeof designSpacing
+
+/** 沉底悬浮组件（底部 tab 栏 / 迷你播放条）在安全区之上的额外留缝（pt）。
+ *  安全区本身（iPhone 34 / 全面屏 iPad 20 / Home 键 iPad 0）由 useSafeAreaBottom 提供。 */
+export const bottomFloatGap = 4

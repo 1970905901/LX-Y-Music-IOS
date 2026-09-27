@@ -11,7 +11,7 @@ import { shadow } from '@/utils/shadow'
 import { pulseLiquidGlass } from '@/utils/liquidGlassActivity'
 import { useTabBarCollapsed, useMiniPlayerHeight } from '@/utils/tabBarCollapse'
 import { setTabBarExpanded } from '@/utils/nativeModules/utils'
-import { designRadius, designSpacing } from '@/theme/DesignTokens'
+import { designRadius, designSpacing, bottomFloatGap } from '@/theme/DesignTokens'
 import { Icon } from '@/components/common/Icon'
 import Text from '@/components/common/Text'
 import LiquidGlass from '@/components/common/LiquidGlass'
@@ -158,7 +158,7 @@ export default memo(() => {
     <View
       style={[
         styles.wrapper,
-        { paddingBottom: safeAreaBottom + designSpacing.sm },
+        { paddingBottom: safeAreaBottom + bottomFloatGap },
       ]}
       pointerEvents="box-none"
     >
@@ -167,7 +167,7 @@ export default memo(() => {
         style={[
           styles.pillWrapper,
           {
-            bottom: safeAreaBottom + designSpacing.sm,
+            bottom: safeAreaBottom + bottomFloatGap,
             width: pillSize,
             height: pillSize,
             opacity: collapseAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 1] }),

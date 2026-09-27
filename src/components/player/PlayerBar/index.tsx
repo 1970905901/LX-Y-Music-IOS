@@ -19,7 +19,7 @@ import { usePlayerMusicInfo } from '@/store/player/hook'
 import PlayerPlaylist, { type PlayerPlaylistType } from '@/components/player/PlayerPlaylist.tsx'
 import playerState from '@/store/player/state'
 import { LIST_IDS } from '@/config/constant'
-import { designRadius, designSpacing } from '@/theme/DesignTokens'
+import { designRadius, designSpacing, bottomFloatGap } from '@/theme/DesignTokens'
 import { applyOpacity } from '@/utils/colorOpacity'
 import { shadow } from '@/utils/shadow'
 import { pulseLiquidGlass } from '@/utils/liquidGlassActivity'
@@ -126,10 +126,12 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
       // 液态玻璃模式：背景折射由原生 LiquidGlass（vendored LiquidGlassKit）实时渲染，
       // 容器透明、无描边（纯玻璃质感，玻璃材质自带明暗自适应的染色与边缘光），只保留投影。
       const containerStyle = { ...shadow(8) }
+      // 首页悬浮态比收起态高出一个 tab 栏高 + 12pt 间距；tab 栏底缝收紧
+      // （12→4）后整体同步下移 8，保持与 tab 栏顶的相对间距不变
       const bottomExpanded = safeAreaBottom + (isHome
-        ? (isHorizontalMode ? 84 : designSpacing.xl + 56)
-        : designSpacing.sm)
-      const bottomCollapsed = safeAreaBottom + designSpacing.sm
+        ? (isHorizontalMode ? 76 : designSpacing.xl + 48)
+        : bottomFloatGap)
+      const bottomCollapsed = safeAreaBottom + bottomFloatGap
       return (
         <Animated.View
           style={[

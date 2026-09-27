@@ -34,9 +34,10 @@ const NativeLiquidGlass = requireNativeComponent<LiquidGlassProps>('LiquidGlassV
  * 内容子元素渲染在其上层。原生的 userInteractionEnabled 已关闭，触摸全部穿透。
  *
  * 省电机制（自研路径）：静止时原生渲染时钟停止（保留最后一帧）；滚动/拖拽期间
- * 玻璃冻结在最后一帧、停止后原生自动补一帧（滚动中逐帧整窗捕获是列表掉帧与
- * 玻璃边缘黑影的根源，已移除）；挂载后自带约 1s 活跃窗；无触摸的内容变化
- * （切 Tab、换主题、换歌）由业务代码调用 pulseLiquidGlass()（@/utils/liquidGlassActivity）恢复。
+ * 原生切换为系统磨砂实时回退（UIBlurEffect，GPU backdrop 合成）——背后内容实时
+ * 透过且零逐帧 CPU 成本，滚动停止后自动补一帧交叉切回液态玻璃；挂载后自带约
+ * 1s 活跃窗；无触摸的内容变化（切 Tab、换主题、换歌）由业务代码调用
+ * pulseLiquidGlass()（@/utils/liquidGlassActivity）恢复。
  * iOS 26 原生路径由系统合成，本身零逐帧开销。
  */
 const LiquidGlass = memo(({ fps = 30, tint, style }: LiquidGlassProps) => {

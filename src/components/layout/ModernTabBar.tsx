@@ -94,25 +94,23 @@ export default memo(() => {
   }, [activeId, theme])
 
   // 透镜药丸：替换旧的主色高亮遮罩（iOS 26 风格）。切 Tab 时药丸原生弹簧滑动
-  // 到目标项，按压时 morph 成完整液态玻璃。
+  // 到目标项；长按 0.35s 抬起后可拖动（透镜跟手 + 挤压/拉伸），松手落点所在
+  // tab 被选中（原生手势驱动，点击切换不受影响）。
   const [barWidth, setBarWidth] = useState(0)
-  const [lifted, setLifted] = useState(false)
 
   const handleBarLayout = useCallback((e: { nativeEvent: { layout: { width: number } } }) => {
     setBarWidth(e.nativeEvent.layout.width)
+  }, [])
+
+  const handleDragSelect = useCallback((e: { nativeEvent: { index: number } }) => {
+    const tab = TAB_IDS[e.nativeEvent.index]
+    if (tab) setNavActiveId(tab.id)
   }, [])
 
   const activeIndex = Math.max(0, TAB_IDS.findIndex((tab) => tab.id === activeId))
   const itemWidth = barWidth > 0 ? barWidth / TAB_IDS.length : 0
   const lensX = itemWidth * activeIndex + itemWidth / 2
   const lensStripHeight = scaleSizeH(BAR_HEIGHT - LENS_VERTICAL_INSET * 2)
-
-  const handlePressIn = useCallback(() => {
-    setLifted(true)
-  }, [])
-  const handlePressOut = useCallback(() => {
-    setLifted(false)
-  }, [])
 
   return (
     <View
@@ -135,7 +133,8 @@ export default memo(() => {
               height: lensStripHeight,
             }}
             x={lensX}
-            lifted={lifted}
+            tabCount={TAB_IDS.length}
+            onDragSelect={handleDragSelect}
             pillWidth={scaleSizeW(LENS_PILL_WIDTH)}
           />
         ) : null}
@@ -146,8 +145,6 @@ export default memo(() => {
               key={tab.id}
               style={styles.item}
               onPress={() => { setNavActiveId(tab.id) }}
-              onPressIn={handlePressIn}
-              onPressOut={handlePressOut}
             >
               {/* 所有 tab 的图标统一放进同尺寸容器：love 字形占位偏小需放大一档，
                   但不能让它撑高布局把文字顶下去（与其他 tab 错位） */}

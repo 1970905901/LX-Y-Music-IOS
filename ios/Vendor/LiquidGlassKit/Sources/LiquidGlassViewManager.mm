@@ -133,11 +133,15 @@ RCT_CUSTOM_VIEW_PROPERTY(active, NSNumber, LGLiquidGlassHostView) {
 // - `x` prop：药丸目标中心 X（相对本组件）。首次设置直接落位，之后由原生
 //   UIView 弹簧动画滑动过去（避免 RN 布局逐帧过桥的卡顿）；被抬起时药丸内部
 //   的 CADisplayLink 会跟踪自身位置做加速度挤压/拉伸变形；
-// - `lifted` prop：按下态（药丸 morph 成完整液态玻璃），松开回落为半透明药丸；
-//   静止（未抬起）时透镜内部不跑任何 Metal 渲染，零功耗。
+// - 长按拖动切换（原生 UILongPressGestureRecognizer 挂在父容器/tab 栏上）：
+//   长按 0.35s 抬起透镜 → 拖动时 1:1 跟手（挤压/拉伸）→ 松手时落点所在
+//   tab 通过 onDragSelect 事件通知 JS 切页；快速点击不受影响；
+// - `tabCount` prop：tab 数量，用于把松手位置换算成 tab 序号；
 // - `pillColor` prop：静止药丸底色（rgba 字符串，按主题明暗传不同值）。
 
 @interface LGLiquidLensHostView : RCTView
+@property (nonatomic, copy) RCTDirectEventBlock onDragSelect;
+@property (nonatomic, readonly) BOOL dragging;
 @end
 
 @implementation LGLiquidLensHostView {
@@ -147,25 +151,99 @@ RCT_CUSTOM_VIEW_PROPERTY(active, NSNumber, LGLiquidGlassHostView) {
   CGFloat _x;
   BOOL _hasX;
   CGFloat _pillWidth;
+  NSInteger _tabCount;
+  UILongPressGestureRecognizer *_dragRecognizer;
+  BOOL _dragging;
 }
 
 - (instancetype)initWithFrame:(CGRect)frame {
   if (self = [super initWithFrame:frame]) {
     _lens = [LGLensFactory createLens];
-    // 透镜不参与命中测试：触摸一律穿透到上层的 tab Pressable
+    // 透镜本体不参与命中测试：触摸穿透到上层的 tab Pressable（长按拖拽由
+    // 宿主挂在父容器上的手势识别器接管）
     _lens.userInteractionEnabled = NO;
     _lens.autoresizingMask = UIViewAutoresizingFlexibleHeight;
     [self addSubview:_lens];
     _pillWidth = 56.0;
+    _tabCount = 5;
     self.clipsToBounds = NO; // 挤压/拉伸变形时允许略微越界，整体仍由 tab 栏容器裁剪
+
+    _dragRecognizer = [[UILongPressGestureRecognizer alloc] initWithTarget:self
+                                                                    action:@selector(handleDrag:)];
+    _dragRecognizer.minimumPressDuration = 0.35;
   }
   return self;
+}
+
+// 手势识别器挂在父容器（tab 栏 RCTView）上：观察整条栏的触摸；
+// 快速点击（< 0.35s）照常走 Pressable，长按后系统取消 Pressable 触摸
+// 并进入拖拽模式（cancelsTouchesInView 默认开启）
+- (void)didMoveToWindow {
+  [super didMoveToWindow];
+  if (_dragRecognizer != nil && _dragRecognizer.view != nil) {
+    [_dragRecognizer.view removeGestureRecognizer:_dragRecognizer];
+  }
+  UIView *container = self.superview;
+  if (container != nil && _dragRecognizer != nil) {
+    [container addGestureRecognizer:_dragRecognizer];
+  }
+}
+
+- (void)handleDrag:(UILongPressGestureRecognizer *)gesture {
+  CGFloat fingerX = [gesture locationInView:self].x;
+  CGFloat half = _pillWidth / 2.0;
+  CGFloat maxCenter = MAX(half, self.bounds.size.width - half);
+
+  switch (gesture.state) {
+    case UIGestureRecognizerStateBegan: {
+      _dragging = YES;
+      [_lens setLifted:YES animated:YES alongsideAnimations:nil completion:nil];
+      _lens.center = CGPointMake(MIN(MAX(fingerX, half), maxCenter), self.bounds.size.height / 2.0);
+      break;
+    }
+    case UIGestureRecognizerStateChanged: {
+      // 1:1 跟手（不做弹簧）：透镜内部的 displayLink 追踪自身位置变化产生挤压/拉伸
+      _lens.center = CGPointMake(MIN(MAX(fingerX, half), maxCenter), self.bounds.size.height / 2.0);
+      break;
+    }
+    case UIGestureRecognizerStateEnded: {
+      _dragging = NO;
+      [_lens setLifted:NO animated:YES alongsideAnimations:nil completion:nil];
+      // 松手落点所在的 tab 被选中，通知 JS 切页；随后 JS 更新 x prop，药丸弹簧归位
+      if (_onDragSelect != nil && _tabCount > 0 && self.bounds.size.width > 0) {
+        CGFloat itemWidth = self.bounds.size.width / _tabCount;
+        NSInteger index = floor(fingerX / itemWidth);
+        index = MIN(MAX(index, 0), _tabCount - 1);
+        _onDragSelect(@{ @"index": @(index) });
+      }
+      break;
+    }
+    case UIGestureRecognizerStateCancelled:
+    case UIGestureRecognizerStateFailed: {
+      _dragging = NO;
+      [_lens setLifted:NO animated:YES alongsideAnimations:nil completion:nil];
+      // 中断时弹回当前选中 tab 的位置
+      [UIView animateWithDuration:0.3
+                            delay:0
+           usingSpringWithDamping:0.8
+            initialSpringVelocity:0
+                          options:UIViewAnimationOptionBeginFromCurrentState
+                       animations:^{
+        self->_lens.center = CGPointMake(self->_x, self.bounds.size.height / 2.0);
+      } completion:nil];
+      break;
+    }
+    default:
+      break;
+  }
 }
 
 - (void)layoutSubviews {
   [super layoutSubviews];
   _lens.frame = CGRectMake(0, 0, _pillWidth, self.bounds.size.height);
-  _lens.center = CGPointMake(_x, self.bounds.size.height / 2.0);
+  if (!_dragging) {
+    _lens.center = CGPointMake(_x, self.bounds.size.height / 2.0);
+  }
 }
 
 - (void)setTargetX:(CGFloat)x animated:(BOOL)animated {
@@ -196,6 +274,16 @@ RCT_CUSTOM_VIEW_PROPERTY(active, NSNumber, LGLiquidGlassHostView) {
   [self setNeedsLayout];
 }
 
+- (void)setTabCount:(NSInteger)tabCount {
+  if (tabCount > 0) {
+    _tabCount = tabCount;
+  }
+}
+
+- (BOOL)dragging {
+  return _dragging;
+}
+
 - (UIView<AnyLiquidLensView> *)lens {
   return _lens;
 }
@@ -217,10 +305,20 @@ RCT_EXPORT_MODULE(LiquidGlassLens)
   return [[LGLiquidLensHostView alloc] init];
 }
 
-// 药丸目标中心 X（相对本组件）；除首次外均带原生弹簧动画
+// 药丸目标中心 X（相对本组件）；除首次外均带原生弹簧动画。
+// 拖拽过程中 JS 不会更新 x（选择在松手时才发生），保险起见拖拽中忽略。
 RCT_CUSTOM_VIEW_PROPERTY(x, NSNumber, LGLiquidLensHostView) {
+  if (json == nil || view.dragging) return;
+  [view setTargetX:[json doubleValue] animated:YES];
+}
+
+// 拖拽松手事件：{ index: 落点所在 tab 序号 }，JS 收到后切换对应页面
+RCT_EXPORT_VIEW_PROPERTY(onDragSelect, RCTDirectEventBlock)
+
+// tab 数量：把松手位置换算成 tab 序号（默认 5）
+RCT_CUSTOM_VIEW_PROPERTY(tabCount, NSNumber, LGLiquidLensHostView) {
   if (json != nil) {
-    [view setTargetX:[json doubleValue] animated:YES];
+    [view setTabCount:[json integerValue]];
   }
 }
 

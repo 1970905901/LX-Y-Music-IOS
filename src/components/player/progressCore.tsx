@@ -87,7 +87,6 @@ export const useProgressDrag = (progress: number, duration: number): ProgressDra
     seekEnabled,
     draging,
     dragProgressAnim,
-    animProgress,
     onDragState: setDraging,
     setDragProgress,
     onSetProgress,

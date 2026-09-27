@@ -61,15 +61,21 @@ static const CGFloat kPressSquishScaleY = 0.97;
 
 // Host view: an RCTView so all standard RN view props (borderRadius, overflow, pointerEvents,
 // opacity, shadow*) keep working; the glass backing (native UIGlassEffect on iOS 26+ built with
-// Xcode 26, vendored Metal implementation otherwise) is pinned as its only subview.
+// Xcode 26, vendored Metal implementation otherwise) sits inside a rounded clipping container.
 // LGGlassViewFactory selects the backing. Squircle（kit cornerRoundnessExponent=4）：
 // 宿主与玻璃层统一用 continuous 圆角曲线。
 @interface LGLiquidGlassHostView : RCTView <UIGestureRecognizerDelegate>
-@property (nonatomic, readonly) UIView *glassView;
+/** 实际玻璃材质视图（原生 UIGlassEffect / 自研 Metal），tint/fps/active/触摸眩光作用于此 */
+@property (nonatomic, readonly) UIView *glassBacking;
 @end
 
 @implementation LGLiquidGlassHostView {
+  // _glassView = 圆角裁剪容器（按压形变与圆角作用层）；_glassBacking = 内部玻璃材质视图。
+  // 分两层的原因：iOS 26 原生 UIGlassEffect 的 UIVisualEffectView 不响应自身
+  // layer.cornerRadius（私有内容子视图不受裁剪）——玻璃直接形变会露出方角与底边，
+  // 包一层圆角裁剪容器后（UIKit 官方推荐的圆角毛玻璃做法），形变后仍是圆角。
   UIView *_glassView;
+  UIView *_glassBacking;
   UILongPressGestureRecognizer *_pressObserver;
 }
 
@@ -148,24 +154,40 @@ static const CGFloat kPressSquishScaleY = 0.97;
   return YES;
 }
 
-- (void)installGlassBacking:(UIView *)glassView {
-  // 背景层不参与命中测试：触摸一律穿透到上层的 RN 内容视图（Tab 项、播放条按钮、宿主手势）
-  glassView.userInteractionEnabled = NO;
-  glassView.backgroundColor = [UIColor clearColor];
-  glassView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-  [self addSubview:glassView];
-  glassView.layer.cornerRadius = self.layer.cornerRadius;
-  _glassView = glassView;
+- (void)installGlassBacking:(UIView *)backing {
+  // 玻璃材质视图包进圆角裁剪容器：形变（按压下陷）与圆角作用在容器上，
+  // 原生 UIVisualEffectView 不吃自身圆角的问题由此规避（见类注释）。
+  // 容器与背景层都不参与命中测试：触摸一律穿透到上层的 RN 内容视图
+  // （Tab 项、播放条按钮、宿主手势）
+  UIView *container = [[UIView alloc] init];
+  container.userInteractionEnabled = NO;
+  container.backgroundColor = [UIColor clearColor];
+  container.clipsToBounds = YES;
+  container.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+  backing.userInteractionEnabled = NO;
+  backing.backgroundColor = [UIColor clearColor];
+  backing.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+  backing.frame = container.bounds;
+  [container addSubview:backing];
+  [self addSubview:container];
+  container.layer.cornerRadius = self.layer.cornerRadius;
+  container.layer.cornerCurve = self.layer.cornerCurve;
+  backing.layer.cornerRadius = self.layer.cornerRadius;
+  backing.layer.cornerCurve = self.layer.cornerCurve;
+  _glassBacking = backing;
+  _glassView = container;
 }
 
 - (void)layoutSubviews {
   [super layoutSubviews];
-  // RN 设置在宿主 RCTView 上的圆角转发给玻璃视图（自研路径的 shader uniforms.cornerRadius
-  // 驱动折射形状；原生路径由系统按 layer.cornerRadius 裁剪）。
+  // RN 设置在宿主 RCTView 上的圆角转发给玻璃容器与材质视图（自研路径的
+  // shader uniforms.cornerRadius 驱动折射形状；原生路径由圆角容器裁剪）。
   // 玻璃严格填满宿主（autoresizing 维护 frame），不向裁剪区外预伸——超界部分在
   // 容器逐帧变形时会导致玻璃效果采样出错（黑边），见 handlePressObserver: 注释。
   _glassView.layer.cornerRadius = self.layer.cornerRadius;
   _glassView.layer.cornerCurve = self.layer.cornerCurve;
+  _glassBacking.layer.cornerRadius = self.layer.cornerRadius;
+  _glassBacking.layer.cornerCurve = self.layer.cornerCurve;
 }
 
 // touchPoint 眩光（kit 能力）：手指在栏体空白区域按下/移动时，玻璃高光跟随手指。
@@ -192,13 +214,13 @@ static const CGFloat kPressSquishScaleY = 0.97;
 
 - (void)updateGlassTouchPoint:(UITouch *)touch {
   if (touch == nil) return;
-  id<LGGlassMetalBacking> glass = (id<LGGlassMetalBacking>)_glassView;
+  id<LGGlassMetalBacking> glass = (id<LGGlassMetalBacking>)_glassBacking;
   if (![glass respondsToSelector:@selector(setTouchPoint:)]) return;
-  [glass setTouchPoint:[touch locationInView:_glassView]];
+  [glass setTouchPoint:[touch locationInView:_glassBacking]];
 }
 
 - (void)clearGlassTouchPoint {
-  id<LGGlassMetalBacking> glass = (id<LGGlassMetalBacking>)_glassView;
+  id<LGGlassMetalBacking> glass = (id<LGGlassMetalBacking>)_glassBacking;
   if (![glass respondsToSelector:@selector(clearTouchPoint)]) return;
   [glass clearTouchPoint];
 }
@@ -223,7 +245,7 @@ RCT_EXPORT_MODULE(LiquidGlassView)
 RCT_CUSTOM_VIEW_PROPERTY(fps, NSNumber, LGLiquidGlassHostView) {
   // 仅自研 Metal 路径支持（原生 UIGlassEffect 由系统合成，无需该控制）；
   // prop 被移除/重置时 json 为 nil，回到 30 的默认值
-  id<LGGlassMetalBacking> glass = (id<LGGlassMetalBacking>)view.glassView;
+  id<LGGlassMetalBacking> glass = (id<LGGlassMetalBacking>)view.glassBacking;
   if (![glass respondsToSelector:@selector(setPreferredFramesPerSecond:)]) return;
   [glass setPreferredFramesPerSecond:(json != nil ? [json integerValue] : 30)];
 }
@@ -232,7 +254,7 @@ RCT_CUSTOM_VIEW_PROPERTY(fps, NSNumber, LGLiquidGlassHostView) {
 // 仅自研 Metal 路径生效（原生路径的染色在 Swift 工厂内处理或走系统默认）。
 RCT_CUSTOM_VIEW_PROPERTY(tint, NSString, LGLiquidGlassHostView) {
   if (json == nil) return;
-  [LGGlassViewFactory applyGlassTint:view.glassView tint:[RCTConvert UIColor:json]];
+  [LGGlassViewFactory applyGlassTint:view.glassBacking tint:[RCTConvert UIColor:json]];
 }
 
 // JS 脉冲活跃开关（省电核心）：玻璃背后内容在无触摸交互下发生变化（切 Tab、换主题、
@@ -241,7 +263,7 @@ RCT_CUSTOM_VIEW_PROPERTY(tint, NSString, LGLiquidGlassHostView) {
 // 仅自研 Metal 路径支持；json 为 nil（prop 未传）时不动作。
 RCT_CUSTOM_VIEW_PROPERTY(active, NSNumber, LGLiquidGlassHostView) {
   if (json == nil) return;
-  id<LGGlassMetalBacking> glass = (id<LGGlassMetalBacking>)view.glassView;
+  id<LGGlassMetalBacking> glass = (id<LGGlassMetalBacking>)view.glassBacking;
   if (![glass respondsToSelector:@selector(setJsActive:)]) return;
   [glass setJsActive:[json boolValue]];
 }

@@ -153,6 +153,9 @@ const debounceUpdateMetaInfoTools = {
         _musicInfo = musicInfo
         _lyric = lyric
         _isPlaying = isPlaying
+        // 冷却窗口内的更新（含每行歌词 → 控制中心）下一拍立即合并推送：
+        // 此前这里也是 500ms,且每行歌词都会重置定时器,歌词密集时控制中心
+        // 要等出 500ms 空隙才更新,表现为歌词滞后音乐 1~2s
         timer = BackgroundTimer.setTimeout(() => {
           timer = null
           let musicInfo = _musicInfo
@@ -164,7 +167,7 @@ const debounceUpdateMetaInfoTools = {
           if (!musicInfo) return
           // isDelayRun = false
           void fn(musicInfo, lyric, isPlaying)
-        }, 500)
+        }, 0)
       } else {
         isDelayRun = true
         void fn(musicInfo, lyric, isPlaying)

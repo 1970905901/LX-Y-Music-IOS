@@ -406,6 +406,21 @@ final class LiquidGlassView: MTKView {
                                        width: captureSize.width,
                                        height: captureSize.height)
 
+        // 玻璃是否处于动画中（自身或同窗口任一玻璃的 presentation 偏离 model）。
+        // afterScreenUpdates: false 截取的是渲染服务器最近一次「已提交」的合成帧：
+        // 同一 runloop 内的 isHidden 修改尚未提交，玻璃会以「上一帧的位置 + 可见
+        // 状态」被画进纹理 —— 动画期间表现为偏离当前位置的拖影黑影（迷你播放器
+        // 升起 / 切 tab 透镜滑动时），静止后拖影恰好被玻璃自身覆盖而不可见。
+        // 动画中改用 afterScreenUpdates: true 先强制提交再截取，让隐藏真正生效；
+        // 同步 flush 有成本，只在玻璃动画期间付出，静止路径保持 false。
+        let isGlassAnimating = GlassInstanceRegistry.shared.instances.allObjects
+            .compactMap { $0 as? LiquidGlassView }
+            .filter { $0.window === window }
+            .contains { glass in
+                guard let presentation = glass.layer.presentation() else { return false }
+                return !presentation.frame.equalTo(glass.layer.frame)
+            }
+
         backgroundTexture = zeroCopyBridge.render { context in
             // Hide ALL glass instances in this window (incl. self) for a clean
             // background capture. drawHierarchy 把整棵视图树画进纹理，只隐藏 self
@@ -433,8 +448,10 @@ final class LiquidGlassView: MTKView {
             // 私有图层（状态栏/键盘/RNN 容器）时极易抛异常崩溃。drawHierarchy 走
             // 标准 UIView 渲染路径，对私有 layer 兼容性更好。
             // 注意：drawHierarchy 需在当前 UIKit 图形上下文内绘制，必须 push/pop context。
+            // afterScreenUpdates 由玻璃动画状态决定：动画中 true（先提交让隐藏生效，
+            // 消除上一帧位置的拖影黑影），静止 false（拖影被自身覆盖，且避免 flush 开销）。
             UIGraphicsPushContext(context)
-            rootView.drawHierarchy(in: rootView.bounds, afterScreenUpdates: false)
+            rootView.drawHierarchy(in: rootView.bounds, afterScreenUpdates: isGlassAnimating)
             UIGraphicsPopContext()
         }
 

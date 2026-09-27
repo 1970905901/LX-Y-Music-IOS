@@ -256,13 +256,14 @@ RCT_CUSTOM_VIEW_PROPERTY(active, NSNumber, LGLiquidGlassHostView) {
 // - `x` prop：药丸目标中心 X（相对本组件）。首次设置直接落位，之后由原生
 //   UIView 弹簧动画滑动过去（避免 RN 布局逐帧过桥的卡顿）；被抬起时药丸内部
 //   的 CADisplayLink 会跟踪自身位置做加速度挤压/拉伸变形；
-// - 长按拖动切换（原生 UILongPressGestureRecognizer 挂在父容器/tab 栏上）：
-//   长按 0.35s 抬起透镜 → 拖动时 1:1 跟手（挤压/拉伸）→ 松手时落点所在
+// - 长按/滑动拖动切换（原生手势挂在父容器/tab 栏上，共用一套状态机）：
+//   长按 0.35s 抬起透镜并立即选中按住的 tab；或按住 tab 直接横向滑动（无需
+//   停顿）抬起透镜跟手（挤压/拉伸），越过 tab 边界即切换页面；松手时落点
 //   tab 通过 onDragSelect 事件通知 JS 切页；快速点击不受影响；
 // - `tabCount` prop：tab 数量，用于把松手位置换算成 tab 序号；
 // - `pillColor` prop：静止药丸底色（rgba 字符串，按主题明暗传不同值）。
 
-@interface LGLiquidLensHostView : RCTView
+@interface LGLiquidLensHostView : RCTView <UIGestureRecognizerDelegate>
 @property (nonatomic, copy) RCTDirectEventBlock onDragSelect;
 @property (nonatomic, readonly) BOOL dragging;
 @end
@@ -287,6 +288,7 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
   NSInteger _dragZone; // 拖拽过程中透镜当前所在的 tab（-1 = 尚未采样）
   CGFloat _dragStartCenterX; // 拖拽起点（frames 合并 span 的基准）
   BOOL _spanActive; // frames 合并进行中（透镜本体检已拉伸为跨 tab 的 span）
+  UIPanGestureRecognizer *_panRecognizer; // 按住直接滑动（无需先停顿）的切页入口
 }
 
 - (instancetype)initWithFrame:(CGRect)frame {
@@ -307,6 +309,13 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
     _dragRecognizer = [[UILongPressGestureRecognizer alloc] initWithTarget:self
                                                                     action:@selector(handleDrag:)];
     _dragRecognizer.minimumPressDuration = 0.35;
+    // 滑动切换：按住 tab 按钮直接横向滑动（不停顿）也能进入拖拽切页。位移超过
+    // ~10pt 时长按识别器会失败，单靠它做不了"边滑边切"，故补一个水平优势的
+    // Pan 入口（是否该开始见 gestureRecognizerShouldBegin:），两条路径共用
+    // 同一套拖拽状态机（updateDragWithState:...）
+    _panRecognizer = [[UIPanGestureRecognizer alloc] initWithTarget:self
+                                                             action:@selector(handlePan:)];
+    _panRecognizer.delegate = self;
   }
   return self;
 }
@@ -319,23 +328,36 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
   if (_dragRecognizer != nil && _dragRecognizer.view != nil) {
     [_dragRecognizer.view removeGestureRecognizer:_dragRecognizer];
   }
+  if (_panRecognizer != nil && _panRecognizer.view != nil) {
+    [_panRecognizer.view removeGestureRecognizer:_panRecognizer];
+  }
   UIView *container = self.superview;
-  if (container != nil && _dragRecognizer != nil) {
-    [container addGestureRecognizer:_dragRecognizer];
+  if (container != nil) {
+    if (_dragRecognizer != nil) [container addGestureRecognizer:_dragRecognizer];
+    if (_panRecognizer != nil) [container addGestureRecognizer:_panRecognizer];
   }
 }
 
 - (void)handleDrag:(UILongPressGestureRecognizer *)gesture {
-  CGFloat fingerX = [gesture locationInView:self].x;
+  [self updateDragWithState:gesture.state fingerX:[gesture locationInView:self].x fromLongPress:YES];
+}
+
+// 滑动切换入口：按住 tab 按钮直接横向滑动（不停顿）即进入拖拽切页
+- (void)handlePan:(UIPanGestureRecognizer *)gesture {
+  [self updateDragWithState:gesture.state fingerX:[gesture locationInView:self].x fromLongPress:NO];
+}
+
+// 长按与滑动两条手势路径共用的拖拽状态机
+- (void)updateDragWithState:(UIGestureRecognizerState)state fingerX:(CGFloat)fingerX fromLongPress:(BOOL)fromLongPress {
   CGFloat half = _pillWidth / 2.0;
   CGFloat maxCenter = MAX(half, self.bounds.size.width - half);
   CGFloat clampedFingerX = MIN(MAX(fingerX, half), maxCenter);
   id<LGLensCustomizations> lensCustom = (id<LGLensCustomizations>)_lens;
 
-  switch (gesture.state) {
+  switch (state) {
     case UIGestureRecognizerStateBegan: {
+      if (_dragging) break; // 另一条手势路径已进入拖拽（互斥）
       _dragging = YES;
-      _dragZone = -1;
       _dragStartCenterX = clampedFingerX;
       _spanActive = NO;
       [_lens setLifted:YES animated:YES alongsideAnimations:nil completion:nil];
@@ -346,6 +368,14 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
       // 抬起触觉反馈（对齐 LiquidGlassSwitch 的抓取反馈）
       UIImpactFeedbackGenerator *haptic = [[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleMedium];
       [haptic impactOccurred];
+      // 长按即切换：按住 0.35s 的 tab 立即选中（滑动路径手指在移动中，不在此刻
+      // 选中，交给 Changed 的越界切换逻辑）。按住的就是当前 tab 时不重复切换。
+      _dragZone = LXTabZoneForX(fingerX, self.bounds.size.width, _tabCount);
+      if (fromLongPress && _dragZone >= 0 && _dragZone != LXTabZoneForX(_x, self.bounds.size.width, _tabCount) && _onDragSelect != nil) {
+        _onDragSelect(@{ @"index": @(_dragZone) });
+        UISelectionFeedbackGenerator *selection = [[UISelectionFeedbackGenerator alloc] init];
+        [selection selectionChanged];
+      }
       break;
     }
     case UIGestureRecognizerStateChanged: {
@@ -467,6 +497,24 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
     default:
       break;
   }
+}
+
+#pragma mark - UIGestureRecognizerDelegate（滑动切页入口）
+
+// 仅在"横向位移明显占优且尚未进入长按拖拽"时开始滑动切页：
+// 纵向滑动（误触）不触发；已由长按路径接管时不重复进入
+- (BOOL)gestureRecognizerShouldBegin:(UIPanGestureRecognizer *)gesture {
+  if (_dragging) return NO;
+  CGPoint translation = [gesture translationInView:self];
+  CGFloat x = fabs(translation.x);
+  CGFloat y = fabs(translation.y);
+  return x > 8 && x > y * 1.2;
+}
+
+// 允许与玻璃按压观察器（挂在同一容器上、按下即识别）并行：
+// 否则滑动入口会被先识别的按压观察器挤掉失效
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldRecognizeSimultaneouslyWithOtherGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer {
+  return YES;
 }
 
 - (void)layoutSubviews {

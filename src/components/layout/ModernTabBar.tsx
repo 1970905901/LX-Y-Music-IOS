@@ -116,8 +116,8 @@ export default memo(() => {
   }, [activeId, theme])
 
   // 透镜药丸：替换旧的主色高亮遮罩（iOS 26 风格）。切 Tab 时药丸原生弹簧滑动
-  // 到目标项；长按 0.35s 抬起后可拖动（透镜跟手 + 挤压/拉伸），松手落点所在
-  // tab 被选中（原生手势驱动，点击切换不受影响）。
+  // 到目标项；长按 0.35s 立即选中按住的 tab、抬起后可拖动，或按住 tab 直接横向
+  // 滑动切到目标 tab（透镜跟手 + 挤压/拉伸，原生手势驱动，点击切换不受影响）。
   const [barWidth, setBarWidth] = useState(0)
 
   const handleBarLayout = useCallback((e: { nativeEvent: { layout: { width: number } } }) => {

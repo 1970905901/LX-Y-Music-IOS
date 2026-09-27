@@ -1085,6 +1085,9 @@ static dispatch_queue_t LXNowPlayingLyricQueue = nil;
 static double LXNowPlayingLyricAnchorSystemMs = 0;  // CACurrentMediaTime() 毫秒
 static double LXNowPlayingLyricAnchorElapsedMs = 0; // 锚点对应的播放位置（ms）
 static NSInteger LXNowPlayingLyricIndex = -1;
+// 强制重绘排队步数：非前台（控制中心/锁屏打开）下推送歌词行后置 2，后续两个
+// tick 依次把 playbackState 切反/切回，强制系统重绘媒体卡片（详见 tick 内注释）
+static NSInteger LXNowPlayingRedrawPending = 0;
 
 // 时钟状态锁：tick 运行在专用串行队列，而 JS 元数据发布 / 清行 / 重锚发生在主线程，
 // 两侧都会读写锚点与行集，统一用该锁串行化。GCD 时钟不受 RunLoop 模式影响——
@@ -1117,6 +1120,7 @@ static void LXClearNowPlayingLyricLines(void) {
   @synchronized (LXLyricLock()) {
     LXNowPlayingLyricLines = nil;
     LXNowPlayingLyricIndex = -1;
+    LXNowPlayingRedrawPending = 0;
   }
 }
 
@@ -1138,6 +1142,25 @@ static void LXNowPlayingLyricStep(void) {
                                                         userInfo:@{ @"position": @(positionMs / 1000.0), @"rate": rate }];
     }
     if (LXNowPlayingLyricLines.count == 0) return;
+    // 强制重绘步骤：仅重发 nowPlayingInfo 在部分系统版本上不会让控制中心/锁屏
+    // 重绘媒体卡片（本项目封面流程已验证：需暂停再播放才重绘，代码里封面流程
+    // 用的就是 playbackState 切反再切回的强制重绘）。歌词行在此处同理——不在
+    // 非前台时强制重绘，控制中心歌词就会冻结在打开前的那一行。
+    if (LXNowPlayingRedrawPending > 0 && LXNowPlayingInfoCache.count > 0) {
+      MPNowPlayingPlaybackState current = LXNowPlayingState;
+      MPNowPlayingPlaybackState opposite = (current == MPNowPlayingPlaybackStatePlaying)
+        ? MPNowPlayingPlaybackStatePaused
+        : MPNowPlayingPlaybackStatePlaying;
+      MPNowPlayingInfoCenter *center = [MPNowPlayingInfoCenter defaultCenter];
+      if (LXNowPlayingRedrawPending == 2) {
+        center.playbackState = opposite;
+        LXNowPlayingRedrawPending = 1;
+      } else {
+        center.playbackState = current;
+        LXApplyNowPlayingInfo();
+        LXNowPlayingRedrawPending = 0;
+      }
+    }
     // 二分查找当前行（lines 按 time 升序）
     NSUInteger lo = 0, hi = LXNowPlayingLyricLines.count - 1;
     NSInteger found = -1;
@@ -1159,6 +1182,11 @@ static void LXNowPlayingLyricStep(void) {
     LXNowPlayingInfoCache[MPMediaItemPropertyArtist] = text;
     NSLog(@"[LXLyric] tick push line %ld @ %.0fms: %@", (long)LXNowPlayingLyricIndex, positionMs, text);
     LXApplyNowPlayingInfo();
+    // 非前台（控制中心/锁屏打开）下推送新行后，排队强制重绘（前台 active 时
+    // 系统会实时刷新卡片，无需此步骤）
+    if ([UIApplication sharedApplication].applicationState != UIApplicationStateActive) {
+      LXNowPlayingRedrawPending = 2;
+    }
   }
 }
 

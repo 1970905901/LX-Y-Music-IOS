@@ -54,10 +54,10 @@
 - (void)clearLensTouchPoint;
 @end
 
-// 按压下陷的竖向压缩率：幅度取"肉眼可辨且露缝可忽略"的平衡点（顶边最大下沉
-// 约栏高 4%，收起/展开等容器变形时玻璃不越出宿主裁剪区——越出部分会让玻璃
-// 效果采样出错出黑边，故不再使用顶部预伸量方案）
-static const CGFloat kPressSquishScaleY = 0.96;
+// 按压下陷的竖向压缩率：玻璃衬底已从 JS 样式转发容器同款圆角（layoutSubviews），
+// 这里以中心为锚做对称压缩——四边内缩 ≤1pt 且保持圆角，既读得出按压形变，
+// 也不会露出直角边/单侧底边（底边锚点方案会把玻璃推出裁剪区，出现"多出的边"）
+static const CGFloat kPressSquishScaleY = 0.97;
 
 // Host view: an RCTView so all standard RN view props (borderRadius, overflow, pointerEvents,
 // opacity, shadow*) keep working; the glass backing (native UIGlassEffect on iOS 26+ built with
@@ -108,11 +108,9 @@ static const CGFloat kPressSquishScaleY = 0.96;
 - (void)handlePressObserver:(UILongPressGestureRecognizer *)gesture {
   switch (gesture.state) {
     case UIGestureRecognizerStateBegan: {
-      // 幅度取肉眼可辨且露缝可忽略的平衡点：以底边为锚（tab 栏/播放条均沉底）
-      // 竖向下压 kPressSquishScaleY，顶边短暂下沉约栏高 4%、底边保持贴合
-      CGFloat squishOffset = _glassView.frame.size.height * (1.0 - kPressSquishScaleY) / 2.0;
-      CGAffineTransform squish = CGAffineTransformMakeTranslation(0, squishOffset);
-      squish = CGAffineTransformScale(squish, 0.98, kPressSquishScaleY);
+      // 以中心为锚的对称压缩：竖向压扁 kPressSquishScaleY、横向轻微收拢，
+      // 玻璃圆角已与容器一致（见 layoutSubviews 圆角转发），内缩后仍是圆角
+      CGAffineTransform squish = CGAffineTransformMakeScale(0.99, kPressSquishScaleY);
       [UIView animateWithDuration:0.12
                             delay:0
            usingSpringWithDamping:0.85

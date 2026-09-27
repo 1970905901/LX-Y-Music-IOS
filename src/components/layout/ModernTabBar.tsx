@@ -184,7 +184,7 @@ export default memo(() => {
         pointerEvents={collapsed ? 'auto' : 'none'}
       >
         <Pressable style={styles.pillInner} onPress={handlePillPress}>
-          <LiquidGlass tint={glassTint} />
+          <LiquidGlass tint={glassTint} style={{ borderRadius: designRadius.pill }} />
           <View style={styles.pillIcon} pointerEvents="none">
             <Icon name="menu" size={20} color={theme['c-primary']} />
           </View>
@@ -202,7 +202,8 @@ export default memo(() => {
         onLayout={handleBarLayout}
         pointerEvents={collapsed ? 'none' : 'auto'}
       >
-        <LiquidGlass tint={glassTint} />
+        {/* 玻璃衬底带与容器一致的圆角：按压下陷内缩时仍呈圆角，不露直角边 */}
+        <LiquidGlass tint={glassTint} style={{ borderRadius: designRadius.xl }} />
         {TAB_IDS.map((tab) => {
           const isActive = activeId === tab.id
           return (

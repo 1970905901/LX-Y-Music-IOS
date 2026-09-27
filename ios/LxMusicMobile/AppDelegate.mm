@@ -1003,6 +1003,10 @@ static void LXHandleTrackPlayerLifecycleNotification(NSNotification *notificatio
     if (rate != nil && LXNowPlayingInfoCache.count > 0) {
       LXNowPlayingInfoCache[MPNowPlayingInfoPropertyPlaybackRate] = rate;
     }
+    // 时钟冻结判定：非播放态（加载/缓冲/暂停等）冻结外推，歌词与音频一同
+    // 停走——音频微缓冲会反复发生，外推持续超前正是"同步一句停一会"的根因
+    NSString *lifecycleState = [userInfo[@"state"] isKindOfClass:[NSString class]] ? userInfo[@"state"] : nil;
+    LXNowPlayingClockHold = !(lifecycleState.length && ([lifecycleState isEqualToString:@"playing"] || [lifecycleState isEqualToString:@"ready"]));
     return;
   }
 }
@@ -1095,6 +1099,10 @@ static NSInteger LXNowPlayingLyricIndex = -1;
 // 强制重绘排队步数：非前台（控制中心/锁屏打开）下推送歌词行后置 2，后续两个
 // tick 依次把 playbackState 切反/切回，强制系统重绘媒体卡片（详见 tick 内注释）
 static NSInteger LXNowPlayingRedrawPending = 0;
+// 时钟冻结标志：RNTP state 事件报告 loading/暂停等非播放态时置 YES——网络流
+// 微缓冲会让音频走走停停，墙钟外推持续超前（表现为控制中心歌词"同步一句、
+// 停一会、隔几句又同步"）；冻结在最后已知位置才能与音频保持一致
+static BOOL LXNowPlayingClockHold = NO;
 
 // 临时诊断（定位控制中心歌词冻结，定位后置 0 关闭）：非前台时把时钟内部状态
 // 写进媒体卡片 artist 字段——D+计数前进=时钟运行且卡片可重绘；计数冻结=时钟
@@ -1159,7 +1167,9 @@ static void LXNowPlayingLyricStep(void) {
       } else if (!isPlayingRate) {
         mark = @"已暂停";
       } else if (LXNowPlayingLyricAnchorSystemMs > 0) {
-        double positionMs = LXNowPlayingLyricAnchorElapsedMs + ((CACurrentMediaTime() * 1000.0) - LXNowPlayingLyricAnchorSystemMs) * rate.doubleValue;
+        double positionMs = LXNowPlayingClockHold
+          ? LXNowPlayingLyricAnchorElapsedMs
+          : LXNowPlayingLyricAnchorElapsedMs + ((CACurrentMediaTime() * 1000.0) - LXNowPlayingLyricAnchorSystemMs) * rate.doubleValue;
         NSUInteger lo = 0, hi = LXNowPlayingLyricLines.count - 1;
         NSInteger found = -1;
         while (lo <= hi) {
@@ -1179,7 +1189,12 @@ static void LXNowPlayingLyricStep(void) {
 
     if (!isPlayingRate) return; // 暂停时歌词不推进
     if (LXNowPlayingLyricAnchorSystemMs <= 0) return;
-    double positionMs = LXNowPlayingLyricAnchorElapsedMs + ((CACurrentMediaTime() * 1000.0) - LXNowPlayingLyricAnchorSystemMs) * rate.doubleValue;
+    // 时钟冻结（缓冲/暂停等非播放态，由 RNTP state 事件置位）：停在最后已知的
+    // 引擎位置，不随墙钟外推——音频微缓冲走走停停时，外推持续超前正是
+    // "同步一句停一会、隔几句又同步"的根因
+    double positionMs = LXNowPlayingClockHold
+      ? LXNowPlayingLyricAnchorElapsedMs
+      : LXNowPlayingLyricAnchorElapsedMs + ((CACurrentMediaTime() * 1000.0) - LXNowPlayingLyricAnchorSystemMs) * rate.doubleValue;
     // 位置事件枢纽：前台播放时把外推位置广播给 JS（4Hz 单向事件），驱动进度条等
     // UI，替代 JS 侧每 250ms 两次桥接查询（getPosition + 引擎状态）。后台/熄屏
     // 不发（无 UI 需要更新）。

@@ -151,12 +151,13 @@ export default () => {
   const startUpdateTimeout = () => {
     if (!isScreenOn) return
     clearUpdateTimeout()
-    // 慢速校准 tick（2s）：引擎真实位置重锚（快路径由原生 4Hz 位置事件驱动）+
-    // 引擎状态/缓冲检测 + seek 生效窗口确认 + scrobble/播放记录/进度持久化
+    // 慢速校准 tick（1s）：引擎真实位置重锚（快路径由原生 4Hz 位置事件驱动）+
+    // 引擎状态/缓冲检测 + seek 生效窗口确认 + scrobble/播放记录/进度持久化。
+    // 周期即控制中心歌词外推的最大漂移窗口，过大会表现为"同步一句停一会"
     updateTimeout = BackgroundTimer.setInterval(() => {
       if (isProgressDragging) return
       getCurrentTime()
-    }, 2000)
+    }, 1000)
     getCurrentTime()
   }
 

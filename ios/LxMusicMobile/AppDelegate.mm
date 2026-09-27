@@ -692,6 +692,7 @@ static void LXRefreshNowPlayingLyricAnchor(void);
 static void LXClearNowPlayingLyricLines(void);
 static void LXReanchorNowPlayingLyric(double elapsedMs);
 static void LXStartNowPlayingLyricTimer(void);
+static NSObject *LXLyricLock(void);
 // 播放位置事件（原生 4Hz 外推位置广播给 JS，驱动进度条等 UI，替代 JS 侧桥接轮询）
 static NSNotificationName const LXPlayerPositionNotificationName = @"LXPlayerPosition";
 static void LXEndReceivingRemoteControlEvents(void);
@@ -775,12 +776,14 @@ static void LXSyncRemoteCommandAvailability(void) {
 }
 
 static void LXApplyNowPlayingInfo(void) {
-  MPNowPlayingInfoCenter *center = [MPNowPlayingInfoCenter defaultCenter];
-  center.nowPlayingInfo = LXNowPlayingInfoCache.count ? [LXNowPlayingInfoCache copy] : nil;
-  if (@available(iOS 13.0, *)) {
-    center.playbackState = LXNowPlayingState;
+  @synchronized (LXLyricLock()) {
+    MPNowPlayingInfoCenter *center = [MPNowPlayingInfoCenter defaultCenter];
+    center.nowPlayingInfo = LXNowPlayingInfoCache.count ? [LXNowPlayingInfoCache copy] : nil;
+    if (@available(iOS 13.0, *)) {
+      center.playbackState = LXNowPlayingState;
+    }
+    LXSyncRemoteCommandAvailability();
   }
-  LXSyncRemoteCommandAvailability();
 }
 
 static void LXBeginReceivingRemoteControlEvents(void) {
@@ -863,11 +866,13 @@ static void LXSetNowPlayingArtwork(NSString *artworkPath) {
   if (!artworkPath.length && LXNowPlayingArtworkPath == nil && !hasArtwork) return;
   if (artworkPath.length && [artworkPath isEqualToString:LXNowPlayingArtworkPath] && (hasArtwork || LXNowPlayingArtworkTask != nil)) return;
 
-  LXCancelNowPlayingArtworkTask();
-  LXNowPlayingArtworkRequestId += 1;
-  [info removeObjectForKey:MPMediaItemPropertyArtwork];
-  LXNowPlayingArtworkPath = artworkPath.length ? [artworkPath copy] : nil;
-  LXApplyNowPlayingInfo();
+  @synchronized (LXLyricLock()) {
+    LXCancelNowPlayingArtworkTask();
+    LXNowPlayingArtworkRequestId += 1;
+    [info removeObjectForKey:MPMediaItemPropertyArtwork];
+    LXNowPlayingArtworkPath = artworkPath.length ? [artworkPath copy] : nil;
+    LXApplyNowPlayingInfo();
+  }
 
   if (!artworkPath.length) return;
 
@@ -930,36 +935,40 @@ static void LXSetNowPlayingPlaybackState(MPNowPlayingPlaybackState state, NSDict
     : nil;
   if (existingTitle.length == 0) return;
 
-  NSMutableDictionary *info = LXNowPlayingMutableInfo();
-  NSDictionary *stateOptions = options ?: @{};
-  NSNumber *elapsedTime = [stateOptions[@"elapsedTime"] isKindOfClass:[NSNumber class]] ? stateOptions[@"elapsedTime"] : nil;
-  NSNumber *playbackRate = [stateOptions[@"playbackRate"] isKindOfClass:[NSNumber class]] ? stateOptions[@"playbackRate"] : nil;
+  @synchronized (LXLyricLock()) {
+    NSMutableDictionary *info = LXNowPlayingMutableInfo();
+    NSDictionary *stateOptions = options ?: @{};
+    NSNumber *elapsedTime = [stateOptions[@"elapsedTime"] isKindOfClass:[NSNumber class]] ? stateOptions[@"elapsedTime"] : nil;
+    NSNumber *playbackRate = [stateOptions[@"playbackRate"] isKindOfClass:[NSNumber class]] ? stateOptions[@"playbackRate"] : nil;
 
-  if (elapsedTime != nil) info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = elapsedTime;
-  else if (state == MPNowPlayingPlaybackStateStopped) info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = @0;
+    if (elapsedTime != nil) info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = elapsedTime;
+    else if (state == MPNowPlayingPlaybackStateStopped) info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = @0;
 
-  info[MPNowPlayingInfoPropertyPlaybackRate] = playbackRate ?: LXDefaultNowPlayingRate();
-  info[MPNowPlayingInfoPropertyDefaultPlaybackRate] = LXNowPlayingDefaultPlaybackRateValue();
-  // 控制中心遥控（播放/暂停/上一首下一首）的播放状态变化同样重锚歌词时钟
-  LXRefreshNowPlayingLyricAnchor();
+    info[MPNowPlayingInfoPropertyPlaybackRate] = playbackRate ?: LXDefaultNowPlayingRate();
+    info[MPNowPlayingInfoPropertyDefaultPlaybackRate] = LXNowPlayingDefaultPlaybackRateValue();
+    // 控制中心遥控（播放/暂停/上一首下一首）的播放状态变化同样重锚歌词时钟
+    LXRefreshNowPlayingLyricAnchor();
 
-  // 播放状态可能早于歌曲元数据（标题）到达：先把 playbackRate / elapsedTime 写入缓存，
-  // 但暂不发布。iOS 27 Beta 7 会把“只有 playbackRate、没有标题”的空字典识别成“未在播放”，
-  // 且后续补写元数据不一定重新显示控制中心媒体卡片；等 LXSetNowPlayingInfo 写入有效标题后
-  // 统一发布（届时缓存已含正确的 playbackRate / elapsedTime），避免切歌后控制中心进度卡在“-”。
-  if (existingTitle.length == 0) return;
+    // 播放状态可能早于歌曲元数据（标题）到达：先把 playbackRate / elapsedTime 写入缓存，
+    // 但暂不发布。iOS 27 Beta 7 会把“只有 playbackRate、没有标题”的空字典识别成“未在播放”，
+    // 且后续补写元数据不一定重新显示控制中心媒体卡片；等 LXSetNowPlayingInfo 写入有效标题后
+    // 统一发布（届时缓存已含正确的 playbackRate / elapsedTime），避免切歌后控制中心进度卡在“-”。
+    if (existingTitle.length == 0) return;
 
-  LXApplyNowPlayingInfo();
+    LXApplyNowPlayingInfo();
+  }
 }
 
 static void LXClearNowPlayingInfo(void) {
-  LXCancelNowPlayingArtworkTask();
-  LXNowPlayingArtworkRequestId += 1;
-  LXNowPlayingArtworkPath = nil;
-  LXNowPlayingInfoCache = nil;
-  LXNowPlayingState = MPNowPlayingPlaybackStateStopped;
-  LXClearNowPlayingLyricLines();
-  LXApplyNowPlayingInfo();
+  @synchronized (LXLyricLock()) {
+    LXCancelNowPlayingArtworkTask();
+    LXNowPlayingArtworkRequestId += 1;
+    LXNowPlayingArtworkPath = nil;
+    LXNowPlayingInfoCache = nil;
+    LXNowPlayingState = MPNowPlayingPlaybackStateStopped;
+    LXClearNowPlayingLyricLines();
+    LXApplyNowPlayingInfo();
+  }
 }
 
 static void LXHandleTrackPlayerLifecycleNotification(NSNotification *notification) {
@@ -1022,56 +1031,71 @@ static void LXClearNowPlayingLyricLines(void);
 static void LXReanchorNowPlayingLyric(double elapsedMs);
 
 static void LXSetNowPlayingInfo(NSDictionary *metadata) {
-  NSMutableDictionary *info = LXNowPlayingMutableInfo();
+  @synchronized (LXLyricLock()) {
+    NSMutableDictionary *info = LXNowPlayingMutableInfo();
 
-  NSString *title = [metadata[@"title"] isKindOfClass:[NSString class]] ? metadata[@"title"] : nil;
-  NSString *artist = [metadata[@"artist"] isKindOfClass:[NSString class]] ? metadata[@"artist"] : nil;
-  NSString *album = [metadata[@"album"] isKindOfClass:[NSString class]] ? metadata[@"album"] : nil;
-  NSNumber *duration = [metadata[@"duration"] isKindOfClass:[NSNumber class]] ? metadata[@"duration"] : nil;
-  NSNumber *elapsedTime = [metadata[@"elapsedTime"] isKindOfClass:[NSNumber class]] ? metadata[@"elapsedTime"] : nil;
-  NSNumber *playbackRate = [metadata[@"playbackRate"] isKindOfClass:[NSNumber class]] ? metadata[@"playbackRate"] : nil;
+    NSString *title = [metadata[@"title"] isKindOfClass:[NSString class]] ? metadata[@"title"] : nil;
+    NSString *artist = [metadata[@"artist"] isKindOfClass:[NSString class]] ? metadata[@"artist"] : nil;
+    NSString *album = [metadata[@"album"] isKindOfClass:[NSString class]] ? metadata[@"album"] : nil;
+    NSNumber *duration = [metadata[@"duration"] isKindOfClass:[NSNumber class]] ? metadata[@"duration"] : nil;
+    NSNumber *elapsedTime = [metadata[@"elapsedTime"] isKindOfClass:[NSNumber class]] ? metadata[@"elapsedTime"] : nil;
+    NSNumber *playbackRate = [metadata[@"playbackRate"] isKindOfClass:[NSNumber class]] ? metadata[@"playbackRate"] : nil;
 
-  if (title != nil) info[MPMediaItemPropertyTitle] = title;
-  if (artist != nil) info[MPMediaItemPropertyArtist] = artist;
-  if (album != nil) info[MPMediaItemPropertyAlbumTitle] = album;
-  if (duration != nil) info[MPMediaItemPropertyPlaybackDuration] = duration;
-  if (elapsedTime != nil) info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = elapsedTime;
-  info[MPNowPlayingInfoPropertyPlaybackRate] = playbackRate ?: info[MPNowPlayingInfoPropertyPlaybackRate] ?: LXDefaultNowPlayingRate();
-  info[MPNowPlayingInfoPropertyDefaultPlaybackRate] = info[MPNowPlayingInfoPropertyDefaultPlaybackRate] ?: LXNowPlayingDefaultPlaybackRateValue();
+    if (title != nil) info[MPMediaItemPropertyTitle] = title;
+    if (artist != nil) info[MPMediaItemPropertyArtist] = artist;
+    if (album != nil) info[MPMediaItemPropertyAlbumTitle] = album;
+    if (duration != nil) info[MPMediaItemPropertyPlaybackDuration] = duration;
+    if (elapsedTime != nil) info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = elapsedTime;
+    info[MPNowPlayingInfoPropertyPlaybackRate] = playbackRate ?: info[MPNowPlayingInfoPropertyPlaybackRate] ?: LXDefaultNowPlayingRate();
+    info[MPNowPlayingInfoPropertyDefaultPlaybackRate] = info[MPNowPlayingInfoPropertyDefaultPlaybackRate] ?: LXNowPlayingDefaultPlaybackRateValue();
 
-  // 新歌元数据发布时 artist 为空串（新歌词尚未就绪）：清掉旧歌歌词行，防止原生
-  // 歌词时钟把上一首的行推到新歌的媒体卡片上
-  if (artist != nil && artist.length == 0) LXClearNowPlayingLyricLines();
-  // 歌词时钟锚点：以本次发布的引擎真实位置（elapsedTime）为基准外推；
-  // 前台 JS 每行歌词都会发布一次，锚点随之持续校准
-  LXRefreshNowPlayingLyricAnchor();
-  // 位置事件枢纽不依赖歌词存在：无歌词的歌也要有时钟（驱动 JS 进度 UI）
-  LXStartNowPlayingLyricTimer();
+    // 新歌元数据发布时 artist 为空串（新歌词尚未就绪）：清掉旧歌歌词行，防止原生
+    // 歌词时钟把上一首的行推到新歌的媒体卡片上
+    if (artist != nil && artist.length == 0) LXClearNowPlayingLyricLines();
+    // 歌词时钟锚点：以本次发布的引擎真实位置（elapsedTime）为基准外推；
+    // 前台 JS 每行歌词都会发布一次，锚点随之持续校准
+    LXRefreshNowPlayingLyricAnchor();
+    // 位置事件枢纽不依赖歌词存在：无歌词的歌也要有时钟（驱动 JS 进度 UI）
+    LXStartNowPlayingLyricTimer();
 
-  // 仅当调用方显式携带 artwork 字段时才更新封面。蓝牙歌词 / 逐行歌词更新只传
-  // { artist: 歌词 }（不含 artwork 键），若仍触发 LXSetNowPlayingArtwork(@"") 会把
-  // 控制中心 / 锁屏封面擦除，表现为“播放中封面闪烁/消失”。不携带时仅重应用信息即可。
-  if (metadata[@"artwork"] != nil) {
-    NSString *artworkPath = [metadata[@"artwork"] isKindOfClass:[NSString class]] ? metadata[@"artwork"] : @"";
-    LXSetNowPlayingArtwork(artworkPath);
-  } else {
-    LXApplyNowPlayingInfo();
+    // 仅当调用方显式携带 artwork 字段时才更新封面。蓝牙歌词 / 逐行歌词更新只传
+    // { artist: 歌词 }（不含 artwork 键），若仍触发 LXSetNowPlayingArtwork(@"") 会把
+    // 控制中心 / 锁屏封面擦除，表现为“播放中封面闪烁/消失”。不携带时仅重应用信息即可。
+    if (metadata[@"artwork"] != nil) {
+      NSString *artworkPath = [metadata[@"artwork"] isKindOfClass:[NSString class]] ? metadata[@"artwork"] : @"";
+      LXSetNowPlayingArtwork(artworkPath);
+    } else {
+      LXApplyNowPlayingInfo();
+    }
   }
 }
 
 // ============================================================================
 // Now Playing 歌词原生驱动：JS 在歌词加载后把整条时间轴（time/text）交给原生，
-// 原生 NSTimer 按「锚点外推」的播放位置直接查行并写入控制中心（artist 字段）。
-// 不依赖 JS 定时器：下拉控制中心 / 通知中心时 App 处于 inactive，JS 侧 rAF 与
-// 定时器停转或不可靠，控制中心歌词会冻结在打开前的那一行；原生时钟不受影响。
-// 锚点：JS 每次发布 Now Playing 元数据都携带引擎真实位置（elapsedTime），以此
-// 为基准、按 playbackRate 线性外推；前台 JS 路径先行写入同一行文本时，tick
-// 检测到 artist 已是最新行则静默跳过，不会重复发布。
+// 原生 GCD 时钟（专用串行队列）按「锚点外推」的播放位置直接查行并写入控制
+// 中心（artist 字段）。不用任何主线程 RunLoop 定时器：下拉控制中心 / 通知中心
+// 时 App 进入 inactive，主 RunLoop 退入非 common 模式、主线程定时器（JS
+// BackgroundTimer 与 NSTimer 同）全部停摆，控制中心歌词会冻结在打开前的那一行；
+// GCD 队列时钟不受 RunLoop 模式影响。锚点：JS 每次发布 Now Playing 元数据都
+// 携带引擎真实位置（elapsedTime），以此为基础、按 playbackRate 线性外推；前台
+// JS 路径先行写入同一行文本时，tick 检测到 artist 已是最新行则静默跳过。
 static NSMutableArray<NSDictionary<NSString *, id> *> *LXNowPlayingLyricLines = nil;
-static NSTimer *LXNowPlayingLyricTimer = nil;
+static dispatch_source_t LXNowPlayingLyricTimer = nil;
+static dispatch_queue_t LXNowPlayingLyricQueue = nil;
 static double LXNowPlayingLyricAnchorSystemMs = 0;  // CACurrentMediaTime() 毫秒
 static double LXNowPlayingLyricAnchorElapsedMs = 0; // 锚点对应的播放位置（ms）
 static NSInteger LXNowPlayingLyricIndex = -1;
+
+// 时钟状态锁：tick 运行在专用串行队列，而 JS 元数据发布 / 清行 / 重锚发生在主线程，
+// 两侧都会读写锚点与行集，统一用该锁串行化。GCD 时钟不受 RunLoop 模式影响——
+// 控制中心盖住 App 时主线程 RunLoop 退入非 common 模式、主线程定时器停摆
+// （JS BackgroundTimer 与原生 NSTimer 同停），这正是控制中心歌词冻结的根因。
+static NSObject *LXLyricLock(void) {
+  static NSObject *lock = nil;
+  static dispatch_once_t onceToken;
+  dispatch_once(&onceToken, ^{ lock = [NSObject new]; });
+  return lock;
+}
 
 static void LXRefreshNowPlayingLyricAnchor(void) {
   NSNumber *elapsed = [LXNowPlayingInfoCache[MPNowPlayingInfoPropertyElapsedPlaybackTime] isKindOfClass:[NSNumber class]]
@@ -1083,75 +1107,71 @@ static void LXRefreshNowPlayingLyricAnchor(void) {
 
 // 以显式的引擎位置（ms）重锚歌词时钟（seek / state 事件携带的真实位置）
 static void LXReanchorNowPlayingLyric(double elapsedMs) {
-  LXNowPlayingLyricAnchorElapsedMs = elapsedMs;
-  LXNowPlayingLyricAnchorSystemMs = CACurrentMediaTime() * 1000.0;
+  @synchronized (LXLyricLock()) {
+    LXNowPlayingLyricAnchorElapsedMs = elapsedMs;
+    LXNowPlayingLyricAnchorSystemMs = CACurrentMediaTime() * 1000.0;
+  }
 }
 
 static void LXClearNowPlayingLyricLines(void) {
-  LXNowPlayingLyricLines = nil;
-  LXNowPlayingLyricIndex = -1;
+  @synchronized (LXLyricLock()) {
+    LXNowPlayingLyricLines = nil;
+    LXNowPlayingLyricIndex = -1;
+  }
 }
 
-@interface LXNowPlayingLyricDriver : NSObject
-+ (LXNowPlayingLyricDriver *)shared;
-- (void)step:(NSTimer *)timer;
-@end
-
-@implementation LXNowPlayingLyricDriver
-+ (LXNowPlayingLyricDriver *)shared {
-  static LXNowPlayingLyricDriver *driver = nil;
-  static dispatch_once_t onceToken;
-  dispatch_once(&onceToken, ^{ driver = [LXNowPlayingLyricDriver new]; });
-  return driver;
-}
-- (void)step:(NSTimer *)timer {
-  NSNumber *rate = [LXNowPlayingInfoCache[MPNowPlayingInfoPropertyPlaybackRate] isKindOfClass:[NSNumber class]]
-    ? LXNowPlayingInfoCache[MPNowPlayingInfoPropertyPlaybackRate]
-    : nil;
-  if (rate.doubleValue <= 0) return; // 暂停时歌词不推进
-  if (LXNowPlayingLyricAnchorSystemMs <= 0) return;
-  double positionMs = LXNowPlayingLyricAnchorElapsedMs + ((CACurrentMediaTime() * 1000.0) - LXNowPlayingLyricAnchorSystemMs) * rate.doubleValue;
-  // 位置事件枢纽：前台播放时把外推位置广播给 JS（4Hz 单向事件），驱动进度条等
-  // UI，替代 JS 侧每 250ms 两次桥接查询（getPosition + 引擎状态）。后台/熄屏
-  // 不发（无 UI 需要更新）。
-  if ([UIApplication sharedApplication].applicationState == UIApplicationStateActive) {
-    [[NSNotificationCenter defaultCenter] postNotificationName:LXPlayerPositionNotificationName
-                                                        object:nil
-                                                      userInfo:@{ @"position": @(positionMs / 1000.0), @"rate": rate }];
+static void LXNowPlayingLyricStep(void) {
+  @synchronized (LXLyricLock()) {
+    if (LXNowPlayingLyricLines.count == 0) return;
+    NSNumber *rate = [LXNowPlayingInfoCache[MPNowPlayingInfoPropertyPlaybackRate] isKindOfClass:[NSNumber class]]
+      ? LXNowPlayingInfoCache[MPNowPlayingInfoPropertyPlaybackRate]
+      : nil;
+    if (rate.doubleValue <= 0) return; // 暂停时歌词不推进
+    if (LXNowPlayingLyricAnchorSystemMs <= 0) return;
+    double positionMs = LXNowPlayingLyricAnchorElapsedMs + ((CACurrentMediaTime() * 1000.0) - LXNowPlayingLyricAnchorSystemMs) * rate.doubleValue;
+    // 位置事件枢纽：前台播放时把外推位置广播给 JS（4Hz 单向事件），驱动进度条等
+    // UI，替代 JS 侧每 250ms 两次桥接查询（getPosition + 引擎状态）。后台/熄屏
+    // 不发（无 UI 需要更新）。
+    if ([UIApplication sharedApplication].applicationState == UIApplicationStateActive) {
+      [[NSNotificationCenter defaultCenter] postNotificationName:LXPlayerPositionNotificationName
+                                                          object:nil
+                                                        userInfo:@{ @"position": @(positionMs / 1000.0), @"rate": rate }];
+    }
+    if (LXNowPlayingLyricLines.count == 0) return;
+    // 二分查找当前行（lines 按 time 升序）
+    NSUInteger lo = 0, hi = LXNowPlayingLyricLines.count - 1;
+    NSInteger found = -1;
+    while (lo <= hi) {
+      NSUInteger mid = lo + (hi - lo) / 2;
+      double lineTime = [LXNowPlayingLyricLines[mid][@"time"] doubleValue];
+      if (lineTime <= positionMs) { found = (NSInteger)mid; lo = mid + 1; }
+      else { if (mid == 0) break; hi = mid - 1; }
+    }
+    if (found < 0 || found == LXNowPlayingLyricIndex) return;
+    NSString *text = LXNowPlayingLyricLines[(NSUInteger)found][@"text"];
+    if (![text isKindOfClass:[NSString class]] || text.length == 0) return;
+    LXNowPlayingLyricIndex = found;
+    // 前台 JS 路径可能已把同行写入 artist：一致则静默跳过，避免重复发布
+    NSString *currentArtist = [LXNowPlayingInfoCache[MPMediaItemPropertyArtist] isKindOfClass:[NSString class]]
+      ? LXNowPlayingInfoCache[MPMediaItemPropertyArtist]
+      : nil;
+    if ([currentArtist isEqualToString:text]) return;
+    LXNowPlayingInfoCache[MPMediaItemPropertyArtist] = text;
+    NSLog(@"[LXLyric] tick push line %ld @ %.0fms: %@", (long)LXNowPlayingLyricIndex, positionMs, text);
+    LXApplyNowPlayingInfo();
   }
-  if (LXNowPlayingLyricLines.count == 0) return;
-  // 二分查找当前行（lines 按 time 升序）
-  NSUInteger lo = 0, hi = LXNowPlayingLyricLines.count - 1;
-  NSInteger found = -1;
-  while (lo <= hi) {
-    NSUInteger mid = lo + (hi - lo) / 2;
-    double lineTime = [LXNowPlayingLyricLines[mid][@"time"] doubleValue];
-    if (lineTime <= positionMs) { found = (NSInteger)mid; lo = mid + 1; }
-    else { if (mid == 0) break; hi = mid - 1; }
-  }
-  if (found < 0 || found == LXNowPlayingLyricIndex) return;
-  NSString *text = LXNowPlayingLyricLines[(NSUInteger)found][@"text"];
-  if (![text isKindOfClass:[NSString class]] || text.length == 0) return;
-  LXNowPlayingLyricIndex = found;
-  // 前台 JS 路径可能已把同行写入 artist：一致则静默跳过，避免重复发布
-  NSString *currentArtist = [LXNowPlayingInfoCache[MPMediaItemPropertyArtist] isKindOfClass:[NSString class]]
-    ? LXNowPlayingInfoCache[MPMediaItemPropertyArtist]
-    : nil;
-  if ([currentArtist isEqualToString:text]) return;
-  LXNowPlayingInfoCache[MPMediaItemPropertyArtist] = text;
-  NSLog(@"[LXLyric] tick push line %ld @ %.0fms: %@", (long)LXNowPlayingLyricIndex, positionMs, text);
-  LXApplyNowPlayingInfo();
 }
-@end
 
 static void LXStartNowPlayingLyricTimer(void) {
   if (LXNowPlayingLyricTimer != nil) return;
-  NSTimer *timer = [NSTimer timerWithTimeInterval:0.25
-                                           target:[LXNowPlayingLyricDriver shared]
-                                         selector:@selector(step:)
-                                         userInfo:nil
-                                          repeats:YES];
-  [[NSRunLoop mainRunLoop] addTimer:timer forMode:NSRunLoopCommonModes];
+  LXNowPlayingLyricQueue = dispatch_queue_create("com.lxmusic.nowplaying.lyric", DISPATCH_QUEUE_SERIAL);
+  dispatch_source_t timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, LXNowPlayingLyricQueue);
+  dispatch_source_set_timer(timer,
+                            dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.25 * NSEC_PER_SEC)),
+                            (uint64_t)(0.25 * NSEC_PER_SEC),
+                            (uint64_t)(0.05 * NSEC_PER_SEC));
+  dispatch_source_set_event_handler(timer, ^{ LXNowPlayingLyricStep(); });
+  dispatch_resume(timer);
   LXNowPlayingLyricTimer = timer;
 }
 
@@ -1164,9 +1184,11 @@ static void LXSetNowPlayingLyricLines(NSArray<NSDictionary *> *lines) {
     if (time == nil || time.doubleValue < 0 || text.length == 0) continue;
     [merged addObject:@{ @"time": time, @"text": text }];
   }
-  LXNowPlayingLyricLines = merged.count ? merged : nil;
-  LXNowPlayingLyricIndex = -1;
-  NSLog(@"[LXLyric] setNowPlayingLyrics: %lu lines, timer=%@", (unsigned long)LXNowPlayingLyricLines.count, LXNowPlayingLyricTimer != nil ? @"running" : @"nil");
+  @synchronized (LXLyricLock()) {
+    LXNowPlayingLyricLines = merged.count ? merged : nil;
+    LXNowPlayingLyricIndex = -1;
+  }
+  NSLog(@"[LXLyric] setNowPlayingLyrics: %lu lines, clock=%@", (unsigned long)merged.count, LXNowPlayingLyricTimer != nil ? @"running" : @"nil");
   if (LXNowPlayingLyricLines != nil) LXStartNowPlayingLyricTimer();
 }
 

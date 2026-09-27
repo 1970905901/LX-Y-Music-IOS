@@ -7,6 +7,7 @@
 #import <React/RCTEventEmitter.h>
 #import <React/RCTLinkingManager.h>
 #import <React/RCTScrollView.h>
+#import <objc/runtime.h>
 #import <ReactNativeNavigation/ReactNativeNavigation.h>
 
 @class SceneDelegate;
@@ -4925,7 +4926,8 @@ RCT_REMAP_METHOD(clearNowPlayingInfo, clearNowPlayingInfoWithResolver:(RCTPromis
 static UIBackgroundTaskIdentifier LXBackgroundTaskId = UIBackgroundTaskInvalid;
 
 // Tab 栏收起状态机（定义在文件后部的跟踪器区块；此处前置声明供 setTabBarExpanded 使用）
-static BOOL LXTabBarManualExpanded;
+static BOOL LXTabBarManualExpanded = NO;
+static NSNotificationName const LXTabBarCollapseChangedNotification = @"LXTabBarCollapseChanged";
 static void LXSetTabBarCollapsed(BOOL collapsed);
 
 @interface UtilsModule : RCTEventEmitter<RCTBridgeModule>
@@ -4951,6 +4953,10 @@ RCT_EXPORT_MODULE();
                                              selector:@selector(handleRemoteCommandNotification:)
                                                  name:LXRemoteCommandNotificationName
                                                object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(handleTabBarCollapseChanged:)
+                                                 name:LXTabBarCollapseChangedNotification
+                                               object:nil];
   }
   return self;
 }
@@ -4969,6 +4975,14 @@ RCT_EXPORT_MODULE();
 - (void)sendTabBarCollapseChanged:(NSNumber *)collapsed {
   if (!self.hasListeners) return;
   [self sendEventWithName:@"tabBarCollapseChanged" body:collapsed];
+}
+
+- (void)handleTabBarCollapseChanged:(NSNotification *)notification {
+  if (!self.hasListeners) return;
+  BOOL collapsed = [notification.userInfo[@"collapsed"] boolValue];
+  dispatch_async(dispatch_get_main_queue(), ^{
+    [self sendEventWithName:@"tabBarCollapseChanged" body:@(collapsed)];
+  });
 }
 
 - (void)startObserving {
@@ -5276,18 +5290,16 @@ RCT_REMAP_METHOD(getSafeAreaInsets,
 // swizzle -[RCTScrollView scrollViewDidScroll:]，原生侧维护收起状态机
 // （offset > 48 收起 / ≤ 2 展开，中间为迟滞区防抖），仅在状态变化时把
 // tabBarCollapseChanged 事件发给 JS——滚动事件本身不过桥，性能无损。
+// 状态变化经 NSNotification 通知 UtilsModule 转发（避免跨模块拿 bridge 实例）。
 static BOOL LXTabBarCollapsedState = NO;
-static BOOL LXTabBarManualExpanded = NO;
 static IMP LXOrigRCTScrollViewDidScroll = NULL;
 
 static void LXSetTabBarCollapsed(BOOL collapsed) {
   if (LXTabBarCollapsedState == collapsed) return;
   LXTabBarCollapsedState = collapsed;
-  id module = [[RCTBridge currentBridge] moduleForClass:[UtilsModule class]];
-  if (module != nil && [module respondsToSelector:@selector(sendTabBarCollapseChanged:)]) {
-    NSNumber *body = collapsed ? @YES : @NO;
-    [module performSelectorOnMainThread:@selector(sendTabBarCollapseChanged:) withObject:body waitUntilDone:NO];
-  }
+  [[NSNotificationCenter defaultCenter] postNotificationName:LXTabBarCollapseChangedNotification
+                                                      object:nil
+                                                    userInfo:@{ @"collapsed": @(collapsed) }];
 }
 
 static void LX_RCTScrollView_scrollViewDidScroll(id self, SEL _cmd, UIScrollView *scrollView) {

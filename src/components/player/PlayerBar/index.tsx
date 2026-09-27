@@ -43,7 +43,7 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
   }, [musicInfo, theme, safeAreaBottom, isHorizontalMode])
 
   // 主题染色：玻璃材质色跟随 App 主题（同 ModernTabBar）
-  const glassTint = useMemo(() => applyOpacity(theme['c-primary-light-600'], 85), [theme])
+  const glassTint = useMemo(() => applyOpacity(theme['c-primary-light-600'], 80), [theme])
 
   // Tab 栏收起时（仅 Home）：迷你播放器下移到收起按钮所在行并左侧让位（对齐参考交互）
   const tabBarCollapsed = useTabBarCollapsed()

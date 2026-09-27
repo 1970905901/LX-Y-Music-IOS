@@ -105,7 +105,7 @@ export default memo(() => {
   // 用不透明的主题浅色（c-primary-light-600）× 85%：shader 有效混合度 =
   // alpha × 0.8 ≈ 0.68，对齐上游 .regular 预设的磨砂强度（染色过弱时
   // 深色内容会从玻璃后直接透出，视觉上如同闪黑）。
-  const glassTint = useMemo(() => applyOpacity(theme['c-primary-light-600'], 85), [theme])
+  const glassTint = useMemo(() => applyOpacity(theme['c-primary-light-600'], 80), [theme])
 
   // 无触摸的内容变化时恢复玻璃渲染（静止时原生渲染时钟是暂停的）：
   // 切 Tab 会整体替换背后内容，换主题会改变玻璃外观
@@ -133,7 +133,7 @@ export default memo(() => {
   const lensStripHeight = scaleSizeH(BAR_HEIGHT - LENS_VERTICAL_INSET * 2)
   // 胶囊透镜覆盖整个 tab 项（图标 + 文字，对齐参考视频），左右各留 6px 间隙；
   // 高度即条带高度，圆角自动取高度一半呈胶囊两端
-  const lensPillWidth = itemWidth > 0 ? itemWidth - scaleSizeW(12) : scaleSizeW(52)
+  const lensPillWidth = scaleSizeW(52)
 
   // 收起形态（iOS 26 风格）：歌曲列表滚动离开顶部 → 整条 tab 栏收成左下角
   // 圆形玻璃按钮（宫格图标）；点击按钮弹出，保持展开直到下一次滚动离开顶部。

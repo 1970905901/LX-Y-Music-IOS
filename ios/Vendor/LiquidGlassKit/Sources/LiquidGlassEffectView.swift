@@ -22,14 +22,15 @@ public class LiquidGlassEffectView: UIView, AnyVisualEffectView, UIGestureRecogn
     public var effect: UIVisualEffect?
 
     // MARK: - Demand rendering (battery)
-    // 玻璃静止时（背后内容不变）渲染是纯浪费：三个活跃源任一为真才跑渲染时钟，
-    // 否则 MTKView 暂停、屏幕保留最后一帧。任何会改变玻璃背后内容的行为都必须
-    // 通过其一恢复渲染，否则玻璃会停留在过期画面（冻结穿帮）。
+    // 玻璃静止时（背后内容不变）渲染是纯浪费：渲染时钟只在 JS 脉冲或挂载活跃窗为真时
+    // 运行，否则 MTKView 暂停、屏幕保留最后一帧。任何会改变玻璃背后内容的行为都必须
+    // 通过其一恢复渲染或补帧，否则玻璃会停留在过期画面（冻结穿帮）。
+    // 滚动/拖拽例外：期间玻璃冻结在最后一帧、停止后补一帧——滚动中逐帧整窗捕获
+    // （drawHierarchy + 同步 MPS 模糊 × 玻璃实例数）是全部列表滚动掉帧与玻璃边缘
+    // 黑影的共同根源，见 LiquidGlassView.scrollFrozen。
 
     /// JS 脉冲（切 Tab、换主题、换歌封面、无触摸的内容变化），由 RN 的 active prop 驱动
     private var jsActive = false
-    /// 窗口级拖拽手势观察（列表滚动、翻页、抽屉），惯性期按甩动速度延长
-    private var gestureActive = false
     /// 挂载活跃窗：新视图创建后先连续渲染约 1s，覆盖 RNN 转场/首帧布局，JS prop 到达前也有正确画面
     private var mountActive = true
     private var mountDecayTimer: Timer?
@@ -160,12 +161,14 @@ public class LiquidGlassEffectView: UIView, AnyVisualEffectView, UIGestureRecogn
     @objc private func handleWindowPan(_ gesture: UIPanGestureRecognizer) {
         switch gesture.state {
         case .began, .changed:
-            gestureActive = true
+            // 滚动/翻页/抽屉开始：玻璃冻结在最后一帧（见 LiquidGlassView.pauseForScroll）。
+            // 取消未触发的补帧定时器——新一轮滚动开始时画面保持上一轮的稳定帧。
             gestureDecayTimer?.invalidate()
             gestureDecayTimer = nil
-            applyRenderActive()
+            liquidGlassView?.pauseForScroll()
         case .ended:
-            // 惯性滚动越快，玻璃保持渲染的时间越长，避免长滑行中途冻结
+            // 惯性滚动越快，冻结保持得越久：等滑行收敛后再补一帧刷新，避免
+            // 滑行中途补帧又落入逐帧捕获的老路
             let velocity = gesture.velocity(in: nil)
             let speed = max(abs(velocity.x), abs(velocity.y))
             scheduleGestureDecay(speed > 1200 ? 2.2 : (speed > 300 ? 1.2 : 0.6))
@@ -180,13 +183,12 @@ public class LiquidGlassEffectView: UIView, AnyVisualEffectView, UIGestureRecogn
         gestureDecayTimer?.invalidate()
         gestureDecayTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
             guard let self else { return }
-            self.gestureActive = false
-            self.applyRenderActive()
+            self.liquidGlassView?.refreshAfterScroll()
         }
     }
 
     private func applyRenderActive() {
-        liquidGlassView?.setRenderActive(jsActive || gestureActive || mountActive)
+        liquidGlassView?.setRenderActive(jsActive || mountActive)
     }
 
     public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {

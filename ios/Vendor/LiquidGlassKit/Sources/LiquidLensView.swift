@@ -160,6 +160,18 @@ public final class LiquidLensView: UIView, AnyLiquidLensView {
         // Update liquid glass view to same bounds
 //        liquidGlassView.frame = bounds
 //        liquidGlassView.layer.cornerRadius = min(bounds.width, bounds.height) / 2
+
+        // Vendored（修「透镜偶发变矩形」）：抬起期间宿主任何一次重布局（圆角
+        // override 更新、尺寸变化、span 退出复位 frame）都同步重申玻璃的圆角与
+        // circular 曲线——玻璃的形状此前只在 liftUp 赋值一次，抬起期间发生的一切
+        // 变化（含曲线被系统/宿主改动为 continuous → 指数 4 → 近矩形）都无人纠正。
+        if isLifted {
+            let halfShortSide = min(bounds.width, bounds.height) / 2
+            liquidGlassView.layer.cornerRadius = cornerRadiusOverride >= 0
+                ? min(cornerRadiusOverride, halfShortSide)
+                : halfShortSide
+            liquidGlassView.layer.cornerCurve = .circular
+        }
     }
 
     // MARK: - Protocol Methods
@@ -209,7 +221,14 @@ public final class LiquidLensView: UIView, AnyLiquidLensView {
     private func liftUp(animated: Bool, alongsideAnimations: (() -> Void)?, completion: ((Bool) -> Void)?) {
         // Prepare liquid glass view at same position
         liquidGlassView.frame = bounds
-        liquidGlassView.layer.cornerRadius = restingPillView.layer.cornerRadius
+        // Vendored（修「透镜偶发变矩形」）：圆角不取 restingPill 当前值——它依赖
+        // layoutSubviews 时序，宿主几何短暂无效（首帧/样式未应用）时曾被推成 0，
+        // shader 的圆角 SDF 以 0 渲染即矩形，且玻璃只在 liftUp 赋值一次、抬起期间
+        // 无处纠正。直接按 override 与短边一半现算，保证抬起的玻璃必为胶囊形态。
+        let halfShortSide = min(bounds.width, bounds.height) / 2
+        liquidGlassView.layer.cornerRadius = cornerRadiusOverride >= 0
+            ? min(cornerRadiusOverride, halfShortSide)
+            : halfShortSide
         // 显式强制 circular 曲线（shader 超椭圆指数 = 2 = 圆）：透镜玻璃的圆角恒等于
         // 胶囊短边一半，若系统默认曲线为 continuous（指数 4 = 方形超椭圆），整个形状
         // 会退化为近似矩形。透镜必须是圆角胶囊，故不跟随系统默认。
@@ -220,6 +239,11 @@ public final class LiquidLensView: UIView, AnyLiquidLensView {
         // Vendored: the glass view runs the demand-rendering clock (paused by default) —
         // start it while lifted, stop it when resting again.
         liquidGlassView.setRenderActive(true)
+        // Vendored（透镜拖拽掉帧缓解）：活跃期逐帧捕获走整窗 drawHierarchy（iOS 26 无
+        // CABackdropLayer 便宜路径），且拖拽中玻璃处于变形动画、每次捕获还带
+        // afterScreenUpdates 强制同步提交，60fps 下代价极高。透镜本体小且始终处于
+        // 运动中，压到 30fps 减半捕获开销，视觉差异不可感知。
+        liquidGlassView.preferredFramesPerSecond = 30
 
         // Start position tracking for acceleration-based squash/stretch
         startPositionTracking()

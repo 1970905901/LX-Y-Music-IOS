@@ -170,10 +170,11 @@ export default forwardRef(({ header, searchType, source }: SearchResultListProps
       numColumns={isHorizontal ? 2 : 1}
       renderItem={renderItem}
       keyExtractor={item => String(item.id)}
-      // 低端 60fps 机型列表性能：限制渲染窗口与批量、关闭裁剪避免网格闪烁；
-      // 单元格高度不固定，故不补 getItemLayout（避免变高列表测量错乱）
+      // 低端 60fps 机型列表性能：限制渲染窗口与批量（单元格高度不固定，故不补
+      // getItemLayout）。removeClippedSubviews 保持 false：iPad 双列网格下开启曾出现
+      // 网格闪烁，此处窗口收窄即可减负
       initialNumToRender={10}
-      windowSize={8}
+      windowSize={5}
       maxToRenderPerBatch={8}
       removeClippedSubviews={false}
       updateCellsBatchingPeriod={50}

@@ -296,11 +296,18 @@ final class LiquidGlassView: MTKView {
     /// Set to false for manual control via `captureBackground()`.
     var autoCapture: Bool = true
 
-    /// Whether the render clock is running (driven by jsActive / gesture / mount).
+    /// Whether the render clock is running (driven by jsActive / mount; scrolling
+    /// freezes rendering via scrollFrozen instead of keeping the clock alive).
     /// 静止时为 false：MTKView 暂停，不渲染/不捕获，复用最后一帧（高刷不掉帧）。
     private var renderActive = true
     /// 下一帧是否需要重新捕获背景纹理（布局/圆角/触摸/恢复活跃时置位）
     private var needsCapture = true
+    /// 滚动冻结（性能修复核心）：窗口级 pan 观察到列表滚动/拖拽时置位——渲染时钟
+    /// 暂停、保留最后一帧、跳过逐帧整窗捕获；滚动停止（含惯性收敛）后由
+    /// refreshAfterScroll() 补一帧。滚动中逐帧捕获既掉帧（每帧整窗 drawHierarchy +
+    /// 同步 MPS 模糊 × 玻璃实例数），又会把滞后一帧的背景经折射偏移拉进玻璃边缘，
+    /// 形成随滚动移动的黑影——冻结后两个症状同源消除。
+    private var scrollFrozen = false
 
     var touchPoint: CGPoint? = nil
 
@@ -351,10 +358,11 @@ final class LiquidGlassView: MTKView {
         // 清屏色全透明：空帧（纹理未就绪等）不改变画面，避免闪黑
         clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 0)
 
-        // 高刷设备（ProMotion 120Hz）下限制到 60fps：常驻满帧渲染 + 每帧整窗背景
-        // 捕获会导致严重掉帧。setRenderActive 在静止时暂停渲染时钟，运动时才满帧。
+        // 高刷设备（ProMotion 120Hz）下限制到 30fps：常驻满帧渲染 + 每帧整窗背景
+        // 捕获会导致严重掉帧。setRenderActive 在静止时暂停渲染时钟，运动时才渲染；
+        // RN 路径活跃帧率由 JS fps prop 覆盖（默认同为 30），透镜抬起路径显式压 30。
         enableSetNeedsDisplay = true
-        preferredFramesPerSecond = 60
+        preferredFramesPerSecond = 30
         isPaused = false
     }
 
@@ -364,12 +372,37 @@ final class LiquidGlassView: MTKView {
     func setRenderActive(_ active: Bool) {
         let wasActive = renderActive
         renderActive = active
+        // 冻结期间只记录状态：不渲染、不捕获，恢复交给 refreshAfterScroll
+        //（否则挂载窗/JS 脉冲与滚动重叠时会绕过冻结逐帧捕获）
+        if scrollFrozen { return }
         if active {
             needsCapture = true   // 恢复后首帧需重新捕获（静止期间背后内容可能已变）
             isPaused = false
             setNeedsDisplay()
         } else if wasActive {
             isPaused = true
+        }
+    }
+
+    // MARK: - Scroll freeze（方案A：滚动中冻结，停止后补帧）
+
+    /// 窗口级 pan 观察（LiquidGlassEffectView.handleWindowPan）在滚动/拖拽开始时调用：
+    /// 立即暂停渲染时钟并冻结在最后一帧。玻璃背后的列表内容继续滚动，玻璃画面保持
+    /// 静止稳定（滞后一帧的折射本来就是错的，冻结反而更干净）。
+    func pauseForScroll() {
+        scrollFrozen = true
+        isPaused = true
+    }
+
+    /// 滚动停止（含惯性收敛）后调用：清除冻结、置一次捕获需求并补一帧。
+    /// 暂停状态下 setNeedsDisplay 仍会渲染一帧（与 layoutSubviews 的补帧同款模式）；
+    /// renderActive 仍为真（挂载窗/JS 脉冲未结束）时顺带恢复连续渲染。
+    func refreshAfterScroll() {
+        scrollFrozen = false
+        needsCapture = true
+        setNeedsDisplay()
+        if renderActive {
+            isPaused = false
         }
     }
 
@@ -415,19 +448,21 @@ final class LiquidGlassView: MTKView {
                                        width: captureSize.width,
                                        height: captureSize.height)
 
-        // 玻璃是否处于动画中（自身或同窗口任一玻璃的 presentation 偏离 model）。
-        // afterScreenUpdates: false 截取的是渲染服务器最近一次「已提交」的合成帧：
-        // 同一 runloop 内的 isHidden 修改尚未提交，玻璃会以「上一帧的位置 + 可见
-        // 状态」被画进纹理 —— 动画期间表现为偏离当前位置的拖影黑影（迷你播放器
-        // 升起 / 切 tab 透镜滑动时），静止后拖影恰好被玻璃自身覆盖而不可见。
-        // 动画中改用 afterScreenUpdates: true 先强制提交再截取，让隐藏真正生效；
-        // 同步 flush 有成本，只在玻璃动画期间付出，静止路径保持 false。
+        // 玻璃是否处于动画中，且动画位置与本次捕获区域相交（修正「一处动画、
+        // 全体同步提交」）：afterScreenUpdates: true 会强制提交整窗再截取，代价高；
+        // 只有当某块动画玻璃（如透镜）落在本实例的捕获矩形内时，它的隐藏才会
+        // 影响本次纹理内容，才需要同步提交。远处的动画玻璃（透镜动画时的迷你
+        // 播放条玻璃）与本实例互不相交，保持 afterScreenUpdates: false 零 flush。
+        // 位置用 presentation 层换算到 root 坐标系（动画中的玻璃 model 层已跳到
+        // 终点，in-flight 位置只在 presentation 上）。
         let isGlassAnimating = GlassInstanceRegistry.shared.instances.allObjects
             .compactMap { $0 as? LiquidGlassView }
             .filter { $0.window === window }
             .contains { glass in
                 guard let presentation = glass.layer.presentation() else { return false }
-                return !presentation.frame.equalTo(glass.layer.frame)
+                guard !presentation.frame.equalTo(glass.layer.frame) else { return false }
+                let animatingRectInRoot = presentation.convert(presentation.bounds, to: rootView.layer)
+                return animatingRectInRoot.intersects(captureRectInRoot)
             }
 
         backgroundTexture = zeroCopyBridge.render { context in
@@ -612,8 +647,9 @@ final class LiquidGlassView: MTKView {
 
     override func draw(_ rect: CGRect) {
         // 仅活跃渲染（renderActive）或 needsCapture 待补时捕获背景；静止且已捕获过
-        // 则跳过整窗捕获，复用上一帧纹理，避免高刷空转掉帧。
-        if autoCapture && (renderActive || needsCapture) {
+        // 则跳过整窗捕获，复用上一帧纹理，避免高刷空转掉帧。滚动冻结期间绝不捕获：
+        // 此时背后内容正在移动，捕获必然滞后一帧并折射出黑影。
+        if autoCapture && !scrollFrozen && (renderActive || needsCapture) {
             captureBackground()
             needsCapture = false
         }

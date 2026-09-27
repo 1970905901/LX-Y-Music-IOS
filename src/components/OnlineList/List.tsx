@@ -361,8 +361,11 @@ const List = forwardRef<ListType, ListProps>(
         horizontal={false}
         maxToRenderPerBatch={20}
         updateCellsBatchingPeriod={50}
-        windowSize={10}
-        removeClippedSubviews={false}
+        windowSize={5}
+        // 离屏行视图摘除（iOS 滚动掉帧主杠杆）：windowSize 5 + 常规 flex 行布局下，
+        // 摘除只影响已滚出渲染窗口的行（getItemLayout + 稳定 key 保证回挂安全），
+        // 合成器不再为上百个离屏行视图逐帧做布局/合成。
+        removeClippedSubviews={true}
         initialNumToRender={30}
         // iOS 上必须显式设置 scrollEventThrottle，否则滚动事件只在手势结束时
         // 触发一次，VirtualizedList 的渲染窗口无法跟随滚动推进，表现为

@@ -425,11 +425,11 @@ export default memo(() => {
               numColumns={isHorizontal ? 2 : 1}
               columnWrapperStyle={isHorizontal ? styles.columnWrapper : undefined}
               keyExtractor={item => item.id}
-              // 低端 60fps：限制渲染窗口，数百项不一次进场
+              // 限制渲染窗口 + 离屏行视图摘除（iOS 滚动掉帧主杠杆）
               initialNumToRender={20}
-              windowSize={10}
+              windowSize={5}
               maxToRenderPerBatch={10}
-              removeClippedSubviews={false}
+              removeClippedSubviews={true}
               updateCellsBatchingPeriod={50}
               renderItem={renderDownloadItem}
               ListEmptyComponent={
@@ -449,9 +449,9 @@ export default memo(() => {
               columnWrapperStyle={isHorizontal ? styles.columnWrapper : undefined}
               keyExtractor={item => item.id}
               initialNumToRender={20}
-              windowSize={10}
+              windowSize={5}
               maxToRenderPerBatch={10}
-              removeClippedSubviews={false}
+              removeClippedSubviews={true}
               updateCellsBatchingPeriod={50}
               renderItem={renderLocalItem}
               ListEmptyComponent={

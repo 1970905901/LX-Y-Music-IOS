@@ -339,10 +339,10 @@ export default forwardRef<PlayerPlaylistType, {}>((props, ref) => {
             renderItem={renderItem}
             keyExtractor={(item, index) => 'progress' in item ? item.id : item.id + index}
             initialNumToRender={10}
-            // 低端 60fps：限制渲染窗口与批量、关闭裁剪
-            windowSize={10}
+            // 限制渲染窗口 + 离屏行视图摘除（iOS 滚动掉帧主杠杆；getItemLayout + 稳定 key 下回挂安全）
+            windowSize={5}
             maxToRenderPerBatch={20}
-            removeClippedSubviews={false}
+            removeClippedSubviews={true}
             updateCellsBatchingPeriod={50}
             getItemLayout={getItemLayout}
             // 挂载首帧就定位到当前播放歌曲，避免「先渲染在顶部、再跳到当前项」。

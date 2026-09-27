@@ -110,10 +110,15 @@ export default memo(() => {
   const glassTint = useMemo(() => applyOpacity(theme['c-primary-light-600'], 80), [theme])
 
   // 无触摸的内容变化时恢复玻璃渲染（静止时原生渲染时钟是暂停的）：
-  // 切 Tab 会整体替换背后内容，换主题会改变玻璃外观
+  // 切 Tab 会整体替换背后内容（页面切换动画约 300ms，脉冲 500ms 足够覆盖，
+  // 之前默认 1200ms 让两块玻璃多空转捕获 0.7s——切 Tab 卡顿来源之一）；
+  // 换主题的色彩过渡更长，保留长脉冲。
   useEffect(() => {
-    pulseLiquidGlass()
-  }, [activeId, theme])
+    pulseLiquidGlass(500)
+  }, [activeId])
+  useEffect(() => {
+    pulseLiquidGlass(1200)
+  }, [theme])
 
   // 透镜药丸：替换旧的主色高亮遮罩（iOS 26 风格）。切 Tab 时药丸原生弹簧滑动
   // 到目标项；长按 0.35s 立即选中按住的 tab、抬起后可拖动，或按住 tab 直接横向

@@ -15,8 +15,11 @@
 //  - `fps` throttles continuous rendering while active (default 30).
 //  - `active` (battery): the glass pauses its render clock when inactive and keeps the last
 //    frame. Raise it via JS pulses whenever content changes without touch (tab switch, theme,
-//    cover change); scrolling is covered natively by a window-level pan observer. Fresh views
-//    render continuously for ~1s to cover mount/transition animations.
+//    cover change). Scrolling is handled natively by a window-level pan observer: the glass
+//    freezes on its last frame for the whole scroll (incl. inertia) and captures one fresh
+//    frame after it settles — per-frame whole-window capture during scroll was the cause of
+//    list jank and refracted edge shadows. Fresh views render continuously for ~1s to cover
+//    mount/transition animations.
 //
 
 #import <React/RCTConvert.h>
@@ -355,14 +358,16 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
           [lensCustom setLensFrames:@[[NSValue valueWithCGRect:r1], [NSValue valueWithCGRect:r2]]];
         }
       } else if (_spanActive) {
-        // 拖回起点附近：退出 span 模式，恢复单胶囊
+        // 拖回起点附近：退出 span 模式，恢复单胶囊。
+        // 注意顺序：必须先清 frames 再复位 frame——反过来的话，复位后的 pill
+        // 尺寸 bounds 会与仍在生效的跨 tab 双矩形在同一帧内组合渲染，透镜
+        // 呈现为一块矩形拼接（「透镜偶发变矩形」的瞬时形态之一）。
         _spanActive = NO;
-        _lens.frame = CGRectMake(0, 0, _pillWidth, self.bounds.size.height);
-        _lens.center = CGPointMake(clampedFingerX, self.bounds.size.height / 2.0);
         if ([lensCustom respondsToSelector:@selector(setLensFrames:)]) {
           [lensCustom setLensFrames:@[]];
         }
-      } else {
+        _lens.frame = CGRectMake(0, 0, _pillWidth, self.bounds.size.height);
+        _lens.center = CGPointMake(clampedFingerX, self.bounds.size.height / 2.0); else {
         _lens.center = CGPointMake(clampedFingerX, self.bounds.size.height / 2.0);
       }
       if ([lensCustom respondsToSelector:@selector(setLensTouchPoint:)]) {
@@ -506,8 +511,13 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
   // 且与栏体圆角在视觉上一致（UIKit 对 layer.cornerRadius 同样按短边一半收敛）。
   id<LGLensCustomizations> lensCustom = (id<LGLensCustomizations>)_lens;
   if ([lensCustom respondsToSelector:@selector(setLensCornerRadius:)]) {
-    CGFloat radius = MIN(MIN(self.layer.cornerRadius, _pillWidth / 2.0), self.bounds.size.height / 2.0);
-    [lensCustom setLensCornerRadius:radius];
+    // 几何无效（首帧未布局 / RN 样式尚未应用）时不推送圆角：此时短边一半 = 0，
+    // 推送 0 会把透镜 override 毒化成 0，下一次抬起玻璃即被 shader 画成矩形
+    // （「透镜偶发变矩形」）。跳过本次，等几何有效的下一轮 layout 再对齐。
+    if (self.bounds.size.height > 0 && _pillWidth > 0 && self.layer.cornerRadius > 0) {
+      CGFloat radius = MIN(MIN(self.layer.cornerRadius, _pillWidth / 2.0), self.bounds.size.height / 2.0);
+      [lensCustom setLensCornerRadius:radius];
+    }
   }
 }
 

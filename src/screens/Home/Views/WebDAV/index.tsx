@@ -909,11 +909,11 @@ export default memo(() => {
         renderItem={renderSong}
         keyExtractor={item => item.id}
         style={{ flex: 1 }}
-        // 低端 60fps：限制渲染窗口与批量、关闭裁剪
+        // 限制渲染窗口 + 离屏行视图摘除（iOS 滚动掉帧主杠杆；getItemLayout 固定行高下回挂安全）
         initialNumToRender={20}
-        windowSize={10}
+        windowSize={5}
         maxToRenderPerBatch={10}
-        removeClippedSubviews={false}
+        removeClippedSubviews={true}
         updateCellsBatchingPeriod={50}
         getItemLayout={(data, index) => ({
           length: ITEM_HEIGHT,

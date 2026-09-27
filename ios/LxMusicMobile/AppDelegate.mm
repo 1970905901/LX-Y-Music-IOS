@@ -1116,7 +1116,7 @@ static NSInteger LXNowPlayingRedrawPending = 0;
 // 写进媒体卡片 artist 字段——D+计数前进=时钟运行且卡片可重绘；计数冻结=时钟
 // 未运行或卡片不重绘；文案（无时间轴/无锚点/已暂停/歌词行）指示命中的分支。
 #ifndef LX_LYRIC_DEBUG
-#define LX_LYRIC_DEBUG 0
+#define LX_LYRIC_DEBUG 1
 #endif
 
 // 时钟状态锁：tick 运行在专用串行队列，而 JS 元数据发布 / 清行 / 重锚发生在主线程，
@@ -1188,8 +1188,12 @@ static void LXNowPlayingLyricStep(void) {
         }
         NSString *text = found >= 0 ? LXNowPlayingLyricLines[(NSUInteger)found][@"text"] : nil;
         mark = (text.length > 12 ? [text substringToIndex:12] : text) ?: @"无行";
-      }
-      LXNowPlayingInfoCache[MPMediaItemPropertyArtist] = [NSString stringWithFormat:@"D%ld %@", (long)dbgTick, mark ?: @""];
+        // 前缀带冻结标志与速率：区别「时钟被 hold 冻结」（冻:，文本不再前进但 D 计数
+        // 前进）与「时钟行走但卡片不重绘」（走:，文本与 D 同停时=不重绘）。
+        mark = [NSString stringWithFormat:@"%@R%.1f %@",
+                LXNowPlayingClockHold ? @"冻:" : @"走:", rate.doubleValue, mark];
+        }
+        LXNowPlayingInfoCache[MPMediaItemPropertyArtist] = [NSString stringWithFormat:@"D%ld %@", (long)dbgTick, mark ?: @""];
       LXApplyNowPlayingInfo();
       return;
     }

@@ -12,7 +12,7 @@ import listState from '@/store/list/state'
 import playerState from '@/store/player/state'
 import { getListPosition, getListPrevSelectId, saveListPosition } from '@/utils/data'
 // import { useMusicList } from '@/store/list/hook'
-import { getListMusics, setActiveList } from '@/core/list'
+import { getListMusics } from '@/core/list'
 import ListItem, { ITEM_HEIGHT } from './ListItem'
 import { createStyle, getRowInfo } from '@/utils/tools'
 import { useHorizontalMode } from '@/utils/hooks'
@@ -82,7 +82,7 @@ const List = forwardRef<ListType, ListProps>(
       return getRowInfo()
     }, [isHorizontal])
     const numColumns = rowInfo.rowNum ?? 1
-    // [] 依赖的 effect（jumpListPosition 等）内需要读到最新列数，用 ref 镜像
+    // [] 依赖的 effect（首次载入定位到当前播放歌曲）内需要读到最新列数，用 ref 镜像
     const rowInfoRef = useRef(rowInfo)
     rowInfoRef.current = rowInfo
     const isShowAlbumName = useSettingValue('list.isShowAlbumName')
@@ -147,10 +147,8 @@ const List = forwardRef<ListType, ListProps>(
           fn()
         }))
       }
-      let isUpdateingList = true
       const updateList = (id: string) => {
         if (cancelled || currentListIdRef.current == id) return
-        isUpdateingList = true
         setList([])
         listDataRef.current = []
         currentListIdRef.current = id
@@ -165,7 +163,6 @@ const List = forwardRef<ListType, ListProps>(
               setList(list)
               setListVersion((v) => v + 1)
               scheduleRaf(() => {
-                isUpdateingList = false
                 listFirstScrollRef.current = true
                 if (waitJumpListPositionRef.current) {
                   waitJumpListPositionRef.current = false
@@ -189,7 +186,6 @@ const List = forwardRef<ListType, ListProps>(
           .catch(() => {
             // getListMusics / getListPosition 任一 reject 时，绝不能把列表永久停在 []，
             // 否则「重新打开歌单直接空白」。
-            isUpdateingList = false
           })
       }
       const handleChange = (ids: string[]) => {
@@ -212,48 +208,19 @@ const List = forwardRef<ListType, ListProps>(
         })
       }
 
-      const handleJumpPosition = () => {
-        scheduleRaf(() => {
-          const listId = playerState.playMusicInfo.listId
-          if (!listId) return
-          if (listId != listState.activeListId) {
-            setActiveList(listId)
-            if (currentListIdRef.current != listId) waitJumpListPositionRef.current = true
-          } else if (playerState.playInfo.playIndex > -1) {
-            if (isUpdateingList) waitJumpListPositionRef.current = true
-            else {
-              try {
-                flatListRef.current?.scrollToIndex({
-                  index: Math.floor(playerState.playInfo.playIndex / (rowInfoRef.current.rowNum ?? 1)),
-                  viewPosition: 0.3,
-                  animated: true,
-                })
-              } catch {}
-            }
-          }
-        })
-      }
       // 初始载入哪条列表：
       // 1) 优先用父级显式传入的 listId（用户刚点的那一条）——「点开我的收藏 →
       //    返回 → 立刻再点开」时，持久化的「上次选中列表」可能还是返回时写入的
       //    default，只按持久化值载入会进错列表，观感就是「点了但没进去」。
-      // 2) 没传时退回持久化值，保持从播放器跳列表等旧路径的行为。
+      // 2) 没传时退回持久化值。
       const initialListId = listId
       if (initialListId) {
         waitJumpListPositionRef.current = playerState.playMusicInfo.listId === initialListId
-        if (global.lx.jumpMyListPosition) global.lx.jumpMyListPosition = false
         updateList(initialListId)
-      } else if (global.lx.jumpMyListPosition) {
-        global.lx.jumpMyListPosition = false
-        if (playerState.playMusicInfo.listId) {
-          waitJumpListPositionRef.current = true
-          updateList(playerState.playMusicInfo.listId)
-        } else void getListPrevSelectId().then(updateList)
       } else void getListPrevSelectId().then(updateList)
 
       global.state_event.on('mylistToggled', updateList)
       global.app_event.on('myListMusicUpdate', handleChange)
-      global.app_event.on('jumpListPosition', handleJumpPosition as any)
 
       return () => {
         cancelled = true
@@ -261,7 +228,6 @@ const List = forwardRef<ListType, ListProps>(
         rafIds.length = 0
         global.state_event.off('mylistToggled', updateList)
         global.app_event.off('myListMusicUpdate', handleChange)
-        global.app_event.off('jumpListPosition', handleJumpPosition as any)
       }
       // listId 刻意不进依赖：只在挂载时读一次即可（覆盖层每次打开都是全新挂载），
       // 进了依赖反而会在同一实例内因父级重渲染而重复跑整条加载链。

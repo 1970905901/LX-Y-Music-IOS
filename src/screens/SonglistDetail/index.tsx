@@ -6,7 +6,7 @@ import { ListInfoContext } from './state'
 import ActionBar from './ActionBar'
 import Image from '@/components/common/Image'
 import Text from '@/components/common/Text'
-import { NAV_SHEAR_NATIVE_IDS, COMPONENT_IDS, LIST_IDS } from '@/config/constant'
+import { NAV_SHEAR_NATIVE_IDS, COMPONENT_IDS } from '@/config/constant'
 import { createStyle, toast } from '@/utils/tools'
 import { scaleSizeW } from '@/utils/pixelRatio'
 import { useTheme } from '@/store/theme/hook'
@@ -25,9 +25,6 @@ import { type DetailInfo } from '@/screens/SonglistDetail/Header.tsx'
 import LandscapeDetailLayout from '@/components/LandscapeDetailLayout'
 import PageContent from '@/components/PageContent'
 import SwipeBackArea from '@/components/common/SwipeBackArea'
-import playerState from '@/store/player/state'
-
-import listState from '@/store/list/state'
 import { usePlayerMusicInfo } from '@/store/player/hook.ts'
 import { useStatusbarHeight } from '@/store/common/hook'
 import MusicInfoOnline = LX.Music.MusicInfoOnline
@@ -173,22 +170,6 @@ export default ({ info, onBack, componentId, initialScrollToInfo }: { info: List
     if (global.lx.isEnableLog) console.log('[SonglistDetail] refreshList', { source: info.source, id: info.id, isRefresh })
     musicListRef.current?.loadList(info.source, info.id, isRefresh).then(setDetailInfo)
   }, [info.source, info.id])
-
-  useEffect(() => {
-    const handleJumpPosition = () => {
-      let listId = playerState.playMusicInfo.listId
-      if (listId === LIST_IDS.TEMP) listId = listState.tempListMeta.id
-      if (listId !== `${info.source}__${info.id}`) return
-      const musicInfo = playerState.playMusicInfo.musicInfo
-      if (musicInfo) {
-        musicListRef.current?.scrollToInfo(musicInfo as LX.Music.MusicInfoOnline)
-      }
-    }
-    global.app_event.on('jumpListPosition', handleJumpPosition as () => Promise<void>)
-    return () => {
-      global.app_event.off('jumpListPosition', handleJumpPosition as () => Promise<void>)
-    }
-  }, [info.id, info.source])
 
   useEffect(() => {
     refreshList(true)

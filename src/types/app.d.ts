@@ -48,10 +48,6 @@ interface GlobalData {
   apis: Partial<LX.UserApi.UserApiSources>
   apiInitPromise: [Promise<boolean>, boolean, (success: boolean) => void]
 
-  jumpMyListPosition: boolean
-  jumpTxPlaylistPosition: boolean
-  jumpKgPlaylistPosition: boolean
-
   settingActiveId: SettingScreenIds
 
   /**

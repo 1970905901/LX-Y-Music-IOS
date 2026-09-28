@@ -41,10 +41,6 @@ global.lx = {
   apis: {},
   apiInitPromise: [Promise.resolve(false), true, () => { }],
 
-  jumpMyListPosition: false,
-  jumpTxPlaylistPosition: false,
-  jumpKgPlaylistPosition: false,
-
   settingActiveId: 'basic',
 
   homePagerIdle: true,

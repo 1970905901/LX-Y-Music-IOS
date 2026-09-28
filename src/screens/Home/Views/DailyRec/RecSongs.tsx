@@ -18,9 +18,6 @@ import {
   clearDailyRecCache,
 } from '@/utils/data'
 import { getDailyRecSongsCache, setDailyRecSongsCache, clearDailyRecSongsCache } from '@/core/cache'
-import playerState from '@/store/player/state'
-import listState from '@/store/list/state'
-import { LIST_IDS } from '@/config/constant'
 
 
 import type { StylizedSelection } from './StylizedModal'
@@ -55,27 +52,6 @@ export default memo(({ header, isStylized, stylizedSelection }: RecSongsProps) =
       similarSongsFetcher.isFetching = false
     }
   }, [])
-
-  useEffect(() => {
-    const handleJumpPosition = async() => {
-      const listId = playerState.playMusicInfo.listId === LIST_IDS.TEMP
-        ? listState.tempListMeta.id
-        : playerState.playMusicInfo.listId
-
-      if (!listId?.startsWith('dailyrec_wy')) return
-
-      const musicInfo = playerState.playMusicInfo.musicInfo
-      if (musicInfo) {
-        listRef.current?.scrollToInfo(musicInfo as LX.Music.MusicInfoOnline)
-      }
-    }
-
-    global.app_event.on('jumpListPosition', handleJumpPosition)
-    return () => {
-      global.app_event.off('jumpListPosition', handleJumpPosition)
-    }
-  }, [])
-
 
   useEffect(() => {
     if (!cookie) {

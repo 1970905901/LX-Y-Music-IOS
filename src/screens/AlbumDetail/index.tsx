@@ -15,9 +15,7 @@ import SwipeBackArea from '@/components/common/SwipeBackArea'
 import { playOnlineList } from '@/core/list'
 import { pop } from '@/navigation'
 import DetailActionBar from '@/components/DetailActionBar'
-import { COMPONENT_IDS, LIST_IDS } from '@/config/constant.ts'
-import playerState from '@/store/player/state'
-import listState from '@/store/list/state'
+import { COMPONENT_IDS } from '@/config/constant.ts'
 import { usePlayerMusicInfo } from '@/store/player/hook.ts'
 import { log } from '@/utils/log'
 
@@ -40,23 +38,6 @@ export default memo(({ componentId, albumInfo }: { componentId: string, albumInf
   const [albumDetail, setAlbumDetail] = useState<{ info: any, list: LX.Music.MusicInfoOnline[] }>({ info: null, list: [] })
   const listRef = useRef<OnlineListType>(null)
   const playerMusicInfo = usePlayerMusicInfo()
-
-  useEffect(() => {
-    const handleJumpPosition = () => {
-      let listId = playerState.playMusicInfo.listId
-      if (listId === LIST_IDS.TEMP) listId = listState.tempListMeta.id
-      if (listId !== `album_${albumInfo.mid || albumInfo.id}`) return
-
-      const musicInfo = playerState.playMusicInfo.musicInfo
-      if (musicInfo) {
-        listRef.current?.scrollToInfo(musicInfo as LX.Music.MusicInfoOnline)
-      }
-    }
-    global.app_event.on('jumpListPosition', handleJumpPosition as () => Promise<void>)
-    return () => {
-      global.app_event.off('jumpListPosition', handleJumpPosition as () => Promise<void>)
-    }
-  }, [albumInfo.id, albumInfo.mid])
 
   useEffect(() => {
     log.info('[AlbumDetail] === 开始加载专辑详情 ===', {

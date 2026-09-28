@@ -90,44 +90,6 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, isCreat
 
   const finalIsCreator = info.source === 'tx' ? txIsUserCreated : info.source === 'kg' ? kgIsUserCreated : isCreator
 
-  useEffect(() => {
-    const handleJumpPosition = () => {
-      let listId = playerState.playMusicInfo.listId
-      if (listId === LIST_IDS.TEMP) listId = listState.tempListMeta.id
-      if (listId !== `${info.source}__${info.id}`) return
-
-      const musicInfo = playerState.playMusicInfo.musicInfo
-      if (musicInfo) {
-        const currentList = songlistState.listDetailInfo.list
-        const index = currentList.findIndex(m => m.id === musicInfo.id)
-        if (index > -1) {
-          listRef.current?.scrollToInfo(musicInfo as LX.Music.MusicInfoOnline)
-        } else {
-          const currentListId = `${info.source}__${info.id}`
-          if (listId === currentListId) {
-            void getListMusics(LIST_IDS.TEMP).then(fullList => {
-              if (fullList.length > currentList.length) {
-                const castedList = fullList as LX.Music.MusicInfoOnline[]
-                if (castedList.length && currentList.length && castedList[0].id === currentList[0].id) {
-                  songlistState.listDetailInfo.list = castedList
-                  fullListRef.current = castedList
-                  setTimeout(() => {
-                    listRef.current?.scrollToInfo(musicInfo as LX.Music.MusicInfoOnline)
-                  }, 200)
-                }
-              }
-            })
-          }
-        }
-      }
-    }
-
-    global.app_event.on('jumpListPosition', handleJumpPosition as () => Promise<void>)
-    return () => {
-      global.app_event.off('jumpListPosition', handleJumpPosition as () => Promise<void>)
-    }
-  }, [info.id, info.source])
-
   useImperativeHandle(
     ref,
     () => ({

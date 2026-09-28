@@ -1,16 +1,7 @@
-import { setNavActiveId } from '@/core/common'
 import Event from './Event'
-import commonState from '@/store/common/state'
 import { type Source as SonglistSource } from '@/store/songlist/state'
 import { type SearchType } from '@/store/search/state'
 import DownloadTask = LX.Download.DownloadTask
-import playerState from '@/store/player/state'
-import listState from '@/store/list/state'
-import userState from '@/store/user/state'
-import { COMPONENT_IDS, LIST_IDS, type NAV_ID_Type } from '@/config/constant'
-import { navigations, popTo } from '@/navigation'
-import { getDailyRecCache } from '@/utils/data.ts'
-import { toast } from '@/utils/tools.ts'
 
 // {
 //   // sync: {
@@ -208,121 +199,6 @@ export class AppEvent extends Event {
 
   openSonglistImport() {
     this.emit('openSonglistImport')
-  }
-
-  async jumpListPosition() {
-    const playMusicInfo = playerState.playMusicInfo
-    let listId = playMusicInfo.listId
-    const rawMusicInfo = playMusicInfo.musicInfo
-    const musicInfo = rawMusicInfo && 'progress' in rawMusicInfo ? rawMusicInfo.metadata.musicInfo : rawMusicInfo
-
-    if (!listId || !musicInfo) {
-      if (commonState.navActiveId === 'nav_love') {
-        this.emit('jumpListPosition')
-      } else {
-        setNavActiveId('nav_love')
-        setTimeout(() => { this.emit('jumpListPosition') }, 200)
-      }
-      return
-    }
-
-    if (listId === LIST_IDS.TEMP) {
-      listId = listState.tempListMeta.id
-    }
-    if (!listId) return
-
-    const currentComponentId = commonState.componentIds[commonState.componentIds.length - 1]?.id
-    if (!currentComponentId) return
-
-    let navigatedToDetail = false
-    let needDelayEmit = false
-    const currentComponent = commonState.componentIds[commonState.componentIds.length - 1]
-    const homeComponent = commonState.componentIds.find(c => c.name === COMPONENT_IDS.home)
-    const isOnHome = currentComponent?.name === COMPONENT_IDS.home
-    const ensureHome = async() => {
-      if (!isOnHome && homeComponent) {
-        await popTo(homeComponent.id)
-        needDelayEmit = true
-      }
-    }
-
-    if (listId.startsWith('artist_detail_')) {
-      const artistId = listId.replace('artist_detail_', '')
-      if (currentComponent?.name !== COMPONENT_IDS.ARTIST_DETAIL) {
-        navigations.pushArtistDetailScreen(currentComponentId, {
-          id: artistId,
-          mid: artistId,
-          name: musicInfo.singer,
-          source: musicInfo.source as string,
-          picUrl: (musicInfo as any)?.meta?.artistPic || (musicInfo as any)?.picUrl || (musicInfo.source === 'tx' && (musicInfo as any)?.artists?.[0]?.mid ? `https://y.gtimg.cn/music/photo_new/T001R500x500M000${(musicInfo as any).artists[0].mid}.jpg` : ''),
-        })
-        navigatedToDetail = true
-      }
-    } else if (listId.startsWith('album_')) {
-      const albumId = listId.replace('album_', '')
-      if (currentComponent?.name !== COMPONENT_IDS.ALBUM_DETAIL_SCREEN) {
-        const albumMid = (musicInfo as any)?.meta?.albumMid || (musicInfo as any)?.albumMid || albumId
-        navigations.pushAlbumDetailScreen(currentComponentId, { id: albumId, mid: albumMid, name: musicInfo.meta?.albumName || '', source: musicInfo.source as LX.OnlineSource })
-        navigatedToDetail = true
-      }
-    } else if (listId.includes('__')) {
-      await ensureHome()
-      const [source, sourceId] = listId.split('__')
-      let targetNavId: NAV_ID_Type = 'nav_songlist'
-
-      if (source === 'tx') {
-        targetNavId = 'nav_tx_playlist'
-        if (commonState.navActiveId !== targetNavId) {
-          global.lx.jumpTxPlaylistPosition = true
-          setNavActiveId(targetNavId)
-        }
-      } else if (source === 'kg') {
-        targetNavId = 'nav_kg_playlist'
-        if (commonState.navActiveId !== targetNavId) {
-          global.lx.jumpKgPlaylistPosition = true
-          setNavActiveId(targetNavId)
-        }
-      } else if (source === 'wy') {
-        const isSubscribed = userState.wy_subscribed_playlists.some(p => String(p.id) === sourceId)
-        targetNavId = isSubscribed ? 'nav_my_playlist' : 'nav_songlist'
-        if (commonState.navActiveId !== targetNavId) {
-          global.lx.jumpMyListPosition = true
-          setNavActiveId(targetNavId)
-        }
-      } else {
-        if (commonState.navActiveId !== targetNavId) {
-          global.lx.jumpMyListPosition = true
-          setNavActiveId(targetNavId)
-        }
-      }
-    } else if (listId.startsWith('dailyrec_wy')) {
-      await ensureHome()
-      setNavActiveId('nav_daily_rec')
-    } else if (listId === 'similar_songs_list') {
-      if (currentComponent?.name !== COMPONENT_IDS.SIMILAR_SONGS_SCREEN) {
-        const cache = await getDailyRecCache()
-        const allSimilarSongs = cache?.items.flatMap(item => item.similarSongs) ?? []
-        if (allSimilarSongs.length === 0) {
-          toast('找不到相似歌曲列表')
-          return
-        }
-        const uniqueSongs = Array.from(new Map(allSimilarSongs.map(song => [song.id, song])).values())
-        navigations.pushSimilarSongsScreen(currentComponentId, uniqueSongs)
-        navigatedToDetail = true
-      }
-    } else {
-      await ensureHome()
-      const targetNavId: NAV_ID_Type = 'nav_love'
-      if (commonState.navActiveId !== targetNavId) {
-        global.lx.jumpMyListPosition = true
-        setNavActiveId(targetNavId)
-      }
-    }
-
-    setTimeout(() => {
-      console.log('[appEvent] emitting jumpListPosition')
-      this.emit('jumpListPosition')
-    }, navigatedToDetail || needDelayEmit ? 500 : 200)
   }
 
   changeLoveListVisible(visible: boolean) {

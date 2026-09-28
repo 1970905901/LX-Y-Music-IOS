@@ -15,9 +15,6 @@ import commonState from '@/store/common/state'
 import Menu, { type MenuType, type Position } from '@/components/common/Menu'
 import ConfirmAlert, { type ConfirmAlertType } from '@/components/common/ConfirmAlert'
 import Input from '@/components/common/Input'
-import playerState from '@/store/player/state'
-import listState from '@/store/list/state'
-import { LIST_IDS } from '@/config/constant'
 import { useHorizontalMode } from '@/utils/hooks'
 import { designSpacing } from '@/theme/DesignTokens'
 import PageTopInset from '@/components/common/PageTopInset'
@@ -144,37 +141,6 @@ export default memo(() => {
     }
     setSelectedPlaylist(playlistInfo)
   }, [])
-
-  const handleJumpPosition = useCallback(async() => {
-    let listId = playerState.playMusicInfo.listId
-    // 当 listId 为 temp 时，从临时列表元数据中获取真实 listId
-    if (listId === LIST_IDS.TEMP) {
-      listId = listState.tempListMeta.id
-    }
-    if (!listId || !listId.startsWith('tx__')) return
-
-    const txPlaylistId = listId.replace('tx__', '')
-    const allPlaylists = [...createdPlaylists, ...collectedPlaylists]
-    const targetPlaylist = allPlaylists.find(p => String(p.id) === txPlaylistId)
-
-    if (targetPlaylist) {
-      requestAnimationFrame(() => {
-        handleItemPress(targetPlaylist)
-      })
-    }
-  }, [createdPlaylists, collectedPlaylists, handleItemPress])
-
-  useEffect(() => {
-    if (global.lx.jumpTxPlaylistPosition) {
-      global.lx.jumpTxPlaylistPosition = false
-      void handleJumpPosition()
-    }
-
-    global.app_event.on('jumpListPosition', handleJumpPosition)
-    return () => {
-      global.app_event.off('jumpListPosition', handleJumpPosition)
-    }
-  }, [handleJumpPosition])
 
   const onRefresh = useCallback(() => {
     void fetchPlaylists(true)

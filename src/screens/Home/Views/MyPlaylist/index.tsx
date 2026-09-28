@@ -5,7 +5,7 @@ import wyApi from '@/utils/musicSdk/wy/user'
 import wyDailyRecApi from '@/utils/musicSdk/wy/dailyRec'
 import wyMusicDetailApi from '@/utils/musicSdk/wy/musicDetail'
 import { playOnlineList } from '@/core/list'
-import { MUSIC_TOGGLE_MODE, LIST_IDS } from '@/config/constant'
+import { MUSIC_TOGGLE_MODE } from '@/config/constant'
 import { updateSetting } from '@/core/common'
 import { useWySubscribedPlaylists, useWyUid } from '@/store/user/hook.ts'
 import { useBottomOverlayInset } from '@/store/common/hook'
@@ -21,9 +21,6 @@ import Text from '@/components/common/Text'
 import SonglistDetail from '../../../SonglistDetail'
 import { type ListInfoItem } from '@/store/songlist/state'
 import commonState from '@/store/common/state'
-import playerState from '@/store/player/state'
-
-import listState from '@/store/list/state'
 import { setWySubscribedPlaylists, removeWySubscribedPlaylist } from '@/store/user/action.ts'
 import Menu, { type MenuType, type Position } from '@/components/common/Menu'
 import PlaylistEditModal, { type PlaylistEditModalType } from './PlaylistEditModal'
@@ -48,42 +45,6 @@ export default memo(() => {
   const menuRef = useRef<MenuType>(null)
   const selectedItemRef = useRef<any>(null)
   const playlistEditModalRef = useRef<PlaylistEditModalType>(null)
-
-  useEffect(() => {
-    const handleJumpPosition = async() => {
-      let listId = playerState.playMusicInfo.listId
-      if (listId === LIST_IDS.TEMP) listId = listState.tempListMeta.id
-      if (!listId?.startsWith('wy__')) return
-
-      const playlistId = listId.replace('wy__', '')
-      const targetPlaylist = playlists.find(p => String(p.id) === playlistId)
-
-      if (targetPlaylist) {
-        const playlistInfo: ListInfoItem = {
-          id: String(targetPlaylist.id),
-          name: targetPlaylist.name,
-          author: (targetPlaylist as any).creator?.nickname,
-          img: targetPlaylist.coverImgUrl,
-          play_count: (targetPlaylist as any).playCount,
-          desc: targetPlaylist.description,
-          source: 'wy',
-          userId: targetPlaylist.userId,
-          total: targetPlaylist.trackCount,
-        }
-        const playingMusicInfo = playerState.playMusicInfo.musicInfo
-        const musicInfo = playingMusicInfo && 'progress' in playingMusicInfo
-          ? playingMusicInfo.metadata.musicInfo
-          : playingMusicInfo
-        if (musicInfo) setScrollToMusicInfo(musicInfo as MusicInfoOnline)
-        setSelectedPlaylist(playlistInfo)
-      }
-    }
-
-    global.app_event.on('jumpListPosition', handleJumpPosition)
-    return () => {
-      global.app_event.off('jumpListPosition', handleJumpPosition)
-    }
-  }, [playlists])
 
   // 记录上一次加载的 cookie+uid 组合，避免重复请求；cookie 或 uid 变化时强制刷新。
   const lastLoadKeyRef = useRef('')

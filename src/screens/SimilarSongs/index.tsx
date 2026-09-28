@@ -9,31 +9,11 @@ import PlayerBar from '@/components/player/PlayerBar'
 import LandscapeCentered from '@/components/LandscapeCentered'
 import { playOnlineList } from '@/core/list'
 import { usePlayerMusicInfo } from '@/store/player/hook'
-import playerState from '@/store/player/state'
-import listState from '@/store/list/state'
-import { LIST_IDS } from '@/config/constant.ts'
 
 export default memo(({ componentId, similarSongs: initialSimilarSongs }: { componentId: string, similarSongs: LX.Music.MusicInfoOnline[] }) => {
   const listRef = useRef<OnlineListType>(null)
   const playerMusicInfo = usePlayerMusicInfo()
   const [similarSongs, setSimilarSongs] = useState(initialSimilarSongs)
-
-  useEffect(() => {
-    const handleJumpPosition = () => {
-      let listId = playerState.playMusicInfo.listId
-      if (listId === LIST_IDS.TEMP) listId = listState.tempListMeta.id
-      if (listId !== 'similar_songs_list') return
-
-      const musicInfo = playerState.playMusicInfo.musicInfo
-      if (musicInfo) {
-        listRef.current?.scrollToInfo(musicInfo as LX.Music.MusicInfoOnline)
-      }
-    }
-    global.app_event.on('jumpListPosition', handleJumpPosition as () => Promise<void>)
-    return () => {
-      global.app_event.off('jumpListPosition', handleJumpPosition as () => Promise<void>)
-    }
-  }, [])
 
   useEffect(() => {
     setComponentId('SIMILAR_SONGS_SCREEN' as any, componentId)

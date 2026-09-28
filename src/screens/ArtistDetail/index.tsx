@@ -19,9 +19,6 @@ import {
   clearArtistCache, getArtistDetailCache, setArtistDetailCache,
 } from '@/core/cache'
 import { useSettingValue } from '@/store/setting/hook.ts'
-import playerState from '@/store/player/state'
-import listState from '@/store/list/state'
-import { LIST_IDS } from '@/config/constant'
 
 import { usePlayerMusicInfo } from '@/store/player/hook.ts'
 import { log } from '@/utils/log'
@@ -53,7 +50,6 @@ export default memo(({ componentId, artistInfo }: { componentId: string, artistI
   const songListRef = useRef<any>(null)
   const songsLoadingRef = useRef(false)
   const songsRequestIdRef = useRef(0)
-  const pendingScrollInfoRef = useRef<LX.Music.MusicInfoOnline | null>(null)
   const isFirstSortEffect = useRef(true)
   const playerMusicInfo = usePlayerMusicInfo()
 
@@ -64,38 +60,6 @@ export default memo(({ componentId, artistInfo }: { componentId: string, artistI
     }))
   }, [])
 
-
-  useEffect(() => {
-    const handleJumpPosition = () => {
-      let listId = playerState.playMusicInfo.listId
-      if (listId === LIST_IDS.TEMP) listId = listState.tempListMeta.id
-      if (listId !== `artist_detail_${artistInfo.id}`) return
-
-      const musicInfo = playerState.playMusicInfo.musicInfo as LX.Music.MusicInfoOnline
-      if (musicInfo) {
-        if (songs.list.length) {
-          songListRef.current?.scrollToInfo(musicInfo)
-        } else {
-          pendingScrollInfoRef.current = musicInfo
-        }
-      }
-    }
-
-    global.app_event.on('jumpListPosition', handleJumpPosition as () => Promise<void>)
-    return () => {
-      global.app_event.off('jumpListPosition', handleJumpPosition as () => Promise<void>)
-    }
-  }, [artistInfo.id, songs.list])
-  useEffect(() => {
-    if (pendingScrollInfoRef.current && songs.list.length) {
-      setTimeout(() => {
-        if (songListRef.current) {
-          songListRef.current.scrollToInfo(pendingScrollInfoRef.current)
-          pendingScrollInfoRef.current = null
-        }
-      }, 300)
-    };
-  }, [songs.list])
 
   useEffect(() => {
     setComponentId('ARTIST_DETAIL' as any, componentId)
@@ -385,7 +349,7 @@ export default memo(({ componentId, artistInfo }: { componentId: string, artistI
       toast('歌曲列表加载中，请稍后再试')
       return
     }
-    // listId 与 SongList.onPlayList / jumpListPosition 保持一致；
+    // listId 与 SongList.onPlayList 保持一致；
     // 先用已加载的歌立即开播，随后把临时列表补齐为歌手全部歌曲（见 playOnlineListEnsureAll）
     void playOnlineListEnsureAll(`artist_detail_${artistInfo.id}`, songs.list, 0, handleLoadAllSongs)
   }, [songs.list, artistInfo.id, handleLoadAllSongs])

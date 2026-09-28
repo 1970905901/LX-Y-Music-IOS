@@ -27,9 +27,12 @@ import {
   updateScrobbleTotalTime,
 } from '@/core/player/scrobble'
 
+// 对齐上游 usePlaybackPersistence 的保存语义：始终持久化播放位置，
+// time 按开关取值——「记住播放进度」开启存真实进度，关闭存 0（下次从头播）。
+// 旧实现开关关闭时完全不保存，残留上次开启时的旧进度，重开后恢复到过期位置。
 const delaySavePlayInfo = throttleBackgroundTimer(() => {
   void savePlayInfo({
-    time: playerState.progress.nowPlayTime,
+    time: settingState.setting['player.isSavePlayTime'] ? playerState.progress.nowPlayTime : 0,
     maxTime: playerState.progress.maxPlayTime,
     listId: playerState.playMusicInfo.listId!,
     index: playerState.playInfo.playIndex,
@@ -136,7 +139,9 @@ export default () => {
       // AVPlayer 路径原生事件已重设基线，此处重复发布被推进吸收，无害）。
       if (wasBufferingHold) void syncNowPlayingState('play')
 
-      if (settingState.setting['player.isSavePlayTime'] && !playerState.playMusicInfo.isTempPlay && isScreenOn) {
+      // 对齐上游：保存不前置开关条件（开关只决定存真实进度还是 0），
+      // 否则关闭开关后残留上次开启时的旧进度，重开开关会恢复到过期位置
+      if (!playerState.playMusicInfo.isTempPlay) {
         delaySavePlayInfo()
       }
     })
@@ -376,6 +381,16 @@ export default () => {
 
   const handleConfigUpdated: typeof global.state_event.configUpdated = (keys, _settings) => {
     if (keys.includes('player.playbackRate')) startUpdateTimeout()
+    // 对齐上游：开关本身持久化于设置存储；这里立即把切换后的位置语义落盘——
+    // 关闭「记住播放进度」时马上存 0（下次从头播），开启时存当前真实进度
+    if (keys.includes('player.isSavePlayTime') && playerState.musicInfo.id && !playerState.playMusicInfo.isTempPlay) {
+      void savePlayInfo({
+        time: settingState.setting['player.isSavePlayTime'] ? playerState.progress.nowPlayTime : 0,
+        maxTime: playerState.progress.maxPlayTime,
+        listId: playerState.playMusicInfo.listId!,
+        index: playerState.playInfo.playIndex,
+      })
+    }
   }
 
   const handleScreenStateChanged: Parameters<typeof onScreenStateChange>[0] = (state) => {
@@ -389,6 +404,16 @@ export default () => {
     } else {
       clearUpdateTimeout()
       stopLyricTick()
+      // 对齐上游 beforeunload 兜底：熄屏（对应桌面端失活）瞬间把当前进度
+      // 落盘一次——熄屏期间轮询停止无新进度，此后被杀进程也能恢复到熄屏前位置
+      if (playerState.musicInfo.id && !playerState.playMusicInfo.isTempPlay) {
+        void savePlayInfo({
+          time: settingState.setting['player.isSavePlayTime'] ? playerState.progress.nowPlayTime : 0,
+          maxTime: playerState.progress.maxPlayTime,
+          listId: playerState.playMusicInfo.listId!,
+          index: playerState.playInfo.playIndex,
+        })
+      }
     }
   }
 

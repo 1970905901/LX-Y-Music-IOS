@@ -14,11 +14,22 @@ import settingState from '@/store/setting/state'
 import { playNowPlaying, pauseNowPlaying } from '@/utils/nativeModules/nowPlaying'
 import { setNowPlayTime } from '@/core/player/progress'
 import { startPreload, stopPreload } from '@/core/player/preload'
+import { savePlayInfo } from '@/utils/data'
 
 let isInitialized = false
 
 const handleExitApp = async(reason: string) => {
   global.lx.isPlayedStop = false
+  // 对齐上游 usePlaybackPersistence 的 beforeunload 兜底：退出前把当前进度落盘。
+  // time 按开关取值（关闭「记住播放进度」存 0，下次从头播），与常规保存一致
+  if (playerState.playMusicInfo.musicInfo && playerState.playMusicInfo.listId) {
+    void savePlayInfo({
+      time: settingState.setting['player.isSavePlayTime'] ? playerState.progress.nowPlayTime : 0,
+      maxTime: playerState.progress.maxPlayTime,
+      listId: playerState.playMusicInfo.listId,
+      index: playerState.playInfo.playIndex,
+    }).catch(() => {})
+  }
   exitApp(reason)
 }
 

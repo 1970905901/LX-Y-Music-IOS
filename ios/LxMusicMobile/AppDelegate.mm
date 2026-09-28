@@ -692,6 +692,7 @@ static void LXRefreshNowPlayingLyricAnchor(void);
 static void LXClearNowPlayingLyricLines(void);
 static void LXReanchorNowPlayingLyric(double elapsedMs);
 static void LXStartNowPlayingLyricTimer(void);
+static void LXQueueNowPlayingLyricRedraw(void);
 static NSObject *LXLyricLock(void);
 // 播放位置事件（原生 4Hz 外推位置广播给 JS，驱动进度条等 UI，替代 JS 侧桥接轮询）
 static NSNotificationName const LXPlayerPositionNotificationName = @"LXPlayerPosition";
@@ -1256,11 +1257,13 @@ static void LXNowPlayingLyricStep(void) {
     LXNowPlayingInfoCache[MPMediaItemPropertyArtist] = text;
     NSLog(@"[LXLyric] tick push line %ld @ %.0fms: %@", (long)LXNowPlayingLyricIndex, positionMs, text);
     LXApplyNowPlayingInfo();
-    // 非前台（控制中心/锁屏打开）下推送新行后，排队强制重绘（前台 active 时
-    // 系统会实时刷新卡片，无需此步骤）
-    if ([UIApplication sharedApplication].applicationState != UIApplicationStateActive) {
-      LXNowPlayingRedrawPending = 2;
-    }
+    // 行变化后无条件排队强制重绘：实测 App 前台但控制中心拉下时，系统并不会实时
+    // 刷新媒体卡片——卡片冻结在下拉前的那一行，每次重新下拉才前进一行（仅重发
+    // nowPlayingInfo 不触发重绘，必须 playbackState 切反再切回）。此前的
+    // applicationState != Active 条件恰好把「前台 + 控制中心打开」这个用户实际
+    // 看得见卡片的场景排除在强制重绘之外，是控制中心歌词不动的直接原因。
+    // 前台无控制中心时重绘的是不可见卡片，开销可忽略（仅行变化时触发，非每 tick）。
+    LXNowPlayingRedrawPending = 2;
   }
 }
 
@@ -1292,6 +1295,19 @@ static void LXSetNowPlayingLyricLines(NSArray<NSDictionary *> *lines) {
   }
   NSLog(@"[LXLyric] setNowPlayingLyrics: %lu lines, clock=%@", (unsigned long)merged.count, LXNowPlayingLyricTimer != nil ? @"running" : @"nil");
   if (LXNowPlayingLyricLines != nil) LXStartNowPlayingLyricTimer();
+}
+
+// App 转入 inactive（下拉控制中心 / 通知中心 / 锁屏）时排队一次强制重绘：
+// 媒体卡片在下拉瞬间只渲染一次快照（下拉前已提交的行），若不在打开时补一次
+// 重绘，用户第一眼看到的歌词停留在下拉前，直到下一个换行点才前进。
+// 由 AppDelegate 的 UIApplicationWillResignActiveNotification 观察者调用。
+static void LXQueueNowPlayingLyricRedraw(void) {
+  @synchronized (LXLyricLock()) {
+    if (LXNowPlayingLyricLines.count == 0) return;
+    if (LXNowPlayingRedrawPending > 0) return;
+    LXNowPlayingRedrawPending = 2;
+  }
+  NSLog(@"[LXLyric] resign active: queued lyric card redraw");
 }
 
 static UIViewController *LXTopViewController(void) {
@@ -5739,7 +5755,19 @@ RCT_REMAP_METHOD(sha1, sha1:(NSString *)input resolver:(RCTPromiseResolveBlock)r
   self.launchOptions = launchOptions;
   self.initialProps = @{};
 
+  // 下拉控制中心 / 锁屏瞬间媒体卡片只渲染一次快照：转入 inactive 时补一次
+  // 强制重绘，让卡片打开后立即刷新到当前歌词行（后续换行由歌词 tick 驱动）。
+  [[NSNotificationCenter defaultCenter] addObserver:self
+                                           selector:@selector(handleAppWillResignActiveForLyricCard:)
+                                               name:UIApplicationWillResignActiveNotification
+                                             object:nil];
+
   return YES;
+}
+
+- (void)handleAppWillResignActiveForLyricCard:(NSNotification *)notification
+{
+  LXQueueNowPlayingLyricRedraw();
 }
 
 - (UISceneConfiguration *)application:(UIApplication *)application

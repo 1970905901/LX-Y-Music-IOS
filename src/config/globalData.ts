@@ -48,6 +48,10 @@ global.lx = {
   settingActiveId: 'basic',
 
   homePagerIdle: true,
+
+  // 见 core/common.ts 的 forceSyncNavActiveId()：一次性标记，请求 Home 的 PagerView
+  // 强制同步到当前 navActiveId（绕过 setNavActiveId 的同值短路）。
+  homePagerForceSync: false,
 }
 
 global.app_event = createAppEventHub() as typeof globalThis.app_event

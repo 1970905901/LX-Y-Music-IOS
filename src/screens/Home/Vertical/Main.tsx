@@ -220,6 +220,10 @@ const Main = () => {
         clearTimeout(pagerIdleFallbackRef.current)
         pagerIdleFallbackRef.current = null
       }
+      if (clearLastIssuedIndexRef.current) {
+        clearTimeout(clearLastIssuedIndexRef.current)
+        clearLastIssuedIndexRef.current = null
+      }
     }
   }, [])
   // 页面集（id + 顺序）签名：分组开关 / 侧边栏显隐变化时会改变页面集合。
@@ -236,6 +240,22 @@ const Main = () => {
   // 会被永久跳过——表现为点按钮切页偶发无响应且再点也无效，手动滑动后才恢复。
   const observedIndexRef = useRef(initialPageIndex)
   const pageRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // 本 tick 内已经下发过 setPage 的目标 index。用于让「常规切页 + 紧随其后的强制
+  // 同步」（点在榜单卡片上的调用序）只真正下发一次 setPage，避免重复驱动原生切换
+  // 造成可见抖动。
+  // 必须按 tick 失效：这两个调用的事件都是微任务、在同一批里连续到达；若标记跨批
+  // 残留，会把后续本该执行的强制同步误判为重复而跳过（那样修复就失效了）。
+  // 因此在下发 setPage 后用一个 0ms 宏任务把它清掉——微任务批先跑完，宏任务才清。
+  const lastIssuedIndexRef = useRef<number | null>(null)
+  const clearLastIssuedIndexRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const markIssuedIndex = (index: number) => {
+    lastIssuedIndexRef.current = index
+    if (clearLastIssuedIndexRef.current) clearTimeout(clearLastIssuedIndexRef.current)
+    clearLastIssuedIndexRef.current = setTimeout(() => {
+      clearLastIssuedIndexRef.current = null
+      lastIssuedIndexRef.current = null
+    }, 0)
+  }
 
   const onPageSelected = useCallback(({ nativeEvent }: PagerViewOnPageSelectedEvent) => {
     activeIndexRef.current = nativeEvent.position
@@ -329,15 +349,41 @@ const Main = () => {
       // 防御：索引必须在当前页面集范围内，避免对原生 pager 下发越界页码
       if (index != null && index < visibleNavs.length) {
         activeIndexRef.current = index
+        // 本页是否就是「强制同步」的目标页。forceSyncNavActiveId() 重新广播的是
+        // **当前** navActiveId，所以只有 id 与 commonState.navActiveId 一致的那次
+        // 回调才算「强制同步请求」，其余（例如调用方紧邻的 setNavActiveId 触发的那次）
+        // 是常规切页，不应消费该标记。
+        const isForceSync = global.lx.homePagerForceSync && id === commonState.navActiveId
         // 用原生真实落点（observedIndexRef）判断是否需要切换：原生偶发丢弃
-        // setPageWithoutAnimation 时，靠下面的重试把页面真正切过去
-        if (observedIndexRef.current === index) {
+        // setPageWithoutAnimation 时，靠下面的重试把页面真正切过去。
+        //
+        // 但 observedIndexRef 可能是**乐观值**（初始化为 initialPageIndex，由
+        // navActiveId 推导，从未经原生确认），App 从后台恢复、PagerView 原生子视图
+        // 被重建后它更可能整体失真。若只凭它 `=== index` 就提前 return，会把
+        // 「界面其实停在别的页」当成「已经在目标页」，切页被永久跳过。
+        // 因此对「强制同步」请求一律真正下发一次 setPage，并让 onPageSelected 的
+        // 回执刷新 observedIndexRef；只有常规请求才沿用乐观短路。
+        if (!isForceSync && observedIndexRef.current === index) {
           if (pageRetryTimerRef.current) {
             clearTimeout(pageRetryTimerRef.current)
             pageRetryTimerRef.current = null
           }
           return
         }
+        // 同一批事件里已经为该 index 下发过 setPage 时不再重复（见
+        // lastIssuedIndexRef 注释）：这一支只可能是紧随常规切页而来的强制同步。
+        if (isForceSync && lastIssuedIndexRef.current === index) {
+          global.lx.homePagerForceSync = false
+          return
+        }
+        // 强制标记是一次性的：消费后立即复位，避免后续常规切页都绕开短路。
+        if (isForceSync) {
+          global.lx.homePagerForceSync = false
+          // 强制同步必须真正驱动一次原生切换：把原生落点标记为「未知」，
+          // 使下面重试链的首个校验不会因为乐观值恰好相等而提前判定成功。
+          observedIndexRef.current = -1
+        }
+        markIssuedIndex(index)
         pagerViewRef.current?.setPageWithoutAnimation(index)
         // 重试链：400ms / 900ms 两次校验原生落点，未达目标则带动画重发 setPage。
         // onPageSelected 到达即清链（observedIndexRef === index）。

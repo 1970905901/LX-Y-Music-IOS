@@ -82,6 +82,25 @@ export const setNavActiveId = (id: Parameters<typeof commonActions.setNavActiveI
   }
 }
 
+/**
+ * 请求把 Home 的 PagerView 强制同步到当前 navActiveId。
+ *
+ * 与 setNavActiveId 的区别：**不受同值短路影响**，即使 navActiveId 未变也会重新
+ * 广播一次，让 PagerView 的消费方有机会校正原生落点。
+ *
+ * 使用场景（务必理解，否则会误用）：navActiveId 是 JS 侧状态，PagerView 的当前页
+ * 是原生状态，二者正常情况下由 onPageSelected 同步。但在 App 从后台恢复时，iOS 可能
+ * 回收/重建 PagerView 的原生子视图，使原生落点回到第 0 页（推荐页），而 navActiveId
+ * 仍是后台前的值（如 'nav_top'）。此时界面显示推荐页，用户再点排行榜按钮 →
+ * setNavActiveId('nav_top') 被同值短路、事件不发 → PagerView 永不校正 →
+ * 「点了没反应」，而该行横向 scroll 是原生的、仍可滑动。
+ * 本函数用于「点击后无论 navActiveId 是否变化，都确保 PagerView 落到目标页」。
+ */
+export const forceSyncNavActiveId = () => {
+  global.lx.homePagerForceSync = true
+  commonActions.reassertNavActiveId()
+}
+
 export const showPactModal = () => {
   handleShowPactModal()
 }

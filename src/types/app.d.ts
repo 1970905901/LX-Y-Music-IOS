@@ -59,6 +59,14 @@ interface GlobalData {
    */
   homePagerIdle: boolean
 
+  /**
+   * 一次性标记：请求 Home 的 PagerView 强制同步到当前 navActiveId。
+   * 由 forceSyncNavActiveId() 置位，由 Vertical/Main.tsx 的 navActiveIdUpdated
+   * 处理器消费（消费后立即复位）。用于绕过 setNavActiveId 的同值短路，校正
+   * App 从后台恢复后 PagerView 原生落点与 navActiveId 失配的情况。
+   */
+  homePagerForceSync: boolean
+
   // windowInfo: {
   //   screenW: number
   //   screenH: number

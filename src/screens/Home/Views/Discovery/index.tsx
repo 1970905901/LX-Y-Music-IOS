@@ -5,7 +5,7 @@ import { useTheme } from '@/store/theme/hook'
 import { useStatusbarHeight, useBottomOverlayInset } from '@/store/common/hook'
 import { useI18n } from '@/lang'
 import { useSettingValue } from '@/store/setting/hook'
-import { setNavActiveId } from '@/core/common'
+import { forceSyncNavActiveId, setNavActiveId } from '@/core/common'
 import { createStyle, toast } from '@/utils/tools'
 import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
 import songlistState, { type ListInfoItem, type Source } from '@/store/songlist/state'
@@ -223,7 +223,22 @@ export default memo(() => {
     //   兜底读到的一定是本次目标榜单；
     // - 事件在「本页已挂载」时（例如已进入排行榜页后又被唤起）负责实时切榜。
     global.app_event.showBoardDetail({ source: leaderboardSource, boardId: board.id })
+    // 先走常规切页，再无条件请求 PagerView 同步到 nav_top。
+    //
+    // 顺序很关键：forceSyncNavActiveId 重新广播的是**当前** navActiveId，所以要先把
+    // 目标 id 落定（setNavActiveId），否则它会先强制切到「点之前那一页」再切到
+    // 排行榜，多一次可见的抖动。
+    //
+    // 为什么必须补一次强制同步：setNavActiveId 有同值短路（id 相同直接 return、
+    // 不发事件），而 PagerView 的原生落点可能已与 navActiveId 失配 —— 最典型的是
+    // App 从后台恢复后 iOS 重建了 PagerView 的原生子视图、原生落点回到第 0 页
+    // （推荐页），但 navActiveId 仍是后台前的 'nav_top'。此时用户在推荐页点榜单卡片
+    // → setNavActiveId('nav_top') 被短路 → PagerView 永不校正 → 「点了没反应」
+    // （该行横向滚动是原生的，仍能滑）。forceSyncNavActiveId 不受同值短路影响，
+    // 会让 Main 真正下发一次 setPage，并要求 onPageSelected 回执刷新「原生真实
+    // 落点」，从而把界面校正到排行榜页。
     setNavActiveId('nav_top')
+    forceSyncNavActiveId()
   }, [leaderboardSource])
 
   // 每日推荐入口跟随平台切换；进入前校验对应平台 Cookie 是否已登录

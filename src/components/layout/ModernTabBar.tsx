@@ -1,5 +1,5 @@
-import { memo, useCallback, useEffect, useMemo, useRef } from 'react'
-import { Animated, Easing, Pressable, View } from 'react-native'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Animated, Easing, Pressable, StyleSheet, View, type LayoutChangeEvent } from 'react-native'
 import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
 import { useNavActiveId, useSafeAreaBottom } from '@/store/common/hook'
@@ -13,6 +13,7 @@ import { designRadius, designSpacing, bottomFloatGap } from '@/theme/DesignToken
 import { Icon } from '@/components/common/Icon'
 import Text from '@/components/common/Text'
 import LiquidGlass from '@/components/common/LiquidGlass'
+import LiquidLens from '@/components/common/LiquidLens'
 
 const styles = createStyle({
   wrapper: {
@@ -123,6 +124,26 @@ export default memo(() => {
     setTabBarExpanded()
   }, [])
 
+  // 液态透镜（上游 LiquidLensView 的 tab 切换动画，仅液态玻璃开启时渲染）：
+  // 点击切 tab → 药丸淡入 + 抬起 morph + 弹簧滑到目标项（加速度挤压/拉伸由
+  // 透镜内部 displayLink 跟踪产生，全部原生驱动，JS 只更新目标 x）；长按
+  // 0.35s 或按住横滑 → 进入 1:1 跟手拖拽，越过 tab 边界即切页（带触觉反馈），
+  // 松手由 onDragSelect 通知落点。关闭液态玻璃 / 收起态不渲染（无动画也无
+  // 拖拽手势，tab 切换回到直接变色）。透镜条带铺满 tab 栏，静止态半透明白色
+  // 药丸常显在选中 tab 上（上游 resting 状态）。
+  const [barWidth, setBarWidth] = useState(0)
+  const lensStyle = useMemo(() => StyleSheet.absoluteFill, [])
+  const handleLensBarLayout = useCallback((e: LayoutChangeEvent) => {
+    setBarWidth(e.nativeEvent.layout.width)
+  }, [])
+  const activeIndex = Math.max(TAB_IDS.findIndex((tab) => tab.id === activeId), 0)
+  // 药丸目标中心 = 目标 tab 的中点；首次设置直接落位（不显形），之后原生弹簧滑动
+  const lensX = barWidth > 0 ? ((activeIndex + 0.5) * barWidth) / TAB_IDS.length : 0
+  const handleLensDragSelect = useCallback((event: { nativeEvent: { index: number } }) => {
+    const tab = TAB_IDS[event.nativeEvent.index]
+    if (tab) setNavActiveId(tab.id)
+  }, [])
+
   return (
     <View
       style={[
@@ -156,6 +177,7 @@ export default memo(() => {
       </Animated.View>
       {/* 完整 tab 栏：列表在顶部或手动展开时显示，收起时下滑淡出且不再响应触摸 */}
       <Animated.View
+        onLayout={handleLensBarLayout}
         style={[
           barStyle,
           {
@@ -167,6 +189,17 @@ export default memo(() => {
       >
         {/* 玻璃衬底带与容器一致的圆角：按压下陷内缩时仍呈圆角，不露直角边 */}
         <LiquidGlass glassOpacity={glassOpacity} dark={theme.isDark} liquid={liquidGlassOn} style={{ borderRadius: designRadius.xl }} />
+        {/* 液态透镜药丸（tab 切换动画）：玻璃之上、tab 内容之下；手势由原生挂在
+            本栏体容器上，快速点击仍走 Pressable，长按/横滑进入透镜拖拽切页 */}
+        {liquidGlassOn && !collapsed && barWidth > 0 && (
+          <LiquidLens
+            style={lensStyle}
+            x={lensX}
+            tabCount={TAB_IDS.length}
+            glassOpacity={glassOpacity}
+            onDragSelect={handleLensDragSelect}
+          />
+        )}
         {TAB_IDS.map((tab) => {
           const isActive = activeId === tab.id
           return (

@@ -55,8 +55,9 @@
 - (void)clearTouchPoint;
 @end
 
-// 自研 LiquidLensView 的主题染色 / frames / 眩光入口；iOS 26 原生透镜不接受
-// 自定义（走系统观感），宿主按 respondsToSelector 分流
+// 自研 LiquidLensView（液态透镜，LiquidGlassView(.lens) 引擎）的定制入口：
+// 染色（nil=kit 预设动态色）/ frames 多矩形合并 / 手指眩光 / 圆角。宿主按
+// respondsToSelector 分流（部分入口为桥接面保留的空操作，见 LiquidLensView.swift）
 @protocol LGLensCustomizations <NSObject>
 @optional
 - (void)setLensTintColor:(UIColor *)color;
@@ -297,8 +298,8 @@ RCT_CUSTOM_VIEW_PROPERTY(liquid, NSNumber, LGLiquidGlassHostView) {
 //   停顿）抬起透镜跟手（挤压/拉伸），越过 tab 边界即切换页面；松手时落点
 //   tab 通过 onDragSelect 事件通知 JS 切页；快速点击不受影响；
 // - `tabCount` prop：tab 数量，用于把松手位置换算成 tab 序号。
-// - 静止药丸层已移除（本项目静止态透镜整体隐藏，药丸只在抬起瞬间露出形成
-//   「方形底子」），pillColor prop 已随之下线。
+// - 静止态药丸常显（上游 resting 状态：半透明白色药丸常驻选中 tab）；`pillColor`
+//   prop 可覆盖药丸底色（JS 当前不传，走 Swift 默认白 30%）。
 
 @interface LGLiquidLensHostView : RCTView <UIGestureRecognizerDelegate>
 @property (nonatomic, copy) RCTDirectEventBlock onDragSelect;
@@ -313,8 +314,9 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
 }
 
 @implementation LGLiquidLensHostView {
-  // iOS 26+ 为系统原生 _UILiquidLensView，旧系统为自研 LiquidLensView，
-  // 两者共同遵循 AnyLiquidLensView 方法面（自研类/原生类经运行时挂协议）
+  // 恒为自研 LiquidLensView（LGLensFactory 统一创建）。上游亦为自研复刻，
+  // 从不调用系统私有 _UILiquidLensView（其不响应本组件方法面，且形状不可控）；
+  // 自研类编译期遵循 AnyLiquidLensView 方法面
   UIView<AnyLiquidLensView> *_lens;
   CGFloat _x;
   BOOL _hasX;
@@ -326,6 +328,7 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
   CGFloat _dragStartCenterX; // 拖拽起点（frames 合并 span 的基准）
   BOOL _spanActive; // frames 合并进行中（透镜本体检已拉伸为跨 tab 的 span）
   UIPanGestureRecognizer *_panRecognizer; // 按住直接滑动（无需先停顿）的切页入口
+  CGFloat _lastWidth; // 上一次布局的宿主宽度（等比重映射的基准，0 = 尚未布局）
 }
 
 - (instancetype)initWithFrame:(CGRect)frame {
@@ -334,8 +337,8 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
     // 透镜本体不参与命中测试：触摸穿透到上层的 tab Pressable（长按拖拽由
     // 宿主挂在父容器上的手势识别器接管）
     _lens.userInteractionEnabled = NO;
-    // 静止时整体隐藏：透镜只在运动过程（点击切换/长按拖拽）中可见，静止态
-    // 不显示圆形药丸（常显的半透明胶囊在真实界面上观感如"磨砂残留"）
+    // 首次落位前先隐藏；落位后静止态常显（对齐上游 LiquidLensView 的静止
+    // 状态：半透明白色药丸常驻在选中 tab 上，未交互时持续可见）
     _lens.alpha = 0;
     _lens.autoresizingMask = UIViewAutoresizingFlexibleHeight;
     [self addSubview:_lens];
@@ -499,14 +502,12 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
                             options:UIViewAnimationOptionBeginFromCurrentState
                          animations:^{
           self->_lens.center = CGPointMake(targetX, self.bounds.size.height / 2.0);
-        } completion:nil];
-        [UIView animateWithDuration:0.12 animations:^{
-          self->_lens.alpha = 0;
-        } completion:^(BOOL done) {
-          if (done) [self->_lens setLifted:NO animated:NO alongsideAnimations:nil completion:nil];
+        } completion:^(BOOL finished) {
+          // 落定回落药丸并保持静止常显（上游 resting 状态）
+          if (finished) [self->_lens setLifted:NO animated:NO alongsideAnimations:nil completion:nil];
         }];
       } else {
-        // 落点即当前 tab：原地弹簧归位，先淡出再回落药丸（静止无遮罩）
+        // 落点即当前 tab：原地回落药丸并弹簧归位，保持静止常显（上游 resting 状态）
         [UIView animateWithDuration:0.3
                               delay:0
              usingSpringWithDamping:0.8
@@ -515,11 +516,7 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
                          animations:^{
           self->_lens.center = CGPointMake(self->_x, self.bounds.size.height / 2.0);
         } completion:nil];
-        [UIView animateWithDuration:0.12 animations:^{
-          self->_lens.alpha = 0;
-        } completion:^(BOOL done) {
-          if (done) [self->_lens setLifted:NO animated:NO alongsideAnimations:nil completion:nil];
-        }];
+        [self->_lens setLifted:NO animated:NO alongsideAnimations:nil completion:nil];
       }
       break;
     }
@@ -536,7 +533,7 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
       if ([lensCustom respondsToSelector:@selector(clearLensTouchPoint)]) {
         [lensCustom clearLensTouchPoint];
       }
-      // 中断时弹回当前选中 tab 的位置，先淡出再回落药丸
+      // 中断时弹回当前选中 tab 的位置，原地回落药丸并保持静止常显（上游 resting 状态）
       [UIView animateWithDuration:0.3
                             delay:0
            usingSpringWithDamping:0.8
@@ -545,11 +542,7 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
                        animations:^{
         self->_lens.center = CGPointMake(self->_x, self.bounds.size.height / 2.0);
       } completion:nil];
-      [UIView animateWithDuration:0.12 animations:^{
-        self->_lens.alpha = 0;
-      } completion:^(BOOL done) {
-        if (done) [self->_lens setLifted:NO animated:NO alongsideAnimations:nil completion:nil];
-      }];
+      [self->_lens setLifted:NO animated:NO alongsideAnimations:nil completion:nil];
       break;
     }
     default:
@@ -577,6 +570,16 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
 
 - (void)layoutSubviews {
   [super layoutSubviews];
+  CGFloat width = self.bounds.size.width;
+  // 宿主宽度变化（iPad 旋转等）：目标位等比静默重映射（x 公式为
+  // (index+0.5)*w/count，等比映射结果与 JS 按新宽度重算的值完全一致），
+  // 随后 JS 经 onLayout 重推的 x 会被 setTargetX 的同位守卫拦截，
+  // 不会在旋转瞬间凭空播一次「淡入滑动淡出」闪现。onLayout 链路必然
+  // 晚于本布局轮，顺序有保证。
+  if (_hasX && !_dragging && _lastWidth > 0 && width > 0 && fabs(width - _lastWidth) > 0.5) {
+    _x = _x * (width / _lastWidth);
+  }
+  _lastWidth = width;
   if (_dragging) return; // 拖拽中透镜 frame/位置由手势逻辑接管
   _lens.frame = CGRectMake(0, 0, _pillWidth, self.bounds.size.height);
   _lens.center = CGPointMake(_x, self.bounds.size.height / 2.0);
@@ -605,9 +608,11 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
   }
   _x = x;
   if (!_hasX) {
-    // 首次落位不动画也不显示（静止无遮罩）：透镜已在正确位置待命（alpha 0）
+    // 首次落位不动画：直接停在选中 tab 上并进入静止常显态（上游 LiquidLensView
+    // 的 resting 状态：半透明白色药丸常驻选中项）
     _hasX = YES;
     [self setNeedsLayout];
+    _lens.alpha = 1.0;
     return;
   }
   if (animated) {
@@ -627,13 +632,8 @@ static NSInteger LXTabZoneForX(CGFloat x, CGFloat width, NSInteger count) {
       self->_lens.center = CGPointMake(x, self.bounds.size.height / 2.0);
     } completion:^(BOOL finished) {
       if (!finished) return; // 连续点击时被新动画接管，由最后一次动画负责收尾
-      // 先淡出、淡出完成后再回落药丸：回落会让白色静止药丸显现，
-      // 边淡出边显现会拖长"消失"的视觉残留
-      [UIView animateWithDuration:0.12 animations:^{
-        self->_lens.alpha = 0;
-      } completion:^(BOOL done) {
-        if (done) [self->_lens setLifted:NO animated:NO alongsideAnimations:nil completion:nil];
-      }];
+      // 落定回落药丸（跳过 morph 动画），保持静止常显（上游 resting 状态）
+      [self->_lens setLifted:NO animated:NO alongsideAnimations:nil completion:nil];
     }];
   } else {
     _lens.center = CGPointMake(x, self.bounds.size.height / 2.0);
@@ -720,6 +720,13 @@ RCT_CUSTOM_VIEW_PROPERTY(lifted, NSNumber, LGLiquidLensHostView) {
 }
 
 // 药丸宽度（默认 56）
+// 静止药丸底色（跟随应用主题明暗，由 JS 传入 rgba 字符串；不传走 Swift 默认白 30%）
+RCT_CUSTOM_VIEW_PROPERTY(pillColor, NSString, LGLiquidLensHostView) {
+  if (json != nil) {
+    view.lens.restingBackgroundColor = [RCTConvert UIColor:json];
+  }
+}
+
 RCT_CUSTOM_VIEW_PROPERTY(pillWidth, NSNumber, LGLiquidLensHostView) {
   if (json != nil) {
     [view setPillWidth:[json doubleValue]];

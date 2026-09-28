@@ -100,6 +100,10 @@ export default memo(({
 
 const styles = createStyle({
   content: {
+    // 明确按内容区宽度铺满，给下面 flexShrink:1 的滑块一个确定的收缩基准。
+    // 不写这条时，行的宽度会被滑块自身的内容宽度反向撑开，右侧的 flexShrink
+    // 就失去了可收缩的空间（与 Slider.tsx 里 flexShrink 的注释是一对因果）。
+    width: '100%',
     flexGrow: 0,
     flexShrink: 1,
     flexDirection: 'row',

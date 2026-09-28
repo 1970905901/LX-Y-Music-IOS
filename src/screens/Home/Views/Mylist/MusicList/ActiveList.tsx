@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from 'react'
+import { forwardRef, useImperativeHandle, useMemo, useState } from 'react'
 import { TouchableOpacity } from 'react-native'
 
 import { Icon } from '@/components/common/Icon'
@@ -7,8 +7,6 @@ import { useTheme } from '@/store/theme/hook'
 import { useActiveListId, useListFetching } from '@/store/list/hook'
 import listState from '@/store/list/state'
 import { createStyle } from '@/utils/tools'
-import { getListPrevSelectId } from '@/utils/data'
-import { setActiveList } from '@/core/list'
 import Text from '@/components/common/Text'
 import { LIST_IDS } from '@/config/constant'
 import Loading from '@/components/common/Loading'
@@ -53,11 +51,15 @@ export default forwardRef<ActiveListType, ActiveListProps>(
       global.app_event.changeLoveListVisible(true)
     }
 
-    useEffect(() => {
-      void getListPrevSelectId().then((id) => {
-        setActiveList(id)
-      })
-    }, [])
+    // 这里【不能】再在挂载时全局写 setActiveList(getListPrevSelectId())：
+    // 1) 它是全局副作用（listState + mylistToggled 广播），而本组件只是歌曲列表的
+    //    头部条，每次进入详情都会挂载一次，会覆盖掉用户刚点选的那个列表；
+    // 2) getListPrevSelectId() 是异步的，返回时用户可能已经按了「返回」（本组件已
+    //    卸载），迟到回调仍会把 activeListId 改回上次的列表 —— 而 NewListUI 里
+    //    「activeListId != default 就打开详情覆盖层」的 effect 会因此把用户刚关掉的
+    //    详情页重新打开，表现为「返回后再次进入」状态错乱。
+    // 当前列表由 NewListUI.handleItemPress 在打开前写入、列表数据由 List 挂载时按
+    // getListPrevSelectId() 载入，此处无需也不应再写。
 
     return (
       <TouchableOpacity

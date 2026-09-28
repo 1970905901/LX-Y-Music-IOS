@@ -132,23 +132,37 @@ const List = forwardRef<ListType, ListProps>(
     }))
 
     useEffect(() => {
+      // 卸载护栏：本 effect 里的加载链是「异步取数据 → rAF → 再 rAF」，而用户完全
+      // 可能在这条链跑完之前就按「返回」离开歌曲列表（反复进出「我的收藏」时尤其
+      // 常见）。没有护栏的话，链尾会在已卸载的组件上 setState，并对已经销毁的
+      // FlatList 调 scrollToIndex / scrollToOffset —— 每次进出都留一串迟到回调，
+      // 是本页「反复进出后只剩列表能滑、其余点击全失效」的可疑来源之一。
+      let cancelled = false
+      const rafIds: number[] = []
+      const scheduleRaf = (fn: () => void) => {
+        rafIds.push(requestAnimationFrame(() => {
+          if (cancelled) return
+          fn()
+        }))
+      }
       let isUpdateingList = true
       const updateList = (id: string) => {
-        if (currentListIdRef.current == id) return
+        if (cancelled || currentListIdRef.current == id) return
         isUpdateingList = true
         setList([])
         listDataRef.current = []
         currentListIdRef.current = id
         void Promise.all([getListMusics(id), getListPosition(id)])
           .then(([list, position]) => {
-            requestAnimationFrame(() => {
+            if (cancelled) return
+            scheduleRaf(() => {
               if (currentListIdRef.current != id) return
               selectedListRef.current = []
               setSelectedList([])
               listDataRef.current = list
               setList(list)
               setListVersion((v) => v + 1)
-              requestAnimationFrame(() => {
+              scheduleRaf(() => {
                 isUpdateingList = false
                 listFirstScrollRef.current = true
                 if (waitJumpListPositionRef.current) {
@@ -177,10 +191,10 @@ const List = forwardRef<ListType, ListProps>(
           })
       }
       const handleChange = (ids: string[]) => {
-        if (!ids.includes(listState.activeListId)) return
+        if (cancelled || !ids.includes(listState.activeListId)) return
         const id = listState.activeListId
         void getListMusics(id).then((list) => {
-          if (currentListIdRef.current != id) return
+          if (cancelled || currentListIdRef.current != id) return
           selectedListRef.current = []
           setSelectedList([])
           // 原地同步行对象，保持 data 引用不变，避免整表替换触发渲染窗口重置。
@@ -197,7 +211,7 @@ const List = forwardRef<ListType, ListProps>(
       }
 
       const handleJumpPosition = () => {
-        requestAnimationFrame(() => {
+        scheduleRaf(() => {
           const listId = playerState.playMusicInfo.listId
           if (!listId) return
           if (listId != listState.activeListId) {
@@ -230,6 +244,9 @@ const List = forwardRef<ListType, ListProps>(
       global.app_event.on('jumpListPosition', handleJumpPosition as any)
 
       return () => {
+        cancelled = true
+        for (const id of rafIds) cancelAnimationFrame(id)
+        rafIds.length = 0
         global.state_event.off('mylistToggled', updateList)
         global.app_event.off('myListMusicUpdate', handleChange)
         global.app_event.off('jumpListPosition', handleJumpPosition as any)

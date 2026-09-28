@@ -185,12 +185,15 @@ export default memo(() => {
               style={styles.item}
               onPress={() => { setNavActiveId(tab.id) }}
             >
-              {/* 所有 tab 的图标统一放进同尺寸容器：love 字形占位偏小需放大一档，
-                  但不能让它撑高布局把文字顶下去（与其他 tab 错位） */}
+              {/* 所有 tab 的图标统一放进同尺寸容器：love 是手绘描边心形，字形只占 1em 的
+                  66%×63%，体量天生比别的字体图标小一成多，故放大到 30pt（相邻 21pt）
+                  视觉高度才齐平；它仍居中在 24pt 容器里，不会撑高布局把文字顶下去。
+                  ⚠️ 这个字号与 SvgIcon.HEART_STROKE_WIDTH 绑定（线宽 = 屏幕线宽*1024/字号），
+                  改字号必须回去重算线宽，详见该常量注释与 scripts/sim-tabbar-icon-stroke.js */}
               <View style={styles.iconWrap}>
                 <Icon
                   name={tab.icon}
-                  size={tab.icon === 'love' ? 24 : 21}
+                  size={tab.icon === 'love' ? 30 : 21}
                   color={isActive ? theme['c-primary'] : theme['c-font-label']}
                 />
               </View>

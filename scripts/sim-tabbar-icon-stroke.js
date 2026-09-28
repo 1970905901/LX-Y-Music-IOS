@@ -1,14 +1,17 @@
 /**
- * 底部 Tab 栏图标线宽一致性回归。
+ * 底部 Tab 栏图标一致性回归（线宽 + 体量两个维度）。
  *
  * 背景：「我的」Tab 的爱心不是字体字形，而是手绘 SVG 描边（IcoMoon 的 love 字形历史上
- * 在 iOS 上渲染异常，改用描边心形根治），所以它的线宽不会自动跟随字体图标家族，
- * 必须手工对齐，否则肉眼会觉得它比相邻 Tab 细一圈。
+ * 在 iOS 上渲染异常，改用描边心形根治），所以它**不会自动跟随字体图标家族**，
+ * 线宽与字号都必须手工对齐，否则肉眼会觉得它「和别的 Tab 不是一个图」。
  *
- * 本脚本用「扫描线最短弦长」测量各图标的笔画宽度：
- *   宽度为 t 的等宽笔画，被任意直线横截时最短弦长 = t。
- *   对轴线对齐的笔画（图标字体绝大多数如此）该值精确等于 t。
- * 取所有弦长的 5% 分位作为估计（比取最小值抗「切线处细缝」的数值噪声）。
+ * 两个维度都要管，只对齐一个都不行：
+ *   - 线宽（粗细）：「扫描线最短弦长」测量各图标的笔画宽度——宽度为 t 的等宽笔画，
+ *     被任意直线横截时最短弦长 = t；对轴线对齐的笔画（图标字体绝大多数如此）该值精确等于 t。
+ *     取所有弦长的 5% 分位作为估计（比取最小值抗「切线处细缝」的数值噪声）。
+ *   - 体量（视觉盒）：字体字形铺满 em 框（视觉高 = 字号），手绘爱心只占 1em 的 66%×63%，
+ *     所以爱心必须在更大的字号上渲染才能齐平；线宽又与字号绑定（字号 ↑ 则线宽 ↓），
+ *     于是「字号」与「线宽」必须联立求解，改一个就要回来重算另一个。
  *
  * 所有长度单位都是字形坐标（IcoMoon 字体 unitsPerEm = 1024，即 1024 单位 = 1em）；
  * 换算到屏幕：px = 单位 / 1024 * 渲染字号。
@@ -24,7 +27,8 @@ const EM = 1024 // IcoMoon 字体 unitsPerEm，已用 scripts 校验过 head.uni
 
 // 渲染字号（Tab 栏与字形的 1:1 对应）；由下方源码断言保证与实现同步
 const SIZE_TAB = 21
-const SIZE_HEART = 24
+// 爱心字形只占 em 框的 66%×63%，体量天生比别人小，靠放大字号补齐（见 SvgIcon 注释）
+const SIZE_HEART = 30
 
 const results = []
 let failed = 0
@@ -243,6 +247,43 @@ console.log(
   `${heartPt.toFixed(2).padStart(18)}   字号 ${SIZE_HEART}pt ← 本次调整对象`,
 )
 
+// ---------------------------------------------------------------------------
+// 3.5 视觉尺寸（体量）对照
+// ---------------------------------------------------------------------------
+// 「看着一样大」由两件事共同决定：线宽（粗细）+ 视觉盒（体量）。字体字形铺满 em 框
+// （视觉高 = 字号），手绘爱心只占 1em 的 66%×63%，所以必须在更大字号上渲染。
+// 视觉盒 = 字形包围盒 + 描边外扩（描边以路径为中心，故每侧外扩 stroke/2）。
+const boxOf = (polys, stroke = 0) => {
+  const b = bbox(polys)
+  return { w: b.w + stroke, h: b.h + stroke }
+}
+const tabBoxes = TAB_ICONS.map((name) => ({ name, ...boxOf(glyphOf(name)) }))
+const heartBox = boxOf(heartPath, heartStroke)
+
+console.log()
+console.log('视觉尺寸对照（视觉盒 = 字形包围盒 + 描边外扩，单位 pt @各自字号）')
+console.log(`${'图标'.padEnd(14)}${'字号'.padStart(6)}${'视觉宽'.padStart(10)}${'视觉高'.padStart(10)}`)
+for (const b of tabBoxes) {
+  console.log(
+    `${b.name.padEnd(14)}${String(SIZE_TAB).padStart(6)}` +
+    `${(b.w / EM * SIZE_TAB).toFixed(2).padStart(10)}${(b.h / EM * SIZE_TAB).toFixed(2).padStart(10)}`,
+  )
+}
+console.log(
+  `${'love(爱心)'.padEnd(14)}${String(SIZE_HEART).padStart(6)}` +
+  `${(heartBox.w / EM * SIZE_HEART).toFixed(2).padStart(10)}${(heartBox.h / EM * SIZE_HEART).toFixed(2).padStart(10)}`,
+)
+
+const tabHeights = tabBoxes.map((b) => (b.h / EM) * SIZE_TAB).sort((a, b) => a - b)
+const tabWidths = tabBoxes.map((b) => (b.w / EM) * SIZE_TAB).sort((a, b) => a - b)
+const tabMedH = (tabHeights[1] + tabHeights[2]) / 2
+const tabMedW = (tabWidths[1] + tabWidths[2]) / 2
+const heartH = (heartBox.h / EM) * SIZE_HEART
+const heartW = (heartBox.w / EM) * SIZE_HEART
+console.log(`  → 相邻图标视觉高 ${tabHeights.map((v) => v.toFixed(2)).join(' / ')} pt（中位 ${tabMedH.toFixed(2)}）`)
+console.log(`  → 相邻图标视觉宽 ${tabWidths.map((v) => v.toFixed(2)).join(' / ')} pt（中位 ${tabMedW.toFixed(2)}）`)
+console.log(`  → 爱心视觉盒 ${heartW.toFixed(2)} × ${heartH.toFixed(2)} pt（${SIZE_HEART}pt 字号，含描边外扩 ${(heartStroke / 2).toFixed(1)} 单位）`)
+
 const tabPts = TAB_ICONS.map((n) => (measured[n].p05 / EM) * SIZE_TAB)
 const sorted = [...tabPts].sort((a, b) => a - b)
 const medianPt = (sorted[1] + sorted[2]) / 2
@@ -254,8 +295,8 @@ console.log()
 console.log(`相邻 Tab 图标屏幕线宽：${tabPts.map((v) => v.toFixed(2)).sort().join(' / ')} pt`)
 console.log(`  → 中位数 ${medianPt.toFixed(3)}pt，平均 ${meanPt.toFixed(3)}pt，` +
   `区间 [${minPt.toFixed(2)}, ${maxPt.toFixed(2)}]pt`)
-console.log(`爱心屏幕线宽：${(64 / EM * SIZE_HEART).toFixed(3)}pt（旧值 64） → ` +
-  `${heartPt.toFixed(3)}pt（新值 ${heartStroke}）`)
+console.log(`爱心屏幕线宽：${(64 / EM * 24).toFixed(3)}pt（老值 64@24pt） → ` +
+  `${heartPt.toFixed(3)}pt（现值 ${heartStroke}@${SIZE_HEART}pt）`)
 
 console.log()
 console.log('='.repeat(94))
@@ -274,17 +315,42 @@ check('爱心路径与线宽可从 SvgIcon.tsx 解析到',
 check(`Tab 图标间线宽差异受控（max/min = ${(maxPt / minPt).toFixed(2)} < 1.30）`,
   maxPt / minPt < 1.3, `${minPt.toFixed(2)} ~ ${maxPt.toFixed(2)}`)
 
-// 核心断言：爱心线宽必须落在相邻 Tab 的实际区间内，且贴近中位数
+// 核心断言 1：爱心线宽必须落在相邻 Tab 的实际区间内，且贴近中位数
 check(`爱心线宽 ${heartPt.toFixed(2)}pt 落在相邻 Tab 区间 [${minPt.toFixed(2)}, ${maxPt.toFixed(2)}]pt 内`,
   heartPt >= minPt && heartPt <= maxPt, `heart=${heartPt.toFixed(2)}`)
 check(`爱心线宽与相邻 Tab 中位数偏差 ≤5%（${((heartPt - medianPt) / medianPt * 100).toFixed(1)}%）`,
   Math.abs(heartPt - medianPt) / medianPt <= 0.05,
   `heart=${heartPt.toFixed(3)} median=${medianPt.toFixed(3)}`)
 
-// 反例回归：旧值必须被判不合格，否则说明阈值形同虚设
-const oldPt = (64 / EM) * SIZE_HEART
-check(`旧线宽 64（${oldPt.toFixed(2)}pt）确实偏细、会被本脚本判不合格`,
+// 核心断言 2：「看着一样大」还有一半取决于体量。字体字形铺满 em 框（视觉高 = 字号），
+// 手绘爱心只占 1em 的 66%×63%，所以必须渲染在更大的字号上才齐平。
+// 只看线宽会漏掉这一半——历史上正是「线宽对了但爱心小一圈」。
+check(`爱心视觉高 ${heartH.toFixed(2)}pt 与相邻 Tab 视觉高中位偏差 ≤5%` +
+  `（${((heartH - tabMedH) / tabMedH * 100).toFixed(1)}%）`,
+  Math.abs(heartH - tabMedH) / tabMedH <= 0.05,
+  `heart=${heartH.toFixed(2)} median=${tabMedH.toFixed(2)}`)
+check(`爱心视觉宽 ${heartW.toFixed(2)}pt 落在相邻 Tab 宽度区间 ` +
+  `[${tabWidths[0].toFixed(2)}, ${tabWidths[3].toFixed(2)}]pt 内`,
+  heartW >= tabWidths[0] && heartW <= tabWidths[3],
+  `heart=${heartW.toFixed(2)}`)
+// 爱心比相邻图标窄（心形带尖角）是形状使然，但明显更窄就说明字号还偏小
+check(`爱心视觉宽不小于相邻 Tab 宽度中位的 90%（${(heartW / tabMedW * 100).toFixed(1)}%）`,
+  heartW / tabMedW >= 0.9, `heart=${heartW.toFixed(2)} median=${tabMedW.toFixed(2)}`)
+
+// 反例回归：旧值/错配必须被判不合格，否则说明阈值形同虚设
+// ① 老配置：线宽 64 配 24pt → 1.50pt，比相邻细一圈
+const oldPt = (64 / EM) * 24
+check(`老配置 64@24pt（${oldPt.toFixed(2)}pt）确实偏细、会被本脚本判不合格`,
   oldPt < minPt * 0.95, `old=${oldPt.toFixed(2)} < ${(minPt * 0.95).toFixed(2)}`)
+// ② 只提字号、忘了重算线宽 → 线宽随字号同步放大，反而变粗
+const naivePt = (79 / EM) * SIZE_HEART
+check(`只提字号不重算线宽（79@${SIZE_HEART}pt = ${naivePt.toFixed(2)}pt）确实偏粗、会被判不合格`,
+  naivePt > maxPt * 1.05, `naive=${naivePt.toFixed(2)} > ${(maxPt * 1.05).toFixed(2)}`)
+// ③ 不提字号（仍 24pt）时体量差会被判不合格——这正是「爱心看着小一圈」的量化形式
+const oldHeartH = ((heartPathBBox.h + 64) / EM) * 24
+check(`不提字号（24pt）时视觉高只有 ${oldHeartH.toFixed(2)}pt，确实小一圈、会被判不合格`,
+  Math.abs(oldHeartH - tabMedH) / tabMedH > 0.05,
+  `old=${oldHeartH.toFixed(2)} median=${tabMedH.toFixed(2)}`)
 
 // 爱心图形占位偏小，故它渲染在更大的字号上——这个前提变了要重新核算线宽
 check(`爱心字形可视高度约占 1em 的 ${(heartPathBBox.h / EM * 100).toFixed(0)}%（< 80% → 需要放大字号补偿）`,
@@ -292,7 +358,7 @@ check(`爱心字形可视高度约占 1em 的 ${(heartPathBBox.h / EM * 100).toF
   `h=${heartPathBBox.h.toFixed(0)} 单位 = ${(heartPathBBox.h / EM * SIZE_HEART).toFixed(1)}pt`)
 
 // 渲染尺寸与实现同步
-check("Tab 栏仍以 21pt 渲染普通图标、24pt 渲染爱心",
+check(`Tab 栏仍以 ${SIZE_TAB}pt 渲染普通图标、${SIZE_HEART}pt 渲染爱心`,
   !!loveSizeMatch && Number(loveSizeMatch[1]) === SIZE_HEART && Number(loveSizeMatch[2]) === SIZE_TAB,
   loveSizeMatch ? `love=${loveSizeMatch[1]} 其他=${loveSizeMatch[2]}` : '未匹配到尺寸三元表达式')
 

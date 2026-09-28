@@ -15,8 +15,6 @@ import { PLAY_DETAIL_SCREEN } from '@/navigation/screenNames'
 import commonState from '@/store/common/state'
 import { useSafeAreaBottom } from '@/store/common/hook'
 import { usePlayerMusicInfo } from '@/store/player/hook'
-import playerState from '@/store/player/state'
-import { LIST_IDS } from '@/config/constant'
 import { designRadius, designSpacing, bottomFloatGap } from '@/theme/DesignTokens'
 import { pulseLiquidGlass } from '@/utils/liquidGlassActivity'
 import LiquidGlass from '@/components/common/LiquidGlass'
@@ -26,7 +24,6 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
   const isHorizontalMode = useHorizontalMode()
   const theme = useTheme()
   const musicInfo = usePlayerMusicInfo()
-  const longPressedRef = useRef(false)
   const navigatingRef = useRef(false)
   const safeAreaBottom = useSafeAreaBottom()
 
@@ -58,18 +55,7 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
     }).start()
   }, [effectiveCollapsed, collapseAnim])
 
-  const handleLongPress = useCallback(() => {
-    longPressedRef.current = true
-    const listId = playerState.playMusicInfo.listId
-    if (!listId || listId == LIST_IDS.DOWNLOAD) return
-    void global.app_event.jumpListPosition()
-  }, [])
-
   const handleNavigate = useCallback(() => {
-    if (longPressedRef.current) {
-      longPressedRef.current = false
-      return
-    }
     if (!musicInfo.id) return
     // 防重入：动画进行中忽略连续点击，避免 PlayDetail 被反复压栈导致界面卡死。
     if (navigatingRef.current) return
@@ -119,7 +105,7 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
             onLayout={(e) => { setMiniPlayerHeight(e.nativeEvent.layout.height) }}
           >
             <LiquidGlass tint={glassTint} glassOpacity={glassOpacity} style={{ borderRadius: designRadius.xl }} />
-            <TouchableOpacity style={styles.left} onPress={handleNavigate} onLongPress={handleLongPress} activeOpacity={0.8}>
+            <TouchableOpacity style={styles.left} onPress={handleNavigate} activeOpacity={0.8}>
               <Pic />
               <View style={styles.center}>
                 <Title />
@@ -133,7 +119,7 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
         </Animated.View>
       )
     },
-    [theme, glassTint, glassOpacity, isHome, handleLongPress, handleNavigate, safeAreaBottom, isHorizontalMode, collapseAnim],
+    [theme, glassTint, glassOpacity, isHome, handleNavigate, safeAreaBottom, isHorizontalMode, collapseAnim],
   )
 
   return keyboardShown ? null : playerComponent

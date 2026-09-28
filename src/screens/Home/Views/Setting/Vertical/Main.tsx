@@ -24,13 +24,22 @@ export default memo(() => {
     if (homeComponentId) navigations.pushSettingDetailScreen(homeComponentId, id)
   }, [])
 
+  // ⚠️ 这里只放纵向内边距，**不要**再把水平内边距加回来：
+  // PageHeader 自身带着 lg(24) 的水平内边距（与推荐页 Discovery 的 header 同值），
+  // 若在 ScrollView 的外层再加一层水平内边距，大标题「设置」会被额外右推，
+  // 而推荐页的「推荐」仍在 lg(24) 处 —— 两者相差正好是外层那层内边距
+  // （历史上这里是 xl(32)，表现为「设置」比「推荐」右缩进 32pt，左右切 Tab 时标题横向跳一下）。
   const contentContainer = useMemo(() => ({
-    // 设置分类列表与详情页保持一致：水平内边距从 lg(24) 提到 xl(32)
-    paddingHorizontal: designSpacing.xl,
     // 底部悬浮的迷你播放器胶囊 + tab 栏最高约到 safeAreaBottom+150pt，
     // 参照 Discovery 页的 180 底部留白并叠加安全区，保证最后一项滚到底后完全脱离悬浮区可点。
     paddingBottom: 180 + safeAreaBottom,
   }), [safeAreaBottom])
+
+  // 分类列表与本页大标题无关，它的水平内边距单独挂在列表容器上：
+  // 与设置详情页（SettingDetail/index.tsx）保持一致，用 xl(32)。
+  // 用内联常量而非 createStyle，是为了保持 32 这个原始值不被 scaleSizeW 再放大一次
+  // （createStyle 会把 padding/margin 过一遍 scaleSizeW），避免列表行位置发生变化。
+  const listStyle = useMemo(() => ({ paddingHorizontal: designSpacing.xl }), [])
 
   // 分类入口统一走「推荐页排行榜按钮」那套视觉语言：圆角 + 1px 边框 + 半透明主题色底
   const categoryItemStyle = useMemo(() => ({
@@ -49,7 +58,7 @@ export default memo(() => {
           showsVerticalScrollIndicator={false}
         >
           <PageHeader title={t('nav_setting')} />
-          <View>
+          <View style={listStyle}>
             {SETTING_SCREENS.map((id) => (
               <TouchableOpacity
                 key={id}

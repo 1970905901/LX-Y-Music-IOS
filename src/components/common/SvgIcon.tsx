@@ -197,9 +197,26 @@ const FuzzySearchIcon = ({ size, color }: { size: number, color: string }) => (
 const HeartPath =
   'M512 862.4c-14.4 0-28.8-4.8-41.6-14.4C316.8 725.6 153.6 581.6 153.6 403.2c0-105.6 85.6-191.2 191.2-191.2 56 0 109.6 25.6 145.6 67.2C526.4 237.6 580 212 636 212c105.6 0 191.2 85.6 191.2 191.2 0 178.4-162.4 322.4-305.6 442.4-16 10.4-34.4 16.8-54.4 16.8z'
 
+/**
+ * 爱心描边线宽（字形坐标，1024 = 1em）。
+ *
+ * 这个心形不是字体字形，而是手绘 SVG 补的（IcoMoon 的 love 字形历史上在 iOS 上渲染异常，
+ * 改描边心形根治），所以它的线宽**不会自动跟随字体图标家族**，必须手工对齐，
+ * 否则「我的」Tab 的爱心看上去比相邻 Tab 的图标细一圈。
+ *
+ * 取值依据：
+ * - 相邻四个 Tab 图标都是 IcoMoon 等宽笔画字形，用「扫描线最短弦长」实测线宽为
+ *   home 79 / album 87 / search-2 96 / setting 93（单位），中位数 90；
+ * - 它们在 Tab 栏以 21pt 渲染（scaleSizeW(21)），屏幕线宽中位数 = 90 / 1024 * 21 ≈ 1.85pt；
+ * - 爱心以 24pt 渲染（比别的一档，补偿其字形占位偏小），要得到同样的 1.85pt，
+ *   线宽需 = 1.85 * 1024 / 24 ≈ 79 单位。
+ * 原值 64（= 1.5pt）比相邻 Tab 细约 20%，就是肉眼看到的「粗度和其他 Tab 不一致」。
+ */
+const HEART_STROKE_WIDTH = 79
+
 const HeartIcon = ({ size, color }: { size: number, color: string }) => (
   <Svg width={size} height={size} viewBox="0 0 1024 1024" fill="none">
-    <Path d={HeartPath} fill="none" stroke={color} strokeWidth={64} strokeLinejoin="round" />
+    <Path d={HeartPath} fill="none" stroke={color} strokeWidth={HEART_STROKE_WIDTH} strokeLinejoin="round" />
   </Svg>
 )
 

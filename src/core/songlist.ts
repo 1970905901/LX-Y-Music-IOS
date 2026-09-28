@@ -138,14 +138,31 @@ const doGetListDetailLimit = async(
       result.list = deduplicationList(
         result.list.map((m) => toNewMusicInfo(m)).filter(Boolean) as LX.Music.MusicInfoOnline[],
       )
-      let p = page
+
+      // 上一轮因「不足一整本地页」而留在 temp 的歌曲，接在本源页结果前面一起切分。
+      // 注意必须先删 key 再合并，避免合并后又把它写回 temp 造成歌曲重复。
+      let pendingList = result.list
       const tempList = listCache.get(tempListKey) as ListDetailInfo['list']
       if (tempList) {
         listCache.delete(tempListKey)
+        pendingList = [...tempList, ...result.list]
+      }
+
+      sourcePage++
+      const totalSourcePages = Math.ceil(result.total / result.limit)
+
+      let p = page
+      while (pendingList.length > 0) {
+        // 剩余歌曲不足一整本地页，且源接口还有后续页 → 留到下一次调用（下一个源页）再凑，
+        // 避免把一页拆成「本页 20 首 + 下页 20 首」这类碎片。
+        if (pendingList.length < LIST_LOAD_LIMIT && sourcePage < totalSourcePages) {
+          listCache.set(tempListKey, pendingList.splice(0, LIST_LOAD_LIMIT))
+          break
+        }
         listCache.set(`sdetail__${source}__${id}__${p}`, {
           data: {
             ...result,
-            list: [...tempList, ...result.list.splice(0, LIST_LOAD_LIMIT - tempList.length)],
+            list: pendingList.splice(0, LIST_LOAD_LIMIT),
             page: p,
             limit: LIST_LOAD_LIMIT,
           },
@@ -153,27 +170,22 @@ const doGetListDetailLimit = async(
         })
         p++
       }
-      sourcePage++
-      do {
-        if (
-          result.list.length < LIST_LOAD_LIMIT &&
-          sourcePage < Math.ceil(result.total / result.limit)
-        ) {
-          listCache.set(tempListKey, result.list.splice(0, LIST_LOAD_LIMIT))
-          break
-        }
-        listCache.set(`sdetail__${source}__${id}__${p}`, {
-          data: {
-            ...result,
-            list: result.list.splice(0, LIST_LOAD_LIMIT),
-            page: p,
-            limit: LIST_LOAD_LIMIT,
-          },
+
+      // 关键兜底：调用方要求「返回第 page 页」。若上面把已有歌曲全部留在 tempList 等下一
+      // 源页，则本页没有任何缓存，旧实现直接 .data 会读 undefined 抛 TypeError，整条
+      // 加载链被误判为失败（tx 歌单首屏必现「加载失败」，点重试又因 tempList 已被消费
+      // 而恰好成功）。这里把待定余数提升为本页交付，绝不返回 undefined。
+      let pageCache = listCache.get(`sdetail__${source}__${id}__${page}`) as DetailPageCache
+      if (!pageCache) {
+        const rest = (listCache.get(tempListKey) as ListDetailInfo['list']) ?? []
+        listCache.delete(tempListKey)
+        pageCache = {
+          data: { ...result, list: rest, page, limit: LIST_LOAD_LIMIT },
           sourcePage,
-        })
-        p++
-      } while (result.list.length > 0)
-      return (listCache.get(`sdetail__${source}__${id}__${page}`) as DetailPageCache).data
+        }
+        listCache.set(`sdetail__${source}__${id}__${page}`, pageCache)
+      }
+      return pageCache.data
     }) ?? Promise.reject(new Error('source not found'))
   )
 }

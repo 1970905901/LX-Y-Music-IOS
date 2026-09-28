@@ -23,12 +23,19 @@ import { useTheme } from '@/store/theme/hook'
 import { useSettingValue } from '@/store/setting/hook'
 import { createStyle } from '@/utils/tools'
 import { updateSetting } from '@/core/common'
+import { designSpacing, designTypography } from '@/theme/DesignTokens'
 
 interface SliderRowProps {
   /** 该行对应的设置项 key（值必须是 number） */
   settingKey: 'theme.blur' | 'theme.glassOpacity' | 'theme.picOpacity' | 'theme.subContainerOpacity'
   title: string
   value: number
+  /**
+   * 行下方的说明小字：讲清「这个值到底改变了什么」。
+   * 适用于作用域不直观、或与所在页面对不上的设置项 —— 例如「容器背景不透明度」
+   * 效果只出现在音源页/播放页，若只写标题，用户在主题页拖动会以为「调了没用」。
+   */
+  desc?: string
   minimumValue?: number
   maximumValue?: number
   step?: number
@@ -38,6 +45,7 @@ export default memo(({
   settingKey,
   title,
   value,
+  desc,
   minimumValue = 0,
   maximumValue = 100,
   step = 1,
@@ -81,6 +89,11 @@ export default memo(({
           value={value}
         />
       </View>
+      {desc ? (
+        <Text style={styles.desc} color={theme['c-font-label']} size={designTypography.caption}>
+          {desc}
+        </Text>
+      ) : null}
     </SubTitle>
   )
 })
@@ -101,5 +114,10 @@ const styles = createStyle({
     textAlign: 'right',
     fontVariant: ['tabular-nums'],
     marginRight: 8,
+  },
+  desc: {
+    // 与滑块卡片之间留一点呼吸；用次级文字色，避免抢标题的视觉层级。
+    marginTop: designSpacing.xs,
+    lineHeight: 16,
   },
 })

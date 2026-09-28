@@ -371,6 +371,8 @@
   "setting_basic_theme_font_shadow": "启用字体阴影",
   "setting_basic_theme_hide_bg_dark": "隐藏黑色主题背景",
   "setting_basic_theme_sidebar_opacity": "侧边栏透明度",
+  "setting_basic_theme_sub_container_opacity": "容器背景不透明度",
+  "setting_basic_theme_sub_container_opacity_desc": "只影响「基本设置 → 自定义源」和「播放设置 → 播放失败策略」里的列表容器底色，其它界面不受影响。",
   "setting_basic_theme_more_btn_show": "更多主题",
   "setting_dislike_list_input_tip": "歌曲名@艺术家\n歌曲名\n@艺术家",
   "setting_dislike_list_tips": "1. 每条一行，若歌曲或者艺术家名字中存在「@」符号，需要将其替换成「#」\n2. 指定某艺术家的某首歌：歌曲名@艺术家\n3. 指定某首歌：歌曲名\n4. 指定某艺术家：@艺术家",

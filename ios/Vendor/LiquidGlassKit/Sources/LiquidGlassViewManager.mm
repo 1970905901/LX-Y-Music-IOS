@@ -9,10 +9,14 @@
 //
 //  Usage contract (JS):
 //  - Render as a leaf element (<LiquidGlass />) absolutely positioned to fill its parent;
-//    it renders a pure transparent tinted layer (no blur, no capture) behind the content.
+//    it renders the OS's own system material (iOS 26+ UIGlassEffect, otherwise
+//    UIBlurEffect(.systemMaterial)) with a capped theme tint on top — see
+//    LGGlassViewFactory.swift for why the material is never self-drawn.
 //  - The parent container should have `borderRadius` + `overflow: 'hidden'` (rounds the bar).
 //  - `tint` prop：染色基色（不透明主题色，明暗自适应）。
-//  - `glassOpacity` prop：覆层不透明度 0~1（用户设置 theme.glassOpacity）。
+//  - `glassOpacity` prop：染色覆层的**用户值** 0~1（对应设置 theme.glassOpacity 0~100）。
+//    实际 alpha 由 LGGlassViewFactory 内的 maxTintAlpha(0.6) 封顶，用户值 1 = 染色拉满，
+//    不是「把材质盖住」。
 //  - 历史 props `fps`/`active`：液态玻璃 Metal 路径下线后为无操作空档，JS 侧仍可
 //    传值（respondsToSelector 分流），不再有任何效果。
 //
@@ -54,10 +58,11 @@
 @end
 
 // Host view: an RCTView so all standard RN view props (borderRadius, overflow, pointerEvents,
-// opacity, shadow*) keep working; the glass backing (vendored Metal LiquidGlassEffectView on
-// all OS versions — the iOS 26 native UIGlassEffect branch was removed: system glass renders
-// black at unrendered regions under per-frame frame changes and its snapshot is black too)
+// opacity, shadow*) keep working; the glass backing (the OS's own system material,见
+// LGGlassViewFactory.swift：iOS 26+ UIGlassEffect(.regular)，其余 UIBlurEffect(.systemMaterial))
 // sits inside a rounded clipping container. LGGlassViewFactory selects the backing.
+// 不再有自研 Metal 背衬；`respondsToSelector` 分流保留，是为了兼容旧 JS 可能仍在传的
+// fps/active/touchPoint 等 Metal 专有 prop（系统材质不实现这些方法，自然被跳过）。
 // Squircle（kit cornerRoundnessExponent=4）：宿主与玻璃层统一用 continuous 圆角曲线。
 // 注：不做按压玻璃形变——玻璃材质自带高对比边缘光，在裁剪容器内任何内缩都会让
 // 材质自身的边缘线在胶囊内露出（方角/底边/内缘线均源于此），已验证两次故整体移除。
@@ -76,7 +81,9 @@
 
 - (instancetype)initWithFrame:(CGRect)frame {
   if (self = [super initWithFrame:frame]) {
-    [self installGlassBacking:[LGGlassViewFactory createGlassBacking]];
+    // 宿主 init 时主题尚未下发，先按浅色建；随后 dark prop 会覆盖（backing 内部只重建
+    // 材质层，不重建 backing 本身，故 tint/glassOpacity 不会丢）。
+    [self installGlassBacking:[LGGlassViewFactory createGlassBackingWithDark:NO]];
     self.clipsToBounds = YES;
     // 常量名在旧 SDK(UIViewCornerCurveContinuous)与新 SDK(Xcode 26 起的 UICornerCurve 系列)间不一致,
     // 直接用底层字符串值,两端 SDK 均可编译且运行时行为相同。
@@ -193,12 +200,26 @@ RCT_CUSTOM_VIEW_PROPERTY(tint, NSString, LGLiquidGlassHostView) {
   [LGGlassViewFactory applyGlassTint:view.glassBacking tint:[RCTConvert UIColor:json]];
 }
 
-// 染色覆层不透明度（0~1，用户设置 theme.glassOpacity 驱动）。
+// 染色覆层的**用户值**（0~1，对应设置 theme.glassOpacity 0~100）。
 // json 为 nil（prop 未传/重置）时回默认 0.4。
+// 注意：原生侧会再乘 maxTintAlpha(0.6) 封顶，见 LGGlassViewFactory.swift。
 RCT_CUSTOM_VIEW_PROPERTY(glassOpacity, NSNumber, LGLiquidGlassHostView) {
   id backing = view.glassBacking;
   if (![backing respondsToSelector:@selector(setGlassOpacity:)]) return;
   [backing setGlassOpacity:(json != nil ? [json floatValue] : 0.4)];
+}
+
+// App 主题明暗（JS 传 theme.isDark）。
+// 系统材质（UIBlurEffect / UIGlassEffect）是**动态材质**，按 traitCollection.userInterfaceStyle
+// 解析明暗；而本项目在 window 层没有统一 override，App 主题可与系统明暗不一致 ——
+// 不下发就会在「App 深色 + 系统浅色」时渲染出一层亮色磨砂，与整体配色相反。
+// UIVisualEffectView 不支持事后改 overrideUserInterfaceStyle，backing 内部会重建材质层；
+// tint / glassOpacity 由 backing 自身持有，重建不丢，宿主无需重建 backing。
+// json 为 nil（prop 未传/重置）时回默认浅色 NO。
+RCT_CUSTOM_VIEW_PROPERTY(dark, NSNumber, LGLiquidGlassHostView) {
+  id backing = view.glassBacking;
+  if (![backing respondsToSelector:@selector(setIsDarkMode:)]) return;
+  [backing setIsDarkMode:(json != nil ? [json boolValue] : NO)];
 }
 
 // JS 脉冲活跃开关（省电核心）：玻璃背后内容在无触摸交互下发生变化（切 Tab、换主题、

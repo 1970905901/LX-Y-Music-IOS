@@ -104,7 +104,7 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
             style={[styles.container, isHorizontalMode ? styles.horizontalContainer : null]}
             onLayout={(e) => { setMiniPlayerHeight(e.nativeEvent.layout.height) }}
           >
-            <LiquidGlass tint={glassTint} glassOpacity={glassOpacity} style={{ borderRadius: designRadius.xl }} />
+            <LiquidGlass tint={glassTint} glassOpacity={glassOpacity} dark={theme.isDark} style={{ borderRadius: designRadius.xl }} />
             <TouchableOpacity style={styles.left} onPress={handleNavigate} activeOpacity={0.8}>
               <Pic />
               <View style={styles.center}>
@@ -119,7 +119,7 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
         </Animated.View>
       )
     },
-    [glassTint, glassOpacity, isHome, handleNavigate, safeAreaBottom, isHorizontalMode, collapseAnim],
+    [glassTint, glassOpacity, theme.isDark, isHome, handleNavigate, safeAreaBottom, isHorizontalMode, collapseAnim],
   )
 
   return keyboardShown ? null : playerComponent

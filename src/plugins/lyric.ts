@@ -235,7 +235,7 @@ export const getLyricLineTextByTime = (time: number): string => {
  * 当前歌词时间轴副本（time 单位 ms）：交给原生 NSTimer 驱动控制中心歌词。
  * 原生侧按时间二分查行，直接写 MPNowPlayingInfoCenter，不经过 JS 定时器。
  */
-export const getCurrentLyricLines = (): { time: number, text: string }[] => {
+export const getCurrentLyricLines = (): Array<{ time: number, text: string }> => {
   return lrcTools.currentLines.map(l => ({ time: l.time, text: l.text }))
 }
 

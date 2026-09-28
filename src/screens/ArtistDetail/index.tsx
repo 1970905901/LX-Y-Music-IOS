@@ -197,7 +197,8 @@ export default memo(({ componentId, artistInfo }: { componentId: string, artistI
   }, [artistInfo])
 
   // 传给 SongList 的稳定引用：列表行点击与「播放全部」共用同一套全量补齐逻辑
-  const handleLoadAllSongs = useCallback(() => {
+  // 标记 async：本回调返回 loadAllSongs 的 Promise，需满足 promise-function-async 规范
+  const handleLoadAllSongs = useCallback(async() => {
     return loadAllSongs(songs.sort)
   }, [loadAllSongs, songs.sort])
 

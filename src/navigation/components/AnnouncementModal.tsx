@@ -274,7 +274,7 @@ const AnnouncementModal = ({ componentId }: { componentId: string }) => {
     if (!announcementInfo || !isVisible) {
       Navigation.dismissOverlay(componentId).catch(() => {})
     }
-  }, [announcementInfo, isVisible])
+  }, [announcementInfo, isVisible, componentId])
 
   if (!announcementInfo || !isVisible) return null
 

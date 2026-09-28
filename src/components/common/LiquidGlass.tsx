@@ -1,5 +1,5 @@
 import { memo, useMemo } from 'react'
-import { processColor, requireNativeComponent, StyleSheet, type StyleProp, type ViewProps, type ViewStyle } from 'react-native'
+import { processColor, requireNativeComponent, StyleSheet, type ViewProps } from 'react-native'
 
 type LiquidGlassProps = ViewProps & {
   /**

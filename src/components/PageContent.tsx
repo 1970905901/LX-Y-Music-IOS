@@ -142,7 +142,7 @@ export default ({ children, backgroundFadeIn = false }: Props) => {
         </Animated.View>
       </View>
     )
-  }, [children, contentReady, pic, blurredPicUri, handleBlurredPicError, theme, BLUR_RADIUS, picOpacity, shouldFade, bgOpacity, bgLayerColor, hadBlurredPicAtMount])
+  }, [children, contentReady, pic, blurredPicUri, handleBlurredPicError, theme, BLUR_RADIUS, picOpacity, shouldFade, bgOpacity, bgLayerColor])
 
   return (
     <>

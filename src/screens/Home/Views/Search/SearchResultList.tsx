@@ -139,7 +139,7 @@ export default forwardRef(({ header, searchType, source }: SearchResultListProps
     },
   }))
 
-  const renderItemContent = useCallback(({ item, index }: { item: any, index: number }) => {
+  const renderItemContent = useCallback(({ item }: { item: any }) => {
     if (searchType === 'singer') {
       return <SingerListItem artist={item} showFollowButton={true} />
     }
@@ -151,11 +151,11 @@ export default forwardRef(({ header, searchType, source }: SearchResultListProps
 
   // 横屏双列时每项包一层等宽容器（对齐 SubscribedAlbums / FollowedArtists 模式）
   const renderItem = useCallback(
-    ({ item, index }: { item: any, index: number }) =>
+    ({ item }: { item: any }) =>
       isHorizontal ? (
-        <View style={styles.itemWrapper}>{renderItemContent({ item, index })}</View>
+        <View style={styles.itemWrapper}>{renderItemContent({ item })}</View>
       ) : (
-        renderItemContent({ item, index })
+        renderItemContent({ item })
       ),
     [isHorizontal, renderItemContent],
   )

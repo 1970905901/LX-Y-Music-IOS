@@ -61,7 +61,6 @@ const List = forwardRef<ListType, ListProps>(
       progressViewOffset,
       ListHeaderComponent,
       ListFooterComponent,
-      checkHomePagerIdle,
       rowType,
       forcePlayList,
       playingId,

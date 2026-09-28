@@ -119,7 +119,7 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
         </Animated.View>
       )
     },
-    [theme, glassTint, glassOpacity, isHome, handleNavigate, safeAreaBottom, isHorizontalMode, collapseAnim],
+    [glassTint, glassOpacity, isHome, handleNavigate, safeAreaBottom, isHorizontalMode, collapseAnim],
   )
 
   return keyboardShown ? null : playerComponent

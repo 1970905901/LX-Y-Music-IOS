@@ -63,7 +63,7 @@ export default memo(({ value, label, onChanged, ...props }: InputItemProps) => {
     // 输入时本地 text 每敲一个字都变，而外部 value 要等 onBlur / keyboardDidHide 保存后才更新，
     // 这期间 value 仍是旧值 —— effect 一旦被 text 触发，就会把刚输入的内容和 textRef 一起回滚成
     // 旧值。表现就是「Cookie 输入框填了内容立刻被自动删除」，并且紧接着的失焦还会把旧值
-    //（通常是空串）写回设置，把已保存的 Cookie 也一起清掉。
+    // （通常是空串）写回设置，把已保存的 Cookie 也一起清掉。
     // 这里改读 textRef（与 text 同步维护），既满足 exhaustive-deps，又不会在输入过程中回滚。
     const newValue = String(value)
     if (newValue === textRef.current) return

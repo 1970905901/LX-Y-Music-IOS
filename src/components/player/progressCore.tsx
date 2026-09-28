@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { Animated, Easing, PanResponder, View } from 'react-native'
 
 import { useDrag } from '@/utils/hooks'
@@ -85,7 +85,8 @@ export const useSmoothProgressAnim = (progress: number): Animated.Value => {
   return anim
 }
 
-export const useProgressDrag = (progress: number, duration: number): ProgressDrag => {  // 「允许拖动进度条跳转」开关：关闭后进度条仅展示，不响应任何点击/拖动。
+// 「允许拖动进度条跳转」开关：关闭后进度条仅展示，不响应任何点击/拖动。
+export const useProgressDrag = (progress: number, duration: number): ProgressDrag => {
   const seekEnabled = useSettingValue('common.allowProgressBarSeek')
 
   const [draging, setDraging] = useState(false)

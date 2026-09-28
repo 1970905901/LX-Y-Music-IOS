@@ -409,7 +409,9 @@ export default memo(() => {
     }
     setHasError(false)
     try {
-      const fetched = new Map<string, { cover: string, total: number }>()
+      // fetchListInfo 失败时返回 null（见其 catch 分支），Map 的类型必须允许 null，
+      // 否则与「失败返回 null」的实现不一致（下面取用时已用可选链 fresh?. 兜底）。
+      const fetched = new Map<string, { cover: string, total: number } | null>()
       for (const list of allList) {
         fetched.set(list.id, await fetchListInfo(list.id))
       }
@@ -691,7 +693,7 @@ export default memo(() => {
   )
 
   const listPanel = (
-    <View style={[styles.content, !isHorizontal && showMusicList ? styles.hidden : null]}>
+    <View style={styles.content}>
       {hasError ? (
         <View style={styles.errorContainer}>
           <Text size={16} color={theme['c-font']} style={styles.errorText}>加载失败</Text>
@@ -776,10 +778,23 @@ export default memo(() => {
     )
   }
 
+  // 竖屏详情覆盖层（我的收藏等）可见时，列表面板整棵子树直接不渲染，而不是用
+  // display:'none' 藏在覆盖层下面。此前的写法会带来两个副作用：
+  // 1) 「歌单列表 FlatList」与「收藏歌曲列表 FlatList」同时挂载，同一个页面里
+  //    存在两个 UIScrollView；
+  // 2) 每次进出收藏页都要在这棵大子树（含 1 个 FlatList + 5 个浮层组件）上
+  //    往返切换 display，反复触发原生视图层级重建。
+  // 用户反馈「点我的收藏 → 返回 → 再点我的收藏」后整页只剩列表能滑、其余点击
+  // 全部无响应，正是这类反复进出后的 JS 帧驱动停摆表现（原生滚动不依赖 JS，
+  // 所以列表仍可滑动；点击、tab 栏、迷你播放器都要经 JS，故全部失效）。
+  // 面板数据保存在本组件 state（listInfoMap）里，重新渲染不会丢数据，仅歌单列表
+  // 的滚动位置会回到顶部。
+  const isDetailOverlayVisible = !isHorizontal && showMusicList
+
   return (
     <View style={styles.overlayContainer}>
-      {listPanel}
-      {!isHorizontal && showMusicList ? (
+      {isDetailOverlayVisible ? null : listPanel}
+      {isDetailOverlayVisible ? (
         <View style={StyleSheet.absoluteFill}>
           <MusicList onBack={handleBackToList} />
           <SwipeBackArea onBack={handleBackToList} />
@@ -796,9 +811,6 @@ const styles = createStyle({
   },
   content: {
     flex: 1,
-  },
-  hidden: {
-    display: 'none',
   },
   listContainer: {
     flex: 1,

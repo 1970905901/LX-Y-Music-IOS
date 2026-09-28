@@ -10,6 +10,7 @@ import playerState from '@/store/player/state'
 import settingState from '@/store/setting/state'
 import { onScreenStateChange, onPlayerPosition } from '@/utils/nativeModules/utils'
 import { reanchorNowPlayingLyric } from '@/utils/nativeModules/nowPlaying'
+import { syncNowPlayingState } from '@/core/player/nowPlaying'
 import { AppState } from 'react-native'
 // UI 平滑时钟：仅服务于逐字歌词高亮与歌词连续滚动的每帧插值，
 // 不参与歌词行同步（行高亮已交由歌词引擎内部 ticker 驱动）。
@@ -104,6 +105,7 @@ export default () => {
       // 等 state 变为 playing（解码器真正从目标位置渲染）后再恢复同步。
       const engineState = await getPlaybackEngineState()
       const isBuffering = engineState === 'buffering' || engineState === 'loading'
+      const wasBufferingHold = isBufferingHold
       isBufferingHold = isBuffering
       engineConfirmedPlaying = !isBuffering && engineState === 'playing' && !!playerState.isPlay
 
@@ -125,8 +127,14 @@ export default () => {
 
       syncToTimeFromPosition(position * 1000, playerState.isPlay)
 
-
       updateScrobblePlayTime(position)
+
+      // 缓冲恢复出声（长距离 seek 超过 300ms 快路径窗口、网络卡顿后）：缓冲期间
+      // 控制中心进度基线外推已偏且无人重设——nativeFlac 路径无原生 seek 事件、
+      // 快路径贴「playing 才重锚」语义在 buffering 时跳过了发布。恢复瞬间补一次
+      // 带戳基线发布兜底（nativeFlac 走 getPositionStamped 原生戳精确回放；
+      // AVPlayer 路径原生事件已重设基线，此处重复发布被推进吸收，无害）。
+      if (wasBufferingHold) void syncNowPlayingState('play')
 
       if (settingState.setting['player.isSavePlayTime'] && !playerState.playMusicInfo.isTempPlay && isScreenOn) {
         delaySavePlayInfo()
@@ -207,8 +215,30 @@ export default () => {
   let seekTargetPosition: number | null = null
   let seekHoldUntil = 0
 
+  // 对齐上游 lx-m 桌面版范式（playing 事件 → 用引擎绝对播放时间重锚歌词并广播）：
+  // seek 落点确认 / 暂停恢复后 ~300ms 触发一次快路径重锚，把 1s 慢校准的同步窗口
+  // 压到 0.3s。快路径直接复用慢校准函数 getCurrentTime()（完整链路：seek 窗口拦截
+  // → 引擎状态确认 → buffering hold / setAnchor + reanchorNowPlayingLyric 带戳回放
+  // → 行同步），不复制任何状态机。补充一条：引擎确认 playing 时 syncNowPlayingState
+  // ('play') 发布控制中心进度基线——nativeFlac 路径 seek/恢复播放后没有任何 info
+  // 发布（TrackPlayer 已 reset、无原生事件），控制中心进度条会继续从旧基线外推，
+  // 直到下一次元数据发布；AVPlayer 路径原生事件已更新基线，重复发布无害（同值守卫
+  // 挡重播、基线推进吸收）。
+  const scheduleFastResync = (musicId: string) => {
+    BackgroundTimer.setTimeout(() => {
+      if (!playerState.isPlay || playerState.musicInfo.id != musicId) return
+      getCurrentTime()
+      void getPlaybackEngineState().then((engineState) => {
+        if (!playerState.isPlay || playerState.musicInfo.id != musicId) return
+        // buffering/loading 时不发布：贴上游「playing 才重锚」语义，交给慢校准
+        if (engineState === 'playing') void syncNowPlayingState('play')
+      })
+    }, 300)
+  }
+
   const setProgress = (time: number, maxTime?: number) => {
     if (!playerState.musicInfo.id) return
+    const musicId = playerState.musicInfo.id
     // console.log('setProgress', time, maxTime)
     setNowPlayTime(time)
     // seek 期间先冻结 UI 时钟在目标位置，等引擎返回真实落点后再重锚。
@@ -227,6 +257,11 @@ export default () => {
         audioClock.hold(targetPosition * 1000)
         seekTargetPosition = targetPosition
         seekHoldUntil = Date.now() + 2000
+        // App 内歌词以真实落点校正（nativeFlac 解码器落点可能偏离 seek 目标；
+        // 上游同位置逻辑 = seek 后用引擎真实时间重锚歌词）
+        syncLyric(targetPosition, playerState.isPlay)
+        // 落点确认快路径：~300ms 后重锚歌词/原生时钟/进度基线（不等 1s 慢校准）
+        scheduleFastResync(musicId)
       }
 
       // 所有音质统一走 AVPlayer 系统级 seek：TrackPlayer 准确报告真实落点，
@@ -256,7 +291,10 @@ export default () => {
 
     // 暂停期间轮询停止，恢复时 progress.nowPlayTime 可能过期；
     // lyric.play() 用 getReliableLyricPosition 启动 ticker 可能用了旧值。
-    // 300ms 后用引擎真实位置强制重锚，覆盖所有音质的暂停恢复不同步。
+    // 300ms 快路径：引擎确认在播后立即用真实位置重锚（歌词 + 原生时钟 + 进度基线），
+    // 覆盖所有音质的暂停恢复不同步，并把基线发布（syncNowPlayingState('play')）
+    // 补给 AVPlayer 路径——其恢复播放只走原生 state 事件重锚、不发 info。
+    if (playerState.musicInfo.id) scheduleFastResync(playerState.musicInfo.id)
   }
   const handlePause = () => {
     // prevProgressStatus = 'paused'

@@ -327,5 +327,51 @@ console.log('sim-lyric-anchor-sync：灵动岛/控制中心歌词锚点滞后模
     `超前 ${lead.toFixed(1)}ms ≈ 快照年龄 150ms`);
 }
 
+// ---------------------------------------------------------------------------
+// seek 后控制中心进度基线（nativeFlac 路径无 info 发布的缺口）
+// ---------------------------------------------------------------------------
+
+// nativeFlac 路径 TrackPlayer 已 reset、无原生 seek 事件：seek 后若不发布 info，
+// 控制中心进度条基线停留在 seek 前的位置继续外推 → 与真实位置偏差 = seek 幅度
+// （进度条完全不跟 seek）。修复 = seek 落点确认 + 引擎 playing 后发布基线
+// （syncNowPlayingState('play')，对齐上游「playing → 重锚 + 广播」范式）。
+const simulateSeekBaseline = ({ publishAfterSeek, seekAtMs = 10000, seekTargetSec = 120, rtt = 150, fastResyncMs = 300, observeMs = 5000 }) => {
+  let baselineSec = 0, baselineAtMs = 0;
+  let published = false;
+  let maxError = 0;
+  for (let t = 0; t <= seekAtMs + observeMs; t += 12) {
+    if (t >= seekAtMs && publishAfterSeek && !published && t >= seekAtMs + fastResyncMs) {
+      // 快路径发布：elapsed 快照产生于发布前 rtt（桥往返），原生推进到现在 →
+      // 基线 ≈ 落点 + (fastResyncMs − rtt) 的播放量
+      baselineSec = seekTargetSec + Math.max(0, fastResyncMs - rtt) / 1000;
+      baselineAtMs = t;
+      published = true;
+    }
+    const truePos = t < seekAtMs ? t / 1000 : seekTargetSec + (t - seekAtMs) / 1000;
+    const shown = baselineSec + (t - baselineAtMs) / 1000;
+    // 口径：只统计「基线已定」的误差——发布前窗口（≤300ms）显示旧位置是任何
+    // 方案都有的固有发布延迟，不是基线失联（断言11 不发布 = published 恒 false，
+    // 全程都在统计，口径一致）
+    if (published || !publishAfterSeek) maxError = Math.max(maxError, Math.abs(shown - truePos));
+  }
+  return { maxError };
+};
+
+// 断言11（缺口复现/反例）：nativeFlac seek 后不发布 info → 基线失联
+{
+  const { maxError } = simulateSeekBaseline({ publishAfterSeek: false });
+  check('nativeFlac seek 后不发布基线（旧行为）→ 控制中心进度条偏差 = seek 幅度（缺陷存在）',
+    maxError > 100,
+    `最大偏差 ${maxError.toFixed(1)}s（seek 幅度 110s）`);
+}
+
+// 断言12（修复验证，断言11的反例）：落点确认 + playing 发布基线 → 偏差 ≤ 快照年龄
+{
+  const { maxError } = simulateSeekBaseline({ publishAfterSeek: true });
+  check('nativeFlac seek 后快路径发布基线（修复）→ 偏差 ≤ 快照年龄（与断言11互为反例）',
+    maxError <= 0.3,
+    `最大偏差 ${(maxError * 1000).toFixed(0)}ms（≈ 快照年龄 150ms）`);
+}
+
 console.log(`\n结果: ${pass} 通过, ${fail} 失败`);
 process.exit(fail ? 1 : 0);

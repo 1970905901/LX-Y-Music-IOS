@@ -99,6 +99,16 @@ export default memo(({ settingId, componentId }: {
           keyboardShouldPersistTaps="always"
           showsVerticalScrollIndicator={false}
           scrollEnabled={!scrollLocked}
+          // iOS 键盘避让（默认 false，必须显式开启）：
+          // 开启后由原生 RCTScrollView._keyboardWillChangeFrame 处理——键盘出现/尺寸变化时
+          // ① 把 contentInset.bottom 设为被遮挡高度（max(遮挡高度, contentInset.bottom)）；
+          // ② 沿响应链找到当前第一响应者（即聚焦的输入框），若其底边低于键盘顶边，
+          //    则以键盘动画同款时长把它的底边滚到键盘上方（RCTScrollView.m:300-371）。
+          // 此前该 ScrollView 完全没有键盘避让，而它就是「设置」各详情页唯一的滚动容器，
+          // 因此「数据同步」（WebDAV 的服务器地址/用户名/密码/同步路径、同步服务地址等）
+          // 这类靠近底部的输入框一旦聚焦，就会被键盘整块盖住、看不到正在输入的内容。
+          // 属性仅 iOS 有效，Android 会忽略（本项目仅 iOS）。
+          automaticallyAdjustKeyboardInsets
         >
           <ActiveScreen />
         </ScrollView>

@@ -27,6 +27,8 @@ type FlatListType = FlatListProps<LX.Music.MusicInfo>
 
 export interface ListProps {
   header?: ReactElement
+  /** 指定初始载入的列表 id。传入时优先于持久化的「上次选中列表」。 */
+  listId?: string
   onShowMenu: (musicInfo: LX.Music.MusicInfo, index: number, position: Position) => void
   onMuiltSelectMode: () => void
   onSelectAll: (isAll: boolean) => void
@@ -54,7 +56,7 @@ const usePlayIndex = () => {
 }
 
 const List = forwardRef<ListType, ListProps>(
-  ({ header, onShowMenu, onMuiltSelectMode, onSelectAll, showCover }, ref) => {
+  ({ header, listId, onShowMenu, onMuiltSelectMode, onSelectAll, showCover }, ref) => {
     // const t = useI18n()
     const flatListRef = useRef<FlatList>(null)
     const [currentList, setList] = useState<LX.List.ListMusics>([])
@@ -231,7 +233,17 @@ const List = forwardRef<ListType, ListProps>(
           }
         })
       }
-      if (global.lx.jumpMyListPosition) {
+      // 初始载入哪条列表：
+      // 1) 优先用父级显式传入的 listId（用户刚点的那一条）——「点开我的收藏 →
+      //    返回 → 立刻再点开」时，持久化的「上次选中列表」可能还是返回时写入的
+      //    default，只按持久化值载入会进错列表，观感就是「点了但没进去」。
+      // 2) 没传时退回持久化值，保持从播放器跳列表等旧路径的行为。
+      const initialListId = listId
+      if (initialListId) {
+        waitJumpListPositionRef.current = playerState.playMusicInfo.listId === initialListId
+        if (global.lx.jumpMyListPosition) global.lx.jumpMyListPosition = false
+        updateList(initialListId)
+      } else if (global.lx.jumpMyListPosition) {
         global.lx.jumpMyListPosition = false
         if (playerState.playMusicInfo.listId) {
           waitJumpListPositionRef.current = true
@@ -251,6 +263,9 @@ const List = forwardRef<ListType, ListProps>(
         global.app_event.off('myListMusicUpdate', handleChange)
         global.app_event.off('jumpListPosition', handleJumpPosition as any)
       }
+      // listId 刻意不进依赖：只在挂载时读一次即可（覆盖层每次打开都是全新挂载），
+      // 进了依赖反而会在同一实例内因父级重渲染而重复跑整条加载链。
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
     const activeIndex = usePlayIndex()

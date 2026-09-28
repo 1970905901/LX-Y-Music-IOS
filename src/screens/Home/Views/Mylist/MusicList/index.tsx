@@ -40,9 +40,11 @@ import PageTopInset from '@/components/common/PageTopInset'
 
 export interface MusicListProps {
   onBack?: () => void
+  /** 指定要展示的列表 id。传入时优先于持久化的「上次选中列表」。 */
+  listId?: string
 }
 
-export default ({ onBack }: MusicListProps) => {
+export default ({ onBack, listId }: MusicListProps) => {
   const activeListRef = useRef<ActiveListType>(null)
   const listMusicSearchRef = useRef<ListMusicSearchType>(null)
   const listRef = useRef<ListType>(null)
@@ -202,6 +204,7 @@ export default ({ onBack }: MusicListProps) => {
         />
         <List
           ref={listRef}
+          listId={listId}
           header={
             <>
               <PageTopInset />

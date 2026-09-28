@@ -319,7 +319,23 @@ export default memo(() => {
     showMusicListRef.current = showMusicList
   }, [showMusicList])
 
+  // 覆盖层「本次打开」的目标列表。打开详情时写入，返回时清空。
+  // 用途：详情覆盖层与列表面板是互斥渲染的两棵子树，覆盖层里的 MusicList 挂载时
+  // 是按 getListPrevSelectId()（持久化值）去载入歌曲的，而该值来自上一次进出时
+  // setActiveList 写入的缓存。用户「点开我的收藏 → 返回 → 立刻再点开」时，
+  // 若持久化值落后于本次点击（返回时写的是 default），覆盖层就会载入错误列表、
+  // 观感是「点了但没进去（进去的是别的列表 / 一闪就退）」。
+  // 这里在打开前用明确的 id 重新断言一次，覆盖层挂载时以它为准。
+  const openListIdRef = useRef<string | null>(null)
+  // 打开覆盖层的时间戳：用于挡住「刚打开就被同一个手势的余波 / 迟到的关闭请求关掉」。
+  const openedAtRef = useRef(0)
+
   const handleBackToList = useCallback(() => {
+    // 刚打开后的极短时间内不接受关闭：覆盖层是全新挂载的子树，挂载过程中
+    // 任何迟到的关闭请求（旧手势的 release、上一轮的异步回调）都会让它
+    // 「闪一下」又消失。超过该窗口的关闭请求一律照常处理。
+    if (Date.now() - openedAtRef.current < 250) return
+    openListIdRef.current = null
     setShowMusicList(false)
     setActiveList(LIST_IDS.DEFAULT)
   }, [])
@@ -486,12 +502,25 @@ export default memo(() => {
   }, [activeListId])
 
   useEffect(() => {
-    if (!isHorizontal && showMusicList && activeListId && !isListVisible(activeListId)) {
+    // 只在「该列表被用户明确设为隐藏」时才关闭覆盖层。
+    // 之前写成 !isListVisible(activeListId)：isListVisible 内部是 `?? true`，语义上
+    // 只把「显式 false」判为隐藏，看起来等价；但它是「取反」写法，一旦 listVisibility
+    // 在设置尚未加载 / 被重置的瞬间取到非对象值，取反结果会瞬间为真，把刚打开的
+    // 覆盖层立刻关掉（用户看到的「闪一下进不去」）。
+    // 这里改成只认「显式 false」这一种情况，其余任何值（含 undefined）都不关闭。
+    const hiddenByUser = (listVisibility as Record<string, unknown>)[activeListId] === false
+    if (!isHorizontal && showMusicList && activeListId && hiddenByUser) {
       handleBackToList()
     }
-  }, [activeListId, handleBackToList, isHorizontal, isListVisible, showMusicList])
+  }, [activeListId, handleBackToList, isHorizontal, listVisibility, showMusicList])
 
   const handleItemPress = useCallback((item: ListItemInfo) => {
+    // 先记录打开时刻与目标列表，再写全局状态：
+    // 若先 setShowMusicList(true) 再记录，覆盖层挂载后紧跟的 effect 里
+    // openedAtRef 仍是旧值，250ms 窗口形同虚设。
+    openedAtRef.current = Date.now()
+    openListIdRef.current = item.id
+    // 覆盖层挂载时按此值载入歌曲（以 listId 属性传给 MusicList）。
     setActiveList(item.id)
     setShowMusicList(true)
   }, [])
@@ -796,7 +825,7 @@ export default memo(() => {
       {isDetailOverlayVisible ? null : listPanel}
       {isDetailOverlayVisible ? (
         <View style={StyleSheet.absoluteFill}>
-          <MusicList onBack={handleBackToList} />
+          <MusicList onBack={handleBackToList} listId={openListIdRef.current ?? undefined} />
           <SwipeBackArea onBack={handleBackToList} />
         </View>
       ) : null}

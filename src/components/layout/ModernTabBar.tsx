@@ -7,7 +7,6 @@ import { setNavActiveId } from '@/core/common'
 import { useSettingValue } from '@/store/setting/hook'
 import { createStyle, isIOS26OrAbove } from '@/utils/tools'
 import { scaleSizeW } from '@/utils/pixelRatio'
-import { pulseLiquidGlass } from '@/utils/liquidGlassActivity'
 import { useTabBarCollapsed, useMiniPlayerHeight } from '@/utils/tabBarCollapse'
 import { setTabBarExpanded } from '@/utils/nativeModules/utils'
 import { designRadius, designSpacing, bottomFloatGap } from '@/theme/DesignTokens'
@@ -107,16 +106,6 @@ export default memo(() => {
   const liquidGlassOn = isIOS26OrAbove && liquidGlassSetting
 
   // 无触摸的内容变化时恢复玻璃渲染（静止时原生渲染时钟是暂停的）：
-  // 切 Tab 会整体替换背后内容（页面切换动画约 300ms，脉冲 500ms 足够覆盖，
-  // 之前默认 1200ms 让两块玻璃多空转捕获 0.7s——切 Tab 卡顿来源之一）；
-  // 换主题的色彩过渡更长，保留长脉冲。
-  useEffect(() => {
-    pulseLiquidGlass(500)
-  }, [activeId])
-  useEffect(() => {
-    pulseLiquidGlass(1200)
-  }, [theme])
-
   // 收起形态（iOS 26 风格）：歌曲列表滚动离开顶部 → 整条 tab 栏收成左下角
   // 圆形玻璃按钮（宫格图标）；点击按钮弹出，保持展开直到下一次滚动离开顶部。
   const collapsed = useTabBarCollapsed()
@@ -125,9 +114,6 @@ export default memo(() => {
   const pillSize = miniPlayerHeight > 0 ? miniPlayerHeight : scaleSizeW(56)
   const collapseAnim = useRef(new Animated.Value(collapsed ? 1 : 0)).current
   useEffect(() => {
-    // 收起/展开过程玻璃容器逐帧变形：渲染时钟若保持暂停会拉伸旧帧、原生玻璃
-    // 采样也可能脱帧（边缘出黑带），给一次覆盖整个动画时长的渲染脉冲
-    pulseLiquidGlass(400)
     Animated.timing(collapseAnim, {
       toValue: collapsed ? 1 : 0,
       duration: 220,

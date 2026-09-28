@@ -16,7 +16,6 @@ import commonState from '@/store/common/state'
 import { useSafeAreaBottom } from '@/store/common/hook'
 import { usePlayerMusicInfo } from '@/store/player/hook'
 import { designRadius, designSpacing, bottomFloatGap } from '@/theme/DesignTokens'
-import { pulseLiquidGlass } from '@/utils/liquidGlassActivity'
 import LiquidGlass from '@/components/common/LiquidGlass'
 
 export default memo(({ componentId: _componentId, isHome = false }: { componentId?: string, isHome?: boolean }) => {
@@ -26,12 +25,6 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
   const musicInfo = usePlayerMusicInfo()
   const navigatingRef = useRef(false)
   const safeAreaBottom = useSafeAreaBottom()
-
-  // 无触摸的内容变化时恢复玻璃渲染（静止时原生渲染时钟是暂停的）：
-  // 切歌换封面、换主题、旋转（安全区/横竖屏变化改变玻璃位置与形状）
-  useEffect(() => {
-    pulseLiquidGlass()
-  }, [musicInfo, theme, safeAreaBottom, isHorizontalMode])
 
   // 主题染色：磨砂覆层基色（不透明主题浅色，同 ModernTabBar）；不透明度独立由
   // theme.glassOpacity 用户设置驱动
@@ -49,7 +42,6 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
   const effectiveCollapsed = isHome && tabBarCollapsed
   const collapseAnim = useRef(new Animated.Value(effectiveCollapsed ? 1 : 0)).current
   useEffect(() => {
-    pulseLiquidGlass(400)
     // bottom/paddingLeft 属布局属性，原生驱动不支持，走 JS 驱动（状态变化低频，开销可忽略）
     Animated.timing(collapseAnim, {
       toValue: effectiveCollapsed ? 1 : 0,

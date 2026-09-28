@@ -9,34 +9,20 @@
 //     checks. The custom Metal implementation covers iOS 26+ as well (capture switches to the
 //     public-API root-view scheme automatically on iOS 26.2+). Native UIGlassEffect can be
 //     reintroduced behind `#if compiler(>=6.2)` once CI moves to Xcode 26.
-//  2. Added `@objc convenience init()` and `setPreferredFramesPerSecond(_:)` for the
-//     React Native view manager (LiquidGlassViewManager.mm).
+//  2. Added `@objc convenience init()` plus tint/opacity/dark/touch bridging methods for
+//     the React Native view manager (LiquidGlassViewManager.mm). Rendering behavior is
+//     upstream-identical: continuous MTKView rendering with per-frame background capture —
+//     no on-demand/power-saving layer (an earlier local one was removed to stay faithful
+//     to upstream, per user decision 2026-09-28).
 //  Upstream: Copyright © 2025 DnV1eX, https://github.com/DnV1eX/LiquidGlassKit
 //
 
 import UIKit
 
-public class LiquidGlassEffectView: UIView, AnyVisualEffectView, UIGestureRecognizerDelegate {
+public class LiquidGlassEffectView: UIView, AnyVisualEffectView {
 
     public let contentView = UIView()
     public var effect: UIVisualEffect?
-
-    // MARK: - Demand rendering (battery)
-    // 玻璃静止时（背后内容不变）渲染是纯浪费：渲染时钟只在 JS 脉冲、挂载活跃窗或
-    // 滚动手势为真时运行，否则 MTKView 暂停、屏幕保留最后一帧。
-    // 方案B：滚动/拖拽期间玻璃保持实时折射（renderActive 连续逐帧捕获，60fps），
-    // 惯性收敛后暂停——实时性优先，代价是滚动中逐帧整窗捕获的 CPU 开销。
-
-    /// JS 脉冲（切 Tab、换主题、换歌封面、无触摸的内容变化），由 RN 的 active prop 驱动
-    private var jsActive = false
-    /// 挂载活跃窗：新视图创建后先连续渲染约 1s，覆盖 RNN 转场/首帧布局，JS prop 到达前也有正确画面
-    private var mountActive = true
-    private var mountDecayTimer: Timer?
-    private var gestureDecayTimer: Timer?
-    /// 窗口级拖拽手势观察（列表滚动、翻页、抽屉），惯性期按甩动速度延长。
-    /// 方案B：滚动期间玻璃保持实时折射（逐帧捕获），惯性收敛后暂停。
-    private var gestureActive = false
-    private weak var windowPanObserver: UIPanGestureRecognizer?
 
     var liquidGlassView: LiquidGlassView? {
         didSet {
@@ -62,7 +48,6 @@ public class LiquidGlassEffectView: UIView, AnyVisualEffectView, UIGestureRecogn
         self.liquidGlassView = liquidGlassView
 
         setupContentView()
-        beginMountActivity()
     }
 
     public required init(effect: LiquidGlassContainerEffect) {
@@ -71,7 +56,6 @@ public class LiquidGlassEffectView: UIView, AnyVisualEffectView, UIGestureRecogn
         super.init(frame: .zero)
 
         setupContentView()
-        beginMountActivity()
     }
 
     required init?(coder: NSCoder) {
@@ -97,12 +81,6 @@ public class LiquidGlassEffectView: UIView, AnyVisualEffectView, UIGestureRecogn
         liquidGlassView?.layer.cornerCurve = layer.cornerCurve
     }
 
-    /// RN bridge entry: throttle continuous MTKView rendering (JS passes `fps`).
-    /// 高刷设备（ProMotion 120Hz）上限钳制到 60，避免满帧 Metal 渲染 + 整窗捕获掉帧。
-    @objc public func setPreferredFramesPerSecond(_ fps: Int) {
-        liquidGlassView?.preferredFramesPerSecond = min(max(1, fps), 60)
-    }
-
     /// RN bridge entry: forward tint changes into the immutable glass preset.
     @objc public func setGlassTintColor(_ color: UIColor?) {
         // 不能写成 liquidGlassView?.liquidGlass.tintColor = color：
@@ -120,81 +98,6 @@ public class LiquidGlassEffectView: UIView, AnyVisualEffectView, UIGestureRecogn
 
     @objc public func clearTouchPoint() {
         liquidGlassView?.touchPoint = nil
-    }
-
-    // MARK: - Demand rendering internals
-
-    /// Fresh views render continuously for a short window: covers RNN push/pop transitions and
-    /// first layout before any JS prop arrives, then hands over to pulse/gesture-driven activity.
-    private func beginMountActivity() {
-        applyRenderActive()
-        mountDecayTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: false) { [weak self] _ in
-            guard let self else { return }
-            self.mountActive = false
-            self.applyRenderActive()
-        }
-    }
-
-    /// RN bridge entry: JS pulse activity on/off (the JS side owns pulse timing).
-    @objc public func setJsActive(_ active: Bool) {
-        jsActive = active
-        applyRenderActive()
-    }
-
-    public override func didMoveToWindow() {
-        super.didMoveToWindow()
-
-        if let old = windowPanObserver {
-            old.view?.removeGestureRecognizer(old)
-            windowPanObserver = nil
-        }
-        guard let window else { return }
-
-        // 窗口级拖拽观察：一份识别器覆盖全 App 的列表滚动/翻页/抽屉，无需 JS 逐个接入。
-        // 只观察不消费（cancelsTouchesInView = false + 允许并行识别），绝不影响内容手势。
-        let pan = UIPanGestureRecognizer(target: self, action: #selector(handleWindowPan(_:)))
-        pan.cancelsTouchesInView = false
-        pan.delegate = self
-        window.addGestureRecognizer(pan)
-        windowPanObserver = pan
-    }
-
-    @objc private func handleWindowPan(_ gesture: UIPanGestureRecognizer) {
-        switch gesture.state {
-        case .began, .changed:
-            // 方案B：滚动/翻页/抽屉期间玻璃保持实时折射（renderActive → 逐帧捕获）。
-            // 取消未触发的衰减定时器——滚动持续期间渲染时钟保持运行。
-            gestureDecayTimer?.invalidate()
-            gestureDecayTimer = nil
-            gestureActive = true
-            applyRenderActive()
-        case .ended:
-            // 惯性滚动越快，实时渲染保持得越久，避免长滑行中途冻结
-            let velocity = gesture.velocity(in: nil)
-            let speed = max(abs(velocity.x), abs(velocity.y))
-            scheduleGestureDecay(speed > 1200 ? 2.2 : (speed > 300 ? 1.2 : 0.6))
-        case .cancelled, .failed:
-            scheduleGestureDecay(0.3)
-        default:
-            break
-        }
-    }
-
-    private func scheduleGestureDecay(_ delay: TimeInterval) {
-        gestureDecayTimer?.invalidate()
-        gestureDecayTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
-            guard let self else { return }
-            self.gestureActive = false
-            self.applyRenderActive()
-        }
-    }
-
-    private func applyRenderActive() {
-        liquidGlassView?.setRenderActive(jsActive || mountActive)
-    }
-
-    public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
-        true
     }
 }
 

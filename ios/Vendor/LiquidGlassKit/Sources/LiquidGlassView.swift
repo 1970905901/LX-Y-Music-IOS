@@ -277,13 +277,9 @@ final class LiquidGlassRenderer {
 private final class GlassInstanceRegistry {
     static let shared = GlassInstanceRegistry()
     let instances = NSHashTable<AnyObject>.weakObjects()
-    /// 错峰捕获槽位：注册时顺序分配，供 shouldCaptureThisFrame 的隔帧桶使用
-    private var nextStaggerSlot = 0
 
     func add(_ view: LiquidGlassView) {
         instances.add(view)
-        view.staggerSlot = nextStaggerSlot
-        nextStaggerSlot = (nextStaggerSlot + 1) & 0xFF
     }
 }
 
@@ -303,24 +299,6 @@ final class LiquidGlassView: MTKView {
     /// Whether to automatically capture superview on each frame.
     /// Set to false for manual control via `captureBackground()`.
     var autoCapture: Bool = true
-
-    /// Whether the render clock is running (driven by jsActive / mount; scrolling
-    /// freezes rendering via scrollFrozen instead of keeping the clock alive).
-    /// 静止时为 false：MTKView 暂停，不渲染/不捕获，复用最后一帧（高刷不掉帧）。
-    private var renderActive = true
-    /// 下一帧是否需要重新捕获背景纹理（布局/圆角/触摸/恢复活跃时置位）
-    private var needsCapture = true
-    /// 滚动冻结（性能修复核心）：窗口级 pan 观察到列表滚动/拖拽时置位——渲染时钟
-    /// 暂停、保留最后一帧、跳过逐帧整窗捕获；滚动停止（含惯性收敛）后由
-    /// refreshAfterScroll() 补一帧。滚动中逐帧捕获既掉帧（每帧整窗 drawHierarchy +
-    /// 同步 MPS 模糊 × 玻璃实例数），又会把滞后一帧的背景经折射偏移拉进玻璃边缘，
-    /// 形成随滚动移动的黑影——冻结后两个症状同源消除。
-    private var scrollFrozen = false
-
-    /// 错峰捕获槽位（registry 分配）与豁免标志：透镜等体积小、实时性要求高的
-    /// 实例可豁免隔帧错峰，保持每帧捕获。
-    var staggerSlot = 0
-    var staggerExempt = false
 
     var touchPoint: CGPoint? = nil
 
@@ -371,70 +349,10 @@ final class LiquidGlassView: MTKView {
         // 清屏色全透明：空帧（纹理未就绪等）不改变画面，避免闪黑
         clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 0)
 
-        // 高刷设备（ProMotion 120Hz）下限制到 60fps：常驻满帧渲染 + 每帧整窗背景
-        // 捕获会导致严重掉帧。setRenderActive 在静止时暂停渲染时钟，运动时才满帧。
-        enableSetNeedsDisplay = true
-        preferredFramesPerSecond = 60
         isPaused = false
     }
 
-    /// 按需渲染：活跃（背后内容在变，由 jsActive/手势/mount 三源驱动）时以
-    /// preferredFramesPerSecond 连续渲染并捕获；静止时暂停 MTKView 渲染时钟，
-    /// 完全不渲染/不捕获、复用最后一帧——高刷设备不再空转掉帧。
-    func setRenderActive(_ active: Bool) {
-        let wasActive = renderActive
-        renderActive = active
-        if active {
-            // JS 脉冲（切 Tab/换主题/换歌）= 背后内容已变化：无条件解除滚动冻结并
-            // 重截。这是冻结的强制出口——否则冻结期间到达的脉冲被吞掉，玻璃会停留
-            // 在过期帧上直到下一次滚动结束（表现为「玻璃变成静态图片」）。
-            scrollFrozen = false
-            needsCapture = true
-            isPaused = false
-            setNeedsDisplay()
-        } else if wasActive {
-            isPaused = true
-        }
-    }
-
-    // MARK: - Scroll freeze（方案A：滚动中冻结，停止后补帧）
-
-    /// 窗口级 pan 观察（LiquidGlassEffectView.handleWindowPan）在滚动/拖拽开始时调用：
-    /// 立即暂停渲染时钟并冻结在最后一帧。玻璃背后的列表内容继续滚动，玻璃画面保持
-    /// 静止稳定（滞后一帧的折射本来就是错的，冻结反而更干净）。
-    func pauseForScroll() {
-        scrollFrozen = true
-        isPaused = true
-    }
-
-    /// 滚动停止（含惯性收敛）后调用：清除冻结、置一次捕获需求并补一帧。
-    /// 暂停状态下 setNeedsDisplay 仍会渲染一帧（与 layoutSubviews 的补帧同款模式）；
-    /// renderActive 仍为真（挂载窗/JS 脉冲未结束）时顺带恢复连续渲染。
-    func refreshAfterScroll() {
-        scrollFrozen = false
-        needsCapture = true
-        setNeedsDisplay()
-        if renderActive {
-            isPaused = false
-        }
-    }
-
     // MARK: - Background Capture
-
-    /// 错峰捕获闸门（列表性能隔离的核心裁剪）：多块玻璃同时实时渲染时，同一帧内
-    /// 每块各自整窗 drawHierarchy 是滚动掉帧的最大单项开销。以 30Hz 全局桶 + 实例
-    /// 槽位错峰：每块玻璃隔帧捕获，背景纹理滞后 ≤33ms（折射背景内容而已，shader
-    /// 本体仍 60fps 渲染），N 块玻璃的总捕获次数从 N×60 降到 60 次/秒。单块活跃
-    /// 或豁免实例（透镜）不隔帧。
-    private func shouldCaptureThisFrame() -> Bool {
-        let activeCount = GlassInstanceRegistry.shared.instances.allObjects
-            .compactMap { $0 as? LiquidGlassView }
-            .filter { $0.window === window && $0.renderActive && !$0.staggerExempt }
-            .count
-        guard activeCount > 1 else { return true }
-        let bucket = Int(CACurrentMediaTime() * 30.0)
-        return (bucket + staggerSlot) % 2 == 0
-    }
 
     func captureBackground() {
         if #available(iOS 26.2, *) {
@@ -670,23 +588,13 @@ final class LiquidGlassView: MTKView {
         let width = Int(bounds.width * scale)
         let height = Int(bounds.height * scale)
         zeroCopyBridge.setupBuffer(width: width, height: height)
-
-        // 尺寸/圆角变化后需重新捕获背景，下一帧补一帧
-        needsCapture = true
-        // 尺寸/圆角变化后立即重绘一帧：暂停状态下也保证玻璃形状与折射内容与布局一致
-        setNeedsDisplay()
     }
 
     override func draw(_ rect: CGRect) {
-        // 仅活跃渲染（renderActive）或 needsCapture 待补时捕获背景；静止且已捕获过
-        // 则跳过整窗捕获，复用上一帧纹理，避免高刷空转掉帧。滚动冻结期间绝不捕获。
-        // 连续渲染路径经错峰闸门：多实例并存时隔帧捕获（shouldCaptureThisFrame），
-        // needsCapture（布局/尺寸变化）始终立即捕获。
-        if autoCapture && !scrollFrozen && (renderActive || needsCapture) {
-            if needsCapture || shouldCaptureThisFrame() {
-                captureBackground()
-                needsCapture = false
-            }
+        // Auto-capture background from superview if enabled（上游一致：连续渲染 +
+        // 每帧捕获，实时折射；多玻璃实例互拍的黑影排除见 captureRootView）
+        if autoCapture {
+            captureBackground()
         }
 
         // 背景纹理未就绪（刚挂载/缓冲尺寸未定，setupBuffer 尚未跑出有效像素缓冲）

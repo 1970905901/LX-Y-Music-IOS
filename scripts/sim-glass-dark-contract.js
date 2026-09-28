@@ -15,7 +15,7 @@
  *     同样只有前两层受 tsc 保护，桥接断裂会静默回退到磨砂。
  *
  * 检查的是**契约的存在与贯通**，不是观感——观感只能真机看。
- * 不变量（1~4）必过，退出码据此。
+ * 不变量（1~3）必过，退出码据此。
  *
  * 运行：node scripts/sim-glass-dark-contract.js
  */
@@ -107,12 +107,11 @@ const RULES = [
     hint: '缺 liquid prop：JS 开关传了也丢，永远停在磨砂',
   },
   {
-    id: 'mm-metal-setters',
+    id: 'mm-liquid-entry',
     file: 'mm',
-    count: (s) => (s.match(/setJsActive:|setPreferredFramesPerSecond:/g) || []).length,
-    min: 2,
-    desc: 'ObjC 保留 Metal 专有控制入口（setJsActive: / setPreferredFramesPerSecond:）',
-    hint: '脉冲/fps 控制入口被删，液态玻璃的省电机制（按需渲染）断线',
+    test: (s) => /createGlassBackingWithDark:\s*\w+\s+liquid:/.test(s),
+    desc: 'ObjC 宿主持有双形态工厂入口（init 与 liquid 切换都经它建背衬）',
+    hint: '宿主不经工厂建背衬：磨砂/液态切换断线，JS 开关传了也回退磨砂',
   },
   {
     id: 'comp-decl-liquid',
@@ -234,7 +233,7 @@ check(
     s = s.replace(/createGlassBacking\(dark:\s*Bool,\s*liquid:\s*Bool\)/g, 'removed(')
     s = s.replace(/LiquidGlassEffect\(style:\s*\.regular,\s*isNative:\s*false\)/g, 'REMOVED(')
     s = s.replace(/RCT_CUSTOM_VIEW_PROPERTY\(\s*liquid\s*,/g, 'REMOVED_PROPERTY(')
-    s = s.replace(/setJsActive:|setPreferredFramesPerSecond:/g, 'removed:')
+    s = s.replace(/createGlassBackingWithDark:/g, 'removed:')
     s = s.replace(/liquid\?\s*:\s*boolean/g, 'removed')
     s = s.replace(/liquid=\{liquid\}/g, 'removed')
     return [f, s]

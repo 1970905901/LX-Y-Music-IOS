@@ -3,7 +3,6 @@ import Section from '../components/Section'
 import Theme from './Theme/Theme'
 import ThemeMode from './Theme/ThemeMode'
 import IsDynamicBg from './Theme/IsDynamicBg'
-import IsMylistDynamicBg from './Theme/IsMylistDynamicBg'
 import IsLandscapeStretch from './Theme/IsLandscapeStretch'
 import IsFontShadow from './Theme/IsFontShadow'
 import Blur from './Theme/Blur'
@@ -18,7 +17,6 @@ export default memo(() => {
       <Theme />
       <ThemeMode />
       <IsDynamicBg />
-      <IsMylistDynamicBg />
       <IsLandscapeStretch />
       <CustomBg />
       <PicOpacity />

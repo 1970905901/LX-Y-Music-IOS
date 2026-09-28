@@ -168,16 +168,13 @@ const defaultSetting: LX.AppSetting = {
   'theme.id': 'green',
   'theme.lightId': 'green',
   'theme.darkId': 'black',
-  'theme.hideBgDark': false,
   'theme.dynamicBg': true,
   'theme.blur': 18,
   'theme.fontShadow': false,
   'theme.glassOpacity': 40,
-  'theme.mylistDynamicBg': false,
   'theme.isLandscapeStretch': false,
   'theme.customBgPicPath': '',
   'theme.picOpacity': 76,
-  'theme.sectionOpacity': 50,
   'theme.subContainerOpacity': 50,
 }
 

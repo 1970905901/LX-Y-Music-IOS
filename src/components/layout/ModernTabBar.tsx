@@ -154,6 +154,11 @@ export default memo(() => {
   const activeIndex = Math.max(TAB_IDS.findIndex((tab) => tab.id === activeId), 0)
   // 药丸目标中心 = 目标 tab 的中点；首次设置直接落位（不显形），之后原生弹簧滑动
   const lensX = barWidth > 0 ? ((activeIndex + 0.5) * barWidth) / TAB_IDS.length : 0
+  // 药丸压扁（2026-09-29 定案）：宽度恒 = 一个 tab 区间的宽度 → 无论停在哪个 tab
+  // 形状都一样；最左/最右 tab 时药丸左右边缘恰与胶囊（栏体玻璃）左右边缘重叠，
+  // 上下边缘随条带铺满栏体高度而重叠（透镜与胶囊融合成一块玻璃）。圆角由原生取
+  // min(宽,高)/2 = 28 = 栏体圆角，端头观感不变。
+  const lensPillWidth = barWidth / TAB_IDS.length
 
   return (
     <View
@@ -208,6 +213,7 @@ export default memo(() => {
           <LiquidLens
             style={lensStyle}
             x={lensX}
+            pillWidth={lensPillWidth}
           />
         )}
         {TAB_IDS.map((tab) => {

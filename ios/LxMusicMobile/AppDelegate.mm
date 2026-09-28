@@ -956,6 +956,19 @@ static double LXResolveElapsedSnapshotAtMs(NSDictionary *payload, double nowMs) 
   return 0;
 }
 
+// 把快照 elapsed 推进到「发布时刻」的现在值：系统进度条从每次发布的
+// ElapsedPlaybackTime 基线 + rate 外推，写快照时刻的过去值会让基线每次发布都
+// 回拨一个快照年龄（控制中心进度条后跳、左侧时间倒退）。暂停中（rate ≤ 0）
+// 位置不随时间变化，不推进；无戳（snapshotAtMs ≤ 0，nativeFlac/AVPlayer 都没
+// 带戳的旧链路）保持旧行为不推进。
+static double LXAdvanceElapsedToNowSec(double elapsedSec, double snapshotAtMs, double rate, double nowMs) {
+  if (snapshotAtMs <= 0 || rate <= 0) return elapsedSec;
+  double dtMs = nowMs - snapshotAtMs;
+  if (dtMs <= 0) return elapsedSec; // 未来值钳制（快照时刻不可能晚于现在）
+  if (dtMs > 1000.0) dtMs = 1000.0; // 异常年龄钳制（正常 < 300ms）
+  return elapsedSec + rate * dtMs / 1000.0;
+}
+
 static void LXSetNowPlayingPlaybackState(MPNowPlayingPlaybackState state, NSDictionary *options) {
   LXNowPlayingState = state;
 
@@ -981,12 +994,23 @@ static void LXSetNowPlayingPlaybackState(MPNowPlayingPlaybackState state, NSDict
     NSNumber *elapsedTime = [stateOptions[@"elapsedTime"] isKindOfClass:[NSNumber class]] ? stateOptions[@"elapsedTime"] : nil;
     NSNumber *playbackRate = [stateOptions[@"playbackRate"] isKindOfClass:[NSNumber class]] ? stateOptions[@"playbackRate"] : nil;
 
+    // 推进用速率与随后写入 info 的保持一致（nil → 按播放态兜底，见下方 PlaybackRate 写入）
+    double rateForAdvance = (playbackRate ?: LXDefaultNowPlayingRate()).doubleValue;
+    double nowMs = CACurrentMediaTime() * 1000.0;
     if (elapsedTime != nil) {
-      info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = elapsedTime;
-      // 位置缓存与快照戳同步更新（无戳时清零，防止旧戳错配新位置 → 回放超前）
-      LXNowPlayingElapsedSnapshotAtMs = LXResolveElapsedSnapshotAtMs(stateOptions, CACurrentMediaTime() * 1000.0);
+      double snapshotAtMs = LXResolveElapsedSnapshotAtMs(stateOptions, nowMs);
+      // 系统进度基线必须写「发布时刻」的值：把快照位置推进到现在，否则每次状态
+      // 发布（播放/暂停/seek）进度条都回拨一个快照年龄
+      info[MPNowPlayingInfoPropertyElapsedPlaybackTime] =
+        @(LXAdvanceElapsedToNowSec(elapsedTime.doubleValue, snapshotAtMs, rateForAdvance, nowMs));
+      // 位置缓存对（值, 戳）成对更新：推进后的基线对应「现在」——歌词锚点重锚
+      // 读同一缓存对，若值推进而戳仍留在快照时刻，歌词时钟会被推超前
+      LXNowPlayingElapsedSnapshotAtMs = (snapshotAtMs > 0) ? nowMs : 0;
     }
-    else if (state == MPNowPlayingPlaybackStateStopped) info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = @0;
+    else if (state == MPNowPlayingPlaybackStateStopped) {
+      info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = @0;
+      LXNowPlayingElapsedSnapshotAtMs = 0;
+    }
 
     info[MPNowPlayingInfoPropertyPlaybackRate] = playbackRate ?: LXDefaultNowPlayingRate();
     info[MPNowPlayingInfoPropertyDefaultPlaybackRate] = LXNowPlayingDefaultPlaybackRateValue();
@@ -1104,11 +1128,22 @@ static void LXSetNowPlayingInfo(NSDictionary *metadata) {
     if (artist != nil) info[MPMediaItemPropertyArtist] = artist;
     if (album != nil) info[MPMediaItemPropertyAlbumTitle] = album;
     if (duration != nil) info[MPMediaItemPropertyPlaybackDuration] = duration;
+    double nowMs = CACurrentMediaTime() * 1000.0;
     if (elapsedTime != nil) {
-      info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = elapsedTime;
-      // 快照戳随位置缓存同步更新（elapsedTimeSnapshotAt / elapsedTimeAgeMs 为
-      // 自定义透传键，不写入系统 info 字典；无戳时清零防旧戳错配新位置）
-      LXNowPlayingElapsedSnapshotAtMs = LXResolveElapsedSnapshotAtMs(metadata, CACurrentMediaTime() * 1000.0);
+      double snapshotAtMs = LXResolveElapsedSnapshotAtMs(metadata, nowMs);
+      // 推进用速率与随后写入 info 的一致（nil → 沿用缓存 → 播放态兜底）
+      NSNumber *advanceRate = playbackRate;
+      if (advanceRate == nil && [info[MPNowPlayingInfoPropertyPlaybackRate] isKindOfClass:[NSNumber class]]) {
+        advanceRate = info[MPNowPlayingInfoPropertyPlaybackRate];
+      }
+      if (advanceRate == nil) advanceRate = LXDefaultNowPlayingRate();
+      // 系统进度基线必须写「发布时刻」的值：把快照位置推进到现在，否则逐行
+      // 元数据每次发布（前台每行一次）进度条都回拨一个快照年龄
+      info[MPNowPlayingInfoPropertyElapsedPlaybackTime] =
+        @(LXAdvanceElapsedToNowSec(elapsedTime.doubleValue, snapshotAtMs, advanceRate.doubleValue, nowMs));
+      // 位置缓存对（值, 戳）成对更新：推进后的基线对应「现在」——歌词锚点重锚
+      // 读同一缓存对，若值推进而戳仍留在快照时刻，歌词时钟会被推超前
+      LXNowPlayingElapsedSnapshotAtMs = (snapshotAtMs > 0) ? nowMs : 0;
     }
     info[MPNowPlayingInfoPropertyPlaybackRate] = playbackRate ?: info[MPNowPlayingInfoPropertyPlaybackRate] ?: LXDefaultNowPlayingRate();
     info[MPNowPlayingInfoPropertyDefaultPlaybackRate] = info[MPNowPlayingInfoPropertyDefaultPlaybackRate] ?: LXNowPlayingDefaultPlaybackRateValue();
@@ -1307,6 +1342,12 @@ static void LXNowPlayingLyricStep(void) {
       ? LXNowPlayingInfoCache[MPMediaItemPropertyArtist]
       : nil;
     if ([currentArtist isEqualToString:text]) return;
+    // 重发前刷新系统进度基线：缓存里的 ElapsedPlaybackTime 是上次发布时的值，
+    // 直接重发会把系统进度外推基线拉回旧值（每次换行进度条后跳、左侧时间倒退）。
+    // 改写为当前外推位置（行变化只在播放中发生，positionMs 即「现在」的位置），
+    // 并与快照戳成对更新为现在（歌词锚点重锚读同一缓存对，值/戳错配会推超前）
+    LXNowPlayingInfoCache[MPNowPlayingInfoPropertyElapsedPlaybackTime] = @(positionMs / 1000.0);
+    LXNowPlayingElapsedSnapshotAtMs = CACurrentMediaTime() * 1000.0;
     LXNowPlayingInfoCache[MPMediaItemPropertyArtist] = text;
     NSLog(@"[LXLyric] tick push line %ld @ %.0fms: %@", (long)LXNowPlayingLyricIndex, positionMs, text);
     LXApplyNowPlayingInfo();

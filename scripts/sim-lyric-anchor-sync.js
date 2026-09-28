@@ -28,7 +28,14 @@
 //     LXSetNowPlayingPlaybackState 在写入位置缓存时同步解析戳，
 //     LXRefreshNowPlayingLyricAnchor 据此回放；无戳时清零防旧戳错配。
 //
-// 本脚本 1:1 复刻锚点更新公式与外推公式，逐条验证 7 个断言（均带反例）。
+// 进度条基线（第二批断言）：系统进度条从每次发布的 ElapsedPlaybackTime 基线外推。
+// 旧行为把快照时刻的过去值直接写进 info / 缓存，且原生 tick 行变化重发缓存时
+// elapsed 仍是上次发布的旧值 → 基线每次发布回拨一个快照年龄（前台 ~150ms，
+// 熄屏后 JS 挂起、只剩原生 tick 重发 → 回拨持续增大，进度条后跳、时间倒退）。
+// 修法 = 写系统基线时把快照推进到「现在」（LXAdvanceElapsedToNowSec），tick 重发
+// 前把基线刷新为时钟外推值；缓存 (值, 戳) 必须成对更新（错配会把歌词时钟推超前）。
+//
+// 本脚本 1:1 复刻锚点更新公式与外推公式，逐条验证 10 个断言（均带反例）。
 
 'use strict';
 
@@ -143,6 +150,66 @@ const simulateMetadataReanchor = ({ rtt = 150, lineEveryMs = 5000, durationMs = 
 };
 
 // ---------------------------------------------------------------------------
+// 进度条基线模型（控制中心进度条后跳 / 左侧时间倒退）
+// ---------------------------------------------------------------------------
+
+// 系统进度条：从最近一次发布的 (elapsedBase, publishAt) 外推。
+// republish 返回回拨幅度（旧显示值 − 新基线，> 0 即进度条后跳）。
+const makeProgressBar = () => ({ base: 0, publishAt: 0 });
+const progressAt = (bar, t) => bar.base + (t - bar.publishAt) * RATE;
+const republish = (bar, t, elapsedMs) => {
+  const before = progressAt(bar, t);
+  bar.base = elapsedMs;
+  bar.publishAt = t;
+  return before - elapsedMs;
+};
+
+// 熄屏/后台场景：JS 定时器挂起、不再发布元数据，换行只靠原生 tick 重发缓存。
+// 旧行为：缓存 elapsed 是后台前最后一次 JS 发布的快照值，tick 重发即回拨，
+// 且随时间持续增大（几秒级——进度条后跳、时间倒退的主害场景）。
+// 修复后：tick 重发前把基线刷新为歌词时钟外推的「现在」位置 → 零回拨。
+const simulateBackgroundProgress = ({ lineEveryMs = 5000, rtt = 150, durationMs = 60000, mode }) => {
+  const bar = makeProgressBar();
+  let cachedElapsedMs = 0; // LXNowPlayingInfoCache[ElapsedPlaybackTime]
+  let cachedStampAt = 0;   // LXNowPlayingElapsedSnapshotAtMs（成对更新语义）
+  let maxBackward = 0;
+  let published = false;
+  for (let t = 0; t <= durationMs; t += 12) {
+    const isLine = t > 0 && t % lineEveryMs === 0;
+    if (!isLine) continue;
+    if (!published) {
+      // 进后台前最后一次 JS 换行发布：快照产生于 t − rtt
+      const tSnap = t - rtt;
+      const snapPos = truePosition(0, tSnap);
+      if (mode === 'legacy') {
+        cachedElapsedMs = snapPos; // 旧行为：快照值原样进缓存，戳 = 0
+        cachedStampAt = 0;
+      } else {
+        // 修复后：LXAdvanceElapsedToNowSec 推进到现在 + 戳成对更新为 now
+        cachedElapsedMs = snapPos + Math.min(t - tSnap, 1000) * RATE;
+        cachedStampAt = t;
+      }
+      published = true;
+      maxBackward = Math.max(maxBackward, republish(bar, t, cachedElapsedMs));
+      continue;
+    }
+    // 原生 tick 行变化重发（行变化只在播放中发生）
+    if (mode === 'legacy') {
+      // 旧行为：重发缓存旧值 → 基线被拉回后台前的位置
+      maxBackward = Math.max(maxBackward, republish(bar, t, cachedElapsedMs));
+    } else {
+      // 修复后：重发前把基线刷新为时钟外推的「现在」（复刻 tick 的
+      // positionMs 刷新），缓存对同步滚动
+      const clockNow = cachedElapsedMs + (t - cachedStampAt) * RATE;
+      maxBackward = Math.max(maxBackward, republish(bar, t, clockNow));
+      cachedElapsedMs = clockNow;
+      cachedStampAt = t;
+    }
+  }
+  return { maxBackward };
+};
+
+// ---------------------------------------------------------------------------
 // 断言
 // ---------------------------------------------------------------------------
 
@@ -227,6 +294,37 @@ console.log('sim-lyric-anchor-sync：灵动岛/控制中心歌词锚点滞后模
   check('换行元数据无戳（反例）→ 稳态滞后 = 快照年龄（证明戳必要）',
     Math.abs(noStamp.steadyLag - 150) < 5,
     `无戳滞后 ${noStamp.steadyLag.toFixed(1)}ms ≈ 150ms`);
+}
+
+// 断言8（进度条后跳缺陷复现/反例）：熄屏后原生 tick 行变化重发旧缓存 →
+// 基线被拉回后台前位置，回拨随时间持续增大（用户报「进度条后跳、时间倒退」）
+{
+  const { maxBackward } = simulateBackgroundProgress({ mode: 'legacy' });
+  check('熄屏旧行为：tick 重发旧缓存 → 回拨 ≥ 5s 且持续增大（缺陷存在）',
+    maxBackward > 5000,
+    `最大回拨 ${(maxBackward / 1000).toFixed(1)}s`);
+}
+
+// 断言9（修复验证，断言8的反例）：tick 重发前刷新基线为时钟外推值 → 零回拨
+{
+  const { maxBackward } = simulateBackgroundProgress({ mode: 'fixed' });
+  check('熄屏修复后：基线随 tick 滚动推进 → 回拨 ≤ 1ms（与断言8互为反例）',
+    maxBackward <= 1,
+    `最大回拨 ${maxBackward.toFixed(3)}ms`);
+}
+
+// 断言10（成对更新防回归）：缓存值推进而戳不推进（错配）→ 歌词时钟超前快照年龄。
+// 守护本批进度条修复不得破坏上一批歌词修复：LXRefreshNowPlayingLyricAnchor 读
+// 同一缓存对重锚，值/戳必须成对更新
+{
+  const t0 = 5000, tSnap = t0 - 150;
+  const clock = makeClock();
+  const advanced = truePosition(0, t0); // 值已推进到「现在」
+  reanchor(clock, advanced, tSnap, 0, t0); // 但戳错配仍为快照时刻
+  const lead = clockPosition(clock, t0 + 1000) - truePosition(0, t0 + 1000);
+  check('值推进而戳不推进（错配反例）→ 歌词时钟超前快照年龄（证明缓存对必须成对更新）',
+    Math.abs(lead - 150) < 5,
+    `超前 ${lead.toFixed(1)}ms ≈ 快照年龄 150ms`);
 }
 
 console.log(`\n结果: ${pass} 通过, ${fail} 失败`);

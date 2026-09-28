@@ -125,24 +125,30 @@ const LeaderboardPage = () => {
         requestAnimationFrame(() => {
           setVisible(true)
         })
+      } else {
+        // 离开排行榜页即卸载。此前只置 true 从不置 false，用户进过一次后本页会
+        // 永久挂载在 PagerView 中（offscreenPageLimit=1，离屏相邻页仍在内存里），
+        // 白白占着一份完整歌曲列表 + 一个左侧 12pt 全高的透明手势层（SwipeBackArea）。
+        // 本页无需要跨切页保留的状态：当前榜单由 getLeaderboardSetting 持久化兜底，
+        // 重新挂载后按最近一次选择恢复。
+        setVisible(false)
       }
     }
-    const handleHide = () => {
-      if (currentId != 'nav_setting') return
-      setVisible(false)
+    const handleHideByTheme = () => {
+      if (currentId != 'nav_top') setVisible(false)
     }
     const handleConfigUpdated = (keys: Array<keyof LX.AppSetting>) => {
-      if (keys.some((k) => hideKeys.includes(k))) handleHide()
+      if (keys.some((k) => hideKeys.includes(k)) && currentId != 'nav_top') setVisible(false)
     }
     global.state_event.on('navActiveIdUpdated', handleNavIdUpdate)
-    global.state_event.on('themeUpdated', handleHide)
-    global.state_event.on('languageChanged', handleHide)
+    global.state_event.on('themeUpdated', handleHideByTheme)
+    global.state_event.on('languageChanged', handleHideByTheme)
     global.state_event.on('configUpdated', handleConfigUpdated)
 
     return () => {
       global.state_event.off('navActiveIdUpdated', handleNavIdUpdate)
-      global.state_event.off('themeUpdated', handleHide)
-      global.state_event.off('languageChanged', handleHide)
+      global.state_event.off('themeUpdated', handleHideByTheme)
+      global.state_event.off('languageChanged', handleHideByTheme)
       global.state_event.off('configUpdated', handleConfigUpdated)
     }
   }, [])

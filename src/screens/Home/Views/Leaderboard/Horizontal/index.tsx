@@ -15,12 +15,17 @@ import SwipeBackArea from '@/components/common/SwipeBackArea'
 export default () => {
   const musicListRef = useRef<MusicListType>(null)
   const headerBarRef = useRef<HeaderBarType>(null)
+  // 本次挂载期间是否已通过 showBoardDetail 事件处理过一次跳榜请求。
+  // 用于抑制「事件 + 挂载兜底」双路径重复 loadList（详见下方 effect 注释）。
+  const handledByEventRef = useRef(false)
   const handleBackToDiscovery = useCallback(() => {
     setNavActiveId('nav_discovery')
   }, [])
 
   useEffect(() => {
+    // 挂载兜底：只有「切页前本页尚未挂载、错过了 showBoardDetail 事件」时才需要。
     void getLeaderboardSetting().then(({ source, boardId }) => {
+      if (handledByEventRef.current) return
       void getBoardsList(source).then((list) => {
         const bound = list.find((l) => l.id == boardId)
         headerBarRef.current?.setBound(source, boardId, bound?.name ?? 'Unknown')
@@ -31,6 +36,8 @@ export default () => {
     // 推荐页排行榜区块点卡片进入：页面已挂载时（切页不卸载）由事件实时切到目标榜单；
     // 未挂载时错过事件，由上方 getLeaderboardSetting 读取的持久化设置兜底。
     const handleShowBoard = ({ source, boardId }: { source: LX.OnlineSource, boardId: string }) => {
+      // 标记已由事件路径处理，抑制上方挂载兜底重复加载
+      handledByEventRef.current = true
       void getBoardsList(source).then((list) => {
         const bound = list.find((l) => l.id == boardId)
         headerBarRef.current?.setBound(source, boardId, bound?.name ?? 'Unknown')

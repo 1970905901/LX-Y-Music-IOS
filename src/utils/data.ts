@@ -278,6 +278,27 @@ export const getLeaderboardSetting = async() => {
   }
   return { ...leaderboardSetting }
 }
+
+/**
+ * 同步写入榜单设置（内存缓存立即生效，磁盘落盘由 1000ms throttle 异步完成）。
+ *
+ * 存在的意义：`saveLeaderboardSetting` 是 async 的（首次调用要先 `await` 一次
+ * 存储读取来填充内存缓存），调用方若 `await` 它再切页，切页就被推迟到一次真实
+ * 存储 I/O 之后 —— 期间没有任何 UI 反馈，表现为推荐页「点排行榜按钮有时没反应」
+ * （点了要等一下、甚至感觉没反应；而横向滑动不受影响，因为滚动是原生驱动）。
+ *
+ * 本函数把「内存缓存写入」同步化：调用方写完立刻切页，UI 响应确定；
+ * 挂载时 `getLeaderboardSetting()` 读到的也一定是刚写入的值（内存优先）。
+ * 首次调用（缓存尚为 null）时以 DEFAULT_SETTING.leaderboard 为基底——这与
+ * `getLeaderboardSetting` 读不到存储时的兜底取值一致，语义等价。
+ */
+export const saveLeaderboardSettingSync = (
+  setting: Partial<(typeof DEFAULT_SETTING)['leaderboard']>,
+) => {
+  leaderboardSetting = Object.assign(leaderboardSetting ?? { ...DEFAULT_SETTING.leaderboard }, setting)
+  saveLeaderboardSettingThrottle()
+}
+
 export const saveLeaderboardSetting = async(
   setting: Partial<(typeof DEFAULT_SETTING)['leaderboard']>,
 ) => {

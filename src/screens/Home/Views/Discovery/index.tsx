@@ -13,7 +13,7 @@ import settingState from '@/store/setting/state'
 import boardState, { type BoardItem } from '@/store/leaderboard/state'
 import { getList } from '@/core/songlist'
 import { getBoardsList } from '@/core/leaderboard'
-import { saveLeaderboardSetting } from '@/utils/data'
+import { saveLeaderboardSettingSync } from '@/utils/data'
 import { Icon } from '@/components/common/Icon'
 import Text from '@/components/common/Text'
 import PlatformChips from '@/components/home/PlatformChips'
@@ -211,15 +211,19 @@ export default memo(() => {
   // 1) 持久化 source + boardId —— 排行榜页首次挂载时读取该设置兜底；
   // 2) 发出 showBoardDetail 事件 —— 排行榜页已挂载（切页不卸载）时实时切换到目标榜单。
   const handleOpenBoard = useCallback((board: BoardItem) => {
-    void (async() => {
-      // 必须先完成持久化再切页：排行榜页首次挂载（切页前组件不存在）时收不到
-      // showBoardDetail 事件，只能靠挂载时 getLeaderboardSetting 兜底；而
-      // saveLeaderboardSetting 首次调用要先走一次异步存储读取才更新内存缓存，
-      // 若不等待，挂载读取可能抢先拿到旧榜单 → 表现为「点了榜单卡片没反应/切不过去」。
-      await saveLeaderboardSetting({ source: leaderboardSource, boardId: board.id })
-      global.app_event.showBoardDetail({ source: leaderboardSource, boardId: board.id })
-      setNavActiveId('nav_top')
-    })()
+    // 必须用【同步】写入内存缓存：此前是 `await saveLeaderboardSetting(...)` 再切页，
+    // 而该函数首次调用要先 await 一次真实存储读取（AsyncStorage I/O），切页因此被
+    // 推迟到 I/O 之后；这段时间没有任何 UI 反馈，用户表现为「点了排行榜按钮有时
+    // 没反应」（等待期间再点一次还会叠加两次切页）。同步写入后立即切页，响应确定；
+    // 磁盘落盘仍由内部 1000ms throttle 异步完成，挂载时读到的也是刚写入的值。
+    saveLeaderboardSettingSync({ source: leaderboardSource, boardId: board.id })
+    // 事件 + 切页都保留：
+    // - 事件（emit 基于 queueMicrotask，必定早于切页后的 rAF 挂载）在「本页尚未挂载」
+    //   时会被丢弃，故排行榜页挂载时会读 getLeaderboardSetting 兜底——写入已同步完成，
+    //   兜底读到的一定是本次目标榜单；
+    // - 事件在「本页已挂载」时（例如已进入排行榜页后又被唤起）负责实时切榜。
+    global.app_event.showBoardDetail({ source: leaderboardSource, boardId: board.id })
+    setNavActiveId('nav_top')
   }, [leaderboardSource])
 
   // 每日推荐入口跟随平台切换；进入前校验对应平台 Cookie 是否已登录

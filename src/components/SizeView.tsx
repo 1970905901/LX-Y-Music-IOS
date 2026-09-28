@@ -11,12 +11,18 @@ import { getSafeAreaInsets } from '@/utils/nativeModules/utils'
 // 同步先用兜底值，拿到真实值后再校准一次。
 const IOS_STATUSBAR_HEIGHT_FALLBACK = 44
 let iosStatusbarHeight = IOS_STATUSBAR_HEIGHT_FALLBACK
+// 原生回调是否已写入过真实值：基线变量初始值恰好等于部分机型（iPhone X~14 系列）
+// 的真实高度 44，若仅用「值不同」判断，这些机型第一次回调会被短路，真实高度永远
+// 不写入 state（statusbarHeight 恒 0），所有 PageTopInset/useStatusbarHeight 页面
+// 顶部贴状态栏（用户反馈的「返回按钮位置固定偏高、贴着状态栏」）。
+let iosStatusbarSynced = false
 const StatusBarManager = NativeModules.StatusBarManager
 function syncIosStatusbarHeight() {
   if (Platform.OS !== 'ios' || !StatusBarManager?.getHeight) return
   StatusBarManager.getHeight(({ height }: { height: number }) => {
     const h = height > 0 ? height : IOS_STATUSBAR_HEIGHT_FALLBACK
-    if (h !== iosStatusbarHeight) {
+    if (!iosStatusbarSynced || h !== iosStatusbarHeight) {
+      iosStatusbarSynced = true
       iosStatusbarHeight = h
       setStatusbarHeight(iosStatusbarHeight)
     }

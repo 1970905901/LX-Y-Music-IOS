@@ -1,6 +1,6 @@
 # Vendored from https://github.com/DnV1eX/LiquidGlassKit (Copyright (c) 2025 DnV1eX)
-# Modified for the LX Music CocoaPods static-lib build — see Sources/*.swift file headers
-# and doc/liquid-glass-vendoring.md for the full list of changes:
+# Modified for the LX Music CocoaPods static-lib build — see LICENSE-NOTES.md
+# (same directory) for the full list of changes and the shader-loading swap plan:
 #   - Swift 6.x `internal import` syntax replaced (CI builds with Swift 5.10)
 #   - iOS 26-only UIGlassEffect types removed (absent from the CI SDK)
 #   - Metal shaders compiled on-device at runtime from embedded sources (no metallib)

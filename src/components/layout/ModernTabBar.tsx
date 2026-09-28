@@ -37,7 +37,7 @@ const styles = createStyle({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // 深浅色模式均无描边（纯玻璃质感，玻璃材质自带边缘光）——染色/描边见 barStyle 与 glassTint
+  // 深浅色模式均无描边（纯玻璃质感，玻璃材质自带边缘光；覆层为中性色不随主题色）
   pillWrapper: {
     position: 'absolute',
     left: designSpacing.lg,
@@ -95,9 +95,9 @@ export default memo(() => {
   // 深浅色模式均无描边（纯玻璃质感，玻璃材质自带边缘光）
   const barStyle = useMemo(() => styles.bar, [])
 
-  // 主题染色：磨砂覆层基色（不透明主题浅色，明暗自适应）；不透明度独立由
-  // theme.glassOpacity 用户设置驱动，实时响应滑杆调节
-  const glassTint = useMemo(() => theme['c-primary-light-600'], [theme])
+  // 纯玻璃（2026-09-28 定案：玻璃不跟随主题色）：磨砂覆层走原生中性色（浅色白 /
+  // 深色黑），浓度由 theme.glassOpacity 用户设置驱动，实时响应滑杆调节；
+  // 液态形态走 kit 预设动态色（不传 tint）
   const glassOpacity = useSettingValue('theme.glassOpacity') / 100
   // 液态玻璃开关：全 iOS 版本生效（开 → vendored Metal 液态玻璃；关 → 系统磨砂）。
   // 实时响应设置切换，原生按 liquid prop 重建背衬并重放缓存的主题属性。
@@ -131,7 +131,9 @@ export default memo(() => {
       ]}
       pointerEvents="box-none"
     >
-      {/* 收起态圆形玻璃按钮（宫格图标）：点击弹出完整 tab 栏；尺寸对齐迷你播放器高度 */}
+      {/* 收起态圆形玻璃按钮（宫格图标）：点击弹出完整 tab 栏；尺寸对齐迷你播放器高度。
+          玻璃必须直接挂在动画容器下（与展开态 tab 栏同构），不能包进 Pressable——
+          玻璃被 Pressable 包裹时收起圆钮显不出玻璃质感 */}
       <Animated.View
         style={[
           styles.pillWrapper,
@@ -145,8 +147,8 @@ export default memo(() => {
         ]}
         pointerEvents={collapsed ? 'auto' : 'none'}
       >
+        <LiquidGlass glassOpacity={glassOpacity} dark={theme.isDark} liquid={liquidGlassOn} style={{ borderRadius: designRadius.pill }} />
         <Pressable style={styles.pillInner} onPress={handlePillPress}>
-          <LiquidGlass tint={glassTint} glassOpacity={glassOpacity} dark={theme.isDark} liquid={liquidGlassOn} style={{ borderRadius: designRadius.pill }} />
           <View style={styles.pillIcon} pointerEvents="none">
             <Icon name="menu" size={20} color={theme['c-primary']} />
           </View>
@@ -164,7 +166,7 @@ export default memo(() => {
         pointerEvents={collapsed ? 'none' : 'auto'}
       >
         {/* 玻璃衬底带与容器一致的圆角：按压下陷内缩时仍呈圆角，不露直角边 */}
-        <LiquidGlass tint={glassTint} glassOpacity={glassOpacity} dark={theme.isDark} liquid={liquidGlassOn} style={{ borderRadius: designRadius.xl }} />
+        <LiquidGlass glassOpacity={glassOpacity} dark={theme.isDark} liquid={liquidGlassOn} style={{ borderRadius: designRadius.xl }} />
         {TAB_IDS.map((tab) => {
           const isActive = activeId === tab.id
           return (

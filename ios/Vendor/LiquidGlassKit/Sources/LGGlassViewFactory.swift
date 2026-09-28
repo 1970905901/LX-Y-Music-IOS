@@ -84,10 +84,15 @@ enum LGGlassMaterial {
     private var effectView: UIVisualEffectView
     private let tintOverlay = UIView()
 
-    /// 染色基色（不透明主题色；透明度由 glassOpacity 独立控制）
+    /// 染色基色（不透明主题色；透明度由 glassOpacity 独立控制）。
+    /// **本应用已不再传 tint**（2026-09-28 定案：玻璃不跟随主题色）→ 覆层走中性玻璃色。
     @objc public var glassTintColor: UIColor? {
-        didSet { tintOverlay.backgroundColor = glassTintColor ?? UIColor.white }
+        didSet { tintOverlay.backgroundColor = glassTintColor ?? neutralOverlayColor }
     }
+
+    /// 纯玻璃中性覆层色：浅色主题白（透亮）、深色主题黑（深邃），随 **App 明暗**切换，
+    /// 不随主题色。浓度仍由 glassOpacity 滑杆驱动。
+    private var neutralOverlayColor: UIColor { isDarkMode ? .black : .white }
 
     /// App 主题明暗（**不是**系统明暗）。必须由 JS 显式下发：系统材质是动态材质，按
     /// `traitCollection.userInterfaceStyle` 解析，而本项目在 window 层**没有**统一 override
@@ -124,7 +129,7 @@ enum LGGlassMaterial {
         // 材质层与覆层都不参与命中测试：触摸一律穿透到上层 RN 内容视图
         // （Tab 项、播放条按钮、宿主手势）
         tintOverlay.isUserInteractionEnabled = false
-        tintOverlay.backgroundColor = UIColor.white
+        tintOverlay.backgroundColor = neutralOverlayColor
         tintOverlay.alpha = Self.tintAlpha(for: glassOpacity)
         // 覆层放进 contentView：与系统材质同层合成，并随材质一起被宿主的圆角裁剪容器裁切
         effectView.contentView.addSubview(tintOverlay)
@@ -143,6 +148,9 @@ enum LGGlassMaterial {
         effectView.isUserInteractionEnabled = false
         effectView.overrideUserInterfaceStyle = isDarkMode ? .dark : .light
         effectView.contentView.addSubview(tintOverlay)
+        // 中性覆层色跟随明暗（无主题 tint 时）：UIKit 只会把覆层**移**到新 contentView，
+        // 颜色不会自己变，必须显式重设
+        tintOverlay.backgroundColor = glassTintColor ?? neutralOverlayColor
         addSubview(effectView)
         setNeedsLayout()
     }
@@ -187,7 +195,8 @@ enum LGGlassMaterial {
 
     /// 主题染色：磨砂形态 → 染色覆层基色（透明度走 glassOpacity 设置，带上限）；
     /// 液态形态 → shader materialTint（LiquidGlassEffectView.setGlassTintColor）。
-    /// tint 为 nil 时液态形态回玻璃预设的动态色（浅色蓝白 / 深色近黑）。
+    /// tint 为 nil（本应用常态：纯玻璃不跟随主题色）时——磨砂回中性覆层色
+    /// （浅色白 / 深色黑），液态回玻璃预设的动态色（浅色蓝白 / 深色近黑）。
     @objc @MainActor public static func applyGlassTint(_ glassView: UIView, tint: UIColor?) {
         (glassView as? LGFrostedGlassView)?.glassTintColor = tint
         (glassView as? LiquidGlassEffectView)?.setGlassTintColor(tint)

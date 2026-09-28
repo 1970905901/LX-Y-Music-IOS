@@ -7,6 +7,8 @@ type LiquidGlassProps = ViewProps & {
    * 磨砂 → 染色覆层基色；液态 → shader materialTint。
    * 透明度独立由 glassOpacity 控制（仅磨砂形态）。
    * 传 rgb()/rgba() 字符串，组件内部会过一次 processColor。
+   * **本应用不传**（2026-09-28 定案：玻璃不跟随主题色、纯玻璃）——不传时磨砂走
+   * 原生中性覆层色（浅色白/深色黑），液态走 kit 预设动态色（浅色蓝白/深色近黑）。
    */
   tint?: string
   /**

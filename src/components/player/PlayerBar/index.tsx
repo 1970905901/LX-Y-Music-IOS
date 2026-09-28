@@ -26,9 +26,8 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
   const navigatingRef = useRef(false)
   const safeAreaBottom = useSafeAreaBottom()
 
-  // 主题染色：磨砂覆层基色（不透明主题浅色，同 ModernTabBar）；不透明度独立由
-  // theme.glassOpacity 用户设置驱动
-  const glassTint = useMemo(() => theme['c-primary-light-600'], [theme])
+  // 纯玻璃（不跟随主题色）：磨砂覆层走原生中性色，浓度由 theme.glassOpacity 驱动；
+  // 液态形态走 kit 预设动态色（不传 tint）
   const glassOpacity = useSettingValue('theme.glassOpacity') / 100
   // 液态玻璃开关：全 iOS 版本生效（开 → vendored Metal 液态玻璃；关 → 系统磨砂），
   // 实时响应设置切换。
@@ -99,7 +98,7 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
             style={[styles.container, isHorizontalMode ? styles.horizontalContainer : null]}
             onLayout={(e) => { setMiniPlayerHeight(e.nativeEvent.layout.height) }}
           >
-            <LiquidGlass tint={glassTint} glassOpacity={glassOpacity} dark={theme.isDark} liquid={liquidGlassOn} style={{ borderRadius: designRadius.xl }} />
+            <LiquidGlass glassOpacity={glassOpacity} dark={theme.isDark} liquid={liquidGlassOn} style={{ borderRadius: designRadius.xl }} />
             <TouchableOpacity style={styles.left} onPress={handleNavigate} activeOpacity={0.8}>
               <Pic />
               <View style={styles.center}>
@@ -114,7 +113,7 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
         </Animated.View>
       )
     },
-    [glassTint, glassOpacity, liquidGlassOn, theme.isDark, isHome, handleNavigate, safeAreaBottom, isHorizontalMode, collapseAnim],
+    [glassOpacity, liquidGlassOn, theme.isDark, isHome, handleNavigate, safeAreaBottom, isHorizontalMode, collapseAnim],
   )
 
   return keyboardShown ? null : playerComponent

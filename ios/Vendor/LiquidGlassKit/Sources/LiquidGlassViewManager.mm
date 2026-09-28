@@ -18,7 +18,8 @@
 //        respondsToSelector 分流自然跳过）。
 //  - The parent container should have `borderRadius` + `overflow: 'hidden'` (rounds the bar).
 //  - `tint` prop：染色基色（不透明主题色，明暗自适应）。两形态都吃：磨砂 → 覆层基色；
-//    液态 → shader materialTint。
+//    液态 → shader materialTint。本应用不传（纯玻璃，不跟随主题色）：磨砂走中性覆层色
+//    （浅色白/深色黑），液态走 kit 预设动态色。
 //  - `glassOpacity` prop：染色覆层的**用户值** 0~1（对应设置 theme.glassOpacity 0~100）。
 //    实际 alpha 由 LGGlassViewFactory 内的 maxTintAlpha(0.6) 封顶。仅磨砂形态生效
 //    （液态形态不实现 setGlassOpacity:，且设置 UI 在液态时隐藏该行）。

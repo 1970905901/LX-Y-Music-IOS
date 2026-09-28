@@ -1,12 +1,11 @@
 import BackgroundTimer from 'react-native-background-timer'
 import { Platform } from 'react-native'
 import settingState from '@/store/setting/state'
-import { getAccuratePosition } from './seek'
 import {
   getNativeFlacDuration,
-  getNativeFlacPosition,
   isNativeFlacActive,
 } from './nativeFlac'
+import { getPositionStamped, elapsedSnapshotFields } from './utils'
 import playerState from '@/store/player/state'
 import { getTimelineDuration } from '@/core/player/timeline'
 import {
@@ -125,21 +124,24 @@ const updateMetaInfo = async(mInfo: LX.Player.MusicInfo, lyric?: string, isPlayi
     singer = `${mInfo.name}${mInfo.singer ? ` - ${mInfo.singer}` : ''}`
     album = mInfo.album ?? undefined
   }
+  // 带快照时间信息的位置（nativeFlac 原生时钟戳 / AVPlayer 年龄估计）：
+  // elapsedTimeSnapshotAt / elapsedTimeAgeMs 随发布透传，原生歌词时钟在每次
+  // 元数据发布重锚时把锚点回放到快照时刻——换行发布的桥接往返不再被钉进锚点
+  // （修灵动岛/控制中心歌词恒定滞后）。控制中心歌词由原生时钟（锚点 + 速率外推）
+  // 驱动，读的是 nowPlayingInfo 缓存的 PlaybackRate：pauseNowPlaying 会把该缓存
+  // 写成 0，而逐行元数据不带 playbackRate 时缓存永远停在 0，原生时钟判定「非播放」
+  // 直接 return，歌词冻结（暂停/播放一次才恢复）。每次发布都带上当前真实速率
+  // （暂停时给 0），缓存与系统进度外推都不会再被写脏；原生侧同时据此把可能残留
+  // 的时钟冻结标志解除。
+  const stamped = await getPositionStamped().catch(() => null)
   const metadata = {
     title: name,
     artist: singer,
     album,
     artwork,
     duration: state.prevDuration || 0,
-    elapsedTime: isNativeFlacActive()
-      ? await getNativeFlacPosition().catch(() => 0)
-      : await getAccuratePosition().catch(() => 0),
-    // iOS 控制中心歌词由原生时钟（锚点 + 速率外推）驱动，它读的是现在信息里缓存的
-    // PlaybackRate。pauseNowPlaying 会把该缓存写成 0，而此前的逐行元数据【不带】
-    // playbackRate，缓存就永远停在 0：原生时钟判定「非播放」直接 return，歌词冻结在
-    // 锚点行，表现为控制中心歌词不实时同步（暂停/播放一次才恢复）。
-    // 每次发布都带上当前真实速率（暂停时给 0），缓存与系统进度外推都不会再被写脏；
-    // 原生侧同时据此把可能残留的时钟冻结标志解除。
+    elapsedTime: stamped?.position ?? 0,
+    ...(stamped ? elapsedSnapshotFields(stamped) : {}),
     ...(Platform.OS == 'ios'
       ? { playbackRate: isPlaying ? settingState.setting['player.playbackRate'] : 0 }
       : {}),

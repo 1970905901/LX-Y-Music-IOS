@@ -4,6 +4,7 @@ import {
   getStreamingFlacBufferedPosition,
   getStreamingFlacDuration,
   getStreamingFlacPosition,
+  getStreamingFlacPositionStamped,
   getStreamingFlacState,
   isStreamingFlacSupported,
   onStreamingFlacEvent,
@@ -17,6 +18,7 @@ import {
   stopStreamingFlac,
   type StreamingFlacEvent,
 } from '@/utils/nativeModules/streamingFlac'
+import type { StampedPosition } from './seek'
 
 type NativeFlacState = 'idle' | 'loading' | 'playing' | 'paused' | 'buffering' | 'stopped'
 
@@ -195,6 +197,18 @@ export const getNativeFlacPosition = async() => {
   if (!currentTrackId) return 0
   if (currentMode == 'stream') return getStreamingFlacPosition().catch(() => 0)
   return 0
+}
+
+// 带原生时钟戳的位置快照（歌词时钟锚点回放用，修灵动岛/控制中心歌词恒定滞后）：
+// null = 拿不到快照/戳（未播放、非流式、桥失败），调用方应退回无戳路径（旧行为）
+export const getNativeFlacPositionStamped = async(): Promise<StampedPosition | null> => {
+  if (!currentTrackId) return null
+  if (currentMode == 'stream') {
+    const stamped = await getStreamingFlacPositionStamped().catch(() => null)
+    if (!stamped) return null
+    return { position: stamped.position, snapshotAt: stamped.snapshotAt, ageMs: 0 }
+  }
+  return null
 }
 
 export const getNativeFlacBufferedPosition = async() => {

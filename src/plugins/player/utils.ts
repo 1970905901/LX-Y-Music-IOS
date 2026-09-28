@@ -5,10 +5,11 @@ import { destroyTrackPlayerCore } from './trackPlayerCore'
 import { existsFile, moveFile, privateStorageDirectoryPath, temporaryDirectoryPath } from '@/utils/fs'
 import { toast } from '@/utils/tools'
 import { NativeModules, Platform } from 'react-native'
-import { getAccuratePosition, seekToTime } from './seek'
+import { getAccuratePosition, getAccuratePositionStamped, seekToTime, type StampedPosition } from './seek'
 import {
   getNativeFlacDuration,
   getNativeFlacPosition,
+  getNativeFlacPositionStamped,
   isNativeFlacActive,
   getNativeFlacState,
   pauseNativeFlacPlayback,
@@ -204,6 +205,27 @@ export const setPlay = async() => {
 export const getPosition = async() => {
   if (Platform.OS == 'ios' && isNativeFlacActive()) return getNativeFlacPosition()
   return getAccuratePosition()
+}
+
+// 带快照时间信息的位置（分流对齐 getPosition）：nativeFlac 路径带原生时钟戳
+// （精确回放）；AVPlayer 路径带年龄估计（中点补偿）；nativeFlac 快照失败时
+// 退回同引擎无戳路径（snapshotAt/ageMs = 0，等于旧行为，不会串到 RNTP 位置）。
+export const getPositionStamped = async(): Promise<StampedPosition> => {
+  if (Platform.OS == 'ios' && isNativeFlacActive()) {
+    const stamped = await getNativeFlacPositionStamped().catch(() => null)
+    if (stamped) return stamped
+    return { position: await getNativeFlacPosition().catch(() => 0), snapshotAt: 0, ageMs: 0 }
+  }
+  return getAccuratePositionStamped()
+}
+
+// StampedPosition → Now Playing 发布键：原生戳优先（elapsedTimeSnapshotAt），
+// 否则年龄（elapsedTimeAgeMs）。两者都无 → 空对象（原生退回旧行为）。
+// 自定义键仅被歌词时钟重锚消费，不会写入系统 info 字典。
+export const elapsedSnapshotFields = (stamped: StampedPosition) => {
+  if (stamped.snapshotAt > 0) return { elapsedTimeSnapshotAt: stamped.snapshotAt }
+  if (stamped.ageMs > 0) return { elapsedTimeAgeMs: stamped.ageMs }
+  return {}
 }
 
 export const getPlaybackEngineState = async(): Promise<'idle' | 'loading' | 'buffering' | 'playing' | 'paused' | 'stopped'> => {

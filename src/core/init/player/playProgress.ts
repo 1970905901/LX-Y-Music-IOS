@@ -1,7 +1,7 @@
 import { updateListMusics } from '@/core/list'
 import { setMaxplayTime, setNowPlayTime } from '@/core/player/progress'
 import { getTimelineDuration } from '@/core/player/timeline'
-import { setCurrentTime, getDuration, getPosition, getPlaybackEngineState } from '@/plugins/player/utils'
+import { setCurrentTime, getDuration, getPositionStamped, getPlaybackEngineState } from '@/plugins/player/utils'
 import { formatPlayTime2 } from '@/utils/common'
 import { savePlayInfo } from '@/utils/data'
 import { throttleBackgroundTimer } from '@/utils/tools'
@@ -73,7 +73,12 @@ export default () => {
     // 前台恢复后下一次 tick 会用引擎真实位置重锚时钟，状态无残留。
     if (AppState.currentState !== 'active') return
     let id = playerState.musicInfo.id
-    void getPosition().then(async position => {
+    // 带快照时间信息的位置快照：nativeFlac 原生时钟戳 / AVPlayer 年龄估计。
+    // 重锚时把歌词时钟锚点回放到快照时刻（reanchorNowPlayingLyric 第三参），
+    // 消除「快照位置被钉在现在」造成的灵动岛/控制中心歌词恒定滞后（~100-300ms）
+    const calibStartedAt = Date.now()
+    void getPositionStamped().then(async stamped => {
+      const position = stamped.position
       if (!position || id != playerState.musicInfo.id) return
 
       // seek 生效窗口内：引擎可能仍回报 seek 前的旧位置（seek 异步生效）。
@@ -111,8 +116,12 @@ export default () => {
       }
 
       audioClock.setAnchor(position * 1000, settingState.setting['player.playbackRate'], playerState.isPlay)
-      // 回传引擎真实位置：重锚原生歌词/位置时钟（控制中心歌词与进度 UI 同源校准）
-      void reanchorNowPlayingLyric(position * 1000)
+      // 回传引擎真实位置：重锚原生歌词/位置时钟（控制中心/灵动岛歌词与进度 UI 同源
+      // 校准）。nativeFlac 路径带原生时钟戳精确回放；AVPlayer 路径无原生戳——快照
+      // 产生于发起后 stamped.ageMs（往返半程）处，重锚发起时快照年龄 = 已流逝总时长
+      // − stamped.ageMs（对称往返假设，残余 ≈ reanchor 单程，远小于旧行为的整段往返）
+      const ageMs = stamped.snapshotAt > 0 ? 0 : Math.max(0, Date.now() - calibStartedAt - stamped.ageMs)
+      void reanchorNowPlayingLyric(position * 1000, stamped.snapshotAt, ageMs)
 
       syncToTimeFromPosition(position * 1000, playerState.isPlay)
 

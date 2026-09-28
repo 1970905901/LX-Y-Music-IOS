@@ -50,11 +50,19 @@ interface NativeStreamingFlacModule {
   setVolume?: (volume: number) => Promise<void>
   setRate?: (rate: number) => Promise<void>
   getPosition?: () => Promise<number>
+  /** 带原生时钟戳的位置快照：snapshotAt = 快照产生时的 CACurrentMediaTime 毫秒 */
+  getPositionStamped?: () => Promise<StreamingFlacStampedPosition>
   getBufferedPosition?: () => Promise<number>
   getDuration?: () => Promise<number>
   getState?: () => Promise<StreamingFlacState>
   addListener?: (eventName: string) => void
   removeListeners?: (count: number) => void
+}
+
+export interface StreamingFlacStampedPosition {
+  position: number
+  /** 快照的原生时钟戳（CACurrentMediaTime 毫秒），供歌词时钟锚点回放 */
+  snapshotAt: number
 }
 
 interface NativeStreamingFlacEventModule {
@@ -91,6 +99,7 @@ export const seekStreamingFlac = async(position: number) => assertSupported('see
 export const setStreamingFlacVolume = async(volume: number) => assertSupported('setVolume')(volume)
 export const setStreamingFlacRate = async(rate: number) => assertSupported('setRate')(rate)
 export const getStreamingFlacPosition = async() => assertSupported('getPosition')()
+export const getStreamingFlacPositionStamped = async(): Promise<StreamingFlacStampedPosition> => assertSupported('getPositionStamped')()
 export const getStreamingFlacBufferedPosition = async() => assertSupported('getBufferedPosition')()
 export const getStreamingFlacDuration = async() => assertSupported('getDuration')()
 export const getStreamingFlacState = async() => assertSupported('getState')()

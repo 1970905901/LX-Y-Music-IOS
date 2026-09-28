@@ -7,11 +7,30 @@ const NativeTrackPlayerModule = NativeModules.TrackPlayerModule as {
 
 const wait = async(ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
+// 带快照时间信息的位置：歌词时钟锚点回放（修灵动岛/控制中心歌词恒定滞后）用。
+// - snapshotAt：快照的原生时钟戳（CACurrentMediaTime 毫秒），0 = 无原生戳；
+// - ageMs：发起 getPosition 到「快照产生」的墙钟偏移估计（往返半程）。调用方在
+//   发起重锚前用它推算快照的当前年龄：age = 已流逝总时长 − ageMs。
+// AVPlayer 路径的原生桥（TrackPlayerModule，RNTP 定制）在 node_modules 内无法
+// 打原生戳，用年龄补偿：快照产生于桥接往返中点附近（对称假设），原生侧以
+// 「now − 年龄」回放锚点（残余 ≈ reanchor 单程，远小于旧行为的整段往返滞后）。
+export interface StampedPosition {
+  position: number
+  snapshotAt: number
+  ageMs: number
+}
+
 export const getAccuratePosition = async() => {
   if (Platform.OS == 'ios' && typeof NativeTrackPlayerModule?.getPosition == 'function') {
     return NativeTrackPlayerModule.getPosition()
   }
   return TrackPlayer.getPosition()
+}
+
+export const getAccuratePositionStamped = async(): Promise<StampedPosition> => {
+  const startedAt = Date.now()
+  const position = await getAccuratePosition()
+  return { position, snapshotAt: 0, ageMs: (Date.now() - startedAt) / 2 }
 }
 
 export const seekToTime = async(targetTime: number) => {

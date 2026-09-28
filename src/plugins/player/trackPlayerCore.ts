@@ -132,6 +132,9 @@ export const updateCurrentTrackMetadata = async(metadata: {
   duration?: number
   elapsedTime?: number
   playbackRate?: number
+  /** elapsedTime 快照的原生时钟戳 / 墙钟年龄：歌词时钟重锚回放用（透传原生，不进系统 info） */
+  elapsedTimeSnapshotAt?: number
+  elapsedTimeAgeMs?: number
 }) => {
   if (Platform.OS == 'ios') {
     // iOS 控制中心/锁屏媒体卡片由原生 NowPlayingModule 独家管理，不要再经 RNTP 写入：

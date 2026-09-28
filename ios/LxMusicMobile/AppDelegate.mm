@@ -690,7 +690,7 @@ static void LXBeginReceivingRemoteControlEvents(void);
 // 歌词行时钟：锚点刷新 / 清行（定义在文件后部歌词驱动区块，此处前置声明）
 static void LXRefreshNowPlayingLyricAnchor(void);
 static void LXClearNowPlayingLyricLines(void);
-static void LXReanchorNowPlayingLyric(double elapsedMs);
+static void LXReanchorNowPlayingLyric(double elapsedMs, double snapshotAtMs, double ageMs);
 static void LXStartNowPlayingLyricTimer(void);
 static void LXQueueNowPlayingLyricRedraw(void);
 static void LXForceNowPlayingCardRepaint(void);
@@ -702,6 +702,16 @@ static NSNotificationName const LXPlayerPositionNotificationName = @"LXPlayerPos
 // 停一会、隔几句又同步"）；冻结在最后已知位置才能与音频保持一致。
 // 定义在文件前部：生命周期通知处理器（歌词驱动区块之前）即需读写。
 static BOOL LXNowPlayingClockHold = NO;
+// JS 发布元数据/播放态时 elapsedTime 对应的原生时钟戳（CACurrentMediaTime 毫秒，
+// 由 JS 透传 elapsedTimeSnapshotAt / elapsedTimeAgeMs 换算，见
+// LXResolveElapsedSnapshotAtMs）。0 = 无戳（退回「锚点钉在现在」的旧行为）。
+// 修「灵动岛/控制中心歌词恒定慢半拍」：JS 回传的位置是「过去时刻」的快照，
+// 旧逻辑把快照位置钉在「现在」→ 歌词时钟回拨一个桥接往返（~100-300ms），
+// 每秒校准/每次换行都回拨一次 → 恒定滞后。带戳回放后外推与真实播放对齐。
+static double LXNowPlayingElapsedSnapshotAtMs = 0;
+// 快照戳/年龄 → 原生时钟戳（CACurrentMediaTime 毫秒）。snapshotAt 优先（精确）；
+// ageMs（JS Date.now 往返年龄）换算为「now − 年龄」的等价戳；都无 → 0。
+static double LXResolveElapsedSnapshotAtMs(NSDictionary *payload, double nowMs);
 static void LXEndReceivingRemoteControlEvents(void);
 
 static void LXPostRemoteCommandNotification(NSString *command, NSDictionary *extra) {
@@ -930,6 +940,22 @@ static NSNumber *LXNowPlayingDefaultPlaybackRateValue(void) {
   return @1;
 }
 
+// elapsedTime 快照戳解析：JS 发布元数据/播放态时可携带
+// - elapsedTimeSnapshotAt：快照的原生时钟戳（nativeFlac 路径，getPositionStamped 打点）；
+// - elapsedTimeAgeMs：快照墙钟年龄（AVPlayer 路径，JS Date.now 往返中点估计）。
+// 换算为统一的 CACurrentMediaTime 毫秒戳（年龄形态在读到 payload 的当下换算，
+// 主队列排队延迟天然被覆盖）；两者都无 → 0（LXRefreshNowPlayingLyricAnchor 退回
+// 「锚点钉在现在」的旧行为）。见 LXReanchorNowPlayingLyric 的滞后补偿说明。
+static double LXResolveElapsedSnapshotAtMs(NSDictionary *payload, double nowMs) {
+  NSNumber *snapshotAt = [payload[@"elapsedTimeSnapshotAt"] isKindOfClass:[NSNumber class]]
+    ? payload[@"elapsedTimeSnapshotAt"] : nil;
+  if (snapshotAt != nil && snapshotAt.doubleValue > 0) return MIN(snapshotAt.doubleValue, nowMs);
+  NSNumber *ageMs = [payload[@"elapsedTimeAgeMs"] isKindOfClass:[NSNumber class]]
+    ? payload[@"elapsedTimeAgeMs"] : nil;
+  if (ageMs != nil && ageMs.doubleValue > 0) return nowMs - MIN(ageMs.doubleValue, 1000.0);
+  return 0;
+}
+
 static void LXSetNowPlayingPlaybackState(MPNowPlayingPlaybackState state, NSDictionary *options) {
   LXNowPlayingState = state;
 
@@ -955,7 +981,11 @@ static void LXSetNowPlayingPlaybackState(MPNowPlayingPlaybackState state, NSDict
     NSNumber *elapsedTime = [stateOptions[@"elapsedTime"] isKindOfClass:[NSNumber class]] ? stateOptions[@"elapsedTime"] : nil;
     NSNumber *playbackRate = [stateOptions[@"playbackRate"] isKindOfClass:[NSNumber class]] ? stateOptions[@"playbackRate"] : nil;
 
-    if (elapsedTime != nil) info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = elapsedTime;
+    if (elapsedTime != nil) {
+      info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = elapsedTime;
+      // 位置缓存与快照戳同步更新（无戳时清零，防止旧戳错配新位置 → 回放超前）
+      LXNowPlayingElapsedSnapshotAtMs = LXResolveElapsedSnapshotAtMs(stateOptions, CACurrentMediaTime() * 1000.0);
+    }
     else if (state == MPNowPlayingPlaybackStateStopped) info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = @0;
 
     info[MPNowPlayingInfoPropertyPlaybackRate] = playbackRate ?: LXDefaultNowPlayingRate();
@@ -980,6 +1010,7 @@ static void LXClearNowPlayingInfo(void) {
     LXNowPlayingArtworkPath = nil;
     LXNowPlayingInfoCache = nil;
     LXNowPlayingState = MPNowPlayingPlaybackStateStopped;
+    LXNowPlayingElapsedSnapshotAtMs = 0;
     LXClearNowPlayingLyricLines();
     LXApplyNowPlayingInfo();
   }
@@ -1011,7 +1042,8 @@ static void LXHandleTrackPlayerLifecycleNotification(NSNotification *notificatio
   // 控制中心拖动进度条的 seek 事件同样经此链路重锚（见上分支）。
   if ([event isEqualToString:@"state"]) {
     if (position != nil) {
-      LXReanchorNowPlayingLyric(position.doubleValue * 1000.0);
+      // 原生侧事件自带引擎位置（无桥接滞后），快照即当下 → 不带戳补偿
+      LXReanchorNowPlayingLyric(position.doubleValue * 1000.0, 0, 0);
     }
     NSNumber *rate = [userInfo[@"rate"] isKindOfClass:[NSNumber class]] ? userInfo[@"rate"] : nil;
     if (rate != nil && LXNowPlayingInfoCache.count > 0) {
@@ -1046,7 +1078,7 @@ static void LXRegisterTrackPlayerLifecycleObserver(void) {
 // 歌词行时钟：锚点刷新 / 清行（定义在文件后部歌词驱动区块，此处前置声明）
 static void LXRefreshNowPlayingLyricAnchor(void);
 static void LXClearNowPlayingLyricLines(void);
-static void LXReanchorNowPlayingLyric(double elapsedMs);
+static void LXReanchorNowPlayingLyric(double elapsedMs, double snapshotAtMs, double ageMs);
 
 static void LXSetNowPlayingInfo(NSDictionary *metadata) {
   @synchronized (LXLyricLock()) {
@@ -1072,7 +1104,12 @@ static void LXSetNowPlayingInfo(NSDictionary *metadata) {
     if (artist != nil) info[MPMediaItemPropertyArtist] = artist;
     if (album != nil) info[MPMediaItemPropertyAlbumTitle] = album;
     if (duration != nil) info[MPMediaItemPropertyPlaybackDuration] = duration;
-    if (elapsedTime != nil) info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = elapsedTime;
+    if (elapsedTime != nil) {
+      info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = elapsedTime;
+      // 快照戳随位置缓存同步更新（elapsedTimeSnapshotAt / elapsedTimeAgeMs 为
+      // 自定义透传键，不写入系统 info 字典；无戳时清零防旧戳错配新位置）
+      LXNowPlayingElapsedSnapshotAtMs = LXResolveElapsedSnapshotAtMs(metadata, CACurrentMediaTime() * 1000.0);
+    }
     info[MPNowPlayingInfoPropertyPlaybackRate] = playbackRate ?: info[MPNowPlayingInfoPropertyPlaybackRate] ?: LXDefaultNowPlayingRate();
     info[MPNowPlayingInfoPropertyDefaultPlaybackRate] = info[MPNowPlayingInfoPropertyDefaultPlaybackRate] ?: LXNowPlayingDefaultPlaybackRateValue();
     // JS 以正速率发布 = 断言「当前正在播放」：解除可能残留的时钟冻结（hold）。
@@ -1149,14 +1186,29 @@ static void LXRefreshNowPlayingLyricAnchor(void) {
     ? LXNowPlayingInfoCache[MPNowPlayingInfoPropertyElapsedPlaybackTime]
     : nil;
   if (elapsed == nil) return;
-  LXReanchorNowPlayingLyric(elapsed.doubleValue * 1000.0);
+  // 带元数据发布链路解析出的快照戳回放锚点（无戳时退回旧行为）
+  LXReanchorNowPlayingLyric(elapsed.doubleValue * 1000.0, LXNowPlayingElapsedSnapshotAtMs, 0);
 }
 
-// 以显式的引擎位置（ms）重锚歌词时钟（seek / state 事件携带的真实位置）
-static void LXReanchorNowPlayingLyric(double elapsedMs) {
+// 以显式的引擎位置（ms）重锚歌词时钟（seek / state 事件携带的真实位置）。
+// snapshotAtMs：快照的原生时钟戳（StreamingFlacPlayerModule.getPositionStamped
+// 打点，经 JS 校准链路/元数据透传回传）；ageMs：快照墙钟年龄（AVPlayer 路径
+// 无原生戳时的 JS Date.now 中点估计）。两者都有效时优先 snapshotAt（绝对单调
+// 时间、零估计误差），把锚点系统时间回放到快照时刻——外推与真实播放位置对齐，
+// 消除「快照位置被钉在现在」造成的歌词恒定滞后（灵动岛/控制中心慢半拍根因）。
+static void LXReanchorNowPlayingLyric(double elapsedMs, double snapshotAtMs, double ageMs) {
   @synchronized (LXLyricLock()) {
     LXNowPlayingLyricAnchorElapsedMs = elapsedMs;
-    LXNowPlayingLyricAnchorSystemMs = CACurrentMediaTime() * 1000.0;
+    double nowMs = CACurrentMediaTime() * 1000.0;
+    double anchorSystemMs = nowMs;
+    if (snapshotAtMs > 0) {
+      // 钳制防未来值（快照时刻不可能晚于重锚时刻，防御桥序异常）
+      anchorSystemMs = MIN(snapshotAtMs, nowMs);
+    } else if (ageMs > 0) {
+      // 年龄含完整桥接往返与主队列排队；超过 1s 视为异常（正常 <300ms）不补偿
+      anchorSystemMs = nowMs - MIN(ageMs, 1000.0);
+    }
+    LXNowPlayingLyricAnchorSystemMs = anchorSystemMs;
   }
 }
 
@@ -4194,6 +4246,20 @@ RCT_REMAP_METHOD(getPosition, getStreamPositionWithResolver:(RCTPromiseResolveBl
   resolve(@(position));
 }
 
+// 带原生时钟戳的位置快照：position 为 renderQueue 内取得的引擎真实位置，
+// snapshotAt 为该快照对应的 CACurrentMediaTime 毫秒。JS 校准链路/元数据发布
+// 据此把歌词时钟锚点回放到快照时刻（LXReanchorNowPlayingLyric），消除「快照
+// 位置被钉在现在」造成的灵动岛/控制中心歌词恒定滞后（桥接往返 ~100-300ms）。
+RCT_REMAP_METHOD(getPositionStamped, getStreamPositionStampedWithResolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
+  __block double position = 0;
+  __block double snapshotAt = 0;
+  dispatch_sync(self.renderQueue, ^{
+    position = [self currentPlaybackPositionLocked];
+    snapshotAt = CACurrentMediaTime() * 1000.0;
+  });
+  resolve(@{ @"position": @(position), @"snapshotAt": @(snapshotAt) });
+}
+
 RCT_REMAP_METHOD(getBufferedPosition, getStreamBufferedPositionWithResolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
   __block double buffered = 0;
   dispatch_sync(self.renderQueue, ^{
@@ -5288,10 +5354,15 @@ RCT_REMAP_METHOD(setNowPlayingLyrics, setNowPlayingLyrics:(NSArray *)lines resol
   });
 }
 
-// JS 慢速校准 tick（~2s 一次的引擎真实位置查询）回传位置：重锚原生歌词/位置时钟
-RCT_REMAP_METHOD(reanchorNowPlayingLyric, reanchorNowPlayingLyric:(double)positionMs resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
+// JS 慢速校准 tick（~1s 一次的引擎真实位置查询）回传位置：重锚原生歌词/位置时钟。
+// snapshotAtMs / ageMs：快照时间补偿（见 LXReanchorNowPlayingLyric），消除桥接
+// 往返被钉进锚点造成的灵动岛/控制中心歌词恒定滞后。
+RCT_REMAP_METHOD(reanchorNowPlayingLyric, reanchorNowPlayingLyric:(double)positionMs
+                  snapshotAtMs:(NSNumber *)snapshotAtMs
+                  ageMs:(NSNumber *)ageMs
+                  resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
   dispatch_async(dispatch_get_main_queue(), ^{
-    LXReanchorNowPlayingLyric(positionMs);
+    LXReanchorNowPlayingLyric(positionMs, snapshotAtMs.doubleValue, ageMs.doubleValue);
     resolve(nil);
   });
 }

@@ -2,35 +2,31 @@
 //  LGGlassViewFactory.swift
 //  LiquidGlassKit (vendored from DnV1eX/LiquidGlassKit)
 //
-//  ObjC-visible factory that picks the glass backing for the current OS.
+//  ObjC-visible factory that picks the glass backing for the host view.
 //
-//  设计原则（2026-09-28 定案）：**不使用任何自研材质，每个系统版本都用该系统自己的材质。**
-//    - iOS 26+（且用 Xcode 26 编译）：系统 UIGlassEffect(.regular)，即 Liquid Glass；
-//    - 其余系统：系统 UIBlurEffect(.systemMaterial)。
-//  两者都由系统合成，无逐帧整窗捕获、无 CPU 逐帧成本（这正是自研 Metal 路径下线的
-//  根因）。同一个系统材质在 iOS 14~18 与 iOS 26 上本就长得不一样，这是设计意图而非
-//  缺陷：系统控件什么样，我们就什么样（HIG「一致性即信任」），不再试图让两代系统看起来
-//  相同 —— 也正因如此，不要再承诺「全 iOS 版本行为一致」。
+//  双形态（2026-09-28 定案，用户指定）：iOS 26+ 玻璃效果「全面照抄」DnV1eX/LiquidGlassKit
+//  本体 —— 即 vendored 的 Metal 液态玻璃，由设置开关（theme.liquidGlass）控制：
+//    - 液态（liquid = true，仅 iOS 26+ 生效）：LiquidGlassEffectView（MTKView + 折射
+//      shader + 边缘光 + 主题染色），即该项目的核心效果。iOS 26.2+ 由 kit 自动切换
+//      根视图捕获（上游 2eb41c5：CABackdropLayer 私有机制在 26.2 失效）；26.0/26.1
+//      走 CABackdropLayer（vendored 版带 isBackdropAvailable 守卫）。
+//    - 磨砂（liquid = false，默认）：系统材质（iOS 26+ UIGlassEffect(.regular)、其余
+//      UIBlurEffect(.systemMaterial)）+ 有上限的主题染色覆层。系统合成，无逐帧捕获成本。
 //
-//  材质档位取 regular 而非最薄的 ultraThin：HIG 对 regular 的描述是「模糊并调整背景
-//  亮度，保文字可读」，正是浮在专辑图（富媒体）之上的导航层需要的；ultraThin 是四档里
-//  对比度最差的，HIG 明确不推荐在其上放低对比内容。量化对比见
-//  scripts/sim-glass-contrast.js。
+//  液态形态的性能与省电由 vendored kit 内建机制保障（当年 Metal 实测沉淀的修复，
+//  随 vendored 源码一并生效）：按需渲染（静止暂停 MTKView，JS 脉冲/挂载窗/手势三源
+//  驱动）、滚动冻结、多实例错峰捕获、玻璃互捕黑影排除、CABackdropLayer 缺失降级。
 //
-//  宿主（LiquidGlassViewManager.mm 的 LGLiquidGlassHostView）只持有 UIView，
-//  宿主侧圆角裁剪容器 + 0.5pt 内缘线提供轮廓。
-//
-//  历史（改本文件前必读）：自研 Metal 液态玻璃（LiquidGlassEffectView，逐帧整窗
-//  CABackdropLayer 捕获）在长列表场景对主线程的压力与实时性无法兼得，见提交 5ef29a8
-//  整体下线；随后提交 73c2e9c 连系统模糊层一并去掉、只留一层染色覆层，玻璃实际已
-//  名存实亡 —— 覆层 alpha=0 时对可读性零贡献（scripts/sim-glass-contrast.js 断言1），
-//  即 Tab 栏文字直接压在滚动内容上、没有任何底衬。本次恢复为「系统材质 + 有上限的
-//  染色覆层」。
+//  历史（改本文件前必读）：自研 Metal 路径曾在 5ef29a8 整体下线（「逐帧整窗捕获
+//  对主线程的压力与实时性无法兼得」），随后经历纯染色覆层（73c2e9c）与系统磨砂
+//  （c6e86b2）两阶段。本次按用户要求在 iOS 26+ 恢复 Metal 液态玻璃并加开关；
+//  当年已修复的原生缺陷（黑弧/黑影/黑带）的修复代码都在 vendored 源码里，随恢复
+//  一并生效。磨砂形态仍遵守「什么版本用什么版本的系统自己的材质」。
 //
 
 import UIKit
 
-/// 玻璃材质：按运行时 OS 解析「该系统自己的材质」。
+/// 玻璃材质：按运行时 OS 解析「该系统自己的材质」（磨砂形态用）。
 @MainActor
 enum LGGlassMaterial {
 
@@ -69,7 +65,7 @@ enum LGGlassMaterial {
     }
 }
 
-/// 系统材质玻璃底衬：系统材质打底 + 主题染色覆层。
+/// 系统材质玻璃底衬（磨砂形态）：系统材质打底 + 主题染色覆层。
 /// 不透明度（覆层 alpha）由用户设置驱动，且**有上限**（见 maxTintAlpha）。
 @objc public final class LGFrostedGlassView: UIView {
 
@@ -158,13 +154,27 @@ enum LGGlassMaterial {
 
 @objc public final class LGGlassViewFactory: NSObject {
 
-    /// UIView 初始化是 MainActor 隔离的；RN 的 view 创建固定发生在主线程。
+    /// 玻璃背衬工厂（双形态）。
     ///
-    /// `dark` 是 **App 主题**的明暗（不是系统明暗）：系统材质按 traitCollection 解析，
-    /// 而 App 主题可与系统不一致，必须显式下发，否则深色主题会拿到亮色材质。
-    /// 宿主 init 时还不知道主题，先按浅色建、随后由 `dark` prop 覆盖
-    /// （backing 内部只重建材质层，代价是一次 UIVisualEffectView 构造，可忽略）。
-    @objc @MainActor public static func createGlassBacking(dark: Bool) -> UIView {
+    /// `dark` 是 **App 主题**的明暗：只作用于磨砂形态（系统动态材质按 trait 解析，
+    /// 而 App 主题可与系统不一致，必须显式下发，否则深色主题会拿到亮色材质）；
+    /// 液态形态的明暗由主题染色（tint prop → setGlassTintColor → shader materialTint）
+    /// 表达，无需 trait。
+    ///
+    /// `liquid` 仅 iOS 26+ 生效（用户指定的版本带）；低版本/关闭一律回磨砂。
+    /// JS 侧由设置 theme.liquidGlass 驱动；宿主在切换时重建背衬并重放缓存属性
+    /// （见 LiquidGlassViewManager.mm 的 applyLiquidMode:）。
+    @objc @MainActor public static func createGlassBacking(dark: Bool, liquid: Bool) -> UIView {
+        if #available(iOS 26.0, *), liquid {
+            // vendored Metal 液态玻璃（DnV1eX/LiquidGlassKit 核心效果）：
+            // .regular 预设 = 染色 + 背景微模糊 + 折射 + 边缘光。isNative:false ——
+            // vendored 版已移除上游的原生 UIGlassEffect 分支（原生玻璃由磨砂形态提供），
+            // 该参数仅作文档语义。首块玻璃创建时会在设备上编译 shader（约几十 ms）。
+            let glassView = LiquidGlassEffectView(effect: LiquidGlassEffect(style: .regular, isNative: false))
+            glassView.isUserInteractionEnabled = false
+            glassView.backgroundColor = .clear
+            return glassView
+        }
         let glassView = LGFrostedGlassView(frame: .zero)
         glassView.isDarkMode = dark
         glassView.isUserInteractionEnabled = false
@@ -172,8 +182,11 @@ enum LGGlassMaterial {
         return glassView
     }
 
-    /// 主题染色：覆层基色（不透明；透明度走 glassOpacity 设置，且带上限）。
+    /// 主题染色：磨砂形态 → 染色覆层基色（透明度走 glassOpacity 设置，带上限）；
+    /// 液态形态 → shader materialTint（LiquidGlassEffectView.setGlassTintColor）。
+    /// tint 为 nil 时液态形态回玻璃预设的动态色（浅色蓝白 / 深色近黑）。
     @objc @MainActor public static func applyGlassTint(_ glassView: UIView, tint: UIColor?) {
         (glassView as? LGFrostedGlassView)?.glassTintColor = tint
+        (glassView as? LiquidGlassEffectView)?.setGlassTintColor(tint)
     }
 }

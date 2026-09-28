@@ -8,17 +8,21 @@
 //  component. JS side: src/components/common/LiquidGlass.tsx (requireNativeComponent).
 //
 //  Usage contract (JS):
-//  - Render as a leaf element (<LiquidGlass />) absolutely positioned to fill its parent;
-//    it renders the OS's own system material (iOS 26+ UIGlassEffect, otherwise
-//    UIBlurEffect(.systemMaterial)) with a capped theme tint on top — see
-//    LGGlassViewFactory.swift for why the material is never self-drawn.
+//  - Render as a leaf element (<LiquidGlass />) absolutely positioned to fill its parent.
+//    双形态背衬（liquid prop 切换，见 LGGlassViewFactory.swift）：
+//      - liquid = false（默认）：系统磨砂 —— iOS 26+ UIGlassEffect(.regular)、其余
+//        UIBlurEffect(.systemMaterial)，外加有上限的主题染色覆层；
+//      - liquid = true（仅 iOS 26+ 生效）：vendored Metal 液态玻璃（DnV1eX/LiquidGlassKit
+//        核心效果：折射 + 边缘光 + 主题染色），fps/active/touchPoint 等 Metal 专有 prop
+//        只在此形态生效（磨砂形态不实现对应 selector，respondsToSelector 分流自然跳过）。
 //  - The parent container should have `borderRadius` + `overflow: 'hidden'` (rounds the bar).
-//  - `tint` prop：染色基色（不透明主题色，明暗自适应）。
+//  - `tint` prop：染色基色（不透明主题色，明暗自适应）。两形态都吃：磨砂 → 覆层基色；
+//    液态 → shader materialTint。
 //  - `glassOpacity` prop：染色覆层的**用户值** 0~1（对应设置 theme.glassOpacity 0~100）。
-//    实际 alpha 由 LGGlassViewFactory 内的 maxTintAlpha(0.6) 封顶，用户值 1 = 染色拉满，
-//    不是「把材质盖住」。
-//  - 历史 props `fps`/`active`：液态玻璃 Metal 路径下线后为无操作空档，JS 侧仍可
-//    传值（respondsToSelector 分流），不再有任何效果。
+//    实际 alpha 由 LGGlassViewFactory 内的 maxTintAlpha(0.6) 封顶。仅磨砂形态生效
+//    （液态形态不实现 setGlassOpacity:，且设置 UI 在液态时隐藏该行）。
+//  - 主题属性（tint/glassOpacity/dark/fps/active）由宿主缓存：liquid 切换会重建背衬，
+//    RN 不会重推未变化的 prop，重建后由宿主重放（reapplyCachedPropsToBacking）。
 //
 
 #import <React/RCTConvert.h>
@@ -58,32 +62,51 @@
 @end
 
 // Host view: an RCTView so all standard RN view props (borderRadius, overflow, pointerEvents,
-// opacity, shadow*) keep working; the glass backing (the OS's own system material,见
-// LGGlassViewFactory.swift：iOS 26+ UIGlassEffect(.regular)，其余 UIBlurEffect(.systemMaterial))
-// sits inside a rounded clipping container. LGGlassViewFactory selects the backing.
-// 不再有自研 Metal 背衬；`respondsToSelector` 分流保留，是为了兼容旧 JS 可能仍在传的
-// fps/active/touchPoint 等 Metal 专有 prop（系统材质不实现这些方法，自然被跳过）。
+// opacity, shadow*) keep working; the glass backing（双形态，见 LGGlassViewFactory.swift：
+// 系统磨砂 / vendored Metal 液态玻璃，liquid prop 切换）sits inside a rounded clipping
+// container. LGGlassViewFactory selects the backing.
+// 主题属性（tint/glassOpacity/dark/fps/active）缓存在宿主：liquid 切换会重建背衬，
+// RN 不会重推未变化的 prop，重建后由宿主重放（reapplyCachedPropsToBacking）。
 // Squircle（kit cornerRoundnessExponent=4）：宿主与玻璃层统一用 continuous 圆角曲线。
 // 注：不做按压玻璃形变——玻璃材质自带高对比边缘光，在裁剪容器内任何内缩都会让
 // 材质自身的边缘线在胶囊内露出（方角/底边/内缘线均源于此），已验证两次故整体移除。
 @interface LGLiquidGlassHostView : RCTView
-/** 实际玻璃材质视图（自研 Metal LiquidGlassEffectView），tint/fps/active/触摸眩光作用于此 */
+/** 实际玻璃材质视图（系统磨砂或 vendored Metal 液态玻璃），tint/fps/active/触摸眩光作用于此 */
 @property (nonatomic, readonly) UIView *glassBacking;
+/// 切换磨砂 ↔ 液态背衬：按缓存的主题属性重建背衬（liquid 仅 iOS 26+ 实际生效，见工厂）
+- (void)applyLiquidMode:(BOOL)liquid;
+/// 以下为 RN prop 的宿主入口：更新缓存并应用到当前背衬（respondsToSelector 分流）
+- (void)applyTint:(UIColor *)tint;
+- (void)applyGlassOpacity:(CGFloat)opacity;
+- (void)applyDark:(BOOL)dark;
+- (void)applyFps:(NSInteger)fps;
+- (void)applyJsActive:(BOOL)active;
 @end
 
 @implementation LGLiquidGlassHostView {
   // _glassView = 圆角裁剪容器（圆角作用层）；_glassBacking = 内部玻璃材质视图
-  // （自研 Metal LiquidGlassEffectView）。分两层：UIKit 官方推荐的圆角毛玻璃做法，
-  // 圆角裁剪容器让玻璃形状与宿主完全一致。
+  // （系统磨砂 LGFrostedGlassView 或 vendored Metal LiquidGlassEffectView）。
+  // 分两层：UIKit 官方推荐的圆角毛玻璃做法，圆角裁剪容器让玻璃形状与宿主完全一致。
   UIView *_glassView;
   UIView *_glassBacking;
+  // 主题属性缓存：liquid 切换重建背衬后由 reapplyCachedPropsToBacking 重放
+  // （RN 只推送变化的 prop，未变化的不会自动重发，必须由宿主重放）。
+  BOOL _liquid;
+  BOOL _dark;
+  CGFloat _glassOpacity;
+  UIColor *_tint;
+  NSInteger _fps;
+  BOOL _jsActive;
+  BOOL _hasJsActive;
 }
 
 - (instancetype)initWithFrame:(CGRect)frame {
   if (self = [super initWithFrame:frame]) {
-    // 宿主 init 时主题尚未下发，先按浅色建；随后 dark prop 会覆盖（backing 内部只重建
-    // 材质层，不重建 backing 本身，故 tint/glassOpacity 不会丢）。
-    [self installGlassBacking:[LGGlassViewFactory createGlassBackingWithDark:NO]];
+    _glassOpacity = 0.4;
+    _fps = 60;
+    // 宿主 init 时主题尚未下发，先按浅色磨砂建；随后 dark/liquid prop 会按需切换
+    // （dark 只重建磨砂材质层；liquid 重建整个背衬，缓存属性由宿主重放）。
+    [self installGlassBacking:[LGGlassViewFactory createGlassBackingWithDark:NO liquid:NO]];
     self.clipsToBounds = YES;
     // 常量名在旧 SDK(UIViewCornerCurveContinuous)与新 SDK(Xcode 26 起的 UICornerCurve 系列)间不一致,
     // 直接用底层字符串值,两端 SDK 均可编译且运行时行为相同。
@@ -93,6 +116,9 @@
 }
 
 - (void)installGlassBacking:(UIView *)backing {
+  // liquid 切换会重复安装：先移除旧容器（背衬随容器一起移除；液态视图的窗口级
+  // 手势观察在其 didMoveToWindow 里自行清理）。
+  [_glassView removeFromSuperview];
   // 玻璃材质视图包进圆角裁剪容器：容器圆角+裁剪让玻璃形状与宿主完全一致。
   // 容器与背景层都不参与命中测试：触摸一律穿透到上层的 RN 内容视图
   // （Tab 项、播放条按钮、宿主手势）
@@ -119,6 +145,61 @@
   container.layer.borderColor = [UIColor colorWithWhite:0 alpha:0.12].CGColor;
   _glassBacking = backing;
   _glassView = container;
+  // 新背衬不携带任何旧属性：重放缓存的主题属性（tint/glassOpacity/dark/fps/active）
+  [self reapplyCachedPropsToBacking];
+}
+
+// 把缓存的主题属性重放到当前背衬。各 apply* 方法内部按 respondsToSelector 分流：
+// 磨砂不实现 Metal 专有 selector（setPreferredFramesPerSecond:/setJsActive:），
+// 液态不实现磨砂专有 selector（setGlassOpacity:/setIsDarkMode:——液态的明暗/浓度
+// 由主题染色表达、设置 UI 已隐藏对应行）。
+- (void)reapplyCachedPropsToBacking {
+  [self applyTint:_tint];
+  [self applyGlassOpacity:_glassOpacity];
+  [self applyDark:_dark];
+  [self applyFps:_fps];
+  if (_hasJsActive) [self applyJsActive:_jsActive];
+}
+
+// 切换磨砂 ↔ 液态背衬（liquid prop 驱动；仅 iOS 26+ 实际切换，低版本工厂回磨砂）
+- (void)applyLiquidMode:(BOOL)liquid {
+  if (liquid == _liquid) return;
+  _liquid = liquid;
+  [self installGlassBacking:[LGGlassViewFactory createGlassBackingWithDark:_dark liquid:_liquid]];
+}
+
+- (void)applyTint:(UIColor *)tint {
+  _tint = tint;
+  [LGGlassViewFactory applyGlassTint:_glassBacking tint:_tint];
+}
+
+- (void)applyGlassOpacity:(CGFloat)opacity {
+  _glassOpacity = opacity;
+  if ([_glassBacking respondsToSelector:@selector(setGlassOpacity:)]) {
+    [_glassBacking setGlassOpacity:_glassOpacity];
+  }
+}
+
+- (void)applyDark:(BOOL)dark {
+  _dark = dark;
+  if ([_glassBacking respondsToSelector:@selector(setIsDarkMode:)]) {
+    [_glassBacking setIsDarkMode:_dark];
+  }
+}
+
+- (void)applyFps:(NSInteger)fps {
+  _fps = fps;
+  if ([_glassBacking respondsToSelector:@selector(setPreferredFramesPerSecond:)]) {
+    [_glassBacking setPreferredFramesPerSecond:_fps];
+  }
+}
+
+- (void)applyJsActive:(BOOL)active {
+  _jsActive = active;
+  _hasJsActive = YES;
+  if ([_glassBacking respondsToSelector:@selector(setJsActive:)]) {
+    [_glassBacking setJsActive:active];
+  }
 }
 
 - (void)layoutSubviews {
@@ -186,27 +267,23 @@ RCT_EXPORT_MODULE(LiquidGlassView)
 }
 
 RCT_CUSTOM_VIEW_PROPERTY(fps, NSNumber, LGLiquidGlassHostView) {
-  // 仅自研 Metal 路径支持（原生 UIGlassEffect 由系统合成，无需该控制）；
-  // prop 被移除/重置时 json 为 nil，回到 60 的默认值
-  id<LGGlassMetalBacking> glass = (id<LGGlassMetalBacking>)view.glassBacking;
-  if (![glass respondsToSelector:@selector(setPreferredFramesPerSecond:)]) return;
-  [glass setPreferredFramesPerSecond:(json != nil ? [json integerValue] : 60)];
+  // 仅液态形态支持（磨砂由系统合成，无需该控制）；prop 被移除/重置时 json 为 nil，
+  // 回到 60 的默认值
+  [view applyFps:(json != nil ? [json integerValue] : 60)];
 }
 
 // 主题染色：玻璃材质色跟随 App 主题（JS 传入主题氛围色 rgba 字符串）。
-// 仅自研 Metal 路径生效（原生路径的染色在 Swift 工厂内处理或走系统默认）。
+// 磨砂 → 染色覆层基色；液态 → shader materialTint（工厂内分派）。
 RCT_CUSTOM_VIEW_PROPERTY(tint, NSString, LGLiquidGlassHostView) {
   if (json == nil) return;
-  [LGGlassViewFactory applyGlassTint:view.glassBacking tint:[RCTConvert UIColor:json]];
+  [view applyTint:[RCTConvert UIColor:json]];
 }
 
 // 染色覆层的**用户值**（0~1，对应设置 theme.glassOpacity 0~100）。
-// json 为 nil（prop 未传/重置）时回默认 0.4。
-// 注意：原生侧会再乘 maxTintAlpha(0.6) 封顶，见 LGGlassViewFactory.swift。
+// json 为 nil（prop 未传/重置）时回默认 0.4。仅磨砂形态生效；
+// 原生侧会再乘 maxTintAlpha(0.6) 封顶，见 LGGlassViewFactory.swift。
 RCT_CUSTOM_VIEW_PROPERTY(glassOpacity, NSNumber, LGLiquidGlassHostView) {
-  id backing = view.glassBacking;
-  if (![backing respondsToSelector:@selector(setGlassOpacity:)]) return;
-  [backing setGlassOpacity:(json != nil ? [json floatValue] : 0.4)];
+  [view applyGlassOpacity:(json != nil ? [json floatValue] : 0.4)];
 }
 
 // App 主题明暗（JS 传 theme.isDark）。
@@ -217,9 +294,7 @@ RCT_CUSTOM_VIEW_PROPERTY(glassOpacity, NSNumber, LGLiquidGlassHostView) {
 // tint / glassOpacity 由 backing 自身持有，重建不丢，宿主无需重建 backing。
 // json 为 nil（prop 未传/重置）时回默认浅色 NO。
 RCT_CUSTOM_VIEW_PROPERTY(dark, NSNumber, LGLiquidGlassHostView) {
-  id backing = view.glassBacking;
-  if (![backing respondsToSelector:@selector(setIsDarkMode:)]) return;
-  [backing setIsDarkMode:(json != nil ? [json boolValue] : NO)];
+  [view applyDark:(json != nil ? [json boolValue] : NO)];
 }
 
 // JS 脉冲活跃开关（省电核心）：玻璃背后内容在无触摸交互下发生变化（切 Tab、换主题、
@@ -228,9 +303,14 @@ RCT_CUSTOM_VIEW_PROPERTY(dark, NSNumber, LGLiquidGlassHostView) {
 // 仅自研 Metal 路径支持；json 为 nil（prop 未传）时不动作。
 RCT_CUSTOM_VIEW_PROPERTY(active, NSNumber, LGLiquidGlassHostView) {
   if (json == nil) return;
-  id<LGGlassMetalBacking> glass = (id<LGGlassMetalBacking>)view.glassBacking;
-  if (![glass respondsToSelector:@selector(setJsActive:)]) return;
-  [glass setJsActive:[json boolValue]];
+  [view applyJsActive:[json boolValue]];
+}
+
+// 液态玻璃开关（设置 theme.liquidGlass，仅 iOS 26+ 实际生效）：
+// 切换时重建背衬（磨砂 ↔ vendored Metal 液态玻璃），缓存的主题属性由宿主重放。
+// json 为 nil（prop 未传/重置）时回磨砂。
+RCT_CUSTOM_VIEW_PROPERTY(liquid, NSNumber, LGLiquidGlassHostView) {
+  [view applyLiquidMode:(json != nil ? [json boolValue] : NO)];
 }
 
 @end

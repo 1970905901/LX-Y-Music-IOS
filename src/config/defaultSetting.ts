@@ -172,6 +172,9 @@ const defaultSetting: LX.AppSetting = {
   'theme.blur': 18,
   'theme.fontShadow': false,
   'theme.glassOpacity': 40,
+  // 液态玻璃（vendored LiquidGlassKit Metal 折射）开关，仅 iOS 26+ 生效；
+  // 关闭走系统磨砂。「玻璃不透明度」设置只对磨砂形态有意义（见 ThemeScreen）
+  'theme.liquidGlass': true,
   'theme.isLandscapeStretch': false,
   'theme.customBgPicPath': '',
   'theme.picOpacity': 76,

@@ -7,7 +7,7 @@ import Pic from './components/Pic'
 import Title from './components/Title'
 import PlayInfo from './components/PlayInfo'
 import ControlBtn from './components/ControlBtn'
-import { createStyle } from '@/utils/tools'
+import { createStyle, isIOS26OrAbove } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
 import { useSettingValue } from '@/store/setting/hook'
 import { navigations } from '@/navigation'
@@ -37,6 +37,10 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
   // theme.glassOpacity 用户设置驱动
   const glassTint = useMemo(() => theme['c-primary-light-600'], [theme])
   const glassOpacity = useSettingValue('theme.glassOpacity') / 100
+  // 液态玻璃开关：仅 iOS 26+ 生效（低版本/关闭 → 系统磨砂），实时响应设置切换。
+  // hook 必须无条件调用（isIOS26OrAbove 是模块常量，用 && 组合而非短路进 hook）
+  const liquidGlassSetting = useSettingValue('theme.liquidGlass')
+  const liquidGlassOn = isIOS26OrAbove && liquidGlassSetting
 
   // Tab 栏收起时（仅 Home）：迷你播放器下移到收起按钮所在行并左侧让位（对齐参考交互）。
   // 动画为逐帧收窄：bottom/paddingLeft 两布局属性随 220ms 插值同步变化，胶囊边收窄
@@ -104,7 +108,7 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
             style={[styles.container, isHorizontalMode ? styles.horizontalContainer : null]}
             onLayout={(e) => { setMiniPlayerHeight(e.nativeEvent.layout.height) }}
           >
-            <LiquidGlass tint={glassTint} glassOpacity={glassOpacity} dark={theme.isDark} style={{ borderRadius: designRadius.xl }} />
+            <LiquidGlass tint={glassTint} glassOpacity={glassOpacity} dark={theme.isDark} liquid={liquidGlassOn} style={{ borderRadius: designRadius.xl }} />
             <TouchableOpacity style={styles.left} onPress={handleNavigate} activeOpacity={0.8}>
               <Pic />
               <View style={styles.center}>
@@ -119,7 +123,7 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
         </Animated.View>
       )
     },
-    [glassTint, glassOpacity, theme.isDark, isHome, handleNavigate, safeAreaBottom, isHorizontalMode, collapseAnim],
+    [glassTint, glassOpacity, liquidGlassOn, theme.isDark, isHome, handleNavigate, safeAreaBottom, isHorizontalMode, collapseAnim],
   )
 
   return keyboardShown ? null : playerComponent

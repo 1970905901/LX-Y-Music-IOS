@@ -165,6 +165,12 @@ declare global {
       'webdav.downloadPath': string
       'sync.webdav.path': string
       'sync.webdav.lastSyncTimeLists': number
+
+      /**
+       * 液态玻璃（vendored LiquidGlassKit 的 Metal 折射）开关，仅 iOS 26+ 生效；
+       * 关闭走系统磨砂。「玻璃不透明度」设置只对磨砂形态有意义。
+       */
+      'theme.liquidGlass': boolean
     }
   }
 }

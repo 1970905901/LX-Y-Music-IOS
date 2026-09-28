@@ -5,7 +5,7 @@ import { useI18n } from '@/lang'
 import { useNavActiveId, useSafeAreaBottom } from '@/store/common/hook'
 import { setNavActiveId } from '@/core/common'
 import { useSettingValue } from '@/store/setting/hook'
-import { createStyle } from '@/utils/tools'
+import { createStyle, isIOS26OrAbove } from '@/utils/tools'
 import { scaleSizeW } from '@/utils/pixelRatio'
 import { pulseLiquidGlass } from '@/utils/liquidGlassActivity'
 import { useTabBarCollapsed, useMiniPlayerHeight } from '@/utils/tabBarCollapse'
@@ -100,6 +100,11 @@ export default memo(() => {
   // theme.glassOpacity 用户设置驱动，实时响应滑杆调节
   const glassTint = useMemo(() => theme['c-primary-light-600'], [theme])
   const glassOpacity = useSettingValue('theme.glassOpacity') / 100
+  // 液态玻璃开关：仅 iOS 26+ 生效（低版本/关闭 → 系统磨砂）。实时响应设置切换，
+  // 原生按 liquid prop 重建背衬并重放缓存的主题属性。
+  // 注意 hook 必须无条件调用（isIOS26OrAbove 是模块常量，用 && 组合而非短路进 hook）
+  const liquidGlassSetting = useSettingValue('theme.liquidGlass')
+  const liquidGlassOn = isIOS26OrAbove && liquidGlassSetting
 
   // 无触摸的内容变化时恢复玻璃渲染（静止时原生渲染时钟是暂停的）：
   // 切 Tab 会整体替换背后内容（页面切换动画约 300ms，脉冲 500ms 足够覆盖，
@@ -158,7 +163,7 @@ export default memo(() => {
         pointerEvents={collapsed ? 'auto' : 'none'}
       >
         <Pressable style={styles.pillInner} onPress={handlePillPress}>
-          <LiquidGlass tint={glassTint} glassOpacity={glassOpacity} dark={theme.isDark} style={{ borderRadius: designRadius.pill }} />
+          <LiquidGlass tint={glassTint} glassOpacity={glassOpacity} dark={theme.isDark} liquid={liquidGlassOn} style={{ borderRadius: designRadius.pill }} />
           <View style={styles.pillIcon} pointerEvents="none">
             <Icon name="menu" size={20} color={theme['c-primary']} />
           </View>
@@ -176,7 +181,7 @@ export default memo(() => {
         pointerEvents={collapsed ? 'none' : 'auto'}
       >
         {/* 玻璃衬底带与容器一致的圆角：按压下陷内缩时仍呈圆角，不露直角边 */}
-        <LiquidGlass tint={glassTint} glassOpacity={glassOpacity} dark={theme.isDark} style={{ borderRadius: designRadius.xl }} />
+        <LiquidGlass tint={glassTint} glassOpacity={glassOpacity} dark={theme.isDark} liquid={liquidGlassOn} style={{ borderRadius: designRadius.xl }} />
         {TAB_IDS.map((tab) => {
           const isActive = activeId === tab.id
           return (

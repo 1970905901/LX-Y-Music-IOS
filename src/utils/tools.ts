@@ -56,6 +56,9 @@ export const isAndroid = Platform.OS === 'android'
 // 统一用跨平台的 Platform.Version（iOS 返回 osVersion，Android 返回 Release）。
 export const osVer = String(Platform.Version)
 
+/** iOS 主版本号 ≥ 26：液态玻璃开关的生效版本带；低版本只提供系统磨砂 */
+export const isIOS26OrAbove = Number.parseInt(osVer, 10) >= 26
+
 export const isActive = () => AppState.currentState == 'active'
 
 export const TEMP_FILE_PATH = temporaryDirectoryPath + '/tempFile'

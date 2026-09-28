@@ -368,6 +368,7 @@
   "setting_basic_theme_dynamic_bg": "使用动态背景",
   "setting_basic_theme_landscape_stretch": "横屏界面拉伸",
   "setting_basic_theme_font_shadow": "启用字体阴影",
+  "setting_basic_theme_liquid_glass": "液态玻璃",
   "setting_basic_theme_sidebar_opacity": "侧边栏透明度",
   "setting_basic_theme_sub_container_opacity": "容器背景不透明度",
   "setting_basic_theme_sub_container_opacity_desc": "只影响「基本设置 → 自定义源」和「播放设置 → 播放失败策略」里的列表容器底色，其它界面不受影响。",

@@ -132,6 +132,15 @@ const updateMetaInfo = async(mInfo: LX.Player.MusicInfo, lyric?: string, isPlayi
     elapsedTime: isNativeFlacActive()
       ? await getNativeFlacPosition().catch(() => 0)
       : await getAccuratePosition().catch(() => 0),
+    // iOS 控制中心歌词由原生时钟（锚点 + 速率外推）驱动，它读的是现在信息里缓存的
+    // PlaybackRate。pauseNowPlaying 会把该缓存写成 0，而此前的逐行元数据【不带】
+    // playbackRate，缓存就永远停在 0：原生时钟判定「非播放」直接 return，歌词冻结在
+    // 锚点行，表现为控制中心歌词不实时同步（暂停/播放一次才恢复）。
+    // 每次发布都带上当前真实速率（暂停时给 0），缓存与系统进度外推都不会再被写脏；
+    // 原生侧同时据此把可能残留的时钟冻结标志解除。
+    ...(Platform.OS == 'ios'
+      ? { playbackRate: isPlaying ? settingState.setting['player.playbackRate'] : 0 }
+      : {}),
   }
   await updateCurrentTrackMetadata(metadata)
 }

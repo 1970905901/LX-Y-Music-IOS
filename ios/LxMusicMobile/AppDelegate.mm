@@ -693,6 +693,7 @@ static void LXClearNowPlayingLyricLines(void);
 static void LXReanchorNowPlayingLyric(double elapsedMs);
 static void LXStartNowPlayingLyricTimer(void);
 static void LXQueueNowPlayingLyricRedraw(void);
+static void LXForceNowPlayingCardRepaint(void);
 static NSObject *LXLyricLock(void);
 // 播放位置事件（原生 4Hz 外推位置广播给 JS，驱动进度条等 UI，替代 JS 侧桥接轮询）
 static NSNotificationName const LXPlayerPositionNotificationName = @"LXPlayerPosition";
@@ -1074,6 +1075,11 @@ static void LXSetNowPlayingInfo(NSDictionary *metadata) {
     if (elapsedTime != nil) info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = elapsedTime;
     info[MPNowPlayingInfoPropertyPlaybackRate] = playbackRate ?: info[MPNowPlayingInfoPropertyPlaybackRate] ?: LXDefaultNowPlayingRate();
     info[MPNowPlayingInfoPropertyDefaultPlaybackRate] = info[MPNowPlayingInfoPropertyDefaultPlaybackRate] ?: LXNowPlayingDefaultPlaybackRateValue();
+    // JS 以正速率发布 = 断言「当前正在播放」：解除可能残留的时钟冻结（hold）。
+    // nativeFlac 驱动下 TrackPlayer 已 reset、不再产生 state 生命周期事件，hold 若
+    // 停留在 reset 时的 YES，原生歌词时钟会永久冻在锚点行（控制中心歌词不实时同步）。
+    // 逐行歌词元数据现在携带正速率，任何一次换行都能把时钟自愈回正常外推。
+    if (playbackRate != nil && playbackRate.doubleValue > 0) LXNowPlayingClockHold = NO;
 
     if (isNewSong) LXClearNowPlayingLyricLines();
     // 歌词时钟锚点：以本次发布的引擎真实位置（elapsedTime）为基准外推；
@@ -1090,6 +1096,13 @@ static void LXSetNowPlayingInfo(NSDictionary *metadata) {
       LXSetNowPlayingArtwork(artworkPath);
     } else {
       LXApplyNowPlayingInfo();
+    }
+
+    // 卡片可见（App 非 active = 控制中心/锁屏已打开）时，JS 侧写入的歌词行同样
+    // 需要一次强制重绘，否则系统不会实时刷新媒体卡片。前台无卡片时整体跳过，
+    // 避免每次换行都做一次无意义的 playbackState 翻转。
+    if ([UIApplication sharedApplication].applicationState != UIApplicationStateActive) {
+      LXForceNowPlayingCardRepaint();
     }
   }
 }
@@ -1109,9 +1122,9 @@ static dispatch_queue_t LXNowPlayingLyricQueue = nil;
 static double LXNowPlayingLyricAnchorSystemMs = 0;  // CACurrentMediaTime() 毫秒
 static double LXNowPlayingLyricAnchorElapsedMs = 0; // 锚点对应的播放位置（ms）
 static NSInteger LXNowPlayingLyricIndex = -1;
-// 强制重绘排队步数：非前台（控制中心/锁屏打开）下推送歌词行后置 2，后续两个
-// tick 依次把 playbackState 切反/切回，强制系统重绘媒体卡片（详见 tick 内注释）
-static NSInteger LXNowPlayingRedrawPending = 0;
+// 强制重绘单飞标志 / 待办标志：见 LXForceNowPlayingCardRepaint()
+static BOOL LXNowPlayingCardRepaintInFlight = NO;
+static BOOL LXNowPlayingCardRepaintQueued = NO;
 
 // 临时诊断（定位控制中心歌词冻结，定位后置 0 关闭）：非前台时把时钟内部状态
 // 写进媒体卡片 artist 字段——D+计数前进=时钟运行且卡片可重绘；计数冻结=时钟
@@ -1151,16 +1164,26 @@ static void LXClearNowPlayingLyricLines(void) {
   @synchronized (LXLyricLock()) {
     LXNowPlayingLyricLines = nil;
     LXNowPlayingLyricIndex = -1;
-    LXNowPlayingRedrawPending = 0;
   }
 }
 
 static void LXNowPlayingLyricStep(void) {
   @synchronized (LXLyricLock()) {
-    NSNumber *rate = [LXNowPlayingInfoCache[MPNowPlayingInfoPropertyPlaybackRate] isKindOfClass:[NSNumber class]]
+    NSNumber *cachedRate = [LXNowPlayingInfoCache[MPNowPlayingInfoPropertyPlaybackRate] isKindOfClass:[NSNumber class]]
       ? LXNowPlayingInfoCache[MPNowPlayingInfoPropertyPlaybackRate]
       : nil;
-    BOOL isPlayingRate = rate.doubleValue > 0;
+    double rate = cachedRate.doubleValue;
+    // 速率缓存为 0、但控制中心播放态是「播放中」：缓存被一次 pause 发布写成 0，
+    // 而此前的逐行歌词元数据不带 playbackRate，缓存永远不会被恢复——此时若按
+    // 「暂停」直接 return，歌词时钟会永久冻结在锚点行，表现为控制中心歌词不再
+    // 实时同步。这里以播放态兜底恢复速率（LXDefaultNowPlayingRate 在 Playing 时
+    // 返回 1、否则返回 0），并把恢复值写回缓存，避免系统也按 rate=0 停止外推。
+    if (rate <= 0) {
+      NSNumber *fallbackRate = LXDefaultNowPlayingRate();
+      if (fallbackRate.doubleValue <= 0) return; // 真·暂停/停止：歌词不推进
+      rate = fallbackRate.doubleValue;
+      LXNowPlayingInfoCache[MPNowPlayingInfoPropertyPlaybackRate] = fallbackRate;
+    }
     BOOL appActive = [UIApplication sharedApplication].applicationState == UIApplicationStateActive;
 
 #if LX_LYRIC_DEBUG
@@ -1173,12 +1196,10 @@ static void LXNowPlayingLyricStep(void) {
         mark = @"无时间轴";
       } else if (LXNowPlayingLyricAnchorSystemMs <= 0) {
         mark = @"无锚点";
-      } else if (!isPlayingRate) {
-        mark = @"已暂停";
-      } else if (LXNowPlayingLyricAnchorSystemMs > 0) {
+      } else {
         double positionMs = LXNowPlayingClockHold
           ? LXNowPlayingLyricAnchorElapsedMs
-          : LXNowPlayingLyricAnchorElapsedMs + ((CACurrentMediaTime() * 1000.0) - LXNowPlayingLyricAnchorSystemMs) * rate.doubleValue;
+          : LXNowPlayingLyricAnchorElapsedMs + ((CACurrentMediaTime() * 1000.0) - LXNowPlayingLyricAnchorSystemMs) * rate;
         NSUInteger lo = 0, hi = LXNowPlayingLyricLines.count - 1;
         NSInteger found = -1;
         while (lo <= hi) {
@@ -1192,7 +1213,7 @@ static void LXNowPlayingLyricStep(void) {
         // 前缀带冻结标志与速率：区别「时钟被 hold 冻结」（冻:，文本不再前进但 D 计数
         // 前进）与「时钟行走但卡片不重绘」（走:，文本与 D 同停时=不重绘）。
         mark = [NSString stringWithFormat:@"%@R%.1f %@",
-                LXNowPlayingClockHold ? @"冻:" : @"走:", rate.doubleValue, mark];
+                LXNowPlayingClockHold ? @"冻:" : @"走:", rate, mark];
         }
         LXNowPlayingInfoCache[MPMediaItemPropertyArtist] = [NSString stringWithFormat:@"D%ld %@", (long)dbgTick, mark ?: @""];
       LXApplyNowPlayingInfo();
@@ -1200,42 +1221,22 @@ static void LXNowPlayingLyricStep(void) {
     }
 #endif
 
-    if (!isPlayingRate) return; // 暂停时歌词不推进
     if (LXNowPlayingLyricAnchorSystemMs <= 0) return;
     // 时钟冻结（缓冲/暂停等非播放态，由 RNTP state 事件置位）：停在最后已知的
     // 引擎位置，不随墙钟外推——音频微缓冲走走停停时，外推持续超前正是
     // "同步一句停一会、隔几句又同步"的根因
     double positionMs = LXNowPlayingClockHold
       ? LXNowPlayingLyricAnchorElapsedMs
-      : LXNowPlayingLyricAnchorElapsedMs + ((CACurrentMediaTime() * 1000.0) - LXNowPlayingLyricAnchorSystemMs) * rate.doubleValue;
+      : LXNowPlayingLyricAnchorElapsedMs + ((CACurrentMediaTime() * 1000.0) - LXNowPlayingLyricAnchorSystemMs) * rate;
     // 位置事件枢纽：前台播放时把外推位置广播给 JS（4Hz 单向事件），驱动进度条等
     // UI，替代 JS 侧每 250ms 两次桥接查询（getPosition + 引擎状态）。后台/熄屏
     // 不发（无 UI 需要更新）。
     if ([UIApplication sharedApplication].applicationState == UIApplicationStateActive) {
       [[NSNotificationCenter defaultCenter] postNotificationName:LXPlayerPositionNotificationName
                                                           object:nil
-                                                        userInfo:@{ @"position": @(positionMs / 1000.0), @"rate": rate }];
+                                                          userInfo:@{ @"position": @(positionMs / 1000.0), @"rate": @(rate) }];
     }
     if (LXNowPlayingLyricLines.count == 0) return;
-    // 强制重绘步骤：仅重发 nowPlayingInfo 在部分系统版本上不会让控制中心/锁屏
-    // 重绘媒体卡片（本项目封面流程已验证：需暂停再播放才重绘，代码里封面流程
-    // 用的就是 playbackState 切反再切回的强制重绘）。歌词行在此处同理——不在
-    // 非前台时强制重绘，控制中心歌词就会冻结在打开前的那一行。
-    if (LXNowPlayingRedrawPending > 0 && LXNowPlayingInfoCache.count > 0) {
-      MPNowPlayingPlaybackState current = LXNowPlayingState;
-      MPNowPlayingPlaybackState opposite = (current == MPNowPlayingPlaybackStatePlaying)
-        ? MPNowPlayingPlaybackStatePaused
-        : MPNowPlayingPlaybackStatePlaying;
-      MPNowPlayingInfoCenter *center = [MPNowPlayingInfoCenter defaultCenter];
-      if (LXNowPlayingRedrawPending == 2) {
-        center.playbackState = opposite;
-        LXNowPlayingRedrawPending = 1;
-      } else {
-        center.playbackState = current;
-        LXApplyNowPlayingInfo();
-        LXNowPlayingRedrawPending = 0;
-      }
-    }
     // 二分查找当前行（lines 按 time 升序）
     NSUInteger lo = 0, hi = LXNowPlayingLyricLines.count - 1;
     NSInteger found = -1;
@@ -1257,13 +1258,12 @@ static void LXNowPlayingLyricStep(void) {
     LXNowPlayingInfoCache[MPMediaItemPropertyArtist] = text;
     NSLog(@"[LXLyric] tick push line %ld @ %.0fms: %@", (long)LXNowPlayingLyricIndex, positionMs, text);
     LXApplyNowPlayingInfo();
-    // 行变化后无条件排队强制重绘：实测 App 前台但控制中心拉下时，系统并不会实时
-    // 刷新媒体卡片——卡片冻结在下拉前的那一行，每次重新下拉才前进一行（仅重发
-    // nowPlayingInfo 不触发重绘，必须 playbackState 切反再切回）。此前的
-    // applicationState != Active 条件恰好把「前台 + 控制中心打开」这个用户实际
-    // 看得见卡片的场景排除在强制重绘之外，是控制中心歌词不动的直接原因。
-    // 前台无控制中心时重绘的是不可见卡片，开销可忽略（仅行变化时触发，非每 tick）。
-    LXNowPlayingRedrawPending = 2;
+    // 行变化后立即强制重绘媒体卡片：实测系统不会因为「重发 nowPlayingInfo」就实时
+    // 刷新卡片——卡片冻结在上次重绘时的那一行（表现为控制中心歌词不实时同步），
+    // 必须把 playbackState 切反再切回（等效用户手动暂停→播放）才触发整张卡片重绘。
+    // 此前是「排两拍、由后续两个 tick 分步翻转」，单行最多额外滞后 500ms，且中途
+    // 一直是假的「已暂停」态（进度条停走）；现在改为主队列上原子完成，只持续 60ms。
+    LXForceNowPlayingCardRepaint();
   }
 }
 
@@ -1271,10 +1271,12 @@ static void LXStartNowPlayingLyricTimer(void) {
   if (LXNowPlayingLyricTimer != nil) return;
   LXNowPlayingLyricQueue = dispatch_queue_create("com.lxmusic.nowplaying.lyric", DISPATCH_QUEUE_SERIAL);
   dispatch_source_t timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, LXNowPlayingLyricQueue);
+  // 周期 0.12s：换行检测的最坏延迟从 250ms 降到 120ms（时钟只做一次二分查找，
+  // 未换行时立即返回，开销可忽略）。控制中心歌词的「实时感」主要就取决于这一拍。
   dispatch_source_set_timer(timer,
-                            dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.25 * NSEC_PER_SEC)),
-                            (uint64_t)(0.25 * NSEC_PER_SEC),
-                            (uint64_t)(0.05 * NSEC_PER_SEC));
+                            dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.12 * NSEC_PER_SEC)),
+                            (uint64_t)(0.12 * NSEC_PER_SEC),
+                            (uint64_t)(0.03 * NSEC_PER_SEC));
   dispatch_source_set_event_handler(timer, ^{ LXNowPlayingLyricStep(); });
   dispatch_resume(timer);
   LXNowPlayingLyricTimer = timer;
@@ -1297,17 +1299,62 @@ static void LXSetNowPlayingLyricLines(NSArray<NSDictionary *> *lines) {
   if (LXNowPlayingLyricLines != nil) LXStartNowPlayingLyricTimer();
 }
 
-// App 转入 inactive（下拉控制中心 / 通知中心 / 锁屏）时排队一次强制重绘：
+// App 转入 inactive（下拉控制中心 / 通知中心 / 锁屏）时补一次强制重绘：
 // 媒体卡片在下拉瞬间只渲染一次快照（下拉前已提交的行），若不在打开时补一次
 // 重绘，用户第一眼看到的歌词停留在下拉前，直到下一个换行点才前进。
 // 由 AppDelegate 的 UIApplicationWillResignActiveNotification 观察者调用。
 static void LXQueueNowPlayingLyricRedraw(void) {
   @synchronized (LXLyricLock()) {
     if (LXNowPlayingLyricLines.count == 0) return;
-    if (LXNowPlayingRedrawPending > 0) return;
-    LXNowPlayingRedrawPending = 2;
   }
-  NSLog(@"[LXLyric] resign active: queued lyric card redraw");
+  LXForceNowPlayingCardRepaint();
+}
+
+// 强制控制中心 / 锁屏重绘媒体卡片（歌词换行时调用）。
+//
+// 为什么必须做：实测 iOS 上「只重发 nowPlayingInfo」并不会让控制中心/锁屏刷新
+// 媒体卡片——卡片冻结在上次重绘时的那一行，每次重新下拉才前进一行，表现为
+// 控制中心歌词不实时同步；只有把 playbackState 切到相反值再切回（等效用户
+// 手动暂停→播放）才会触发整张卡片重绘。本项目封面链路用的也是同一招。
+//
+// 与旧实现（tick 里置 2、由后续两个 tick 分步切反/切回）的区别：
+// 1) 旧实现一次重绘要跨 2 拍（0.5s），换行密集时还会被下一次换行反复推迟，
+//    卡片会长时间停在假的「已暂停」态（进度条停走、锁屏卡片可能被折叠）；
+//    这里改为主队列原子完成：立即切反，60ms 后切回并重发信息。
+// 2) 旧实现没有单飞保护，换行密集时会叠加多次翻转。这里 inFlight/Queued
+//    两级保护：执行中收到新请求只记一个待办，完成后再补一次（不丢换行）。
+static void LXForceNowPlayingCardRepaint(void) {
+  if (![NSThread isMainThread]) {
+    dispatch_async(dispatch_get_main_queue(), ^{ LXForceNowPlayingCardRepaint(); });
+    return;
+  }
+  // 部署目标 iOS 14.0，MPNowPlayingInfoCenter.playbackState 恒可用，无需 @available 守卫
+  // 与歌词时钟（专用串行队列）共享同一把锁读缓存：时钟线程可能在写
+  BOOL hasInfo = NO;
+  @synchronized (LXLyricLock()) {
+    hasInfo = LXNowPlayingInfoCache.count > 0;
+  }
+  if (!hasInfo) return;
+  if (LXNowPlayingCardRepaintInFlight) {
+    LXNowPlayingCardRepaintQueued = YES;
+    return;
+  }
+  LXNowPlayingCardRepaintInFlight = YES;
+  MPNowPlayingInfoCenter *center = [MPNowPlayingInfoCenter defaultCenter];
+  MPNowPlayingPlaybackState current = LXNowPlayingState;
+  MPNowPlayingPlaybackState opposite = (current == MPNowPlayingPlaybackStatePlaying)
+    ? MPNowPlayingPlaybackStatePaused
+    : MPNowPlayingPlaybackStatePlaying;
+  center.playbackState = opposite;
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.06 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+    center.playbackState = current;
+    LXApplyNowPlayingInfo();
+    LXNowPlayingCardRepaintInFlight = NO;
+    if (LXNowPlayingCardRepaintQueued) {
+      LXNowPlayingCardRepaintQueued = NO;
+      LXForceNowPlayingCardRepaint();
+    }
+  });
 }
 
 static UIViewController *LXTopViewController(void) {

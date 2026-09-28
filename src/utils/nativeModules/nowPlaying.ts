@@ -28,6 +28,8 @@ interface NativeNowPlayingModule {
   stopNowPlaying?: (options?: NowPlayingStateOptions) => Promise<void>
   clearNowPlayingInfo?: () => Promise<void>
   setNowPlayingLyrics?: (lines: NowPlayingLyricLine[]) => Promise<void>
+  /** 引擎真实位置回传，重锚原生歌词/位置时钟（AppDelegate.mm 的 RCT_REMAP_METHOD 同名导出） */
+  reanchorNowPlayingLyric?: (positionMs: number) => Promise<void>
 }
 
 const NowPlayingModule = NativeModules.NowPlayingModule as NativeNowPlayingModule | undefined

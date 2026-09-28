@@ -5,7 +5,7 @@ import { useI18n } from '@/lang'
 import { useNavActiveId, useSafeAreaBottom } from '@/store/common/hook'
 import { setNavActiveId } from '@/core/common'
 import { useSettingValue } from '@/store/setting/hook'
-import { createStyle, isIOS26OrAbove } from '@/utils/tools'
+import { createStyle } from '@/utils/tools'
 import { scaleSizeW } from '@/utils/pixelRatio'
 import { useTabBarCollapsed, useMiniPlayerHeight } from '@/utils/tabBarCollapse'
 import { setTabBarExpanded } from '@/utils/nativeModules/utils'
@@ -99,13 +99,10 @@ export default memo(() => {
   // theme.glassOpacity 用户设置驱动，实时响应滑杆调节
   const glassTint = useMemo(() => theme['c-primary-light-600'], [theme])
   const glassOpacity = useSettingValue('theme.glassOpacity') / 100
-  // 液态玻璃开关：仅 iOS 26+ 生效（低版本/关闭 → 系统磨砂）。实时响应设置切换，
-  // 原生按 liquid prop 重建背衬并重放缓存的主题属性。
-  // 注意 hook 必须无条件调用（isIOS26OrAbove 是模块常量，用 && 组合而非短路进 hook）
-  const liquidGlassSetting = useSettingValue('theme.liquidGlass')
-  const liquidGlassOn = isIOS26OrAbove && liquidGlassSetting
+  // 液态玻璃开关：全 iOS 版本生效（开 → vendored Metal 液态玻璃；关 → 系统磨砂）。
+  // 实时响应设置切换，原生按 liquid prop 重建背衬并重放缓存的主题属性。
+  const liquidGlassOn = useSettingValue('theme.liquidGlass')
 
-  // 无触摸的内容变化时恢复玻璃渲染（静止时原生渲染时钟是暂停的）：
   // 收起形态（iOS 26 风格）：歌曲列表滚动离开顶部 → 整条 tab 栏收成左下角
   // 圆形玻璃按钮（宫格图标）；点击按钮弹出，保持展开直到下一次滚动离开顶部。
   const collapsed = useTabBarCollapsed()

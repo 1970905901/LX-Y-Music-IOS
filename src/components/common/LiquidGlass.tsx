@@ -24,9 +24,10 @@ type LiquidGlassProps = ViewProps & {
    */
   dark?: boolean
   /**
-   * 液态玻璃开关（设置 theme.liquidGlass）：仅 iOS 26+ 生效。
-   * 开 → vendored Metal 液态玻璃（DnV1eX/LiquidGlassKit 核心效果：折射 + 边缘光）；
-   * 关/低版本 → 系统磨砂。切换时原生整体重建背衬，主题属性由宿主重放。
+   * 液态玻璃开关（设置 theme.liquidGlass）：全 iOS 版本生效。
+   * 开 → vendored Metal 液态玻璃（DnV1eX/LiquidGlassKit 核心效果：折射 + 边缘光；
+   * 上游定位即 iOS 13~18 的 backport）；关 → 系统磨砂。
+   * 切换时原生整体重建背衬，主题属性由宿主重放。
    */
   liquid?: boolean
 }
@@ -42,7 +43,7 @@ const NativeLiquidGlass = requireNativeComponent<LiquidGlassNativeProps>('Liquid
 
 /**
  * 玻璃背景层（双形态，liquid prop 切换）：
- *   - 液态（iOS 26+ 且开关开）：vendored LiquidGlassKit 的 Metal 折射玻璃 —— 染色 +
+ *   - 液态（开关开）：vendored LiquidGlassKit 的 Metal 折射玻璃 —— 染色 +
  *     背景微模糊 + 折射 + 边缘光。渲染行为与上游 DnV1eX/LiquidGlassKit 一致：
  *     连续渲染、逐帧捕获、实时折射（无按需渲染/省电层）。
  *   - 磨砂（默认）：系统材质 + 有上限的主题染色覆层 —— iOS 26+ UIGlassEffect(.regular)、

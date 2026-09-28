@@ -7,7 +7,7 @@ import Pic from './components/Pic'
 import Title from './components/Title'
 import PlayInfo from './components/PlayInfo'
 import ControlBtn from './components/ControlBtn'
-import { createStyle, isIOS26OrAbove } from '@/utils/tools'
+import { createStyle } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
 import { useSettingValue } from '@/store/setting/hook'
 import { navigations } from '@/navigation'
@@ -30,14 +30,13 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
   // theme.glassOpacity 用户设置驱动
   const glassTint = useMemo(() => theme['c-primary-light-600'], [theme])
   const glassOpacity = useSettingValue('theme.glassOpacity') / 100
-  // 液态玻璃开关：仅 iOS 26+ 生效（低版本/关闭 → 系统磨砂），实时响应设置切换。
-  // hook 必须无条件调用（isIOS26OrAbove 是模块常量，用 && 组合而非短路进 hook）
-  const liquidGlassSetting = useSettingValue('theme.liquidGlass')
-  const liquidGlassOn = isIOS26OrAbove && liquidGlassSetting
+  // 液态玻璃开关：全 iOS 版本生效（开 → vendored Metal 液态玻璃；关 → 系统磨砂），
+  // 实时响应设置切换。
+  const liquidGlassOn = useSettingValue('theme.liquidGlass')
 
   // Tab 栏收起时（仅 Home）：迷你播放器下移到收起按钮所在行并左侧让位（对齐参考交互）。
   // 动画为逐帧收窄：bottom/paddingLeft 两布局属性随 220ms 插值同步变化，胶囊边收窄
-  // 边滑入落点。收起/展开过程玻璃逐帧变形，渲染时钟用脉冲保持活跃防旧帧拉伸出黑带
+  // 边滑入落点。收起/展开过程玻璃逐帧变形（背景捕获的动画跟踪由引擎内建）。
   const tabBarCollapsed = useTabBarCollapsed()
   const effectiveCollapsed = isHome && tabBarCollapsed
   const collapseAnim = useRef(new Animated.Value(effectiveCollapsed ? 1 : 0)).current

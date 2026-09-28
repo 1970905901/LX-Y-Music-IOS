@@ -12,7 +12,7 @@
 //    双形态背衬（liquid prop 切换，见 LGGlassViewFactory.swift）：
 //      - liquid = false（默认）：系统磨砂 —— iOS 26+ UIGlassEffect(.regular)、其余
 //        UIBlurEffect(.systemMaterial)，外加有上限的主题染色覆层；
-//      - liquid = true（仅 iOS 26+ 生效）：vendored Metal 液态玻璃（DnV1eX/LiquidGlassKit
+//      - liquid = true（全 iOS 版本生效）：vendored Metal 液态玻璃（DnV1eX/LiquidGlassKit
 //        核心效果：折射 + 边缘光 + 主题染色，连续渲染、逐帧捕获，与上游行为一致）。
 //        触摸眩光（touchPoint）只在此形态生效（磨砂形态不实现对应 selector，
 //        respondsToSelector 分流自然跳过）。
@@ -78,7 +78,7 @@
 @interface LGLiquidGlassHostView : RCTView
 /** 实际玻璃材质视图（系统磨砂或 vendored Metal 液态玻璃），tint/触摸眩光作用于此 */
 @property (nonatomic, readonly) UIView *glassBacking;
-/// 切换磨砂 ↔ 液态背衬：按缓存的主题属性重建背衬（liquid 仅 iOS 26+ 实际生效，见工厂）
+/// 切换磨砂 ↔ 液态背衬：按缓存的主题属性重建背衬（liquid 全版本生效，见工厂）
 - (void)applyLiquidMode:(BOOL)liquid;
 /// 以下为 RN prop 的宿主入口：更新缓存并应用到当前背衬（respondsToSelector 分流）
 - (void)applyTint:(UIColor *)tint;
@@ -156,7 +156,7 @@
   [self applyDark:_dark];
 }
 
-// 切换磨砂 ↔ 液态背衬（liquid prop 驱动；仅 iOS 26+ 实际切换，低版本工厂回磨砂）
+// 切换磨砂 ↔ 液态背衬（liquid prop 驱动，全 iOS 版本实际切换）
 - (void)applyLiquidMode:(BOOL)liquid {
   if (liquid == _liquid) return;
   _liquid = liquid;
@@ -274,7 +274,7 @@ RCT_CUSTOM_VIEW_PROPERTY(dark, NSNumber, LGLiquidGlassHostView) {
   [view applyDark:(json != nil ? [json boolValue] : NO)];
 }
 
-// 液态玻璃开关（设置 theme.liquidGlass，仅 iOS 26+ 实际生效）：
+// 液态玻璃开关（设置 theme.liquidGlass，全 iOS 版本实际生效）：
 // 切换时重建背衬（磨砂 ↔ vendored Metal 液态玻璃），缓存的主题属性由宿主重放。
 // json 为 nil（prop 未传/重置）时回磨砂。
 RCT_CUSTOM_VIEW_PROPERTY(liquid, NSNumber, LGLiquidGlassHostView) {

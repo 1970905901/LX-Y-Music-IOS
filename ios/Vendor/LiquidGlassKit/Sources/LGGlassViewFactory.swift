@@ -4,12 +4,14 @@
 //
 //  ObjC-visible factory that picks the glass backing for the host view.
 //
-//  双形态（2026-09-28 定案，用户指定）：iOS 26+ 玻璃效果「全面照抄」DnV1eX/LiquidGlassKit
-//  本体 —— 即 vendored 的 Metal 液态玻璃，由设置开关（theme.liquidGlass）控制：
-//    - 液态（liquid = true，仅 iOS 26+ 生效）：LiquidGlassEffectView（MTKView + 折射
-//      shader + 边缘光 + 主题染色），即该项目的核心效果。iOS 26.2+ 由 kit 自动切换
-//      根视图捕获（上游 2eb41c5：CABackdropLayer 私有机制在 26.2 失效）；26.0/26.1
-//      走 CABackdropLayer（vendored 版带 isBackdropAvailable 守卫）。
+//  双形态（2026-09-28 定案，用户指定）：玻璃效果「全面照抄」DnV1eX/LiquidGlassKit
+//  本体 —— 由设置开关（theme.liquidGlass）控制，**全 iOS 版本生效**（上游定位即
+//  「liquid glass 的 iOS 13~18 backport」，Metal 引擎本就为旧版本设计）：
+//    - 液态（liquid = true）：LiquidGlassEffectView（MTKView + 折射 shader + 边缘光
+//      + 主题染色），即该项目的核心效果。背景捕获由 kit 按系统分派：26.2+ 走根视图
+//      捕获（上游 2eb41c5：CABackdropLayer 私有机制在 26.2 失效）；26.0/26.1 与
+//      14~18 走 CABackdropLayer（vendored 版带 isBackdropAvailable 守卫，缺失时
+//      玻璃退化为透明、不崩溃）。
 //    - 磨砂（liquid = false，默认）：系统材质（iOS 26+ UIGlassEffect(.regular)、其余
 //      UIBlurEffect(.systemMaterial)）+ 有上限的主题染色覆层。系统合成，无逐帧捕获成本。
 //
@@ -161,11 +163,12 @@ enum LGGlassMaterial {
     /// 液态形态的明暗由主题染色（tint prop → setGlassTintColor → shader materialTint）
     /// 表达，无需 trait。
     ///
-    /// `liquid` 仅 iOS 26+ 生效（用户指定的版本带）；低版本/关闭一律回磨砂。
+    /// `liquid` 全版本生效（2026-09-28 二次定案：iOS 14~18 与 26+ 同一开关同一效果，
+    /// 对齐上游「backport」定位；关闭一律回磨砂）。
     /// JS 侧由设置 theme.liquidGlass 驱动；宿主在切换时重建背衬并重放缓存属性
     /// （见 LiquidGlassViewManager.mm 的 applyLiquidMode:）。
     @objc @MainActor public static func createGlassBacking(dark: Bool, liquid: Bool) -> UIView {
-        if #available(iOS 26.0, *), liquid {
+        if liquid {
             // vendored Metal 液态玻璃（DnV1eX/LiquidGlassKit 核心效果）：
             // .regular 预设 = 染色 + 背景微模糊 + 折射 + 边缘光。isNative:false ——
             // vendored 版已移除上游的原生 UIGlassEffect 分支（原生玻璃由磨砂形态提供），

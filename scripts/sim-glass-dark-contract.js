@@ -97,7 +97,7 @@ const RULES = [
     file: 'swift',
     test: (s) => /LiquidGlassEffect\(style:\s*\.regular,\s*isNative:\s*false\)/.test(s),
     desc: 'Swift 液态分支创建 vendored Metal 玻璃（LiquidGlassEffectView + .regular 预设）',
-    hint: '液态分支缺失：iOS 26+ 开关打开也不会出现折射玻璃',
+    hint: '液态分支缺失：开关打开也不会出现折射玻璃',
   },
   {
     id: 'mm-prop-liquid',

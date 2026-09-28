@@ -639,8 +639,24 @@ const Main = () => {
   // remount 时的初始页：以当前导航 id 在新顺序中的位置为准
   const initialPageIndex = useMemo(() => viewMap[commonState.navActiveId] ?? 0, [viewMap])
 
+  // pager 的原生真实落点（仅 onPageSelected 更新）与切换重试定时器。
+  // 原生偶发丢弃 setPageWithoutAnimation（busy 竞争，无 onPageSelected 回调）时，
+  // activeIndexRef 已被乐观写入目标值，若再用它做「是否已切过去」的判断，重试
+  // 会被永久跳过——表现为点按钮切页偶发无响应且再点也无效，手动滑动后才恢复。
+  const observedIndexRef = useRef(initialPageIndex)
+  const pageRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   const onPageSelected = useCallback(({ nativeEvent }: PagerViewOnPageSelectedEvent) => {
     activeIndexRef.current = nativeEvent.position
+    // observedIndex 只在原生回调里更新，反映 pager 的真实落点——区别于
+    // activeIndexRef 的乐观写入（setPage 前就写目标值）。原生偶发丢弃
+    // setPageWithoutAnimation（busy 竞争，无 onPageSelected 回调）时，靠它
+    // 识别「切换未生效」并重试，否则再次点击同一按钮会被守卫跳过、永久无响应。
+    observedIndexRef.current = nativeEvent.position
+    if (pageRetryTimerRef.current) {
+      clearTimeout(pageRetryTimerRef.current)
+      pageRetryTimerRef.current = null
+    }
     const selectedId = indexMap[activeIndexRef.current]
     if (!selectedId) return
     if (selectedId) setActiveNavIdState(selectedId)
@@ -720,15 +736,40 @@ const Main = () => {
         index = 0
       }
       // 防御：索引必须在当前页面集范围内，避免对原生 pager 下发越界页码
-      if (index != null && index < visibleNavs.length && activeIndexRef.current !== index) {
+      if (index != null && index < visibleNavs.length) {
         activeIndexRef.current = index
+        // 用原生真实落点（observedIndexRef）判断是否需要切换：原生偶发丢弃
+        // setPageWithoutAnimation 时，靠下面的重试把页面真正切过去
+        if (observedIndexRef.current === index) {
+          if (pageRetryTimerRef.current) {
+            clearTimeout(pageRetryTimerRef.current)
+            pageRetryTimerRef.current = null
+          }
+          return
+        }
         pagerViewRef.current?.setPageWithoutAnimation(index)
+        // 重试链：400ms / 900ms 两次校验原生落点，未达目标则带动画重发 setPage。
+        // onPageSelected 到达即清链（observedIndexRef === index）。
+        if (pageRetryTimerRef.current) clearTimeout(pageRetryTimerRef.current)
+        const armRetry = (delay: number, attempt: number) => {
+          pageRetryTimerRef.current = setTimeout(() => {
+            pageRetryTimerRef.current = null
+            if (observedIndexRef.current === index) return
+            pagerViewRef.current?.setPage(index)
+            if (attempt < 2) armRetry(500, attempt + 1)
+          }, delay)
+        }
+        armRetry(400, 1)
       }
     }
 
     global.state_event.on('navActiveIdUpdated', handleUpdate)
     return () => {
       global.state_event.off('navActiveIdUpdated', handleUpdate)
+      if (pageRetryTimerRef.current) {
+        clearTimeout(pageRetryTimerRef.current)
+        pageRetryTimerRef.current = null
+      }
     }
   }, [viewMap, visibleNavs])
 

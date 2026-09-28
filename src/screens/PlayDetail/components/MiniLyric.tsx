@@ -15,6 +15,10 @@ import { useWindowSize } from '@/utils/hooks'
 // 底、压到下方控制条）。故小屏降级为「只显示当前行」，但字号仍比原先放大。
 const NEIGHBOR_LINE_COUNT = 1
 const SMALL_WINDOW_HEIGHT = 700
+// 行与行之间的额外间距（相邻行/翻译行的 marginTop）。放大字号后原值 2pt 过于紧凑，
+// 三行挤在一起可读性差，故加大到 8pt；小屏行数少、空间紧张，用较小的 6pt。
+const LINE_GAP_NORMAL = 8
+const LINE_GAP_SMALL = 6
 
 const FONT = {
   normal: { current: 20, neighbor: 16, translation: 15 },
@@ -50,8 +54,10 @@ const MiniLyric = ({ onPress, style }: { onPress?: () => void, style?: any }) =>
   const inactiveColor = theme['c-font-label']
   // 容器与行内样式用 useMemo 缓存，避免每次渲染生成新对象（对齐项目样式规范）。
   const contentStyle = useMemo<StyleProp<TextStyle>>(() => ({ textAlign }), [textAlign])
-  // 相邻行与翻译行都用同款「上边距 2」的次级行样式。
-  const subLineStyle = useMemo<StyleProp<TextStyle>>(() => ({ textAlign, marginTop: 2 }), [textAlign])
+  // 相邻行与翻译行都用同款次级行样式。
+  // 行间距（marginTop）需明显大于字号自带的行距，否则放大后三行仍会挤成一团。
+  const lineGap = isSmallWindow ? LINE_GAP_SMALL : LINE_GAP_NORMAL
+  const subLineStyle = useMemo<StyleProp<TextStyle>>(() => ({ textAlign, marginTop: lineGap }), [textAlign, lineGap])
   // 空占位必须用不换行空格：RN 里空字符串的 <Text> 高度为 0，起不到占位作用。
   const BLANK = '\u00A0'
 

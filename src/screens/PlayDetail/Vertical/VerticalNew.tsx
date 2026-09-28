@@ -123,15 +123,23 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
   //
   // 取值必须保证「封面 + 信息块 + paddingBottom ≤ 容器高度」，否则 flexShrink:0 的
   // 信息块会被挤出容器底、压到下方控制条上。迷你歌词扩到 3 行并放大字号后信息块明显变高：
-  //   390x844（用户机型）：容器约 511pt，封面 146 + 信息块约 273 → 中缝约 82pt；
-  //                        取 0.05*height≈42pt 后中缝约 40pt、信息块上移约 104pt、
-  //                        底部仍留 42pt，封面与歌曲名之间保持约 40pt 呼吸间距。
+  //   390x844（用户机型）：容器约 511pt，封面 146 + 信息块约 320（3 行 + 行距 8）→ 中缝约 45pt。
+  //                        取 12pt：中缝约 48pt、信息块上移约 95pt、
+  //                        底部仍留 12pt，封面与歌曲名之间保持约 48pt 呼吸间距。
+  //                        12pt 是按用户反馈「三行歌词整体下移一点」定的。注意两个效应会叠加：
+  //                        ① 信息块贴底，减小 paddingBottom 会让整块（歌词 + 歌名）一起下移；
+  //                           42 → 12 即下移 30pt。
+  //                        ② 行距由 2 加大到 8 会让歌词块本身变高 18pt，而信息块贴底，
+  //                           多出的高度全往上长，等价于把歌词块顶（连带整块）再上推 18pt。
+  //                        净效果 = 30 - 18 ≈ 下移 12pt（与需求「整体下移一点」吻合）；
+  //                        红框（歌名）位于歌词块上方、跟着一起动，故同样净下移 12pt。
   //   小屏（iPhone SE 667pt）：容器仅约 384pt，封面 + 信息块几乎占满，中缝只剩约 11pt，
   //                        再做上移必然溢出，故小屏不做上移（paddingBottom 归 0），
   //                        仅保留字号放大与小歌词行数降级（见 MiniLyric 的 isSmallWindow）。
+  const PAGE_BOTTOM_PADDING = 12
   const pageBottomPadding = useMemo(() => ({
-    paddingBottom: isSmallWindow ? 0 : Math.round(winHeight * 0.05),
-  }), [isSmallWindow, winHeight])
+    paddingBottom: isSmallWindow ? 0 : PAGE_BOTTOM_PADDING,
+  }), [isSmallWindow])
 
   return (
     <>

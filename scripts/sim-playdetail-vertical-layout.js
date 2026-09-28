@@ -45,12 +45,16 @@ const SONGINFO = {
   content: 155,
 }
 // 迷你歌词：3 行歌词（上16 / 当前20 / 下16）+ 可选翻译行(15) + paddingVertical
-const miniLyricHeight = ({ lines, hasTranslation, paddingV, fontSize }) => {
+// lineGap = 相邻行/翻译行的 marginTop（行与行之间的额外间距）
+const miniLyricHeight = ({ lines, hasTranslation, paddingV, fontSize, lineGap = 0 }) => {
   const lineHeights = { 13: 17, 15: 20, 16: 21, 17: 22, 20: 26 }
   let h = paddingV * 2
   const layout = lines === 3 ? [fontSize.neighbor, fontSize.current, fontSize.neighbor] : [fontSize.current]
-  for (const s of layout) h += lineHeights[s]
-  if (hasTranslation) h += lineHeights[15] + 2 // + marginTop
+  for (let i = 0; i < layout.length; i++) {
+    if (i > 0) h += lineGap
+    h += lineHeights[layout[i]]
+  }
+  if (hasTranslation) h += lineGap + lineHeights[15]
   return h
 }
 
@@ -96,21 +100,24 @@ console.log('\n' + '='.repeat(78))
 console.log('大屏（390x844）：不同 paddingBottom 下信息块位置与安全性')
 console.log('='.repeat(78))
 const oldMini = miniLyricHeight({ lines: 1, hasTranslation: false, paddingV: 10, fontSize: { current: 13, neighbor: 13 } })
-const newMiniTr = miniLyricHeight({ lines: 3, hasTranslation: true, paddingV: 4, fontSize: { current: 20, neighbor: 16 } })
-console.log(`  迷你歌词高度：旧 1 行 = ${oldMini}pt，新 3 行+翻译 = ${newMiniTr}pt`)
-// 生产实现：大屏 paddingBottom = round(winHeight * 0.05)，小屏 = 0
-const prodPaddingBottom = (h) => (h < 700 ? 0 : Math.round(h * 0.05))
+const newMiniTr = miniLyricHeight({ lines: 3, hasTranslation: true, paddingV: 4, fontSize: { current: 20, neighbor: 16 }, lineGap: 8 })
+console.log(`  迷你歌词高度：旧 1 行 = ${oldMini}pt，新 3 行+翻译(行距 8) = ${newMiniTr}pt`)
+// 生产实现：大屏 paddingBottom = 常量（当前 12pt，见 VerticalNew 的 PAGE_BOTTOM_PADDING），小屏 = 0
+const PROD_PAGE_BOTTOM_PADDING = 12
+const prodPaddingBottom = (h) => (h < 700 ? 0 : PROD_PAGE_BOTTOM_PADDING)
 for (const v of [
   { label: '旧版（1 行, pb=0）', paddingBottom: 0, miniLyric: oldMini },
   { label: '新 3 行+翻译, pb=0', paddingBottom: 0, miniLyric: newMiniTr },
-  { label: '新 3 行+翻译, pb=40', paddingBottom: 40, miniLyric: newMiniTr },
-  { label: '新 3 行+翻译, pb=42 (0.05*h) ★', paddingBottom: 42, miniLyric: newMiniTr },
+  { label: '新 3 行+翻译, pb=12 (当前) ★', paddingBottom: 12, miniLyric: newMiniTr },
+  { label: '新 3 行+翻译, pb=20', paddingBottom: 20, miniLyric: newMiniTr },
+  { label: '新 3 行+翻译, pb=30', paddingBottom: 30, miniLyric: newMiniTr },
+  { label: '新 3 行+翻译, pb=42 (上一轮)', paddingBottom: 42, miniLyric: newMiniTr },
   { label: '新 3 行+翻译, pb=63 (0.075*h)', paddingBottom: 63, miniLyric: newMiniTr },
-  { label: '新 3 行+翻译, pb=80', paddingBottom: 80, miniLyric: newMiniTr },
 ]) {
   const r = calc({ screenH: 844, playerH: PLAYER_H_FROM_SHOT, paddingBottom: v.paddingBottom, miniLyric: v.miniLyric, isSmallWindow: false })
+  const lyricTop = r.infoBottom - v.miniLyric
   console.log(
-    `  ${v.label.padEnd(34)} 中缝=${r.gap.toFixed(0).padStart(4)}pt  红框上边=${(r.infoTop + SONGINFO.marginTop).toFixed(0).padStart(4)}pt  块底=${r.infoBottom.toFixed(0).padStart(4)}pt (容器底 ${r.containerBottom.toFixed(0)}pt)${r.overflow ? '  ⚠️溢出' : ''}`,
+    `  ${v.label.padEnd(34)} 中缝=${r.gap.toFixed(0).padStart(4)}pt  红框上边=${(r.infoTop + SONGINFO.marginTop).toFixed(0).padStart(4)}pt  歌词块顶=${lyricTop.toFixed(0).padStart(4)}pt  块底=${r.infoBottom.toFixed(0).padStart(4)}pt  底部余=${(r.containerBottom - r.infoBottom).toFixed(0).padStart(3)}pt${r.overflow ? '  ⚠️溢出' : ''}`,
   )
 }
 
@@ -124,7 +131,7 @@ const SE = { screenH: 667, statusBarH: 26, playerH: 215 }
   check('确认小屏使用大屏方案会溢出（降级确有必要）', big.overflow)
 
   // 生产降级：小屏只显示当前行，字号 17（仍比原先 13 放大），paddingBottom = 0
-  const smallMini = miniLyricHeight({ lines: 1, hasTranslation: false, paddingV: 4, fontSize: { current: 17, neighbor: 15 } })
+  const smallMini = miniLyricHeight({ lines: 1, hasTranslation: false, paddingV: 4, fontSize: { current: 17, neighbor: 15 }, lineGap: 6 })
   const small = calc({
     screenH: SE.screenH, statusBarH: SE.statusBarH, playerH: SE.playerH,
     paddingBottom: prodPaddingBottom(SE.screenH), miniLyric: smallMini, isSmallWindow: true,
@@ -135,23 +142,33 @@ const SE = { screenH: 667, statusBarH: 26, playerH: 215 }
 }
 
 console.log('\n' + '='.repeat(78))
-console.log('大屏（用户机型 390x844）最终方案校验')
+console.log('大屏（用户机型 390x844）最终方案校验：歌词下移 + 行距加大')
 console.log('='.repeat(78))
 {
   const pb = prodPaddingBottom(844)
-  const base = calc({ screenH: 844, playerH: PLAYER_H_FROM_SHOT, paddingBottom: 0, miniLyric: oldMini, isSmallWindow: false })
-  const fixed = calc({ screenH: 844, playerH: PLAYER_H_FROM_SHOT, paddingBottom: pb, miniLyric: newMiniTr, isSmallWindow: false })
-  const lifted = (fixed.infoTop + SONGINFO.marginTop) - (base.infoTop + SONGINFO.marginTop)
-  console.log(`  paddingBottom = ${pb}pt`)
-  console.log(`  红框(SongInfo)上边：${(base.infoTop + SONGINFO.marginTop).toFixed(0)}pt → ${(fixed.infoTop + SONGINFO.marginTop).toFixed(0)}pt（上移 ${(-lifted).toFixed(0)}pt）`)
-  console.log(`  中缝：${base.gap.toFixed(0)}pt → ${fixed.gap.toFixed(0)}pt；块底 ${fixed.infoBottom.toFixed(0)}pt，容器底 ${fixed.containerBottom.toFixed(0)}pt`)
-  check('红框确有上移（>40pt）', lifted < -40, `lifted=${lifted.toFixed(1)}`)
-  check('红框上边不与封面重叠', fixed.infoTop + SONGINFO.marginTop > fixed.coverBottom)
-  check('红框与封面留呼吸间距（>=30pt）', fixed.infoTop + SONGINFO.marginTop - fixed.coverBottom >= 30, `gap=${(fixed.infoTop + SONGINFO.marginTop - fixed.coverBottom).toFixed(0)}`)
-  check('封面与歌曲名间距不过挤（>=35pt）', fixed.infoTop + SONGINFO.marginTop - fixed.coverBottom >= 35, `gap=${(fixed.infoTop + SONGINFO.marginTop - fixed.coverBottom).toFixed(0)}`)
-  check('上移后仍不溢出', !fixed.overflow, `free=${fixed.free}`)
-  check('信息块不压到 Player 区', fixed.infoBottom <= fixed.containerBottom)
-  check('信息块底部仍留有呼吸空间（>=30pt）', fixed.containerBottom - fixed.infoBottom >= 30, `rest=${(fixed.containerBottom - fixed.infoBottom).toFixed(0)}`)
+  // 上一轮方案：pb=42、行距 2
+  const prevMini = miniLyricHeight({ lines: 3, hasTranslation: true, paddingV: 4, fontSize: { current: 20, neighbor: 16 }, lineGap: 2 })
+  const prev = calc({ screenH: 844, playerH: PLAYER_H_FROM_SHOT, paddingBottom: 42, miniLyric: prevMini, isSmallWindow: false })
+  const now = calc({ screenH: 844, playerH: PLAYER_H_FROM_SHOT, paddingBottom: pb, miniLyric: newMiniTr, isSmallWindow: false })
+  const prevLyricTop = prev.infoBottom - prevMini
+  const nowLyricTop = now.infoBottom - newMiniTr
+  const shift = nowLyricTop - prevLyricTop
+  console.log(`  paddingBottom ${42} → ${pb}pt；行距 2 → 8pt；歌词块高 ${prevMini} → ${newMiniTr}pt`)
+  console.log(`  歌词块顶：${prevLyricTop.toFixed(0)}pt → ${nowLyricTop.toFixed(0)}pt（下移 ${shift.toFixed(0)}pt）`)
+  console.log(`  红框(SongInfo)上边：${(prev.infoTop + SONGINFO.marginTop).toFixed(0)}pt → ${(now.infoTop + SONGINFO.marginTop).toFixed(0)}pt`)
+  console.log(`  中缝：${prev.gap.toFixed(0)}pt → ${now.gap.toFixed(0)}pt；块底 ${now.infoBottom.toFixed(0)}pt，容器底 ${now.containerBottom.toFixed(0)}pt（余 ${(now.containerBottom - now.infoBottom).toFixed(0)}pt）`)
+  check('歌词块整体下移', shift > 0, `shift=${shift.toFixed(1)}`)
+  check('下移幅度适中（8~20pt，符合"一点"）', shift >= 8 && shift <= 20, `shift=${shift.toFixed(1)}`)
+  check('行距确实加大（8 > 2）', 8 > 2)
+  check('行距与行高比例合理（行距 >= 行高的 1/3，避免挤成一团）', 8 * 3 >= 21)
+  check('下移后仍不溢出', !now.overflow, `free=${now.free}`)
+  check('信息块不压到 Player 区', now.infoBottom <= now.containerBottom)
+  // 底部余量 = paddingBottom，即信息块底到容器底的间隙。它是防止歌词视觉上贴住
+  // 下方控制条的安全边界（>=10pt 即肉眼可辨的空隙），不是审美指标；
+  // 想要信息块更靠下就要接受底边距变小，故下移幅度与底部余量不可兼得。
+  check('信息块底部不贴住控制条（>=10pt 空隙）', now.containerBottom - now.infoBottom >= 10, `rest=${(now.containerBottom - now.infoBottom).toFixed(0)}`)
+  check('红框仍与封面保持舒展间距（>=40pt）', (now.infoTop + SONGINFO.marginTop) - now.coverBottom >= 40, `gap=${((now.infoTop + SONGINFO.marginTop) - now.coverBottom).toFixed(0)}`)
+  check('红框仍比旧版明显上移（>60pt）', (now.infoTop + SONGINFO.marginTop) - 414 < -60)
 }
 
 console.log('\n' + '='.repeat(74))

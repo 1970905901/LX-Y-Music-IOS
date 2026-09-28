@@ -34,7 +34,11 @@ export default memo(() => {
 
   return (
     <SubTitle title="菜单设置">
-      <View style={{ ...styles.content, borderColor: theme['c-border-background'] }}>
+      <View style={{
+        ...styles.content,
+        backgroundColor: theme['c-primary-light-900-alpha-200'],
+        borderColor: theme['c-border-background'],
+      }}>
         <SettingItem settingKey="menu.playLater" label={t('play_later')} />
         <SettingItem settingKey="menu.dislike" label={t('dislike')} />
       </View>
@@ -50,6 +54,6 @@ const styles = createStyle({
     flexWrap: 'wrap',
     gap: designSpacing.xs,
     borderWidth: 1,
-    borderRadius: designRadius.sm,
+    borderRadius: designRadius.md,
   },
 })

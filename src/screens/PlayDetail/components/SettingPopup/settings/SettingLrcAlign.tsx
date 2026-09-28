@@ -32,6 +32,7 @@ const Item = ({
   return (
     <CheckBox
       marginBottom={3}
+      variant="plain"
       check={isActive}
       label={name}
       onChange={() => {

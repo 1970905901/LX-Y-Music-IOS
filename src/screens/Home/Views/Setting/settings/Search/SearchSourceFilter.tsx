@@ -24,6 +24,7 @@ const Item = ({ id, name }: { id: string, name: string }) => {
     <View style={styles.item}>
       <CheckBox
         marginRight={8}
+        block
         check={isActive}
         label={name}
         onChange={() => {

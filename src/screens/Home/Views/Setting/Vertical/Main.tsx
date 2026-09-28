@@ -1,7 +1,7 @@
 import { memo, useCallback, useMemo } from 'react'
 import { ScrollView, TouchableOpacity, View } from 'react-native'
 import { createStyle } from '@/utils/tools'
-import { designSpacing } from '@/theme/DesignTokens'
+import { designRadius, designSpacing } from '@/theme/DesignTokens'
 import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
 import commonState from '@/store/common/state'
@@ -32,6 +32,13 @@ export default memo(() => {
     paddingBottom: 180 + safeAreaBottom,
   }), [safeAreaBottom])
 
+  // 分类入口统一走「推荐页排行榜按钮」那套视觉语言：圆角 + 1px 边框 + 半透明主题色底
+  const categoryItemStyle = useMemo(() => ({
+    ...styles.categoryItem,
+    backgroundColor: theme['c-primary-light-900-alpha-200'],
+    borderColor: theme['c-border-background'],
+  }), [theme])
+
   return (
     <View style={styles.container}>
       <LandscapeCentered maxWidth={760}>
@@ -46,12 +53,13 @@ export default memo(() => {
             {SETTING_SCREENS.map((id) => (
               <TouchableOpacity
                 key={id}
-                style={styles.categoryItem}
+                style={categoryItemStyle}
                 activeOpacity={0.7}
                 onPress={() => { handlePress(id) }}
               >
                 <Text
                   size={17}
+                  style={styles.categoryLabel}
                   color={theme['c-font']}
                 >
                   {t(`setting_${id}`)}
@@ -71,10 +79,18 @@ const styles = createStyle({
     flex: 1,
   },
   categoryItem: {
-    minHeight: 58,
+    minHeight: 56,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    borderRadius: designRadius.md,
+    borderWidth: 1,
+    paddingHorizontal: designSpacing.md,
+    marginBottom: designSpacing.xs,
+  },
+  categoryLabel: {
+    flexShrink: 1,
+    fontWeight: '600',
   },
   content: {
     flex: 1,

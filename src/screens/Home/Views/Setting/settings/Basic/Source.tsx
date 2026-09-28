@@ -49,6 +49,7 @@ const BuiltInItem = ({
   return (
     <CheckBox
       marginBottom={5}
+      block
       check={isActive}
       onChange={() => {
         change(id)
@@ -238,6 +239,7 @@ const UserApiItem = memo(({
         <CheckBox
           check={isChecked}
           label=""
+          variant="plain"
           onChange={() => { onChange(item.id) }}
         />
       </View>

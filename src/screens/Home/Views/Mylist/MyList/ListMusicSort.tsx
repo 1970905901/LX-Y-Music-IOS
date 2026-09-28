@@ -40,6 +40,7 @@ const CheckBoxItem = <T extends FieldName | FieldType>({
     <CheckBox
       marginBottom={3}
       disabled={disabled}
+      variant="plain"
       check={isActive}
       label={t(`list_sort_modal_by_${id}`)}
       onChange={() => {

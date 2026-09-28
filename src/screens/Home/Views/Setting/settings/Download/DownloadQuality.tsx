@@ -19,6 +19,7 @@ const Item = ({ id, name }: { id: LX.Quality, name: string }) => {
   return (
     <CheckBox
       marginRight={8}
+      block
       check={isActive}
       label={name}
       onChange={() => {

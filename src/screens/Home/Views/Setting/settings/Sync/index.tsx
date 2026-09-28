@@ -242,12 +242,12 @@ const styles = createStyle({
   btnRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingLeft: designSpacing.md,
+    // 卡片化的行自带外边距，这里只补并排两项之间的间隙（不再左缩进，与整行卡片对齐）
+    gap: designSpacing.xs,
     marginTop: designSpacing.xs,
     marginBottom: designSpacing.sm,
   },
   lastSyncText: {
-    paddingLeft: designSpacing.md,
     marginTop: designSpacing.xs,
   },
 })

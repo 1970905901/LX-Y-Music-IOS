@@ -73,6 +73,7 @@ const ListItem = ({
           check={item.allowShowUpdateAlert}
           label={t('user_api_allow_show_update_alert')}
           onChange={changeAllowShowUpdateAlert}
+          variant="plain"
           size={0.86}
         />
       </View>

@@ -1,4 +1,4 @@
-import { memo, useState, useEffect, useRef, useCallback } from 'react'
+import { memo, useState, useEffect, useRef, useCallback, useMemo } from 'react'
 
 import { StyleSheet, View, Keyboard } from 'react-native'
 import type { InputType, InputProps } from '@/components/common/Input'
@@ -76,8 +76,20 @@ export default memo(({ value, label, onChanged, ...props }: InputItemProps) => {
     textRef.current = text
   }, [])
 
+  // 与设置页其它行统一（对齐推荐页「排行榜」按钮的视觉语言）：
+  // 圆角 + 1px 边框 + 半透明主题色底，让输入项与开关行看起来是同一套控件。
+  const cardStyle = useMemo(() => ({
+    borderRadius: designRadius.md,
+    borderWidth: 1,
+    backgroundColor: theme['c-primary-light-900-alpha-200'],
+    borderColor: theme['c-border-background'],
+    paddingHorizontal: designSpacing.sm,
+    paddingTop: designSpacing.xs,
+    paddingBottom: designSpacing.sm,
+  }), [theme])
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, cardStyle]}>
       <Text style={styles.label} size={designTypography.body}>
         {label}
       </Text>
@@ -95,7 +107,8 @@ export default memo(({ value, label, onChanged, ...props }: InputItemProps) => {
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: designSpacing.sm,
+    // 与开关行（CheckBox 卡片）保持同一行距 8pt
+    marginBottom: designSpacing.xs,
   },
   label: {
     marginBottom: designSpacing.xs,

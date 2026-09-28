@@ -17,6 +17,7 @@ export default () => {
       <View style={styles.content}>
         <CheckBox
           check={isCoverSpin}
+          variant="plain"
           label={t('play_detail_setting_cover_spin')}
           onChange={setCoverSpin}
         />

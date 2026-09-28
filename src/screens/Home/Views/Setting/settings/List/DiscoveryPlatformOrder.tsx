@@ -47,7 +47,11 @@ export default memo(() => {
       <Text style={styles.tip} size={12} color={theme['c-font-label']}>
         {t('setting_list_discovery_platform_order_tip')}
       </Text>
-      <View style={{ ...styles.content, borderColor: theme['c-border-background'] }}>
+      <View style={{
+        ...styles.content,
+        backgroundColor: theme['c-primary-light-900-alpha-200'],
+        borderColor: theme['c-border-background'],
+      }}>
         {orderedSources.map((source, index) => {
           const isLast = index === orderedSources.length - 1
           return (
@@ -109,7 +113,7 @@ const styles = createStyle({
   },
   content: {
     borderWidth: 1,
-    borderRadius: designRadius.sm,
+    borderRadius: designRadius.md,
     padding: designSpacing.sm,
     gap: designSpacing.xs,
   },

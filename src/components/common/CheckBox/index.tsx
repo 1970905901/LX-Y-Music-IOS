@@ -7,7 +7,7 @@ import { scaleSizeH, scaleSizeW } from '@/utils/pixelRatio'
 import { useTheme } from '@/store/theme/hook'
 import Text from '../Text'
 import { Icon } from '../Icon'
-import { designSpacing } from '@/theme/DesignTokens'
+import { designRadius, designSpacing } from '@/theme/DesignTokens'
 
 export interface CheckBoxProps {
   check: boolean
@@ -22,6 +22,17 @@ export interface CheckBoxProps {
 
   helpTitle?: string
   helpDesc?: string
+  /**
+   * 容器外观：
+   * - 'card'（默认）：软件统一行样式——圆角 + 1px 边框 + 半透明主题色底，
+   *   与推荐页「排行榜」按钮同一套视觉语言（设置页所有开关/单选行都走这套）；
+   * - 'plain'：无底纹的旧样式，供弹窗、菜单等自带底色的场景沿用。
+   */
+  variant?: 'card' | 'plain'
+  /**
+   * 独占整行：卡片铺满可用宽度，并去掉用于并排项之间留缝的右外边距。
+   */
+  block?: boolean
 }
 
 export default ({
@@ -36,6 +47,8 @@ export default ({
   marginRight = 0,
   marginBottom = 0,
   size = 1,
+  variant = 'card',
+  block = false,
 }: CheckBoxProps) => {
   const theme = useTheme()
   const [isDisabled, setDisabled] = useState(false)
@@ -80,8 +93,37 @@ export default ({
     ) : null
   }, [helpTitle, helpDesc, size])
 
-  const contentStyle = { ...styles.content, marginBottom: scaleSizeH(marginBottom) }
-  const labelStyle = { ...styles.label, marginRight: scaleSizeW(marginRight) }
+  // 统一行样式（对齐推荐页「排行榜」按钮）：圆角 designRadius.md + 1px 边框 +
+  // 半透明主题色底。整行（block）时卡片铺满可用宽度、不预留右外边距；
+  // 并排的小选项（非 block）保留右外边距，充当相邻选项之间的间隙。
+  const contentStyle = useMemo(() => {
+    const base = { ...styles.content, marginBottom: scaleSizeH(marginBottom) }
+    if (variant !== 'card') return base
+    return {
+      ...base,
+      borderRadius: designRadius.md,
+      borderWidth: 1,
+      borderColor: theme['c-border-background'],
+      backgroundColor: theme['c-primary-light-900-alpha-200'],
+      paddingHorizontal: designSpacing.sm,
+      minHeight: block ? 52 : 40,
+      marginRight: block ? 0 : designSpacing.sm,
+      // 卡片之间保证至少 8pt 行距（调用方传了更大的 marginBottom 时以调用方为准）
+      marginBottom: Math.max(scaleSizeH(marginBottom), designSpacing.xs),
+    }
+  }, [theme, marginBottom, variant, block])
+
+  const labelStyle = useMemo(() => ({
+    ...styles.label,
+    marginRight: scaleSizeW(marginRight),
+    // 整行卡片：标签撑满剩余宽度，帮助按钮被顶到卡片右端
+    ...(variant === 'card' && block ? { flexGrow: 1 } : null),
+  }), [marginRight, variant, block])
+
+  const nameStyle = useMemo(
+    () => (variant === 'card' ? { ...styles.name, fontWeight: '600' as const } : styles.name),
+    [variant],
+  )
 
   return disabled ? (
     <View style={contentStyle}>
@@ -93,7 +135,7 @@ export default ({
       />
       <View style={labelStyle}>
         {label ? (
-          <Text style={styles.name} color={theme['c-500']} size={15 * size}>
+          <Text style={nameStyle} color={theme['c-500']} size={15 * size}>
             {label}
           </Text>
         ) : (
@@ -113,7 +155,7 @@ export default ({
       />
       <TouchableOpacity style={labelStyle} activeOpacity={0.3} onPress={handleLabelPress}>
         {label ? (
-          <Text style={styles.name} size={15 * size}>
+          <Text style={nameStyle} size={15 * size}>
             {label}
           </Text>
         ) : (

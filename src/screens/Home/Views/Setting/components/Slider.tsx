@@ -1,8 +1,9 @@
-import { memo } from 'react'
+import { memo, useMemo } from 'react'
 
 import Slider, { type SliderProps } from '@react-native-community/slider'
 import { useTheme } from '@/store/theme/hook'
 import { createStyle } from '@/utils/tools'
+import { designRadius } from '@/theme/DesignTokens'
 
 export type { SliderProps }
 
@@ -18,10 +19,18 @@ export default memo(
   }: SliderProps) => {
     const theme = useTheme()
 
+    // 与设置页其它行统一（对齐推荐页「排行榜」按钮的视觉语言）
+    const cardStyle = useMemo(() => ({
+      borderRadius: designRadius.md,
+      borderWidth: 1,
+      backgroundColor: theme['c-primary-light-900-alpha-200'],
+      borderColor: theme['c-border-background'],
+    }), [theme])
+
     return (
       <Slider
         value={value}
-        style={styles.slider}
+        style={[styles.slider, cardStyle]}
         minimumValue={minimumValue}
         maximumValue={maximumValue}
         minimumTrackTintColor={theme['c-button-background-active']}
@@ -42,7 +51,7 @@ const styles = createStyle({
     flexGrow: 1,
     // width: '100%',
     maxWidth: 320,
-    height: 36,
+    height: 40,
     marginTop: -2,
   },
 })

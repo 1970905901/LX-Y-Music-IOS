@@ -101,6 +101,7 @@ const Setting = () => {
     <View style={styles.checkbox}>
       <CheckBox
         check={timeoutExitPlayed}
+        variant="plain"
         label={t('timeout_exit_label_isPlayed')}
         onChange={onCheckChange}
       />

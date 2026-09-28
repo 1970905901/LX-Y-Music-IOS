@@ -138,6 +138,7 @@ const ListModeModal = () => {
               <CheckBox
                 check={isOverwrite}
                 onChange={setOverwrite}
+                variant="plain"
                 label={t('sync__mode_overwrite')}
               />
             </View>

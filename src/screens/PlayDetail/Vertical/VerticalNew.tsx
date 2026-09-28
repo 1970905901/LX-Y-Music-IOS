@@ -14,6 +14,7 @@ import { useSettingValue } from '@/store/setting/hook'
 import PlayerPlaylist, { type PlayerPlaylistType } from '@/components/player/PlayerPlaylist.tsx'
 import { registerPager } from '@/utils/pagerScrollControl'
 import { scaleSizeW } from '@/utils/pixelRatio'
+import { useWindowSize } from '@/utils/hooks'
 import { COMPONENT_IDS } from '@/config/constant'
 
 const LyricPage = ({ pagerHeight = 0, isActive = false }: { pagerHeight?: number, isActive?: boolean }) => {
@@ -32,6 +33,7 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
   const showLyricRef = useRef(false)
   const playlistRef = useRef<PlayerPlaylistType>(null)
   const [pagerHeight, setPagerHeight] = useState(0)
+  const { height: winHeight } = useWindowSize()
   const miniLyricAlign = useSettingValue('playDetail.style.miniLyricAlign')
   // 用 ref 追踪滑动方向，避免高频 onScroll 触发大量 setState 导致卡顿
   // 仅在首次变为 true 时触发一次 setState 通知子组件
@@ -113,6 +115,23 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
   }, [handleSwitchToLyricPage])
 
   const containerPaddingH = useMemo(() => scaleSizeW(10), [])
+  const isSmallWindow = winHeight < 700
+  // 歌曲信息块（歌名/歌手/专辑 + 迷你歌词）整体上移。
+  // picPageContainerNew 用 justifyContent:'space-between'（封面贴顶、信息块贴底），
+  // 容器高度里扣掉 paddingBottom 后，剩余的多余空间全部落到「封面 ↔ 信息块」的中缝上，
+  // 因此加大底部内边距 = 把信息块整体往上推，封面位置与尺寸都不受影响。
+  //
+  // 取值必须保证「封面 + 信息块 + paddingBottom ≤ 容器高度」，否则 flexShrink:0 的
+  // 信息块会被挤出容器底、压到下方控制条上。迷你歌词扩到 3 行并放大字号后信息块明显变高：
+  //   390x844（用户机型）：容器约 511pt，封面 146 + 信息块约 273 → 中缝约 82pt；
+  //                        取 0.05*height≈42pt 后中缝约 40pt、信息块上移约 104pt、
+  //                        底部仍留 42pt，封面与歌曲名之间保持约 40pt 呼吸间距。
+  //   小屏（iPhone SE 667pt）：容器仅约 384pt，封面 + 信息块几乎占满，中缝只剩约 11pt，
+  //                        再做上移必然溢出，故小屏不做上移（paddingBottom 归 0），
+  //                        仅保留字号放大与小歌词行数降级（见 MiniLyric 的 isSmallWindow）。
+  const pageBottomPadding = useMemo(() => ({
+    paddingBottom: isSmallWindow ? 0 : Math.round(winHeight * 0.05),
+  }), [isSmallWindow, winHeight])
 
   return (
     <>
@@ -131,7 +150,7 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
           }}
         >
           <View collapsable={false} style={styles.pageContainer}>
-            <View collapsable={false} style={[styles.picPageContainerNew, { paddingTop: containerPaddingH }]}>
+            <View collapsable={false} style={[styles.picPageContainerNew, pageBottomPadding, { paddingTop: containerPaddingH }]}>
               <View style={styles.picContainer}>
                 {/* 移植用户实测正常的 v20260826（e58d1ab1）VerticalOld 封面用法：
                     不传 maxCoverHeight，让 Pic 内部按 isNewUI=false 计算封面尺寸

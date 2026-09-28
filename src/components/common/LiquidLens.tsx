@@ -1,5 +1,5 @@
 import { memo, useMemo } from 'react'
-import { processColor, requireNativeComponent, type ViewProps } from 'react-native'
+import { processColor, requireNativeComponent, type ProcessedColorValue, type ViewProps } from 'react-native'
 
 type LiquidLensProps = ViewProps & {
   /**
@@ -24,7 +24,13 @@ type LiquidLensProps = ViewProps & {
   onDragSelect?: (event: { nativeEvent: { index: number } }) => void
 }
 
-const NativeLiquidLens = requireNativeComponent<LiquidLensProps>('LiquidGlassLens')
+/**
+ * 原生组件视角的 props：原生侧的 `tint` 收到的是经 `processColor` 预处理后的色值
+ * （number 或 OpaqueColorValue），而非 JS 侧的 rgba 字符串，故单独覆写该字段类型。
+ */
+type LiquidLensNativeProps = Omit<LiquidLensProps, 'tint'> & { tint?: ProcessedColorValue }
+
+const NativeLiquidLens = requireNativeComponent<LiquidLensNativeProps>('LiquidGlassLens')
 
 /**
  * 液态玻璃透镜药丸（原生 vendored LiquidLensView，复刻 iOS 26 TabBar 的

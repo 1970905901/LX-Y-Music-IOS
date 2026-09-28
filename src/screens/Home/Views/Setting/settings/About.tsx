@@ -12,7 +12,8 @@ import { getVersionInfo } from '@/utils/nativeModules/utils'
 // package.json 里的 version 只是打包时的快照，可能与实际安装包不一致，仅作原生读取失败时的兜底
 const getFallbackVersion = (): string => {
   try {
-    // @ts-expect-error RN 环境的 process 由 metro polyfill，globalData 启动时已写入 versions.app
+    // RN 环境的 process 由 metro polyfill，globalData 启动时已写入 versions.app。
+    // （@types/node 的 ProcessVersions 带 string 索引签名，这里已无需 @ts-expect-error 压制。）
     return process.versions?.app ?? ''
   } catch {
     return ''

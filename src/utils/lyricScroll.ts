@@ -12,8 +12,10 @@ export class LyricScrollLayout {
    * 该高度仅用于定位当前行自身，**不参与其后面行的累计偏移**：
    * 若计入累计偏移，则每切一次行，前一行「激活→非激活」的高度回落会让整段偏移突跳，
    * 表现为逐行滚动一卡一顿（仅在该行文字被挤成两行时明显，单行文字因高度不变而无感）。
+   * 按行号稀疏存放：**未缓存的行是空洞（undefined）**，读取处用 `??` 回退到非激活高度；
+   * 行从激活态回落时会显式写回 undefined 使其重新回退（见 measureLine）。
    */
-  private activeLineHeights: number[] = []
+  private activeLineHeights: Array<number | undefined> = []
   private cumulativeOffsets: number[] = []
   // 基于 lines 引用缓存的「前 index 行累计偏移」：行高或歌词不变时每帧复用，摊销 O(1)（原每帧 O(n) × 2）。
   private preciseOffsets: number[] = []

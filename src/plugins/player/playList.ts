@@ -30,8 +30,10 @@ const resolveMetadataDuration = (duration: number) => {
 }
 
 // 逐行歌词 force 更新的时长缓存：同一首歌内时长不变，首次解析后直接复用，
-// 省去每行歌词一次的时长桥接往返（getTrackDuration / getNativeFlacDuration）
-let cachedDurationMusicId: string | undefined
+// 省去每行歌词一次的时长桥接往返（getTrackDuration / getNativeFlacDuration）。
+// 类型与 musicInfo.id 一致（`string | null`）——部分音源的 id 本身就是 null；
+// 比较处用松散 `!=`，null 与 undefined 视为同一「未缓存」语义，故无需额外区分。
+let cachedDurationMusicId: string | null | undefined
 
 export const updateMetaData = async(musicInfo: LX.Player.MusicInfo, isPlay: boolean, lyric?: string, force = false) => {
   const prevIsPlaying = state.isPlaying

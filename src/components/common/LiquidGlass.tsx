@@ -1,10 +1,10 @@
 import { memo, useMemo } from 'react'
-import { processColor, requireNativeComponent, StyleSheet, type ViewProps } from 'react-native'
+import { processColor, requireNativeComponent, StyleSheet, type ProcessedColorValue, type ViewProps } from 'react-native'
 
 type LiquidGlassProps = ViewProps & {
   /**
    * 染色基色（不透明主题色，明暗自适应由主题本身保证）。
-   * 透明度独立由 glassOpacity 控制。
+   * 透明度独立由 glassOpacity 控制。传 rgb()/rgba() 字符串，组件内部会过一次 processColor。
    */
   tint?: string
   /**
@@ -14,7 +14,14 @@ type LiquidGlassProps = ViewProps & {
   glassOpacity?: number
 }
 
-const NativeLiquidGlass = requireNativeComponent<LiquidGlassProps>('LiquidGlassView')
+/**
+ * 原生组件视角的 props：原生侧的 `tint` 收到的**不是** JS 侧的 rgb()/rgba() 字符串，
+ * 而是经 `processColor` 预处理后的色值（number 或 OpaqueColorValue），故单独覆写该字段类型，
+ * 不再复用外层「给 JS 调用方看的 `tint?: string`」。
+ */
+type LiquidGlassNativeProps = Omit<LiquidGlassProps, 'tint'> & { tint?: ProcessedColorValue }
+
+const NativeLiquidGlass = requireNativeComponent<LiquidGlassNativeProps>('LiquidGlassView')
 
 /**
  * 纯透明玻璃背景层（原生 LGFrostedGlassView：单层主题染色覆层，无模糊、无捕获）。

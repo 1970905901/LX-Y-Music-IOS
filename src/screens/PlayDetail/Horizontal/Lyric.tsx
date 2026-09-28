@@ -100,6 +100,7 @@ const LrcLine = memo(
                 color={colors[0]}
                 opacity={colors[2]}
                 size={size}
+                duration={0}
               >
                 {line.text}
               </AnimatedColorText>
@@ -117,6 +118,7 @@ const LrcLine = memo(
                 color={colors[1]}
                 opacity={colors[2]}
                 size={size * 0.8}
+                duration={0}
               >
                 {lrc}
               </AnimatedColorText>

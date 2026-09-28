@@ -97,12 +97,17 @@ export interface AnimatedColorTextProps extends _AnimatedTextProps {
    * 字体透明度
    */
   opacity?: number
+  /**
+   * 颜色/透明度过渡时长(ms)。默认 DEFAULT_DURATION(800)，用于主题/切歌平滑过渡；
+   * 传 0 表示瞬时切换（如歌词整行高亮，避免换行后高亮行出现延迟/渐变）。
+   */
+  duration?: number
 }
-export const AnimatedColorText = ({ style, size = 15, opacity: _opacity, color: _color, children, ...props }: AnimatedColorTextProps) => {
+export const AnimatedColorText = ({ style, size = 15, opacity: _opacity, color: _color, duration, children, ...props }: AnimatedColorTextProps) => {
   const theme = useTheme()
   const textShadow = useTextShadow()
 
-  const [color] = useAnimateColor(_color ?? theme['c-font'])
+  const [color] = useAnimateColor(_color ?? theme['c-font'], duration ?? DEFAULT_DURATION)
   // opacity 必须与 color 同为原生驱动：二者挂在同一个 Animated.Text 的 style 上，
   // RN 原生动画启动时 __makeNative 会沿共享 props 图传播，把 opacity 节点也标记为
   // native；若 opacity 仍走 JS 驱动（false），切歌歌词行 opacity 变化时对已标记
@@ -110,7 +115,7 @@ export const AnimatedColorText = ({ style, size = 15, opacity: _opacity, color: 
   // on animated node that has been moved to 'native' earlier..."（表现为播放详情页
   // 切歌即崩，JS 线程停止后只剩背景层 = 全屏封面底色）。opacity 在原生驱动白名单
   // 内，转 true 后两个节点驱动方式一致，混用即消除。
-  const [opacity] = useAnimateNumber(_opacity ?? 1, DEFAULT_DURATION, true)
+  const [opacity] = useAnimateNumber(_opacity ?? 1, duration ?? DEFAULT_DURATION, true)
 
   style = StyleSheet.compose(textShadow ? {
     // fontFamily: 'System',

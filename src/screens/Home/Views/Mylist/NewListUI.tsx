@@ -394,7 +394,11 @@ export default memo(() => {
       }
       return { cover, total: musics.length }
     } catch {
-      return { cover: '', total: 0 }
+      // 获取失败返回 null：合并时跳过该行、保留上一次成功的信息。
+      // 此前返回 { cover: '', total: 0 }，与「真的空列表」无法区分，合并用的
+      // 空值合并（??）对空字符串/0 不回退，会把已加载的行信息洗成 LX 占位 +
+      // 无歌曲数（用户反馈的「我的收藏行卡住置灰」）。
+      return null
     }
   }, [])
 
@@ -409,14 +413,16 @@ export default memo(() => {
       for (const list of allList) {
         fetched.set(list.id, await fetchListInfo(list.id))
       }
-      // 合并旧值：单次获取失败（网络抖动/接口超时）时新封面可能为空，
-      // 此时保留上一次成功的结果，避免刷新反而把已有封面洗掉。
+      // 合并旧值：封面获取失败/为空（网络抖动、WebDAV 歌单首曲无封面且动态补全
+      // 失败）时 fresh.cover 是空字符串——`??` 只对 null/undefined 回退，空串会把
+      // 上一次成功的封面洗掉（行呈 LX 占位 + 整行发灰的「卡住」观感），必须用 ||
+      // 让空串也回退到旧值。total 来自 musics.length 是可靠值，无需回退。
       setListInfoMap((prev) => {
         const next = new Map<string, { cover: string, total: number }>()
         for (const list of allList) {
           const fresh = fetched.get(list.id)
           next.set(list.id, {
-            cover: fresh?.cover ?? prev.get(list.id)?.cover ?? '',
+            cover: fresh?.cover || prev.get(list.id)?.cover || '',
             total: fresh?.total ?? 0,
           })
         }

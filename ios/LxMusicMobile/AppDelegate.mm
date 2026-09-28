@@ -3127,6 +3127,30 @@ RCT_EXPORT_MODULE();
 }
 
 - (void)resetRealtimeRenderStateLocked {
+  // ⚠️ 位置守恒：播放位置 = playbackAnchorFrame + _renderedFrames（见
+  // currentPlaybackPositionLocked）。本方法会把 _renderedFrames 清零，若不同时把
+  // 已渲染的帧数折进 anchor，位置就会从 (anchor + rendered) 突变到 (anchor + 0)
+  // ——表现为控制中心进度条左侧时间倒退、进度条回跳。
+  //
+  // 但【不能无条件折算】：sampleRate <= 0 表示流已复位（resetStreamingState 会先
+  // 把 sampleRate 清零、anchor 归零再调本方法），此时折算会把刚归零的 anchor 又
+  // 写成旧值，让换歌后的位置凭空冒出来。故仅在「流仍有效」时守恒。
+  //
+  // 逐路径核对（sampleRate > 0 时才会走到折算）：
+  //   ① resetStreamingState（换歌）：sampleRate 已置 0 → 不折算，anchor 保持 0 ✓
+  //   ② configureAudioGraphWithSampleRate（首次配置）：anchor/rendered 均 0 → 空操作 ✓
+  //   ③④ applyPendingSeekIfNeeded / seekToPosition：reset 之后显式写入
+  //      playbackAnchorFrame = 目标帧，折算值被覆盖 → 落点仍正确 ✓
+  //   ⑤ cleanupAudioGraphLocked ← stopStreamingInternal（停止）：sampleRate 仍 > 0，
+  //      此前正缺这一步，rendered 清零而 anchor 停在旧值 → 位置回退到 anchor/sampleRate
+  //      （实测可倒退数十秒）。折算后位置保持在停止那一刻 ✓
+  int64_t rendered = _renderedFrames.load(std::memory_order_acquire);
+  if (self.sampleRate > 0 && (self.playbackAnchorFrame != 0 || rendered != 0)) {
+    int64_t completed = self.playbackAnchorFrame + rendered;
+    self.completedFrames = completed;
+    self.playbackAnchorFrame = completed;
+    self.lastKnownPosition = MAX(0, (double)completed / self.sampleRate);
+  }
   if (_pcmBuffer != nullptr) _pcmBuffer->clear();
   _renderedFrames.store(0, std::memory_order_release);
   _sourceRenderingEnabled.store(false, std::memory_order_release);

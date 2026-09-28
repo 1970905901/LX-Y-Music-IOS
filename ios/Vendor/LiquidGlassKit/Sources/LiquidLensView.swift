@@ -5,18 +5,23 @@
 //  Created by Alexey Demin on 2025-12-19.
 //  Vendored modifications for LX Music CocoaPods static-lib build:
 //  1. `internal import` (Swift 6.0+ syntax) replaced with plain `import`.
-//  2. `restingBackgroundColor` / `setLifted(...)` marked `@objc` and a small `LGLensFactory`
-//     added — the React Native view manager (LiquidGlassViewManager.mm) drives the lens
-//     from ObjC, and Swift members are not ObjC-visible without explicit @objc.
+//  2. `restingBackgroundColor` / `setLifted(...)` / `setLensCornerRadius(...)` marked
+//     `@objc` and a small `LGLensFactory` added — the React Native view manager
+//     (LiquidGlassViewManager.mm) drives the lens from ObjC, and Swift members are
+//     not ObjC-visible without explicit @objc.
 //  3. Resting pill follows upstream: a semi-transparent white pill (white 0.3 alpha)
 //     rests under the selected tab and crossfades with the lifted glass. (It was
 //     removed once to keep the lens motion-only — it leaked through the crossfade as
 //     a square base; restored when the app decided to fully align with upstream.)
 //  4. Lens body aligned to upstream 2eb41c5: lifting morphs into the real
 //     `LiquidGlassView(.lens)` (Metal refraction + rim light, same engine as the bar
-//     glass), with multi-rect frames merging and touch-point glare restored. The
-//     frosted-blur stand-in from the era when the Metal path was disabled lived here
-//     and was reverted in the same pass that brought the Metal path back.
+//     glass). The frosted-blur stand-in from the era when the Metal path was disabled
+//     lived here and was reverted in the same pass that brought the Metal path back.
+//  5. 2026-09-29: the drag/long-press gesture layer lives entirely in the RN host
+//     (LiquidGlassViewManager.mm) and upstream has no such layer — removed by user
+//     decision ("上游没有的也不要"). The frames-merge / touch-point glare bridge
+//     methods that only the gesture machine consumed went with it; LiquidGlassView's
+//     own frames/touchPoint capabilities (kit core) remain untouched.
 //  Upstream: Copyright © 2025 DnV1eX, https://github.com/DnV1eX/LiquidGlassKit
 //
 
@@ -64,10 +69,6 @@ public final class LiquidLensView: UIView, AnyLiquidLensView {
     /// Whether the view warps content below it.
     private var warpsContentBelow: Bool = false
 
-    /// Vendored addition: frames 合并进行中（宿主把透镜本体拉伸为跨 tab span），
-    /// 由 setLensFrames 置位/复位——此时跳过挤压/拉伸尺寸动画，避免与 span 尺寸打架。
-    private var spanFramesActive = false
-
     // MARK: - Private Views
 
     /// The resting background view - semi-transparent white pill shown in resting state.
@@ -97,25 +98,6 @@ public final class LiquidLensView: UIView, AnyLiquidLensView {
     /// Vendored addition: 仅对磨砂覆层有意义（0~1）。液态形态无对应参数，
     /// 保留空操作维持 OC 桥接面（mm 按 respondsToSelector 分流继续传值）。
     @objc public func setLensGlassOpacity(_ opacity: CGFloat) {
-    }
-
-    /// Vendored addition: 多矩形玻璃（kit frames 能力，上游 Shape Merging）——
-    /// 宿主拖拽跨 tab 时传两个胶囊矩形（坐标相对透镜本体左上角），shader 把
-    /// 多个矩形平滑合并成一块连续玻璃。
-    @objc public func setLensFrames(_ rects: [NSValue]) {
-        liquidGlassView.frames = rects.map { $0.cgRectValue }
-        // span 进行中标记（宿主已把透镜本体拉伸为跨 tab span）：挤压/拉伸尺寸
-        // 动画跳过，避免与 span 尺寸互相打架
-        spanFramesActive = !liquidGlassView.frames.isEmpty
-    }
-
-    /// Vendored addition: 手指位置驱动的眩光（kit touchPoint 能力，相对透镜本体）。
-    @objc public func setLensTouchPoint(_ point: CGPoint) {
-        liquidGlassView.touchPoint = point
-    }
-
-    @objc public func clearLensTouchPoint() {
-        liquidGlassView.touchPoint = nil
     }
 
     // MARK: - Initialization
@@ -411,8 +393,6 @@ public final class LiquidLensView: UIView, AnyLiquidLensView {
 
     /// Applies squash/stretch size change to liquidGlassView based on acceleration.
     private func applyAccelerationSize(_ acceleration: CGFloat) {
-        // frames 合并（span）模式下玻璃尺寸由宿主决定，跳过挤压/拉伸
-        if spanFramesActive { return }
         let scaleFactor = acceleration * accelerationScaleCoefficient
 
         // Clamp to reasonable range for visual stability

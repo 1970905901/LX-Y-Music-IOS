@@ -37,7 +37,8 @@ const styles = createStyle({
     // 与迷你播放条胶囊(~54)接近的纤细高度；透镜条带高度按 BAR_HEIGHT 推导
     height: 56,
     flexDirection: 'row',
-    borderRadius: designRadius.xl,
+    // 圆角与透镜一致（designRadius.glass 注释），玻璃衬底同值
+    borderRadius: designRadius.glass,
     // 外圈投影已移除（用户反馈胶囊下方有「底子」）：纯玻璃质感，立体感由玻璃
     // 自身边缘光 + 原生 0.5pt 内缘线提供
     overflow: 'hidden',
@@ -141,11 +142,10 @@ export default memo(() => {
 
   // 液态透镜（上游 LiquidLensView 的 tab 切换动画，仅液态玻璃开启时渲染）：
   // 点击切 tab → 药丸淡入 + 抬起 morph + 弹簧滑到目标项（加速度挤压/拉伸由
-  // 透镜内部 displayLink 跟踪产生，全部原生驱动，JS 只更新目标 x）；长按
-  // 0.35s 或按住横滑 → 进入 1:1 跟手拖拽，越过 tab 边界即切页（带触觉反馈），
-  // 松手由 onDragSelect 通知落点。关闭液态玻璃 / 收起态不渲染（无动画也无
-  // 拖拽手势，tab 切换回到直接变色）。透镜条带铺满 tab 栏，静止态半透明白色
-  // 药丸常显在选中 tab 上（上游 resting 状态）。
+  // 透镜内部 displayLink 跟踪产生，全部原生驱动，JS 只更新目标 x）。关闭液态
+  // 玻璃 / 收起态不渲染（tab 切换回到直接变色）。透镜条带铺满 tab 栏，静止态
+  // 半透明白色药丸常显在选中 tab 上（上游 resting 状态）。长按/横滑拖拽切页
+  // 已整体移除（上游 LiquidGlassKit 无此手势层，2026-09-29 定案）。
   const [barWidth, setBarWidth] = useState(0)
   const lensStyle = useMemo(() => StyleSheet.absoluteFill, [])
   const handleLensBarLayout = useCallback((e: LayoutChangeEvent) => {
@@ -154,10 +154,6 @@ export default memo(() => {
   const activeIndex = Math.max(TAB_IDS.findIndex((tab) => tab.id === activeId), 0)
   // 药丸目标中心 = 目标 tab 的中点；首次设置直接落位（不显形），之后原生弹簧滑动
   const lensX = barWidth > 0 ? ((activeIndex + 0.5) * barWidth) / TAB_IDS.length : 0
-  const handleLensDragSelect = useCallback((event: { nativeEvent: { index: number } }) => {
-    const tab = TAB_IDS[event.nativeEvent.index]
-    if (tab) setNavActiveId(tab.id)
-  }, [])
 
   return (
     <View
@@ -202,17 +198,16 @@ export default memo(() => {
         ]}
         pointerEvents={collapsed ? 'none' : 'auto'}
       >
-        {/* 玻璃衬底带与容器一致的圆角：按压下陷内缩时仍呈圆角，不露直角边 */}
-        <LiquidGlass glassOpacity={glassOpacity} dark={theme.isDark} liquid={liquidGlassOn} style={{ borderRadius: designRadius.xl }} />
-        {/* 液态透镜药丸（tab 切换动画）：玻璃之上、tab 内容之下；手势由原生挂在
-            本栏体容器上，快速点击仍走 Pressable，长按/横滑进入透镜拖拽切页 */}
+        {/* 玻璃衬底带与容器一致的圆角：按压下陷内缩时仍呈圆角，不露直角边。
+            圆角 28 = 透镜圆角（56 药丸的胶囊半高，见 LiquidLensView），2026-09-29
+            起玻璃端头曲线统一 circular，观感与透镜一致 */}
+        <LiquidGlass glassOpacity={glassOpacity} dark={theme.isDark} liquid={liquidGlassOn} style={{ borderRadius: designRadius.glass }} />
+        {/* 液态透镜药丸（tab 切换动画）：玻璃之上、tab 内容之下；快速点击走
+            Pressable 切页，透镜动画由原生弹簧驱动 */}
         {liquidGlassOn && !collapsed && barWidth > 0 && (
           <LiquidLens
             style={lensStyle}
             x={lensX}
-            tabCount={TAB_IDS.length}
-            glassOpacity={glassOpacity}
-            onDragSelect={handleLensDragSelect}
           />
         )}
         {TAB_IDS.map((tab) => {

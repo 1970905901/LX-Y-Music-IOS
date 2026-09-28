@@ -98,7 +98,7 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
             style={[styles.container, isHorizontalMode ? styles.horizontalContainer : null]}
             onLayout={(e) => { setMiniPlayerHeight(e.nativeEvent.layout.height) }}
           >
-            <LiquidGlass glassOpacity={glassOpacity} dark={theme.isDark} liquid={liquidGlassOn} style={{ borderRadius: designRadius.xl }} />
+            <LiquidGlass glassOpacity={glassOpacity} dark={theme.isDark} liquid={liquidGlassOn} style={{ borderRadius: designRadius.glass }} />
             <TouchableOpacity style={styles.left} onPress={handleNavigate} activeOpacity={0.8}>
               <Pic />
               <View style={styles.center}>
@@ -134,7 +134,9 @@ const styles = createStyle({
     paddingVertical: 7,
     paddingLeft: designSpacing.sm,
     paddingRight: designSpacing.sm,
-    borderRadius: designRadius.xl,
+    // 圆角与透镜一致（designRadius.glass = 28 = 透镜胶囊半高；高 ~54 下渲染
+    // 收敛为标准胶囊，端头与透镜同观感）
+    borderRadius: designRadius.glass,
     flexDirection: 'row',
     alignItems: 'center',
     overflow: 'hidden',

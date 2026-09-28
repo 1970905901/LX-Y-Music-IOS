@@ -11,6 +11,11 @@ export const designRadius = {
   md: 18,
   lg: 24,
   xl: 32,
+  // 玻璃胶囊统一圆角（2026-09-29 定案）：= 透镜圆角（56 药丸的胶囊半高）。
+  // tab 栏玻璃 / 迷你播放器玻璃 / 透镜同值；端头曲线由原生宿主统一 circular，
+  // 观感完全一致（原 continuous squircle 端头偏方、视觉圆角显小，统一后即
+  // 「圆角适当加大」的效果）。
+  glass: 28,
   pill: 999,
 } as const
 

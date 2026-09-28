@@ -10,8 +10,16 @@
  *   2. 有系统材质时，主题给出的文字色（c-450 等）在合成结果上是否达到 AA 4.5:1？
  *
  * 主题数据不写死：直接解析 src/theme/themes/themes.ts 里全部主题的
- * c-primary-light-600（染色基色）与 c-450（Tab 栏非选中项文字/图标色），
+ * c-450（全 App 次级文字色，Tab 栏旧非选中色）。
  * 避免「脚本里的值和 App 里的值漂移」。
+ *
+ * 2026-09-29 模型同步（「纯玻璃」定案后）：
+ *   - 磨砂覆层不再随主题色（c-primary-light-600），改为中性色：浅色白 / 深色黑
+ *     （LGGlassViewFactory 现状）；
+ *   - 深色模式有保底暗化 DARK_OVERLAY_FLOOR（LiquidGlass.tsx）——用户把玻璃
+ *     不透明度拉到 0 时，深色材质下不存在任何文字色可达 AA，保底是必要条件；
+ *   - Tab 栏非选中项文字/图标色改为按主题分派的中性灰
+ *     （ModernTabBar.tsx TAB_INACTIVE_LIGHT/DARK），断言5/7 体检该分派色。
  *
  * 材质建模（重要：这是模型，不是真机采样）
  * ---------------------------------------
@@ -52,6 +60,27 @@ const MATERIAL_BASE_DARK = [28, 28, 30]
  * 归零 —— 这是本脚本断言 4 要证明的事。
  */
 const TINT_ALPHA_CAP = 0.6
+
+/**
+ * 磨砂覆层中性色（「纯玻璃」定案：不随主题色，浅色白 / 深色黑 ——
+ * LGGlassViewFactory 现状）。
+ */
+const OVERLAY_LIGHT = [255, 255, 255]
+const OVERLAY_DARK = [0, 0, 0]
+
+/**
+ * 深色模式磨砂覆层的最终 alpha 保底（LiquidGlass.tsx DARK_OVERLAY_FLOOR_USER
+ * × TINT_ALPHA_CAP 换算而来）：无保底时（alpha 可取 0）深色材质下任何文字色
+ * 都无法达 AA（断言7 验证此必要性）。
+ */
+const DARK_OVERLAY_FLOOR = 0.2
+
+/**
+ * Tab 栏非选中项文字/图标分派色（ModernTabBar.tsx TAB_INACTIVE_LIGHT/DARK），
+ * 替换在玻璃上不达标的 c-450。⚠️ 与组件人工同步（组件有反向指路注释）。
+ */
+const TAB_INACTIVE_LIGHT_V = 94
+const TAB_INACTIVE_DARK_V = 248
 
 /** AA 要求：文字 ≤17px 需 4.5:1（Tab 栏文字 size=12） */
 const AA_NORMAL = 4.5
@@ -208,7 +237,7 @@ console.log(`材质收敛系数 k=${MATERIAL_CONVERGE}，覆层 alpha 映射上�
 // 判据不用「亮度变化幅度」（取决于 tint 与材质基色是否接近，不稳定），改用材质的
 // 本质能力：跨背景的自适应。alpha=1 时合成结果与背景无关（跨度恒为 0）。
 {
-  const tintL = luminance(lightThemes[0].tint)
+  const tintL = luminance(OVERLAY_LIGHT)
   const isDark = false
   const spanAt = (alpha) => {
     const ls = BACKGROUNDS.map((bg) =>
@@ -225,36 +254,38 @@ console.log(`材质收敛系数 k=${MATERIAL_CONVERGE}，覆层 alpha 映射上�
   )
 }
 
-// ---- 断言 5：主题文字色在合成结果上是否达到 AA 4.5:1 ------------------------
-// 这条是「现状体检」：当前实现无法可读性达标时脚本必须报出来，而不是假装通过。
+// ---- 断言 5：Tab 栏非选中项分派色在合成结果上是否达到 AA 4.5:1 ---------------
+// 2026-09-29 修复后体检：Tab 栏已不再用 c-450（修复前在玻璃上最低 1.45:1、
+// 全部 80 组不达标），改为按主题模式分派的中性灰。本条必须 PASS。
 {
   const offenders = []
-  let worstTheme = null
-  let worstRatio = Infinity
-  for (const t of themes) {
-    const alpha = mapUserAlpha(40) // defaultSetting 的默认值 40
+  let worst = null
+  for (const isDark of [false, true]) {
+    const v = isDark ? TAB_INACTIVE_DARK_V : TAB_INACTIVE_LIGHT_V
+    const textL = luminance([v, v, v])
+    const alpha = Math.max(mapUserAlpha(40), isDark ? DARK_OVERLAY_FLOOR : 0) // 默认设置 40 与保底取大
     for (const bg of BACKGROUNDS) {
       const bgL = backingLuminance({
-        bgL: bg.L, isDark: t.isDark, hasMaterial: true, alpha, tintL: luminance(t.tint),
+        bgL: bg.L, isDark, hasMaterial: true, alpha, tintL: luminance(isDark ? OVERLAY_DARK : OVERLAY_LIGHT),
       })
-      const ratio = contrast(luminance(t.label), bgL)
-      if (ratio < worstRatio) { worstRatio = ratio; worstTheme = t }
-      if (ratio < AA_NORMAL) offenders.push({ theme: t.id, bg: bg.name, ratio })
+      const ratio = contrast(textL, bgL)
+      if (!worst || ratio < worst.ratio) worst = { isDark, bg: bg.name, ratio }
+      if (ratio < AA_NORMAL) offenders.push({ mode: isDark ? '深色' : '浅色', bg: bg.name, ratio })
     }
   }
   const pass = offenders.length === 0
   check(
-    `断言5 现状体检：主题非选中项文字色在合成结果上需 ≥ ${AA_NORMAL}:1`,
+    `断言5 修复体检：Tab 栏非选中分派色（浅 ${TAB_INACTIVE_LIGHT_V} / 深 ${TAB_INACTIVE_DARK_V}）需 ≥ ${AA_NORMAL}:1`,
     pass,
     pass
-      ? `全部通过，最低 ${worstRatio.toFixed(2)}:1（${worstTheme.id}）`
-      : `不达标 ${offenders.length}/${themes.length * BACKGROUNDS.length} 组；` +
-        `最低 ${worstRatio.toFixed(2)}:1（${worstTheme.id}，label=${JSON.stringify(worstTheme.label)}）` +
-        `\n      样例：${offenders.slice(0, 4).map((o) => `${o.theme}/${o.bg}=${o.ratio.toFixed(2)}:1`).join('，')}`,
+      ? `全部通过，最坏 ${worst.ratio.toFixed(2)}:1（${worst.isDark ? '深色' : '浅色'}/${worst.bg}）`
+      : `不达标 ${offenders.length} 组；样例：${offenders.slice(0, 4).map((o) => `${o.mode}/${o.bg}=${o.ratio.toFixed(2)}:1`).join('，')}`,
   )
 }
 
-// ---- 断言 6（模型无关）：文字色自身决定了它「能放在多亮的背景上」 ------------
+// ---- 断言 6（模型无关）：c-450 自身决定了它「能放在多亮的背景上」 ------------
+// 根因判据（历史记录）：c-450 曾是 Tab 栏非选中色，2026-09-29 已被分派色替换；
+// 它仍是全 App 其它页面的次级文字色——但那些背景不是玻璃，不属本缺陷范围。
 // 这条不依赖上面的材质模型：给定文字色的亮度 L_text，达 AA 的背景亮度只允许落在
 //   上分支：[0, (L+0.05)/AA - 0.05]      （文字比背景暗）
 //   下分支：[(L+0.05)*AA - 0.05, 1]      （文字比背景亮）
@@ -272,44 +303,39 @@ console.log(`材质收敛系数 k=${MATERIAL_CONVERGE}，覆层 alpha 映射上�
   const worst = measures.reduce((a, b) => (a.m <= b.m ? a : b))
   const allTiny = measures.every((x) => x.m < 0.2)
   check(
-    '断言6 主题非选中项文字色可用的背景亮度区间测度 < 0.2（与材质无关的根因判据）',
+    '断言6 根因判据（历史）：旧非选中色 c-450 可用的背景亮度区间测度 < 0.2（与材质无关）',
     allTiny,
     `最受限 ${worst.id}（${worst.isDark ? '深色' : '浅色'}）测度=${worst.m.toFixed(3)}；` +
       `即该颜色只能在 ${(worst.m * 100).toFixed(1)}% 的背景亮度范围内达标 —— 材质无论多厚都救不了`,
   )
 }
 
-// ---- 断言 7（体检）：给出可达 AA 的替换灰值，并复核其可用性 ----------------
+// ---- 断言 7（修复验证）：分派色在 glassOpacity 全域 + 全背景下达标 ------------
+// 浅色分派色须在 alpha 全域 [0, 上限] 达标；深色分派色在 [保底, 上限] 达标；
+// 并反例验证「无保底时深色确实无解」——即保底暗化是必要条件，不是装饰。
 {
-  const alpha = mapUserAlpha(40)
-  const suggestion = {}
-  for (const isDark of [false, true]) {
-    const xs = []
-    for (let v = 0; v <= 255; v++) {
-      const textL = luminance([v, v, v])
-      let ok = true
-      for (const t of themes.filter((x) => x.isDark === isDark)) {
-        for (const bg of BACKGROUNDS) {
-          const bgL = backingLuminance({
-            bgL: bg.L, isDark, hasMaterial: true, alpha, tintL: luminance(t.tint),
-          })
-          if (contrast(textL, bgL) < AA_NORMAL) { ok = false; break }
-        }
-        if (!ok) break
+  const grayWorksEverywhere = (v, isDark, alphaMin, alphaMax) => {
+    const textL = luminance([v, v, v])
+    const tintL = luminance(isDark ? OVERLAY_DARK : OVERLAY_LIGHT)
+    for (let a = alphaMin; a <= alphaMax + 1e-9; a += 0.02) {
+      const alpha = Math.min(a, alphaMax)
+      for (const bg of BACKGROUNDS) {
+        const bgL = backingLuminance({ bgL: bg.L, isDark, hasMaterial: true, alpha, tintL })
+        if (contrast(textL, bgL) < AA_NORMAL) return false
       }
-      if (ok) xs.push(v)
     }
-    suggestion[isDark ? 'dark' : 'light'] = xs.length > 0
-      ? (isDark ? Math.min(...xs) : Math.max(...xs))
-      : null
+    return true
   }
-  const pass = suggestion.light !== null && suggestion.dark !== null
-  const fmt = (v) => (v === null ? '无解' : `rgb(${v},${v},${v})`)
+  const lightOk = grayWorksEverywhere(TAB_INACTIVE_LIGHT_V, false, 0, TINT_ALPHA_CAP)
+  const darkOk = grayWorksEverywhere(TAB_INACTIVE_DARK_V, true, DARK_OVERLAY_FLOOR, TINT_ALPHA_CAP)
+  const darkNeedsFloor = !grayWorksEverywhere(TAB_INACTIVE_DARK_V, true, 0, TINT_ALPHA_CAP)
+  const pass = lightOk && darkOk && darkNeedsFloor
   check(
-    `断言7 体检：存在中性灰在全部主题×背景下达 ${AA_NORMAL}:1（替换 c-450 的候选）`,
+    `断言7 修复验证：分派色（浅 ${TAB_INACTIVE_LIGHT_V} / 深 ${TAB_INACTIVE_DARK_V}）在 glassOpacity 全域达 ${AA_NORMAL}:1，且深色保底必要`,
     pass,
-    `浅色模式候选 ${fmt(suggestion.light)}，深色模式候选 ${fmt(suggestion.dark)}` +
-      (pass ? '；两者都需按主题模式分派，不能再共用一个 c-450' : '；某一模式无解，说明该模式材质过薄，需补暗化层'),
+    `浅色全域[0,${TINT_ALPHA_CAP}]：${lightOk ? '达标' : '不达标'}；` +
+      `深色[保底${DARK_OVERLAY_FLOOR},${TINT_ALPHA_CAP}]：${darkOk ? '达标' : '不达标'}；` +
+      `无保底时深色：${darkNeedsFloor ? '确实无解（保底暗化必要）' : '竟可达标（保底可撤销）'}`,
   )
 }
 

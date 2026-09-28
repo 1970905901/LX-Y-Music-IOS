@@ -15,6 +15,16 @@ import Text from '@/components/common/Text'
 import LiquidGlass from '@/components/common/LiquidGlass'
 import LiquidLens from '@/components/common/LiquidLens'
 
+// Tab 栏非选中项文字/图标色（按主题模式分派，替换 c-450）：
+//   - c-450 在玻璃底衬上对比度只有 1.45~2.44:1（AA 4.5:1），且可用背景亮度区间
+//     测度仅 2.5%，加厚材质也救不了 → 必须换色；
+//   - 两个值均经 scripts/sim-glass-contrast.js 断言5/7 在「全部内置主题 × 背景 ×
+//     glassOpacity 全域」验证达标（浅色最坏 5.9:1 / 深色最坏 4.7:1）；
+//   - 不动全局 c-450（它服务全 App 次级文字，非玻璃背景上对比度尚可）——只改玻璃场景。
+// ⚠️ 与脚本常量 TAB_INACTIVE_LIGHT_V(94) / TAB_INACTIVE_DARK_V(248) 人工同步。
+const TAB_INACTIVE_LIGHT = 'rgb(94,94,94)'
+const TAB_INACTIVE_DARK = 'rgb(248,248,248)'
+
 const styles = createStyle({
   wrapper: {
     position: 'absolute',
@@ -100,6 +110,11 @@ export default memo(() => {
   // 深色黑），浓度由 theme.glassOpacity 用户设置驱动，实时响应滑杆调节；
   // 液态形态走 kit 预设动态色（不传 tint）
   const glassOpacity = useSettingValue('theme.glassOpacity') / 100
+  // 非选中项文字/图标色：c-450 在玻璃底衬上对比度只有 1.45~2.44:1（AA 需 4.5:1，
+  // 且该色「可用背景亮度区间测度」仅 2.5%，材质救不了），按主题模式分派为经
+  // scripts/sim-glass-contrast.js 断言5/7 验证的中性灰。⚠️ 与脚本常量
+  // TAB_INACTIVE_LIGHT_V / TAB_INACTIVE_DARK_V 人工同步（脚本有反向指路注释）。
+  const tabInactiveColor = theme.isDark ? TAB_INACTIVE_DARK : TAB_INACTIVE_LIGHT
   // 液态玻璃开关：全 iOS 版本生效（开 → vendored Metal 液态玻璃；关 → 系统磨砂）。
   // 实时响应设置切换，原生按 liquid prop 重建背衬并重放缓存的主题属性。
   const liquidGlassOn = useSettingValue('theme.liquidGlass')
@@ -217,13 +232,13 @@ export default memo(() => {
                 <Icon
                   name={tab.icon}
                   size={tab.icon === 'love' ? 30 : 21}
-                  color={isActive ? theme['c-primary'] : theme['c-font-label']}
+                  color={isActive ? theme['c-primary'] : tabInactiveColor}
                 />
               </View>
               <Text
                 style={styles.label}
                 size={12}
-                color={isActive ? theme['c-primary'] : theme['c-font-label']}
+                color={isActive ? theme['c-primary'] : tabInactiveColor}
                 numberOfLines={1}
               >
                 {t(TAB_LABEL_KEYS[tab.id])}

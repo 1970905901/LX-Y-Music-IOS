@@ -44,6 +44,16 @@ type LiquidGlassNativeProps = Omit<LiquidGlassProps, 'tint'> & { tint?: Processe
 const NativeLiquidGlass = requireNativeComponent<LiquidGlassNativeProps>('LiquidGlassView')
 
 /**
+ * 深色模式磨砂覆层的**最终 alpha 保底**（与 scripts/sim-glass-contrast.js 的
+ * DARK_OVERLAY_FLOOR 同步）：深色材质基色极暗，但近白封面经材质收敛后仍有 ~0.2
+ * 亮度——用户把玻璃不透明度拉到 0 时，深色模式下**不存在任何**文字色能达标
+ * AA 4.5:1（亮文字需要背景亮度 ≤ 0.183，0.2 收敛结果做不到）。保底 0.2 暗化把
+ * 最坏背景压到 ≤0.16，配合非选中项近白文字（Tab 栏 TAB_INACTIVE_DARK=248）稳定 ≥4.5:1。
+ * prop 是用户值域（原生再乘 maxTintAlpha=0.6），故换算 0.2/0.6 ≈ 0.333。
+ */
+const DARK_OVERLAY_FLOOR_USER = 0.2 / 0.6
+
+/**
  * 玻璃背景层（双形态，liquid prop 切换）：
  *   - 液态（开关开）：vendored LiquidGlassKit 的 Metal 折射玻璃 —— 染色 +
  *     背景微模糊 + 折射 + 边缘光。渲染行为与上游 DnV1eX/LiquidGlassKit 一致：
@@ -57,6 +67,12 @@ const NativeLiquidGlass = requireNativeComponent<LiquidGlassNativeProps>('Liquid
  * 内容子元素渲染在其上层。原生的 userInteractionEnabled 已关闭，触摸全部穿透。
  */
 const LiquidGlass = memo(({ tint, glassOpacity = 0.4, dark = false, liquid = false, style }: LiquidGlassProps) => {
+  // 深色模式可读性保底：用户值与保底取大（仅磨砂形态的覆层；液态形态 glassOpacity
+  // 本就无作用，不受影响）。浅色模式 floor=0，行为不变。
+  const effectiveGlassOpacity = useMemo(
+    () => (dark ? Math.max(glassOpacity, DARK_OVERLAY_FLOOR_USER) : glassOpacity),
+    [dark, glassOpacity],
+  )
   // 原生 RCTConvert UIColor: 只认 processColor 预处理后的数值（rgb()/rgba() 字符串
   // 会被静默转成 nil——染色曾因此从不跟随主题），必须过一次 processColor 再过桥
   const nativeTint = useMemo(
@@ -70,7 +86,7 @@ const LiquidGlass = memo(({ tint, glassOpacity = 0.4, dark = false, liquid = fal
   return (
     <NativeLiquidGlass
       style={glassStyle}
-      glassOpacity={glassOpacity}
+      glassOpacity={effectiveGlassOpacity}
       dark={dark}
       liquid={liquid}
       tint={nativeTint}

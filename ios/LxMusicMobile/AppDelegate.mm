@@ -3673,7 +3673,17 @@ RCT_EXPORT_MODULE();
 - (double)currentPlaybackPositionLocked {
   if (self.sampleRate <= 0) return self.lastKnownPosition;
   int64_t renderedFrames = _renderedFrames.load(std::memory_order_acquire);
-  self.completedFrames = self.playbackAnchorFrame + renderedFrames;
+  // 播放位置 = 已写入输出环的帧 − 仍在环内未被扬声器消费的帧 = 实际已出声的帧。
+  // 旧实现报告「已入队」位置：报告恒定超前可听内容一个输出环深度（_renderedFrames
+  // 在解码写环时 fetch_add，环内 availableToRead 的帧尚未出声）——高码率 FLAC 环深
+  // 更大、seek 后环被填到起播阈值才出声，超前量随填充程度变化。进度条/歌词锚定/
+  // 控制中心全部锚在这个超前的报告上，与可听内容差数秒（真机实锤：进度条先走完、
+  // 音乐还在放；快进/快退后歌词与音频差无规律偏移）。扣掉环内未播帧后，报告=可听。
+  int64_t queuedFrames = _pcmBuffer != nullptr ? (int64_t)_pcmBuffer->availableToRead() : 0;
+  self.queuedFrames = queuedFrames;
+  int64_t playedFrames = renderedFrames - queuedFrames;
+  if (playedFrames < 0) playedFrames = 0;
+  self.completedFrames = self.playbackAnchorFrame + playedFrames;
   self.lastKnownPosition = MAX(0, (double)self.completedFrames / self.sampleRate);
   return self.lastKnownPosition;
 }

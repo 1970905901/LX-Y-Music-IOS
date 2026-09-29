@@ -264,13 +264,27 @@ export default () => {
     const musicId = playerState.musicInfo.id
     if (!musicId) return
     switch (event.state) {
-      case 'playing':
+      case 'playing': {
+        // 出声回拉（1:1 上游 handlePlaying）：seek/缓冲恢复出声时，把引擎强制拉回
+        // seek 意图位置（restorePlayTime）或卡住前的位置（mediaBuffer.playTime）——
+        // 引擎落点偏差是「歌词与音频差固定偏移」的直接来源，回拉音频后重锚交给
+        // 重 seek 引发的引擎事件与 300ms 快路径。回拉后清空记录，后续 playing 不再回拉。
+        const resumeTime = restorePlayTime ?? mediaBuffer.playTime
+        clearBufferTimeout()
+        restorePlayTime = null
+        if (resumeTime != null) {
+          void setCurrentTime(resumeTime).catch(() => {})
+          scheduleFastResync(musicId)
+          break
+        }
         syncFromEngine(musicId)
         break
+      }
       case 'buffering':
-      case 'loading':
+      case 'loading': {
         engineConfirmedPlaying = false
         isBufferingHold = true
+        startBuffering()
         // 与慢校准缓冲分支同一冻结策略：有锚点 → 自冻结在当前位置（seek 缓冲期
         // getPosition 回报的是 seek 目标，不可采信）；无锚点（恢复进度起播/新歌
         // 起播首帧即缓冲）→ 取引擎位置为逐字插值基准，与行级 setLyric 的重锚同源。
@@ -286,10 +300,14 @@ export default () => {
           })
         }
         break
+      }
       case 'paused':
       case 'stopped':
         engineConfirmedPlaying = false
         isBufferingHold = false
+        // 真实暂停/停止才清看门狗（上游 handlePause 语义：waiting 引发的 pause
+        // 要保留看门狗与重试预算——我们的事件订阅天然区分真实 paused 与 buffering）
+        clearBufferTimeout()
         break
     }
   })
@@ -306,6 +324,61 @@ export default () => {
   let seekHoldUntil = 0
   let seekGen = 0
 
+  // —— 缓冲看门狗 + 出声回拉（完整移植上游 usePlayProgress 的 restorePlayTime/mediaBuffer）——
+  // 上游行为（桌面版 usePlayProgress.ts）：
+  //   setProgress：restorePlayTime = seek 目标（意图位置）；
+  //   playerWaiting（进入缓冲）：startBuffering——连续缓冲 3s 记录卡住位置，每轮向后
+  //     跳 3~6s 探测逃离卡死区间（getBufferRecoveryPosition，绝不跳到结尾），10 次失败
+  //     放弃（上游按 autoSkipOnError 设置决定是否跳下一首，本项目无此设置=仅放弃）；
+  //   playerPlaying（出声）：resumeTime = restorePlayTime || mediaBuffer.playTime →
+  //     setCurrentTime(resumeTime) 把【音频】强制拉回目标位置。
+  // 为什么必须校正音频而不是歌词：引擎落点与 seek 意图位置可能存在偏差（高码率大文件
+  // 的 range 不精确 / 解码器恢复偏移），此时引擎报告位置≠可听内容位置——歌词/进度/
+  // 控制中心若忠实锚到报告位置，全部与可听内容差固定偏移且无规律（真机实测：仅高码率
+  // 复现、128k/320k 正常、两套引擎都复现）。上游在每次出声时回拉音频，落点偏差被消除，
+  // 后续所有锚定自然正确。restorePlayTime 在出声回拉后清空（回拉引发的后续 playing
+  // 不再回拉，天然无循环）。
+  let restorePlayTime: number | null = null
+  const mediaBuffer: { timeout: number | null, playTime: number | null, attempts: number } = {
+    timeout: null, playTime: null, attempts: 0,
+  }
+  const clearBufferTimeout = () => {
+    if (mediaBuffer.timeout != null) BackgroundTimer.clearTimeout(mediaBuffer.timeout)
+    mediaBuffer.timeout = null
+    mediaBuffer.playTime = null
+    mediaBuffer.attempts = 0
+  }
+  // 上游 bufferRecovery：探测点=当前位置向前 step（3~6s）且绝不越过结尾（避免制造 ended）
+  const getBufferRecoveryPosition = (current: number, duration: number, step: number): number | null => {
+    if (!Number.isFinite(current) || current < 0 || !Number.isFinite(duration) || duration <= current || !Number.isFinite(step) || step <= 0) return null
+    const remaining = duration - current
+    if (remaining < 0.25) return null
+    return current + Math.min(step, remaining / 2)
+  }
+  const startBuffering = () => {
+    if (mediaBuffer.timeout != null) return
+    const track = playerState.musicInfo.id
+    if (!track) return
+    mediaBuffer.timeout = BackgroundTimer.setTimeout(() => {
+      mediaBuffer.timeout = null
+      if (track != playerState.musicInfo.id || !playerState.isPlay) return
+      void getPosition().then((currentTime) => {
+        if (track != playerState.musicInfo.id || !playerState.isPlay) return
+        mediaBuffer.playTime ??= currentTime
+        if (++mediaBuffer.attempts >= 10) {
+          clearBufferTimeout()
+          return
+        }
+        void getDuration().then((duration) => {
+          if (track != playerState.musicInfo.id || !playerState.isPlay) return
+          const skipTime = getBufferRecoveryPosition(currentTime, duration || playerState.progress.maxPlayTime, 3 + Math.random() * 3)
+          startBuffering()
+          if (skipTime != null) void setCurrentTime(skipTime)
+        }).catch(() => { startBuffering() })
+      }).catch(() => {})
+    }, 3000)
+  }
+
   // seek 落点确认 / 暂停恢复后的快路径兜底：正常情况下引擎 playing 事件已即时重锚
   // （syncFromEngine 订阅），这里 ~300ms 后补一次，覆盖「seek 未引起引擎状态变化
   // 而没有 playing 事件」（AVPlayer 本地文件 seek）与事件丢失的场景。
@@ -321,6 +394,14 @@ export default () => {
     if (!playerState.musicInfo.id) return
     const musicId = playerState.musicInfo.id
     // console.log('setProgress', time, maxTime)
+    // 出声回拉记录（上游 restorePlayTime）：seek 意图位置，出声时把音频拉回这里
+    restorePlayTime = time
+    if (mediaBuffer.timeout != null || mediaBuffer.playTime != null) {
+      // 缓冲看门狗进行中又 seek：清旧轮次，以新目标为回拉基准重启看门狗（上游同语义）
+      clearBufferTimeout()
+      mediaBuffer.playTime = time
+      startBuffering()
+    }
     setNowPlayTime(time)
     // 对齐上游 seek→歌词时序（usePlayProgress.setProgress 只做 setNowPlayTime +
     // setCurrentTime，不碰歌词）：seek 只立即跳进度条，歌词不动——时钟继续外推
@@ -387,6 +468,8 @@ export default () => {
     seekHoldUntil = 0
     seekGen++
     clearSyncRetry()
+    clearBufferTimeout()
+    restorePlayTime = null
     // 切歌/停播可能没有任何引擎状态事件（尤其 nativeFlac stop 不走状态机），
     // 快路径门控必须显式复位，否则残留的 engineConfirmedPlaying 会让 4Hz 位置
     // 事件/自愈探针在上首歌曲的原生时钟位置上继续工作。

@@ -33,6 +33,10 @@
  *  12  硬保证·事件永不丢失：playing 信号快照恰逢微卡顿（状态误报 buffering）被丢弃
  *      → 200ms 重试链在状态恢复后立即落行（丢失语义改写为「延迟而非丢失」）
  *  12x 反例：无重试时被丢弃信号导致行仍冻在旧行，只能等慢校准探针兜底
+ *  13  硬保证·出声回拉（上游 handlePlaying）：引擎落点偏差（报告位置≠意图位置，
+ *      高码率大文件 range/恢复偏移）→ 出声时把音频拉回意图位置，歌词/时钟随之正确
+ *  13x 反例：无出声回拉时歌词/时钟锚在引擎误报落点（所有 JS 网对此盲——它们都锚
+ *      定引擎报告位置），歌词与可听内容差固定偏移
  * 逐字（卡拉OK）链路 = 行级链路的时钟侧：字高亮 elapsed = audioClock − 当前行起点，
  * audioClock 与行级 ticker 由同一批引擎事件锚定/冻结（playing→setAnchor+重锚、
  * buffering→hold），断言 1/3/6/8 的时钟误差即逐字精度上界。
@@ -130,10 +134,13 @@ function makeLyric(lineTimes) {
 function makeEngine({ lineTimes }) {
   const e = {
     state: 'playing', anchorPos: 0, anchorT: 0, rate: 1, reportPos: null, _seekGen: 0, listeners: [],
+    // reportOffset：引擎「报告位置」与可听内容的偏差模型（高码率大文件 range 不精确/
+    // 解码恢复偏移）——seek 应用时置为 misLandBy，再次 seek 归零。正值=报告超前。
+    reportOffset: 0,
     duration: lineTimes[lineTimes.length - 1] + 10000,
     pos(t = nowMs) {
-      if (this.state === 'playing') return this.anchorPos + (t - this.anchorT) * this.rate
-      return this.reportPos != null ? this.reportPos : this.anchorPos
+      if (this.state === 'playing') return this.anchorPos + (t - this.anchorT) * this.rate + this.reportOffset
+      return (this.reportPos != null ? this.reportPos : this.anchorPos) + this.reportOffset
     },
     emitState() { for (const l of this.listeners) l({ type: 'state', state: this.state }) },
     setState(s) { this.state = s; this.anchorT = nowMs; this.emitState() },
@@ -141,11 +148,12 @@ function makeEngine({ lineTimes }) {
     pause() { this.anchorPos = this.pos(nowMs); this.anchorT = nowMs; this.reportPos = null; this.setState('paused') },
     /** seekTo：可配置生效延迟 / 是否经历 buffering / buffering 期位置回报语义。
      *  真实播放器语义：第二次 seekTo 取消尚未生效的前一次 seek（代际守卫）。 */
-    seekTo(target, { applyAfter = 0, buffering = false, reportTargetDuringBuffering = true, emitPlayingOnApply = true, stateFlapMs = 0, silentResume = false, silentResumeUntil = 0 } = {}) {
+    seekTo(target, { applyAfter = 0, buffering = false, reportTargetDuringBuffering = true, emitPlayingOnApply = true, stateFlapMs = 0, silentResume = false, silentResumeUntil = 0, misLandBy = 0 } = {}) {
       const gen = ++this._seekGen
       const apply = () => {
         if (gen !== this._seekGen) return // 已被更新的 seek 取消
         this.anchorPos = target; this.anchorT = nowMs; this.reportPos = null
+        this.reportOffset = misLandBy // 引擎落点偏差模型：报告位置 ≠ 意图位置
         if (this.state === 'buffering') {
           if (silentResume) {
             // silentResume：出声但不发 playing 事件（真机「事件丢失」模型——AVPlayer 对
@@ -189,7 +197,7 @@ function makeEngine({ lineTimes }) {
 // ---------------------------------------------------------------------------
 // 新架构系统（重构后 playProgress + controller 事件映射 + core/lyric 接线）
 // ---------------------------------------------------------------------------
-function createNewSystem(engine, lyric, { pollPhase = 0, eventHoldNoAnchorFallback = true, lineSyncDetector = true, resolveLandingAnchor = true, syncRetry = true } = {}) {
+function createNewSystem(engine, lyric, { pollPhase = 0, eventHoldNoAnchorFallback = true, lineSyncDetector = true, resolveLandingAnchor = true, syncRetry = true, resumeSnap = true } = {}) {
   const clock = makeClock()
   const sys = {
     clock, lyric, engine,
@@ -200,6 +208,9 @@ function createNewSystem(engine, lyric, { pollPhase = 0, eventHoldNoAnchorFallba
     lineSyncDetector, // 行级自愈探针（verifyLyricLineSync）：慢校准层的第二道网
     resolveLandingAnchor, // setCurrentTime resolve（落点确认）即重锚：≈上游 seeked→playing 硬保证
     syncRetry, // playing 信号被状态守卫丢弃时 200ms 重试（「事件永不丢失」消费侧等价物）
+    resumeSnap, // 出声回拉（上游 handlePlaying）：restorePlayTime 意图位置强制回拉音频
+    restorePlayTime: null, // ≈ 上游 restorePlayTime（setProgress 记录的 seek 意图位置）
+    mediaBufferPlayTime: null, // ≈ 上游 mediaBuffer.playTime（缓冲看门狗记录的卡住位置）
     ccReanchors: [],
   }
   const isPlay = () => sys.engineConfirmed || engine.state === 'playing'
@@ -251,7 +262,21 @@ function createNewSystem(engine, lyric, { pollPhase = 0, eventHoldNoAnchorFallba
   engine.listeners.push((ev) => {
     if (ev.type !== 'state') return
     switch (ev.state) {
-      case 'playing': syncFromEngine('m'); break
+      case 'playing': {
+        // 出声回拉（1:1 playProgress playing case / 上游 handlePlaying）：restorePlayTime
+        // （seek 意图）或 mediaBufferPlayTime（卡住前位置）非空时，把引擎拉回该位置——
+        // 引擎报告位置≠意图位置时，所有 JS 侧锚定网都盲（它们锚报告位置），唯有校正音频有效。
+        const resumeTime = sys.restorePlayTime ?? sys.mediaBufferPlayTime
+        sys.mediaBufferPlayTime = null
+        sys.restorePlayTime = null
+        if (resumeTime != null && sys.resumeSnap) {
+          engine.seekTo(resumeTime, { applyAfter: 0, buffering: true }) // raw 回拉（无窗口/代际副作用）
+          scheduleFastResync(sys.seekGen)
+          break
+        }
+        syncFromEngine('m')
+        break
+      }
       case 'buffering':
       case 'loading':
         sys.engineConfirmed = false; sys.bufferingHold = true
@@ -289,6 +314,7 @@ function createNewSystem(engine, lyric, { pollPhase = 0, eventHoldNoAnchorFallba
   sys.seekAccepted = (target, { resolveAfter = 0 } = {}) => {
     sys.nowPlayTime = target
     sys.seekTarget = target; sys.seekHoldUntil = nowMs + 2000
+    sys.restorePlayTime = target // ≈ setProgress 的 restorePlayTime = time（出声回拉基准）
     after(resolveAfter, () => {
       sys.nowPlayTime = target
       sys.seekTarget = target; sys.seekHoldUntil = nowMs + 2000
@@ -764,6 +790,41 @@ check('12x 反例：无重试时被丢弃信号导致行长期冻在旧行，只
   assert(lyric.curLine === 2, `状态恢复 450ms 后行应仍冻在旧行(2)（缺陷持续，实际缺陷更深），实际 ${lyric.curLine}`)
   advance(2100) // t=4550：seek 窗口过期后的首个慢校准 tick 才由探针兜底
   assert(lyric.curLine === 6, `探针兜底后行应到落点行(6)，实际 ${lyric.curLine}`)
+})
+
+check('13 硬保证·出声回拉：引擎落点偏差（报告≠意图）→ 出声时音频拉回意图位置，歌词/时钟正确', () => {
+  resetWorld()
+  const engine = makeEngine({ lineTimes: LINES })
+  const lyric = makeLyric(LINES)
+  const sys = createNewSystem(engine, lyric, { pollPhase: 300 })
+  engine.playFrom(25000); lyric.play(25000)
+  advance(1000)
+  // 落点偏差模型：seek 65s，引擎落点/报告位置 57s（misLandBy=-8000，高码率大文件的
+  // range/恢复偏差），出声有事件 → 回拉链触发
+  engine.seekTo(65000, { applyAfter: 600, buffering: true, misLandBy: -8000 })
+  sys.seekAccepted(65000, { resolveAfter: 620 })
+  advance(700) // t=700：出声(600)+回拉(playing 时把音频拉回 65s)已完成
+  assert(lyric.curLine === 6, `出声回拉后行应落到意图位置(6)，实际 ${lyric.curLine}`)
+  const clockErr = Math.abs(sys.clock.getTime() * 1000 - engine.pos(nowMs))
+  assert(clockErr <= 150, `时钟应锚定回拉后的真实位置(65s)，误差 ${clockErr.toFixed(0)}ms`)
+  assert(Math.abs(engine.pos(nowMs) - 65000 - (nowMs - 1600)) <= 1, `引擎应已被拉回意图位置(65s)，实际 ${(engine.pos(nowMs) - (nowMs - 1600)).toFixed(0)}ms`)
+})
+
+check('13x 反例：无出声回拉时歌词/时钟锚在引擎误报落点（歌词与可听内容差固定偏移，缺陷可被捕获）', () => {
+  resetWorld()
+  const engine = makeEngine({ lineTimes: LINES })
+  const lyric = makeLyric(LINES)
+  const sys = createNewSystem(engine, lyric, { pollPhase: 300, resumeSnap: false })
+  engine.playFrom(25000); lyric.play(25000)
+  advance(1000)
+  engine.seekTo(65000, { applyAfter: 600, buffering: true, misLandBy: -8000 })
+  sys.seekAccepted(65000, { resolveAfter: 620 })
+  advance(700)
+  // 所有 JS 网都锚定引擎报告位置（57s）——歌词与用户意图/可听内容（65s）差 8 秒：
+  // 探针/重试/事件全blind，因为它们比较的基准（引擎报告）本身就是错的
+  assert(lyric.curLine === 5, `无回拉时行应锚在引擎误报落点(5=57s，用户听到 65s 内容——差 8 秒偏移，缺陷存在)，实际 ${lyric.curLine}`)
+  const clockErr = Math.abs(sys.clock.getTime() * 1000 - engine.pos(nowMs))
+  assert(clockErr <= 120, `时钟与引擎报告自洽（证明 JS 侧对落点偏差全盲），误差 ${clockErr.toFixed(0)}ms`)
 })
 
 // ---------------------------------------------------------------------------

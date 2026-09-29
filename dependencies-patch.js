@@ -835,6 +835,36 @@ private let lxTrackPlayerLifecycleNotification = Notification.Name("LXTrackPlaye
             try? AVAudioSession.sharedInstance().setCategory(sessionCategory, mode: sessionCategoryMode, options: sessionCategoryOptions)
         }`,
       },
+      {
+        from: `        player.event.queueIndex.addListener(self, handleAudioPlayerQueueIndexChange)
+    }
+`,
+        to: `        player.event.queueIndex.addListener(self, handleAudioPlayerQueueIndexChange)
+        // ≈ HTMLMediaElement 的 seeked：AVPlayer seek completion（引擎真正到达落点，
+        // 无论是否经历缓冲）。发起时的 "seek" lifecycle 事件带请求目标；本事件带引擎
+        // 真实落点，控制中心歌词时钟据此精确重锚，并转发 JS 触发歌词重锚。
+        player.event.seek.addListener(self, handleAudioPlayerSeekCompleted)
+    }
+`,
+      },
+      {
+        from: `    func handleAudioPlayerStateChange(state: AVPlayerWrapperState) {`,
+        to: `    // ≈ HTMLMediaElement 的 seeked：seek completion 回调（SeekEventData = (seconds: Int, didFinish: Bool)）。
+    // 同时发 lifecycle 通知（控制中心歌词时钟重锚到真实落点）与 JS 事件（歌词重锚触发）。
+    private func handleAudioPlayerSeekCompleted(_ data: (seconds: Int, didFinish: Bool)) {
+        postLifecycleEvent("seeked", position: Double(data.seconds))
+        sendEvent(withName: "player-seeked", body: ["position": Double(data.seconds), "finished": data.didFinish])
+    }
+
+    func handleAudioPlayerStateChange(state: AVPlayerWrapperState) {`,
+      },
+      {
+        from: `            "playback-queue-ended",
+            "playback-state",`,
+        to: `            "playback-queue-ended",
+            "playback-state",
+            "player-seeked",`,
+      },
     ],
   },
   {

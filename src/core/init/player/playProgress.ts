@@ -8,7 +8,7 @@ import { throttleBackgroundTimer } from '@/utils/tools'
 import BackgroundTimer from 'react-native-background-timer'
 import playerState from '@/store/player/state'
 import settingState from '@/store/setting/state'
-import { onScreenStateChange, onPlayerPosition } from '@/utils/nativeModules/utils'
+import { onScreenStateChange, onPlayerPosition, onPlayerSeeked } from '@/utils/nativeModules/utils'
 import { reanchorNowPlayingLyric } from '@/utils/nativeModules/nowPlaying'
 import { syncNowPlayingState } from '@/core/player/nowPlaying'
 import { AppState } from 'react-native'
@@ -209,7 +209,14 @@ export default () => {
   // 后必发 playing（上游歌词靠它跟上本地 seek），而我们的引擎对「不引起状态变化
   // 的 seek」（AVPlayer 本地文件）不发任何事件——syncFromEngine 就是这个保证的
   // 等价物（scheduleFastResync 在 seek 后 ~300ms 调用兜底）。
-  const syncFromEngine = (musicId: string, genAtCall = seekGen) => {
+  // playing 信号重试链（「事件永不丢失」消费侧等价物，见 syncFromEngine 内注释）
+  let syncRetryTimer: number | null = null
+  const clearSyncRetry = () => {
+    if (syncRetryTimer == null) return
+    BackgroundTimer.clearTimeout(syncRetryTimer)
+    syncRetryTimer = null
+  }
+  const syncFromEngine = (musicId: string, genAtCall = seekGen, attempt = 0) => {
     const calibStartedAt = Date.now()
     void getPositionStamped().then(async(stamped) => {
       if (!playerState.isPlay || playerState.musicInfo.id != musicId) return
@@ -217,11 +224,23 @@ export default () => {
       // 丢弃，新 seek 的窗口/快路径会接管。
       if (genAtCall != seekGen) return
       // 事件过期守卫：state 事件与位置快照之间引擎可能又进入 buffering（seek 后
-      // 重新解码），此刻快照位置不是真实出声位置，丢弃，等下一个 playing 事件。
+      // 重新解码），此刻快照位置不是真实出声位置，丢弃——但不再静默丢弃：
+      // 200ms 后重试同一信号（fresh 代际/切歌/暂停守卫天然中止，重试有界），
+      // 耗尽后仍有 4Hz 快路径与 1s 慢校准自愈探针兜底。上游的对应保证是
+      // HTMLMediaElement 的事件永不丢失；这是把丢失语义改写成「延迟而非丢失」。
       const engineState = await getPlaybackEngineState()
       if (!playerState.isPlay || playerState.musicInfo.id != musicId) return
       if (genAtCall != seekGen) return
-      if (engineState !== 'playing') return
+      if (engineState !== 'playing') {
+        if (attempt < 6) {
+          clearSyncRetry()
+          syncRetryTimer = BackgroundTimer.setTimeout(() => {
+            syncRetryTimer = null
+            syncFromEngine(musicId, genAtCall, attempt + 1)
+          }, 200)
+        }
+        return
+      }
       seekTargetPosition = null
       seekHoldUntil = 0
       engineConfirmedPlaying = true
@@ -355,6 +374,7 @@ export default () => {
     // clearBufferTimeout()
     audioClock.setPlaying(false)
     clearUpdateTimeout()
+    clearSyncRetry()
     // 快路径随暂停冻结（engineConfirmedPlaying/isBufferingHold/seek 窗口由引擎状态
     // 事件订阅维护——buffering 也会走到这里（controller 对 buffering 发 app_event.pause，
     // ≈上游 waiting→pause），此处不能清 seek 窗口，否则 seek 中途的缓冲会让引擎旧
@@ -366,6 +386,7 @@ export default () => {
     seekTargetPosition = null
     seekHoldUntil = 0
     seekGen++
+    clearSyncRetry()
     // 切歌/停播可能没有任何引擎状态事件（尤其 nativeFlac stop 不走状态机），
     // 快路径门控必须显式复位，否则残留的 engineConfirmedPlaying 会让 4Hz 位置
     // 事件/自愈探针在上首歌曲的原生时钟位置上继续工作。
@@ -502,6 +523,16 @@ export default () => {
     // seek 窗口）已在上方逐条检查，position 为原生歌词时钟外推的引擎位置。覆盖
     // 「playing 事件被丢弃但快路径已复活」的窗口，比 1s 慢校准更快自愈。
     verifyLyricLineSync(position * 1000)
+  })
+
+  // ≈ 上游 `seeked` 事件（AVPlayer seek completion，源级无条件触发，AVPlayer 路径）：
+  // 引擎真正到达落点时原生转发，立即重锚——这是落点确认链路里延迟最低的一层
+  // （nativeFlac 路径由其 playing 状态事件「出声即发」承担同一职责；暂停中 seek 由
+  // syncFromEngine 的 isPlay 守卫自然丢弃，与上游一致：seeked 不携带 playing）。
+  onPlayerSeeked(() => {
+    const musicId = playerState.musicInfo.id
+    if (!musicId || !playerState.isPlay) return
+    syncFromEngine(musicId)
   })
 
   global.app_event.on('play', handlePlay)

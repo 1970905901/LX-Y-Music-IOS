@@ -30,6 +30,9 @@
  *  11  硬保证对齐（≈seeked→playing）：稳定化轮询确认落点 resolve 即重锚——
  *      落点后 ~30ms 内行/时钟全落，不等 300ms 快路径
  *  11x 反例：无 A 路径时落点后要再等 ~300ms 快路径才落行（可感知的「歌词慢半拍」）
+ *  12  硬保证·事件永不丢失：playing 信号快照恰逢微卡顿（状态误报 buffering）被丢弃
+ *      → 200ms 重试链在状态恢复后立即落行（丢失语义改写为「延迟而非丢失」）
+ *  12x 反例：无重试时被丢弃信号导致行仍冻在旧行，只能等慢校准探针兜底
  * 逐字（卡拉OK）链路 = 行级链路的时钟侧：字高亮 elapsed = audioClock − 当前行起点，
  * audioClock 与行级 ticker 由同一批引擎事件锚定/冻结（playing→setAnchor+重锚、
  * buffering→hold），断言 1/3/6/8 的时钟误差即逐字精度上界。
@@ -138,15 +141,23 @@ function makeEngine({ lineTimes }) {
     pause() { this.anchorPos = this.pos(nowMs); this.anchorT = nowMs; this.reportPos = null; this.setState('paused') },
     /** seekTo：可配置生效延迟 / 是否经历 buffering / buffering 期位置回报语义。
      *  真实播放器语义：第二次 seekTo 取消尚未生效的前一次 seek（代际守卫）。 */
-    seekTo(target, { applyAfter = 0, buffering = false, reportTargetDuringBuffering = true, emitPlayingOnApply = true, stateFlapMs = 0, silentResume = false } = {}) {
+    seekTo(target, { applyAfter = 0, buffering = false, reportTargetDuringBuffering = true, emitPlayingOnApply = true, stateFlapMs = 0, silentResume = false, silentResumeUntil = 0 } = {}) {
       const gen = ++this._seekGen
       const apply = () => {
         if (gen !== this._seekGen) return // 已被更新的 seek 取消
         this.anchorPos = target; this.anchorT = nowMs; this.reportPos = null
         if (this.state === 'buffering') {
-          // silentResume：出声但不发 playing 事件（真机「事件丢失」模型——AVPlayer 对
-          // 无状态变化 seek 不发事件 / 事件被守卫丢弃时的引擎侧等价物）
-          if (silentResume) { this.state = 'playing' } 
+          if (silentResume) {
+            // silentResume：出声但不发 playing 事件（真机「事件丢失」模型——AVPlayer 对
+            // 无状态变化 seek 不发事件 / 事件被守卫丢弃时的引擎侧等价物）。
+            // silentResumeUntil：出声后状态仍误报 buffering（微卡顿期，延迟自 apply 起算），
+            // 到点静默恢复 playing（依旧无事件）——模拟 syncFromEngine 状态守卫丢信号的场景。
+            this.state = 'playing'
+            if (silentResumeUntil > 0) {
+              this.state = 'buffering'
+              after(silentResumeUntil, () => { if (this.state === 'buffering') this.state = 'playing' })
+            }
+          }
           else this.setState('playing')
         }
         else if (emitPlayingOnApply) this.emitState() // 无状态变化也补发 playing（HTMLMediaElement 语义）
@@ -178,7 +189,7 @@ function makeEngine({ lineTimes }) {
 // ---------------------------------------------------------------------------
 // 新架构系统（重构后 playProgress + controller 事件映射 + core/lyric 接线）
 // ---------------------------------------------------------------------------
-function createNewSystem(engine, lyric, { pollPhase = 0, eventHoldNoAnchorFallback = true, lineSyncDetector = true, resolveLandingAnchor = true } = {}) {
+function createNewSystem(engine, lyric, { pollPhase = 0, eventHoldNoAnchorFallback = true, lineSyncDetector = true, resolveLandingAnchor = true, syncRetry = true } = {}) {
   const clock = makeClock()
   const sys = {
     clock, lyric, engine,
@@ -188,6 +199,7 @@ function createNewSystem(engine, lyric, { pollPhase = 0, eventHoldNoAnchorFallba
     userPlay: true, // ≈ playerState.isPlay（store 标志，用户点播放即 true，与引擎状态无关）
     lineSyncDetector, // 行级自愈探针（verifyLyricLineSync）：慢校准层的第二道网
     resolveLandingAnchor, // setCurrentTime resolve（落点确认）即重锚：≈上游 seeked→playing 硬保证
+    syncRetry, // playing 信号被状态守卫丢弃时 200ms 重试（「事件永不丢失」消费侧等价物）
     ccReanchors: [],
   }
   const isPlay = () => sys.engineConfirmed || engine.state === 'playing'
@@ -210,13 +222,18 @@ function createNewSystem(engine, lyric, { pollPhase = 0, eventHoldNoAnchorFallba
   }
 
   // —— syncFromEngine（playProgress.ts 1:1；模拟器引擎位置单位=ms，无需秒→毫秒换算）——
-  function syncFromEngine(musicId, genAtCall = sys.seekGen) {
+  function syncFromEngine(musicId, genAtCall = sys.seekGen, attempt = 0) {
     after(5, () => { // getPositionStamped 桥延迟
       if (genAtCall !== sys.seekGen) return
       const stamped = engine.stamped()
       after(5, () => { // getPlaybackEngineState 桥延迟
         if (genAtCall !== sys.seekGen) return
-        if (engine.state !== 'playing') return
+        if (engine.state !== 'playing') {
+          // 丢弃改重试（1:1 playProgress）：快照恰逢微卡顿 re-buffering 时 200ms 后
+          // 重试同一信号；代际/切歌/暂停任一变化天然中止，重试有界
+          if (sys.syncRetry && attempt < 3) after(200, () => syncFromEngine(musicId, genAtCall, attempt + 1))
+          return
+        }
         sys.seekTarget = null; sys.seekHoldUntil = 0
         sys.engineConfirmed = true; sys.bufferingHold = false
         clock.setAnchor(stamped.position, 1, true)
@@ -711,6 +728,42 @@ check('11x 反例：无 A 路径时落点后要再等 ~300ms 快路径才落行�
   assert(lyric.curLine === 2, `无 A 路径时落点+100ms 行应仍在旧行(2)（缺陷存在），实际 ${lyric.curLine}`)
   advance(500) // t=1200：快路径已落
   assert(lyric.curLine === 6, `快路径兜底后行应到落点行(6)，实际 ${lyric.curLine}`)
+})
+
+check('12 硬保证·事件永不丢失：playing 信号被微卡顿丢弃 → 重试链在状态恢复后立即落行', () => {
+  resetWorld()
+  const engine = makeEngine({ lineTimes: LINES })
+  const lyric = makeLyric(LINES)
+  const sys = createNewSystem(engine, lyric, { pollPhase: 3600000 }) // 轮询/探针不参与，纯事件+重试链
+  engine.playFrom(25000); lyric.play(25000)
+  advance(1000)
+  // 静默出声（600ms 落点）且落点后状态误报 buffering 400ms（微卡顿），期间无任何事件
+  engine.seekTo(65000, { applyAfter: 600, buffering: true, silentResume: true, silentResumeUntil: 400 })
+  sys.seekAccepted(65000, { resolveAfter: 620 })
+  advance(650) // t=650：resolve(620) 的信号被 buffering 守卫丢弃 → 重试链已排上
+  assert(lyric.curLine === 2, `微卡顿期行应仍在旧行(2)（绝不提前跳），实际 ${lyric.curLine}`)
+  advance(600) // t=1250：状态 1000ms 恢复 playing，重试链恢复后首轮即重锚
+  assert(lyric.curLine === 6, `重试链应在状态恢复后立即落行(6)（丢失→延迟而非丢失），实际 ${lyric.curLine}`)
+  const clockErr = Math.abs(sys.clock.getTime() * 1000 - engine.pos(nowMs))
+  assert(clockErr <= 120, `时钟误差应≤120ms，实际 ${clockErr.toFixed(0)}ms`)
+})
+
+check('12x 反例：无重试时被丢弃信号导致行长期冻在旧行，只能等慢校准探针兜底（缺陷可被捕获）', () => {
+  resetWorld()
+  const engine = makeEngine({ lineTimes: LINES })
+  const lyric = makeLyric(LINES)
+  const sys = createNewSystem(engine, lyric, { pollPhase: 300, syncRetry: false })
+  engine.playFrom(25000); lyric.play(25000)
+  advance(1000)
+  engine.seekTo(65000, { applyAfter: 600, buffering: true, silentResume: true, silentResumeUntil: 400 })
+  sys.seekAccepted(65000, { resolveAfter: 620 })
+  advance(650)
+  advance(600) // t=1250：信号已丢弃、状态早已 playing——无重试则行仍冻在旧行
+  assert(lyric.curLine === 2, `无重试时被丢弃的信号应导致行仍冻在旧行(2)（缺陷存在），实际 ${lyric.curLine}`)
+  advance(1200) // t=2450：状态恢复已 450ms，行仍冻在旧行（resolve 重置的 seek 窗口拦住慢校准）
+  assert(lyric.curLine === 2, `状态恢复 450ms 后行应仍冻在旧行(2)（缺陷持续，实际缺陷更深），实际 ${lyric.curLine}`)
+  advance(2100) // t=4550：seek 窗口过期后的首个慢校准 tick 才由探针兜底
+  assert(lyric.curLine === 6, `探针兜底后行应到落点行(6)，实际 ${lyric.curLine}`)
 })
 
 // ---------------------------------------------------------------------------

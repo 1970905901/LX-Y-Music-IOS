@@ -200,6 +200,20 @@ export const onPlayerPosition = (handler: (position: number, rate: number) => vo
   }
 }
 
+// ≈ 上游 `seeked`（AVPlayer seek completion，源级无条件触发）：引擎真正到达落点时
+// 原生转发（仅 AVPlayer 路径；nativeFlac 由其 playing 状态事件承担同一职责）
+export const onPlayerSeeked = (handler: (position: number) => void): (() => void) => {
+  if (!isIOS || !UtilsModule) return () => {}
+  const eventEmitter = new NativeEventEmitter(UtilsModule)
+  const eventListener = eventEmitter.addListener('player-seeked', (event: { position: number }) => {
+    if (typeof event?.position != 'number') return
+    handler(event.position)
+  })
+  return () => {
+    eventListener.remove()
+  }
+}
+
 // 点击收起按钮手动展开：保持展开直到下一次列表滚动离开顶部
 export const setTabBarExpanded = (): void => {
   if (!isIOS || !UtilsModule?.setTabBarExpanded) return

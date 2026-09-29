@@ -1052,7 +1052,8 @@ static void LXHandleTrackPlayerLifecycleNotification(NSNotification *notificatio
 
   if (LXNowPlayingInfoCache.count == 0) return;
 
-  if ([event isEqualToString:@"seek"]) {
+  // "seeked"：AVPlayer seek completion（引擎真正到达落点，非请求目标）——同一重锚语义
+  if ([event isEqualToString:@"seek"] || [event isEqualToString:@"seeked"]) {
     LXSetNowPlayingPlaybackState(LXNowPlayingState, @{
       @"elapsedTime": position ?: @0,
       @"playbackRate": LXCurrentNowPlayingRate(),
@@ -5458,6 +5459,10 @@ RCT_EXPORT_MODULE();
                                              selector:@selector(handlePlayerPositionChanged:)
                                                  name:LXPlayerPositionNotificationName
                                                object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(handlePlayerSeeked:)
+                                                 name:LXTrackPlayerLifecycleNotificationName
+                                               object:nil];
   }
   return self;
 }
@@ -5469,7 +5474,7 @@ RCT_EXPORT_MODULE();
 - (NSArray<NSString *> *)supportedEvents {
   // screen-size-changed 已移除：iOS 端从未发送该事件（窗口尺寸由 JS 侧 SizeView onLayout 同步），
   // 声明而不发送属于死事件，且避免误导后续接入
-  return @[ @"headphones-disconnected", @"remote-command", @"screen-state", @"tabBarCollapseChanged", @"player-position" ];
+  return @[ @"headphones-disconnected", @"remote-command", @"screen-state", @"tabBarCollapseChanged", @"player-position", @"player-seeked" ];
 }
 
 // Tab 栏收起状态（原生跟踪器维护，JS 经 tabBarCollapseChanged 事件与 setTabBarExpanded 命令交互）
@@ -5483,6 +5488,19 @@ RCT_EXPORT_MODULE();
   BOOL collapsed = [notification.userInfo[@"collapsed"] boolValue];
   dispatch_async(dispatch_get_main_queue(), ^{
     [self sendEventWithName:@"tabBarCollapseChanged" body:@(collapsed)];
+  });
+}
+
+// ≈ 上游 `seeked`：AVPlayer seek completion（引擎真正到达落点）→ JS 触发歌词重锚。
+// 仅 AVPlayer 路径；nativeFlac 路径由其 playing 状态事件（出声即发）承担同一职责。
+- (void)handlePlayerSeeked:(NSNotification *)notification {
+  if (!self.hasListeners) return;
+  NSDictionary *userInfo = [notification.userInfo isKindOfClass:[NSDictionary class]] ? notification.userInfo : @{};
+  NSString *event = [userInfo[@"event"] isKindOfClass:[NSString class]] ? userInfo[@"event"] : @"";
+  NSNumber *position = [userInfo[@"position"] isKindOfClass:[NSNumber class]] ? userInfo[@"position"] : nil;
+  if (![event isEqualToString:@"seeked"] || position == nil) return;
+  dispatch_async(dispatch_get_main_queue(), ^{
+    [self sendEventWithName:@"player-seeked" body:@{ @"position": position }];
   });
 }
 

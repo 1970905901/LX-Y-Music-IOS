@@ -3034,6 +3034,7 @@ RCT_REMAP_METHOD(updateEqualizerConfig, updateEqualizerConfig:(NSDictionary *)co
 @property (nonatomic, assign) double lastKnownPosition;
 @property (nonatomic, assign) int64_t expectedContentLength;
 @property (nonatomic, assign) double pendingSeekPosition;
+@property (nonatomic, assign) int64_t pendingSeekGeneration; // 登记 seek 时的流代际（切歌复位后失配即作废）
 @property (nonatomic, assign) float currentVolume;
 @property (nonatomic, assign) float currentRate;
 @property (nonatomic, assign) int64_t queuedFrames;
@@ -3673,17 +3674,11 @@ RCT_EXPORT_MODULE();
 - (double)currentPlaybackPositionLocked {
   if (self.sampleRate <= 0) return self.lastKnownPosition;
   int64_t renderedFrames = _renderedFrames.load(std::memory_order_acquire);
-  // 播放位置 = 已写入输出环的帧 − 仍在环内未被扬声器消费的帧 = 实际已出声的帧。
-  // 旧实现报告「已入队」位置：报告恒定超前可听内容一个输出环深度（_renderedFrames
-  // 在解码写环时 fetch_add，环内 availableToRead 的帧尚未出声）——高码率 FLAC 环深
-  // 更大、seek 后环被填到起播阈值才出声，超前量随填充程度变化。进度条/歌词锚定/
-  // 控制中心全部锚在这个超前的报告上，与可听内容差数秒（真机实锤：进度条先走完、
-  // 音乐还在放；快进/快退后歌词与音频差无规律偏移）。扣掉环内未播帧后，报告=可听。
-  int64_t queuedFrames = _pcmBuffer != nullptr ? (int64_t)_pcmBuffer->availableToRead() : 0;
-  self.queuedFrames = queuedFrames;
-  int64_t playedFrames = renderedFrames - queuedFrames;
-  if (playedFrames < 0) playedFrames = 0;
-  self.completedFrames = self.playbackAnchorFrame + playedFrames;
+  // 【55b199a 回退】_renderedFrames 在 AVAudioEngine 输出渲染回调（renderSource-
+  // FramesToBufferList）里累计——它是「已从输出环取走、交给扬声器」的已播帧数，
+  // anchor + rendered 本就是可听位置；当时误判为解码写环计数、再减 queued 造成
+  // 双重扣减，位置滞后一个环深（快进/快退后歌词落后于音频数秒，真机实锤）。
+  self.completedFrames = self.playbackAnchorFrame + renderedFrames;
   self.lastKnownPosition = MAX(0, (double)self.completedFrames / self.sampleRate);
   return self.lastKnownPosition;
 }
@@ -3914,6 +3909,12 @@ RCT_EXPORT_MODULE();
 #if LX_HAS_LIBFLAC
 - (void)applyPendingSeekIfNeeded {
   if (!self.seekRequested || self.sampleRate <= 0) return;
+  // 切歌竞态守卫：登记 pendingSeek 后流代际已前进（发生过切歌/复位）= 该 seek 属于
+  // 上一首歌，绝不应用到新流（新歌从 0 开始播）
+  if (self.pendingSeekGeneration != self.playbackGeneration) {
+    self.seekRequested = NO;
+    return;
+  }
 
   double clampedPosition = self.duration > 0
     ? LXClampDouble(self.pendingSeekPosition, 0, self.duration)
@@ -4252,7 +4253,18 @@ RCT_REMAP_METHOD(seekTo, seekToStream:(nonnull NSNumber *)position resolver:(RCT
   double requestedPosition = MAX([position doubleValue], 0);
   if (self.duration > 0) requestedPosition = LXClampDouble(requestedPosition, 0, self.duration);
 
+  // 【切歌竞态守卫】seek 与切歌（resetStreamingState → playbackGeneration++）并发时，
+  // 旧歌的 seek 会落在新流上：锚点/lastKnownPosition 被写到旧目标、pendingSeek 在
+  // 新流解码时被应用 → 新歌不从头上播放（真机有概率复现）。以请求时刻的 generation
+  // 与 currentURL 为凭：应用锚点前后各校验一次，任一变化即整单作废（resolve(@0)，
+  // JS 侧 targetPosition=0 不走快路径，不会污染新流）。
+  int64_t entryGeneration = self.playbackGeneration;
+  NSString *entryURL = self.currentURL;
+  __block BOOL seekApplied = NO;
+
   dispatch_sync(self.renderQueue, ^{
+    if (self.playbackGeneration != entryGeneration || ![entryURL isEqualToString:self.currentURL]) return;
+    seekApplied = YES;
     self.lastKnownPosition = requestedPosition;
     [self updatePlaybackGenerationLocked];
     [self resetRealtimeRenderStateLocked];
@@ -4261,8 +4273,13 @@ RCT_REMAP_METHOD(seekTo, seekToStream:(nonnull NSNumber *)position resolver:(RCT
     self.playbackAnchorFrame = self.completedFrames;
     self.playbackStarted = NO;
   });
+  if (!seekApplied || self.playbackGeneration != entryGeneration + 1 || ![entryURL isEqualToString:self.currentURL]) {
+    resolve(@0);
+    return;
+  }
 
   self.pendingSeekPosition = requestedPosition;
+  self.pendingSeekGeneration = self.playbackGeneration;
   self.seekRequested = YES;
   self.seekInProgress = self.sampleRate > 0 && requestedPosition > 0;
   self.currentState = self.manualPause ? @"paused" : @"buffering";

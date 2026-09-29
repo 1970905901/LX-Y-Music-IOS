@@ -1,12 +1,4 @@
-import { Platform } from 'react-native'
 import { parsePlayTime } from '@/utils/common'
-
-const durationDriftTolerance = 1.5
-
-const isOnlineMusic = (musicInfo: LX.Player.PlayMusic | null | undefined) => {
-  if (!musicInfo) return false
-  return 'progress' in musicInfo ? true : musicInfo.source != 'local'
-}
 
 const getMusicInterval = (musicInfo: LX.Player.PlayMusic | null | undefined) => {
   if (!musicInfo) return null
@@ -19,11 +11,10 @@ export const getMusicIntervalDuration = (musicInfo: LX.Player.PlayMusic | null |
 
 export const getTimelineDuration = (musicInfo: LX.Player.PlayMusic | null | undefined, playerDuration: number) => {
   const intervalDuration = getMusicIntervalDuration(musicInfo)
-  if (!intervalDuration) return playerDuration
-
-  // iOS online/high-quality streams may expose an unstable duration after load/seek.
-  if (Platform.OS == 'ios' && isOnlineMusic(musicInfo)) return intervalDuration
-
-  if (!playerDuration) return intervalDuration
-  return Math.abs(playerDuration - intervalDuration) > durationDriftTolerance ? intervalDuration : playerDuration
+  // 引擎真实时长优先（有效 > 0 即用）：元数据 interval 可能与实际文件不符——真机实锤
+  // （泪海 Hi-Res FLAC）：interval 03:30、文件真实 03:48，旧逻辑对 iOS 在线歌强制用
+  // interval → 进度条先走完、播完左侧时间(03:48)大于右侧(03:30)。引擎值无效（≤0，
+  // 加载/seek 瞬间可能拿到）才回退元数据时长。
+  if (playerDuration && Number.isFinite(playerDuration) && playerDuration > 0) return playerDuration
+  return intervalDuration || playerDuration || 0
 }

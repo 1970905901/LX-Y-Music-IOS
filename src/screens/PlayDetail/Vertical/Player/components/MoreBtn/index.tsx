@@ -2,7 +2,6 @@ import { createStyle } from '@/utils/tools'
 import { View, type TouchableOpacity } from 'react-native'
 import PlayModeBtn from './PlayModeBtn'
 import CommentBtn from './CommentBtn'
-import SoundEffectBtn from './SoundEffectBtn'
 import MusicAddBtn from './MusicAddBtn'
 import { memo, useRef, useCallback, useEffect } from 'react'
 import Btn from './Btn'
@@ -105,7 +104,6 @@ export default memo(({ componentId }: { componentId: string }) => {
         <MusicAddBtn />
         <PlayModeBtn />
         <CommentBtn />
-        <SoundEffectBtn />
         <Btn icon="dots-vertical" onPress={handleShowMenu} ref={moreBtnRef} />
       </View>
 

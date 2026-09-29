@@ -7,7 +7,7 @@ import Slider from '@/components/common/Slider'
 import { updateSetting } from '@/core/common'
 import { useI18n } from '@/lang'
 import SoundEffectPresetSaveModal, { type SoundEffectPresetSaveModalType } from './SoundEffectPresetSaveModal'
-import { createStyle, confirmDialog, tipDialog, toast } from '@/utils/tools'
+import { createStyle, confirmDialog, toast } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
 import { useSetting } from '@/store/setting/hook'
 import {
@@ -34,10 +34,6 @@ import {
 
 const minGain = -15
 const maxGain = 15
-const minPitchPlaybackRate = 0.5
-const maxPitchPlaybackRate = 1.5
-const defaultSurroundSpeed = 25
-const defaultSurroundDistance = 5
 const maxUserPresetCount = 31
 
 type TranslateValues = Record<string, string | number | boolean>
@@ -48,8 +44,6 @@ type LayoutMode = 'split' | 'stacked'
 
 const formatGain = (gain: number) => `${gain > 0 ? '+' : ''}${Number.isInteger(gain) ? gain : gain.toFixed(1)}db`
 const formatPercent = (value: number) => `${Math.round(value) * 10}%`
-const formatPlaybackRate = (value: number) => `${value.toFixed(2)}x`
-const formatPlain = (value: number) => `${Math.round(value)}`
 
 const PlaceholderCheckbox = memo(({
   checked,
@@ -394,102 +388,6 @@ const EnvironmentSection = memo(({
   )
 })
 
-const PitchSection = memo(({
-  playbackRate,
-  onReset,
-  onValueChange,
-  onShowTip,
-}: {
-  playbackRate: number
-  onReset: () => void
-  onValueChange: (value: number) => void
-  onShowTip: () => void
-}) => {
-  const t = useI18n() as TranslateFn
-  const theme = useTheme()
-
-  return (
-    <View style={styles.section}>
-      <View style={styles.sectionHeader}>
-        <View style={styles.sectionHeaderTitle}>
-          <Text style={styles.sectionTitle}>{t('setting_play_sound_effect_pitch')}</Text>
-          <TouchableOpacity activeOpacity={0.7} onPress={onShowTip} style={styles.tipButton}>
-            <Icon name="help" size={14} color={theme['c-font-label']} />
-          </TouchableOpacity>
-        </View>
-        <View style={styles.headerActions}>
-          <TouchableOpacity activeOpacity={0.7} onPress={onReset} style={{ ...styles.resetButton, backgroundColor: theme['c-button-background'] }}>
-            <Text size={12} color={theme['c-button-font']}>{t('setting_play_sound_effect_reset')}</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-      <PlaceholderSliderRow
-        label=""
-        value={playbackRate}
-        minimumValue={minPitchPlaybackRate}
-        maximumValue={maxPitchPlaybackRate}
-        step={0.01}
-        onValueChange={value => { onValueChange(Number(value)) }}
-        formatter={formatPlaybackRate}
-      />
-    </View>
-  )
-})
-
-const SurroundSection = memo(({
-  enabled,
-  speed,
-  distance,
-  onToggle,
-  onSpeedChange,
-  onDistanceChange,
-}: {
-  enabled: boolean
-  speed: number
-  distance: number
-  onToggle: () => void
-  onSpeedChange: (value: number) => void
-  onDistanceChange: (value: number) => void
-}) => {
-  const t = useI18n() as TranslateFn
-  const theme = useTheme()
-
-  return (
-    <View style={styles.section}>
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>{t('setting_play_sound_effect_surround')}</Text>
-        <PlaceholderCheckbox
-          checked={enabled}
-          label={t('setting_play_sound_effect_surround_enable')}
-          onPress={onToggle}
-        />
-      </View>
-      <View>
-        <PlaceholderSliderRow
-          label={t('setting_play_sound_effect_surround_speed')}
-          value={speed}
-          minimumValue={1}
-          maximumValue={50}
-          step={1}
-          onValueChange={value => { onSpeedChange(Number(value)) }}
-          formatter={formatPlain}
-          valueColor={speed != defaultSurroundSpeed ? theme['c-primary-font-active'] : undefined}
-        />
-        <PlaceholderSliderRow
-          label={t('setting_play_sound_effect_surround_distance')}
-          value={distance}
-          minimumValue={1}
-          maximumValue={30}
-          step={1}
-          onValueChange={value => { onDistanceChange(Number(value)) }}
-          formatter={formatPlain}
-          valueColor={distance != defaultSurroundDistance ? theme['c-primary-font-active'] : undefined}
-        />
-      </View>
-    </View>
-  )
-})
-
 export default memo(({ showTip = true, layoutMode = 'split' }: {
   showTip?: boolean
   layoutMode?: LayoutMode
@@ -506,10 +404,6 @@ export default memo(({ showTip = true, layoutMode = 'split' }: {
   const convolutionSource = setting['player.soundEffect.convolution.fileName']
   const convolutionMainGain = setting['player.soundEffect.convolution.mainGain']
   const convolutionSendGain = setting['player.soundEffect.convolution.sendGain']
-  const pitchPlaybackRate = setting['player.soundEffect.pitchShifter.playbackRate']
-  const surroundEnabled = setting['player.soundEffect.panner.enable']
-  const surroundSpeed = setting['player.soundEffect.panner.speed']
-  const soundDistance = setting['player.soundEffect.panner.soundR']
   const activeEqUserPresetId = useMemo(() => userEqPresetList.find(preset =>
     equalizerFrequencies.every(frequency => preset[`hz${frequency}` as keyof LX.SoundEffect.EQPreset] == previewGains[frequency]),
   )?.id ?? null, [previewGains, userEqPresetList])
@@ -584,21 +478,6 @@ export default memo(({ showTip = true, layoutMode = 'split' }: {
 
   const handleUpdateConvolutionSendGain = (value: number) => {
     updateSetting({ 'player.soundEffect.convolution.sendGain': Math.round(value) })
-  }
-
-  const handleResetPitch = () => {
-    updateSetting({ 'player.soundEffect.pitchShifter.playbackRate': 1 })
-  }
-
-  const handleShowPitchTip = () => {
-    void tipDialog({
-      title: t('setting_play_sound_effect_pitch'),
-      message: t('setting_play_sound_effect_pitch_tip'),
-    })
-  }
-
-  const handleUpdatePitch = (value: number) => {
-    updateSetting({ 'player.soundEffect.pitchShifter.playbackRate': value })
   }
 
   const handleShowSaveEqPreset = () => {
@@ -690,18 +569,6 @@ export default memo(({ showTip = true, layoutMode = 'split' }: {
     setUserConvolutionPresetList(await removeUserConvolutionPreset(preset.id))
   }
 
-  const handleToggleSurround = () => {
-    updateSetting({ 'player.soundEffect.panner.enable': !surroundEnabled })
-  }
-
-  const handleUpdateSurroundSpeed = (value: number) => {
-    updateSetting({ 'player.soundEffect.panner.speed': Math.round(value) })
-  }
-
-  const handleUpdateSurroundDistance = (value: number) => {
-    updateSetting({ 'player.soundEffect.panner.soundR': Math.round(value) })
-  }
-
   if (layoutMode == 'stacked') {
     return (
       <View style={styles.container}>
@@ -738,24 +605,6 @@ export default memo(({ showTip = true, layoutMode = 'split' }: {
             layoutMode={layoutMode}
           />
         </View>
-        <View style={{ ...styles.sectionBlock, ...styles.sectionBlockWithDivider, borderTopColor: dividerColor }}>
-          <PitchSection
-            playbackRate={pitchPlaybackRate}
-            onReset={handleResetPitch}
-            onValueChange={handleUpdatePitch}
-            onShowTip={handleShowPitchTip}
-          />
-        </View>
-        <View style={{ ...styles.sectionBlock, ...styles.sectionBlockWithDivider, borderTopColor: dividerColor }}>
-          <SurroundSection
-            enabled={surroundEnabled}
-            speed={surroundSpeed}
-            distance={soundDistance}
-            onToggle={handleToggleSurround}
-            onSpeedChange={handleUpdateSurroundSpeed}
-            onDistanceChange={handleUpdateSurroundDistance}
-          />
-        </View>
         {showTip ? (
           <View style={styles.tip}>
             <Text size={12} color={theme['c-font-label']}>{t('setting_play_sound_effect_tip')}</Text>
@@ -784,24 +633,6 @@ export default memo(({ showTip = true, layoutMode = 'split' }: {
               saveDisabled={isConvolutionPresetLimitReached}
               onUserPresetPress={handleApplyConvolutionPreset}
               onUserPresetLongPress={preset => { void handleRemoveConvolutionPreset(preset) }}
-            />
-          </View>
-          <View style={{ ...styles.sectionBlock, ...styles.sectionBlockWithDivider, borderTopColor: dividerColor }}>
-            <PitchSection
-              playbackRate={pitchPlaybackRate}
-              onReset={handleResetPitch}
-              onValueChange={handleUpdatePitch}
-              onShowTip={handleShowPitchTip}
-            />
-          </View>
-          <View style={{ ...styles.sectionBlock, ...styles.sectionBlockWithDivider, borderTopColor: dividerColor }}>
-            <SurroundSection
-              enabled={surroundEnabled}
-              speed={surroundSpeed}
-              distance={soundDistance}
-              onToggle={handleToggleSurround}
-              onSpeedChange={handleUpdateSurroundSpeed}
-              onDistanceChange={handleUpdateSurroundDistance}
             />
           </View>
           {showTip ? (

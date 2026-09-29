@@ -17,19 +17,9 @@ export type SoundEffectConvolutionSettingKey =
   | 'player.soundEffect.convolution.mainGain'
   | 'player.soundEffect.convolution.sendGain'
 
-export type SoundEffectPannerSettingKey =
-  | 'player.soundEffect.panner.enable'
-  | 'player.soundEffect.panner.soundR'
-  | 'player.soundEffect.panner.speed'
-
-export type SoundEffectPitchShifterSettingKey =
-  | 'player.soundEffect.pitchShifter.playbackRate'
-
 export type SoundEffectSettingKey =
   | SoundEffectBandSettingKey
   | SoundEffectConvolutionSettingKey
-  | SoundEffectPannerSettingKey
-  | SoundEffectPitchShifterSettingKey
   | 'player.soundEffect.enabled'
   | 'player.soundEffect.preset'
 

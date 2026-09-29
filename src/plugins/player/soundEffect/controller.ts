@@ -6,9 +6,6 @@ import {
   isSoundEffectSettingKey,
   normalizeConvolutionGain,
   normalizeEqualizerGain,
-  normalizePannerSoundR,
-  normalizePannerSpeed,
-  normalizePitchShifterPlaybackRate,
 } from './constants'
 import { nativeEqualizerAdapter } from './adapters/nativeEqualizerAdapter'
 import type {
@@ -98,19 +95,19 @@ const buildCurrentConvolutionConfig = (): SoundEffectConvolutionConfig => {
   }
 }
 
+// 【2026-09-29 用户定案】环绕声像不再暴露：恒定下发复位值，清掉存量用户的原生残留
 const buildCurrentPannerConfig = (): SoundEffectPannerConfig => {
-  const setting = settingState.setting
   return {
-    enabled: setting['player.soundEffect.panner.enable'],
-    soundR: normalizePannerSoundR(setting['player.soundEffect.panner.soundR']),
-    speed: normalizePannerSpeed(setting['player.soundEffect.panner.speed']),
+    enabled: false,
+    soundR: 5,
+    speed: 25,
   }
 }
 
+// 【2026-09-29 用户定案】变调不再暴露：恒定下发 1（原生链残留复位）
 const buildCurrentPitchShifterConfig = (): SoundEffectPitchShifterConfig => {
-  const setting = settingState.setting
   return {
-    playbackRate: normalizePitchShifterPlaybackRate(setting['player.soundEffect.pitchShifter.playbackRate']),
+    playbackRate: 1,
   }
 }
 
@@ -136,11 +133,11 @@ const buildCurrentConfig = (overrides?: Partial<SoundEffectConfig>): SoundEffect
     },
     panner: {
       enabled: overrides?.panner?.enabled ?? pannerBase.enabled,
-      soundR: normalizePannerSoundR(overrides?.panner?.soundR ?? pannerBase.soundR),
-      speed: normalizePannerSpeed(overrides?.panner?.speed ?? pannerBase.speed),
+      soundR: overrides?.panner?.soundR ?? pannerBase.soundR,
+      speed: overrides?.panner?.speed ?? pannerBase.speed,
     },
     pitchShifter: {
-      playbackRate: normalizePitchShifterPlaybackRate(overrides?.pitchShifter?.playbackRate ?? pitchShifterBase.playbackRate),
+      playbackRate: overrides?.pitchShifter?.playbackRate ?? pitchShifterBase.playbackRate,
     },
   }
 }

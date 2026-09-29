@@ -10,6 +10,7 @@ import SettingLrcAlign from './settings/SettingLrcAlign'
 import SettingMiniLyricAlign from './settings/SettingMiniLyricAlign'
 import SettingCoverSpin from '@/screens/PlayDetail/components/SettingPopup/settings/SettingCoverSpin.tsx'
 import SettingCoverSize from './settings/SettingCoverSize'
+import SettingSoundEffect from './settings/SettingSoundEffect'
 
 export interface SettingPopupProps extends Omit<PopupProps, 'children'> {
   direction: 'vertical' | 'horizontal'
@@ -43,6 +44,7 @@ export default forwardRef<SettingPopupType, SettingPopupProps>(({ direction, ...
         <View onStartShouldSetResponder={() => true}>
           <SettingVolume />
           <SettingPlaybackRate />
+          <SettingSoundEffect />
           <SettingLrcFontSize direction={direction} />
           <SettingCoverSize />
           <SettingLrcAlign />

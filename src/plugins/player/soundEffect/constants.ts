@@ -205,10 +205,6 @@ export const soundEffectSettingKeys: readonly SoundEffectSettingKey[] = Object.f
   'player.soundEffect.convolution.fileName',
   'player.soundEffect.convolution.mainGain',
   'player.soundEffect.convolution.sendGain',
-  'player.soundEffect.panner.enable',
-  'player.soundEffect.panner.soundR',
-  'player.soundEffect.panner.speed',
-  'player.soundEffect.pitchShifter.playbackRate',
   ...equalizerFrequencies.map(getEqualizerBandSettingKey),
 ])
 
@@ -234,12 +230,6 @@ export const createEqualizerGainsRecord = (gains?: readonly number[]) => {
 
 export const normalizeEqualizerGain = (gain: number) => Math.round(gain * 10) / 10
 export const normalizeConvolutionGain = (gain: number) => Math.min(50, Math.max(0, Math.round(gain)))
-export const normalizePannerSoundR = (soundR: number) => Math.min(30, Math.max(1, Math.round(soundR)))
-export const normalizePannerSpeed = (speed: number) => Math.min(50, Math.max(1, Math.round(speed)))
-export const normalizePitchShifterPlaybackRate = (value: number) => {
-  const rate = Math.round(value * 100) / 100
-  return Math.min(1.5, Math.max(0.5, rate))
-}
 
 export const hasEnabledEqualizerGains = (gains: readonly number[]) => {
   return gains.some(gain => normalizeEqualizerGain(gain) != 0)
@@ -256,9 +246,7 @@ export const getEqualizerGains = (setting = settingState.setting) => {
 
 export const isSoundEffectActive = (setting = settingState.setting) => {
   return hasEnabledEqualizerGains(equalizerFrequencies.map(frequency => setting[getEqualizerBandSettingKey(frequency)])) ||
-    !!setting['player.soundEffect.convolution.fileName'] ||
-    setting['player.soundEffect.panner.enable'] ||
-    normalizePitchShifterPlaybackRate(setting['player.soundEffect.pitchShifter.playbackRate']) != 1
+    !!setting['player.soundEffect.convolution.fileName']
 }
 
 const createEqualizerSettingPatch = (presetId: LX.SoundEffectPresetId, gains: readonly number[]): Partial<LX.AppSetting> => {

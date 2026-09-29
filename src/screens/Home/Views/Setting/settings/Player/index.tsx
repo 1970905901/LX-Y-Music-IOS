@@ -12,8 +12,6 @@ import IsShowLyricTranslation from './IsShowLyricTranslation'
 import IsShowLyricRoma from './IsShowLyricRoma'
 import IsS2T from './IsS2T'
 import ClearCache from './ClearCache'
-import IsEnableAutoToggleSource from './IsEnableAutoToggleSource'
-import ToggleSourceMaxRetry from './ToggleSourceMaxRetry'
 import IsAutoPlayOnReturn from './IsAutoPlayOnReturn'
 
 export default memo(() => {
@@ -30,8 +28,6 @@ export default memo(() => {
       <IsShowLyricRoma />
       <IsS2T />
       <ClearCache />
-      <IsEnableAutoToggleSource />
-      <ToggleSourceMaxRetry />
       <PlayHighQuality />
     </Section>
   )

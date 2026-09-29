@@ -106,8 +106,6 @@ const defaultSetting: LX.AppSetting = {
   'player.isShowNotificationImage': true,
   'player.isS2t': true,
   'player.autoPlayOnReturn': false,
-  'player.enableAutoToggleSource': true,
-  'player.toggleSourceMaxRetry': 5,
 
   'playDetail.isCoverSpin': false,
   'playDetail.style.align': 'center',

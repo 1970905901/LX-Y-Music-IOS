@@ -10,7 +10,7 @@ import {
   PanResponder,
 } from 'react-native'
 // import { useLayout } from '@/utils/hooks'
-import { type Line, useLrcPlay, useLrcSet, useLrcWordsMap, syncToTime as lrcSyncToTime, findLineIndexByTime } from '@/plugins/lyric'
+import { type Line, useLrcPlay, useLrcSet, useLrcWordsMap, anchorLyric as lrcAnchorToTime, findLineIndexByTime } from '@/plugins/lyric'
 import type { LxLyricWord } from '@/plugins/lxLyricPlayer'
 import { getPosition } from '@/plugins/player'
 import { LyricScrollLayout } from '@/utils/lyricScroll'
@@ -681,8 +681,9 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHei
   useEffect(() => {
     if (!active) return
 
-    // 先用同步的播放进度做一次立即重锚，再按歌词引擎当前行定位；不等待
-    // 原生 getPosition Promise，保证切页首个布局帧就显示接近真实位置的高亮行。
+    // 先用同步的播放进度做一次立即重锚（播放中重启 ticker 从该位置推进），
+    // 再按歌词引擎当前行定位；不等待原生 getPosition Promise，保证切页首个
+    // 布局帧就显示接近真实位置的高亮行。
     isPauseScrollRef.current = false
     const cachedPosition = playerState.progress.nowPlayTime
     let immediateLine = lineRef.current.line
@@ -691,7 +692,7 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHei
       if (immediateLine >= 0) {
         lineRef.current.prevLine = lineRef.current.line
         lineRef.current.line = immediateLine
-        try { lrcSyncToTime(cachedPosition * 1000, playerState.isPlay) } catch {}
+        try { lrcAnchorToTime(cachedPosition * 1000, playerState.isPlay) } catch {}
       }
     }
     setForceScroll(true)
@@ -703,7 +704,7 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHei
     // 再用音频引擎真实位置校正一次，纠正切歌/恢复播放时 store 进度尚未更新的情况。
     void getPosition().then((p) => {
       if (p == null || !playerState.musicInfo.id) return
-      try { lrcSyncToTime(p * 1000, playerState.isPlay) } catch {}
+      try { lrcAnchorToTime(p * 1000, playerState.isPlay) } catch {}
       requestAnimationFrame(() => {
         setForceScroll(true)
         handleScrollToActive(lineRef.current.line, true)
@@ -757,11 +758,9 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHei
     isPauseScrollRef.current = false
     const line = lyricLines[index]
     if (line) {
-      // 同步重锚歌词时钟，使高亮行立即跟随点击位置（不依赖 app_event 的异步派发，
-      // 否则在 iOS 上高亮会滞后/不跟随音频跳转）
-      try { lrcSyncToTime(line.time, playerState.isPlay) } catch {}
-      // setProgress 内部会真正 seek 音频（setCurrentTime -> seekToTime），
-      // 同时把歌词时钟重锚到该行时间，保证音频与该行高亮绝对同步。
+      // 对齐上游：行点击只 seek 音频（setProgress），歌词行不立即镜像——歌词跟
+      // 引擎事件走（seek 落点出声时 playing 事件重锚到落点行）。此前的
+      // lrcSyncToTime 立即镜像会让行提前跳到目标、而音频还在放旧内容/缓冲。
       global.app_event.setProgress(line.time / 1000)
     }
     // 用户点击歌词行属于主动跳转：强制让歌词列表立即、无动画地定位到被点行，

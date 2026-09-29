@@ -151,9 +151,9 @@ export const setLyric = (lyric: string, translation?: string, romalrc?: string, 
   buildWordsMap(lxLyric)
   void getPosition()
     .then((position) => {
-      // 切歌/恢复瞬间用【引擎实时位置】纯镜像重锚（不启动 ticker），
-      // 避免歌词时钟先于音频自行走字导致高亮行错位。
-      try { syncToTime((position || 0) * 1000, wasPlaying) } catch {}
+      // 切歌/恢复瞬间用【引擎实时位置】重锚（≈上游 setLyric → syncLyricPosition(true, true)）：
+      // 播放中重启 ticker 从该位置继续推进，暂停中只落行不推进。
+      try { anchorLyric((position || 0) * 1000, wasPlaying) } catch {}
     })
     .catch(() => {
       lrcTools.isPlay = wasPlaying
@@ -173,19 +173,17 @@ export const toggleRoma = (isShow: boolean) => {
   lrcTools.setLyric()
 }
 export const play = (time?: number) => {
-  // 参考 Q-1515/lx-music-mobile ios-adaptation 分支：
-  // 启动 lrc-file-parser 内部 ticker，由歌词引擎按自身时钟推进高亮行；
-  // 音频位置变化（seek / 起播）时由调用方用 handlePlay(position) 重新对齐，
-  // 不再由外部每帧强推（外推时钟在缓冲/卡顿时会脱离音频真实位置，导致快进快退后
-  // 歌词与音频不同步）。
+  // 对齐上游 core/lyric.ts play()：lrc.play(引擎绝对时间) 启动歌词引擎【内部 ticker】，
+  // 由它按自身时钟（锚点 + playbackRate 外推 + 逐行漂移补偿）推进行高亮；
+  // 音频位置变化（seek 落点出声 / 暂停恢复 / 缓冲恢复）时由引擎 playing 事件
+  // （controller：state playing → app_event.play）重新以引擎绝对时间重锚，
+  // 与上游 onPlaying → lrc.play(currentTime) 完全同构。
+  // 此前这里 play 后立即 pause 杀掉 ticker，行级只能靠 playProgress 的 rAF
+  // 每帧前向推进 + 轮询行同步驱动——那些是对「无事件驱动」架构打的补丁，
+  // 且重锚永远滞后轮询周期（seek 后歌词不同步的根源之一）。
   // 调用方统一传入【毫秒】（lrc-file-parser 的语义）。
   lrcTools.isPlay = true
   lrcTools.lrc!.play(time ?? 0)
-  // play(time) 触发一次 onPlay 设当前行后启动内部 timer 自行推进。
-  // 立即 pause 掉 timer：行高亮完全由 playProgress 250ms 轮询通过
-  // lrcSyncToTime(setPlayTime) 驱动，避免 ticker 在 seek/暂停恢复后
-  // 内部时钟与音频真实位置脱节，反复覆盖轮询校正导致高亮行错位。
-  lrcTools.lrc!.pause()
 }
 export const pause = () => {
   // console.log('pause')
@@ -240,79 +238,16 @@ export const getCurrentLyricLines = (): Array<{ time: number, text: string }> =>
 }
 
 /**
- * 仅按传入时间（ms）设置当前歌词行，不启动内部 ticker。
- * 用于音频暂停/seek 等需要“歌词位置跟上播放头但不自动走字”的场景。
- * 直接根据 currentLines 查找当前行，避免调用 play() 启动 ticker 导致暂停态歌词自行前进。
+ * 把歌词重锚到给定音频位置（ms），播放中时【重启内部 ticker】从该位置继续推进，
+ * 暂停中则只落行不推进——与上游 core/lyric.ts 的 syncLyricPosition 完全同构
+ * （lrc.play(time); if (!playing) lrc.pause()）。
+ * 用于歌词就绪重锚（setLyric）、歌词页可见性恢复等「以引擎时间为准重新出发」的场景；
+ * seek 落点的重锚走 app_event.play（core/lyric.play），不经过这里。
  */
-export const setPlayTime = (time: number) => {
-  const lines = lrcTools.currentLines
-  const lineIndex = findLineIndexByTime(lines, time)
-  if (lineIndex < 0) {
-    if (lrcTools.currentLineData.line !== -1) {
-      lrcTools.currentLineData.line = -1
-      lrcTools.currentLineData.text = ''
-      lrcTools.onPlay(-1, '')
-    }
-    return
-  }
-  const line = lines[lineIndex]
-  if (lrcTools.currentLineData.line === lineIndex && lrcTools.currentLineData.text === line.text) return
-  lrcTools.currentLineData.line = lineIndex
-  lrcTools.currentLineData.text = line.text
-  lrcTools.onPlay(lineIndex, line.text)
-}
-
-/**
- * 把歌词当前行【纯镜像】到给定音频位置（ms），不启动任何独立 ticker。
- * isPlaying 同步写入 lrcTools.isPlay，供切歌时 setLyric 判断 wasPlaying 正确重锚。
- * 这是“音频与歌词绝对同步”的核心：歌词行永远由音频真实位置推导，不会自行漂移。
- */
-export const syncToTime = (time: number, isPlaying: boolean) => {
+export const anchorLyric = (timeMs: number, isPlaying: boolean) => {
+  lrcTools.lrc!.play(timeMs)
+  if (!isPlaying) lrcTools.lrc!.pause()
   lrcTools.isPlay = isPlaying
-  setPlayTime(time)
-}
-
-/**
- * 每帧把当前行【向前】推进到给定时间（ms）对应的行。
- *
- * 背景：行级高亮原先只由 playProgress 的 250ms 轮询驱动，最坏情况比音频真实跨行时刻晚
- * 250ms（平均约 125ms）；而逐字/卡拉OK 高亮是每帧由 audioClock 外推时钟驱动的，于是跨行
- * 瞬间会出现「新行已经开始唱、行高亮与歌词滚动却还没切过去」的滞后感（用户反馈的“换行慢了一点”）。
- * 这里用同一个外推时钟每帧推导目标行，把跨行延迟压到一帧内，两者从同一时钟出发、天然一致。
- *
- * 只前进不后退：回退（拖动进度条 / 点击歌词 / 切歌 / 停播重锚）都走 syncToTime 的精确路径。
- */
-export const advanceToTime = (time: number, isPlaying: boolean) => {
-  lrcTools.isPlay = isPlaying
-  const lines = lrcTools.currentLines
-  if (!lines.length) return
-  const index = findLineIndexByTime(lines, time)
-  if (index <= lrcTools.currentLineData.line) return
-  setPlayTime(time)
-}
-
-// 每帧推进用的是「外推时钟」（此刻真实播放位置的估计），而 250ms 轮询拿到的是几十毫秒前
-// 测到的引擎位置，两者天然有几帧到百毫秒级的先后差。若不设迟滞，轮询会在这段窗口里把刚刚
-// 被推进的新行“拉回”上一行，下一帧又被推进——高亮与滚动就会在跨行瞬间来回闪跳。
-// 该迟滞只作用于轮询（见 syncToTimeFromPosition）；真正的回退走 syncToTime，不受影响。
-const POSITION_SYNC_BACK_TOLERANCE_MS = 250
-
-/**
- * 250ms 轮询专用：用引擎真实位置同步当前行（语义与 syncToTime 相同），
- * 但对「刚被每帧推进提前切过去的那一行」保留 POSITION_SYNC_BACK_TOLERANCE_MS 的回退迟滞（见上）。
- * 真正的回退（seek / 点击歌词 / 切歌 / 停播重锚）走 syncToTime，不受此迟滞影响。
- */
-export const syncToTimeFromPosition = (time: number, isPlaying: boolean) => {
-  lrcTools.isPlay = isPlaying
-  const lines = lrcTools.currentLines
-  if (!lines.length) {
-    setPlayTime(time)
-    return
-  }
-  const current = lrcTools.currentLineData.line
-  const index = findLineIndexByTime(lines, time)
-  if (index < current && current < lines.length && time > lines[current].time - POSITION_SYNC_BACK_TOLERANCE_MS) return
-  setPlayTime(time)
 }
 
 // 逐行歌词 play hook：iOS 无原生 LyricModule，蓝牙歌词 / 网络歌词改用此 JS 引擎钩子驱动。
@@ -337,7 +272,7 @@ export const useLrcPlay = (autoUpdate = true) => {
     line: lrcTools.currentLineData.line,
     text: lrcTools.currentLineData.text,
   }))
-  // 进度重锚会以 250ms 节拍高频回弹 onPlay（即使行未变），用 ref 记录上次值，
+  // 行级重锚（引擎事件 / seek 落点）会以同值回弹 onPlay（即使行未变），用 ref 记录上次值，
   // 行/文案未变时跳过重渲染，避免歌词 FlatList 空转。
   const lastLrcRef = useRef({ line: -1, text: '' })
   useEffect(() => {

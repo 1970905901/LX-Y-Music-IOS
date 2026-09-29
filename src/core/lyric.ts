@@ -7,7 +7,6 @@ import {
   toggleTranslation as lrcToggleTranslation,
   toggleRoma as lrcToggleRoma,
   init as lrcInit,
-  syncToTime as lrcSyncToTime,
 } from '@/plugins/lyric'
 import { getPosition } from '@/plugins/player/utils'
 import playerState from '@/store/player/state'
@@ -24,9 +23,10 @@ const getReliableLyricPosition = async() => {
     if (playerPosition > 5) return progressPosition
     return Math.max(progressPosition, 0)
   }
+  // 对齐上游 core/lyric.play()：lrc.play(getCurrentTime()) 无条件信任引擎当前时间。
+  // 此前的「|引擎-进度|>2s 时偏好进度」分支会拿 seek 窗口期的 store 目标值覆盖引擎
+  // 真实位置，属于旧轮询架构的补丁；重锚由引擎 playing 事件驱动时引擎位置即真相。
   if (playerPosition <= 0) return progressPosition
-
-  if (Math.abs(playerPosition - progressPosition) > 2) return progressPosition
   return playerPosition
 }
 
@@ -119,15 +119,6 @@ export const seek = (time: number) => {
       pause()
     })
   }
-}
-
-/**
- * Pure mirror lyric to the given audio time without starting an independent ticker.
- * Used for native FLAC: the decoder resolves seek immediately while still re-buffering,
- * so the lyric must be re-anchored to the real playback position on every progress tick.
- */
-export const syncLyric = (time: number, isPlaying: boolean) => {
-  lrcSyncToTime(time * 1000, isPlaying)
 }
 
 

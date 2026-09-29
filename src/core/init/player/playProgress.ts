@@ -1,7 +1,7 @@
 import { updateListMusics } from '@/core/list'
 import { setMaxplayTime, setNowPlayTime } from '@/core/player/progress'
 import { getTimelineDuration } from '@/core/player/timeline'
-import { setCurrentTime, getDuration, getPositionStamped, getPlaybackEngineState } from '@/plugins/player/utils'
+import { setCurrentTime, getDuration, getPosition, getPositionStamped, getPlaybackEngineState } from '@/plugins/player/utils'
 import { formatPlayTime2 } from '@/utils/common'
 import { savePlayInfo } from '@/utils/data'
 import { throttleBackgroundTimer } from '@/utils/tools'
@@ -15,11 +15,11 @@ import { AppState } from 'react-native'
 // UI 平滑时钟：仅服务于逐字歌词高亮与歌词连续滚动的每帧插值，
 // 不参与歌词行同步（行高亮已交由歌词引擎内部 ticker 驱动）。
 import { audioClock } from '@/core/player/audioClock'
-import { syncLyric } from '@/core/lyric'
-// 行级高亮的两种同步方式：
-// - syncToTimeFromPosition：250ms 轮询用引擎真实位置同步（带“每帧推进”的回退迟滞，见插件内注释）
-// - advanceToTime：每帧用 audioClock 外推时钟把当前行向前推进（见下）
-import { advanceToTime, syncToTimeFromPosition } from '@/plugins/lyric'
+// 行级高亮对齐上游 usePlayerEvent 事件对：歌词引擎内部 ticker 推进（lrc.play 绝对时间
+// 重锚），引擎 playing/buffering 事件驱动重锚/冻结，本模块不再做任何行级同步
+// （此前的 rAF 每帧前向推进与轮询行同步随旧轮询架构一并删除）。
+import { play as resyncLyricToEngine, handlePlay as anchorLyricToEngineTime } from '@/core/lyric'
+import { onUnifiedPlayerEvent } from '@/plugins/player/engine'
 
 import {
   updateScrobbleInfo,
@@ -46,7 +46,7 @@ export default () => {
 
   let isScreenOn = true
 
-  // 进度条拖动期间暂停 250ms 轮询：每次 tick 都有 getPosition/getPlaybackEngineState
+  // 进度条拖动期间暂停 1s 慢校准轮询：每次 tick 都有 getPositionStamped/getPlaybackEngineState
   // 两次原生桥往返 + setNowPlayTime → playProgressChanged 连锁的 PlayInfo 子树 React
   // 重渲染（4 次/秒）+ playHistory/playStatus/preloadNextMusic 监听器执行。拖动的
   // 手势事件同样走 JS 线程，这些负载会把 move 事件挤到排队（表现为拖动不跟手），
@@ -99,10 +99,10 @@ export default () => {
       setNowPlayTime(position)
 
       // 先检查引擎状态：buffering 期间音频没有真正渲染，getPosition() 返回的是
-      // seek 目标而非实际播放位置。此时必须：
-      // 1. 冻结 audioClock（playing=false）→ scrollToActiveContinuous 不会外推超前
-      // 2. 跳过歌词行同步 → 高亮行不会跑到音频前面
-      // 等 state 变为 playing（解码器真正从目标位置渲染）后再恢复同步。
+      // seek 目标而非实际播放位置。此时冻结 audioClock（scrollToActiveContinuous
+      // 与逐字插值不会外推超前）；行级歌词由 app_event.pause（controller 对
+      // buffering 状态发出，≈上游 waiting→pause）冻结。恢复出声后由引擎 playing
+      // 事件（syncFromEngine）用带戳绝对位置统一重锚。
       const engineState = await getPlaybackEngineState()
       const isBuffering = engineState === 'buffering' || engineState === 'loading'
       const wasBufferingHold = isBufferingHold
@@ -112,13 +112,13 @@ export default () => {
       if (!playerState.isPlay) return
 
       if (isBuffering) {
-        // 解码器还在 buffering（音频没有真正出声）：冻结时钟，不外推、不同步歌词。
+        // 解码器还在 buffering（音频没有真正出声）：冻结时钟，不外推。
         // 时钟已有锚点（播放中/暂停中）→ 自冻结在当前位置：nativeFlac 缓冲期
         // getPosition 回报的是 seek 目标而非实际位置，直接 hold(position) 会把歌词
         // 提前拽到目标行（上游 waiting→pause 的语义正是「歌词停在当前行」）；
-        // 时钟尚无锚点（恢复进度起播/新歌起播）→ 锚到引擎位置，行同步才有基准。
+        // 时钟尚无锚点（恢复进度起播/新歌起播）→ 锚到引擎位置，逐字插值才有基准。
         // 不能用 seek 窗口判定：窗口与缓冲结束可能同拍，清窗后仍需保持自冻结。
-        // 恢复出声后由下方非缓冲分支 setAnchor + 行同步跳到真实落点。
+        // 恢复出声由引擎 playing 事件（syncFromEngine）统一重锚，此处不再做行同步。
         audioClock.hold((audioClock.hasAnchor ? audioClock.getTime() : position) * 1000)
         return
       }
@@ -130,8 +130,6 @@ export default () => {
       // − stamped.ageMs（对称往返假设，残余 ≈ reanchor 单程，远小于旧行为的整段往返）
       const ageMs = stamped.snapshotAt > 0 ? 0 : Math.max(0, Date.now() - calibStartedAt - stamped.ageMs)
       void reanchorNowPlayingLyric(position * 1000, stamped.snapshotAt, ageMs)
-
-      syncToTimeFromPosition(position * 1000, playerState.isPlay)
 
       updateScrobblePlayTime(position)
 
@@ -188,60 +186,105 @@ export default () => {
     getCurrentTime()
   }
 
-  // 行级高亮的每帧推进（消除 250ms 轮询带来的跨行延迟）：
-  // 逐字/卡拉OK 高亮由 audioClock 每帧驱动，而行级高亮原先只能等 250ms 轮询（最坏晚 250ms），
-  // 于是跨行瞬间会看到「新行已经开始唱、行高亮与滚动还没切过去」。这里用同一个外推时钟
-  // 每帧把当前行向前推进，把跨行延迟压到一帧内；只前进不后退，回退交给上面的精确路径。
-  let lyricTickRaf = 0
-  let lastLyricTickMs = -1
-  const tickLyricLine = () => {
-    lyricTickRaf = requestAnimationFrame(tickLyricLine)
-    const t = audioClock.getTime() * 1000
-    // 时钟未推进（暂停 / 缓冲被 hold 在 seek 目标 / 屏幕关闭）时跳过：
-    // 否则会按 hold 住的目标位置提前切行，也与“音频没动、字幕不动”相悖。
-    if (t === lastLyricTickMs) return
-    lastLyricTickMs = t
-    advanceToTime(t, playerState.isPlay)
+  // 对齐上游 usePlayerEvent 事件对的时钟侧（onPlaying → lrc.play(currentTime)）：
+  // 引擎 playing 事件到达时，用引擎【带戳绝对位置】一次性完成
+  //   时钟锚定（audioClock.setAnchor）→ 行级歌词重锚（handlePlay，重启 ticker）
+  //   → 进度 UI 发布 → 原生歌词/位置时钟带戳回放 → 控制中心进度基线发布
+  //   → seek 窗口解除（引擎已在新位置，旧位置拦截失去意义）
+  // 行级冻结由 app_event.pause（controller 对 buffering/paused 都发出 ≈ 上游
+  // waiting→pause）完成。seek 落点确认 / 缓冲恢复 / 暂停恢复由此统一为
+  // 「引擎事件即真相」，同步延迟从「≤1s 轮询 + 300ms 快路径」压到原生事件
+  // 传播延迟（~10-50ms）——这正是旧架构下快进/快退后歌词跟音频不同步的根源。
+  // 行级重锚必须在这里做而不只靠 app_event.play：HTMLMediaElement 保证 seek 完成
+  // 后必发 playing（上游歌词靠它跟上本地 seek），而我们的引擎对「不引起状态变化
+  // 的 seek」（AVPlayer 本地文件）不发任何事件——syncFromEngine 就是这个保证的
+  // 等价物（scheduleFastResync 在 seek 后 ~300ms 调用兜底）。
+  const syncFromEngine = (musicId: string, genAtCall = seekGen) => {
+    const calibStartedAt = Date.now()
+    void getPositionStamped().then(async(stamped) => {
+      if (!playerState.isPlay || playerState.musicInfo.id != musicId) return
+      // 代际守卫：调用后用户又发起了新 seek——这份快照描述的是旧落点，
+      // 丢弃，新 seek 的窗口/快路径会接管。
+      if (genAtCall != seekGen) return
+      // 事件过期守卫：state 事件与位置快照之间引擎可能又进入 buffering（seek 后
+      // 重新解码），此刻快照位置不是真实出声位置，丢弃，等下一个 playing 事件。
+      const engineState = await getPlaybackEngineState()
+      if (!playerState.isPlay || playerState.musicInfo.id != musicId) return
+      if (genAtCall != seekGen) return
+      if (engineState !== 'playing') return
+      seekTargetPosition = null
+      seekHoldUntil = 0
+      engineConfirmedPlaying = true
+      isBufferingHold = false
+      audioClock.setAnchor(stamped.position * 1000, settingState.setting['player.playbackRate'], true)
+      setNowPlayTime(stamped.position)
+      anchorLyricToEngineTime(stamped.position * 1000)
+      const ageMs = stamped.snapshotAt > 0 ? 0 : Math.max(0, Date.now() - calibStartedAt - stamped.ageMs)
+      void reanchorNowPlayingLyric(stamped.position * 1000, stamped.snapshotAt, ageMs)
+      void syncNowPlayingState('play')
+    })
   }
-  const startLyricTick = () => {
-    if (lyricTickRaf) return
-    lastLyricTickMs = -1
-    lyricTickRaf = requestAnimationFrame(tickLyricLine)
-  }
-  const stopLyricTick = () => {
-    if (!lyricTickRaf) return
-    cancelAnimationFrame(lyricTickRaf)
-    lyricTickRaf = 0
-    lastLyricTickMs = -1
-  }
+
+  // 引擎状态事件订阅（上游 usePlayerEvent 的时钟侧等价物）：
+  // - playing → syncFromEngine 即时重锚（覆盖 seek 落点 / 缓冲恢复 / 暂停恢复全部场景）
+  // - buffering/loading → 快路径停发 + 时钟冻结在当前位置（行级冻结由 controller 的
+  //   app_event.pause → core/lyric.pause 完成，与上游 waiting→pause 同构）
+  // - paused/stopped → 快路径停发、缓冲解除（用户暂停经 app_event.pause → handlePause）
+  onUnifiedPlayerEvent((event) => {
+    if (event.type != 'state') return
+    const musicId = playerState.musicInfo.id
+    if (!musicId) return
+    switch (event.state) {
+      case 'playing':
+        syncFromEngine(musicId)
+        break
+      case 'buffering':
+      case 'loading':
+        engineConfirmedPlaying = false
+        isBufferingHold = true
+        // 与慢校准缓冲分支同一冻结策略：有锚点 → 自冻结在当前位置（seek 缓冲期
+        // getPosition 回报的是 seek 目标，不可采信）；无锚点（恢复进度起播/新歌
+        // 起播首帧即缓冲）→ 取引擎位置为逐字插值基准，与行级 setLyric 的重锚同源。
+        // 迟到的引擎位置需复核：playing 可能已先行重锚（hasAnchor）、用户可能已
+        // 暂停/切歌——任一变化都丢弃，绝不覆盖新状态。
+        if (audioClock.hasAnchor) {
+          audioClock.hold(audioClock.getTime() * 1000)
+        } else {
+          void getPosition().then((position) => {
+            if (!isBufferingHold || audioClock.hasAnchor || !playerState.isPlay) return
+            if (playerState.musicInfo.id != musicId) return
+            audioClock.hold((position || 0) * 1000)
+          })
+        }
+        break
+      case 'paused':
+      case 'stopped':
+        engineConfirmedPlaying = false
+        isBufferingHold = false
+        break
+    }
+  })
 
   // seek 生效窗口：从发起到引擎在落点恢复播放之间，引擎的 getPosition() 可能仍回报
   // seek 前的旧位置（seek 是异步生效的，普通音质下尤其明显）。窗口内不能用旧位置
   // 刷新 UI 状态（进度条/时间标签），否则「点击歌词行 / 拖动进度条」后进度条先跳回
   // 旧位置、窗口结束后再跳回落点。歌词时钟在窗口内不受干涉：继续跟随正在出声的
   // 旧音频，引擎在落点出声时统一重锚（对齐上游 seek 不碰歌词的语义）。
-  // 窗口超时自愈（2s），引擎在落点附近恢复播放时提前结束窗口（见 getCurrentTime）。
+  // 窗口超时自愈（2s），引擎在落点附近恢复播放时提前结束窗口（见 getCurrentTime
+  // 与 syncFromEngine）。seekGen 代际计数：在途的位置快照/状态查询返回后，若期间
+  // 用户又发起了新 seek，旧快照直接丢弃，防旧落点覆盖新窗口。
   let seekTargetPosition: number | null = null
   let seekHoldUntil = 0
+  let seekGen = 0
 
-  // 对齐上游 lx-m 桌面版范式（playing 事件 → 用引擎绝对播放时间重锚歌词并广播）：
-  // seek 落点确认 / 暂停恢复后 ~300ms 触发一次快路径重锚，把 1s 慢校准的同步窗口
-  // 压到 0.3s。快路径直接复用慢校准函数 getCurrentTime()（完整链路：seek 窗口拦截
-  // → 引擎状态确认 → buffering hold / setAnchor + reanchorNowPlayingLyric 带戳回放
-  // → 行同步），不复制任何状态机。补充一条：引擎确认 playing 时 syncNowPlayingState
-  // ('play') 发布控制中心进度基线——nativeFlac 路径 seek/恢复播放后没有任何 info
-  // 发布（TrackPlayer 已 reset、无原生事件），控制中心进度条会继续从旧基线外推，
-  // 直到下一次元数据发布；AVPlayer 路径原生事件已更新基线，重复发布无害（同值守卫
-  // 挡重播、基线推进吸收）。
+  // seek 落点确认 / 暂停恢复后的快路径兜底：正常情况下引擎 playing 事件已即时重锚
+  // （syncFromEngine 订阅），这里 ~300ms 后补一次，覆盖「seek 未引起引擎状态变化
+  // 而没有 playing 事件」（AVPlayer 本地文件 seek）与事件丢失的场景。
   const scheduleFastResync = (musicId: string) => {
     BackgroundTimer.setTimeout(() => {
       if (!playerState.isPlay || playerState.musicInfo.id != musicId) return
+      syncFromEngine(musicId)
       getCurrentTime()
-      void getPlaybackEngineState().then((engineState) => {
-        if (!playerState.isPlay || playerState.musicInfo.id != musicId) return
-        // buffering/loading 时不发布：贴上游「playing 才重锚」语义，交给慢校准
-        if (engineState === 'playing') void syncNowPlayingState('play')
-      })
     }, 300)
   }
 
@@ -250,44 +293,25 @@ export default () => {
     const musicId = playerState.musicInfo.id
     // console.log('setProgress', time, maxTime)
     setNowPlayTime(time)
-    // 对齐上游 seek→歌词时序（usePlayProgress.setProgress 不碰歌词 + waiting/playing
-    // 事件对）：seek 只立即跳进度条（= 上游 audio.currentTime 立即生效），歌词不动——
-    // 时钟继续外推当前（旧）位置，歌词跟着正在出声的音频走；引擎真正从落点出声时
-    // 才重锚歌词。此前实现在 seek 瞬间 syncLyric(目标) + hold(目标)，引擎还在放旧
-    // 内容/静音缓冲的整个窗口里（网络 FLAC 重新解码可达数秒）歌词已显示目标行，
-    // 表现为「快进/快退后歌词与音频不同步」。seekTargetPosition 窗口保留：窗口内
-    // 引擎旧位置不得刷进进度条 UI（防拖动/seek 后进度条抽帧）。
+    // 对齐上游 seek→歌词时序（usePlayProgress.setProgress 只做 setNowPlayTime +
+    // setCurrentTime，不碰歌词）：seek 只立即跳进度条，歌词不动——时钟继续外推
+    // 当前（旧）位置，歌词跟着正在出声的音频走；引擎真正从落点出声时 playing
+    // 事件统一重锚（≈上游 onPlaying → lrc.play(currentTime)）。seekTargetPosition
+    // 窗口保留：窗口内引擎旧位置不得刷进进度条 UI（防拖动/seek 后进度条抽帧）。
     seekTargetPosition = time
     seekHoldUntil = Date.now() + 2000
+    seekGen++
 
-    // 参考项目对齐的 seek：音频与歌词用同一真实落点，保证普通音质快进/快退后二者同步。
     void setCurrentTime(time).then((targetPosition) => {
       if (!playerState.musicInfo.id) return
       if (targetPosition > 0) {
         setNowPlayTime(targetPosition)
         seekTargetPosition = targetPosition
         seekHoldUntil = Date.now() + 2000
-        // 引擎接受 seek 后按状态分派（= 上游 waiting→冻结 / playing→重锚）：
-        // - 已在落点出声（playing）：立即把歌词重锚到落点（上游 playing→lrc.play(引擎时间)）
-        // - 未出声（buffering/loading/paused）：歌词冻在当前行，绝不提前跳到目标；
-        //   出声瞬间的重锚交给落点确认快路径（scheduleFastResync）与 1s 慢校准
-        void getPlaybackEngineState().then((engineState) => {
-          if (!playerState.musicInfo.id || playerState.musicInfo.id != musicId) return
-          if (engineState === 'playing' && playerState.isPlay) {
-            audioClock.hold(targetPosition * 1000)
-            syncLyric(targetPosition, playerState.isPlay)
-          } else {
-            audioClock.hold(audioClock.getTime() * 1000)
-          }
-        })
-        // 落点确认快路径：~300ms 后重锚歌词/原生时钟/进度基线（不等 1s 慢校准）
+        // 落点确认快路径：~300ms 后兜底重锚（不等 1s 慢校准；正常由 playing
+        // 事件的 syncFromEngine 即时完成，此处覆盖无状态变化引擎的 seek）
         scheduleFastResync(musicId)
       }
-
-      // seek 的歌词重锚完全由引擎状态驱动（上方状态分派 + 快路径/慢校准），
-      // 这里不做无条件锚定：native FLAC seekTo 立即 resolve 但解码器还在
-      // buffering，AVPlayer 远程流同样要等缓冲，提前解冻/跳行都会让歌词
-      // 跑到音频前面（本次对齐上游要修的正是这个）。
     })
 
     if (maxTime != null) setMaxplayTime(getTimelineDuration(playerState.playMusicInfo.musicInfo, maxTime))
@@ -302,14 +326,11 @@ export default () => {
     // handleSetTaskBarState(playProgress.progress, prevProgressStatus)
     audioClock.setPlaying(true)
     startUpdateTimeout()
-    // 逐帧推进行高亮（与逐字高亮同一个时钟），让跨行切得跟音频一样准
-    startLyricTick()
 
-    // 暂停期间轮询停止，恢复时 progress.nowPlayTime 可能过期；
-    // lyric.play() 用 getReliableLyricPosition 启动 ticker 可能用了旧值。
-    // 300ms 快路径：引擎确认在播后立即用真实位置重锚（歌词 + 原生时钟 + 进度基线），
-    // 覆盖所有音质的暂停恢复不同步，并把基线发布（syncNowPlayingState('play')）
-    // 补给 AVPlayer 路径——其恢复播放只走原生 state 事件重锚、不发 info。
+    // 行级歌词重锚由 core/lyric 的 app_event.play 订阅完成（ticker 从引擎绝对时间
+    // 重新出发）；时钟/原生时钟/基线的即时重锚由引擎状态事件订阅（syncFromEngine）
+    // 完成。这里保留 300ms 快路径兜底：覆盖 playing 事件的快照恰逢状态抖动被丢弃、
+    // 或引擎无状态变化（无事件）的 seek 场景。
     if (playerState.musicInfo.id) scheduleFastResync(playerState.musicInfo.id)
   }
   const handlePause = () => {
@@ -318,20 +339,17 @@ export default () => {
     // clearBufferTimeout()
     audioClock.setPlaying(false)
     clearUpdateTimeout()
-    stopLyricTick()
-    // 快路径随暂停冻结，恢复播放后由慢速 tick 重新确认引擎状态再启用
-    engineConfirmedPlaying = false
-    isBufferingHold = false
-    // 暂停/停止时解除 seek 窗口，避免恢复播放后仍被窗口逻辑钉在旧落点
-    seekTargetPosition = null
-    seekHoldUntil = 0
+    // 快路径随暂停冻结（engineConfirmedPlaying/isBufferingHold/seek 窗口由引擎状态
+    // 事件订阅维护——buffering 也会走到这里（controller 对 buffering 发 app_event.pause，
+    // ≈上游 waiting→pause），此处不能清 seek 窗口，否则 seek 中途的缓冲会让引擎旧
+    // 位置解除拦截、进度条抽帧回归）
   }
 
   const handleStop = () => {
     clearUpdateTimeout()
-    stopLyricTick()
     seekTargetPosition = null
     seekHoldUntil = 0
+    seekGen++
     audioClock.reset()
     setNowPlayTime(0)
     setMaxplayTime(0)
@@ -347,7 +365,6 @@ export default () => {
     // prevProgressStatus = 'error'
     // handleSetTaskBarState(playProgress.progress, prevProgressStatus)
     clearUpdateTimeout()
-    stopLyricTick()
   }
 
 
@@ -407,14 +424,17 @@ export default () => {
   const handleScreenStateChanged: Parameters<typeof onScreenStateChange>[0] = (state) => {
     isScreenOn = state == 'ON'
     if (isScreenOn) {
-      if (playerState.isPlay) {
+      if (playerState.isPlay && playerState.musicInfo.id) {
         startUpdateTimeout()
-        // 熄屏期间两者都停：唤醒后一起恢复，保持行高亮与轮询同步
-        startLyricTick()
+        // 熄屏期间系统节流定时器：歌词引擎内部 ticker 的锚点已过期，行级高亮与
+        // 逐字插值都需要以引擎绝对位置重新出发（≈上游 onVisibilityChange 恢复处理）。
+        // syncFromEngine 重锚时钟/原生时钟/基线；resyncLyricToEngine 以引擎时间
+        // 重启行级 ticker。
+        syncFromEngine(playerState.musicInfo.id)
+        resyncLyricToEngine()
       }
     } else {
       clearUpdateTimeout()
-      stopLyricTick()
       // 对齐上游 beforeunload 兜底：熄屏（对应桌面端失活）瞬间把当前进度
       // 落盘一次——熄屏期间轮询停止无新进度，此后被杀进程也能恢复到熄屏前位置
       if (playerState.musicInfo.id && !playerState.playMusicInfo.isTempPlay) {
@@ -433,9 +453,10 @@ export default () => {
     if (state == 'active' && !isScreenOn) handleScreenStateChanged('ON')
   })
 
-  // 原生位置事件快路径（4Hz，仅前台播放时由歌词时钟发布）：免桥接查询驱动
-  // 进度 UI 与歌词行同步。启用条件：慢路径已确认引擎在播、非缓冲 hold、
-  // 非进度拖动、非 seek 生效窗口、App 前台。
+  // 原生位置事件快路径（4Hz，仅前台播放时由歌词时钟发布）：免桥接查询驱动进度 UI，
+  // ≈上游 timeupdate → setNowPlayTime（进度条唯一驱动源）。行级歌词不由它驱动
+  // （上游同构：歌词行由引擎内部 ticker 推进）。启用条件：慢路径/事件已确认引擎在播、
+  // 非缓冲 hold、非进度拖动、非 seek 生效窗口、App 前台。
   onPlayerPosition((position, rate) => {
     if (AppState.currentState !== 'active') return
     if (!engineConfirmedPlaying || isBufferingHold) return
@@ -444,7 +465,6 @@ export default () => {
     if (seekTargetPosition != null && Date.now() < seekHoldUntil) return
     setNowPlayTime(position)
     audioClock.setAnchor(position * 1000, rate || settingState.setting['player.playbackRate'], true)
-    syncToTimeFromPosition(position * 1000, true)
   })
 
   global.app_event.on('play', handlePlay)

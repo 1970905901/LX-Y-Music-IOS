@@ -81,3 +81,29 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/embed-liquid-glass-s
 ```
 
 (source checkout expected at `D:\lgtk-tmp` — adjust `$src` inside the script)
+
+## iOS 26.2+ root-view capture: layer.render + exclusion roots (vendored rework)
+
+Upstream renders the capture with `rootView.layer.presentation()` +
+`layer.render(in:)` (synchronous layer-tree read, no render-server commit) and
+hides only the MTK view itself. Two vendored changes were required on top:
+
+1. **Exclusion roots**: the app's RN foreground (tab icons / mini-player buttons)
+   are SIBLINGS of the glass host (not inside its contentView), so hiding the glass
+   alone leaks them into the capture -> refracted ghosts/dark smears. The RN view
+   manager resolves the exclusion root to the HOST'S SUPERVIEW (the JS content
+   container) on mount; `GlassInstanceRegistry.exclusionRoots` hides all of them
+   during any capture (mutual exclusion).
+2. **@try sandbox**: `layer.render(in:)` over the full window (status bar / keyboard
+   / RNN private layers) has an NSException crash history on iOS 26 that Swift
+   cannot catch — `LXGlassTryRenderLayer` (ObjC) wraps it; on exception the capture
+   falls back to `drawHierarchy(afterScreenUpdates: true)` for that frame and the
+   instance disables the layer.render path after 2 failures.
+
+History: an intermediate scheme (drawHierarchy(afterScreenUpdates: true) with a
+80ms static-capture throttle) fixed the leaks but its forced per-capture commit
+presented the hidden state to the display — the glass widgets periodically
+vanished on screen (user-visible jumping, recorded on video). The throttled
+refraction also stepped at 12.5fps while scrolling. Both reverted by the
+layer.render scheme above (upstream-identical, continuous per-frame capture).
+

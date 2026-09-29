@@ -9,14 +9,14 @@
 //     runtime compilation via MTLDevice.makeLibrary(source:) using embedded MSL sources
 //     (see LiquidGlassShaderSource.swift) — CI needs no Metal compile step, and a static
 //     library pod has no resource bundle to hold a metallib.
-//  3. Root-view capture (iOS 26.2+) rewritten: the capture hides the whole glass widget
-//     root (MTK output AND the foreground content above the glass) with
-//     `afterScreenUpdates: true`, plus a static-capture throttle. The previous scheme
-//     (MTK-only hiding + `afterScreenUpdates: false`) leaked foreground icons and the
-//     glass's own previous frame into the background texture — refracted into growing
-//     dark smears on real devices (iOS 26.2+/27): in-stack isHidden is only reflected
-//     by drawHierarchy after a commit, because `false` captures the last COMMITTED
-//     composite. See captureRootView and LICENSE-NOTES.md #7.
+//  3. Root-view capture (iOS 26.2+): exclusion roots hide every glass widget (glass
+//     output + foreground) during capture, and the capture itself is the upstream
+//     presentation-layer render (LXGlassTryRenderLayer @try sandbox -> drawHierarchy
+//     fallback). The intermediate scheme (drawHierarchy afterScreenUpdates:true with
+//     a static-capture throttle) leaked foreground icons, refracted the glass's own
+//     previous frames, and its forced per-capture commit presented the hidden state
+//     to the display (periodic blinking/jumping, recorded on video).
+//     See captureRootView and LICENSE-NOTES.md.
 //  Upstream: Copyright © 2025 DnV1eX, https://github.com/DnV1eX/LiquidGlassKit
 //
 
@@ -330,14 +330,11 @@ final class LiquidGlassView: MTKView {
     /// 被打进背景纹理后经 0.2x 降采样折射成重影/黑影（真机 iOS 26.2+ 截图实锤）。
     weak var captureExclusionView: UIView?
 
-    /// 静止节流：捕获矩形未变时背景重捕的最小间隔（秒）。drawHierarchy
-    /// (afterScreenUpdates: true) 每次都强制整窗提交，静止玻璃逐帧捕获纯属浪费；
-    /// 节流期间 shader 用上一帧纹理继续逐帧渲染（触摸眩光等动效不受影响）。
-    /// 捕获矩形变化（变形/位移动画）时不节流，保持上游连续捕获。
-    private let staticCaptureInterval: TimeInterval = 0.08
-    private var lastCaptureAt: TimeInterval = 0
-    private var lastCapturedRect: CGRect?
-
+    /// layer.render 沙盒（LXGlassTryRenderLayer）是否可用：iOS 26 上对整窗私有图层
+    /// 渲染有 NSException 崩溃前科，累计 2 次异常后停用，降级 drawHierarchy
+    /// （闪烁但不崩）。正常设备永不停用。
+    private var useLayerRender = true
+    private var layerRenderFailures = 0
     var touchPoint: CGPoint? = nil
 
     var frames: [CGRect] = []
@@ -400,17 +397,23 @@ final class LiquidGlassView: MTKView {
         }
     }
 
-    /// Captures the background content via root View using drawHierarchy.
+    /// Captures the background content via root View using layer render.
     ///
     /// iOS 26.2+ 无 CABackdropLayer 可用（系统重构 backdrop 私有机制），退化为公开 API
     /// 整树截图。捕获必须排除两类污染，否则真机（iOS 26.2+/27）出现黑影涂抹：
     /// ① 玻璃组件的**前景内容**（tab 图标/播放条按钮，挂在玻璃上方）被打进背景纹理，
     ///    再被 shader 以 0.2x 降采样折射放大 → 图标形状的软黑影；
-    /// ② 玻璃自身/其它玻璃的**上一帧输出**：drawHierarchy(afterScreenUpdates: false)
-    ///    截的是「最后一次提交」的合成帧，同栈 isHidden 不生效，玻璃输出每帧被再捕获
-    ///    再折射，反馈迭代成大团模糊黑块（迷你播放器右端黑团即此）。
-    /// 两者都由「捕获时临时隐藏全部玻璃组件根（含前景）+ afterScreenUpdates: true
-    /// （先提交让隐藏进入合成帧）」解决；true 的整窗提交代价对静止玻璃用节流摊薄。
+    /// ② 玻璃自身/其它玻璃的**上一帧输出**被再捕获再折射，反馈迭代成大团模糊黑块。
+    /// 两者都由「捕获时临时隐藏全部玻璃组件根（含前景）」解决。
+    ///
+    /// 渲染方式（对齐上游 DnV1eX/LiquidGlassKit captureRootView）：
+    /// presentation layer 的 layer.render(in:) —— 同步读取 layer 树画进 context，
+    /// **不经 render server 提交**：隐藏态不会呈现给显示器。历史方案
+    /// drawHierarchy(afterScreenUpdates: true) 的强制提交会把隐藏态刷到屏幕上——
+    /// 观看者周期性看到玻璃组件整条消失（露出背后列表），录屏逐帧可见 = 玻璃「跳动」。
+    /// iOS 26 上 layer.render 对整窗私有图层有 NSException 崩溃前科（Swift 无法捕获
+    /// ObjC 异常）→ ObjC @try 沙盒（LXGlassTryRenderLayer）：异常时本次降级
+    /// drawHierarchy（闪烁但不崩），累计 2 次异常本实例停用 layer.render 路径。
     func captureRootView() {
         guard let rootView = findRootView() else { return }
 
@@ -429,8 +432,7 @@ final class LiquidGlassView: MTKView {
         // setupBuffer），【中心】跟随 presentation 保持动画位置跟踪：逐帧变形动画
         // （迷你播放器收窄/放出、透镜 span 拉伸）期间 presentation 尺寸比 model
         // 慢一拍，若用 presentation 尺寸，变宽瞬间缓冲右/下侧会留下一条
-        // drawHierarchy 没画到的黑带，被 shader 折射进胶囊边缘——迷你播放器
-        // 放出/收起时右侧黑弧、切 tab 时透镜周围黑影（静止时两者一致故干净）。
+        // 没画到的黑带，被 shader 折射进胶囊边缘。
         // 再外扩 1 缓冲像素盖住 Int 取整缝隙，保证缓冲无未绘制纹理，
         // clamp_to_edge 边缘采样不会读到黑边。
         let devicePixel = 1.0 / scaleCoefficient
@@ -441,23 +443,10 @@ final class LiquidGlassView: MTKView {
                                        width: captureSize.width,
                                        height: captureSize.height)
 
-        // 静止节流：捕获矩形与上次一致（无位移/变形动画）且距上次捕获不足
-        // staticCaptureInterval 时直接复用上一帧纹理；纹理未就绪（首帧/缓冲重建）不节流。
-        let rectChanged = lastCapturedRect == nil ||
-            abs(lastCapturedRect!.midX - captureRectInRoot.midX) > 0.5 ||
-            abs(lastCapturedRect!.midY - captureRectInRoot.midY) > 0.5 ||
-            abs(lastCapturedRect!.width - captureRectInRoot.width) > 0.5 ||
-            abs(lastCapturedRect!.height - captureRectInRoot.height) > 0.5
-        let now = CACurrentMediaTime()
-        if backgroundTexture != nil, !rectChanged, now - lastCaptureAt < staticCaptureInterval { return }
-        lastCaptureAt = now
-        lastCapturedRect = captureRectInRoot
-
         backgroundTexture = zeroCopyBridge.render { context in
             // Hide every glass widget root in this window (self included)：覆盖各玻璃的
-            // MTK 输出与其上方前景内容，截到纯净背景。隐藏/恢复在同一调用栈内完成，
-            // afterScreenUpdates: true 先提交让隐藏真正进入合成帧——false 时同栈隐藏
-            // 不生效，玻璃上一帧输出会被再捕获再折射形成反馈黑影。
+            // MTK 输出与其上方前景内容，截到纯净背景。隐藏/恢复在同一调用栈内完成；
+            // layer.render 同步读取 layer 树（含 isHidden），无需提交即可见，不刷屏。
             let hiddenRoots = GlassInstanceRegistry.shared.exclusionRoots(in: window).filter { !$0.isHidden }
             for root in hiddenRoots { root.isHidden = true }
             defer { for root in hiddenRoots { root.isHidden = false } }
@@ -466,13 +455,22 @@ final class LiquidGlassView: MTKView {
             context.scaleBy(x: scaleCoefficient, y: scaleCoefficient)
             context.translateBy(x: -captureRectInRoot.origin.x, y: -captureRectInRoot.origin.y)
 
-            // 用官方 drawHierarchy 代替 layer.render(in:) —— 后者在 iOS 26 递归整窗
-            // 私有图层（状态栏/键盘/RNN 容器）时极易抛异常崩溃。drawHierarchy 走
-            // 标准 UIView 渲染路径，对私有 layer 兼容性更好。
-            // 注意：drawHierarchy 需在当前 UIKit 图形上下文内绘制，必须 push/pop context。
-            UIGraphicsPushContext(context)
-            rootView.drawHierarchy(in: rootView.bounds, afterScreenUpdates: true)
-            UIGraphicsPopContext()
+            let rootViewLayer = rootView.layer.presentation() ?? rootView.layer
+            let rendered = useLayerRender && LXGlassTryRenderLayer(rootViewLayer, context)
+            if rendered {
+                layerRenderFailures = 0
+            } else {
+                if useLayerRender {
+                    layerRenderFailures += 1
+                    if layerRenderFailures >= 2 { useLayerRender = false }
+                }
+                // 降级路径：drawHierarchy 走标准 UIView 渲染路径（对私有 layer 兼容性
+                // 更好），但 afterScreenUpdates: true 的强制提交会把隐藏态呈现给显示器
+                // （周期性闪烁）——仅作为 layer.render 异常时的兜底。
+                UIGraphicsPushContext(context)
+                rootView.drawHierarchy(in: rootView.bounds, afterScreenUpdates: true)
+                UIGraphicsPopContext()
+            }
         }
 
         blurTexture()

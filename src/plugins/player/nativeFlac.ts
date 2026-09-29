@@ -148,6 +148,7 @@ const wait = async(ms: number) => new Promise(resolve => setTimeout(resolve, ms)
 
 export const seekNativeFlacPlayback = async(position: number) => {
   if (!currentTrackId) return position
+  const trackAtRequest = currentTrackId
   if (currentMode == 'stream') {
     const targetTime = Math.max(0, position)
     await seekStreamingFlac(targetTime).catch(() => {})
@@ -167,8 +168,10 @@ export const seekNativeFlacPlayback = async(position: number) => {
       [950, 0.12],
     ] as const) {
       await wait(delay)
+      // 【切歌守卫】轮询存续期间用户切歌 = 本次 seek 已作废：立即终止。否则「位置没
+      // 收敛且非缓冲」的旧轮询会把旧目标 seek 到新歌上 → 新歌不从头上播放（真机实锤）。
+      if (currentTrackId != trackAtRequest) return lastPosition
       const currentPosition = await getStreamingFlacPosition().catch(() => lastPosition)
-      const currentState = await getStreamingFlacState().catch(() => 'buffering')
       const nextPosition = currentPosition > 0 ? currentPosition : lastPosition
       lastPosition = nextPosition
 
@@ -178,14 +181,13 @@ export const seekNativeFlacPlayback = async(position: number) => {
         continue
       }
 
-      // If playback has not reached near the target and is not still loading/buffering,
-      // the seek may have stalled; retry once.
-      if (currentState != 'loading' && currentState != 'buffering') {
-        await seekStreamingFlac(targetTime).catch(() => {})
-        stableCount = 0
-      }
+      // 【重试重发已移除】未收敛就重发 seekStreamingFlac 会取消在途 seek、重启 range
+      // 请求（高码率 FLAC 上反复搅动缓冲），切歌竞态下更是把旧目标打到新歌。未收敛
+      // 交由 playing 事件重锚 / 4Hz 位置探针 / 缓冲看门狗自愈，与其它引擎路径一致。
+      stableCount = 0
     }
 
+    if (currentTrackId != trackAtRequest) return lastPosition
     const finalPosition = await getStreamingFlacPosition().catch(() => lastPosition)
     lastPosition = finalPosition > 0 ? finalPosition : lastPosition
     return lastPosition

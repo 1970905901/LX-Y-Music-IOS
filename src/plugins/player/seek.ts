@@ -1,5 +1,6 @@
 import TrackPlayer from 'react-native-track-player'
 import { NativeModules, Platform } from 'react-native'
+import playerState from '@/store/player/state'
 
 const NativeTrackPlayerModule = NativeModules.TrackPlayerModule as {
   getPosition?: () => Promise<number>
@@ -34,6 +35,7 @@ export const getAccuratePositionStamped = async(): Promise<StampedPosition> => {
 }
 
 export const seekToTime = async(targetTime: number) => {
+  const musicIdAtRequest = playerState.musicInfo.id
   await TrackPlayer.seekTo(targetTime)
   if (Platform.OS != 'ios') return targetTime
 
@@ -47,6 +49,9 @@ export const seekToTime = async(targetTime: number) => {
     [520, 0.12],
   ] as const) {
     await wait(delay)
+    // 【切歌守卫】轮询存续期间用户切歌 = 本次 seek 已作废：立即终止。否则「位置没
+    // 收敛」的旧轮询会把旧目标 seek 到新歌上 → 新歌不从头上播放（nativeFlac 同款）。
+    if (playerState.musicInfo.id != musicIdAtRequest) return position
     const currentPosition = await getAccuratePosition().catch(() => position)
     const nextPosition = currentPosition > 0 ? currentPosition : position
     // eslint-disable-next-line require-atomic-updates
@@ -56,9 +61,12 @@ export const seekToTime = async(targetTime: number) => {
       if (stableCount > 1 || tolerance <= 0.22) break
       continue
     }
+    // 【重试重发已移除】未收敛就重发 TrackPlayer.seekTo 会取消在途 seek、重启缓冲
+    // （高码率 FLAC 上反复搅动），切歌竞态下更是把旧目标打到新歌。未收敛交由
+    // playing 事件重锚 / 4Hz 位置探针 / 缓冲看门狗自愈。
     stableCount = 0
-    await TrackPlayer.seekTo(targetTime)
   }
+  if (playerState.musicInfo.id != musicIdAtRequest) return position
   const finalPosition = await getAccuratePosition().catch(() => position)
   // eslint-disable-next-line require-atomic-updates
   position = finalPosition > 0 ? finalPosition : position

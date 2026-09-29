@@ -18,7 +18,7 @@ import { audioClock } from '@/core/player/audioClock'
 // 行级高亮对齐上游 usePlayerEvent 事件对：歌词引擎内部 ticker 推进（lrc.play 绝对时间
 // 重锚），引擎 playing/buffering 事件驱动重锚/冻结，本模块不再做任何行级同步
 // （此前的 rAF 每帧前向推进与轮询行同步随旧轮询架构一并删除）。
-import { play as resyncLyricToEngine, handlePlay as anchorLyricToEngineTime } from '@/core/lyric'
+import { play as resyncLyricToEngine, handlePlay as anchorLyricToEngineTime, verifyLyricLineSync } from '@/core/lyric'
 import { onUnifiedPlayerEvent } from '@/plugins/player/engine'
 
 import {
@@ -130,6 +130,16 @@ export default () => {
       // − stamped.ageMs（对称往返假设，残余 ≈ reanchor 单程，远小于旧行为的整段往返）
       const ageMs = stamped.snapshotAt > 0 ? 0 : Math.max(0, Date.now() - calibStartedAt - stamped.ageMs)
       void reanchorNowPlayingLyric(position * 1000, stamped.snapshotAt, ageMs)
+
+      // 行级自愈探针（慢校准层，≤1s 收敛）：上游行级重锚的最终保证是 HTMLMediaElement
+      // 「seek 完成后必发 playing」的引擎级契约，我们的引擎没有——AVPlayer 对无状态
+      // 变化的 seek 不发事件、任一引擎的 playing 事件都可能被 syncFromEngine 的状态
+      // 查询守卫丢弃（快照恰逢微卡顿 re-buffering）。事件驱动重锚全部落空时行级
+      // ticker 会永久冻在旧行而音频照常出声（真机实锤的「快进/快退后一直不同步」）。
+      // 此处引擎已确认 playing 且不在 seek 窗口/缓冲/拖动，position 即引擎真相：
+      // 「应有行 ≠ 当前行」只可能是事件丢失，立即以引擎时间重锚（正常播放时恒一致，
+      // 零开销二分比对；seek 窗口内不会走到这里）。
+      verifyLyricLineSync(position * 1000)
 
       updateScrobblePlayTime(position)
 
@@ -350,6 +360,10 @@ export default () => {
     seekTargetPosition = null
     seekHoldUntil = 0
     seekGen++
+    // 切歌/停播可能没有任何引擎状态事件（尤其 nativeFlac stop 不走状态机），
+    // 快路径门控必须显式复位，否则残留的 engineConfirmedPlaying 会让 4Hz 位置
+    // 事件/自愈探针在上首歌曲的原生时钟位置上继续工作。
+    engineConfirmedPlaying = false
     audioClock.reset()
     setNowPlayTime(0)
     setMaxplayTime(0)
@@ -465,6 +479,10 @@ export default () => {
     if (seekTargetPosition != null && Date.now() < seekHoldUntil) return
     setNowPlayTime(position)
     audioClock.setAnchor(position * 1000, rate || settingState.setting['player.playbackRate'], true)
+    // 行级自愈探针（快路径层，≤250ms 收敛）：守卫条件（确认在播/非缓冲/非拖动/非
+    // seek 窗口）已在上方逐条检查，position 为原生歌词时钟外推的引擎位置。覆盖
+    // 「playing 事件被丢弃但快路径已复活」的窗口，比 1s 慢校准更快自愈。
+    verifyLyricLineSync(position * 1000)
   })
 
   global.app_event.on('play', handlePlay)

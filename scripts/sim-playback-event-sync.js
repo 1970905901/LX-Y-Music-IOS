@@ -24,6 +24,9 @@
  *   8  快速双 seek 代际守卫：最终落在第二个落点，旧快照不覆盖新窗口
  *   9  恢复进度起播首帧即缓冲（无锚点）：逐字时钟取引擎位置为基准（不冻在 0）
  *   9x 反例：无兜底时逐字时钟冻在 0（恢复进度起播卡拉OK无高亮基准）
+ *  10  事件丢失自愈：seek 长缓冲吞掉 300ms 快路径、出声时不补发 playing 事件——
+ *      行级自愈探针（慢校准层）≤1 个校准周期把行拉回落点行（音频侧时钟本就正确）
+ *  10x 反例：无探针时行永久冻在旧行（真机实锤的「快进/快退后一直不同步」）
  * 逐字（卡拉OK）链路 = 行级链路的时钟侧：字高亮 elapsed = audioClock − 当前行起点，
  * audioClock 与行级 ticker 由同一批引擎事件锚定/冻结（playing→setAnchor+重锚、
  * buffering→hold），断言 1/3/6/8 的时钟误差即逐字精度上界。
@@ -132,12 +135,17 @@ function makeEngine({ lineTimes }) {
     pause() { this.anchorPos = this.pos(nowMs); this.anchorT = nowMs; this.reportPos = null; this.setState('paused') },
     /** seekTo：可配置生效延迟 / 是否经历 buffering / buffering 期位置回报语义。
      *  真实播放器语义：第二次 seekTo 取消尚未生效的前一次 seek（代际守卫）。 */
-    seekTo(target, { applyAfter = 0, buffering = false, reportTargetDuringBuffering = true, emitPlayingOnApply = true, stateFlapMs = 0 } = {}) {
+    seekTo(target, { applyAfter = 0, buffering = false, reportTargetDuringBuffering = true, emitPlayingOnApply = true, stateFlapMs = 0, silentResume = false } = {}) {
       const gen = ++this._seekGen
       const apply = () => {
         if (gen !== this._seekGen) return // 已被更新的 seek 取消
         this.anchorPos = target; this.anchorT = nowMs; this.reportPos = null
-        if (this.state === 'buffering') this.setState('playing')
+        if (this.state === 'buffering') {
+          // silentResume：出声但不发 playing 事件（真机「事件丢失」模型——AVPlayer 对
+          // 无状态变化 seek 不发事件 / 事件被守卫丢弃时的引擎侧等价物）
+          if (silentResume) { this.state = 'playing' } 
+          else this.setState('playing')
+        }
         else if (emitPlayingOnApply) this.emitState() // 无状态变化也补发 playing（HTMLMediaElement 语义）
       }
       if (buffering) {
@@ -167,7 +175,7 @@ function makeEngine({ lineTimes }) {
 // ---------------------------------------------------------------------------
 // 新架构系统（重构后 playProgress + controller 事件映射 + core/lyric 接线）
 // ---------------------------------------------------------------------------
-function createNewSystem(engine, lyric, { pollPhase = 0, eventHoldNoAnchorFallback = true } = {}) {
+function createNewSystem(engine, lyric, { pollPhase = 0, eventHoldNoAnchorFallback = true, lineSyncDetector = true } = {}) {
   const clock = makeClock()
   const sys = {
     clock, lyric, engine,
@@ -175,6 +183,7 @@ function createNewSystem(engine, lyric, { pollPhase = 0, eventHoldNoAnchorFallba
     engineConfirmed: false, bufferingHold: false,
     screenOn: true,
     userPlay: true, // ≈ playerState.isPlay（store 标志，用户点播放即 true，与引擎状态无关）
+    lineSyncDetector, // 行级自愈探针（verifyLyricLineSync）：慢校准层的第二道网
     ccReanchors: [],
   }
   const isPlay = () => sys.engineConfirmed || engine.state === 'playing'
@@ -260,7 +269,7 @@ function createNewSystem(engine, lyric, { pollPhase = 0, eventHoldNoAnchorFallba
     scheduleFastResync(sys.seekGen)
   }
 
-  // —— 1s 慢校准轮询（不含行同步）——
+  // —— 1s 慢校准轮询（不含行同步；行级由探针兜底，见下）——
   const poll = () => {
     if (!sys.screenOn) return
     after(1000, () => {
@@ -273,6 +282,12 @@ function createNewSystem(engine, lyric, { pollPhase = 0, eventHoldNoAnchorFallba
       sys.nowPlayTime = position
       if (engine.state === 'buffering') { clock.hold((clock.hasAnchor ? clock.getTime() * 1000 : position)); return }
       clock.setAnchor(position, 1, true)
+      // 行级自愈探针（playProgress 慢校准层 1:1）：引擎确认在播（非 buffering 分支）
+      // 且不在 seek 窗口，position 即引擎真相；「应有行 ≠ 当前行」只可能是事件丢失。
+      if (sys.lineSyncDetector) {
+        const expected = lyric.lineAt(position)
+        if (expected !== lyric.curLine && !(expected === 0 && lyric.curLine < 0)) lyric.play(position)
+      }
     })
   }
   after(pollPhase, poll)
@@ -616,6 +631,42 @@ check('9x 反例：无兜底时逐字时钟冻在 0（恢复进度起播卡拉OK
   engine.setState('loading')
   advance(50)
   assert(sys.clock.getTime() * 1000 === 0, `无兜底时逐字时钟应冻在 0（缺陷存在），实际 ${(sys.clock.getTime() * 1000).toFixed(0)}ms`)
+})
+
+check('10 事件丢失自愈：快路径被长缓冲吞掉 + 出声不补发 playing——行级 ≤1 个校准周期自愈', () => {
+  resetWorld()
+  const engine = makeEngine({ lineTimes: LINES })
+  const lyric = makeLyric(LINES)
+  const sys = createNewSystem(engine, lyric, { pollPhase: 300 })
+  engine.playFrom(25000); lyric.play(25000)
+  advance(1000) // 播至 ~26s，行 2
+  assert(lyric.curLine === 2, `前置：应在行 2，实际 ${lyric.curLine}`)
+  // seek 长缓冲 2.5s（> 300ms 快路径）→ 快路径 syncFromEngine 被缓冲守卫丢弃；
+  // 出声时事件丢失（silentResume）→ 无 playing 事件、无 app_event.play、行级永无事件重锚
+  engine.seekTo(65000, { applyAfter: 2500, buffering: true, silentResume: true })
+  sys.seekAccepted(65000)
+  advance(1500) // t≈2.5s：快路径（1.3s 处）已跑过并被守卫丢弃，仍在缓冲，行应冻结旧行
+  assert(lyric.curLine === 2, `缓冲期行应冻结旧行(2)，实际 ${lyric.curLine}`)
+  advance(2000) // t≈4.5s：3.5s 处已静默出声（音频在落点正常播放），4.3s 慢校准已自愈
+  assert(lyric.curLine === 6, `事件全丢后行级应经探针自愈到落点行(6)，实际 ${lyric.curLine}`)
+  const clockErr = Math.abs(sys.clock.getTime() * 1000 - engine.pos(nowMs))
+  assert(clockErr <= 100, `音频侧时钟应正常（对照：用户看到的「进度条正常、歌词不动」），误差 ${clockErr.toFixed(0)}ms`)
+})
+
+check('10x 反例：无探针时行永久冻在旧行（真机「快进/快退后一直不同步」，缺陷可被捕获）', () => {
+  resetWorld()
+  const engine = makeEngine({ lineTimes: LINES })
+  const lyric = makeLyric(LINES)
+  const sys = createNewSystem(engine, lyric, { pollPhase: 300, lineSyncDetector: false })
+  engine.playFrom(25000); lyric.play(25000)
+  advance(1000)
+  engine.seekTo(65000, { applyAfter: 2500, buffering: true, silentResume: true })
+  sys.seekAccepted(65000)
+  advance(1500)
+  advance(2000)
+  assert(lyric.curLine === 2, `无探针时行应永久冻在旧行(2)（缺陷存在），实际 ${lyric.curLine}`)
+  const clockErr = Math.abs(sys.clock.getTime() * 1000 - engine.pos(nowMs))
+  assert(clockErr <= 100, `无探针时时钟仍应正常（证明缺陷只在行级），误差 ${clockErr.toFixed(0)}ms`)
 })
 
 // ---------------------------------------------------------------------------

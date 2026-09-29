@@ -250,6 +250,33 @@ export const anchorLyric = (timeMs: number, isPlaying: boolean) => {
   lrcTools.isPlay = isPlaying
 }
 
+/**
+ * 行级同步自愈探针：用引擎绝对时间推导「应有行」，与歌词引擎当前行不一致即视为失步，
+ * 立即以引擎时间重锚（重启内部 ticker），返回是否发生了纠正。
+ *
+ * 为什么必须有这道网：上游桌面版行级重锚的最终保证是 HTMLMediaElement 的引擎级契约
+ * 「seek 完成后必发 playing → lrc.play(currentTime)」，事件永不丢失；我们的引擎没有
+ * 这个保证——AVPlayer 对不引起状态变化的 seek 完全不发事件，且任一引擎的 playing
+ * 事件都可能被 syncFromEngine 的状态查询守卫（快照恰逢微卡顿 re-buffering）丢弃。
+ * 事件驱动重锚一旦全部落空，行级 ticker 会永久冻在旧行而音频照常出声（真机实锤的
+ * 「快进/快退后歌词与音频一直不同步」）。本探针是事件驱动架构下的兜底网：调用方
+ * （慢校准 tick / 4Hz 快路径）保证仅在「引擎确认 playing、非缓冲、非 seek 生效窗口、
+ * 非进度拖动」时调用，事件正常时行号恒一致（零开销二分比对），事件丢失时 ≤1 个
+ * 校准周期内自愈。
+ * 首行前的 -1 态（解析器对前奏的表示）与期望行 0 视为一致，避免整段前奏被误判失步。
+ */
+export const verifyLyricLineSync = (engineTimeMs: number): boolean => {
+  const lines = lrcTools.currentLines
+  if (!lines.length) return false
+  const expected = findLineIndexByTime(lines, engineTimeMs)
+  const actual = lrcTools.currentLineData.line
+  if (expected === actual) return false
+  if (expected === 0 && actual < 0) return false
+  // 引擎在出声（调用方守卫），重锚并让 ticker 从引擎真实位置继续推进
+  anchorLyric(engineTimeMs, true)
+  return true
+}
+
 // 逐行歌词 play hook：iOS 无原生 LyricModule，蓝牙歌词 / 网络歌词改用此 JS 引擎钩子驱动。
 export const addPlayHook = (hook: PlayHook) => { lrcTools.addPlayHook(hook) }
 export const removePlayHook = (hook: PlayHook) => { lrcTools.removePlayHook(hook) }

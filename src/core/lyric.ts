@@ -66,6 +66,9 @@ export const pause = () => {
 
 export const onLyricPlay = onPluginLyricPlay
 
+// 行级同步自愈探针（透传插件层实现，消费方为 playProgress 的慢校准/快路径）
+export { verifyLyricLineSync } from '@/plugins/lyric'
+
 /**
  * stop lyric
  */

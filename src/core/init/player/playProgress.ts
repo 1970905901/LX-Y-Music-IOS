@@ -265,19 +265,29 @@ export default () => {
     if (!musicId) return
     switch (event.state) {
       case 'playing': {
-        // 出声回拉（1:1 上游 handlePlaying）：seek/缓冲恢复出声时，把引擎强制拉回
-        // seek 意图位置（restorePlayTime）或卡住前的位置（mediaBuffer.playTime）——
-        // 引擎落点偏差是「歌词与音频差固定偏移」的直接来源，回拉音频后重锚交给
-        // 重 seek 引发的引擎事件与 300ms 快路径。回拉后清空记录，后续 playing 不再回拉。
+        // 锚定先行（上游 usePlayerEvent 与 usePlayProgress 是两个独立订阅：playing
+        // 既重锚歌词/时钟也做回拉——此前回拉分支 break 跳过锚定，全靠 300ms 快路径兜）。
+        syncFromEngine(musicId)
+        // 出声回拉（上游 handlePlaying 的音频侧校正）：引擎报告位置=解码器播放头
+        // （两引擎皆是），报告位置与 seek 意图（restorePlayTime）的偏差即「歌词与
+        // 音频差固定偏移」的直接来源——偏差超过阈值才回拉（落点精确时不做无意义的
+        // 二次 seek，nativeFlac 重启解码会再缓冲一轮）；卡住位置（mediaBuffer.playTime）
+        // 的恢复同径。回拉后清空记录；看门狗探测 seek 已主动清卡点，不会被回拉撤销。
         const resumeTime = restorePlayTime ?? mediaBuffer.playTime
         clearBufferTimeout()
         restorePlayTime = null
-        if (resumeTime != null) {
-          void setCurrentTime(resumeTime).catch(() => {})
-          scheduleFastResync(musicId)
-          break
+        // 新鲜度守卫：playing 事件丢失时 restorePlayTime 会滞留（探针已自愈行级），
+        // 迟到的 playing 若还拿陈旧意图做偏差比较，会把音频拉回早已过去的旧目标——
+        // 意图超过 15s 一律作废（正常 seek 的 playing 都在秒级到达）。
+        if (resumeTime != null && pullBackCount < 3 && Date.now() - lastSeekIntentAt < 15000) {
+          void getPosition().then((position) => {
+            if (!playerState.isPlay || playerState.musicInfo.id != musicId) return
+            if (Math.abs((position || 0) - resumeTime) <= 0.3) return
+            pullBackCount++
+            lastSeekIntentAt = Date.now()
+            void setCurrentTime(resumeTime).catch(() => {})
+          })
         }
-        syncFromEngine(musicId)
         break
       }
       case 'buffering':
@@ -339,6 +349,14 @@ export default () => {
   // 后续所有锚定自然正确。restorePlayTime 在出声回拉后清空（回拉引发的后续 playing
   // 不再回拉，天然无循环）。
   let restorePlayTime: number | null = null
+  // seek 意图时刻（setProgress / 出声回拉 / 看门狗探测都会刷新）：缓冲看门狗的宽限
+  // 基准——慢缓冲（高码率 FLAC 单次 seek 缓冲 5~8s 很常见）期间绝不记录卡点/向前
+  // 探测，否则探测越过 seek 目标并与出声回拉互相拉锯（回拉引发的新缓冲又被探测，
+  // 永不收敛）——「泪海 FLAC 快进快退后始终不同步」的实锤根因
+  let lastSeekIntentAt = 0
+  // 单次 seek 意图的回拉预算：回拉后的落点若仍偏差（极端引擎/网络），最多再拉 2 次
+  // 就接受引擎位置并锚定，防慢缓冲长曲上回拉-探测无限拉锯；每次用户 seek 重置
+  let pullBackCount = 0
   const mediaBuffer: { timeout: number | null, playTime: number | null, attempts: number } = {
     timeout: null, playTime: null, attempts: 0,
   }
@@ -362,9 +380,18 @@ export default () => {
     mediaBuffer.timeout = BackgroundTimer.setTimeout(() => {
       mediaBuffer.timeout = null
       if (track != playerState.musicInfo.id || !playerState.isPlay) return
+      // seek 意图宽限期（10s）：高码率 FLAC 单次 seek 缓冲可达 5~8s，宽限期内绝不
+      // 记录卡点/向前探测——探测会越过用户 seek 目标、并与出声回拉互相拉锯（回拉
+      // 引发的新缓冲又被探测，永不收敛）。宽限后仍持续缓冲才按真卡死处理。
+      if (Date.now() - lastSeekIntentAt < 10000) {
+        startBuffering()
+        return
+      }
       void getPosition().then((currentTime) => {
         if (track != playerState.musicInfo.id || !playerState.isPlay) return
         mediaBuffer.playTime ??= currentTime
+        // 记录卡点=一次新的恢复意图：刷新宽限/回拉的新鲜度基准，出声回拉据此放行
+        lastSeekIntentAt = Date.now()
         if (++mediaBuffer.attempts >= 10) {
           clearBufferTimeout()
           return
@@ -372,6 +399,11 @@ export default () => {
         void getDuration().then((duration) => {
           if (track != playerState.musicInfo.id || !playerState.isPlay) return
           const skipTime = getBufferRecoveryPosition(currentTime, duration || playerState.progress.maxPlayTime, 3 + Math.random() * 3)
+          // 探测 seek：刷新宽限基准（探测后的新缓冲不再立刻被下一轮探测/回拉干扰），
+          // 并清掉卡点记录——探测后的 playing 若还带着卡点，会被出声回拉拉回卡死区，
+          // 探测就白做了。探测后若仍卡死，看门狗按新轮次继续（attempts 保留）。
+          lastSeekIntentAt = Date.now()
+          mediaBuffer.playTime = null
           startBuffering()
           if (skipTime != null) void setCurrentTime(skipTime)
         }).catch(() => { startBuffering() })
@@ -394,8 +426,11 @@ export default () => {
     if (!playerState.musicInfo.id) return
     const musicId = playerState.musicInfo.id
     // console.log('setProgress', time, maxTime)
-    // 出声回拉记录（上游 restorePlayTime）：seek 意图位置，出声时把音频拉回这里
+    // 出声回拉记录（上游 restorePlayTime）：seek 意图位置，出声时把音频拉回这里。
+    // 同时刷新看门狗宽限基准与回拉预算（每次用户 seek 都是新一轮）。
     restorePlayTime = time
+    lastSeekIntentAt = Date.now()
+    pullBackCount = 0
     if (mediaBuffer.timeout != null || mediaBuffer.playTime != null) {
       // 缓冲看门狗进行中又 seek：清旧轮次，以新目标为回拉基准重启看门狗（上游同语义）
       clearBufferTimeout()
@@ -470,6 +505,8 @@ export default () => {
     clearSyncRetry()
     clearBufferTimeout()
     restorePlayTime = null
+    lastSeekIntentAt = 0
+    pullBackCount = 0
     // 切歌/停播可能没有任何引擎状态事件（尤其 nativeFlac stop 不走状态机），
     // 快路径门控必须显式复位，否则残留的 engineConfirmedPlaying 会让 4Hz 位置
     // 事件/自愈探针在上首歌曲的原生时钟位置上继续工作。

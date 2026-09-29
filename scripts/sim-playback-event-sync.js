@@ -33,6 +33,9 @@
  *  12  硬保证·事件永不丢失：playing 信号快照恰逢微卡顿（状态误报 buffering）被丢弃
  *      → 200ms 重试链在状态恢复后立即落行（丢失语义改写为「延迟而非丢失」）
  *  12x 反例：无重试时被丢弃信号导致行仍冻在旧行，只能等慢校准探针兜底
+ *   13  硬保证·出声回拉（偏差门控+预算+新鲜度）：引擎落点偏差→出声时音频拉回意图位置
+ *   14  慢缓冲守卫：高码率 FLAC seek 缓冲 5s——宽限期内看门狗不越位探测、偏差落点被回拉拉回
+ *   14x 反例：无宽限时看门狗 3s 即探测越位（与回拉拉锯，缺陷可被捕获）
  *  13  硬保证·出声回拉（上游 handlePlaying）：引擎落点偏差（报告位置≠意图位置，
  *      高码率大文件 range/恢复偏移）→ 出声时把音频拉回意图位置，歌词/时钟随之正确
  *  13x 反例：无出声回拉时歌词/时钟锚在引擎误报落点（所有 JS 网对此盲——它们都锚
@@ -197,7 +200,7 @@ function makeEngine({ lineTimes }) {
 // ---------------------------------------------------------------------------
 // 新架构系统（重构后 playProgress + controller 事件映射 + core/lyric 接线）
 // ---------------------------------------------------------------------------
-function createNewSystem(engine, lyric, { pollPhase = 0, eventHoldNoAnchorFallback = true, lineSyncDetector = true, resolveLandingAnchor = true, syncRetry = true, resumeSnap = true } = {}) {
+function createNewSystem(engine, lyric, { pollPhase = 0, eventHoldNoAnchorFallback = true, lineSyncDetector = true, resolveLandingAnchor = true, syncRetry = true, resumeSnap = true, watchdogGrace = true, pullBackGate = true } = {}) {
   const clock = makeClock()
   const sys = {
     clock, lyric, engine,
@@ -211,6 +214,11 @@ function createNewSystem(engine, lyric, { pollPhase = 0, eventHoldNoAnchorFallba
     resumeSnap, // 出声回拉（上游 handlePlaying）：restorePlayTime 意图位置强制回拉音频
     restorePlayTime: null, // ≈ 上游 restorePlayTime（setProgress 记录的 seek 意图位置）
     mediaBufferPlayTime: null, // ≈ 上游 mediaBuffer.playTime（缓冲看门狗记录的卡住位置）
+    wdActive: false, wdAttempts: 0, wdProbes: 0, // ≈ mediaBuffer.timeout/attempts + 探测计数（可观测）
+    watchdogGrace, // 慢缓冲宽限：seek 意图/回拉/探测后 10s 内看门狗不记录不探测（防越位拉锯）
+    pullBackGate, // 回拉预算（3 次/seek 意图）：false = 关闭预算（旧无界模型）
+    lastSeekIntentAt: 0, // ≈ lastSeekIntentAt（宽限/回拉新鲜度基准）
+    pullBackCount: 0, // ≈ pullBackCount
     ccReanchors: [],
   }
   const isPlay = () => sys.engineConfirmed || engine.state === 'playing'
@@ -258,28 +266,60 @@ function createNewSystem(engine, lyric, { pollPhase = 0, eventHoldNoAnchorFallba
     after(300, () => { if (engine.state === 'playing' || engine.state === 'buffering') syncFromEngine('m', gen) })
   }
 
+  // —— 缓冲看门狗（1:1 playProgress startBuffering）：3s tick；宽限期（seek 意图/回拉/
+  // 探测后 10s）只续订不记录不探测——高码率 FLAC 单次 seek 缓冲 5~8s，无宽限时探测
+  // 会越过 seek 目标并与出声回拉互相拉锯（泪海 FLAC「始终不同步」）；宽限后仍缓冲=真卡死
+  function startWatchdog() {
+    if (sys.wdActive || !sys.userPlay) return
+    sys.wdActive = true
+    after(3000, () => {
+      sys.wdActive = false
+      if (!sys.userPlay || engine.state !== 'buffering') return
+      if (sys.watchdogGrace && nowMs - sys.lastSeekIntentAt < 10000) { startWatchdog(); return }
+      const currentTime = engine.pos(nowMs)
+      sys.mediaBufferPlayTime ??= currentTime
+      sys.lastSeekIntentAt = nowMs // 记录卡点=新的恢复意图（放行其后的出声回拉）
+      sys.wdAttempts++
+      if (sys.wdAttempts >= 10) return
+      // 探测 seek：刷新宽限基准 + 清卡点（探测后的 playing 不被回拉拉回卡死区）
+      sys.lastSeekIntentAt = nowMs
+      sys.mediaBufferPlayTime = null
+      sys.wdProbes++
+      const dur = engine.duration
+      const skipTime = (currentTime >= 0 && dur > currentTime) ? currentTime + Math.min(3000 + Math.random() * 3000, (dur - currentTime) / 2) : null
+      startWatchdog()
+      if (skipTime != null) engine.seekTo(skipTime, { applyAfter: 0, buffering: true })
+    })
+  }
+
   // —— 引擎状态事件订阅 ——
   engine.listeners.push((ev) => {
     if (ev.type !== 'state') return
     switch (ev.state) {
       case 'playing': {
-        // 出声回拉（1:1 playProgress playing case / 上游 handlePlaying）：restorePlayTime
-        // （seek 意图）或 mediaBufferPlayTime（卡住前位置）非空时，把引擎拉回该位置——
-        // 引擎报告位置≠意图位置时，所有 JS 侧锚定网都盲（它们锚报告位置），唯有校正音频有效。
+        // 锚定先行 + 偏差门控回拉（1:1 playProgress playing case / 上游 handlePlaying）：
+        // 报告位置=解码器播放头，与 seek 意图偏差 >0.3s 才回拉（落点精确不做无意义的
+        // 二次 seek）；回拉预算 3 次；新鲜度 15s（playing 丢失时陈旧意图作废，探针已自愈）；
+        // 看门狗探测已清卡点并刷新意图，不会被回拉撤销。
+        syncFromEngine('m')
         const resumeTime = sys.restorePlayTime ?? sys.mediaBufferPlayTime
         sys.mediaBufferPlayTime = null
         sys.restorePlayTime = null
-        if (resumeTime != null && sys.resumeSnap) {
-          engine.seekTo(resumeTime, { applyAfter: 0, buffering: true }) // raw 回拉（无窗口/代际副作用）
-          scheduleFastResync(sys.seekGen)
-          break
+        if (resumeTime != null && sys.resumeSnap && (!sys.pullBackGate || sys.pullBackCount < 3) && nowMs - sys.lastSeekIntentAt < 15000) {
+          after(5, () => { // getPosition 桥延迟
+            if (!sys.userPlay || engine.state !== 'playing') return
+            if (Math.abs(engine.pos(nowMs) - resumeTime) <= 300) return // 0.3s 阈值（sim 单位 ms）
+            sys.pullBackCount++
+            sys.lastSeekIntentAt = nowMs
+            engine.seekTo(resumeTime, { applyAfter: 0, buffering: true }) // raw 回拉（无窗口/代际副作用）
+          })
         }
-        syncFromEngine('m')
         break
       }
       case 'buffering':
       case 'loading':
         sys.engineConfirmed = false; sys.bufferingHold = true
+        startWatchdog()
         // 1:1 playProgress：有锚点 → 自冻结在当前位置；无锚点（恢复进度起播/新歌
         // 起播首帧即缓冲）→ 取引擎位置为逐字插值基准。迟到复核 bufferingHold/
         // hasAnchor/userPlay/曲 id，playing 先行或用户暂停/切歌则丢弃。
@@ -315,6 +355,8 @@ function createNewSystem(engine, lyric, { pollPhase = 0, eventHoldNoAnchorFallba
     sys.nowPlayTime = target
     sys.seekTarget = target; sys.seekHoldUntil = nowMs + 2000
     sys.restorePlayTime = target // ≈ setProgress 的 restorePlayTime = time（出声回拉基准）
+    sys.lastSeekIntentAt = nowMs // ≈ setProgress 的 lastSeekIntentAt（看门狗宽限基准）
+    sys.pullBackCount = 0 // ≈ setProgress 的 pullBackCount = 0（每轮用户 seek 新预算）
     after(resolveAfter, () => {
       sys.nowPlayTime = target
       sys.seekTarget = target; sys.seekHoldUntil = nowMs + 2000
@@ -807,7 +849,7 @@ check('13 硬保证·出声回拉：引擎落点偏差（报告≠意图）→ �
   assert(lyric.curLine === 6, `出声回拉后行应落到意图位置(6)，实际 ${lyric.curLine}`)
   const clockErr = Math.abs(sys.clock.getTime() * 1000 - engine.pos(nowMs))
   assert(clockErr <= 150, `时钟应锚定回拉后的真实位置(65s)，误差 ${clockErr.toFixed(0)}ms`)
-  assert(Math.abs(engine.pos(nowMs) - 65000 - (nowMs - 1600)) <= 1, `引擎应已被拉回意图位置(65s)，实际 ${(engine.pos(nowMs) - (nowMs - 1600)).toFixed(0)}ms`)
+  assert(Math.abs(engine.pos(nowMs) - 65000 - (nowMs - 1600)) <= 10, `引擎应已被拉回意图位置(65s)，实际 ${(engine.pos(nowMs) - (nowMs - 1600)).toFixed(0)}ms`)
 })
 
 check('13x 反例：无出声回拉时歌词/时钟锚在引擎误报落点（歌词与可听内容差固定偏移，缺陷可被捕获）', () => {
@@ -825,6 +867,38 @@ check('13x 反例：无出声回拉时歌词/时钟锚在引擎误报落点（�
   assert(lyric.curLine === 5, `无回拉时行应锚在引擎误报落点(5=57s，用户听到 65s 内容——差 8 秒偏移，缺陷存在)，实际 ${lyric.curLine}`)
   const clockErr = Math.abs(sys.clock.getTime() * 1000 - engine.pos(nowMs))
   assert(clockErr <= 120, `时钟与引擎报告自洽（证明 JS 侧对落点偏差全盲），误差 ${clockErr.toFixed(0)}ms`)
+})
+
+check('14 慢缓冲守卫：高码率 FLAC seek 缓冲 5s（>旧 3s 阈值）——宽限期内看门狗不越位探测，偏差落点被回拉拉回意图', () => {
+  resetWorld()
+  const engine = makeEngine({ lineTimes: LINES })
+  const lyric = makeLyric(LINES)
+  const sys = createNewSystem(engine, lyric, { pollPhase: 300 })
+  engine.playFrom(25000); lyric.play(25000)
+  advance(1000)
+  // 泪海 FLAC 模型：seek 65s 缓冲 5s 才出声，落点偏差 8s；旧模型看门狗会在 3s 探测越位
+  engine.seekTo(65000, { applyAfter: 5000, buffering: true, misLandBy: -8000 })
+  sys.seekAccepted(65000, { resolveAfter: 5020 })
+  advance(5200) // t=6200：出声(6000)+偏差门控回拉(≈6005 落到 65s)+重锚(≈6015) 全部完成
+  assert(sys.wdProbes === 0, `宽限期内看门狗不得探测越位，实际探测 ${sys.wdProbes} 次`)
+  assert(Math.abs(engine.anchorPos - 65000) <= 1, `引擎最终应锚在意图位置(65000)，实际 ${engine.anchorPos}`)
+  assert(sys.pullBackCount === 1, `应恰好偏差门控回拉一次，实际 ${sys.pullBackCount}`)
+  assert(lyric.curLine === 6, `回拉重锚后行应到意图行(6)，实际 ${lyric.curLine}`)
+  const clockErr = Math.abs(sys.clock.getTime() * 1000 - engine.pos(nowMs))
+  assert(clockErr <= 150, `时钟应锚定回拉后的真实位置，误差 ${clockErr.toFixed(0)}ms`)
+})
+
+check('14x 反例：无宽限时看门狗 3s 即探测越位（越过用户 seek 目标并与回拉拉锯，缺陷可被捕获）', () => {
+  resetWorld()
+  const engine = makeEngine({ lineTimes: LINES })
+  const lyric = makeLyric(LINES)
+  const sys = createNewSystem(engine, lyric, { pollPhase: 300, watchdogGrace: false })
+  engine.playFrom(25000); lyric.play(25000)
+  advance(1000)
+  engine.seekTo(65000, { applyAfter: 5000, buffering: true, misLandBy: -8000 })
+  sys.seekAccepted(65000, { resolveAfter: 5020 })
+  advance(3300) // t=4300：缓冲进行到 3.3s——无宽限看门狗已在 3s 越位探测
+  assert(sys.wdProbes >= 1, `无宽限时看门狗应在 3s 越位探测（缺陷存在），实际探测 ${sys.wdProbes} 次`)
 })
 
 // ---------------------------------------------------------------------------

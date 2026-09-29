@@ -336,6 +336,12 @@ final class LiquidGlassView: MTKView {
     /// （闪烁但不崩）。正常设备永不停用。
     private var useLayerRender = true
     private var layerRenderFailures = 0
+
+    /// 跨实例共享的捕获节流（全局 33ms）：捕获已在主线程执行（见 captureRootView），
+    /// 必须限制主线程占用；玻璃实例（迷你播放条/Tab 栏/透镜）各自独立渲染线程，
+    /// 用锁保护检查-设置。
+    private static let globalCaptureLock = NSLock()
+    private static var globalLastCaptureAt: TimeInterval = 0
     var touchPoint: CGPoint? = nil
 
     var frames: [CGRect] = []
@@ -444,59 +450,70 @@ final class LiquidGlassView: MTKView {
                                        width: captureSize.width,
                                        height: captureSize.height)
 
-        // 捕获完整性防御：全帧均匀（纯白/纯黑渲染失败产物，27.x beta 出现过）直接拒收，
-        // 保留上一帧纹理（首帧为 nil → 玻璃透明），真实背景含内容必然非均匀。
+        // 【全局 33ms 节流 + 主线程捕获】26.2+/27 的 renderInContext 不可靠读取渲染线程
+        // 上的未提交模型变更（排除失效 → 前景/玻璃本体漏进捕获：图标黑帽、按钮黑块、
+        // 玻璃惨白，26.2+/27 真机实锤）；而提交隐藏态（commit/flush）又会闪屏。唯一跨
+        // 版本确定的做法：捕获整体搬到主线程执行——hide → render → restore → commit，
+        // restore 先于 commit，render server 永远看不到隐藏态（不闪）；主线程的
+        // renderInContext 读模型必然含排除（不漏）。全局节流（跨实例共享）限制主线程
+        // 占用；首帧（无纹理）不节流。
+        if backgroundTexture != nil {
+            var throttled = false
+            Self.globalCaptureLock.lock()
+            let now = CACurrentMediaTime()
+            if now - Self.globalLastCaptureAt < 0.033 { throttled = true } else { Self.globalLastCaptureAt = now }
+            Self.globalCaptureLock.unlock()
+            if throttled { return }
+        }
+
         let previousTexture = backgroundTexture
         var capturedIsUniform = false
-        backgroundTexture = zeroCopyBridge.render { context in
-            // Hide every glass widget root in this window (self included)：覆盖各玻璃的
-            // MTK 输出与其上方前景内容，截到纯净背景。隐藏/恢复在同一调用栈内完成；
-            // layer.render 同步读取 layer 树（含 isHidden），无需提交即可见，不刷屏。
-            // 【iOS 27.2 beta 适配】捕获跑在 MTK 渲染线程：经 UIView.isHidden 跨线程改
-            // 可见性在 27.2 上被吞掉（排除失效 → 前景漏进捕获被折射成黑碎片/惨白）。
-            // 改直接写 CALayer.isHidden 并包显式 CATransaction 提交。
-            // 【严禁 flush()】commit 只入队，flush 才强制 render server 立即合成——
-            // 带 isHidden=true 的 flush 会把「玻璃隐藏态」刷上屏幕（与 2046cb4 修掉的
-            // drawHierarchy 强制提交闪烁同机制），双玻璃交替捕获 = 剧烈闪烁（27.2
-            // 真机实锤）。只 commit 不 flush：两次 commit 间隔微秒级、恢复早于下一个
-            // vsync，屏幕永远看到的是恢复后的可见态；而 renderInContext 读的已提交
-            // 模型树在 commit 后即包含排除，捕获正确。
-            let hiddenRoots = GlassInstanceRegistry.shared.exclusionRoots(in: window).filter { !$0.layer.isHidden }
-            CATransaction.begin()
-            CATransaction.setDisableActions(true)
-            for root in hiddenRoots { root.layer.isHidden = true }
-            CATransaction.commit()
-            defer {
+        let captureWork = { [weak self] in
+            guard let self, let win = self.window else { return }
+            self.backgroundTexture = self.zeroCopyBridge.render { context in
+                // Hide every glass widget root in this window (self included)：覆盖各玻璃的
+                // MTK 输出与其上方前景内容，截到纯净背景。主线程上 hide → render →
+                // restore → commit：restore 先于 commit，render server 永远看不到隐藏态
+                //（不闪屏）；renderInContext 读模型必然含排除（不漏，全版本确定）。
+                let hiddenRoots = GlassInstanceRegistry.shared.exclusionRoots(in: win).filter { !$0.layer.isHidden }
                 CATransaction.begin()
                 CATransaction.setDisableActions(true)
+                for root in hiddenRoots { root.layer.isHidden = true }
+
+                // Transform to render the portion of root view under our capture rect:
+                context.scaleBy(x: scaleCoefficient, y: scaleCoefficient)
+                context.translateBy(x: -captureRectInRoot.origin.x, y: -captureRectInRoot.origin.y)
+
+                let rootViewLayer = rootView.layer.presentation() ?? rootView.layer
+                let rendered = self.useLayerRender && LXGlassTryRenderLayer(rootViewLayer, context)
+                if rendered {
+                    self.layerRenderFailures = 0
+                } else {
+                    if self.useLayerRender {
+                        self.layerRenderFailures += 1
+                        if self.layerRenderFailures >= 2 { self.useLayerRender = false }
+                    }
+                    // 降级路径：drawHierarchy 走标准 UIView 渲染路径（对私有 layer 兼容性
+                    // 更好），但 afterScreenUpdates: true 会把 pending 变更（含隐藏态）呈现
+                    // 给显示器——主线程路径下这是暂态降级（layer.render 连续两次异常才
+                    // 启用），偶发闪烁可接受性优先于永久泄漏。
+                    UIGraphicsPushContext(context)
+                    rootView.drawHierarchy(in: rootView.bounds, afterScreenUpdates: true)
+                    UIGraphicsPopContext()
+                }
+
+                if let buffer = self.zeroCopyBridge.pixelBuffer, Self.isUniformCapture(buffer) {
+                    capturedIsUniform = true
+                }
+
                 for root in hiddenRoots { root.layer.isHidden = false }
                 CATransaction.commit()
             }
-
-            // Transform to render the portion of root view under our capture rect:
-            context.scaleBy(x: scaleCoefficient, y: scaleCoefficient)
-            context.translateBy(x: -captureRectInRoot.origin.x, y: -captureRectInRoot.origin.y)
-
-            let rootViewLayer = rootView.layer.presentation() ?? rootView.layer
-            let rendered = useLayerRender && LXGlassTryRenderLayer(rootViewLayer, context)
-            if rendered {
-                layerRenderFailures = 0
-            } else {
-                if useLayerRender {
-                    layerRenderFailures += 1
-                    if layerRenderFailures >= 2 { useLayerRender = false }
-                }
-                // 降级路径：drawHierarchy 走标准 UIView 渲染路径（对私有 layer 兼容性
-                // 更好），但 afterScreenUpdates: true 的强制提交会把隐藏态呈现给显示器
-                // （周期性闪烁）——仅作为 layer.render 异常时的兜底。
-                UIGraphicsPushContext(context)
-                rootView.drawHierarchy(in: rootView.bounds, afterScreenUpdates: true)
-                UIGraphicsPopContext()
-            }
-
-            if let buffer = zeroCopyBridge.pixelBuffer, Self.isUniformCapture(buffer) {
-                capturedIsUniform = true
-            }
+        }
+        if Thread.isMainThread {
+            captureWork()
+        } else {
+            DispatchQueue.main.sync(execute: captureWork)
         }
         if capturedIsUniform {
             backgroundTexture = previousTexture
@@ -504,7 +521,6 @@ final class LiquidGlassView: MTKView {
 
         blurTexture()
     }
-
     /// Captures the background content via CABackdropLayer using drawHierarchy.
     /// Noticeable rendering delay.
     func captureBackdrop() {

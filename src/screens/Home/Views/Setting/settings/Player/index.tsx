@@ -8,6 +8,7 @@ import IsEnableAudioOffload from './IsEnableAudioOffload'
 import IsEnableAudioPreload from './IsEnableAudioPreload'
 import UseNativeFlacPlayer from './UseNativeFlacPlayer'
 import IsAutoCleanPlayedList from './IsAutoCleanPlayedList'
+import IsAutoSkipOnError from './IsAutoSkipOnError'
 import IsShowLyricTranslation from './IsShowLyricTranslation'
 import IsShowLyricRoma from './IsShowLyricRoma'
 import IsS2T from './IsS2T'
@@ -20,6 +21,7 @@ export default memo(() => {
       <IsSavePlayTime />
       <IsAutoPlayOnReturn />
       <IsAutoCleanPlayedList />
+      <IsAutoSkipOnError />
       <IsHandleAudioFocus />
       <IsEnableAudioOffload />
       <IsEnableAudioPreload />

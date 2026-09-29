@@ -1,4 +1,5 @@
 import { updateListMusics } from '@/core/list'
+import { playNext } from '@/core/player/player'
 import { setMaxplayTime, setNowPlayTime } from '@/core/player/progress'
 import { getTimelineDuration } from '@/core/player/timeline'
 import { setCurrentTime, getDuration, getPosition, getPositionStamped, getPlaybackEngineState } from '@/plugins/player/utils'
@@ -409,6 +410,9 @@ export default () => {
         lastSeekIntentAt = Date.now()
         if (++mediaBuffer.attempts >= 10) {
           clearBufferTimeout()
+          // 【对齐上游 usePlayProgress】持续缓冲 10 轮探测全部失败：autoSkipOnError
+          // 开启时自动跳下一首（放弃当前歌曲），关闭则停留
+          if (settingState.setting['player.autoSkipOnError']) void playNext(true)
           return
         }
         void getDuration().then((duration) => {

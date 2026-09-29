@@ -49,6 +49,9 @@ export const initUnifiedPlayerController = () => {
   }
 
   const startLoadingTimeout = () => {
+    // 【对齐上游】autoSkipOnError 关闭时不启动加载超时看门狗（URL 失效不自动刷新/
+    // 跳歌），完全交由用户手动处理。
+    if (!settingState.setting['player.autoSkipOnError']) return
     clearLoadingTimeout()
     loadingTimeout = BackgroundTimer.setTimeout(() => {
       if (prevTimeoutId == playerState.musicInfo.id) {
@@ -123,7 +126,9 @@ export const initUnifiedPlayerController = () => {
     // ③ 全部失败：标记错误状态，延迟自动跳下一首（本端无 autoSkipOnError 设置项，
     // 保持上游默认开启的自动跳过语义；后台立即跳由 playNext 直达）
     setStatusText(global.i18n.t('player__error'))
-    setTimeout(addDelayNextTimeout)
+    // 【对齐上游 usePlayEvent.handleError 终态】autoSkipOnError 关闭时停留错误状态，
+    // 不自动跳下一首
+    if (settingState.setting['player.autoSkipOnError']) setTimeout(addDelayNextTimeout)
   }
   onUnifiedPlayerEvent(async(event) => {
     if (

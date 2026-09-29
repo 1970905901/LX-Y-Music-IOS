@@ -12,8 +12,9 @@
 //      捕获（上游 2eb41c5：CABackdropLayer 私有机制在 26.2 失效）；26.0/26.1 与
 //      14~18 走 CABackdropLayer（vendored 版带 isBackdropAvailable 守卫，缺失时
 //      玻璃退化为透明、不崩溃）。
-//    - 磨砂（liquid = false，默认）：系统材质（iOS 26+ UIGlassEffect(.regular)、其余
-//      UIBlurEffect(.systemMaterial)）+ 有上限的主题染色覆层。系统合成，无逐帧捕获成本。
+//    - 磨砂（liquid = false，默认）：UIBlurEffect(.systemMaterial) 经典磨砂（全版本
+//      统一，26+ 不用 UIGlassEffect——那是系统液态玻璃观感）+ 有上限的主题染色覆层。
+//      系统合成，无逐帧捕获成本。
 //
 //  液态形态的性能与省电由 vendored kit 内建机制保障（当年 Metal 实测沉淀的修复，
 //  随 vendored 源码一并生效）：按需渲染（静止暂停 MTKView，JS 脉冲/挂载窗/手势三源
@@ -32,7 +33,10 @@ import UIKit
 @MainActor
 enum LGGlassMaterial {
 
-    /// iOS 26 原生 UIGlassEffect 开关（默认开：该版本就用该版本的系统玻璃）。
+    /// iOS 26 原生 UIGlassEffect 开关。2026-09-29 用户定案改 false：UIGlassEffect
+    /// (.regular) 是 iOS 26 的系统原生「液态玻璃」观感——与「关闭开关 = 磨砂」的预期
+    /// 相悖（真机截图实锤：磨砂档看起来就是液态玻璃）。磨砂档全版本统一
+    /// UIBlurEffect(.systemMaterial) 经典磨砂；液态观感只属于液态开关（自研 Metal）。
     ///
     /// 风险与本开关的用途：提交 bce5e95 曾因三重缺陷移除过这段分支 —— 逐帧 frame 变化
     /// （Tab 栏收起/展开转场）下系统玻璃渲染器跟不上会输出黑弧，且 UIVisualEffectView 的
@@ -41,9 +45,9 @@ enum LGGlassMaterial {
     /// 切换 backdrop layer 的 isHidden 会出现一帧闪烁）。
     /// 真机上一旦看到胶囊端部黑弧 / 转场黑块：把这里改成 false 即整体回落到 UIBlurEffect
     /// 路径，无需改动其它任何代码、也无需改设置项。
-    static let preferNativeGlassOnIOS26 = true
+    static let preferNativeGlassOnIOS26 = false
 
-    /// 系统材质：iOS 26+ 优先原生玻璃，其余一律 UIBlurEffect(.systemMaterial)。
+    /// 系统材质：全版本一律 UIBlurEffect(.systemMaterial)（26+ 不再走原生液态玻璃）。
     static func systemEffect() -> UIVisualEffect {
         if preferNativeGlassOnIOS26, let glass = nativeGlassEffect() { return glass }
         return UIBlurEffect(style: .systemMaterial)

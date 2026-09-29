@@ -1,18 +1,17 @@
 import TrackPlayer from 'react-native-track-player'
 import { Platform } from 'react-native'
 import BackgroundTimer from 'react-native-background-timer'
-import { updateMetaData, getCurrentTrack } from './playList'
+import { updateMetaData } from './playList'
 import { initUnifiedPlayerEngine, onUnifiedPlayerEvent } from './engine'
 import { getNativeFlacTrackId, setNativeFlacRate, setNativeFlacVolume } from './nativeFlac'
-import { getPosition, getPositionStamped, elapsedSnapshotFields, isEmpty, setStop, setResource } from './utils'
+import { getPositionStamped, elapsedSnapshotFields, isEmpty, setStop } from './utils'
 import { exitApp } from '@/core/common'
-import { playNext, setMusicUrl, executeFailureStrategy } from '@/core/player/player'
+import { playNext, setMusicUrl } from '@/core/player/player'
+import { getNextTryQuality, getLastTryQuality, removeMusicUrl } from '@/core/music/online'
 import { setStatusText } from '@/core/player/playStatus'
-import { isActive } from '@/utils/tools'
 import playerState from '@/store/player/state'
 import settingState from '@/store/setting/state'
 import { playNowPlaying, pauseNowPlaying } from '@/utils/nativeModules/nowPlaying'
-import { setNowPlayTime } from '@/core/player/progress'
 import { startPreload, stopPreload } from '@/core/player/preload'
 import { savePlayInfo } from '@/utils/data'
 
@@ -41,9 +40,7 @@ export const initUnifiedPlayerController = () => {
   let prevTimeoutId: string | null = null
   let loadingTimeout: number | null = null
   let delayNextTimeout: number | null = null
-  let strategyRetryCount = 0
-  let strategyStartIndex = 0
-  let triedUrls: Set<string> | null = null
+
 
   const clearLoadingTimeout = () => {
     if (!loadingTimeout) return
@@ -86,75 +83,48 @@ export const initUnifiedPlayerController = () => {
     prevTimeoutId = null
     clearDelayNextTimeout()
     clearLoadingTimeout()
-    strategyRetryCount = 0
-    strategyStartIndex = 0
-    triedUrls = null
   }
 
   const handleControllerError = () => {
     if (!playerState.musicInfo.id) return
     clearLoadingTimeout()
     if (global.lx.isPlayedStop) return
-
-    if (settingState.setting['player.enableFailureStrategy'] && playerState.playMusicInfo.musicInfo && retryNum < 2) {
-      const musicInfo = playerState.playMusicInfo.musicInfo
-      if (retryNum === 0) setStatusText('音频加载失败，进行3次重试')
-      void getPosition().then((position) => {
-        if (position) setNowPlayTime(position)
-      }).finally(() => {
-        if (playerState.playMusicInfo.musicInfo !== musicInfo) return
-        retryNum++
-        setMusicUrl(playerState.playMusicInfo.musicInfo, true)
-      })
-      return
-    }
-
-    const currentMusicInfo = playerState.playMusicInfo.musicInfo
-    if (currentMusicInfo && strategyRetryCount < 3) {
-      setStatusText('进行播放失败策略')
-      strategyRetryCount++
-      if (!triedUrls) triedUrls = new Set()
-      void getCurrentTrack()
-        .then(async(track: any) => {
-          if (track?.url) triedUrls!.add(track.url)
-          return executeFailureStrategy(currentMusicInfo, true, new Error('Playback failed'), triedUrls ?? undefined, strategyStartIndex)
-        })
-        .then((result) => {
-          // 【切歌守卫】换源请求在途期间用户已切歌 = 旧歌的重试作废：不得用旧歌信息+
-          // 新歌的当前位置强制重载（会打断新歌、且位置语义错乱）。同款守卫见上方重试分支。
-          if (playerState.playMusicInfo.musicInfo !== currentMusicInfo) return
-          if (result) {
-            strategyStartIndex = result.index + 1
-            setResource(currentMusicInfo, result.url, playerState.progress.nowPlayTime, result.quality)
-          } else {
-            triedUrls = null
-            strategyStartIndex = 0
-            global.lx.playerError = true
-            if (!isEmpty()) void setStop()
-            setStatusText(global.i18n.t('player__error'))
-            setTimeout(addDelayNextTimeout)
-          }
-        })
-        .catch(() => {
-          triedUrls = null
-          strategyStartIndex = 0
-          global.lx.playerError = true
-          if (!isEmpty()) void setStop()
-          setStatusText(global.i18n.t('player__error'))
-          setTimeout(addDelayNextTimeout)
-        })
-      return
-    }
-
     if (!isEmpty()) void setStop()
-    if (isActive()) {
-      setStatusText(global.i18n.t('player__error'))
-      setTimeout(addDelayNextTimeout)
-    } else {
-      void playNext(true)
-    }
-  }
 
+    // 【对齐上游 usePlayEvent.handleError】失败策略：① 音质逐级降级重试 →
+    // ② 同 URL 刷新 ×2 → ③ 失败终态（错误状态 + 延迟自动跳下一首）
+    if (playerState.playMusicInfo.musicInfo) {
+      const currentMusicInfo = playerState.playMusicInfo.musicInfo
+      // ① 高音质 URL 可能返回无法解码的加密内容，逐级降低音质重试（在线、非本地）
+      if ('source' in currentMusicInfo && currentMusicInfo.source != 'local') {
+        const onlineInfo = currentMusicInfo
+        const urlSourceInfo = (onlineInfo.meta.toggleMusicInfo ?? onlineInfo)
+        const lastQuality = getLastTryQuality(urlSourceInfo.id) ?? getLastTryQuality(currentMusicInfo.id)
+        const nextQuality = getNextTryQuality(settingState.setting['player.playQuality'], urlSourceInfo, lastQuality)
+        if (nextQuality) {
+          if (lastQuality) {
+            void removeMusicUrl(urlSourceInfo, lastQuality).catch(() => {})
+            if (urlSourceInfo !== currentMusicInfo) void removeMusicUrl(currentMusicInfo as LX.Music.MusicInfo, lastQuality).catch(() => {})
+          }
+          setMusicUrl(currentMusicInfo, true, nextQuality)
+          setStatusText(global.i18n.t('player__refresh_url'))
+          return
+        }
+      }
+      // ② 若音频 URL 无效则尝试刷新 2 次 URL
+      if (retryNum < 2) {
+        retryNum++
+        setMusicUrl(currentMusicInfo, true)
+        setStatusText(global.i18n.t('player__refresh_url'))
+        return
+      }
+    }
+
+    // ③ 全部失败：标记错误状态，延迟自动跳下一首（本端无 autoSkipOnError 设置项，
+    // 保持上游默认开启的自动跳过语义；后台立即跳由 playNext 直达）
+    setStatusText(global.i18n.t('player__error'))
+    setTimeout(addDelayNextTimeout)
+  }
   onUnifiedPlayerEvent(async(event) => {
     if (
       event.driver == 'trackPlayer' &&

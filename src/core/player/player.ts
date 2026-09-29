@@ -370,7 +370,7 @@ const delayRetry = async(musicInfo: LX.Music.MusicInfo | LX.Download.ListItem, i
     }
   })
 }
-const getMusicPlayUrl = async(musicInfo: LX.Music.MusicInfo | LX.Download.ListItem, isRefresh = false, isRetryed = false): Promise<PlayUrlInfo | null> => {
+const getMusicPlayUrl = async(musicInfo: LX.Music.MusicInfo | LX.Download.ListItem, isRefresh = false, isRetryed = false, quality?: LX.Quality): Promise<PlayUrlInfo | null> => {
   // this.musicInfo.url = await getMusicPlayUrl(targetSong, type)
   setStatusText(global.i18n.t('player__getting_url'))
   addLoadTimeout()
@@ -381,11 +381,13 @@ const getMusicPlayUrl = async(musicInfo: LX.Music.MusicInfo | LX.Download.ListIt
   return (toggleMusicInfo ? getMusicUrlInfo({
     musicInfo: toggleMusicInfo,
     isRefresh,
+    quality,
     allowToggleSource: false,
   }) : Promise.reject(new Error('not found'))).catch(async() => {
     return getMusicUrlInfo({
       musicInfo,
       isRefresh,
+      quality,
       onToggleSource(_mInfo) {
         if (diffCurrentMusicInfo(musicInfo)) return
         setStatusText(global.i18n.t('toggle_source_try'))
@@ -403,7 +405,7 @@ const getMusicPlayUrl = async(musicInfo: LX.Music.MusicInfo | LX.Download.ListIt
 
     if (err.message == requestMsg.tooManyRequests) return delayRetry(musicInfo, isRefresh)
 
-    if (!isRetryed) return getMusicPlayUrl(musicInfo, isRefresh, true)
+    if (!isRetryed) return getMusicPlayUrl(musicInfo, isRefresh, true, quality)
 
     throw err
   })
@@ -414,7 +416,7 @@ const getMusicPlayUrl = async(musicInfo: LX.Music.MusicInfo | LX.Download.ListIt
 // 残留位置（handleStop 归零走异步 stop 事件，与 debounce 后的 URL 加载竞态），
 // 捕获到旧值就把新歌 seek 到旧位置 = 「切歌不从头上播放」（真机有概率复现）。
 let pendingRestoreSeekTime: number | null = null
-export const setMusicUrl = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem, isRefresh?: boolean) => {
+export const setMusicUrl = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem, isRefresh?: boolean, quality?: LX.Quality) => {
   // addLoadTimeout()
   if (!diffCurrentMusicInfo(musicInfo)) return
   if (cancelDelayRetry) cancelDelayRetry()
@@ -423,7 +425,7 @@ export const setMusicUrl = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem
     ? getPosition().catch(() => playerState.progress.nowPlayTime)
     // 非 refresh = 新歌：仅启动恢复携带显式恢复时间，其余一律从 0 开始
     : Promise.resolve(pendingRestoreSeekTime ?? 0)
-  void getMusicPlayUrl(musicInfo, isRefresh).then(async(result) => {
+  void getMusicPlayUrl(musicInfo, isRefresh, false, quality).then(async(result) => {
     if (!result) return
     const currentTime = await currentTimePromise
     pendingRestoreSeekTime = null // 一次性消费

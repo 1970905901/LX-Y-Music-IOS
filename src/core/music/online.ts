@@ -1,4 +1,6 @@
 import { saveLyric, saveMusicUrl, getMusicUrl as getStoreMusicUrl } from '@/utils/data'
+import { removeData } from '@/plugins/storage'
+import { storageDataPrefix } from '@/config/constant'
 import { updateListMusics } from '@/core/list'
 import settingState from '@/store/setting/state'
 
@@ -37,6 +39,34 @@ export const setPic = (datas: {
 }
  */
 
+// ===== 音质逐级降级（对齐上游 core/music/utils.ts 的失败重试阶梯）=====
+export const TRY_QUALITYS_LIST = ['master', 'atmos_plus', 'atmos', 'hires', 'flac24bit', 'flac', '320k'] as const
+type TryQualityType = typeof TRY_QUALITYS_LIST[number]
+const lastTryQualityMap = new Map<string, LX.Quality>()
+export const setLastTryQuality = (id: string, quality: LX.Quality) => {
+  if (lastTryQualityMap.size > 200) lastTryQualityMap.clear()
+  lastTryQualityMap.set(id, quality)
+}
+export const getLastTryQuality = (id: string): LX.Quality | null => lastTryQualityMap.get(id) ?? null
+export const getTryQualityList = (highQuality: LX.Quality, musicInfo: LX.Music.MusicInfoOnline): LX.Quality[] => {
+  const available = Object.keys(musicInfo.meta._qualitys ?? {}) as LX.Quality[]
+  const tryList: LX.Quality[] = TRY_QUALITYS_LIST.includes(highQuality as TryQualityType)
+    ? TRY_QUALITYS_LIST.slice(TRY_QUALITYS_LIST.indexOf(highQuality as TryQualityType)).filter(q => available.includes(q))
+    : []
+  if (!tryList.includes('128k')) tryList.push('128k')
+  return tryList
+}
+export const getNextTryQuality = (highQuality: LX.Quality, musicInfo: LX.Music.MusicInfoOnline, lastQuality: LX.Quality | null): LX.Quality | null => {
+  const tryList = getTryQualityList(highQuality, musicInfo)
+  if (!tryList.length) return null
+  if (!lastQuality) return tryList[0]
+  const index = tryList.indexOf(lastQuality)
+  return index == -1 ? tryList[0] : (tryList[index + 1] ?? null)
+}
+// 清除指定歌曲+音质的缓存 URL（失败音质重试前清掉，避免重复命中坏链）
+export const removeMusicUrl = async(musicInfo: LX.Music.MusicInfo | LX.Download.ListItem, quality: LX.Quality) => {
+  await removeData(`${storageDataPrefix.musicUrl}${musicInfo.id}_${quality}`)
+}
 export const getMusicUrl = async({
   musicInfo,
   quality,
@@ -84,7 +114,10 @@ export const getMusicUrl = async({
   // 如果不是刷新请求，先检查缓存
   if (!isRefresh) {
     const cachedUrl = await getStoreMusicUrl(currentMusicInfo, targetQuality)
-    if (cachedUrl) return cachedUrl
+    if (cachedUrl) {
+      setLastTryQuality(currentMusicInfo.id, targetQuality)
+      return cachedUrl
+    }
   }
 
   const highQualityLevels: LX.Quality[] = ['flac', 'hires', 'master', 'atmos', 'atmos_plus']
@@ -109,6 +142,7 @@ export const getMusicUrl = async({
       if (!silent) console.log('Custom API request succeeded', result)
       if (!silent) console.log('### [WHITEBOX_API_URL] 异步 URL 真正就绪 ###', { title: currentMusicInfo.name, songId: currentMusicInfo.id, url: result.url })
       void saveMusicUrl(currentMusicInfo, result.quality, result.url)
+      setLastTryQuality(currentMusicInfo.id, result.quality)
       return result.url
     } catch (apiError) {
       if (!silent) console.log('Custom API request failed', apiError)
@@ -121,6 +155,7 @@ export const getMusicUrl = async({
       const { url } = await wySdk.cookie.getMusicUrl(currentMusicInfo, targetQuality).promise
       if (url) {
         void saveMusicUrl(currentMusicInfo, targetQuality, url)
+        setLastTryQuality(currentMusicInfo.id, targetQuality)
         if (currentMusicInfo.id !== musicInfo.id) void saveMusicUrl(musicInfo, targetQuality, url)
         return url
       }
@@ -138,6 +173,7 @@ export const getMusicUrl = async({
   }).then(({ url, quality: targetQuality, musicInfo: targetMusicInfo, isFromCache }) => {
     if (targetMusicInfo.id != currentMusicInfo.id && !isFromCache) { void saveMusicUrl(targetMusicInfo, targetQuality, url) }
     void saveMusicUrl(currentMusicInfo, targetQuality, url)
+    setLastTryQuality(currentMusicInfo.id, targetQuality)
     if (currentMusicInfo.id !== musicInfo.id) void saveMusicUrl(musicInfo, targetQuality, url)
     return url
   })

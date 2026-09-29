@@ -21,6 +21,7 @@
 //
 
 import UIKit
+import CoreVideo
 import simd
 import MetalKit
 import MetalPerformanceShaders

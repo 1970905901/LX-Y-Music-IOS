@@ -4255,6 +4255,13 @@ RCT_REMAP_METHOD(seekTo, seekToStream:(nonnull NSNumber *)position resolver:(RCT
   self.seekRequested = YES;
   self.seekInProgress = self.sampleRate > 0 && requestedPosition > 0;
   self.currentState = self.manualPause ? @"paused" : @"buffering";
+  // seek 生效窗口冻结控制中心/灵动岛/锁屏歌词时钟（对齐上游 waiting→lrc.pause）。
+  // nativeFlac 的 emitState 只发 JS 桥、原生时钟收不到生命周期事件（AVPlayer 路径
+  // 由 RNTrackPlayer 生命周期通知驱动冻结，本路径没有），不冻结会在整个重解码
+  // 缓冲期从旧位置继续外推——歌词在静音期往前走。出声后 JS 确认 playing 才发布
+  // 正速率，由「见正 playbackRate 即解除」（LXSetNowPlayingInfo 内）自动解冻，
+  // 并随同一次发布的带戳位置重锚到真实落点。
+  LXNowPlayingClockHold = YES;
   [self.streamCondition lock];
   [self.streamCondition broadcast];
   [self.streamCondition unlock];

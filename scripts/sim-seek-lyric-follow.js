@@ -371,6 +371,34 @@ function runNativeFlacRewind(variant) {
   }
 }
 
+/** 场景 G：nativeFlac seek 缓冲期控制中心原生歌词时钟（AppDelegate.mm LXNowPlayingClockHold）
+ *  原生时钟 = 锚点+速率外推；JS 正速率发布解冻并重锚（「见正 playbackRate 即解除」）。
+ *  nativeFlac 的 emitState 只发 JS 桥，原生时钟收不到生命周期事件 → 冻结只能由
+ *  seekTo 显式置位（新模型）；旧行为不置位 = 整个重解码缓冲期从旧位置继续外推。
+ *  时间线：t=0 锚在 8s 播放中 → t=1000 快退 seek(目标 5s) → 缓冲解码 →
+ *  t=3600 出声 → t=3900 JS 确认 playing 发布正速率+带戳真实位置 5.3s。 */
+function runNativeClockDuringSeek({ holdOnSeek }) {
+  nowMs = 0
+  const lyric = createLyric([0, 10, 20, 30, 40, 50])
+  const nc = {
+    anchorMs: 8000, anchorSys: 0, rate: 1, hold: false, line: -1,
+    position(ms) { return this.hold ? this.anchorMs : this.anchorMs + (ms - this.anchorSys) * this.rate },
+    sync() { const i = lyric.lineAt(this.position(nowMs)); if (i !== this.line) this.line = i },
+  }
+  nc.sync() // 播放中：时钟锚在 8s，外推
+  nowMs = 1000
+  if (holdOnSeek) nc.hold = true // 新：seekTo 置 LXNowPlayingClockHold=YES
+  nowMs = 3500 // 缓冲解码 2.5s（无任何 JS 正速率发布：在App时钟冻结 → 无行变化元数据）
+  nc.sync()
+  const duringBuffering = { line: nc.line, posMs: Math.round(nc.position(3500)) }
+  nowMs = 3900 // 出声后 JS 发布：正速率 + 带戳真实落点 5.3s
+  nc.anchorMs = 5600; nc.anchorSys = 3900; nc.rate = 1
+  if (nc.rate > 0) nc.hold = false // 「见正 playbackRate 即解除」
+  nc.sync()
+  const afterSound = { line: nc.line }
+  return { duringBuffering, afterSound, atSeekLine: lyric.lineAt(8000), driftedLine: lyric.lineAt(10500), targetLine: lyric.lineAt(5600) }
+}
+
 // ---------------------------------------------------------------------------
 // 用例
 // ---------------------------------------------------------------------------
@@ -460,6 +488,21 @@ check('F3 新模型：回退出声后歌词行跳到 5s 落点行（playing→�
 })
 check('F3x 反例：旧模型快退缓冲期歌词行已在目标行（回归行为可被 F2 捕获）', () => {
   assert(oldF.duringBuffering.line === oldF.targetLine, `旧模型 line=${oldF.duringBuffering.line} 预期=回归行为目标行 ${oldF.targetLine}（若不等则脚本无区分力）`)
+})
+
+console.log('\n[场景 G] nativeFlac seek 缓冲期控制中心原生歌词时钟（LXNowPlayingClockHold）')
+const newG = runNativeClockDuringSeek({ holdOnSeek: true })
+const oldG = runNativeClockDuringSeek({ holdOnSeek: false })
+check('G1 新模型：seek 置 hold 后，缓冲期原生时钟冻结，控制中心歌词行停在旧行', () => {
+  assert(newG.duringBuffering.line === newG.atSeekLine, `line=${newG.duringBuffering.line} 应=${newG.atSeekLine}`)
+  assert(newG.duringBuffering.posMs === 8000, `pos=${newG.duringBuffering.posMs} 应冻结在 8000`)
+})
+check('G1x 反例：旧模型（seekTo 不置 hold）缓冲期原生时钟继续外推，行已越过旧行（回归行为可被 G1 捕获）', () => {
+  assert(oldG.duringBuffering.posMs > 8000, `pos=${oldG.duringBuffering.posMs} 预期已外推越过 8000（若相等则脚本无区分力）`)
+  assert(oldG.duringBuffering.line === oldG.driftedLine, `line=${oldG.duringBuffering.line} 预期=漂移行 ${oldG.driftedLine}`)
+})
+check('G2 新模型：出声后 JS 正速率发布解冻并重锚，控制中心歌词行跳到落点行', () => {
+  assert(newG.afterSound.line === newG.targetLine, `line=${newG.afterSound.line} 应=${newG.targetLine}`)
 })
 
 console.log(`\n结果：${passCount} 过 / ${failCount} 败`)

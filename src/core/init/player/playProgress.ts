@@ -88,13 +88,10 @@ export default () => {
       // seek 生效窗口内：引擎可能仍回报 seek 前的旧位置（seek 异步生效）。
       // 此时绝不能把旧位置发布进 UI 状态（setNowPlayTime → playProgressChanged
       // → 进度条/时间标签/歌词监听器）——否则进度条先跳回旧位置、窗口结束后再
-      // 跳回落点，表现为快进/快退后进度条抽帧。只把歌词/UI 时钟冻结在落点，
-      // 等下一次轮询；引擎已在落点附近恢复播放时解除窗口，正常锚定。
+      // 跳回落点，表现为快进/快退后进度条抽帧。只拦截 UI 发布；歌词时钟不干涉，
+      // 继续跟随正在出声的旧音频（对齐上游：seek 不碰歌词，等引擎出声才重锚）。
       if (seekTargetPosition != null && Date.now() < seekHoldUntil) {
-        if (Math.abs(position - seekTargetPosition) >= 1.5) {
-          audioClock.hold(seekTargetPosition * 1000)
-          return
-        }
+        if (Math.abs(position - seekTargetPosition) >= 1.5) return
         seekTargetPosition = null
         seekHoldUntil = 0
       }
@@ -115,8 +112,14 @@ export default () => {
       if (!playerState.isPlay) return
 
       if (isBuffering) {
-        // 解码器还在 buffering：硬冻结时钟，不外推、不同步歌词。
-        audioClock.hold(position * 1000)
+        // 解码器还在 buffering（音频没有真正出声）：冻结时钟，不外推、不同步歌词。
+        // 时钟已有锚点（播放中/暂停中）→ 自冻结在当前位置：nativeFlac 缓冲期
+        // getPosition 回报的是 seek 目标而非实际位置，直接 hold(position) 会把歌词
+        // 提前拽到目标行（上游 waiting→pause 的语义正是「歌词停在当前行」）；
+        // 时钟尚无锚点（恢复进度起播/新歌起播）→ 锚到引擎位置，行同步才有基准。
+        // 不能用 seek 窗口判定：窗口与缓冲结束可能同拍，清窗后仍需保持自冻结。
+        // 恢复出声后由下方非缓冲分支 setAnchor + 行同步跳到真实落点。
+        audioClock.hold((audioClock.hasAnchor ? audioClock.getTime() : position) * 1000)
         return
       }
 
@@ -214,9 +217,10 @@ export default () => {
 
   // seek 生效窗口：从发起到引擎在落点恢复播放之间，引擎的 getPosition() 可能仍回报
   // seek 前的旧位置（seek 是异步生效的，普通音质下尤其明显）。窗口内不能用旧位置
-  // 重新锚定 UI 时钟 / 同步歌词，否则「点击歌词行 / 拖动进度条」后音频已跳到新位置，
-  // 歌词与进度却回到旧位置（音频与歌词不同步）。窗口超时自愈（2s），
-  // 引擎在落点附近恢复播放时提前结束窗口（见 getCurrentTime）。
+  // 刷新 UI 状态（进度条/时间标签），否则「点击歌词行 / 拖动进度条」后进度条先跳回
+  // 旧位置、窗口结束后再跳回落点。歌词时钟在窗口内不受干涉：继续跟随正在出声的
+  // 旧音频，引擎在落点出声时统一重锚（对齐上游 seek 不碰歌词的语义）。
+  // 窗口超时自愈（2s），引擎在落点附近恢复播放时提前结束窗口（见 getCurrentTime）。
   let seekTargetPosition: number | null = null
   let seekHoldUntil = 0
 
@@ -246,37 +250,44 @@ export default () => {
     const musicId = playerState.musicInfo.id
     // console.log('setProgress', time, maxTime)
     setNowPlayTime(time)
-    // seek 期间先冻结 UI 时钟在目标位置，等引擎返回真实落点后再重锚。
-    audioClock.hold(time * 1000)
+    // 对齐上游 seek→歌词时序（usePlayProgress.setProgress 不碰歌词 + waiting/playing
+    // 事件对）：seek 只立即跳进度条（= 上游 audio.currentTime 立即生效），歌词不动——
+    // 时钟继续外推当前（旧）位置，歌词跟着正在出声的音频走；引擎真正从落点出声时
+    // 才重锚歌词。此前实现在 seek 瞬间 syncLyric(目标) + hold(目标)，引擎还在放旧
+    // 内容/静音缓冲的整个窗口里（网络 FLAC 重新解码可达数秒）歌词已显示目标行，
+    // 表现为「快进/快退后歌词与音频不同步」。seekTargetPosition 窗口保留：窗口内
+    // 引擎旧位置不得刷进进度条 UI（防拖动/seek 后进度条抽帧）。
     seekTargetPosition = time
     seekHoldUntil = Date.now() + 2000
-    syncLyric(time, playerState.isPlay)
 
     // 参考项目对齐的 seek：音频与歌词用同一真实落点，保证普通音质快进/快退后二者同步。
     void setCurrentTime(time).then((targetPosition) => {
       if (!playerState.musicInfo.id) return
       if (targetPosition > 0) {
         setNowPlayTime(targetPosition)
-        // seek 已被引擎接受：把 UI 时钟冻结在真实落点上，直到轮询确认引擎在落点恢复播放。
-        // 期间轮询即使取到 seek 未生效时的旧位置，也不会把时钟/歌词拽回旧位置。
-        audioClock.hold(targetPosition * 1000)
         seekTargetPosition = targetPosition
         seekHoldUntil = Date.now() + 2000
-        // App 内歌词以真实落点校正（nativeFlac 解码器落点可能偏离 seek 目标；
-        // 上游同位置逻辑 = seek 后用引擎真实时间重锚歌词）
-        syncLyric(targetPosition, playerState.isPlay)
+        // 引擎接受 seek 后按状态分派（= 上游 waiting→冻结 / playing→重锚）：
+        // - 已在落点出声（playing）：立即把歌词重锚到落点（上游 playing→lrc.play(引擎时间)）
+        // - 未出声（buffering/loading/paused）：歌词冻在当前行，绝不提前跳到目标；
+        //   出声瞬间的重锚交给落点确认快路径（scheduleFastResync）与 1s 慢校准
+        void getPlaybackEngineState().then((engineState) => {
+          if (!playerState.musicInfo.id || playerState.musicInfo.id != musicId) return
+          if (engineState === 'playing' && playerState.isPlay) {
+            audioClock.hold(targetPosition * 1000)
+            syncLyric(targetPosition, playerState.isPlay)
+          } else {
+            audioClock.hold(audioClock.getTime() * 1000)
+          }
+        })
         // 落点确认快路径：~300ms 后重锚歌词/原生时钟/进度基线（不等 1s 慢校准）
         scheduleFastResync(musicId)
       }
 
-      // 所有音质统一走 AVPlayer 系统级 seek：TrackPlayer 准确报告真实落点，
-      // 直接以该落点锚定 UI 时钟并同步歌词，由每秒 getCurrentTime 校准防止长期漂移。
-      // 不在这里 setAnchor / syncLyric：native FLAC seekTo 立即 resolve 但解码器
-      // 还在 buffering，此时解冻时机会让 scrollToActiveContinuous 外推超前。
-      // 完全交给 250ms 轮询：等引擎 state 变为 playing 后统一解冻 + 同步。
-
-      // FLAC native seekTo 立即 resolve 请求位置，解码器实际落点可能有偏差；
-      // 300ms 后取引擎真实位置校正歌词 ticker，避免等 1s 轮询才纠正。
+      // seek 的歌词重锚完全由引擎状态驱动（上方状态分派 + 快路径/慢校准），
+      // 这里不做无条件锚定：native FLAC seekTo 立即 resolve 但解码器还在
+      // buffering，AVPlayer 远程流同样要等缓冲，提前解冻/跳行都会让歌词
+      // 跑到音频前面（本次对齐上游要修的正是这个）。
     })
 
     if (maxTime != null) setMaxplayTime(getTimelineDuration(playerState.playMusicInfo.musicInfo, maxTime))

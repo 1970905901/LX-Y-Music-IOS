@@ -69,6 +69,11 @@ class AudioClock {
     this.playing = playing
   }
 
+  /** 是否已有有效锚点（起播恢复前为 false）：缓冲冻结策略据此选择锚定基准。 */
+  get hasAnchor(): boolean {
+    return this.anchorSystemMs > 0
+  }
+
   /** 当前外推位置（秒）。holding 时返回固定值，暂停时返回锚点位置。 */
   getTime(): number {
     if (this.holding) return this.holdMs / 1000

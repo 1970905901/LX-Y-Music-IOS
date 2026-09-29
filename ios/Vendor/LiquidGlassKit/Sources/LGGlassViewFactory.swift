@@ -85,7 +85,9 @@ enum LGGlassMaterial {
     /// 材质视图。在 init 内构造而非属性默认值：UIGlassEffect 标了 @MainActor，
     /// 放在 init 里隔离性最明确（属性默认值在 Swift 5 语言模式下可能只报 warning）。
     /// 声明为 var 而非 let：明暗切换时需要整体重建（见 rebuildEffectView）。
-    private var effectView: UIVisualEffectView\1    private let useNativeGlass: Bool\1    private let tintOverlay = UIView()
+    private var effectView: UIVisualEffectView
+    private let useNativeGlass: Bool
+    private let tintOverlay = UIView()
 
     /// 染色基色（不透明主题色；透明度由 glassOpacity 独立控制）。
     /// **本应用已不再传 tint**（2026-09-28 定案：玻璃不跟随主题色）→ 覆层走中性玻璃色。

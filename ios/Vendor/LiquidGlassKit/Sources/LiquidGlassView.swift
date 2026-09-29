@@ -453,23 +453,24 @@ final class LiquidGlassView: MTKView {
             // MTK 输出与其上方前景内容，截到纯净背景。隐藏/恢复在同一调用栈内完成；
             // layer.render 同步读取 layer 树（含 isHidden），无需提交即可见，不刷屏。
             // 【iOS 27.2 beta 适配】捕获跑在 MTK 渲染线程：经 UIView.isHidden 跨线程改
-            // 可见性在 27.2 上被 UIKit 线程化处理吞掉（排除失效 → 前景图标/按钮漏进捕获
-            // 被折射成黑色碎片、容器白底放大成惨白，27.2beta2 用户截图实锤）。改直接写
-            // CALayer.isHidden 并包显式 CATransaction 提交：layer 模型属性在调用线程
-            // 立即生效、renderInContext 同线程读取必然一致（26.x 行为不变；若 27.x 的
-            // renderInContext 改读已提交状态，commit+flush 后同样可见）。
+            // 可见性在 27.2 上被吞掉（排除失效 → 前景漏进捕获被折射成黑碎片/惨白）。
+            // 改直接写 CALayer.isHidden 并包显式 CATransaction 提交。
+            // 【严禁 flush()】commit 只入队，flush 才强制 render server 立即合成——
+            // 带 isHidden=true 的 flush 会把「玻璃隐藏态」刷上屏幕（与 2046cb4 修掉的
+            // drawHierarchy 强制提交闪烁同机制），双玻璃交替捕获 = 剧烈闪烁（27.2
+            // 真机实锤）。只 commit 不 flush：两次 commit 间隔微秒级、恢复早于下一个
+            // vsync，屏幕永远看到的是恢复后的可见态；而 renderInContext 读的已提交
+            // 模型树在 commit 后即包含排除，捕获正确。
             let hiddenRoots = GlassInstanceRegistry.shared.exclusionRoots(in: window).filter { !$0.layer.isHidden }
             CATransaction.begin()
             CATransaction.setDisableActions(true)
             for root in hiddenRoots { root.layer.isHidden = true }
             CATransaction.commit()
-            CATransaction.flush()
             defer {
                 CATransaction.begin()
                 CATransaction.setDisableActions(true)
                 for root in hiddenRoots { root.layer.isHidden = false }
                 CATransaction.commit()
-                CATransaction.flush()
             }
 
             // Transform to render the portion of root view under our capture rect:

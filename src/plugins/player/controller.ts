@@ -7,7 +7,7 @@ import { getNativeFlacTrackId, setNativeFlacRate, setNativeFlacVolume } from './
 import { getPositionStamped, elapsedSnapshotFields, isEmpty, setStop } from './utils'
 import { exitApp } from '@/core/common'
 import { playNext, setMusicUrl } from '@/core/player/player'
-import { getNextTryQuality, getLastTryQuality, removeMusicUrl } from '@/core/music/online'
+import { getNextTryQuality, getLastTryQuality, removeMusicUrl } from '@/core/music/utils'
 import { setStatusText } from '@/core/player/playStatus'
 import playerState from '@/store/player/state'
 import settingState from '@/store/setting/state'

@@ -11,6 +11,8 @@ import { assertApiSupport } from '@/utils/tools'
 import settingState from '@/store/setting/state'
 import { requestMsg } from '@/utils/message'
 import BackgroundTimer from 'react-native-background-timer'
+import { storageDataPrefix } from '@/config/constant'
+import { removeData } from '@/plugins/storage'
 import { apis } from '@/utils/musicSdk/api-source'
 import { log } from '@/utils/log'
 import { state as userApiState } from '@/store/userApi'
@@ -414,6 +416,33 @@ export const getOnlineOtherSourcePicByLocal = async(
 }
 
 export const TRY_QUALITYS_LIST = ['master', 'atmos_plus', 'atmos', 'hires', 'flac24bit', 'flac', '320k'] as const
+
+type TryQualityType = typeof TRY_QUALITYS_LIST[number]
+const lastTryQualityMap = new Map<string, LX.Quality>()
+export const setLastTryQuality = (id: string, quality: LX.Quality) => {
+  if (lastTryQualityMap.size > 200) lastTryQualityMap.clear()
+  lastTryQualityMap.set(id, quality)
+}
+export const getLastTryQuality = (id: string): LX.Quality | null => lastTryQualityMap.get(id) ?? null
+export const getTryQualityList = (highQuality: LX.Quality, musicInfo: LX.Music.MusicInfoOnline): LX.Quality[] => {
+  const available = Object.keys(musicInfo.meta._qualitys ?? {}) as LX.Quality[]
+  const tryList: LX.Quality[] = TRY_QUALITYS_LIST.includes(highQuality as TryQualityType)
+    ? TRY_QUALITYS_LIST.slice(TRY_QUALITYS_LIST.indexOf(highQuality as TryQualityType)).filter(q => available.includes(q))
+    : []
+  if (!tryList.includes('128k')) tryList.push('128k')
+  return tryList
+}
+export const getNextTryQuality = (highQuality: LX.Quality, musicInfo: LX.Music.MusicInfoOnline, lastQuality: LX.Quality | null): LX.Quality | null => {
+  const tryList = getTryQualityList(highQuality, musicInfo)
+  if (!tryList.length) return null
+  if (!lastQuality) return tryList[0]
+  const index = tryList.indexOf(lastQuality)
+  return index == -1 ? tryList[0] : (tryList[index + 1] ?? null)
+}
+// 清除指定歌曲+音质的缓存 URL（失败音质重试前清掉，避免重复命中坏链）
+export const removeMusicUrl = async(musicInfo: LX.Music.MusicInfo | LX.Download.ListItem, quality: LX.Quality) => {
+  await removeData(`${storageDataPrefix.musicUrl}${musicInfo.id}_${quality}`)
+}
 export const QUALITY_RANK: readonly LX.Quality[] = ['master', 'atmos_plus', 'atmos', 'hires', 'flac24bit', 'flac', '320k', '192k', '128k']
 
 export const getPlayQuality = (

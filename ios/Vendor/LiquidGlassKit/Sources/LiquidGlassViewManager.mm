@@ -53,6 +53,8 @@
 - (void)setIsDarkMode:(BOOL)dark;
 - (void)setTouchPoint:(CGPoint)point;
 - (void)clearTouchPoint;
+// 截背景时要隐藏的「玻璃组件根」：仅液态形态实现（磨砂无截背景机制）。
+- (void)setCaptureExclusionView:(nullable UIView *)view;
 @end
 
 // 自研 LiquidLensView（液态透镜，LiquidGlassView(.lens) 引擎）的定制入口：
@@ -150,6 +152,14 @@
   container.layer.borderColor = [UIColor colorWithWhite:0 alpha:0.12].CGColor;
   _glassBacking = backing;
   _glassView = container;
+  // 截背景排除根 = 宿主：RN 前景内容（tab 图标/播放条按钮）挂在宿主视图上而非
+  // 效果视图的 contentView，不排除就会被画进玻璃的背景捕获纹理，经 shader 降采样
+  // 折射放大成图标形状的黑影（iOS 26.2+/27 真机实测）。磨砂形态不实现该 selector
+  // （respondsToSelector 分流自然跳过）。
+  id<LGGlassBackingCustomizations> backingForCapture = (id<LGGlassBackingCustomizations>)backing;
+  if ([backingForCapture respondsToSelector:@selector(setCaptureExclusionView:)]) {
+    [backingForCapture setCaptureExclusionView:self];
+  }
   // 新背衬不携带任何旧属性：重放缓存的主题属性（tint/glassOpacity/dark）
   [self reapplyCachedPropsToBacking];
 }

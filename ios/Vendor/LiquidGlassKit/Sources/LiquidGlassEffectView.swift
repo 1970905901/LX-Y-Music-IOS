@@ -9,11 +9,15 @@
 //     checks. The custom Metal implementation covers iOS 26+ as well (capture switches to the
 //     public-API root-view scheme automatically on iOS 26.2+). Native UIGlassEffect can be
 //     reintroduced behind `#if compiler(>=6.2)` once CI moves to Xcode 26.
-//  2. Added `@objc convenience init()` plus tint/opacity/dark/touch bridging methods for
-//     the React Native view manager (LiquidGlassViewManager.mm). Rendering behavior is
-//     upstream-identical: continuous MTKView rendering with per-frame background capture —
-//     no on-demand/power-saving layer (an earlier local one was removed to stay faithful
-//     to upstream, per user decision 2026-09-28).
+//  2. Added `@objc convenience init()` plus tint/opacity/dark/touch/capture-exclusion
+//     bridging methods for the React Native view manager (LiquidGlassViewManager.mm).
+//     Rendering behavior is upstream-identical: continuous MTKView rendering with
+//     per-frame background capture — no on-demand/power-saving layer (an earlier local
+//     one was removed to stay faithful to upstream, per user decision 2026-09-28).
+//  3. The effect view is the default capture-exclusion root of its LiquidGlassView:
+//     during background capture the WHOLE widget (glass + contentView content) is
+//     hidden, so foreground content is never refracted into the glass (dark smears
+//     on real devices, iOS 26.2+/27). RN hosts can redirect it via setCaptureExclusionView:.
 //  Upstream: Copyright © 2025 DnV1eX, https://github.com/DnV1eX/LiquidGlassKit
 //
 
@@ -46,6 +50,9 @@ public class LiquidGlassEffectView: UIView, AnyVisualEffectView {
         let liquidGlassView = LiquidGlassView(effect.style.liquidGlass)
         addSubview(liquidGlassView)
         self.liquidGlassView = liquidGlassView
+        // 默认捕获排除根 = 效果视图自身：截背景时整个玻璃组件（MTK 输出 + contentView
+        // 内容）一起隐藏，前景内容永远不会被折射进玻璃（真机黑影的来源之一）。
+        liquidGlassView.captureExclusionView = self
 
         setupContentView()
     }
@@ -89,6 +96,13 @@ public class LiquidGlassEffectView: UIView, AnyVisualEffectView {
         if let liquidGlassView {
             liquidGlassView.liquidGlass.tintColor = color
         }
+    }
+
+    /// RN bridge entry: 截背景时要隐藏的「玻璃组件根」（默认 = 效果视图自身）。RN 宿主
+    /// 把前景内容（图标/按钮）挂在宿主视图上而非 contentView，须重定向到宿主才能把
+    /// 前景一并排除在背景捕获之外（否则折射成图标形状的黑影，iOS 26.2+/27 真机实测）。
+    @objc public func setCaptureExclusionView(_ view: UIView?) {
+        liquidGlassView?.captureExclusionView = view
     }
 
     /// RN bridge entry: 手指位置驱动的眩光（玻璃坐标系）；越界/停止时调 clearTouchPoint 清除

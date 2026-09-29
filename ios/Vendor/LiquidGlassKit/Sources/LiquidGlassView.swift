@@ -507,15 +507,63 @@ final class LiquidGlassView: MTKView {
         }
 
         // Capture using drawHierarchy (gets windowserver-composited content)
+        // 冷启动黑闪修复（iOS 14~18 真机录屏实锤：应用冷启动时玻璃整条闪黑数帧）：
+        // CABackdropLayer 进入层级后的最初若干帧，render server 尚未合成 backdrop
+        // 源内容，drawHierarchy 捕获到的是整幅均匀黑 → shader 当背景折射 = 闪黑。
+        // 捕获后做稀疏均匀性校验（~16x16 网格亮度极差 ≤ 3 = 均匀帧）：均匀帧视为
+        // backdrop 未就绪，丢弃并保留上一帧纹理（冷启动时为 nil → 玻璃透明，内容
+        // 直接可见），直到捕获到非均匀内容。暗色模式不受影响：背景含内容=非均匀；
+        // 纯均匀背景帧被丢弃也无视觉差（均匀输入的模糊/折射输出≈均匀）。
+        let previousTexture = backgroundTexture
+        var capturedIsUniform = false
         backgroundTexture = zeroCopyBridge.render { context in
             context.scaleBy(x: scaleCoefficient, y: scaleCoefficient)
 
             UIGraphicsPushContext(context)
             backdropView.drawHierarchy(in: backdropView.bounds, afterScreenUpdates: false)
             UIGraphicsPopContext()
+
+            if let buffer = zeroCopyBridge.pixelBuffer, Self.isUniformCapture(buffer) {
+                capturedIsUniform = true
+            }
+        }
+        if capturedIsUniform {
+            backgroundTexture = previousTexture
         }
 
         blurTexture()
+    }
+
+    /// 稀疏采样（约 16x16 网格）判断捕获帧是否「均匀」（全幅亮度极差 ≤ 3）：
+    /// CABackdropLayer 未就绪时的捕获是整幅均匀黑；真实背景（含内容）必然非均匀。
+    /// 需在 CVPixelBuffer 锁定期内调用（zeroCopyBridge.render 的闭包内）。
+    private static func isUniformCapture(_ buffer: CVPixelBuffer) -> Bool {
+        let w = CVPixelBufferGetWidth(buffer)
+        let h = CVPixelBufferGetHeight(buffer)
+        let bpr = CVPixelBufferGetBytesPerRow(buffer)
+        guard let base = CVPixelBufferGetBaseAddress(buffer) else { return true }
+        let ptr = base.assumingMemoryBound(to: UInt8.self)
+        var minV = 255
+        var maxV = 0
+        let stepX = max(w / 16, 1)
+        let stepY = max(h / 16, 1)
+        var y = 0
+        while y < h {
+            let row = y * bpr
+            var x = 0
+            while x < w {
+                let o = row + x * 4 // BGRA
+                let r = Int(ptr[o + 2])
+                let g = Int(ptr[o + 1])
+                let b = Int(ptr[o])
+                let v = max(r, max(g, b))
+                if v < minV { minV = v }
+                if v > maxV { maxV = v }
+                x += stepX
+            }
+            y += stepY
+        }
+        return maxV - minV <= 3
     }
 
     func blurTexture() {

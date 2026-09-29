@@ -107,3 +107,18 @@ vanished on screen (user-visible jumping, recorded on video). The throttled
 refraction also stepped at 12.5fps while scrolling. Both reverted by the
 layer.render scheme above (upstream-identical, continuous per-frame capture).
 
+## iOS 14-18 cold-start black flash: uniform-backdrop capture rejection (vendored)
+
+On iOS 14-18 the backdrop path (`captureBackdrop`, CABackdropLayer +
+`drawHierarchy(afterScreenUpdates: false)`) captures a FULLY UNIFORM BLACK frame
+for the first frames after the layer enters the hierarchy (render server has not
+composited the backdrop source yet). The shader refracts that black texture ->
+the whole glass bar flashes black on cold start (recorded on video).
+
+Fix: after each backdrop capture, a sparse ~16x16 luminance sample rejects
+UNIFORM frames (max-min <= 3) as "backdrop not ready" — the previous texture (or
+transparency) is kept until a non-uniform capture arrives. Dark mode is
+unaffected: a real background with content is non-uniform, and discarding a
+uniform frame is visually a no-op (blur/refraction of a uniform field is
+uniform).
+

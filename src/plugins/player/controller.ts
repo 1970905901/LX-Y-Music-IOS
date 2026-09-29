@@ -120,6 +120,9 @@ export const initUnifiedPlayerController = () => {
           return executeFailureStrategy(currentMusicInfo, true, new Error('Playback failed'), triedUrls ?? undefined, strategyStartIndex)
         })
         .then((result) => {
+          // 【切歌守卫】换源请求在途期间用户已切歌 = 旧歌的重试作废：不得用旧歌信息+
+          // 新歌的当前位置强制重载（会打断新歌、且位置语义错乱）。同款守卫见上方重试分支。
+          if (playerState.playMusicInfo.musicInfo !== currentMusicInfo) return
           if (result) {
             strategyStartIndex = result.index + 1
             setResource(currentMusicInfo, result.url, playerState.progress.nowPlayTime, result.quality)

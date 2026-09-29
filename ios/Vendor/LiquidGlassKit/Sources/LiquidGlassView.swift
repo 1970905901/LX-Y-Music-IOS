@@ -325,8 +325,9 @@ final class LiquidGlassView: MTKView {
 
     /// 捕获背景时要隐藏的「玻璃组件根」。nil → 所在 LiquidGlassEffectView（覆盖其
     /// contentView 里的前景）→ 自身。RN 宿主通过 setCaptureExclusionView: 把它指向
-    /// 宿主视图——RN 前景内容（tab 图标/播放条按钮）挂在宿主上而非 contentView，
-    /// 不排除就会被打进背景纹理，经 0.2x 降采样折射放大成图标形状的黑影。
+    /// **JS 父容器**（宿主的 superview）：宿主是叶子（只装玻璃背衬），前景内容
+    /// （tab 图标/播放条按钮）是父容器的其它子节点——只排除宿主会漏掉前景，
+    /// 被打进背景纹理后经 0.2x 降采样折射成重影/黑影（真机 iOS 26.2+ 截图实锤）。
     weak var captureExclusionView: UIView?
 
     /// 静止节流：捕获矩形未变时背景重捕的最小间隔（秒）。drawHierarchy

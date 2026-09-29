@@ -9,6 +9,9 @@
 //
 //  Usage contract (JS):
 //  - Render as a leaf element (<LiquidGlass />) absolutely positioned to fill its parent.
+//    **排除根契约**：捕获排除根 = 本宿主的 superview（= 玻璃 + 前景内容所在的内容
+//    容器，didMoveToSuperview 自动维护）——因此 <LiquidGlass> 必须是内容容器的
+//    **直接子元素**；若中间再包一层只装玻璃的 wrapper，前景会漏进捕获纹理（重影）。
 //    双形态背衬（liquid prop 切换，见 LGGlassViewFactory.swift）：
 //      - liquid = false（默认）：系统磨砂 —— iOS 26+ UIGlassEffect(.regular)、其余
 //        UIBlurEffect(.systemMaterial)，外加有上限的主题染色覆层；
@@ -58,8 +61,8 @@
 @end
 
 // 自研 LiquidLensView（液态透镜，LiquidGlassView(.lens) 引擎）的定制入口：
-// 染色（nil=kit 预设动态色）/ 圆角。宿主按 respondsToSelector 分流（部分入口为
-// 桥接面保留的空操作，见 LiquidLensView.swift）。
+// 染色（nil=kit 预设动态色）/ 圆角 / 捕获排除根透传。宿主按 respondsToSelector
+// 分流（部分入口为桥接面保留的空操作，见 LiquidLensView.swift）。
 // 注：拖拽手势层已整体移除（2026-09-29 用户定案：上游无对应实现）——frames 合并
 // 与透镜眩光的桥接入口（setLensFrames/setLensTouchPoint）随之删除，kit 本体的
 // frames/touchPoint 能力不受影响。
@@ -68,6 +71,7 @@
 - (void)setLensTintColor:(UIColor *)color;
 - (void)setLensGlassOpacity:(CGFloat)opacity;
 - (void)setLensCornerRadius:(CGFloat)radius;
+- (void)setCaptureExclusionView:(nullable UIView *)view;
 @end
 
 // Host view: an RCTView so all standard RN view props (borderRadius, overflow, pointerEvents,
@@ -152,13 +156,15 @@
   container.layer.borderColor = [UIColor colorWithWhite:0 alpha:0.12].CGColor;
   _glassBacking = backing;
   _glassView = container;
-  // 截背景排除根 = 宿主：RN 前景内容（tab 图标/播放条按钮）挂在宿主视图上而非
-  // 效果视图的 contentView，不排除就会被画进玻璃的背景捕获纹理，经 shader 降采样
-  // 折射放大成图标形状的黑影（iOS 26.2+/27 真机实测）。磨砂形态不实现该 selector
-  // （respondsToSelector 分流自然跳过）。
+  // 截背景排除根 = JS 父容器（本宿主的 superview）：宿主是叶子（只装玻璃背衬），
+  // 前景内容（tab 图标/播放条按钮/文字）是父容器的**其它子节点**——排除根若指宿主，
+  // 捕获时前景仍会被画进玻璃的背景捕获纹理，经 shader 降采样折射成重影/黑影
+  // （真机 iOS 26.2+ 截图实锤：LX/歌词/Tab 图标全部重影）。隐藏父容器整树 =
+  // 同时排除玻璃输出与前景。挂载前 superview 为空先退回宿主自身，didMoveToSuperview
+  // 挂载/重挂时自动改指父容器。磨砂形态不实现该 selector（respondsToSelector 分流）。
   id<LGGlassBackingCustomizations> backingForCapture = (id<LGGlassBackingCustomizations>)backing;
   if ([backingForCapture respondsToSelector:@selector(setCaptureExclusionView:)]) {
-    [backingForCapture setCaptureExclusionView:self];
+    [backingForCapture setCaptureExclusionView:self.superview ?: self];
   }
   // 新背衬不携带任何旧属性：重放缓存的主题属性（tint/glassOpacity/dark）
   [self reapplyCachedPropsToBacking];
@@ -212,6 +218,16 @@
   _glassView.layer.cornerCurve = self.layer.cornerCurve;
   _glassBacking.layer.cornerRadius = self.layer.cornerRadius;
   _glassBacking.layer.cornerCurve = self.layer.cornerCurve;
+}
+
+// 挂载/重挂/脱离层级时同步排除根：排除根 = JS 父容器（见 installGlassBacking 注释——
+// 前景内容是父容器的其它子节点，只排除宿主会漏掉前景）。脱离层级（superview = nil）
+// 时置空回退 kit 默认解析；液态开关重建背衬后由 installGlassBacking 以当时 superview 重设。
+- (void)didMoveToSuperview {
+  [super didMoveToSuperview];
+  id<LGGlassBackingCustomizations> backing = (id<LGGlassBackingCustomizations>)_glassBacking;
+  if (![backing respondsToSelector:@selector(setCaptureExclusionView:)]) return;
+  [backing setCaptureExclusionView:self.superview];
 }
 
 // touchPoint 眩光（kit 能力）：手指在栏体空白区域按下/移动时，玻璃高光跟随手指。
@@ -375,6 +391,15 @@ RCT_CUSTOM_VIEW_PROPERTY(liquid, NSNumber, LGLiquidGlassHostView) {
       [lensCustom setLensCornerRadius:radius];
     }
   }
+}
+
+// 挂载/重挂/脱离层级时同步排除根（= JS 父容器，即栏体玻璃的同一排除根）：透镜
+// 叠在 tab 图标/文字上方，前景不排除会被折射进药丸。脱离层级置空回退默认解析。
+- (void)didMoveToSuperview {
+  [super didMoveToSuperview];
+  id<LGLensCustomizations> lens = (id<LGLensCustomizations>)_lens;
+  if (![lens respondsToSelector:@selector(setCaptureExclusionView:)]) return;
+  [lens setCaptureExclusionView:self.superview];
 }
 
 - (void)setTargetX:(CGFloat)x animated:(BOOL)animated {

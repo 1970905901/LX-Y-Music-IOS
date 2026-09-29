@@ -95,6 +95,13 @@ public final class LiquidLensView: UIView, AnyLiquidLensView {
         liquidGlassView.liquidGlass.tintColor = color
     }
 
+    /// Vendored addition: 捕获排除根透传（mm 宿主在挂载时指向 JS 父容器）。透镜叠在
+    /// tab 图标/文字**上方**（JS 里 LiquidLens 先于 tab 项渲染），这些前景若不排除
+    /// 会被画进透镜的背景捕获纹理、折射进药丸（与栏体玻璃同源的重影问题）。
+    @objc public func setCaptureExclusionView(_ view: UIView?) {
+        liquidGlassView.captureExclusionView = view
+    }
+
     /// Vendored addition: 仅对磨砂覆层有意义（0~1）。液态形态无对应参数，
     /// 保留空操作维持 OC 桥接面（mm 按 respondsToSelector 分流继续传值）。
     @objc public func setLensGlassOpacity(_ opacity: CGFloat) {

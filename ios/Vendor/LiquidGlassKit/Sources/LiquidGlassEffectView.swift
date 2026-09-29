@@ -16,8 +16,14 @@
 //     one was removed to stay faithful to upstream, per user decision 2026-09-28).
 //  3. The effect view is the default capture-exclusion root of its LiquidGlassView:
 //     during background capture the WHOLE widget (glass + contentView content) is
-//     hidden, so foreground content is never refracted into the glass (dark smears
-//     on real devices, iOS 26.2+/27). RN hosts can redirect it via setCaptureExclusionView:.
+//     hidden, so foreground content inside the widget is never refracted into the
+//     glass. NOTE (real-device fix, iOS 26.2+): in this app the RN host view is a
+//     LEAF (glass backing only) and the foreground content (icons/labels/buttons)
+//     are SIBLINGS in the JS parent container — so the manager resolves the
+//     exclusion root to the HOST'S SUPERVIEW on mount (see LiquidGlassViewManager.mm
+//     didMoveToSuperview); a root pointing at the host alone leaks the foreground
+//     into the capture (ghosted/double content in the screenshot).
+//     RN hosts can still redirect it via setCaptureExclusionView:.
 //  Upstream: Copyright © 2025 DnV1eX, https://github.com/DnV1eX/LiquidGlassKit
 //
 

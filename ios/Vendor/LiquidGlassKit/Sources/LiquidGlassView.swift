@@ -444,13 +444,33 @@ final class LiquidGlassView: MTKView {
                                        width: captureSize.width,
                                        height: captureSize.height)
 
+        // 捕获完整性防御：全帧均匀（纯白/纯黑渲染失败产物，27.x beta 出现过）直接拒收，
+        // 保留上一帧纹理（首帧为 nil → 玻璃透明），真实背景含内容必然非均匀。
+        let previousTexture = backgroundTexture
+        var capturedIsUniform = false
         backgroundTexture = zeroCopyBridge.render { context in
             // Hide every glass widget root in this window (self included)：覆盖各玻璃的
             // MTK 输出与其上方前景内容，截到纯净背景。隐藏/恢复在同一调用栈内完成；
             // layer.render 同步读取 layer 树（含 isHidden），无需提交即可见，不刷屏。
-            let hiddenRoots = GlassInstanceRegistry.shared.exclusionRoots(in: window).filter { !$0.isHidden }
-            for root in hiddenRoots { root.isHidden = true }
-            defer { for root in hiddenRoots { root.isHidden = false } }
+            // 【iOS 27.2 beta 适配】捕获跑在 MTK 渲染线程：经 UIView.isHidden 跨线程改
+            // 可见性在 27.2 上被 UIKit 线程化处理吞掉（排除失效 → 前景图标/按钮漏进捕获
+            // 被折射成黑色碎片、容器白底放大成惨白，27.2beta2 用户截图实锤）。改直接写
+            // CALayer.isHidden 并包显式 CATransaction 提交：layer 模型属性在调用线程
+            // 立即生效、renderInContext 同线程读取必然一致（26.x 行为不变；若 27.x 的
+            // renderInContext 改读已提交状态，commit+flush 后同样可见）。
+            let hiddenRoots = GlassInstanceRegistry.shared.exclusionRoots(in: window).filter { !$0.layer.isHidden }
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            for root in hiddenRoots { root.layer.isHidden = true }
+            CATransaction.commit()
+            CATransaction.flush()
+            defer {
+                CATransaction.begin()
+                CATransaction.setDisableActions(true)
+                for root in hiddenRoots { root.layer.isHidden = false }
+                CATransaction.commit()
+                CATransaction.flush()
+            }
 
             // Transform to render the portion of root view under our capture rect:
             context.scaleBy(x: scaleCoefficient, y: scaleCoefficient)
@@ -472,6 +492,13 @@ final class LiquidGlassView: MTKView {
                 rootView.drawHierarchy(in: rootView.bounds, afterScreenUpdates: true)
                 UIGraphicsPopContext()
             }
+
+            if let buffer = zeroCopyBridge.pixelBuffer, Self.isUniformCapture(buffer) {
+                capturedIsUniform = true
+            }
+        }
+        if capturedIsUniform {
+            backgroundTexture = previousTexture
         }
 
         blurTexture()

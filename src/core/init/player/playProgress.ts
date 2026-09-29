@@ -318,8 +318,14 @@ export default () => {
         setNowPlayTime(targetPosition)
         seekTargetPosition = targetPosition
         seekHoldUntil = Date.now() + 2000
-        // 落点确认快路径：~300ms 后兜底重锚（不等 1s 慢校准；正常由 playing
-        // 事件的 syncFromEngine 即时完成，此处覆盖无状态变化引擎的 seek）
+        // 硬保证对齐（≈上游 seeked）：setCurrentTime 内部的稳定化轮询在【引擎位置
+        // 到达落点】之后才 resolve——此刻立即尝试重锚，等价于上游「seeked → playing
+        // → lrc.play」里 playing 的即时性，不再等 300ms 快路径/1s 慢校准。
+        // syncFromEngine 自带代际/引擎状态守卫：仍在缓冲则安全丢弃，交给后续
+        // playing 事件 / 快路径 / 行级自愈探针的网。
+        syncFromEngine(musicId)
+        // 落点确认快路径：~300ms 后兜底重锚（覆盖 resolve 后引擎状态短暂波动被
+        // 上面的立即尝试丢弃、或无状态变化引擎的 seek 事件缺失场景）
         scheduleFastResync(musicId)
       }
     })
@@ -476,7 +482,20 @@ export default () => {
     if (!engineConfirmedPlaying || isBufferingHold) return
     if (isProgressDragging) return
     if (!playerState.isPlay || !playerState.musicInfo.id) return
-    if (seekTargetPosition != null && Date.now() < seekHoldUntil) return
+    if (seekTargetPosition != null) {
+      if (Date.now() < seekHoldUntil) {
+        // 硬保证对齐（≈上游 playing，4Hz 粒度）：位置事件已看到引擎到达落点——
+        // 立即清窗并重锚，不等 1s 慢校准。syncFromEngine 自带全套守卫（代际/状态）。
+        if (Math.abs(position - seekTargetPosition) < 1.5) {
+          seekTargetPosition = null
+          seekHoldUntil = 0
+          syncFromEngine(playerState.musicInfo.id)
+        } else return
+      } else {
+        seekTargetPosition = null
+        seekHoldUntil = 0
+      }
+    }
     setNowPlayTime(position)
     audioClock.setAnchor(position * 1000, rate || settingState.setting['player.playbackRate'], true)
     // 行级自愈探针（快路径层，≤250ms 收敛）：守卫条件（确认在播/非缓冲/非拖动/非

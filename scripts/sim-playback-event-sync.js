@@ -27,6 +27,9 @@
  *  10  事件丢失自愈：seek 长缓冲吞掉 300ms 快路径、出声时不补发 playing 事件——
  *      行级自愈探针（慢校准层）≤1 个校准周期把行拉回落点行（音频侧时钟本就正确）
  *  10x 反例：无探针时行永久冻在旧行（真机实锤的「快进/快退后一直不同步」）
+ *  11  硬保证对齐（≈seeked→playing）：稳定化轮询确认落点 resolve 即重锚——
+ *      落点后 ~30ms 内行/时钟全落，不等 300ms 快路径
+ *  11x 反例：无 A 路径时落点后要再等 ~300ms 快路径才落行（可感知的「歌词慢半拍」）
  * 逐字（卡拉OK）链路 = 行级链路的时钟侧：字高亮 elapsed = audioClock − 当前行起点，
  * audioClock 与行级 ticker 由同一批引擎事件锚定/冻结（playing→setAnchor+重锚、
  * buffering→hold），断言 1/3/6/8 的时钟误差即逐字精度上界。
@@ -175,7 +178,7 @@ function makeEngine({ lineTimes }) {
 // ---------------------------------------------------------------------------
 // 新架构系统（重构后 playProgress + controller 事件映射 + core/lyric 接线）
 // ---------------------------------------------------------------------------
-function createNewSystem(engine, lyric, { pollPhase = 0, eventHoldNoAnchorFallback = true, lineSyncDetector = true } = {}) {
+function createNewSystem(engine, lyric, { pollPhase = 0, eventHoldNoAnchorFallback = true, lineSyncDetector = true, resolveLandingAnchor = true } = {}) {
   const clock = makeClock()
   const sys = {
     clock, lyric, engine,
@@ -184,6 +187,7 @@ function createNewSystem(engine, lyric, { pollPhase = 0, eventHoldNoAnchorFallba
     screenOn: true,
     userPlay: true, // ≈ playerState.isPlay（store 标志，用户点播放即 true，与引擎状态无关）
     lineSyncDetector, // 行级自愈探针（verifyLyricLineSync）：慢校准层的第二道网
+    resolveLandingAnchor, // setCurrentTime resolve（落点确认）即重锚：≈上游 seeked→playing 硬保证
     ccReanchors: [],
   }
   const isPlay = () => sys.engineConfirmed || engine.state === 'playing'
@@ -262,11 +266,18 @@ function createNewSystem(engine, lyric, { pollPhase = 0, eventHoldNoAnchorFallba
     engine.seekTo && null
     return time
   }
-  // 场景显式调用 engine.seekTo 驱动引擎；这里模拟「seek 受理回调」链路：
-  sys.seekAccepted = (target) => {
+  // 场景显式调用 engine.seekTo 驱动引擎；这里模拟「seek 受理回调」链路。
+  // resolveAfter = setCurrentTime 稳定化轮询确认落点的时刻（引擎位置到达落点后才
+  // resolve，≈上游 seeked 事件）；resolve 时立即 syncFromEngine（硬保证对齐 A）。
+  sys.seekAccepted = (target, { resolveAfter = 0 } = {}) => {
     sys.nowPlayTime = target
     sys.seekTarget = target; sys.seekHoldUntil = nowMs + 2000
-    scheduleFastResync(sys.seekGen)
+    after(resolveAfter, () => {
+      sys.nowPlayTime = target
+      sys.seekTarget = target; sys.seekHoldUntil = nowMs + 2000
+      if (sys.resolveLandingAnchor) syncFromEngine('m', sys.seekGen)
+      scheduleFastResync(sys.seekGen)
+    })
   }
 
   // —— 1s 慢校准轮询（不含行同步；行级由探针兜底，见下）——
@@ -667,6 +678,39 @@ check('10x 反例：无探针时行永久冻在旧行（真机「快进/快退�
   assert(lyric.curLine === 2, `无探针时行应永久冻在旧行(2)（缺陷存在），实际 ${lyric.curLine}`)
   const clockErr = Math.abs(sys.clock.getTime() * 1000 - engine.pos(nowMs))
   assert(clockErr <= 100, `无探针时时钟仍应正常（证明缺陷只在行级），误差 ${clockErr.toFixed(0)}ms`)
+})
+
+check('11 硬保证对齐：落点确认（resolve）即重锚——落点后 ~100ms 行/时钟全落，不等 300ms 快路径', () => {
+  resetWorld()
+  const engine = makeEngine({ lineTimes: LINES })
+  const lyric = makeLyric(LINES)
+  const sys = createNewSystem(engine, lyric, { pollPhase: 300 })
+  engine.playFrom(25000); lyric.play(25000)
+  advance(1000)
+  // 无状态变化的本地 seek 模型：600ms 后落点、全程无事件；稳定化轮询在 620ms 确认落点 resolve
+  engine.seekTo(65000, { applyAfter: 600, buffering: false, emitPlayingOnApply: false })
+  sys.seekAccepted(65000, { resolveAfter: 620 })
+  advance(550) // t=550：尚未出声（600ms 落点），行应仍在旧行
+  assert(lyric.curLine === 2, `出声前行应仍在旧行(2)，实际 ${lyric.curLine}`)
+  advance(150) // t=700：600ms 已出声、620ms resolve 即重锚
+  assert(lyric.curLine === 6, `落点后 resolve 应立即重锚到落点行(6)，实际 ${lyric.curLine}`)
+  const clockErr = Math.abs(sys.clock.getTime() * 1000 - engine.pos(nowMs))
+  assert(clockErr <= 100, `时钟误差应≤100ms，实际 ${clockErr.toFixed(0)}ms`)
+})
+
+check('11x 反例：无 A 路径时落点后要再等 ~300ms 快路径才落行（可感知的「歌词慢半拍」）', () => {
+  resetWorld()
+  const engine = makeEngine({ lineTimes: LINES })
+  const lyric = makeLyric(LINES)
+  const sys = createNewSystem(engine, lyric, { pollPhase: 300, resolveLandingAnchor: false })
+  engine.playFrom(25000); lyric.play(25000)
+  advance(1000)
+  engine.seekTo(65000, { applyAfter: 600, buffering: false, emitPlayingOnApply: false })
+  sys.seekAccepted(65000, { resolveAfter: 620 })
+  advance(700) // t=700：落点已 100ms，无 A 路径只能等 920ms 快路径
+  assert(lyric.curLine === 2, `无 A 路径时落点+100ms 行应仍在旧行(2)（缺陷存在），实际 ${lyric.curLine}`)
+  advance(500) // t=1200：快路径已落
+  assert(lyric.curLine === 6, `快路径兜底后行应到落点行(6)，实际 ${lyric.curLine}`)
 })
 
 // ---------------------------------------------------------------------------

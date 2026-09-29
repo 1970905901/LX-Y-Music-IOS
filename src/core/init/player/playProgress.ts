@@ -273,7 +273,18 @@ export default () => {
         // 音频差固定偏移」的直接来源——偏差超过阈值才回拉（落点精确时不做无意义的
         // 二次 seek，nativeFlac 重启解码会再缓冲一轮）；卡住位置（mediaBuffer.playTime）
         // 的恢复同径。回拉后清空记录；看门狗探测 seek 已主动清卡点，不会被回拉撤销。
-        const resumeTime = restorePlayTime ?? mediaBuffer.playTime
+        // 【切歌守卫】seek 意图/卡点绑定发起时的歌曲：nativeFlac/AVPlayer 切歌可能
+        // 不发任何 stop 事件（handleStop 不执行），残留的 restorePlayTime 会让新歌
+        // 出声时被回拉到旧歌的 seek 位置 =「详情页 seek 后切歌不从头上播放」。
+        // 意图歌曲与当前歌曲不匹配即整体作废。
+        if (restorePlayTimeTrack != musicId) {
+          restorePlayTime = null
+          restorePlayTimeTrack = null
+        }
+        if (mediaBuffer.playTime != null && mediaBuffer.track != musicId) {
+          clearBufferTimeout()
+        }
+        const resumeTime = restorePlayTime ?? (mediaBuffer.track == musicId ? mediaBuffer.playTime : null)
         clearBufferTimeout()
         restorePlayTime = null
         // 新鲜度守卫：playing 事件丢失时 restorePlayTime 会滞留（探针已自愈行级），
@@ -349,6 +360,8 @@ export default () => {
   // 后续所有锚定自然正确。restorePlayTime 在出声回拉后清空（回拉引发的后续 playing
   // 不再回拉，天然无循环）。
   let restorePlayTime: number | null = null
+  // seek 意图绑定的歌曲：playing 消费时校验，切歌即作废（见 playing 分支的切歌守卫）
+  let restorePlayTimeTrack: string | null = null
   // seek 意图时刻（setProgress / 出声回拉 / 看门狗探测都会刷新）：缓冲看门狗的宽限
   // 基准——慢缓冲（高码率 FLAC 单次 seek 缓冲 5~8s 很常见）期间绝不记录卡点/向前
   // 探测，否则探测越过 seek 目标并与出声回拉互相拉锯（回拉引发的新缓冲又被探测，
@@ -357,14 +370,15 @@ export default () => {
   // 单次 seek 意图的回拉预算：回拉后的落点若仍偏差（极端引擎/网络），最多再拉 2 次
   // 就接受引擎位置并锚定，防慢缓冲长曲上回拉-探测无限拉锯；每次用户 seek 重置
   let pullBackCount = 0
-  const mediaBuffer: { timeout: number | null, playTime: number | null, attempts: number } = {
-    timeout: null, playTime: null, attempts: 0,
+  const mediaBuffer: { timeout: number | null, playTime: number | null, attempts: number, track: string | null } = {
+    timeout: null, playTime: null, attempts: 0, track: null,
   }
   const clearBufferTimeout = () => {
     if (mediaBuffer.timeout != null) BackgroundTimer.clearTimeout(mediaBuffer.timeout)
     mediaBuffer.timeout = null
     mediaBuffer.playTime = null
     mediaBuffer.attempts = 0
+    mediaBuffer.track = null
   }
   // 上游 bufferRecovery：探测点=当前位置向前 step（3~6s）且绝不越过结尾（避免制造 ended）
   const getBufferRecoveryPosition = (current: number, duration: number, step: number): number | null => {
@@ -377,6 +391,7 @@ export default () => {
     if (mediaBuffer.timeout != null) return
     const track = playerState.musicInfo.id
     if (!track) return
+    mediaBuffer.track = track
     mediaBuffer.timeout = BackgroundTimer.setTimeout(() => {
       mediaBuffer.timeout = null
       if (track != playerState.musicInfo.id || !playerState.isPlay) return
@@ -429,6 +444,7 @@ export default () => {
     // 出声回拉记录（上游 restorePlayTime）：seek 意图位置，出声时把音频拉回这里。
     // 同时刷新看门狗宽限基准与回拉预算（每次用户 seek 都是新一轮）。
     restorePlayTime = time
+    restorePlayTimeTrack = musicId
     lastSeekIntentAt = Date.now()
     pullBackCount = 0
     if (mediaBuffer.timeout != null || mediaBuffer.playTime != null) {
@@ -505,6 +521,7 @@ export default () => {
     clearSyncRetry()
     clearBufferTimeout()
     restorePlayTime = null
+    restorePlayTimeTrack = null
     lastSeekIntentAt = 0
     pullBackCount = 0
     // 切歌/停播可能没有任何引擎状态事件（尤其 nativeFlac stop 不走状态机），

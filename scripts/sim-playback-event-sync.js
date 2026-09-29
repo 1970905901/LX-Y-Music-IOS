@@ -200,7 +200,7 @@ function makeEngine({ lineTimes }) {
 // ---------------------------------------------------------------------------
 // 新架构系统（重构后 playProgress + controller 事件映射 + core/lyric 接线）
 // ---------------------------------------------------------------------------
-function createNewSystem(engine, lyric, { pollPhase = 0, eventHoldNoAnchorFallback = true, lineSyncDetector = true, resolveLandingAnchor = true, syncRetry = true, resumeSnap = true, watchdogGrace = true, pullBackGate = true } = {}) {
+function createNewSystem(engine, lyric, { pollPhase = 0, eventHoldNoAnchorFallback = true, lineSyncDetector = true, resolveLandingAnchor = true, syncRetry = true, resumeSnap = true, watchdogGrace = true, pullBackGate = true, songGuard = true } = {}) {
   const clock = makeClock()
   const sys = {
     clock, lyric, engine,
@@ -219,6 +219,10 @@ function createNewSystem(engine, lyric, { pollPhase = 0, eventHoldNoAnchorFallba
     pullBackGate, // 回拉预算（3 次/seek 意图）：false = 关闭预算（旧无界模型）
     lastSeekIntentAt: 0, // ≈ lastSeekIntentAt（宽限/回拉新鲜度基准）
     pullBackCount: 0, // ≈ pullBackCount
+    currentTrack: 'A', // ≈ playerState.musicInfo.id
+    trackAtIntent: null, // ≈ restorePlayTimeTrack（seek 意图绑定的歌曲）
+    mediaBufferTrack: null,
+    songGuard, // 切歌守卫：意图歌曲≠当前歌曲即作废回拉
     ccReanchors: [],
   }
   const isPlay = () => sys.engineConfirmed || engine.state === 'playing'
@@ -302,7 +306,11 @@ function createNewSystem(engine, lyric, { pollPhase = 0, eventHoldNoAnchorFallba
         // 二次 seek）；回拉预算 3 次；新鲜度 15s（playing 丢失时陈旧意图作废，探针已自愈）；
         // 看门狗探测已清卡点并刷新意图，不会被回拉撤销。
         syncFromEngine('m')
-        const resumeTime = sys.restorePlayTime ?? sys.mediaBufferPlayTime
+        // 【切歌守卫（2026-09-29 真机实锤）】seek 意图/卡点绑定发起时的歌曲：切歌不发
+        // stop 事件时意图残留，新歌出声被回拉到旧歌 seek 位置 =「切歌不从头播放」。
+        const staleIntent = sys.songGuard && sys.trackAtIntent !== sys.currentTrack
+        const staleBuffer = sys.songGuard && sys.mediaBufferTrack !== null && sys.mediaBufferTrack !== sys.currentTrack
+        const resumeTime = (staleIntent ? null : sys.restorePlayTime) ?? (staleBuffer ? null : sys.mediaBufferPlayTime)
         sys.mediaBufferPlayTime = null
         sys.restorePlayTime = null
         if (resumeTime != null && sys.resumeSnap && (!sys.pullBackGate || sys.pullBackCount < 3) && nowMs - sys.lastSeekIntentAt < 15000) {
@@ -355,6 +363,7 @@ function createNewSystem(engine, lyric, { pollPhase = 0, eventHoldNoAnchorFallba
     sys.nowPlayTime = target
     sys.seekTarget = target; sys.seekHoldUntil = nowMs + 2000
     sys.restorePlayTime = target // ≈ setProgress 的 restorePlayTime = time（出声回拉基准）
+    sys.trackAtIntent = sys.currentTrack // ≈ restorePlayTimeTrack = musicId
     sys.lastSeekIntentAt = nowMs // ≈ setProgress 的 lastSeekIntentAt（看门狗宽限基准）
     sys.pullBackCount = 0 // ≈ setProgress 的 pullBackCount = 0（每轮用户 seek 新预算）
     after(resolveAfter, () => {
@@ -902,5 +911,40 @@ check('14x 反例：无宽限时看门狗 3s 即探测越位（越过用户 seek
 })
 
 // ---------------------------------------------------------------------------
+check('15 切歌守卫：详情页 seek 后（未出声）切下一首——新歌从头播放，不被回拉到旧 seek 位置', () => {
+  resetWorld()
+  const engine = makeEngine({ lineTimes: LINES })
+  const lyric = makeLyric(LINES)
+  const sys = createNewSystem(engine, lyric, { pollPhase: 300, resumeSnap: true })
+  engine.playFrom(25000); lyric.play(25000)
+  advance(1000)
+  engine.seekTo(65000, { applyAfter: 100000, buffering: true }) // 旧歌 seek 后长缓冲、未出声
+  sys.seekAccepted(65000)
+  advance(300)
+  sys.currentTrack = 'B' // 用户切下一首（不发任何 stop 事件——nativeFlac 真机行为）
+  engine.playFrom(0) // 新歌从 0 出声 → playing 事件
+  advance(500)
+  const pos = engine.pos(nowMs)
+  assert(pos < 2000, `切歌守卫应丢弃旧歌 seek 意图、新歌从头播（pos≈0），实际 pos=${pos.toFixed(0)}ms`)
+})
+
+check('15x 反例：无切歌守卫时新歌被回拉到旧歌 seek 位置（不从头播放，缺陷可被捕获）', () => {
+  resetWorld()
+  const engine = makeEngine({ lineTimes: LINES })
+  const lyric = makeLyric(LINES)
+  const sys = createNewSystem(engine, lyric, { pollPhase: 300, resumeSnap: true, songGuard: false })
+  engine.playFrom(25000); lyric.play(25000)
+  advance(1000)
+  engine.seekTo(65000, { applyAfter: 100000, buffering: true })
+  sys.seekAccepted(65000)
+  advance(300)
+  sys.currentTrack = 'B'
+  engine.playFrom(0)
+  advance(500)
+  const pos = engine.pos(nowMs)
+  assert(pos > 64000, `无守卫时新歌应被回拉到旧 seek 位置(65s)（缺陷存在），实际 pos=${pos.toFixed(0)}ms`)
+})
+
+
 console.log(`\n${PASS.length} passed, ${FAIL.length} failed`)
 if (FAIL.length) { console.log('FAILED: ' + FAIL.join(' | ')); process.exit(1) }

@@ -108,8 +108,6 @@ const defaultSetting: LX.AppSetting = {
   'player.autoPlayOnReturn': false,
   'player.enableAutoToggleSource': true,
   'player.toggleSourceMaxRetry': 5,
-  'player.enableFailureStrategy': false,
-  'player.failureStrategy': ['lowerQuality', 'togglePlatform', 'playNext', 'toggleSource'],
 
   'playDetail.isCoverSpin': false,
   'playDetail.style.align': 'center',

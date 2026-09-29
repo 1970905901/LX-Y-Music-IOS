@@ -14,8 +14,6 @@ import IsS2T from './IsS2T'
 import ClearCache from './ClearCache'
 import IsEnableAutoToggleSource from './IsEnableAutoToggleSource'
 import ToggleSourceMaxRetry from './ToggleSourceMaxRetry'
-import IsEnableFailureStrategy from './IsEnableFailureStrategy'
-import FailureStrategy from './FailureStrategy'
 import IsAutoPlayOnReturn from './IsAutoPlayOnReturn'
 
 export default memo(() => {
@@ -34,8 +32,6 @@ export default memo(() => {
       <ClearCache />
       <IsEnableAutoToggleSource />
       <ToggleSourceMaxRetry />
-      <IsEnableFailureStrategy />
-      <FailureStrategy />
       <PlayHighQuality />
     </Section>
   )

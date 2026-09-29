@@ -11,7 +11,6 @@ export const useDrag = (
   onSetProgress: (progress: number) => void,
   onDragState: (drag: boolean) => void,
   setDragProgress: (progress: number) => void,
-  onPreview?: (progress: number) => void,
 ) => {
   const info = useRef({
     isDraging: false,
@@ -47,10 +46,8 @@ export const useDrag = (
 
       setDragProgress((info.current.dragStartProgress = info.current.dragProgress = val))
       onDragState(true)
-      // 拖动/点击开始即预览一次，让歌词高亮行立即跟随手指位置
-      onPreview?.(val)
     },
-    [onDragState, setDragProgress, onPreview],
+    [onDragState, setDragProgress],
   )
   const onDragEnd = useCallback(
     (offsetX = 0, offsetY = 0) => {
@@ -87,10 +84,8 @@ export const useDrag = (
       )
 
       setDragProgress((info.current.dragProgress = progress))
-      // 拖动过程中实时预览歌词时钟，让高亮行跟随进度条
-      onPreview?.(progress)
     },
-    [setDragProgress, onPreview],
+    [setDragProgress],
   )
 
   const onLayout = useCallback((e: LayoutChangeEvent) => {

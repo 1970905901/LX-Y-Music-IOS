@@ -59,15 +59,14 @@ const Progress = ({
     onDragState,
     setDragProgress,
     onSetProgress,
-    onPreview,
   } = useProgressDrag(progress, duration)
 
   // 主题里 alpha-NNN 的数值越大越淡（alpha-100 = 90% 不透明，alpha-900 = 10%）。
   // 已播放用实心主色，参照线用半透明主色。
   const activeColor = theme.isDark ? theme['c-font'] : theme['c-primary']
-  // 非拖动进度条：原生驱动 translateX 平滑补间（理由与结构同 iPhone 侧 ProgressBar）。
-  // 位移像素由 onLayout 实测容器宽度换算（百分比 transform 原生动画不可靠）。
-  const smoothValue = useSmoothProgressAnim(progress)
+  // 非拖动进度条：对齐上游——播放 tick 直接落位，仅跳变 >2s 挂 180ms 标准曲线过渡
+  // （结构同 iPhone 侧 ProgressBar）。位移像素由 onLayout 实测容器宽度换算。
+  const smoothValue = useSmoothProgressAnim(progress, duration)
   const [barWidth, setBarWidth] = useState(0)
   const handleInnerLayout = useCallback(
     (e: LayoutChangeEvent) => { setBarWidth(e.nativeEvent.layout.width) },
@@ -137,7 +136,6 @@ const Progress = ({
           onDragState={onDragState}
           setDragProgress={setDragProgress}
           onSetProgress={onSetProgress}
-          onPreview={onPreview}
         />
       ) : null}
     </View>

@@ -56,15 +56,13 @@ const Progress = ({
     onDragState,
     setDragProgress,
     onSetProgress,
-    onPreview,
   } = useProgressDrag(progress, duration)
 
   const activeColor = theme.isDark ? theme['c-font'] : theme['c-primary']
-  // 非拖动进度条：原生驱动 translateX 平滑补间（4Hz tick 链式衔接成匀速运动，
-  // seek 大跳变 250ms 平滑滑动），不再渲染 width 百分比的阶梯跳变。
-  // 位移像素由 onLayout 实测容器宽度换算（百分比 transform 原生动画不可靠，
-  // 见 useSmoothProgressAnim 注释）。
-  const smoothValue = useSmoothProgressAnim(progress)
+  // 非拖动进度条：对齐上游——播放 tick 直接落位（无过渡），仅跳变 >2s（seek /
+  // 后台恢复大跳 / 切歌归零）这一次变更挂 180ms 标准曲线过渡（见 useSmoothProgressAnim）。
+  // 位移像素由 onLayout 实测容器宽度换算（百分比 transform 原生动画不可靠）。
+  const smoothValue = useSmoothProgressAnim(progress, duration)
   const [barWidth, setBarWidth] = useState(0)
   const handleInnerLayout = useCallback(
     (e: LayoutChangeEvent) => { setBarWidth(e.nativeEvent.layout.width) },
@@ -134,7 +132,6 @@ const Progress = ({
           onDragState={onDragState}
           setDragProgress={setDragProgress}
           onSetProgress={onSetProgress}
-          onPreview={onPreview}
         />
       ) : null}
     </View>

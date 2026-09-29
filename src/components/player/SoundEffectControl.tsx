@@ -402,8 +402,8 @@ export default memo(({ showTip = true, layoutMode = 'split' }: {
   const [userConvolutionPresetList, setUserConvolutionPresetList] = useState<LX.SoundEffect.ConvolutionPreset[]>([])
   const presetId = normalizeEqualizerPresetId(setting['player.soundEffect.preset'])
   const convolutionSource = setting['player.soundEffect.convolution.fileName']
-  const convolutionMainGain = setting['player.soundEffect.convolution.mainGain']
-  const convolutionSendGain = setting['player.soundEffect.convolution.sendGain']
+  const convolutionMainGain = Number.isFinite(setting['player.soundEffect.convolution.mainGain']) ? setting['player.soundEffect.convolution.mainGain'] : 10
+  const convolutionSendGain = Number.isFinite(setting['player.soundEffect.convolution.sendGain']) ? setting['player.soundEffect.convolution.sendGain'] : 0
   const activeEqUserPresetId = useMemo(() => userEqPresetList.find(preset =>
     equalizerFrequencies.every(frequency => preset[`hz${frequency}` as keyof LX.SoundEffect.EQPreset] == previewGains[frequency]),
   )?.id ?? null, [previewGains, userEqPresetList])

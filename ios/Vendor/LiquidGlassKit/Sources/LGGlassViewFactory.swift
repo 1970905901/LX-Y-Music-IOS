@@ -57,7 +57,7 @@ enum LGGlassMaterial {
     ///   - `#if compiler(>=6.2)`：编译期。CI 若从 macos-26 回退到旧 Xcode，那个 SDK 里
     ///     没有 UIGlassEffect 与 iOS 26 的 `#available`，只有 `#if` 能挡住；
     ///   - `#available(iOS 26.0, *)`：运行期。低版本系统上不能走到这里。
-    private static func nativeGlassEffect() -> UIVisualEffect? {
+    static func nativeGlassEffect() -> UIVisualEffect? {
         #if compiler(>=6.2)
         if #available(iOS 26.0, *) {
             // .regular 即 HIG 的 regular 变体（模糊并调整背景亮度、保文字可读）；
@@ -85,8 +85,7 @@ enum LGGlassMaterial {
     /// 材质视图。在 init 内构造而非属性默认值：UIGlassEffect 标了 @MainActor，
     /// 放在 init 里隔离性最明确（属性默认值在 Swift 5 语言模式下可能只报 warning）。
     /// 声明为 var 而非 let：明暗切换时需要整体重建（见 rebuildEffectView）。
-    private var effectView: UIVisualEffectView
-    private let tintOverlay = UIView()
+    private var effectView: UIVisualEffectView\1    private let useNativeGlass: Bool\1    private let tintOverlay = UIView()
 
     /// 染色基色（不透明主题色；透明度由 glassOpacity 独立控制）。
     /// **本应用已不再传 tint**（2026-09-28 定案：玻璃不跟随主题色）→ 覆层走中性玻璃色。
@@ -121,12 +120,22 @@ enum LGGlassMaterial {
         didSet { tintOverlay.alpha = Self.tintAlpha(for: glassOpacity) }
     }
 
+    private static func resolveEffect(useNativeGlass: Bool) -> UIVisualEffect {
+        if useNativeGlass, let glass = LGGlassMaterial.nativeGlassEffect() { return glass }
+        return UIBlurEffect(style: .systemMaterial)
+    }
+
     private static func tintAlpha(for userValue: CGFloat) -> CGFloat {
         min(max(userValue, 0), 1) * maxTintAlpha
     }
 
-    override init(frame: CGRect) {
-        effectView = UIVisualEffectView(effect: LGGlassMaterial.systemEffect())
+    /// useNativeGlass：iOS 26.2+ 的「专属磨砂」质感（2026-09-30 用户定案）——液态开关
+    /// 在 26.2+ 呈现系统原生 UIGlassEffect(.regular)（26 独有 API = 专属；系统合成
+    /// 零捕获成本，无自研 Metal 在 26.2+/27 的跳动/闪烁/前景碎片问题），明暗/染色/
+    /// glassOpacity 链路与磨砂形态完全共用。缺失原生玻璃（旧 SDK）回落 systemMaterial。
+    @objc public init(frame: CGRect, useNativeGlass: Bool = false) {
+        self.useNativeGlass = useNativeGlass
+        effectView = UIVisualEffectView(effect: Self.resolveEffect(useNativeGlass: useNativeGlass))
         super.init(frame: frame)
         effectView.isUserInteractionEnabled = false
         effectView.overrideUserInterfaceStyle = isDarkMode ? .dark : .light
@@ -148,7 +157,7 @@ enum LGGlassMaterial {
     /// 挂到新的上，故染色覆层与它的 alpha 全部保留，无需调用方重新下发任何属性。
     private func rebuildEffectView() {
         effectView.removeFromSuperview()
-        effectView = UIVisualEffectView(effect: LGGlassMaterial.systemEffect())
+        effectView = UIVisualEffectView(effect: Self.resolveEffect(useNativeGlass: useNativeGlass))
         effectView.isUserInteractionEnabled = false
         effectView.overrideUserInterfaceStyle = isDarkMode ? .dark : .light
         effectView.contentView.addSubview(tintOverlay)
@@ -181,6 +190,19 @@ enum LGGlassMaterial {
     /// （见 LiquidGlassViewManager.mm 的 applyLiquidMode:）。
     @objc @MainActor public static func createGlassBacking(dark: Bool, liquid: Bool) -> UIView {
         if liquid {
+            // 【2026-09-30 用户定案】26.2+：液态开关呈现「26.2+ 专属磨砂」——系统原生
+            // UIGlassEffect(.regular)（26 独有 API，系统合成稳定，规避自研 Metal 在
+            // 26.2+/27 的跳动/闪烁/前景碎片问题链）；染色/明暗/浓度链路复用磨砂形态。
+            // 14~18 / 26.0 / 26.1 维持自研 Metal 折射（已修好的冷启动黑闪等随 vendored 源码生效）。
+            #if compiler(>=6.2)
+            if #available(iOS 26.2, *) {
+                let glassView = LGFrostedGlassView(frame: .zero, useNativeGlass: true)
+                glassView.isDarkMode = dark
+                glassView.isUserInteractionEnabled = false
+                glassView.backgroundColor = .clear
+                return glassView
+            }
+            #endif
             // vendored Metal 液态玻璃（DnV1eX/LiquidGlassKit 核心效果）：
             // .regular 预设 = 染色 + 背景微模糊 + 折射 + 边缘光。isNative:false ——
             // vendored 版已移除上游的原生 UIGlassEffect 分支（原生玻璃由磨砂形态提供），

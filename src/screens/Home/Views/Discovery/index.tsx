@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { BackHandler, Keyboard, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native'
+import { BackHandler, Keyboard, ScrollView, StyleSheet, TouchableOpacity, View, useWindowDimensions } from 'react-native'
 import { getDiscoveryPlatformOrder, type NAV_ID_Type } from '@/config/constant'
 import { useTheme } from '@/store/theme/hook'
 import { useStatusbarHeight, useBottomOverlayInset } from '@/store/common/hook'
@@ -94,6 +94,33 @@ const styles = createStyle({
     paddingHorizontal: designSpacing.sm,
     paddingVertical: designSpacing.xs,
   },
+  // 宽屏两行网格里的榜单卡：一行 4 个（23%×4 + 3×gap12 ≈ 内容宽 92%+36，
+  // 平台间窄差距 8pt 以内），高度略增保持图标+两行字的呼吸感
+  boardCardWide: {
+    width: '23%',
+    minHeight: 72,
+  },
+  // 宽屏并排行：日推卡（左）+ 榜单区（右），各自垂直居中
+  wideRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: designSpacing.sm,
+  },
+  wideDaily: {
+    flex: 1,
+    paddingLeft: designSpacing.lg,
+    justifyContent: 'center',
+  },
+  wideBoards: {
+    flex: 1.6,
+  },
+  boardGrid: {
+    marginTop: designSpacing.md,
+    paddingHorizontal: designSpacing.lg,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: designSpacing.sm,
+  },
   boardName: {
     textAlign: 'center',
     fontWeight: '600',
@@ -109,6 +136,11 @@ export default memo(() => {
   const statusBarHeight = useStatusbarHeight()
   // 底部悬浮层（迷你播放器 + 底部 Tab + 安全区）统一避让高度
   const bottomInset = useBottomOverlayInset()
+  // 宽屏判定（iPad 竖屏 768+ / iPad 横屏右栏；iPhone 全系 < 700 不受影响）：
+  // 宽屏下「每日推荐 + 榜单」并排一行、榜单改两行网格、歌单卡加大 —— 单列布局
+  // 在大屏上内容高度只占屏幕一半上下，观感偏空（AGENTS.md 大屏规范：多列/分栏）。
+  const { width: winWidth } = useWindowDimensions()
+  const isWide = winWidth >= 700
   const t = useI18n()
   const sourceNameType = useSettingValue('common.sourceNameType')
   // 平台文案走全局语言包别名（source_${sourceNameType}_${source}），与歌单页等处的显示一致
@@ -278,7 +310,33 @@ export default memo(() => {
     [theme],
   )
 
-  const shelfData = playlists.slice(0, 12)
+  // 歌单横架数据：12 → 24（getList 第 1 页本身 ~30 条，不产生额外请求）。
+  // 大屏首屏可见卡数多（宽屏 168pt 卡 ≈ 每屏 5~6 张），12 张一滑到底显空。
+  const shelfData = useMemo(() => playlists.slice(0, 24), [playlists])
+  const shelfCardWidth = isWide ? 168 : 132
+
+  const renderBoardCard = useCallback((board: BoardItem, wide: boolean) => (
+    <TouchableOpacity
+      key={board.id}
+      style={{
+        ...styles.boardCard,
+        ...(wide ? styles.boardCardWide : null),
+        backgroundColor: theme['c-primary-light-900-alpha-200'],
+        borderColor: theme['c-border-background'],
+      }}
+      onPress={() => { handleOpenBoard(board) }}
+    >
+      <Icon name="leaderboard" size={18} color={theme['c-primary']} />
+      <Text
+        style={styles.boardName}
+        numberOfLines={2}
+        size={designTypography.caption}
+        color={theme['c-font']}
+      >
+        {board.name}
+      </Text>
+    </TouchableOpacity>
+  ), [theme, handleOpenBoard])
 
   return (
     <View style={styles.container}>
@@ -308,61 +366,74 @@ export default memo(() => {
           />
         </View>
 
-        {dailyRecNav ? (
-          <View style={styles.daily}>
-            <DailyRecommendCard
-              title={t('discovery_daily_title')}
-              subtitle={t('discovery_daily_subtitle')}
-              onPress={handleOpenDailyRec}
-            />
-          </View>
-        ) : null}
-
-        {boards.length ? (
-          <View style={styles.sectionGap}>
-            <Text
-              style={styles.sectionTitle}
-              size={designTypography.title}
-              color={theme['c-font']}
-            >
-              {t('nav_top')}
-            </Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              delaysContentTouches={false}
-              contentContainerStyle={styles.boardContent}
-            >
-              {boards.map((board) => (
-                <TouchableOpacity
-                  key={board.id}
-                  style={{
-                    ...styles.boardCard,
-                    backgroundColor: theme['c-primary-light-900-alpha-200'],
-                    borderColor: theme['c-border-background'],
-                  }}
-                  onPress={() => { handleOpenBoard(board) }}
+        {isWide ? (
+          // 宽屏（iPad 竖屏/横屏）：日推卡（左，垂直居中）与榜单两行网格（右）
+          // 并排一行，填补单列布局在大屏上的宽度留白；榜单铺 8 个（2×4），
+          // 全部榜单仍从底部 Tab「排行榜」进入
+          <View style={[styles.sectionGap, styles.wideRow]}>
+            {dailyRecNav ? (
+              <View style={styles.wideDaily}>
+                <DailyRecommendCard
+                  title={t('discovery_daily_title')}
+                  subtitle={t('discovery_daily_subtitle')}
+                  onPress={handleOpenDailyRec}
+                />
+              </View>
+            ) : null}
+            {boards.length ? (
+              <View style={styles.wideBoards}>
+                <Text
+                  style={styles.sectionTitle}
+                  size={designTypography.title}
+                  color={theme['c-font']}
                 >
-                  <Icon name="leaderboard" size={18} color={theme['c-primary']} />
-                  <Text
-                    style={styles.boardName}
-                    numberOfLines={2}
-                    size={designTypography.caption}
-                    color={theme['c-font']}
-                  >
-                    {board.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+                  {t('nav_top')}
+                </Text>
+                <View style={styles.boardGrid}>
+                  {boards.slice(0, 8).map((board) => renderBoardCard(board, true))}
+                </View>
+              </View>
+            ) : null}
           </View>
-        ) : null}
+        ) : (
+          <>
+            {dailyRecNav ? (
+              <View style={styles.daily}>
+                <DailyRecommendCard
+                  title={t('discovery_daily_title')}
+                  subtitle={t('discovery_daily_subtitle')}
+                  onPress={handleOpenDailyRec}
+                />
+              </View>
+            ) : null}
+
+            {boards.length ? (
+              <View style={styles.sectionGap}>
+                <Text
+                  style={styles.sectionTitle}
+                  size={designTypography.title}
+                  color={theme['c-font']}
+                >
+                  {t('nav_top')}
+                </Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  delaysContentTouches={false}
+                  contentContainerStyle={styles.boardContent}
+                >
+                  {boards.map((board) => renderBoardCard(board, false))}
+                </ScrollView>
+              </View>
+            ) : null}
+          </>
+        )}
 
         <View style={styles.sectionGap}>
           <HorizontalShelf
             title={t('discovery_playlists_title')}
             data={shelfData}
-            cardWidth={132}
+            cardWidth={shelfCardWidth}
             onPressItem={handleOpenDetail}
           />
         </View>

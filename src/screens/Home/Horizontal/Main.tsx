@@ -4,6 +4,7 @@ import SongList from '../Views/SongList'
 import Mylist from '../Views/Mylist'
 import Leaderboard from '../Views/Leaderboard'
 import Setting from '../Views/Setting'
+import Discovery from '../Views/Discovery'
 import commonState, { type InitState as CommonState } from '@/store/common/state'
 import DailyRec from '../Views/DailyRec'
 import TXDailyRec from '../Views/DailyRec/TXDailyRec'
@@ -62,6 +63,12 @@ const Main = () => {
 
   const component = useMemo(() => {
     switch (id) {
+      // 推荐（App 默认 tab）：此前漏了 case —— 竖屏停在推荐页转横屏时，
+      // navActiveId('nav_discovery') 落进 default 分支被渲染成搜索页。
+      // 横屏 index.tsx 的 PAGE_OWNED_HEADER_IDS 早已包含 nav_discovery
+      // （推荐页自带大标题、接管页头），此处补齐即恢复「转横屏保持推荐页」。
+      case 'nav_discovery':
+        return <Discovery />
       case 'nav_play_history':
         return <PlayHistory />
       case 'nav_daily_rec':

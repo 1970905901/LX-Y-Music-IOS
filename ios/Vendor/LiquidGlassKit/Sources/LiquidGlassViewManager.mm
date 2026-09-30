@@ -12,20 +12,27 @@
 //    **排除根契约**：捕获排除根 = 本宿主的 superview（= 玻璃 + 前景内容所在的内容
 //    容器，didMoveToSuperview 自动维护）——因此 <LiquidGlass> 必须是内容容器的
 //    **直接子元素**；若中间再包一层只装玻璃的 wrapper，前景会漏进捕获纹理（重影）。
-//    双形态背衬（liquid prop 切换，见 LGGlassViewFactory.swift）：
-//      - liquid = false（默认）：系统磨砂 —— iOS 26+ UIGlassEffect(.regular)、其余
-//        UIBlurEffect(.systemMaterial)，外加有上限的主题染色覆层；
-//      - liquid = true（全 iOS 版本生效）：vendored Metal 液态玻璃（DnV1eX/LiquidGlassKit
-//        核心效果：折射 + 边缘光 + 主题染色，连续渲染、逐帧捕获，与上游行为一致）。
-//        触摸眩光（touchPoint）只在此形态生效（磨砂形态不实现对应 selector，
-//        respondsToSelector 分流自然跳过）。
+//    双形态背衬 × 版本分档（liquid prop 切换，见 LGGlassViewFactory.swift）：
+//      - liquid = false（默认）：系统磨砂 —— **全版本统一** UIBlurEffect(.systemMaterial)
+//        外加有上限的主题染色覆层。26 的原生玻璃材质不走这条（那是系统液态观感，与
+//        「关 = 磨砂」的预期相悖；LGGlassMaterial.preferNativeGlassOnIOS26 = false）。
+//      - liquid = true（全 iOS 版本生效，按版本分两档）：
+//          · iOS 26.2 及以上：系统原生 UIGlassEffect(.regular)（同为 LGFrostedGlassView、
+//            useNativeGlass:true）—— 该档位的「专属磨砂」：系统合成零捕获成本，规避
+//            自研 Metal 在 26.2+/27 的跳动/闪烁/前景碎片问题链；
+//          · iOS 14～26.1：vendored Metal 液态玻璃（LiquidGlassEffectView，DnV1eX/
+//            LiquidGlassKit 核心效果：折射 + 边缘光 + 主题染色，连续渲染、逐帧捕获，
+//            与上游行为一致）。
+//        触摸眩光（touchPoint）只在 Metal 档生效：26.2+ 档的背衬是磨砂视图、不实现
+//        对应 selector，respondsToSelector 分流自然跳过。
 //  - The parent container should have `borderRadius` + `overflow: 'hidden'` (rounds the bar).
-//  - `tint` prop：染色基色（不透明主题色，明暗自适应）。两形态都吃：磨砂 → 覆层基色；
-//    液态 → shader materialTint。本应用不传（纯玻璃，不跟随主题色）：磨砂走中性覆层色
-//    （浅色白/深色黑），液态走 kit 预设动态色。
+//  - `tint` prop：染色基色（不透明主题色，明暗自适应）。两种背衬都吃：磨砂档与 26.2+
+//    的液态档 → 覆层基色；14～26.1 的液态档 → shader materialTint。本应用不传（纯玻璃，
+//    不跟随主题色）：磨砂型走中性覆层色（浅色白/深色黑），Metal 档走 kit 预设动态色。
 //  - `glassOpacity` prop：染色覆层的**用户值** 0~1（对应设置 theme.glassOpacity 0~100）。
-//    实际 alpha 由 LGGlassViewFactory 内的 maxTintAlpha(0.6) 封顶。仅磨砂形态生效
-//    （液态形态不实现 setGlassOpacity:，且设置 UI 在液态时隐藏该行）。
+//    实际 alpha 由 LGGlassViewFactory 内的 maxTintAlpha(0.6) 封顶。磨砂档与 26.2+ 的
+//    液态档生效（后者同为磨砂视图）；14～26.1 的液态档不实现 setGlassOpacity:，
+//    且设置 UI 在开关打开时隐藏该行。
 //  - 主题属性（tint/glassOpacity/dark）由宿主缓存：liquid 切换会重建背衬，
 //    RN 不会重推未变化的 prop，重建后由宿主重放（reapplyCachedPropsToBacking）。
 //
@@ -47,16 +54,18 @@
 // 玻璃背衬的可选定制入口（selector 是否存在由具体形态决定，宿主一律按
 // respondsToSelector 分流；经此 protocol 转型让 selector 对编译器可见——
 // 直接在 UIView* 上调用会报 "no visible @interface"，CI 曾因此编译失败）：
-//   - 磨砂 LGFrostedGlassView：setGlassOpacity: / setIsDarkMode:
-//     （液态形态的浓度/明暗由主题染色表达，不实现这两个 selector）
-//   - 液态 LiquidGlassEffectView：setTouchPoint: / clearTouchPoint:（触摸眩光）
+//   - LGFrostedGlassView：setGlassOpacity: / setIsDarkMode:
+//     （磨砂档，以及 **26.2+ 的液态档**——该档同为此视图、只是 useNativeGlass:true）
+//   - LiquidGlassEffectView：setTouchPoint: / clearTouchPoint:（触摸眩光，14～26.1 的
+//     液态档；该档的浓度/明暗由主题染色表达，不实现上面两个 selector）
 @protocol LGGlassBackingCustomizations <NSObject>
 @optional
 - (void)setGlassOpacity:(CGFloat)opacity;
 - (void)setIsDarkMode:(BOOL)dark;
 - (void)setTouchPoint:(CGPoint)point;
 - (void)clearTouchPoint;
-// 截背景时要隐藏的「玻璃组件根」：仅液态形态实现（磨砂无截背景机制）。
+// 截背景时要隐藏的「玻璃组件根」：仅 Metal 液态档实现（磨砂档与 26.2+ 的液态档
+// 都走系统材质，无截背景机制）。
 - (void)setCaptureExclusionView:(nullable UIView *)view;
 @end
 
@@ -75,9 +84,10 @@
 @end
 
 // Host view: an RCTView so all standard RN view props (borderRadius, overflow, pointerEvents,
-// opacity, shadow*) keep working; the glass backing（双形态，见 LGGlassViewFactory.swift：
-// 系统磨砂 / vendored Metal 液态玻璃，liquid prop 切换）sits inside a rounded clipping
-// container. LGGlassViewFactory selects the backing.
+// opacity, shadow*) keep working; the glass backing（双形态 × 版本分档，见
+// LGGlassViewFactory.swift：磨砂全版本 systemMaterial；开关打开的 26.2+ 走系统原生
+// UIGlassEffect(.regular)、14～26.1 走 vendored Metal，liquid prop 切换）sits inside a
+// rounded clipping container. LGGlassViewFactory selects the backing.
 // 主题属性（tint/glassOpacity/dark）缓存在宿主：liquid 切换会重建背衬，
 // RN 不会重推未变化的 prop，重建后由宿主重放（reapplyCachedPropsToBacking）。
 // 圆角曲线统一 circular（2026-09-29 定案「玻璃圆角与透镜一致」）：透镜
@@ -89,9 +99,11 @@
 // 注：不做按压玻璃形变——玻璃材质自带高对比边缘光，在裁剪容器内任何内缩都会让
 // 材质自身的边缘线在胶囊内露出（方角/底边/内缘线均源于此），已验证两次故整体移除。
 @interface LGLiquidGlassHostView : RCTView
-/** 实际玻璃材质视图（系统磨砂或 vendored Metal 液态玻璃），tint/触摸眩光作用于此 */
+/** 实际玻璃材质视图（磨砂 / 26.2+ 系统原生玻璃 / vendored Metal 液态玻璃），
+    tint 作用于此；触摸眩光仅 Metal 档（26.2+ 档为磨砂视图，无对应 selector） */
 @property (nonatomic, readonly) UIView *glassBacking;
-/// 切换磨砂 ↔ 液态背衬：按缓存的主题属性重建背衬（liquid 全版本生效，见工厂）
+/// 切换磨砂 ↔ 液态背衬：按缓存的主题属性重建背衬（liquid 全版本生效，见工厂；
+/// 26.2+ 的液态档同为磨砂视图、仅材质换成系统原生玻璃）
 - (void)applyLiquidMode:(BOOL)liquid;
 /// 以下为 RN prop 的宿主入口：更新缓存并应用到当前背衬（respondsToSelector 分流）
 - (void)applyTint:(UIColor *)tint;
@@ -101,7 +113,8 @@
 
 @implementation LGLiquidGlassHostView {
   // _glassView = 圆角裁剪容器（圆角作用层）；_glassBacking = 内部玻璃材质视图
-  // （系统磨砂 LGFrostedGlassView 或 vendored Metal LiquidGlassEffectView）。
+  // （磨砂档与 26.2+ 的液态档 = LGFrostedGlassView；14～26.1 的液态档 =
+  // vendored Metal LiquidGlassEffectView）。
   // 分两层：UIKit 官方推荐的圆角毛玻璃做法，圆角裁剪容器让玻璃形状与宿主完全一致。
   UIView *_glassView;
   UIView *_glassBacking;
@@ -161,7 +174,8 @@
   // 捕获时前景仍会被画进玻璃的背景捕获纹理，经 shader 降采样折射成重影/黑影
   // （真机 iOS 26.2+ 截图实锤：LX/歌词/Tab 图标全部重影）。隐藏父容器整树 =
   // 同时排除玻璃输出与前景。挂载前 superview 为空先退回宿主自身，didMoveToSuperview
-  // 挂载/重挂时自动改指父容器。磨砂形态不实现该 selector（respondsToSelector 分流）。
+  // 挂载/重挂时自动改指父容器。磨砂档与 26.2+ 的液态档（同为磨砂视图）不实现该
+  // selector（respondsToSelector 分流），二者都走系统材质、无捕获机制。
   id<LGGlassBackingCustomizations> backingForCapture = (id<LGGlassBackingCustomizations>)backing;
   if ([backingForCapture respondsToSelector:@selector(setCaptureExclusionView:)]) {
     [backingForCapture setCaptureExclusionView:self.superview ?: self];
@@ -171,15 +185,16 @@
 }
 
 // 把缓存的主题属性重放到当前背衬。各 apply* 方法内部按 respondsToSelector 分流：
-// 磨砂实现 setGlassOpacity:/setIsDarkMode:，液态不实现（液态的明暗/浓度由主题
-// 染色表达、设置 UI 已隐藏对应行）。
+// 磨砂档与 26.2+ 的液态档实现 setGlassOpacity:/setIsDarkMode:；14～26.1 的液态档
+// 不实现（该档的明暗/浓度由主题染色表达、设置 UI 已隐藏对应行）。
 - (void)reapplyCachedPropsToBacking {
   [self applyTint:_tint];
   [self applyGlassOpacity:_glassOpacity];
   [self applyDark:_dark];
 }
 
-// 切换磨砂 ↔ 液态背衬（liquid prop 驱动，全 iOS 版本实际切换）
+// 切换磨砂 ↔ 液态背衬（liquid prop 驱动，全 iOS 版本实际切换；26.2+ 的液态档
+// 换来的仍是磨砂视图——只是材质由 UIBlurEffect 变成系统原生玻璃，见工厂）
 - (void)applyLiquidMode:(BOOL)liquid {
   if (liquid == _liquid) return;
   _liquid = liquid;
@@ -232,6 +247,8 @@
 
 // touchPoint 眩光（kit 能力）：手指在栏体空白区域按下/移动时，玻璃高光跟随手指。
 // 触摸落在 tab 项/按钮上时由对应视图接管，此宿主收不到——效果为部分区域生效，可接受。
+// 仅 14～26.1 的液态档（Metal）有效：26.2+ 与磨砂档的背衬是磨砂视图、没有该 selector，
+// updateGlassTouchPoint 的 respondsToSelector 守卫直接返回。
 - (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
   [super touchesBegan:touches withEvent:event];
   [self updateGlassTouchPoint:touches.anyObject];
@@ -283,15 +300,17 @@ RCT_EXPORT_MODULE(LiquidGlassView)
 }
 
 // 主题染色：玻璃材质色跟随 App 主题（JS 传入主题氛围色 rgba 字符串）。
-// 磨砂 → 染色覆层基色；液态 → shader materialTint（工厂内分派）。
+// 磨砂档与 26.2+ 的液态档 → 染色覆层基色；14～26.1 的液态档 → shader materialTint
+// （工厂内按背衬类型分派）。
 RCT_CUSTOM_VIEW_PROPERTY(tint, NSString, LGLiquidGlassHostView) {
   if (json == nil) return;
   [view applyTint:[RCTConvert UIColor:json]];
 }
 
 // 染色覆层的**用户值**（0~1，对应设置 theme.glassOpacity 0~100）。
-// json 为 nil（prop 未传/重置）时回默认 0.4。仅磨砂形态生效；
-// 原生侧会再乘 maxTintAlpha(0.6) 封顶，见 LGGlassViewFactory.swift。
+// json 为 nil（prop 未传/重置）时回默认 0.4。磨砂档与 26.2+ 的液态档生效（前者的
+// 覆层、后者同为 LGFrostedGlassView）；14～26.1 的液态档不实现该 selector，且设置 UI
+// 在开关打开时隐藏该行。原生侧会再乘 maxTintAlpha(0.6) 封顶，见 LGGlassViewFactory.swift。
 RCT_CUSTOM_VIEW_PROPERTY(glassOpacity, NSNumber, LGLiquidGlassHostView) {
   [view applyGlassOpacity:(json != nil ? [json floatValue] : 0.4)];
 }
@@ -308,7 +327,8 @@ RCT_CUSTOM_VIEW_PROPERTY(dark, NSNumber, LGLiquidGlassHostView) {
 }
 
 // 液态玻璃开关（设置 theme.liquidGlass，全 iOS 版本实际生效）：
-// 切换时重建背衬（磨砂 ↔ vendored Metal 液态玻璃），缓存的主题属性由宿主重放。
+// 切换时重建背衬（磨砂 ↔ 26.2+ 的系统原生玻璃 / 14～26.1 的 vendored Metal 液态玻璃），
+// 缓存的主题属性由宿主重放。
 // json 为 nil（prop 未传/重置）时回磨砂。
 RCT_CUSTOM_VIEW_PROPERTY(liquid, NSNumber, LGLiquidGlassHostView) {
   [view applyLiquidMode:(json != nil ? [json boolValue] : NO)];

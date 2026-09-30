@@ -13,12 +13,16 @@ import { useSettingValue } from '@/store/setting/hook'
 import { navigations } from '@/navigation'
 import { PLAY_DETAIL_SCREEN } from '@/navigation/screenNames'
 import commonState from '@/store/common/state'
-import { useSafeAreaBottom } from '@/store/common/hook'
+import { useSafeAreaBottom, useScreenCovered } from '@/store/common/hook'
 import { usePlayerMusicInfo } from '@/store/player/hook'
 import { designRadius, designSpacing, bottomFloatGap } from '@/theme/DesignTokens'
 import LiquidGlass from '@/components/common/LiquidGlass'
 
-export default memo(({ componentId: _componentId, isHome = false }: { componentId?: string, isHome?: boolean }) => {
+export default memo(({ componentId, isHome = false }: { componentId?: string, isHome?: boolean }) => {
+  // 省电门：本屏被压栈页覆盖（栈顶不是本屏）时暂停玻璃 Metal 渲染循环。
+  // PlayerBar 多屏复用（Home / 专辑页 / 歌手页…），按各自 componentId 判定；
+  // 调用方未传 componentId 时恒不门控（行为同旧版）。
+  const screenCovered = useScreenCovered(componentId)
   const { keyboardShown } = useKeyboard()
   const isHorizontalMode = useHorizontalMode()
   const theme = useTheme()
@@ -100,7 +104,7 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
             style={styles.container}
             onLayout={(e) => { setMiniPlayerHeight(e.nativeEvent.layout.height) }}
           >
-            <LiquidGlass glassOpacity={glassOpacity} dark={theme.isDark} liquid={liquidGlassOn} style={{ borderRadius: designRadius.glass }} />
+            <LiquidGlass glassOpacity={glassOpacity} dark={theme.isDark} liquid={liquidGlassOn} paused={screenCovered} style={{ borderRadius: designRadius.glass }} />
             <TouchableOpacity style={styles.left} onPress={handleNavigate} activeOpacity={0.8}>
               <Pic />
               <View style={styles.center}>
@@ -115,7 +119,7 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
         </Animated.View>
       )
     },
-    [glassOpacity, liquidGlassOn, theme.isDark, isHome, handleNavigate, safeAreaBottom, isHorizontalMode, collapseAnim],
+    [glassOpacity, liquidGlassOn, screenCovered, theme.isDark, isHome, handleNavigate, safeAreaBottom, isHorizontalMode, collapseAnim],
   )
 
   return keyboardShown ? null : playerComponent

@@ -37,6 +37,13 @@ type LiquidGlassProps = ViewProps & {
    * （原生 26.2+ 的液态分支 = UIGlassEffect(.regular)，白底/图底切换闪烁）。
    */
   liquid?: boolean
+  /**
+   * 省电门（2026-09-30）：玻璃组件所在屏幕被压栈页**完全覆盖**时传 true，
+   * 原生暂停 Metal 逐帧渲染（MTKView.isPaused）——不可见期间的纯功耗，返回该屏
+   * 即恢复、下一帧重捕获背景无残帧。磨砂档（26.2+ / 开关关）原生 no-op。
+   * 判定用 useHomeCovered / useScreenCovered（store/common/hook），不要手写。
+   */
+  paused?: boolean
 }
 
 /**
@@ -71,7 +78,7 @@ const DARK_OVERLAY_FLOOR_USER = 0.2 / 0.6
  * 父容器需设置 `borderRadius` + `overflow: 'hidden'` 裁出圆角形状，
  * 内容子元素渲染在其上层。原生的 userInteractionEnabled 已关闭，触摸全部穿透。
  */
-const LiquidGlass = memo(({ tint, glassOpacity = 0.4, dark = false, liquid = false, style }: LiquidGlassProps) => {
+const LiquidGlass = memo(({ tint, glassOpacity = 0.4, dark = false, liquid = false, paused = false, style }: LiquidGlassProps) => {
   // 26.2+ 强制磨砂兜底（2026-09-30 定案）：UIGlassEffect(.regular) 在白底/图底
   // 页面切换瞬间闪烁，液态玻璃开关已在 26.2+ 从设置页隐藏。业务层已在各消费点
   // 门控（ModernTabBar / PlayerBar），此处兜底保证**任何**调用方漏门控（残留的
@@ -100,6 +107,7 @@ const LiquidGlass = memo(({ tint, glassOpacity = 0.4, dark = false, liquid = fal
       glassOpacity={effectiveGlassOpacity}
       dark={dark}
       liquid={effectiveLiquid}
+      paused={paused}
       tint={nativeTint}
       pointerEvents="none"
     />

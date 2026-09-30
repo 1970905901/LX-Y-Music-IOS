@@ -305,11 +305,116 @@ const runCounterExamples = () => {
 }
 
 // ---------------------------------------------------------------------------
+// 玻璃「覆盖暂停」链路（2026-09-30 新增）：不可见的 MTKView 不得逐帧渲染
+// ---------------------------------------------------------------------------
+
+const GLASS_FILES = {
+  effectView: 'ios/Vendor/LiquidGlassKit/Sources/LiquidGlassEffectView.swift',
+  manager: 'ios/Vendor/LiquidGlassKit/Sources/LiquidGlassViewManager.mm',
+  comp: 'src/components/common/LiquidGlass.tsx',
+  tabbar: 'src/components/layout/ModernTabBar.tsx',
+  playerbar: 'src/components/player/PlayerBar/index.tsx',
+  hookCommon: 'src/store/common/hook.ts',
+  playingIcon: 'src/components/common/PlayingIcon.tsx',
+}
+
+const readGlass = (over = {}) => {
+  const files = {}
+  for (const [k, p] of Object.entries(GLASS_FILES)) {
+    files[k] = over[k] ?? read(p)
+  }
+  return files
+}
+
+const pausedInvariants = (files) => {
+  const reasons = []
+  // ① 原生入口：EffectView.setPaused 转发 MTKView.isPaused
+  if (!/@objc\s+public\s+func\s+setPaused\(_\s+paused:\s*Bool\)/.test(files.effectView)) {
+    reasons.push('LiquidGlassEffectView 缺 setPaused:（省电门无原生入口）')
+  }
+  if (!/liquidGlassView\?\.isPaused\s*=\s*paused/.test(files.effectView)) {
+    reasons.push('setPaused: 未落到 MTKView.isPaused（暂停不生效）')
+  }
+  // ② manager：protocol 声明 + host applyPaused:（respondsToSelector 分流）+ 缓存重放 + prop
+  if (!/- \(void\)setPaused:\(BOOL\)paused;/.test(files.manager)) {
+    reasons.push('LGGlassBackingCustomizations 缺 setPaused: 声明（磨砂档无分流依据）')
+  }
+  if (!/- \(void\)applyPaused:\(BOOL\)paused/.test(files.manager)) {
+    reasons.push('宿主缺 applyPaused:（缓存 + respondsToSelector 分流）')
+  }
+  // 定位 reapply 函数【定义体】（不能 indexOf 首次出现——installGlassBacking 里
+  // 的调用处在定义之前，从那里 +400 字符看不到 applyPaused）
+  const reapplyAt = files.manager.indexOf('- (void)reapplyCachedPropsToBacking')
+  if (reapplyAt < 0 || !/applyPaused:_paused/.test(files.manager.slice(reapplyAt, reapplyAt + 400))) {
+    reasons.push('reapplyCachedPropsToBacking 未重放 paused（覆盖下切液态开关会丢暂停态、恢复渲染）')
+  }
+  if (!/RCT_CUSTOM_VIEW_PROPERTY\(paused,\s*NSNumber,\s*LGLiquidGlassHostView\)/.test(files.manager)) {
+    reasons.push('manager 缺 paused prop（JS 门控传不到原生）')
+  }
+  // ③ JS 组件：paused 声明 + 透传
+  if (!/paused\?\s*:\s*boolean/.test(files.comp)) {
+    reasons.push('LiquidGlass.tsx 缺 paused prop 声明')
+  }
+  if (!/paused=\{paused\}/.test(files.comp)) {
+    reasons.push('LiquidGlass.tsx 未透传 paused（声明了但没接）')
+  }
+  // ④ 消费点：TabBar 按全局 Home 判定；PlayerBar 按所属屏幕 componentId 判定
+  if (!/useHomeCovered\(\)/.test(files.tabbar) || !/paused=\{homeCovered\}/.test(files.tabbar)) {
+    reasons.push('ModernTabBar 未接 paused={homeCovered}（Tab 栏玻璃被覆盖时仍逐帧渲染）')
+  }
+  if (!/useScreenCovered\(componentId\)/.test(files.playerbar) || !/paused=\{screenCovered\}/.test(files.playerbar)) {
+    reasons.push('PlayerBar 未接 paused={screenCovered}（迷你条玻璃被覆盖时仍逐帧渲染）')
+  }
+  // ⑤ 覆盖判定 hook 本体
+  if (!/export const useHomeCovered/.test(files.hookCommon) || !/export const useScreenCovered/.test(files.hookCommon)) {
+    reasons.push('store/common/hook 缺 useHomeCovered / useScreenCovered（覆盖判定无从派生）')
+  }
+  // ⑥ PlayingIcon（列表「正在播放」循环动画）必须有覆盖门控
+  if (!/isPlay\s*&&\s*!homeCovered/.test(files.playingIcon)) {
+    reasons.push('PlayingIcon 缺覆盖门控（Home 被覆盖时循环动画仍每帧驱动）')
+  }
+  return reasons
+}
+
+const runPausedCounterExamples = () => {
+  const results = []
+  const check = (name, files, expectSubstr) => {
+    const hits = pausedInvariants(files)
+    results.push({ name, ok: hits.some(r => r.includes(expectSubstr)), detail: hits })
+  }
+  // P1 抹掉原生入口
+  check('P1 EffectView 抹掉 setPaused', readGlass({
+    effectView: read(GLASS_FILES.effectView).replace(/@objc public func setPaused\(_ paused: Bool\) \{[\s\S]*?\n    \}/, ''),
+  }), '缺 setPaused:')
+  // P2 抹掉 paused prop
+  check('P2 manager 抹掉 paused prop', readGlass({
+    manager: read(GLASS_FILES.manager).replace('RCT_CUSTOM_VIEW_PROPERTY(paused, NSNumber, LGLiquidGlassHostView) {', 'REMOVED(paused, NSNumber, LGLiquidGlassHostView) {'),
+  }), '缺 paused prop')
+  // P3 抹掉重放（覆盖下切开关丢暂停态）
+  check('P3 manager 抹掉 paused 重放', readGlass({
+    manager: read(GLASS_FILES.manager).replace('[self applyPaused:_paused];', ''),
+  }), '未重放 paused')
+  // P4 JS 未透传
+  check('P4 LiquidGlass 抹掉透传', readGlass({
+    comp: read(GLASS_FILES.comp).replace('paused={paused}', 'removedX={paused}'),
+  }), '未透传 paused')
+  // P5 消费点脱钩
+  check('P5 TabBar 抹掉 paused', readGlass({
+    tabbar: read(GLASS_FILES.tabbar).replace(/paused=\{homeCovered\}/g, 'removedX={homeCovered}'),
+  }), 'ModernTabBar 未接')
+  check('P6 PlayingIcon 恢复无条件动画', readGlass({
+    playingIcon: read(GLASS_FILES.playingIcon).replace('const active = isPlay && !homeCovered', 'const active = isPlay'),
+  }), 'PlayingIcon 缺覆盖门控')
+  return results
+}
+
+// ---------------------------------------------------------------------------
 // 主流程
 // ---------------------------------------------------------------------------
 
 const realNative = nativeInvariants(REAL.appdel)
 const realJs = jsInvariants(REAL.playProgress)
+const realPaused = pausedInvariants(readGlass())
 
 console.log('=== sim-power-drain ===')
 console.log('\n[原生 AppDelegate.mm]')
@@ -320,14 +425,19 @@ console.log('\n[JS playProgress.ts]')
 if (realJs.ok) console.log('  PASS 后台守卫齐备')
 else realJs.reasons.forEach(r => console.log('  FAIL ' + r))
 
+console.log('\n[玻璃覆盖暂停链路（前台省电）]')
+if (realPaused.length === 0) console.log('  PASS paused 链路 8 文件贯通（EffectView/manager/组件/消费点/hook/图标）')
+else realPaused.forEach(r => console.log('  FAIL ' + r))
+
 console.log('\n[反例自检]')
 const ceResults = runCounterExamples()
+const peResults = runPausedCounterExamples()
 let ceAllOk = true
-for (const r of ceResults) {
-  console.log(`  ${r.ok ? 'PASS' : 'FAIL'} ${r.name} —— ${r.detail}`)
+for (const r of [...ceResults, ...peResults]) {
+  console.log(`  ${r.ok ? 'PASS' : 'FAIL'} ${r.name} —— ${r.ok ? '已拦下' : `未拦下（reasons=${JSON.stringify(r.detail)}）`}`)
   if (!r.ok) ceAllOk = false
 }
 
-const allOk = realNative.ok && realJs.ok && ceAllOk
-console.log(`\n结果：${allOk ? 'ALL PASS' : '有失败项'}（不变量 ${realNative.ok && realJs.ok ? '2/2' : '有失败'}；反例 ${ceResults.filter(r => r.ok).length}/${ceResults.length}）`)
+const allOk = realNative.ok && realJs.ok && realPaused.length === 0 && ceAllOk
+console.log(`\n结果：${allOk ? 'ALL PASS' : '有失败项'}（不变量 ${realNative.ok && realJs.ok && realPaused.length === 0 ? '3/3' : '有失败'}；反例 ${[...ceResults, ...peResults].filter(r => r.ok).length}/${ceResults.length + peResults.length}）`)
 process.exit(allOk ? 0 : 1)

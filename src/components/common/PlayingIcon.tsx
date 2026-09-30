@@ -2,9 +2,15 @@ import { useEffect, useRef } from 'react'
 import { Animated, View } from 'react-native'
 import { createStyle } from '@/utils/tools'
 import { useIsPlay } from '@/store/player/hook'
+import { useHomeCovered } from '@/store/common/hook'
 
 export default ({ color = '#1cd0a6' }: { color?: string }) => {
   const isPlay = useIsPlay()
+  // 省电门（2026-09-30）：本图标只用于 Home 内列表的「正在播放」行。Home 被压栈页
+  // （播放详情等）覆盖时整棵列表不可见，循环动画仍在每帧驱动 —— 不可见即停，
+  // 返回 Home 后 effect 依 isPlay/covered 变化自动重启，无观感差异。
+  const homeCovered = useHomeCovered()
+  const active = isPlay && !homeCovered
   const anim1 = useRef(new Animated.Value(0.3)).current
   const anim2 = useRef(new Animated.Value(0.8)).current
   const anim3 = useRef(new Animated.Value(0.5)).current
@@ -16,7 +22,7 @@ export default ({ color = '#1cd0a6' }: { color?: string }) => {
     let a3: Animated.CompositeAnimation
     let a4: Animated.CompositeAnimation
 
-    if (isPlay) {
+    if (active) {
       const createAnimation = (anim: Animated.Value, duration: number, delay: number = 0) => {
         return Animated.loop(
           Animated.sequence([
@@ -62,7 +68,7 @@ export default ({ color = '#1cd0a6' }: { color?: string }) => {
       a3?.stop()
       a4?.stop()
     }
-  }, [isPlay, anim1, anim2, anim3, anim4])
+  }, [active, anim1, anim2, anim3, anim4])
 
   return (
         <View style={styles.container}>

@@ -111,6 +111,17 @@ public class LiquidGlassEffectView: UIView, AnyVisualEffectView {
         liquidGlassView?.captureExclusionView = view
     }
 
+    /// RN bridge entry: pause/resume the Metal render loop (`MTKView.isPaused`).
+    /// Power-saving gate (2026-09-30): the JS side sets paused=true while the glass
+    /// widget is fully covered by a pushed screen — the widget cannot be seen then,
+    /// so pausing the per-frame draw has no visible effect; resume is immediate and
+    /// the next draw re-captures the backdrop (no stale frame). Only the vendored
+    /// Metal band carries a render loop; the frosted backing has no such selector
+    /// and the manager skips it via respondsToSelector.
+    @objc public func setPaused(_ paused: Bool) {
+        liquidGlassView?.isPaused = paused
+    }
+
     /// RN bridge entry: 手指位置驱动的眩光（玻璃坐标系）；越界/停止时调 clearTouchPoint 清除
     @objc public func setTouchPoint(_ point: CGPoint) {
         liquidGlassView?.touchPoint = point

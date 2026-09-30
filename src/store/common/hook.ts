@@ -1,4 +1,4 @@
-import { type COMPONENT_IDS } from '@/config/constant'
+import { COMPONENT_IDS } from '@/config/constant'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import state, { type InitState } from './state'
 
@@ -78,6 +78,30 @@ export const useComponentIds = () => {
   }, [])
 
   return value
+}
+
+/**
+ * Home 是否被压栈页（播放详情 / 设置详情 / 歌单详情等）**完全覆盖**（不可见）。
+ * componentIds 是 RNN 栈内组件列表（底→顶），Home 在栈底：顶层不是 home 即被
+ * 覆盖。用于「不可见即省电」——暂停 Home 内玻璃的 Metal 渲染循环与装饰动画，
+ * 返回 Home 时恢复（原生下一帧重捕获背景，无残帧）。
+ * ⚠️ 只用于「挂在 Home 内」的组件；独立屏幕（专辑页等）用 useScreenCovered。
+ */
+export const useHomeCovered = () => {
+  const ids = useComponentIds()
+  return ids.length > 0 && String(ids[ids.length - 1]?.name) !== COMPONENT_IDS.home
+}
+
+/**
+ * 「传入 componentId 的屏幕」是否被压栈页覆盖：栈顶不是自己即被覆盖。
+ * componentId 未知（调用方未传）时恒 false（不门控，行为与旧版一致）——
+ * 用于 PlayerBar 这类多屏复用组件：Home 实例传 home 的 id，专辑页实例
+ * 不传则不做省电门控。配合 <LiquidGlass paused> 实现不可见即暂停渲染。
+ */
+export const useScreenCovered = (componentId?: string) => {
+  const ids = useComponentIds()
+  if (!componentId) return false
+  return String(ids[ids.length - 1]?.id) !== String(componentId)
 }
 
 const hasVisible = (visibleNames: COMPONENT_IDS[], ids: InitState['componentIds']) => {

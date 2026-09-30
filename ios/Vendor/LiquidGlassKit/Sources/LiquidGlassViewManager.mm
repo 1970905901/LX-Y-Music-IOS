@@ -67,6 +67,10 @@
 // 截背景时要隐藏的「玻璃组件根」：仅 Metal 液态档实现（磨砂档与 26.2+ 的液态档
 // 都走系统材质，无截背景机制）。
 - (void)setCaptureExclusionView:(nullable UIView *)view;
+// 省电门（2026-09-30）：暂停/恢复 Metal 渲染循环（MTKView.isPaused）。仅 Metal
+// 液态档实现——JS 在玻璃组件被压栈页完全覆盖（不可见）时置 true，期间停止逐帧
+// draw；恢复后下一帧自动重捕获背景，无残帧。磨砂档不实现（respondsToSelector 分流）。
+- (void)setPaused:(BOOL)paused;
 @end
 
 // 自研 LiquidLensView（液态透镜，LiquidGlassView(.lens) 引擎）的定制入口：
@@ -122,6 +126,7 @@
   // （RN 只推送变化的 prop，未变化的不会自动重发，必须由宿主重放）。
   BOOL _liquid;
   BOOL _dark;
+  BOOL _paused;
   CGFloat _glassOpacity;
   UIColor *_tint;
 }
@@ -191,6 +196,9 @@
   [self applyTint:_tint];
   [self applyGlassOpacity:_glassOpacity];
   [self applyDark:_dark];
+  // 省电门不是 backing 持有的持久语义（MTKView 属性随背衬重建重置）：
+  // 覆盖状态下切液态开关重建背衬，重放 _paused 让新背衬立即回到暂停态。
+  [self applyPaused:_paused];
 }
 
 // 切换磨砂 ↔ 液态背衬（liquid prop 驱动，全 iOS 版本实际切换；26.2+ 的液态档
@@ -220,6 +228,17 @@
   id<LGGlassBackingCustomizations> backing = (id<LGGlassBackingCustomizations>)_glassBacking;
   if ([backing respondsToSelector:@selector(setIsDarkMode:)]) {
     [backing setIsDarkMode:_dark];
+  }
+}
+
+// 省电门：暂停/恢复 Metal 渲染循环。仅 Metal 液态档实现 setPaused:（磨砂档/
+// 26.2+ 液态档是系统材质视图，respondsToSelector 分流后 no-op）。paused 状态由
+// JS 按「玻璃所在屏幕是否为栈顶」驱动，被覆盖期间零逐帧 draw。
+- (void)applyPaused:(BOOL)paused {
+  _paused = paused;
+  id<LGGlassBackingCustomizations> backing = (id<LGGlassBackingCustomizations>)_glassBacking;
+  if ([backing respondsToSelector:@selector(setPaused:)]) {
+    [backing setPaused:_paused];
   }
 }
 
@@ -332,6 +351,13 @@ RCT_CUSTOM_VIEW_PROPERTY(dark, NSNumber, LGLiquidGlassHostView) {
 // json 为 nil（prop 未传/重置）时回磨砂。
 RCT_CUSTOM_VIEW_PROPERTY(liquid, NSNumber, LGLiquidGlassHostView) {
   [view applyLiquidMode:(json != nil ? [json boolValue] : NO)];
+}
+
+// 省电门（JS 传「玻璃所在屏幕是否被压栈页覆盖」）：覆盖期间暂停 Metal 逐帧渲染，
+// 返回该屏时立即恢复（MTKView 下一帧重捕获背景，无残帧）。磨砂档 no-op。
+// json 为 nil（prop 未传/重置）时回 NO（渲染）。
+RCT_CUSTOM_VIEW_PROPERTY(paused, NSNumber, LGLiquidGlassHostView) {
+  [view applyPaused:(json != nil ? [json boolValue] : NO)];
 }
 
 @end

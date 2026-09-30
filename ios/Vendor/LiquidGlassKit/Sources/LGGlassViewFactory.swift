@@ -16,9 +16,17 @@
 //      统一，26+ 不用 UIGlassEffect——那是系统液态玻璃观感）+ 有上限的主题染色覆层。
 //      系统合成，无逐帧捕获成本。
 //
-//  液态形态的性能与省电由 vendored kit 内建机制保障（当年 Metal 实测沉淀的修复，
-//  随 vendored 源码一并生效）：按需渲染（静止暂停 MTKView，JS 脉冲/挂载窗/手势三源
-//  驱动）、滚动冻结、多实例错峰捕获、玻璃互捕黑影排除、CABackdropLayer 缺失降级。
+//  液态形态的性能与省电现状（2026-09-30 核实并纠偏——本注释曾描述「按需渲染/
+//  滚动冻结/三源脉冲」的旧省电层，该层已随 a55e3b1 移除，勿再引用）：
+//    - 渲染：MTKView 连续渲染（isPaused=false），与上游一致；26.2+ 整树截图路径
+//      有 33ms 全局捕获节流（LiquidGlassView.globalLastCaptureAt），14~26.1 走
+//      CABackdropLayer 系统合成、无逐帧截图成本；
+//    - 省电门（2026-09-30 新增，本 fork 定制）：宿主 paused prop → MTKView.isPaused，
+//      JS 在玻璃组件被压栈页完全覆盖（不可见）时暂停、返回即恢复——不改变任何
+//      可见观感，见 LiquidGlassEffectView.setPaused 与 LiquidGlassViewManager 的
+//      paused prop（宿主缓存重放，覆盖状态下切开关不丢暂停态）；
+//    - 仍在的修复：玻璃互捕黑影排除（captureExclusionView）、CABackdropLayer
+//      缺失降级。
 //
 //  历史（改本文件前必读）：自研 Metal 路径曾在 5ef29a8 整体下线（「逐帧整窗捕获
 //  对主线程的压力与实时性无法兼得」），随后经历纯染色覆层（73c2e9c）与系统磨砂

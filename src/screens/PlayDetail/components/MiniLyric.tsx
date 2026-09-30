@@ -15,8 +15,13 @@ import { useWindowSize } from '@/utils/hooks'
 // 底、压到下方控制条）。故小屏降级为「只显示当前行」，但字号仍比原先放大。
 const NEIGHBOR_LINE_COUNT = 1
 const SMALL_WINDOW_HEIGHT = 700
-// 行与行之间的额外间距（相邻行/翻译行的 marginTop）。放大字号后原值 2pt 过于紧凑，
-// 三行挤在一起可读性差，故加大到 8pt；小屏行数少、空间紧张，用较小的 6pt。
+// 行与行之间的额外间距。放大字号后原值 2pt 过于紧凑，三行挤在一起可读性差，故加大到 8pt；
+// 小屏行数少、空间紧张，用较小的 6pt。
+//
+// ⚠️ 这份间距必须挂在**间隙下边那一行**上（current / 翻译 / next 各挂一份，prev 不挂）。
+// 历史 bug（2026-09-30 修）：原本只挂在 prev / 翻译 / next 上 —— prev 那份落在**整个块的
+// 顶部**（被 paddingVertical 吃掉），于是 prev ↔ current 之间是 **0pt**、current ↔ next 之间
+// 是 8pt。用户截图实测两处墨迹间距 6.2pt vs 14.1pt，差 7.9pt ≈ 一份 marginTop，正是这个。
 const LINE_GAP_NORMAL = 8
 const LINE_GAP_SMALL = 6
 
@@ -52,11 +57,11 @@ const MiniLyric = ({ onPress, style }: { onPress?: () => void, style?: any }) =>
 
   const activeColor = theme.isDark ? theme['c-font'] : theme['c-primary']
   const inactiveColor = theme['c-font-label']
-  // 容器与行内样式用 useMemo 缓存，避免每次渲染生成新对象（对齐项目样式规范）。
-  const contentStyle = useMemo<StyleProp<TextStyle>>(() => ({ textAlign }), [textAlign])
-  // 相邻行与翻译行都用同款次级行样式。
-  // 行间距（marginTop）需明显大于字号自带的行距，否则放大后三行仍会挤成一团。
   const lineGap = isSmallWindow ? LINE_GAP_SMALL : LINE_GAP_NORMAL
+  // 容器与行内样式用 useMemo 缓存，避免每次渲染生成新对象（对齐项目样式规范）。
+  // prev 行**不带** marginTop；current / 翻译 / next 各带一份 ⇒ 两个间隙各得一份（见文件头说明）。
+  const prevStyle = useMemo<StyleProp<TextStyle>>(() => ({ textAlign }), [textAlign])
+  const contentStyle = useMemo<StyleProp<TextStyle>>(() => ({ textAlign, marginTop: lineGap }), [textAlign, lineGap])
   const subLineStyle = useMemo<StyleProp<TextStyle>>(() => ({ textAlign, marginTop: lineGap }), [textAlign, lineGap])
   // 空占位必须用不换行空格：RN 里空字符串的 <Text> 高度为 0，起不到占位作用。
   const BLANK = '\u00A0'
@@ -75,13 +80,13 @@ const MiniLyric = ({ onPress, style }: { onPress?: () => void, style?: any }) =>
             <Text
               size={font.neighbor}
               color={inactiveColor}
-              style={subLineStyle}
+              style={prevStyle}
               numberOfLines={1}
             >
               {prevLine ?? BLANK}
             </Text>
           )}
-          {/* 当前行：字号最大、用主色高亮 */}
+          {/* 当前行：字号最大、用主色高亮；行距挂在这一行上（见文件头说明） */}
           <Text
             size={font.current}
             color={activeColor}
@@ -116,7 +121,7 @@ const MiniLyric = ({ onPress, style }: { onPress?: () => void, style?: any }) =>
         // 导致封面页整体布局在进页面瞬间跳动（space-between 下中缝会跟着变）。
         <View>
           {showNeighbor && (
-            <Text size={font.neighbor} color={inactiveColor} style={subLineStyle} numberOfLines={1}>
+            <Text size={font.neighbor} color={inactiveColor} style={prevStyle} numberOfLines={1}>
               {BLANK}
             </Text>
           )}

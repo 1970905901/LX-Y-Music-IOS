@@ -33,6 +33,16 @@ const hideKeys = ['list.isShowAlbumName', 'list.isShowInterval'] as Readonly<
 Array<keyof LX.AppSetting>
 >
 
+/**
+ * PagerView 兜底重建的会话上限。
+ * 背景：后台恢复后原生 pager 可能失效（setPage* 变空操作），而首页 disable 了横向滑动，
+ * 页面只能靠 JS 切页 → 点了按钮没反应。重试链全失败时换 key 重建原生实例来修复。
+ * 每次重建都会重挂载整棵页面树（各页丢失滚动位置与本地 state），故设上限 + 防抖：
+ * 只当"确实坏了"才修，且修不好也不要被连点拖成反复重建。
+ */
+const MAX_PAGER_REBUILDS = 3
+const PAGER_REBUILD_DEBOUNCE_MS = 3000
+
 const SearchPage = () => (
   useHomeLazyPage('nav_search', () => <Search />)
 )
@@ -231,8 +241,25 @@ const Main = () => {
   // “index out of bounds” 崩溃（release 下表现为整个 App 白屏）。用 key 让
   // 页面集变化时整体重建 PagerView 实例，initialPage 直接落到当前页，彻底避开该竞争。
   const pagerKey = useMemo(() => `flat|${visibleNavs.map(n => n.id).join('|')}`, [visibleNavs])
-  // remount 时的初始页：以当前导航 id 在新顺序中的位置为准
-  const initialPageIndex = useMemo(() => viewMap[commonState.navActiveId] ?? 0, [viewMap])
+  // ---- PagerView 实例兜底重建（2026-09-30）----
+  // 场景：播放中把 App 放后台一段时间再回前台，iOS 会回收/重建 PagerView 的原生子视图，
+  // 此后所有 setPage* 都变成空操作。而首页横向滑动是关闭的（scrollEnabled=false），
+  // 页面**只能**靠 JS 切 → 表现为「点榜单卡片/平台按钮没反应，列表照样能上下滚」。
+  // （core/common.ts 的 forceSyncNavActiveId 注释记录的正是这个场景，那次补的是
+  //  「再下发一次 setPage」；原生实例真失效时 setPage 再发也是空操作，所以仍无效。）
+  // 兜底：重试链全部失败（原生始终没回报到达目标页）时换 key 重建实例，
+  // initialPage 直接落到目标页。只在"已经坏掉"的路径上触发，正常切页零影响。
+  const [pagerRebuild, setPagerRebuild] = useState(0)
+  const rebuildTargetRef = useRef<number | null>(null)
+
+  // remount 时的初始页：优先用兜底重建请求记录的目标页（原生已失效时，navActiveId 与
+  // 界面落点已经对不上，只有这个记录是可靠的），其次按当前导航 id 在新顺序中的位置。
+  // 依赖 pagerRebuild：重建后必须重算，否则 initialPage 还是旧值、重建也落错页。
+  const initialPageIndex = useMemo(() => {
+    const target = rebuildTargetRef.current
+    if (pagerRebuild > 0 && target != null && target >= 0 && target < visibleNavs.length) return target
+    return viewMap[commonState.navActiveId] ?? 0
+  }, [viewMap, visibleNavs.length, pagerRebuild])
 
   // pager 的原生真实落点（仅 onPageSelected 更新）与切换重试定时器。
   // 原生偶发丢弃 setPageWithoutAnimation（busy 竞争，无 onPageSelected 回调）时，
@@ -257,6 +284,24 @@ const Main = () => {
     }, 0)
   }
 
+  // ---- 兜底重建的执行体（状态声明见上，须先于 initialPageIndex）----
+  const rebuildCountRef = useRef(0)
+  const lastRebuildAtRef = useRef(0)
+  const repairPager = useCallback((index: number) => {
+    const now = Date.now()
+    // 防抖 + 上限：连点或走多个入口时不重复重建；一次会话最多 3 次，
+    // 避免"重建也没修好"时被用户连点触发连续重建（每次都会重挂载整棵页面树）。
+    if (now - lastRebuildAtRef.current < PAGER_REBUILD_DEBOUNCE_MS) return
+    if (rebuildCountRef.current >= MAX_PAGER_REBUILDS) return
+    rebuildCountRef.current += 1
+    lastRebuildAtRef.current = now
+    rebuildTargetRef.current = index
+    // 新实例挂载前后的这段窗口里，原生落点未知：置 -1 让守卫的乐观短路全部失效
+    observedIndexRef.current = -1
+    activeIndexRef.current = index
+    setPagerRebuild(v => v + 1)
+  }, [])
+
   const onPageSelected = useCallback(({ nativeEvent }: PagerViewOnPageSelectedEvent) => {
     activeIndexRef.current = nativeEvent.position
     // observedIndex 只在原生回调里更新，反映 pager 的真实落点——区别于
@@ -264,6 +309,8 @@ const Main = () => {
     // setPageWithoutAnimation（busy 竞争，无 onPageSelected 回调）时，靠它
     // 识别「切换未生效」并重试，否则再次点击同一按钮会被守卫跳过、永久无响应。
     observedIndexRef.current = nativeEvent.position
+    // 原生已回报落点 ⇒ 兜底重建的"目标页"使命结束，后续 remount 回到常规口径
+    rebuildTargetRef.current = null
     if (pageRetryTimerRef.current) {
       clearTimeout(pageRetryTimerRef.current)
       pageRetryTimerRef.current = null
@@ -394,6 +441,10 @@ const Main = () => {
             if (observedIndexRef.current === index) return
             pagerViewRef.current?.setPage(index)
             if (attempt < 2) armRetry(500, attempt + 1)
+            // 两次重试都换不来 onPageSelected 回执（原生落点既非目标、也不回执）：
+            // 判定为「原生 pager 实例已失效」，setPage 再发也是空操作 —— 重建实例。
+            // 时序：点击 → 0/400/900ms 三次 setPage → 约 1.4s 后重建并落到目标页。
+            else repairPager(index)
           }, delay)
         }
         armRetry(400, 1)
@@ -408,7 +459,7 @@ const Main = () => {
         pageRetryTimerRef.current = null
       }
     }
-  }, [viewMap, visibleNavs])
+  }, [viewMap, visibleNavs, repairPager])
 
   const pages = useMemo(() => {
     const pageComponents: Partial<Record<NAV_ID_Type, ReactNode>> = {
@@ -440,7 +491,9 @@ const Main = () => {
   return (
     <View style={styles.container}>
       <PagerView
-        key={pagerKey}
+        // pagerRebuild：兜底重建计数。原生实例在后台恢复后可能失效（见 repairPager 注释），
+        // 换 key 让 RN 重建原生 PagerView，initialPage 落到目标页。
+        key={`${pagerKey}#${pagerRebuild}`}
         ref={pagerViewRef}
         initialPage={initialPageIndex}
         offscreenPageLimit={1}

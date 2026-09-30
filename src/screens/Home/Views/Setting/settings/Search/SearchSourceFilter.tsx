@@ -5,6 +5,7 @@ import CheckBox from '@/components/common/CheckBox'
 import { useSettingValue } from '@/store/setting/hook'
 import { updateSetting } from '@/core/common'
 import { useI18n } from '@/lang'
+import { designSpacing } from '@/theme/DesignTokens'
 
 const SOURCE_LIST = [
   { id: 'kw', i18nKey: 'source_kw' },
@@ -64,6 +65,10 @@ const styles = StyleSheet.create({
   grid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    // 两列之间的中缝：列内卡片是 block（铺满列宽、自身不留右缝），列间无 gap 时
+    // 左右两列的卡片背景层会紧贴在一起（酷我|咪咕、酷狗|哔哩…）。取与 card 卡片
+    // 非整行时相同的间隙值（designSpacing.sm），胶囊各收窄 6pt，观感与全页统一。
+    columnGap: designSpacing.sm,
   },
   column: {
     flex: 1,

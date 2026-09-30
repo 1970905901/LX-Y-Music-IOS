@@ -6,7 +6,6 @@ import { createStyle } from '@/utils/tools'
 import { designSpacing } from '@/theme/DesignTokens'
 import { forwardRef, useImperativeHandle, useMemo, useRef, useState, type ReactElement } from 'react'
 import { ScrollView, View } from 'react-native'
-import { Icon } from '@/components/common/Icon'
 import HistorySearch, { type HistorySearchType } from './HistorySearch'
 import HotSearch, { type HotSearchType } from './HotSearch'
 
@@ -63,15 +62,6 @@ export default forwardRef<BlankViewType, BlankViewProps>(({ header, onSearch }, 
       <ScrollView>
         {header}
         <View style={styles.content}>
-          <View style={styles.emptyState}>
-            <Icon name="search-2" size={48} color={theme['c-300']} />
-            <Text style={styles.emptyTitle} size={22} color={theme['c-font']}>
-              {t('search_empty_title')}
-            </Text>
-            <Text style={styles.emptyDescription} size={15} color={theme['c-font-label']}>
-              {t('search_empty_description')}
-            </Text>
-          </View>
           {isShowHotSearch ? (
             <View style={cardStyle}>
               <HotSearch ref={hotSearchRef} onSearch={onSearch} />
@@ -103,19 +93,5 @@ const styles = createStyle({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingTop: designSpacing.xl,
-    paddingBottom: designSpacing.lg,
-  },
-  emptyTitle: {
-    marginTop: designSpacing.md,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  emptyDescription: {
-    marginTop: designSpacing.sm,
-    textAlign: 'center',
   },
 })

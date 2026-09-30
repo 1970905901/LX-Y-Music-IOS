@@ -9,6 +9,7 @@ import SettingLrcFontSize from './settings/SettingLrcFontSize'
 import SettingLrcAlign from './settings/SettingLrcAlign'
 import SettingMiniLyricAlign from './settings/SettingMiniLyricAlign'
 import SettingCoverSpin from '@/screens/PlayDetail/components/SettingPopup/settings/SettingCoverSpin.tsx'
+import SettingCoverShape from './settings/SettingCoverShape'
 import SettingCoverSize from './settings/SettingCoverSize'
 import SettingSoundEffect from './settings/SettingSoundEffect'
 
@@ -50,6 +51,8 @@ export default forwardRef<SettingPopupType, SettingPopupProps>(({ direction, ...
           <SettingLrcAlign />
           <SettingMiniLyricAlign />
           <SettingCoverSpin />
+          {/* 方形封面置于旋转开关之后：两者互斥，紧邻便于用户对照（方形时旋转被忽略） */}
+          <SettingCoverShape />
         </View>
       </ScrollView>
     </Popup>

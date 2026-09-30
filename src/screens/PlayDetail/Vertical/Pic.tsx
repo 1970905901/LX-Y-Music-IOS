@@ -42,6 +42,12 @@ export default memo(({ componentId: _componentId }: { componentId: string }) => 
   const statusBarHeight = useStatusbarHeight()
   const isPlay = useIsPlay()
   const isCoverSpin = useSettingValue('playDetail.isCoverSpin')
+  const coverShape = useSettingValue('playDetail.style.coverShape')
+  // 方形封面强制不旋转（两者互斥，见 SettingCoverShape.tsx 的说明）。
+  // 注意：`isCoverSpin` 在下面被替换为 `allowSpin` 参与动画启停判断，
+  // 这样「方形时不旋转」只需一处判据，不会出现「方形 + 旋转」被部分应用。
+  const isSquare = coverShape === 'square'
+  const allowSpin = isCoverSpin && !isSquare
 
   // 封面 URL：playerMusicInfo.pic 已兼容在线 + 下载两种来源（playInfo.ts setPlayerMusicInfo）。
   // 同时兜底 playMusicInfo.musicInfo.meta.picUrl，保证和参考版 e58d1ab1 的数据入口一致。
@@ -89,7 +95,7 @@ export default memo(({ componentId: _componentId }: { componentId: string }) => 
   }, [spinValue])
 
   const startAnimation = useCallback(() => {
-    if (isAnimating.current || !isCoverSpin || isUnmounted.current) return
+    if (isAnimating.current || !allowSpin || isUnmounted.current) return
     isAnimating.current = true
     spinValue.stopAnimation((value) => {
       if (isUnmounted.current) return
@@ -102,7 +108,7 @@ export default memo(({ componentId: _componentId }: { componentId: string }) => 
         }
       })
     })
-  }, [spinValue, createAnimation, isCoverSpin])
+  }, [spinValue, createAnimation, allowSpin])
 
   const stopAnimation = useCallback(() => {
     if (!isAnimating.current) return
@@ -113,20 +119,20 @@ export default memo(({ componentId: _componentId }: { componentId: string }) => 
   }, [spinValue])
 
   useEffect(() => {
-    if (isPlay && isCoverSpin) {
+    if (isPlay && allowSpin) {
       startAnimation()
     } else {
       stopAnimation()
     }
-  }, [isPlay, isCoverSpin, startAnimation, stopAnimation])
+  }, [isPlay, allowSpin, startAnimation, stopAnimation])
 
   useEffect(() => {
     stopAnimation()
     spinValue.setValue(0)
-    if (isPlay && isCoverSpin && musicId) {
+    if (isPlay && allowSpin && musicId) {
       startAnimation()
     }
-  }, [musicId, isPlay, isCoverSpin, startAnimation, stopAnimation, spinValue])
+  }, [musicId, isPlay, allowSpin, startAnimation, stopAnimation, spinValue])
 
   useEffect(() => {
     return () => {
@@ -208,18 +214,23 @@ export default memo(({ componentId: _componentId }: { componentId: string }) => 
     }
   }
 
-  const radius = size / 2
-  // 外层圆形容器：只负责固定尺寸与定位，**不做 overflow 裁切**。
+  // 方形封面的圆角：小圆角，保留图本身的方形观感。
+  // 与横屏 Pic.tsx 的方形分支保持同一个 4（两处都是「非圆形」档）。
+  const SQUARE_RADIUS = 4
+  const radius = isSquare ? SQUARE_RADIUS : size / 2
+  // 外层容器：只负责固定尺寸与定位，**不做 overflow 裁切**。
   // iOS 上 overflow:'hidden'(clipsToBounds) 的祖先 + 带 transform 的后代
   // 会被错误剔除出渲染树（封面白屏的根因）。圆形效果完全由封面自身的
   // borderRadius 实现——圆形旋转后仍是圆形，视觉与裁切完全一致。
+  // 方形同理不需要裁切：方形本来就不旋转，圆角也由封面自身给。
   const coverContainerStyle = useMemo(() => ({
     width: size,
     height: size,
     backgroundColor: 'transparent' as const,
   }), [size])
 
-  // 封面图样式：固定尺寸 + 圆形（borderRadius 自带，无需容器裁切）+ 旋转动画
+  // 封面图样式：固定尺寸 + 圆角（圆形=size/2，方形=小圆角）+ 旋转动画
+  // （方形时 allowSpin 恒为 false，动画不会启动、角度停在 0）
   const animatedCoverStyle = useMemo(() => ({
     width: size,
     height: size,

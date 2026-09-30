@@ -19,6 +19,10 @@ export default memo(({ componentId: _componentId }: { componentId: string }) => 
   const statusBarHeight = useStatusbarHeight()
   const isPlay = useIsPlay()
   const isCoverSpin = useSettingValue('playDetail.isCoverSpin')
+  const coverShape = useSettingValue('playDetail.style.coverShape')
+  // 方形封面强制不旋转（与竖屏 Pic.tsx 同一套语义，见 SettingCoverShape.tsx）。
+  const isSquare = coverShape === 'square'
+  const allowSpin = isCoverSpin && !isSquare
   const coverSizeRaw = useSettingValue('playDetail.style.coverSize')
   const coverSize = typeof coverSizeRaw === 'number' && !isNaN(coverSizeRaw) ? coverSizeRaw : 100
   const spinValue = useRef(new Animated.Value(0)).current
@@ -36,7 +40,7 @@ export default memo(({ componentId: _componentId }: { componentId: string }) => 
   }, [spinValue])
 
   const startAnimation = useCallback(() => {
-    if (isAnimating.current || !isCoverSpin || isUnmounted.current) return
+    if (isAnimating.current || !allowSpin || isUnmounted.current) return
     isAnimating.current = true
     spinValue.stopAnimation(value => {
       if (isUnmounted.current) return
@@ -49,7 +53,7 @@ export default memo(({ componentId: _componentId }: { componentId: string }) => 
         }
       })
     })
-  }, [spinValue, createAnimation, isCoverSpin])
+  }, [spinValue, createAnimation, allowSpin])
 
   const stopAnimation = useCallback(() => {
     if (!isAnimating.current) return
@@ -60,20 +64,20 @@ export default memo(({ componentId: _componentId }: { componentId: string }) => 
   }, [spinValue])
 
   useEffect(() => {
-    if (isPlay && isCoverSpin) {
+    if (isPlay && allowSpin) {
       startAnimation()
     } else {
       stopAnimation()
     }
-  }, [isPlay, isCoverSpin, startAnimation, stopAnimation])
+  }, [isPlay, allowSpin, startAnimation, stopAnimation])
 
   useEffect(() => {
     stopAnimation()
     spinValue.setValue(0)
-    if (isPlay && isCoverSpin) {
+    if (isPlay && allowSpin) {
       startAnimation()
     }
-  }, [musicInfo.id, isPlay, isCoverSpin, startAnimation, stopAnimation, spinValue])
+  }, [musicInfo.id, isPlay, allowSpin, startAnimation, stopAnimation, spinValue])
 
   useEffect(() => {
     return () => {
@@ -97,7 +101,7 @@ export default memo(({ componentId: _componentId }: { componentId: string }) => 
     )
     baseWidth -= baseWidth * (global.lx.fontSize - 1) * 0.3
     const imgWidth = baseWidth * (coverSize / 100)
-    const radius = isCoverSpin ? imgWidth / 2 : 4
+    const radius = isSquare ? 4 : imgWidth / 2
     return {
       width: imgWidth,
       height: imgWidth,
@@ -108,7 +112,7 @@ export default memo(({ componentId: _componentId }: { componentId: string }) => 
       backgroundColor: 'transparent',
       overflow: 'hidden',
     }
-  }, [winWidth, winHeight, statusBarHeight, isCoverSpin, coverSize, layout])
+  }, [winWidth, winHeight, statusBarHeight, isSquare, coverSize, layout])
 
   const imageStyle = useMemo(() => ({
     width: '100%',

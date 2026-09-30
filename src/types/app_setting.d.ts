@@ -19,6 +19,14 @@ declare global {
       'playDetail.style.coverSize': number
 
       /**
+       * 播放详情页-封面形状。
+       * 'circle'：圆形封面，可随「封面旋转效果」开关旋转；
+       * 'square'：方形封面，**强制不旋转**（方形旋转后四角会甩出容器，
+       * 即使容器裁切也无法观感自洽，故方形与旋转互斥）。
+       */
+      'playDetail.style.coverShape': 'circle' | 'square'
+
+      /**
        * 歌词水平对齐方式
        */
       'playDetail.style.align': 'left' | 'center' | 'right'

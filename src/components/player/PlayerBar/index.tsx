@@ -7,7 +7,7 @@ import Pic from './components/Pic'
 import Title from './components/Title'
 import PlayInfo from './components/PlayInfo'
 import ControlBtn from './components/ControlBtn'
-import { createStyle } from '@/utils/tools'
+import { createStyle, isIOS26_2OrAbove } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
 import { useSettingValue } from '@/store/setting/hook'
 import { navigations } from '@/navigation'
@@ -29,9 +29,11 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
   // 纯玻璃（不跟随主题色）：磨砂覆层走原生中性色，浓度由 theme.glassOpacity 驱动；
   // 液态形态走 kit 预设动态色（不传 tint）
   const glassOpacity = useSettingValue('theme.glassOpacity') / 100
-  // 液态玻璃开关：全 iOS 版本生效（开 → vendored Metal 液态玻璃；关 → 系统磨砂），
-  // 实时响应设置切换。
-  const liquidGlassOn = useSettingValue('theme.liquidGlass')
+  // 液态玻璃开关：仅 iOS 14~26.1 生效（开 → vendored Metal 液态玻璃；关 → 系统
+  // 磨砂），实时响应设置切换。**26.2+ 强制磨砂**（2026-09-30 定案）：UIGlassEffect
+  // (.regular) 在白底/图底页面切换瞬间闪烁，开关已从设置页隐藏，残留的开关值在此
+  // 屏蔽。最终兜底在 LiquidGlass 组件内部。
+  const liquidGlassOn = useSettingValue('theme.liquidGlass') && !isIOS26_2OrAbove
 
   // Tab 栏收起时（仅 Home）：迷你播放器下移到收起按钮所在行并左侧让位（对齐参考交互）。
   // 动画为逐帧收窄：bottom/paddingLeft 两布局属性随 220ms 插值同步变化，胶囊边收窄

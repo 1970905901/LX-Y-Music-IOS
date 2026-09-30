@@ -190,8 +190,10 @@ declare global {
       'sync.webdav.lastSyncTimeLists': number
 
       /**
-       * 液态玻璃（vendored LiquidGlassKit 的 Metal 折射）开关，全 iOS 版本生效；
-       * 关闭走系统磨砂。「玻璃不透明度」设置只对磨砂形态有意义。
+       * 液态玻璃（vendored LiquidGlassKit 的 Metal 折射）开关，仅 iOS 14~26.1
+       * 生效；关闭走系统磨砂。「玻璃不透明度」设置只对磨砂形态有意义。
+       * **iOS 26.2+ 强制磨砂**（2026-09-30 定案）：开关从设置页隐藏、本值在
+       * 各消费点与 LiquidGlass 组件内被门控（UIGlassEffect 白底/图底切换闪烁）。
        */
       'theme.liquidGlass': boolean
     }

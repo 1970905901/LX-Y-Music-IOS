@@ -59,6 +59,21 @@ export const osVer = String(Platform.Version)
 /** iOS 主版本号 ≥ 26：液态玻璃开关的生效版本带；低版本只提供系统磨砂 */
 export const isIOS26OrAbove = Number.parseInt(osVer, 10) >= 26
 
+/**
+ * iOS 26.2+：液态玻璃开关的**隐藏**版本带（2026-09-30 定案）。
+ * 26.2+ 强制系统磨砂（UIGlassEffect(.regular) 在白底/图底页面切换瞬间闪烁，
+ * 见 LGGlassViewFactory.swift createGlassBacking 的分档），液态玻璃开关从设置页
+ * 隐藏、只留「玻璃不透明度」滑杆，残留的开关值在各消费点与 LiquidGlass 组件内
+ * 被门控；14~26.1 开关与行为保持现状。
+ * 必须按 major.minor 分量比较 —— `Number.parseInt('26.2') === 26`，整数比较
+ * 区分不了 26.1/26.2；也不能用浮点比较（`Number(osVer) >= 26.2` 对 '26.10'
+ * 这类小数位 ≥10 的版本会误判）。契约守卫：scripts/sim-glass-dark-contract.js 不变量8。
+ */
+export const isIOS26_2OrAbove = (() => {
+  const [major, minor] = osVer.split('.').map((v) => Number.parseInt(v, 10) || 0)
+  return major > 26 || (major === 26 && minor >= 2)
+})()
+
 export const isActive = () => AppState.currentState == 'active'
 
 export const TEMP_FILE_PATH = temporaryDirectoryPath + '/tempFile'

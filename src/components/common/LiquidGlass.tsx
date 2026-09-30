@@ -1,6 +1,8 @@
 import { memo, useMemo } from 'react'
 import { processColor, requireNativeComponent, StyleSheet, type ProcessedColorValue, type ViewProps } from 'react-native'
 
+import { isIOS26_2OrAbove } from '@/utils/tools'
+
 type LiquidGlassProps = ViewProps & {
   /**
    * 染色基色（不透明主题色，明暗自适应由主题本身保证）。两形态都吃：
@@ -26,10 +28,13 @@ type LiquidGlassProps = ViewProps & {
    */
   dark?: boolean
   /**
-   * 液态玻璃开关（设置 theme.liquidGlass）：全 iOS 版本生效。
+   * 液态玻璃开关（设置 theme.liquidGlass）：仅 iOS 14~26.1 生效。
    * 开 → vendored Metal 液态玻璃（DnV1eX/LiquidGlassKit 核心效果：折射 + 边缘光；
    * 上游定位即 iOS 13~18 的 backport）；关 → 系统磨砂。
    * 切换时原生整体重建背衬，主题属性由宿主重放。
+   * **iOS 26.2+ 恒按 false 处理**（组件内兜底，2026-09-30 定案）：26.2+ 强制
+   * 系统磨砂、开关已从设置页隐藏，即使调用方漏门控传入 true 也不会透传到原生
+   * （原生 26.2+ 的液态分支 = UIGlassEffect(.regular)，白底/图底切换闪烁）。
    */
   liquid?: boolean
 }
@@ -67,6 +72,12 @@ const DARK_OVERLAY_FLOOR_USER = 0.2 / 0.6
  * 内容子元素渲染在其上层。原生的 userInteractionEnabled 已关闭，触摸全部穿透。
  */
 const LiquidGlass = memo(({ tint, glassOpacity = 0.4, dark = false, liquid = false, style }: LiquidGlassProps) => {
+  // 26.2+ 强制磨砂兜底（2026-09-30 定案）：UIGlassEffect(.regular) 在白底/图底
+  // 页面切换瞬间闪烁，液态玻璃开关已在 26.2+ 从设置页隐藏。业务层已在各消费点
+  // 门控（ModernTabBar / PlayerBar），此处兜底保证**任何**调用方漏门控（残留的
+  // theme.liquidGlass=true）时，液态 prop 也到不了原生。契约守卫：
+  // scripts/sim-glass-dark-contract.js 不变量8（comp-fallback）。
+  const effectiveLiquid = liquid && !isIOS26_2OrAbove
   // 深色模式可读性保底：用户值与保底取大（仅磨砂形态的覆层；液态形态 glassOpacity
   // 本就无作用，不受影响）。浅色模式 floor=0，行为不变。
   const effectiveGlassOpacity = useMemo(
@@ -88,7 +99,7 @@ const LiquidGlass = memo(({ tint, glassOpacity = 0.4, dark = false, liquid = fal
       style={glassStyle}
       glassOpacity={effectiveGlassOpacity}
       dark={dark}
-      liquid={liquid}
+      liquid={effectiveLiquid}
       tint={nativeTint}
       pointerEvents="none"
     />

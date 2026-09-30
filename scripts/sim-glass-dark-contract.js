@@ -25,8 +25,15 @@
  * 26.2+ 分档已生效，头注释仍写着「磨砂 = iOS 26+ UIGlassEffect」「liquid=true = vendored
  * Metal（全版本）」，与工厂正好相反，读桥接层的人会被误导）。
  *
+ * 另含「26.2+ 液态玻璃门控」契约（2026-09-30 新增，不变量 8~9）：UIGlassEffect(.regular)
+ * 在白底/图底页面切换瞬间闪烁（Tab 切换即复现），定案 26.2+ 强制系统磨砂、设置页隐藏
+ * 液态玻璃开关、只留玻璃不透明度滑杆（14~26.1 不变）。该契约横跨 6 个文件（tools 版本
+ * 判定 → LiquidGlass 组件兜底 → Toggle 隐藏 → ThemeScreen 滑杆常显 → ModernTabBar /
+ * PlayerBar 消费点门控），任何一处被删/被改，26.2+ 用户就会重新看到闪烁或看到失效开关，
+ * 而 tsc/eslint 全绿（theme.liquidGlass 的读取是合法 TS，版本门控是否在场无类型约束）。
+ *
  * 检查的是**契约的存在与贯通**，不是观感——观感只能真机看。
- * 不变量（1~7）必过，退出码据此。
+ * 不变量（1~9）必过，退出码据此。
  *
  * 运行：node scripts/sim-glass-dark-contract.js
  */
@@ -134,9 +141,9 @@ const RULES = [
   {
     id: 'comp-pass-liquid',
     file: 'comp',
-    test: (s) => /liquid=\{liquid\}/.test(s),
-    desc: 'JS 组件把 liquid 透传到原生组件',
-    hint: '声明了但没透传，等于没接',
+    test: (s) => /liquid=\{effectiveLiquid\}/.test(s),
+    desc: 'JS 组件把 liquid 门控后透传到原生组件（26.2+ 强制 false）',
+    hint: '直接透传 liquid={liquid} 会绕过 26.2+ 强制磨砂兜底（UIGlassEffect 闪烁问题）',
   },
 ]
 
@@ -246,7 +253,7 @@ check(
     s = s.replace(/RCT_CUSTOM_VIEW_PROPERTY\(\s*liquid\s*,/g, 'REMOVED_PROPERTY(')
     s = s.replace(/createGlassBackingWithDark:/g, 'removed:')
     s = s.replace(/liquid\?\s*:\s*boolean/g, 'removed')
-    s = s.replace(/liquid=\{liquid\}/g, 'removed')
+    s = s.replace(/liquid=\{effectiveLiquid\}/g, 'removed')
     return [f, s]
   })
   const brokenProblems = run(broken)
@@ -537,6 +544,149 @@ function checkVendorHeaderContract(over = {}) {
     allInjected && allDetected && distinct === CASES.length,
     results
       .map((r) => `${r.name} → ${r.injected ? (r.hits.length ? r.hits.join('+') : '未报错(失效)') : '替换未命中(反例失效)'}`)
+      .join('；'),
+  )
+}
+
+// --- 不变量 8：26.2+ 液态玻璃门控契约（2026-09-30 定案）---
+// UIGlassEffect(.regular) 在白底/图底页面切换瞬间闪烁（Tab 切换即复现），根治方案：
+// 26.2+ 强制系统磨砂、从设置页隐藏液态玻璃开关、只留「玻璃不透明度」滑杆；
+// 14~26.1 开关与行为保持现状。这条契约横跨 6 个文件：
+//   tools.ts（版本判定）→ LiquidGlass.tsx（组件兜底）→ LiquidGlassToggle（开关隐藏）
+//   → ThemeScreen（滑杆常显）→ ModernTabBar / PlayerBar（消费点门控）。
+// 任何一处被删/被改，26.2+ 用户就会重新看到闪烁或看到失效开关，而 tsc/eslint 全绿。
+function checkIOS26Gate(over = {}) {
+  const problems = []
+  const read = (key) => over[key] ?? fs.readFileSync(path.join(ROOT, GATE_FILES[key]), 'utf8')
+  // 「注释同形」教训第三次出现（前两次是守卫假阴性，这次是假阳性）：tools.ts 的
+  // 26.2 判定注释里**故意写着**反模式示例（`Number(osVer) >= 26.2` 的说明文字），
+  // 直接整文匹配会把注释当反模式误报。检查前剥掉整行注释与 JSDoc 行（代码行不会
+  // 以 //、*、/* 开头）。反例注入的都是真实代码行，剥注释不影响检出。
+  const readCode = (key) =>
+    read(key).split('\n').filter((l) => !/^[ \t]*(\/\/|\*|\/\*)/.test(l)).join('\n')
+
+  // ① 版本判定必须按 major.minor 分量比较：
+  //    `Number.parseInt('26.2') === 26`，整数比较区分不了 26.1/26.2；
+  //    浮点比较（Number(osVer) >= 26.2）对 '26.10' 这类小数位 ≥10 的版本会误判。
+  if (!/major\s*>\s*26\s*\|\|\s*\(major\s*===\s*26\s*&&\s*minor\s*>=\s*2\)/.test(readCode('tools'))) {
+    problems.push({ id: 'gate-compare', desc: 'tools.ts 的 26.2 判定不是 major.minor 分量比较（整数比较区分不了 26.1/26.2）' })
+  }
+  // ② 禁止浮点比较反模式（同上理由）
+  if (/>=\s*26\.2/.test(readCode('tools'))) {
+    problems.push({ id: 'gate-float', desc: 'tools.ts 出现 >= 26.2 浮点比较（对 26.10 这类版本会误判的反模式）' })
+  }
+  // ③ 组件内兜底：任何调用方漏门控（残留 theme.liquidGlass=true）也不得穿透到原生
+  if (!/const effectiveLiquid\s*=\s*liquid\s*&&\s*!isIOS26_2OrAbove/.test(readCode('comp'))) {
+    problems.push({ id: 'gate-fallback', desc: 'LiquidGlass 组件缺 effectiveLiquid 兜底（26.2+ 液态 prop 可穿透到原生 UIGlassEffect）' })
+  }
+  // ④ 开关 26.2+ 整行隐藏
+  if (!/if\s*\(isIOS26_2OrAbove\)\s*return\s*null/.test(readCode('toggle'))) {
+    problems.push({ id: 'gate-toggle-hide', desc: 'LiquidGlassToggle 未在 26.2+ return null（失效开关仍显示）' })
+  }
+  // ⑤ 玻璃不透明度滑杆 26.2+ 常显（26.2+ 强制磨砂，滑杆全程有意义）
+  if (!/showGlassOpacity\s*=\s*!liquidGlass\s*\|\|\s*isIOS26_2OrAbove/.test(readCode('themeScreen'))) {
+    problems.push({ id: 'gate-opacity', desc: 'ThemeScreen 的玻璃不透明度滑杆未在 26.2+ 常显（残留开关值会把它藏掉）' })
+  }
+  // ⑥⑦ 两个消费点必须门控残留开关值（同时控制玻璃形态与 LiquidLens 渲染）
+  const consumers = [
+    ['tabbar', 'gate-tabbar', 'ModernTabBar'],
+    ['playerbar', 'gate-playerbar', 'PlayerBar'],
+  ]
+  for (const [key, id, name] of consumers) {
+    if (!/useSettingValue\('theme\.liquidGlass'\)\s*&&\s*!isIOS26_2OrAbove/.test(readCode(key))) {
+      problems.push({ id, desc: `${name} 未门控残留开关值（26.2+ 会走液态/UIGlassEffect 闪烁）` })
+    }
+  }
+  return problems
+}
+
+const GATE_FILES = {
+  tools: 'src/utils/tools.ts',
+  comp: 'src/components/common/LiquidGlass.tsx',
+  toggle: 'src/screens/Home/Views/Setting/settings/Theme/LiquidGlassToggle.tsx',
+  themeScreen: 'src/screens/Home/Views/Setting/settings/ThemeScreen.tsx',
+  tabbar: 'src/components/layout/ModernTabBar.tsx',
+  playerbar: 'src/components/player/PlayerBar/index.tsx',
+}
+
+{
+  const gateProblems = checkIOS26Gate()
+  check(
+    '不变量8 26.2+ 门控契约：版本分量比较 + 组件兜底 + 开关隐藏 + 滑杆常显 + 两消费点门控（7 条子规则）',
+    gateProblems.length === 0,
+    gateProblems.length === 0
+      ? '26.2+ 强制磨砂链路在 6 个文件中全部贯通'
+      : gateProblems.map((p) => `\n        断点 [${p.id}] ${p.desc}`).join(''),
+  )
+}
+
+// --- 不变量 9（反例）：抹掉/篡改任一门控点都必须被报出来 ---
+{
+  const srcTools = fs.readFileSync(path.join(ROOT, GATE_FILES.tools), 'utf8')
+  const srcComp = fs.readFileSync(path.join(ROOT, GATE_FILES.comp), 'utf8')
+  const srcToggle = fs.readFileSync(path.join(ROOT, GATE_FILES.toggle), 'utf8')
+  const srcThemeScreen = fs.readFileSync(path.join(ROOT, GATE_FILES.themeScreen), 'utf8')
+  const srcTabbar = fs.readFileSync(path.join(ROOT, GATE_FILES.tabbar), 'utf8')
+  const srcPlayerbar = fs.readFileSync(path.join(ROOT, GATE_FILES.playerbar), 'utf8')
+  const CASES = [
+    // 版本判定退化成整数比较（parseInt('26.2')===26，26.1/26.2 不再区分）→ 必须报
+    {
+      name: 'tools 判定退化为整数比较',
+      over: { tools: srcTools.replace(/major\s*>\s*26\s*\|\|\s*\(major\s*===\s*26\s*&&\s*minor\s*>=\s*2\)/, 'major >= 26') },
+      src: srcTools,
+    },
+    // 引入浮点比较反模式（只追加、不破坏分量比较）→ 必须报
+    {
+      name: 'tools 引入浮点比较反模式',
+      over: { tools: srcTools + '\nexport const badGate = Number(osVer) >= 26.2\n' },
+      src: srcTools,
+    },
+    // 组件兜底被绕过（透传残留开关值）→ 必须报
+    {
+      name: '组件兜底被抹掉',
+      over: { comp: srcComp.replace(/const effectiveLiquid\s*=\s*liquid\s*&&\s*!isIOS26_2OrAbove/, 'const effectiveLiquid = liquid') },
+      src: srcComp,
+    },
+    // 开关恢复显示（26.2+ 用户看到失效开关）→ 必须报
+    {
+      name: '开关恢复 26.2+ 显示',
+      over: { toggle: srcToggle.replace(/if\s*\(isIOS26_2OrAbove\)\s*return\s*null/, 'if (false) return null') },
+      src: srcToggle,
+    },
+    // 滑杆重新跟随残留开关值（26.2+ 滑杆凭空消失）→ 必须报
+    {
+      name: '滑杆常显被抹掉',
+      over: { themeScreen: srcThemeScreen.replace(/!liquidGlass\s*\|\|\s*isIOS26_2OrAbove/, '!liquidGlass') },
+      src: srcThemeScreen,
+    },
+    // 消费点恢复直读设置值（26.2+ 重新走 UIGlassEffect 闪烁）→ 必须报
+    {
+      name: 'ModernTabBar 门控被抹掉',
+      over: { tabbar: srcTabbar.replace(/useSettingValue\('theme\.liquidGlass'\)\s*&&\s*!isIOS26_2OrAbove/, "useSettingValue('theme.liquidGlass')") },
+      src: srcTabbar,
+    },
+    {
+      name: 'PlayerBar 门控被抹掉',
+      over: { playerbar: srcPlayerbar.replace(/useSettingValue\('theme\.liquidGlass'\)\s*&&\s*!isIOS26_2OrAbove/, "useSettingValue('theme.liquidGlass')") },
+      src: srcPlayerbar,
+    },
+  ]
+  const results = CASES.map((c) => {
+    const injected = Object.values(c.over)[0] !== c.src // 注入是否真的生效（replace 未命中会静默返回原文）
+    return {
+      name: c.name,
+      injected,
+      hits: checkIOS26Gate(c.over).map((p) => p.id),
+    }
+  })
+  const allInjected = results.every((r) => r.injected)
+  const allDetected = results.every((r) => r.hits.length > 0)
+  const distinct = new Set(results.map((r) => r.hits.join(','))).size
+  check(
+    '不变量9 反例：篡改任一门控点后必须报错（替换生效 + 各例命中不同规则）',
+    allInjected && allDetected && distinct === CASES.length,
+    results
+      .map((r) => `${r.name} → ${r.injected ? (r.hits.length ? r.hits.join('+') : '未报错(失效)') : '注入未命中(反例失效)'}`)
       .join('；'),
   )
 }

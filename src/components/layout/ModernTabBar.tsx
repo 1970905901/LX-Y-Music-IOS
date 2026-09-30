@@ -5,7 +5,7 @@ import { useI18n } from '@/lang'
 import { useNavActiveId, useSafeAreaBottom } from '@/store/common/hook'
 import { setNavActiveId } from '@/core/common'
 import { useSettingValue } from '@/store/setting/hook'
-import { createStyle } from '@/utils/tools'
+import { createStyle, isIOS26_2OrAbove } from '@/utils/tools'
 import { scaleSizeW } from '@/utils/pixelRatio'
 import { useTabBarCollapsed, useMiniPlayerHeight } from '@/utils/tabBarCollapse'
 import { setTabBarExpanded } from '@/utils/nativeModules/utils'
@@ -116,9 +116,11 @@ export default memo(() => {
   // scripts/sim-glass-contrast.js 断言5/7 验证的中性灰。⚠️ 与脚本常量
   // TAB_INACTIVE_LIGHT_V / TAB_INACTIVE_DARK_V 人工同步（脚本有反向指路注释）。
   const tabInactiveColor = theme.isDark ? TAB_INACTIVE_DARK : TAB_INACTIVE_LIGHT
-  // 液态玻璃开关：全 iOS 版本生效（开 → vendored Metal 液态玻璃；关 → 系统磨砂）。
-  // 实时响应设置切换，原生按 liquid prop 重建背衬并重放缓存的主题属性。
-  const liquidGlassOn = useSettingValue('theme.liquidGlass')
+  // 液态玻璃开关：仅 iOS 14~26.1 生效（开 → vendored Metal 液态玻璃；关 → 系统磨砂）。
+  // **26.2+ 强制磨砂**（2026-09-30 定案）：UIGlassEffect(.regular) 在白底/图底页面
+  // 切换瞬间闪烁，开关已从设置页隐藏，残留的开关值在此屏蔽——同时控制玻璃形态与
+  // 液态透镜（LiquidLens）的渲染。最终兜底在 LiquidGlass 组件内部。
+  const liquidGlassOn = useSettingValue('theme.liquidGlass') && !isIOS26_2OrAbove
 
   // 收起形态（iOS 26 风格）：歌曲列表滚动离开顶部 → 整条 tab 栏收成左下角
   // 圆形玻璃按钮（宫格图标）；点击按钮弹出，保持展开直到下一次滚动离开顶部。

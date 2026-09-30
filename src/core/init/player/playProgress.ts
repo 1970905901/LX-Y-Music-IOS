@@ -43,7 +43,8 @@ const delaySavePlayInfo = throttleBackgroundTimer(() => {
 export default () => {
   // const updateMusicInfo = useCommit('list', 'updateMusicInfo')
 
-  let updateTimeout: number | null = null
+  // 普通 JS 定时器句柄（ReturnType 兼顾 RN/Node 的 number 与 Timeout 两种类型）
+  let updateTimeout: ReturnType<typeof setInterval> | null = null
 
   let isScreenOn = true
 
@@ -180,8 +181,8 @@ export default () => {
   }
 
   const clearUpdateTimeout = () => {
-    if (!updateTimeout) return
-    BackgroundTimer.clearInterval(updateTimeout)
+    if (updateTimeout == null) return
+    clearInterval(updateTimeout)
     updateTimeout = null
   }
   const startUpdateTimeout = () => {
@@ -190,7 +191,17 @@ export default () => {
     // 慢速校准 tick（1s）：引擎真实位置重锚（快路径由原生 4Hz 位置事件驱动）+
     // 引擎状态/缓冲检测 + seek 生效窗口确认 + scrobble/播放记录/进度持久化。
     // 周期即控制中心歌词外推的最大漂移窗口，过大会表现为"同步一句停一会"
-    updateTimeout = BackgroundTimer.setInterval(() => {
+    //
+    // 【耗电】必须用普通 setInterval（JS 定时器），**不能用 BackgroundTimer**：
+    // react-native-background-timer 的原生 setTimeout 每次触发都会调
+    // `beginBackgroundTaskWithName:` 申请一个后台任务断言（每秒一次），并把 App
+    // 标记为「可运行」不让系统挂起——这是可观的后台耗电源，且它对本 tick 毫无意义：
+    // tick body 第一步就是 `AppState !== 'active' → return`（后台不做任何工作），
+    // 后台真正需要的歌词/进度刷新已由原生 GCD 时钟（LXNowPlayingLyricStep）承担，
+    // 不依赖 JS 定时器。普通 setInterval 在后台被系统冻结（无唤醒、无断言），
+    // 回前台后 handleScreenStateChanged/syncFromEngine 会重锚，状态无残留。
+    // 若将来让本 tick 承担后台工作，必须换回并在原生侧评估断言成本。
+    updateTimeout = setInterval(() => {
       if (isProgressDragging) return
       getCurrentTime()
     }, 1000)

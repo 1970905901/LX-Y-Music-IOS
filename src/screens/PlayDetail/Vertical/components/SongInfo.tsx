@@ -147,7 +147,12 @@ const styles = createStyle({
   container: {
     paddingHorizontal: 20,
     marginTop: 20,
-    marginBottom: 10,
+    // 歌名/歌手/专辑块 ↔ 迷你歌词块的间距（2026-09-30 用户要求「歌曲歌手名再上移一点」）。
+    // 信息块整体在封面页容器里是**贴底**的（space-between 的第二段），所以加大这里的
+    // marginBottom = 上面这块（歌名/歌手/专辑）整体上移，而三行歌词的位置不动。
+    // 这与「改 PAGE_BOTTOM_PADDING」是两回事：那个会把歌词一起上移，见 NOTES-playdetail-and-list。
+    // 小屏有更紧的 override（见下方 isSmallWindow 分支），不参与这次上移。
+    marginBottom: 18,
   },
   songNameRow: {
     flexDirection: 'row',

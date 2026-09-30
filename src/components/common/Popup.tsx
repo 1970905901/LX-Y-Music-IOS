@@ -222,6 +222,31 @@ export default forwardRef<PopupType, PopupProps>(
               {closeBtnComponent}
             </View>
             {children}
+            {/* 底部安全区补白（2026-09-30）。
+                外层 centeredView 的 paddingBottom=safeAreaBottom 把面板整体抬到
+                Home 指示条之上，面板自身仍止于安全区顶边——于是安全区那 34pt 露出的是
+                遮罩 + 页面背景（实测是偏深的一横条，Home 指示条正好落在里面），
+                观感像「面板下面多了一条黑边」，与 iOS 底部弹层（面板一直铺到屏幕底、
+                内容再靠内边距避开指示条）不一致。
+                这里不改成给面板加 paddingBottom：面板 maxHeight 是 78%，padding 计入
+                面板高度后会把可滚内容区再削掉 34pt（播详设置/音效弹层都是滚到底的，
+                会实打实少看一行）。故保持布局零变化，只把面板**背景色**延伸到屏幕底边：
+                同色绝对定位子视图，宽高自动跟随面板（含 iPad 横屏 maxWidth 760 居中），
+                且绘制在面板自身阴影之上，所以那条阴影渐变也不会再露出来。
+                键盘弹起时不补（此时面板被键盘顶上去了，中间留白是刻意的）。 */}
+            {position === 'bottom' && !keyboardShown && safeAreaBottom > 0 ? (
+              <View
+                pointerEvents="none"
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  right: 0,
+                  bottom: -safeAreaBottom,
+                  height: safeAreaBottom,
+                  backgroundColor: theme['c-content-background'],
+                }}
+              />
+            ) : null}
           </View>
         </View>
       </Modal>

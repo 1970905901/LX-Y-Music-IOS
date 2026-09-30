@@ -46,6 +46,21 @@ declare global {
       'playDetail.isShowLyricProgressSetting': boolean
 
       /**
+       * 显示蓝牙歌词。
+       *
+       * 开：把当前歌词行推送到系统媒体信息（`MPNowPlayingInfoCenter` 的 artist 字段），
+       * 控制中心 / 锁屏 / 车机 / 蓝牙音箱读的都是同一份系统媒体信息，因此一处开关
+       * 同时覆盖「车机歌词」与「音箱歌词」。
+       * 关：媒体信息只显示「歌名 · 歌手」，不推送歌词行。
+       *
+       * 生效范围（两处共同门控，缺一不可）：
+       * 1) JS 逐行钩子（`core/init/player/lyric.ts` 的 onLyricPlay）不再发布歌词行；
+       * 2) 原生歌词时间轴（`setNowPlayingLyrics`）被清空，原生 tick 不会再把歌词写进 artist。
+       * 默认开，保持既有行为。
+       */
+      'player.isShowBluetoothLyric': boolean
+
+      /**
        * 是否允许拖动播放进度条跳转（关闭后进度条仅展示，不可 seek）
        */
       'common.allowProgressBarSeek': boolean

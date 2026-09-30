@@ -122,6 +122,10 @@ const defaultSetting: LX.AppSetting = {
   'player.isShowNotificationImage': true,
   'player.isS2t': true,
   'player.autoPlayOnReturn': false,
+  // 蓝牙歌词：开 = 把当前歌词行推送到系统媒体信息（控制中心 / 锁屏 / 车机 / 蓝牙音箱
+  // 读的都是同一份 MPNowPlayingInfoCenter，artist 字段承载歌词行）；
+  // 关 = 只显示歌名·歌手，不推送歌词行。默认开，保持既有行为。
+  'player.isShowBluetoothLyric': true,
 
   'playDetail.isCoverSpin': false,
   'playDetail.style.align': 'center',

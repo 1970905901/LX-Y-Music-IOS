@@ -97,7 +97,7 @@ export default memo(({ componentId: _componentId, isHome = false }: { componentI
           ]}
         >
           <View
-            style={[styles.container, isHorizontalMode ? styles.horizontalContainer : null]}
+            style={styles.container}
             onLayout={(e) => { setMiniPlayerHeight(e.nativeEvent.layout.height) }}
           >
             <LiquidGlass glassOpacity={glassOpacity} dark={theme.isDark} liquid={liquidGlassOn} style={{ borderRadius: designRadius.glass }} />
@@ -142,10 +142,10 @@ const styles = createStyle({
     flexDirection: 'row',
     alignItems: 'center',
     overflow: 'hidden',
-  },
-  horizontalContainer: {
-    maxWidth: 760,
-    alignSelf: 'center',
+    // 横屏不再限宽 760 居中：底部悬浮的 tab 栏（ModernTabBar）横屏是全宽，
+    // 迷你播放器限宽后比 tab 栏短一大截（iPad 横屏两侧各空 ~200pt），两个
+    // 底部悬浮条左右端不对齐、观感「长度不够」。去掉限宽后与 tab 栏同宽
+    // 同位（left/right 24 边距对齐），竖屏行为不变（本就 100%）。
   },
   left: {
     flexGrow: 1,

@@ -1547,6 +1547,25 @@ static BOOL LXAnotherRNModalWindowPresent(void) {
 // 在关闭完成后显式恢复主窗口为 key 并重新开启交互。
 // 注意：此处仅作为兜底。真正的修复是 JS 侧在调起原生面板前先完整卸载底层 RN Modal
 // （见 UserApiEditModal），使原生面板不会覆盖在仍存在的 RN Modal 之上。
+//
+// Toast 等 RNN 浮层是独立 UIWindow（RNNOverlayManager 用 RNNOverlayWindow，
+// windowLevel = UIWindowLevelNormal），与主窗口同级；主窗口一旦 makeKeyAndVisible、
+// 或出现后建的原生面板窗口，浮层就会被压到下面。界面上表现为「点了下载没有任何提示」
+// （浮层其实已创建，只是看不见）。JS 侧每次弹 Toast 后调 raiseOverlayWindows 把它
+// 统一提到 UIWindowLevelAlert 之上——按 level 排序后不再受主窗口 makeKey 影响。
+static BOOL LXIsRNNOverlayWindow(UIWindow *window) {
+  return [NSStringFromClass(window.class) isEqualToString:@"RNNOverlayWindow"];
+}
+
+static void LXRaiseOverlayWindows(void) {
+  for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
+    if (![scene isKindOfClass:[UIWindowScene class]]) continue;
+    for (UIWindow *window in ((UIWindowScene *)scene).windows) {
+      if (LXIsRNNOverlayWindow(window)) window.windowLevel = UIWindowLevelAlert + 1;
+    }
+  }
+}
+
 static void LXEnsureKeyWindow(void) {
   dispatch_async(dispatch_get_main_queue(), ^{
     UIWindow *mainWindow = nil;
@@ -1559,8 +1578,10 @@ static void LXEnsureKeyWindow(void) {
         if (win.rootViewController != nil && win.rootViewController.view != nil) {
           win.rootViewController.view.userInteractionEnabled = YES;
         }
-        // 记录首个带 rootViewController 的窗口作为主窗口候选。
-        if (mainWindow == nil) mainWindow = win;
+        // 记录首个带 rootViewController 的窗口作为主窗口候选（跳过 RNN 浮层窗口：
+        // 也是 level Normal 的独立窗口，若被选成「主窗口」并 makeKey，主窗口反倒不在
+        // 顶层——背景捕获 / LXTopViewController 的关键窗口判定都会取错窗口）。
+        if (mainWindow == nil && !LXIsRNNOverlayWindow(win)) mainWindow = win;
       }
     }
     // 仅当主窗口当前不是 keyWindow 时才切换，避免不必要的 window 层级抖动。
@@ -5653,6 +5674,16 @@ RCT_EXPORT_METHOD(screenkeepAwake) {
 RCT_EXPORT_METHOD(screenUnkeepAwake) {
   dispatch_async(dispatch_get_main_queue(), ^{
     [UIApplication sharedApplication].idleTimerDisabled = NO;
+  });
+}
+
+// Toast 浮层提层：浮层与主窗口同为 windowLevel = Normal 的独立 UIWindow，
+// 主窗口 makeKey 或后建的原生面板出现就会把它压住（表现为「点了下载没有任何提示」）。
+// 提到 UIWindowLevelAlert + 1 后按 level 排序稳定在最上层，任意页面都可见。
+// 详见 LXIsRNNOverlayWindow / LXRaiseOverlayWindows。
+RCT_EXPORT_METHOD(raiseOverlayWindows) {
+  dispatch_async(dispatch_get_main_queue(), ^{
+    LXRaiseOverlayWindows();
   });
 }
 

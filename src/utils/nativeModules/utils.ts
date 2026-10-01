@@ -34,6 +34,15 @@ export const screenUnkeepAwake = () => {
   UtilsModule.screenUnkeepAwake?.()
 }
 
+// 把 RNN 的浮层窗口（Toast 等）提到主窗口之上。
+// RNN 浮层是独立 UIWindow（RNNOverlayWindow，windowLevel = Normal），与 App 主窗口同级：
+// 主窗口 makeKeyAndVisible、或后建的原生面板窗口一出现，浮层就被压到下面 ——
+// 现象就是「点了下载没有任何提示」（浮层其实已创建，只是看不见）。
+// 原生侧（见 AppDelegate.mm 的 LXRaiseOverlayWindows）把它设到 UIWindowLevelAlert + 1。
+export const raiseToastOverlay = () => {
+  try { UtilsModule.raiseOverlayWindows?.() } catch {}
+}
+
 export const getWIFIIPV4Address = isIOS
   ? async(): Promise<string> => ''
   : (UtilsModule.getWIFIIPV4Address as () => Promise<string>)

@@ -26,6 +26,7 @@ import {
   getSystemLocales,
   isIgnoringBatteryOptimization,
   isNotificationsEnabled,
+  raiseToastOverlay,
   requestNotificationPermission,
   requestIgnoreBatteryOptimization,
   shareText,
@@ -206,6 +207,10 @@ export const toast = (
       },
     }).then((componentId: string) => {
       currentToastId = componentId
+      // 浮层窗口刚创建，与主窗口同为 Normal 级：立刻提层，否则它可能被主窗口
+      // makeKeyAndVisible 或后建的原生面板窗口压住 —— 用户看到的就是「点了没反应」
+      // （浮层其实已创建）。见 nativeModules/utils.raiseToastOverlay。
+      raiseToastOverlay()
     })
   }
 

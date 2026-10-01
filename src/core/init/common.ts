@@ -6,6 +6,8 @@ import txUserApi from '@/utils/musicSdk/tx/user'
 import { setWyFollowedArtists, setWyLikedSongs, setWySubscribedAlbums, setWyUid, setTxLikedSongs, setKgLikedSongs } from '@/store/user/action'
 import { getUserPlaylists, getPlaylistSongs } from '@/utils/musicSdk/kg/utils/api'
 import { toast } from '@/utils/tools'
+import { searchLog } from '@/utils/searchLog'
+import { playerLog } from '@/utils/playerLog'
 
 const formatUri = <T extends string | null>(url: T) => {
   return typeof url == 'string' && url.startsWith('/') ? `file://${url}` : url
@@ -167,7 +169,23 @@ export default async(setting: LX.AppSetting) => {
     if (keys.includes('common.isEnableUserApiLog')) {
       global.lx.isEnableUserApiLog = setting['common.isEnableUserApiLog']!
     }
+    // 搜索 / 播放器日志走各自的 logger 内部开关（webdav / 同步 / 自定义源是每次调用时
+    // 直读设置或 global，不需要在这里同步）。此前这里漏了这两项，且 init() 从未被调用，
+    // 导致「启用搜索日志 / 启用播放器日志」重启后一律回到 false：设置页显示已开启，
+    // 实际却什么都不记录。
+    if (keys.includes('common.isEnableSearchLog')) {
+      searchLog.updateEnabled(!!setting['common.isEnableSearchLog'])
+    }
+    if (keys.includes('common.isEnablePlayerLog')) {
+      playerLog.updateEnabled(!!setting['common.isEnablePlayerLog'])
+    }
   }
+
+  // 冷启动先按已保存的设置同步一次全部日志开关。
+  // 此前只注册了 configUpdated 监听、启动时从不执行，于是这几个开关在重启后全部回到
+  // globalData 的硬编码默认值（isEnableLog=true / 其余 false）——表现为设置页显示
+  // 「已开启」但实际不记录，或关掉「记录日志」后重启仍在记录。传入完整键集触发全部分支。
+  handleLogSettingUpdate(Object.keys(setting) as Array<keyof LX.AppSetting>, setting)
 
   handlePicUpdate()
   global.state_event.on('playerMusicInfoChanged', handlePicUpdate)

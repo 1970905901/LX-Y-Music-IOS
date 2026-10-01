@@ -10,6 +10,7 @@ import LogConfirmAlert, { type LogConfirmAlertType } from '@/components/common/L
 import CheckBoxItem from '../../components/CheckBoxItem'
 import { useI18n } from '@/lang'
 import Text from '@/components/common/Text'
+import { useTheme } from '@/store/theme/hook'
 import settingState from '@/store/setting/state'
 import { updateSetting } from '@/core/common'
 import { searchLog } from '@/utils/searchLog'
@@ -19,6 +20,7 @@ const DEFAULT_MAX_LOG_LINES = 2000
 
 export default memo(() => {
   const t = useI18n()
+  const theme = useTheme()
   const alertRef = useRef<LogConfirmAlertType>(null)
   const [logLines, setLogLines] = useState<string[]>([])
   const [isTruncated, setIsTruncated] = useState(false)
@@ -30,7 +32,11 @@ export default memo(() => {
   const [isEnableWebDAVLog, setIsEnableWebDAVLog] = useState(settingState.setting['common.isEnableWebDAVLog'])
   const [isEnableSearchLog, setIsEnableSearchLog] = useState(settingState.setting['common.isEnableSearchLog'])
   const [isEnablePlayerLog, setIsEnablePlayerLog] = useState(settingState.setting['common.isEnablePlayerLog'])
-  const [maxLogLines, setMaxLogLines] = useState(DEFAULT_MAX_LOG_LINES)
+  // 阈值持久化到设置（原来只是页面内 state，离开设置页再进来就回到默认 2000）。
+  const [maxLogLines, setMaxLogLines] = useState(() => {
+    const saved = Number(settingState.setting['common.logMaxLines'])
+    return Number.isFinite(saved) && saved > 0 ? saved : DEFAULT_MAX_LOG_LINES
+  })
 
   const copyToClipboard = async(text: string) => {
     try {
@@ -62,7 +68,13 @@ export default memo(() => {
   }
 
   const renderLogItem = (item: string, index: number) => (
-    <RNText key={index} selectable={true} style={{ fontSize: 13, lineHeight: 18, paddingVertical: 4 }}>
+    // 必须显式给颜色：RNText 默认是黑色，而弹层底色取自 c-content-background，
+    // 暗色主题下黑字压暗底完全看不见（漏用主题色是历史遗留）。
+    <RNText
+      key={index}
+      selectable={true}
+      style={{ fontSize: 13, lineHeight: 18, paddingVertical: 4, color: theme['c-font'] }}
+    >
       {item}
     </RNText>
   )
@@ -75,15 +87,18 @@ export default memo(() => {
   const handleMaxLogLinesChange = (text: string, callback: (value: string) => void) => {
     if (text === '' || text === undefined) {
       setMaxLogLines(DEFAULT_MAX_LOG_LINES)
+      updateSetting({ 'common.logMaxLines': DEFAULT_MAX_LOG_LINES })
       callback(String(DEFAULT_MAX_LOG_LINES))
       return
     }
     const num = parseInt(text, 10)
     if (!isNaN(num) && num > 0) {
       setMaxLogLines(num)
+      updateSetting({ 'common.logMaxLines': num })
       callback(String(num))
     } else {
       setMaxLogLines(DEFAULT_MAX_LOG_LINES)
+      updateSetting({ 'common.logMaxLines': DEFAULT_MAX_LOG_LINES })
       callback(String(DEFAULT_MAX_LOG_LINES))
     }
   }

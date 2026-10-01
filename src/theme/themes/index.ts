@@ -119,6 +119,12 @@ export const buildActiveThemeColors = (theme: LX.Theme): LX.ActiveTheme => {
   if (Number.isFinite(cardOpacity)) {
     activeTheme['c-primary-light-900-alpha-200'] =
       withAlpha(activeTheme['c-primary-light-900-alpha-200'], cardOpacity / 100)
+    // 同档的 -alpha-300 也要跟着设置走：「我的」页歌曲列表卡片、推荐页平台胶囊 /
+    // 功能网格 / 每日推荐卡等用的是这一档。此前只改了 -alpha-200，那些元素滑到
+    // 0%（全透明）或 100%（最浓）都纹丝不动 —— 用户反馈的「我的页面整体没有跟随
+    // 底边不透明度」就是这个原因。
+    activeTheme['c-primary-light-900-alpha-300'] =
+      withAlpha(activeTheme['c-primary-light-900-alpha-300'], cardOpacity / 100)
   }
 
   if (theme.isDark) {

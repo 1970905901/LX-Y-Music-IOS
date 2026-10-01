@@ -92,7 +92,9 @@ const FixedPlaylistCard = memo(({
           height: CARD_HEIGHT,
           backgroundColor: activeId == item.id
             ? theme['c-primary-background-hover']
-            : theme['c-primary-light-900-alpha-300'],
+            // 与其它列表行统一用「底边」令牌（跟随主题色 + 主题页「底边不透明度」）；
+            // 原来这一处（以及下面的可拖拽卡片）用 -alpha-300，不跟滑杆变化。
+            : theme['c-primary-light-900-alpha-200'],
         },
       ]}
     >
@@ -246,7 +248,7 @@ const PlaylistCard = memo(({
     ? theme['c-primary-background-active']
     : activeId == item.id
       ? theme['c-primary-background-hover']
-      : theme['c-primary-light-900-alpha-300']
+      : theme['c-primary-light-900-alpha-200']
 
   return (
     <Animated.View

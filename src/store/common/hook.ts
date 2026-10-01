@@ -1,5 +1,6 @@
 import { COMPONENT_IDS } from '@/config/constant'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Platform } from 'react-native'
 import state, { type InitState } from './state'
 
 export const useFontSize = () => {
@@ -20,6 +21,13 @@ export const useFontSize = () => {
 // 只读偏移，不写入 state，避免影响 SizeView 的原始高度校准。
 const STATUSBAR_TOP_OFFSET = 6
 
+// iOS 状态栏高度只能由原生异步回调写入（SizeView → StatusBarManager.getHeight），
+// 在此之前 state.statusbarHeight 仍是 0。若此时有页面挂载（例如从推荐页首次进入某个
+// 二级页面），它的顶部 inset 会算成 0 → 标题顶到刘海/灵动岛后面；等值同步回来页面
+// 已经渲染完，表现为「第一次进上移、返回再进就正常」的时序问题。
+// 这里给首帧一个机型兜底值（拿到真实值后立即以真实值为准），从根上消掉这类闪现。
+const STATUSBAR_FALLBACK = Platform.OS === 'ios' ? (Platform.isPad ? 24 : 44) : 0
+
 export const useStatusbarHeight = () => {
   const [value, update] = useState(state.statusbarHeight)
 
@@ -30,7 +38,7 @@ export const useStatusbarHeight = () => {
     }
   }, [])
 
-  return value + STATUSBAR_TOP_OFFSET
+  return (value > 0 ? value : STATUSBAR_FALLBACK) + STATUSBAR_TOP_OFFSET
 }
 
 /**

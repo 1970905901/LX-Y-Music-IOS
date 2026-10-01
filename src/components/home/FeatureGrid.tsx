@@ -1,7 +1,7 @@
 import { memo, useMemo } from 'react'
 import { Pressable, View } from 'react-native'
 
-import { NAV_MENUS, type NAV_ID_Type } from '@/config/constant'
+import { NAV_MENUS, NAV_COOKIE_GATED_IDS, type NAV_ID_Type } from '@/config/constant'
 import { confirmDialog, createStyle, exitApp as backHome } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
 import { useSettingValue } from '@/store/setting/hook'
@@ -40,16 +40,6 @@ const MOVED_INTO_DISCOVERY_IDS = new Set<NAV_ID_Type>([
   'nav_play_history',
 ])
 
-// 平台在线内容入口需要对应平台的 Cookie 登录后才展示；WebDAV、本地与下载等
-// 本地功能不受限。关注歌手 / 收藏专辑为网易特性，随网易 Cookie 一起显隐。
-const COOKIE_GATED_IDS: Partial<Record<NAV_ID_Type, 'common.wy_cookie' | 'common.kg_cookie' | 'common.tx_cookie'>> = {
-  nav_my_playlist: 'common.wy_cookie',
-  nav_kg_playlist: 'common.kg_cookie',
-  nav_tx_playlist: 'common.tx_cookie',
-  nav_followed_artists: 'common.wy_cookie',
-  nav_subscribed_albums: 'common.wy_cookie',
-}
-
 const renderIcon = (icon: string, color: string) => {
   if (icon.startsWith('svg:')) {
     return <SvgIcon name={icon.slice(4)} size={21} color={color} />
@@ -80,7 +70,7 @@ const FeatureGrid = memo(() => {
       }
       const items: FeatureItem[] = NAV_MENUS.filter(
         menu => !TAB_IDS.has(menu.id) && !MOVED_INTO_DISCOVERY_IDS.has(menu.id) && (navStatus[menu.id] ?? true) &&
-          (!COOKIE_GATED_IDS[menu.id] || !!cookieMap[menu.id]) &&
+          (!NAV_COOKIE_GATED_IDS[menu.id] || !!cookieMap[menu.id]) &&
           (myListVisibility[menu.id] ?? true),
       ).map(({ id, icon }) => ({ id, icon }))
 

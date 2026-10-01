@@ -77,7 +77,8 @@ export default memo(() => {
 
   const refreshSonglistCache = () => {
     // 歌单缓存存在 AsyncStorage 里，不在 Caches/Tmp 目录，getAppCacheSize 统计不到
-    void getSonglistDetailCacheSummary().then((summary) => {
+    // 资源管理器要显示占用，需要 withSize（会序列化每条缓存，故只在这一处开启）
+    void getSonglistDetailCacheSummary({ withSize: true }).then((summary) => {
       setSonglistCache({ count: summary.count, songCount: summary.songCount, size: summary.size })
     })
   }

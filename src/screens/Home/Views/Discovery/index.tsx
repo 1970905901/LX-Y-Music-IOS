@@ -13,6 +13,7 @@ import settingState from '@/store/setting/state'
 import boardState, { type BoardItem } from '@/store/leaderboard/state'
 import { getList } from '@/core/songlist'
 import { getBoardsList } from '@/core/leaderboard'
+import { shouldRefreshByTtl } from '@/core/refreshThrottle'
 import { saveLeaderboardSettingSync } from '@/utils/data'
 import { Icon } from '@/components/common/Icon'
 import Text from '@/components/common/Text'
@@ -184,7 +185,9 @@ export default memo(() => {
     const currentLoadId = ++loadIdRef.current
     setLoading(true)
     try {
-      const result = await getList(source, '', getSortId(source), 1)
+      // 不落盘缓存；刷新时机 = 冷启动后首次进入/切换必刷，之后满 1 小时才再刷（core/refreshThrottle）
+      const isRefresh = shouldRefreshByTtl(`square|discovery|${source}`)
+      const result = await getList(source, '', getSortId(source), 1, isRefresh)
       if (currentLoadId !== loadIdRef.current) return
       setPlaylists(result.list.map((item) => ({ ...item, source })))
     } catch (error: any) {
@@ -199,6 +202,7 @@ export default memo(() => {
   const loadBoards = useCallback(async(source: Source) => {
     const currentLoadId = ++boardsLoadIdRef.current
     try {
+      // 刷新时机由 core/leaderboard 内部按「冷启动首点必刷 + 1 小时 TTL」统一判定
       const boardList = await getBoardsList(source)
       if (currentLoadId !== boardsLoadIdRef.current) return
       setBoards(boardList)
@@ -219,6 +223,7 @@ export default memo(() => {
   useEffect(() => {
     void loadBoards(leaderboardSource)
   }, [leaderboardSource, loadBoards])
+
 
   const handleOpenDetail = useCallback((item: ListInfoItem) => {
     setSelectedPlaylist(item)

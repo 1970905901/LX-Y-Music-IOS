@@ -18,7 +18,7 @@ import TXDailyRec from '../Views/DailyRec/TXDailyRec'
 import MyPlaylist from '../Views/MyPlaylist'
 import FollowedArtists from '../Views/FollowedArtists'
 import SubscribedAlbums from '../Views/SubscribedAlbums'
-import { NAV_MENUS, type NAV_ID_Type, getEffectiveFlatOrder } from '@/config/constant.ts'
+import { NAV_MENUS, NAV_COOKIE_GATED_IDS, type NAV_ID_Type, getEffectiveFlatOrder } from '@/config/constant.ts'
 import { useSettingValue } from '@/store/setting/hook.ts'
 import { useHomeLazyPage } from '@/utils/hooks'
 import PlayHistory from '../Views/PlayHistory'
@@ -57,8 +57,15 @@ const PlayHistoryOverlay = ({ visible }: { visible: boolean }) => {
   return visible ? <View style={styles.historyOverlay}>{component}</View> : null
 }
 
-const isMenuVisible = (id: NAV_ID_Type, navStatus: Partial<Record<NAV_ID_Type, boolean>>) => (
-  id !== 'nav_play_history' && (id === 'nav_setting' || (navStatus[id] ?? true))
+// 平台在线内容入口（我的歌单 / 平台歌单 / 关注歌手 / 收藏专辑）需对应 Cookie 登录后
+// 才出现；规则与推荐页功能网格共用 NAV_COOKIE_GATED_IDS，避免两处不一致。
+const isMenuVisible = (
+  id: NAV_ID_Type,
+  navStatus: Partial<Record<NAV_ID_Type, boolean>>,
+  cookieOk: Partial<Record<NAV_ID_Type, boolean>>,
+) => (
+  id !== 'nav_play_history' &&
+  (id === 'nav_setting' || ((navStatus[id] ?? true) && (cookieOk[id] ?? true)))
 )
 const LeaderboardPage = () => {
   const [visible, setVisible] = useState(commonState.navActiveId == 'nav_top')
@@ -175,17 +182,32 @@ const Main = () => {
   const navStatus = useSettingValue('common.navStatus')
   const navOrder = useSettingValue('common.navOrder')
   const navFlatOrder = useSettingValue('common.navFlatOrder')
+  const wyCookie = useSettingValue('common.wy_cookie')
+  const kgCookie = useSettingValue('common.kg_cookie')
+  const txCookie = useSettingValue('common.tx_cookie')
+  const cookieOk = useMemo(() => {
+    const cookies: Record<string, string> = {
+      'common.wy_cookie': wyCookie,
+      'common.kg_cookie': kgCookie,
+      'common.tx_cookie': txCookie,
+    }
+    const result: Partial<Record<NAV_ID_Type, boolean>> = {}
+    for (const [id, key] of Object.entries(NAV_COOKIE_GATED_IDS)) {
+      if (key) result[id as NAV_ID_Type] = !!cookies[key]
+    }
+    return result
+  }, [wyCookie, kgCookie, txCookie])
 
   // 与功能网格保持同一套“有效顺序”，否则过滤状态不一致时会跳到未挂载页面。
   // 优先使用用户自定义的扁平顺序 navFlatOrder，否则回退 navOrder。
   const effectiveOrder = useMemo(() => getEffectiveFlatOrder(navFlatOrder, navOrder), [navFlatOrder, navOrder])
 
   const visibleNavs = useMemo(() => {
-    return effectiveOrder.filter((id: NAV_ID_Type) => isMenuVisible(id, navStatus)).map((id: NAV_ID_Type) => {
+    return effectiveOrder.filter((id: NAV_ID_Type) => isMenuVisible(id, navStatus, cookieOk)).map((id: NAV_ID_Type) => {
       const menuInfo = NAV_MENUS.find(menu => menu.id === id)
       return menuInfo || { id, icon: 'unknown' }
     })
-  }, [navStatus, effectiveOrder])
+  }, [navStatus, effectiveOrder, cookieOk])
 
   const { viewMap, indexMap } = useMemo(() => {
     const viewMap: Partial<Record<NAV_ID_Type, number>> = {}
@@ -371,7 +393,7 @@ const Main = () => {
       if (keys.includes('common.navStatus')) {
         // 播放历史是浮层，不在可见菜单列表里，但不应被导航状态变更重置
         if (commonState.navActiveId === 'nav_play_history') return
-        const isActiveVisible = isMenuVisible(commonState.navActiveId, navStatus)
+        const isActiveVisible = isMenuVisible(commonState.navActiveId, navStatus, cookieOk)
         if (!isActiveVisible && visibleNavs.length > 0) {
           setNavActiveId(visibleNavs[0].id)
         }
@@ -381,7 +403,7 @@ const Main = () => {
     return () => {
       global.state_event.off('configUpdated', handleConfigUpdated)
     }
-  }, [navStatus, visibleNavs])
+  }, [navStatus, visibleNavs, cookieOk])
 
   useEffect(() => {
     const handleUpdate = (id: CommonState['navActiveId']) => {

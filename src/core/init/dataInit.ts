@@ -10,7 +10,7 @@ import { unlink } from '@/utils/fs'
 import { TEMP_FILE_PATH } from '@/utils/tools'
 import wyUserApi from '@/utils/musicSdk/wy/user'
 import txUserApi from '@/utils/musicSdk/tx/user'
-import { getPlaylistIndex } from '@/core/playlistIndex'
+import { getUserPlaylists as getKgUserPlaylists } from '@/utils/musicSdk/kg/utils/api'
 import {
   setWyFollowedArtists,
   setWyLikedSongs,
@@ -74,12 +74,8 @@ export default async(appSetting: LX.AppSetting) => {
         }).catch(err => {
           bootLog(`Wy liked albums init failed: ${err.message}`)
         })
-        // 「我的歌单」索引缓存优先：命中则不联网（离线也有列表），未命中才拉取并写缓存
-        getPlaylistIndex('wy').then((result) => {
-          bootLog(`Wy subscribed playlists ${result.fromCache ? 'loaded from cache' : 'inited'}.`)
-        }).catch((err: any) => {
-          bootLog(`Wy subscribed playlists init failed: ${err.message}`)
-        })
+        // 「我的歌单」按用户规则推迟：**第一次点开该平台歌单时才拉取并缓存**
+        // （不在启动时预拉，故这里不再调用 getPlaylistIndex）
       })
       .catch((err: any) => {
         bootLog(`Wy like list init failed: ${err.message}`)
@@ -112,21 +108,17 @@ export default async(appSetting: LX.AppSetting) => {
       }
     })()
 
-    bootLog('Tx playlists init...')
-    getPlaylistIndex('tx').then((result) => {
-      bootLog(`Tx playlists ${result.fromCache ? 'loaded from cache' : 'inited'}.`)
-    }).catch(err => {
-      bootLog(`Tx playlists init failed: ${err.message}`)
-    })
+    // TX「我的歌单」同样推迟到第一次点开时拉取并缓存（见上）
   }
 
   const kg_cookie = appSetting['common.kg_cookie']
   if (kg_cookie) {
-    bootLog('Kg playlists init...')
-    getPlaylistIndex('kg').then(async(result) => {
-      bootLog(`Kg playlists ${result.fromCache ? 'loaded from cache' : 'inited'}.`)
-
-      const favoritesPlaylist = (result.lists.created ?? []).find((p: any) => p.isFavorites)
+    bootLog('Kg like list init...')
+    // kg 的「红心歌曲」需要「我喜欢的音乐」歌单 id：这里直接查一次（**不写**歌单索引缓存），
+    // 歌单列表本身按规则推迟到「第一次点开酷狗歌单」时拉取并缓存。
+    getKgUserPlaylists(kg_cookie).then(async(result) => {
+      const createdList = result?.success && result.data ? (result.data.createdList ?? []) : []
+      const favoritesPlaylist = createdList.find((p: any) => p.isFavorites)
       if (favoritesPlaylist) {
         bootLog('Kg like list init...')
         try {

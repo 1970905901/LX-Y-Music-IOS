@@ -3,6 +3,7 @@ import OnlineList, { type OnlineListType, type OnlineListProps } from '@/compone
 import { clearListDetail, getListDetail, getListDetailAll, setListDetail, setListDetailInfo } from '@/core/songlist'
 import { LIST_LOAD_LIMIT } from '@/store/songlist/action'
 import { getSonglistDetailCache, saveSonglistDetailCache, type SonglistDetailCacheInfo } from '@/utils/data/songlistDetail'
+import { shouldRefreshByTtl, markRefreshed } from '@/core/refreshThrottle'
 import songlistState from '@/store/songlist/state'
 import { handlePlay } from './listAction'
 import { useListInfo } from './state'
@@ -217,6 +218,10 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, isCreat
               listRef.current?.setStatus(cached.complete ? 'end' : 'loading')
             })
             if (!cached.complete) void syncFullList(source, id, cached.info, false)
+            else if (shouldRefreshByTtl(`songs|${source}|${id}`)) {
+              // 冷启动后首次点开必刷新；之后满 1 小时才再刷（core/refreshThrottle）
+              void syncFullList(source, id, cached.info, true)
+            }
             return createDetailInfo(cached.info)
           }
         }
@@ -275,6 +280,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, isCreat
               listRef.current?.setStatus('loading')
             })
             void syncFullList(source, id, result.info as SonglistDetailCacheInfo, false)
+            markRefreshed(`songs|${source}|${id}`)
             return createDetailInfo(result.info)
           })
           .catch((err) => {

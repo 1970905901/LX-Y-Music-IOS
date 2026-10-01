@@ -7,6 +7,7 @@ import {
   setListDetailInfo,
 } from '@/core/leaderboard'
 import boardState from '@/store/leaderboard/state'
+import { shouldRefreshByTtl, markRefreshed } from '@/core/refreshThrottle'
 import { handlePlay } from './listAction'
 
 // export type MusicListProps = Pick<OnlineListProps,
@@ -43,16 +44,31 @@ export default forwardRef<MusicListType, { header?: ReactElement }>((props, ref)
           listDetailInfo.list.length
             ? listDetailInfo.list
             : null
+        // 刷新时机：冷启动后首次点开必刷，之后满 1 小时才再刷（core/refreshThrottle）
+        const refreshNow = () => {
+          if (!shouldRefreshByTtl(`boardSongs|${id}`)) return
+          void getListDetail(id, 1, true)
+            .then((listDetail) => {
+              if (isUnmountedRef.current) return
+              const result = setListDetail(listDetail, id, 1)
+              listRef.current?.setList(result.list)
+              listRef.current?.setStatus(boardState.listDetailInfo.maxPage <= 1 ? 'end' : 'idle')
+            })
+            .catch(() => {})
+        }
         listRef.current?.setList([])
         if (cachedList) {
           requestAnimationFrame(() => {
             listRef.current?.setList(cachedList)
           })
+          refreshNow()
         } else {
           listRef.current?.setStatus('loading')
           const page = 1
           setListDetailInfo(id)
-          return getListDetail(id, page)
+          // 首屏直接强制联网（榜单不缓存），并记录刷新时刻，避免紧接着再点一次又刷
+          markRefreshed(`boardSongs|${id}`)
+          return getListDetail(id, page, page === 1)
             .then((listDetail) => {
               const result = setListDetail(listDetail, id, page)
               if (isUnmountedRef.current) return

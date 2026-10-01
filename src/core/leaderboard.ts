@@ -2,6 +2,7 @@ import leaderboardState, { type Board, type ListDetailInfo } from '@/store/leade
 import leaderboardActions, { LIST_LOAD_LIMIT } from '@/store/leaderboard/action'
 import { deduplicationList, toNewMusicInfo } from '@/utils'
 import musicSdk from '@/utils/musicSdk'
+import { shouldRefreshByTtl } from '@/core/refreshThrottle'
 
 /**
  * Set leaderboard list detail info
@@ -41,9 +42,12 @@ const cache = new Map<string, CacheValue>()
 const inflightPageRequests = new Map<string, Promise<ListDetailInfo>>()
 const listRequestQueues = new Map<string, Promise<unknown>>()
 
-export const getBoardsList = async(source: LX.OnlineSource) => {
+export const getBoardsList = async(source: LX.OnlineSource, isRefresh = false) => {
   // const source = (await getLeaderboardSetting()).source as LX.OnlineSource
-  if (leaderboardState.boards[source]) return leaderboardState.boards[source].list
+  // 排行榜卡片列表的刷新时机统一在这里判定：冷启动后**首次调用必刷**，
+  // 之后距离上次刷新满 1 小时才再刷（未满则直接用内存里的榜单）。
+  const force = isRefresh || shouldRefreshByTtl(`board|${source}`)
+  if (!force && leaderboardState.boards[source]) return leaderboardState.boards[source].list
   const board = await ((musicSdk[source])?.leaderboard.getBoards() as Promise<Board>)
   setBoard(board, source)
   return leaderboardState.boards[source]!.list

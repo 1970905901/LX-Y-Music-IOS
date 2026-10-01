@@ -4,190 +4,146 @@ import SubTitle from '../../components/SubTitle'
 import Button from '../../components/Button'
 import Text from '@/components/common/Text'
 import { confirmDialog, createStyle, toast } from '@/utils/tools'
-import { sizeFormate } from '@/utils'
 import music from '@/utils/musicSdk'
-import { getListDetailAll } from '@/core/songlist'
 import { getPlaylistIndex, getCachedPlaylistIndexCount } from '@/core/playlistIndex'
-import {
-  getSonglistDetailCache,
-  getSonglistDetailCacheSummary,
-  saveSonglistDetailCache,
-  type SonglistDetailCacheSummaryItem,
-} from '@/utils/data/songlistDetail'
-
-interface PlatformGroup {
-  source: LX.OnlineSource
-  name: string
-  items: SonglistDetailCacheSummaryItem[]
-  songCount: number
-  incompleteCount: number
-}
-
-const sourceName = (source: LX.OnlineSource) =>
-  music.sources.find(item => item.id === source)?.name ?? source
+import { getSonglistDetailCacheSummary } from '@/utils/data/songlistDetail'
+import settingState from '@/store/setting/state'
 
 /**
- * 歌单缓存「更新同步」。
+ * cookie 歌单（我的歌单）缓存与手动同步。
  *
- * 每个平台单独一行：显示该平台已缓存的歌单数 / 歌曲数，并提供「刷新同步」，
- * 逐页重拉该平台的全部已缓存歌单并覆盖本地缓存；底部「全部同步」一次同步所有平台。
- *
- * 为什么需要手动同步：歌单详情改为本地整表缓存后，进入歌单直接读缓存（不再每次
- * 重新拉取），平台侧新增/下架歌曲不会自动反映，所以需要主动触发一次全量同步。
+ * 规则（用户定义）：
+ * - 登录酷狗 / QQ / 网易后，对应平台的「我的歌单」**第一次点开时刷新并缓存**，
+ *   之后打开直接用缓存；
+ * - 只有在这里点「刷新歌单」才会重新拉取并重新写缓存；
+ * - 推荐页推荐歌单 / 排行榜 / 歌单页列表**不缓存**，故不在此面板出现。
  */
+
+const COOKIE_SOURCES = [
+  { source: 'wy', settingKey: 'common.wy_cookie' },
+  { source: 'tx', settingKey: 'common.tx_cookie' },
+  { source: 'kg', settingKey: 'common.kg_cookie' },
+] as const
+
+const sourceName = (source: string) =>
+  music.sources.find(item => item.id === source)?.name ?? source
+
+interface Row {
+  source: LX.OnlineSource
+  cookieKey: string
+  loggedIn: boolean
+  playlistCount: number
+  songCount: number
+}
+
 export default memo(() => {
-  const [items, setItems] = useState<SonglistDetailCacheSummaryItem[]>([])
-  const [stats, setStats] = useState({ count: 0, songCount: 0, incompleteCount: 0, size: 0 })
-  // null = 未同步；'all' = 全部同步中；否则为正在同步的平台
+  const [rows, setRows] = useState<Row[]>([])
   const [syncingSource, setSyncingSource] = useState<LX.OnlineSource | 'all' | null>(null)
-  const [progress, setProgress] = useState(0)
-  const [progressTotal, setProgressTotal] = useState(0)
-  // 各平台「我的歌单」列表缓存条数
-  const [indexCounts, setIndexCounts] = useState<Record<string, number>>({})
   const syncing = syncingSource != null
 
-  const refreshStats = useCallback(() => {
-    void getSonglistDetailCacheSummary().then(async(summary) => {
-      setItems(summary.items)
-      setStats({
-        count: summary.count,
-        songCount: summary.songCount,
-        incompleteCount: summary.incompleteCount,
-        size: summary.size,
+  const refreshStats = useCallback(async() => {
+    // 不请求体积：避免为每条缓存（MB 级）做整串序列化（省 CPU / 省电）
+    const summary = await getSonglistDetailCacheSummary({ withSize: false }).catch(() => null)
+    const items = summary?.items ?? []
+    const next: Row[] = []
+    for (const { source, settingKey } of COOKIE_SOURCES) {
+      const cookie = (settingState.setting[settingKey] as string | undefined) ?? ''
+      const list = items.filter(item => item.source === source)
+      next.push({
+        source: source as LX.OnlineSource,
+        cookieKey: settingKey,
+        loggedIn: !!cookie,
+        playlistCount: list.length,
+        songCount: list.reduce((sum, item) => sum + item.songCount, 0),
       })
-      const sources = [...new Set(summary.items.map(item => item.source))]
-      const entries = await Promise.all(
-        sources.map(async source => [source, await getCachedPlaylistIndexCount(source)] as const),
-      )
-      setIndexCounts(Object.fromEntries(entries))
-    })
+    }
+    setRows(next)
   }, [])
 
   useEffect(() => {
-    refreshStats()
+    void refreshStats()
   }, [refreshStats])
 
-  // 按平台分组：平台设置里每个平台一行，各自可单独刷新同步
-  const groups = useMemo(() => {
-    const map = new Map<LX.OnlineSource, PlatformGroup>()
-    for (const item of items) {
-      let group = map.get(item.source)
-      if (!group) {
-        group = {
-          source: item.source,
-          name: sourceName(item.source),
-          items: [],
-          songCount: 0,
-          incompleteCount: 0,
-        }
-        map.set(item.source, group)
-      }
-      group.items.push(item)
-      group.songCount += item.songCount
-      if (!item.complete) group.incompleteCount++
-    }
-    return [...map.values()].sort((a, b) => b.items.length - a.items.length)
-  }, [items])
+  const cachedInfo = useMemo(() => rows.filter(row => row.playlistCount > 0), [rows])
 
-  const runSync = useCallback(async(
-    targets: SonglistDetailCacheSummaryItem[],
-    tag: LX.OnlineSource | 'all',
-  ) => {
-    setSyncingSource(tag)
-    setProgress(0)
-    setProgressTotal(targets.length)
-    const targetSources = [...new Set(targets.map(item => item.source))]
-    // 第一步：刷新各平台的「我的歌单」列表本身（新建/收藏/删除的歌单会在这步出现）
-    const indexFailed: LX.OnlineSource[] = []
-    for (const source of targetSources) {
-      try {
-        await getPlaylistIndex(source, { force: true })
-      } catch (err) {
-        console.log('[SonglistCacheSync] 歌单列表刷新失败', source, (err as Error)?.message)
-        indexFailed.push(source)
-      }
-    }
-    // 第二步：逐张重拉已缓存歌单的全部歌曲并覆盖缓存
-    let success = 0
-    for (let i = 0; i < targets.length; i++) {
-      const item = targets[i]
-      setProgress(i + 1)
-      try {
-        const list = await getListDetailAll(item.source, item.id, true)
-        if (!list.length) continue
-        const cached = await getSonglistDetailCache(item.source, item.id)
-        await saveSonglistDetailCache({
-          source: item.source,
-          id: item.id,
-          name: item.name,
-          total: list.length,
-          complete: true,
-          updatedAt: Date.now(),
-          info: cached?.info ?? { name: item.name },
-          list,
-        })
-        success++
-      } catch (err) {
-        console.log('[SonglistCacheSync] 同步失败', item.source, item.id, (err as Error)?.message)
-      }
-    }
-    toast(indexFailed.length
-      ? `同步完成：歌单内容 ${success}/${targets.length}；${indexFailed.map(s => sourceName(s)).join('、')} 的「我的歌单」刷新失败（未登录或 Cookie 失效）`
-      : `同步完成：歌单列表已更新，歌单内容 ${success}/${targets.length}`)
-    setSyncingSource(null)
-    refreshStats()
-  }, [refreshStats])
+  /** 刷新某个平台的 cookie 歌单（索引）：重新拉取并重新写缓存 */
+  const refreshOne = useCallback(async(source: LX.OnlineSource) => {
+    await getPlaylistIndex(source, { force: true })
+    await getCachedPlaylistIndexCount(source)
+  }, [])
 
-  const confirmAndSync = useCallback((targets: SonglistDetailCacheSummaryItem[], tag: LX.OnlineSource | 'all', label: string) => {
-    if (syncing || !targets.length) return
+  const handleRefresh = useCallback((source: LX.OnlineSource) => {
+    if (syncing) return
+    setSyncingSource(source)
+    void refreshOne(source)
+      .then(() => { toast(`已刷新：${sourceName(source)} 歌单`) })
+      .catch((err: Error) => { toast(`刷新失败：${err?.message ?? '未登录或 Cookie 失效'}`) })
+      .finally(() => {
+        setSyncingSource(null)
+        void refreshStats()
+      })
+  }, [syncing, refreshOne, refreshStats])
+
+  const handleRefreshAll = useCallback(() => {
+    if (syncing) return
+    const targets = rows.filter(row => row.loggedIn)
+    if (!targets.length) {
+      toast('请先登录酷狗 / QQ / 网易平台')
+      return
+    }
     void confirmDialog({
-      message: `将重新拉取${label}的全部歌曲，共 ${targets.length} 个歌单，歌单较大时耗时较长，是否继续？`,
+      message: `将依次刷新 ${targets.length} 个平台的「我的歌单」并重新缓存，是否继续？`,
       confirmButtonText: '开始同步',
     }).then((confirm) => {
       if (!confirm) return
-      void runSync(targets, tag)
+      setSyncingSource('all')
+      void (async() => {
+        let ok = 0
+        for (const row of targets) {
+          try {
+            await refreshOne(row.source)
+            ok++
+          } catch (err) {
+            console.log('[SonglistCacheSync] 刷新失败', row.source, (err as Error)?.message)
+          }
+        }
+        toast(`全部同步完成：成功 ${ok}/${targets.length} 个平台`)
+      })().finally(() => {
+        setSyncingSource(null)
+        void refreshStats()
+      })
     })
-  }, [syncing, runSync])
+  }, [syncing, rows, refreshOne, refreshStats])
 
   return (
-    <SubTitle title="歌单缓存与更新同步">
+    <SubTitle title="cookie 歌单缓存与同步">
       <View style={styles.info}>
         <Text size={12}>
-          已缓存 {stats.count} 个歌单 · {stats.songCount} 首歌曲（约 {sizeFormate(stats.size)}）
+          登录平台后，「我的歌单」第一次点开时刷新并缓存，之后打开直接读缓存；
+          需要更新时点下面的「刷新歌单」。
         </Text>
-        {stats.incompleteCount
-          ? <Text size={12}>有 {stats.incompleteCount} 个歌单尚未拉全，进入对应歌单会自动补全</Text>
+        {cachedInfo.length
+          ? <Text size={12}>已缓存 {cachedInfo.reduce((n, row) => n + row.playlistCount, 0)} 张歌单 · {cachedInfo.reduce((n, row) => n + row.songCount, 0)} 首</Text>
           : null}
-        <Text size={12}>
-          「我的歌单」列表与歌单歌曲都已本地保存：进入页面直接读缓存，不再每次重新拉取。
-          「刷新同步」会先更新该平台的「我的歌单」列表，再重拉已缓存歌单的全部歌曲。
-        </Text>
       </View>
-      {groups.length
-        ? groups.map((group) => (
-          <View key={group.source} style={styles.row}>
-            <Text size={12} style={styles.rowLabel} numberOfLines={2}>
-              {group.name}：我的歌单 {indexCounts[group.source] ?? 0} 个 · 已缓存 {group.items.length} 张（{group.songCount} 首）
-              {group.incompleteCount ? `（${group.incompleteCount} 个未拉全）` : ''}
-            </Text>
-            <Button
-              disabled={syncing}
-              onPress={() => { confirmAndSync(group.items, group.source, group.name) }}
-            >
-              {syncingSource === group.source ? `同步中 ${progress}/${progressTotal}` : '刷新同步'}
-            </Button>
-          </View>
-        ))
-        : <Text size={12} style={styles.empty}>暂无歌单缓存，进入任意歌单后会自动缓存</Text>}
+      {rows.map(row => (
+        <View key={row.source} style={styles.row}>
+          <Text size={12} style={styles.rowLabel} numberOfLines={2}>
+            {sourceName(row.source)}歌单（cookie）：{row.loggedIn
+              ? `${row.playlistCount} 张 · ${row.songCount} 首`
+              : '未登录'}
+          </Text>
+          <Button
+            disabled={syncing || !row.loggedIn}
+            onPress={() => { handleRefresh(row.source) }}
+          >
+            {syncingSource === row.source ? '刷新中...' : '刷新歌单'}
+          </Button>
+        </View>
+      ))}
       <View style={styles.btnRow}>
-        <Button
-          disabled={syncing || !items.length}
-          onPress={() => { confirmAndSync(items, 'all', '全部平台') }}
-        >
-          {syncingSource === 'all' ? `同步中 ${progress}/${progressTotal}` : '全部同步'}
-        </Button>
-        <Button disabled={syncing} onPress={refreshStats}>
-          刷新统计
+        <Button disabled={syncing} onPress={handleRefreshAll}>
+          {syncingSource === 'all' ? '同步中...' : '全部同步'}
         </Button>
       </View>
     </SubTitle>
@@ -208,9 +164,6 @@ const styles = createStyle({
   rowLabel: {
     flex: 1,
     marginRight: 8,
-  },
-  empty: {
-    marginBottom: 4,
   },
   btnRow: {
     flexDirection: 'row',

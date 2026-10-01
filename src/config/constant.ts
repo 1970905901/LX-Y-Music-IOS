@@ -105,6 +105,22 @@ export const storageDataPrefixOld = {
 
 export const APP_PROVIDER_NAME = 'com.lxwalnut.music.mobile.provider'
 
+/**
+ * 平台在线内容入口：需要对应平台的 Cookie 登录后才在菜单/功能网格里显示。
+ * （WebDAV、本地与下载等本地功能不受限；关注歌手 / 收藏专辑是网易特性，随网易 Cookie 显隐。）
+ * 单一来源：推荐页功能网格（FeatureGrid）与首页导航页集合（Home/Vertical/Main）共用本表，
+ * 避免两处规则不一致（用户反馈「没登录也显示平台歌单入口」）。
+ */
+export const NAV_COOKIE_GATED_IDS: Partial<
+Record<NAV_ID_Type, 'common.wy_cookie' | 'common.kg_cookie' | 'common.tx_cookie'>
+> = {
+  nav_my_playlist: 'common.wy_cookie',
+  nav_kg_playlist: 'common.kg_cookie',
+  nav_tx_playlist: 'common.tx_cookie',
+  nav_followed_artists: 'common.wy_cookie',
+  nav_subscribed_albums: 'common.wy_cookie',
+}
+
 export const NAV_MENUS = [
   { id: 'nav_discovery', icon: 'home' },
   { id: 'nav_search', icon: 'search-2' },

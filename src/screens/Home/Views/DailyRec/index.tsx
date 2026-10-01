@@ -165,6 +165,10 @@ export default memo(() => {
   return (
     <View style={{ flex: 1 }}>
       <View style={[{ flex: 1 }, selectedPlaylist ? { opacity: 0 } : null]} pointerEvents={selectedPlaylist ? 'none' : 'auto'}>
+        {/* 固定页头：页头（标题 + tab）不再作为列表的 ListHeaderComponent 塞进内容里。
+            否则首次进入本页时，首帧布局/原生安全区插图落定产生的偏移会把页头一起顶到
+            刘海后面（返回再进又正常）。独立出来后页头位置与列表滚动彻底解耦。 */}
+        {pageHeader}
         <PagerView
           ref={pagerViewRef}
           style={{ flex: 1 }}
@@ -175,14 +179,13 @@ export default memo(() => {
           <View key="1">
             {(activeTab === 'songs') && (
               <RecSongs
-                header={pageHeader}
                 isStylized={isStylized}
                 stylizedSelection={stylizedSelection}
               />
             )}
           </View>
           <View key="2">
-            <RecPlaylists header={pageHeader} onOpenDetail={handleOpenDetail} />
+            <RecPlaylists onOpenDetail={handleOpenDetail} />
           </View>
         </PagerView>
         <StylizedModal

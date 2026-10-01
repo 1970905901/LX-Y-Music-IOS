@@ -22,12 +22,12 @@ import { useCallback, useEffect, useMemo, useRef } from 'react'
  * （onScrollBeginDrag）或调用 stop()（恢复上次滚动位置 / 定位到当前播放等
  * 程序化定位）立即永久停止干预，因此不影响后续滚动与定位。
  *
- * 重要：只纠正「已经实测到的」幽灵偏移（onScroll 事件里的真实 contentOffset）。
- * 绝不在没有实测值的情况下盲发 scrollToOffset(0)——若这台机型的安全区插图本来
- * 就是非 0（正确静止位置是负值），盲归零反而会制造出同款上飘。
- *
- * 触发源：onScroll（原生插图变化会派发一次）+ 窗口内定点复查（防止那次
- * scrollToOffset 之后原生又把偏移顶起来而不再派发事件）。
+ * 触发源：
+ *   ① onScroll：实测到 0 < y <= 120（被抬到顶部之上、幅度是安全区量级）时立刻拉回 y = 0；
+ *   ② 窗口内定点复查：**即使一次 onScroll 都没收到**也拉回一次 y = 0。
+ *      这个兜底是必须的——幽灵偏移来自原生侧（contentInset 变化 / 布局落定）时可能
+ *      根本不派发 onScroll（被 scrollEventThrottle 节流吞掉，或发生在 JS 挂上 onScroll
+ *      之前），只靠 ① 会漏（上一版就是这样没修到）。已知 y < 0（下拉刷新 / 回弹）时绝不干预。
  *
  * 用法：
  *   const guard = usePhantomScrollGuard(flatListRef)
@@ -59,15 +59,17 @@ export const usePhantomScrollGuard = (
 
   /**
    * 把「被抬到顶部之上」的幽灵偏移拉回真正的顶部（offset 0 == 内容首行贴列表顶边）。
-   * 仅在实测到 0 < y <= GHOST_MAX_OFFSET 时才动手（见文件头注释）。
+   * @param allowZero 定时复查时为 true：offsetRef 还是初始 0（说明那次 onScroll 没来，
+   *   无从得知真实偏移）也执行一次归零——列表本就在顶部时这是幂等空操作，
+   *   只有真被抬起时才会产生位移。
    */
-  const correct = useCallback(() => {
+  const correct = useCallback((allowZero = false) => {
     if (!isGuardActive()) return
     const y = offsetRef.current
     // 只纠正「略微越过顶部」的幽灵偏移：
     // 负值 = 下拉刷新 / 回弹；大正值 = 用户滚动或程序化定位，都不能动。
-    // y <= 0.5 时是正常静止位置（含初始值 0），不做任何事。
-    if (y <= 0.5 || y > GHOST_MAX_OFFSET) return
+    if (y < 0 || y > GHOST_MAX_OFFSET) return
+    if (!allowZero && y <= 0.5) return
     listRef.current?.scrollToOffset?.({ offset: 0, animated: false })
   }, [listRef, isGuardActive])
 
@@ -82,12 +84,12 @@ export const usePhantomScrollGuard = (
   }, [])
 
   // 布局/内容尺寸稳定后复查一次：此时原生若已把偏移顶起来，这里立刻拉回。
-  const handleLayout = useCallback(() => { correct() }, [correct])
-  const handleContentSizeChange = useCallback(() => { correct() }, [correct])
+  const handleLayout = useCallback(() => { correct(true) }, [correct])
+  const handleContentSizeChange = useCallback(() => { correct(true) }, [correct])
 
   // 定时复查兜底（见文件头注释）：窗口内定点再确认几次，仍偏就再拉回。
   useEffect(() => {
-    const timers = RECHECK_AT.map((ms) => setTimeout(() => { correct() }, ms))
+    const timers = RECHECK_AT.map((ms) => setTimeout(() => { correct(true) }, ms))
     return () => { timers.forEach((timer) => { clearTimeout(timer) }) }
   }, [correct])
 

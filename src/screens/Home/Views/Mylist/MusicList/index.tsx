@@ -202,22 +202,25 @@ export default ({ onBack, listId }: MusicListProps) => {
           }
           onExitSearch={handleExitSearch}
         />
+        {/* 固定页头：页头（PageTopInset + ActiveList）不再作为列表的 ListHeaderComponent
+            塞进滚动内容里。此前「冷启动后第一次点开试听列表 / 我的收藏」会整页上飘、标题被
+            顶到刘海后面（返回再进就正常）——页头在可滚动内容里时，首帧布局/原生安全区插图
+            落定产生的偏移会把页头一起推上去。独立出来后页头位置只由页面顶部决定，
+            与列表滚动彻底解耦；进入搜索时代码会 setVisibleBar(false) 让页头自然隐藏，行为不变。 */}
+        <View>
+          <PageTopInset />
+          <ActiveList
+            ref={activeListRef}
+            onShowSearchBar={handleShowSearch}
+            onScrollToTop={hancelScrollToTop}
+            showCover={showCover}
+            onToggleView={handleToggleView}
+            onBack={onBack}
+          />
+        </View>
         <List
           ref={listRef}
           listId={listId}
-          header={
-            <>
-              <PageTopInset />
-              <ActiveList
-                ref={activeListRef}
-                onShowSearchBar={handleShowSearch}
-                onScrollToTop={hancelScrollToTop}
-                showCover={showCover}
-                onToggleView={handleToggleView}
-                onBack={onBack}
-              />
-            </>
-          }
           onShowMenu={showMenu}
           onMuiltSelectMode={hancelMultiSelect}
           onSelectAll={(isAll) => multipleModeBarRef.current?.setIsSelectAll(isAll)}

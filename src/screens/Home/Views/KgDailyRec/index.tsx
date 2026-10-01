@@ -98,6 +98,9 @@ export default memo(() => {
   return (
     <View style={{ flex: 1 }}>
       <View style={{ flex: 1 }}>
+        {/* 固定页头：页头（标题 + tab）不再作为列表的 ListHeaderComponent 塞进内容里，
+            否则首次进入本页时首帧偏移会把页头一起顶到刘海后面（返回再进又正常）。 */}
+        {pageHeader}
         <PagerView
           ref={pagerViewRef}
           style={{ flex: 1 }}
@@ -106,10 +109,10 @@ export default memo(() => {
           scrollEnabled
         >
           <View key="recommend">
-            <RecSongs header={pageHeader} type="recommend" />
+            <RecSongs type="recommend" />
           </View>
           <View key="everyday">
-            <RecSongs header={pageHeader} type="everyday" />
+            <RecSongs type="everyday" />
           </View>
         </PagerView>
       </View>

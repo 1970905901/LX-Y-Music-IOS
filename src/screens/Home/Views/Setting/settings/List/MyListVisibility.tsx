@@ -1,5 +1,4 @@
 import { memo, useCallback, useMemo } from 'react'
-import { View } from 'react-native'
 
 import SubTitle from '../../components/SubTitle'
 import CheckBoxItem from '../../components/CheckBoxItem'
@@ -11,7 +10,7 @@ import { useMyList } from '@/store/list/hook'
 import { LIST_IDS } from '@/config/constant'
 import Text from '@/components/common/Text'
 import { createStyle } from '@/utils/tools'
-import { designRadius, designSpacing } from '@/theme/DesignTokens'
+import { designSpacing } from '@/theme/DesignTokens'
 
 const PLATFORM_ITEM_IDS = [
   'nav_my_playlist',
@@ -56,24 +55,24 @@ export default memo(() => {
       <Text style={styles.tip} size={12} color={theme['c-font-label']}>
         {t('setting_list_my_list_visibility_tip')}
       </Text>
-      <View style={{ ...styles.content, borderColor: theme['c-border-background'] }}>
-        {listItems.map((item) => (
-          <CheckBoxItem
-            key={item.id}
-            check={visibility[item.id] ?? true}
-            label={item.name}
-            onChange={(visible) => { handleChange(item.id, visible) }}
-          />
-        ))}
-        {platformItems.map((item) => (
-          <CheckBoxItem
-            key={item.id}
-            check={visibility[item.id] ?? true}
-            label={item.name}
-            onChange={(visible) => { handleChange(item.id, visible) }}
-          />
-        ))}
-      </View>
+      {/* 每行本身就是整行卡片（CheckBoxItem），外层不再套一层边框卡片，
+          避免「卡片里再画边框」的双层容器，与页面其它开关行保持一致。 */}
+      {listItems.map((item) => (
+        <CheckBoxItem
+          key={item.id}
+          check={visibility[item.id] ?? true}
+          label={item.name}
+          onChange={(visible) => { handleChange(item.id, visible) }}
+        />
+      ))}
+      {platformItems.map((item) => (
+        <CheckBoxItem
+          key={item.id}
+          check={visibility[item.id] ?? true}
+          label={item.name}
+          onChange={(visible) => { handleChange(item.id, visible) }}
+        />
+      ))}
     </SubTitle>
   )
 })
@@ -81,10 +80,5 @@ export default memo(() => {
 const styles = createStyle({
   tip: {
     marginBottom: designSpacing.sm,
-  },
-  content: {
-    borderWidth: 1,
-    borderRadius: designRadius.sm,
-    padding: designSpacing.sm,
   },
 })

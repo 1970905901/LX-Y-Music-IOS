@@ -126,7 +126,7 @@ check('两页大标题 paddingTop 公式一致（max(sm, statusBarHeight - md)�
 
 // 字号/字重一致，否则左右对齐也会显得不一样宽
 check('两页大标题字号一致（size 34）', discoveryHasTitle34 && /size=\{34\}/.test(pageHeaderSrc), '34')
-check(`两页大标题字重一致（800）`,
+check('两页大标题字重一致（800）',
   discoveryTitleWeight === '800' && pageHeaderTitleWeight === '800',
   `推荐=${discoveryTitleWeight} 设置=${pageHeaderTitleWeight}`)
 
@@ -135,7 +135,7 @@ check(`分类列表左内边距 = designSpacing.xl(${tokens.xl})，与本页大�
   listPadValue === tokens.xl, `list=${listPadValue}`)
 
 console.log()
-const pad = Math.max(...results.map((r) => r.label.length))
+const _pad = Math.max(...results.map((r) => r.label.length))
 for (const r of results) {
   console.log(`  ${r.ok ? '✅' : '❌'}  ${r.label}${r.detail ? '   [' + r.detail + ']' : ''}`)
 }

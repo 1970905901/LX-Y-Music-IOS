@@ -242,8 +242,12 @@ function runNativeFlacSeek(variant) {
   const afterSound = { line: lyric.line, ui: progress.state.uiNowPlayTime }
 
   return {
-    atSeek, afterDispatch, duringBuffering, afterSound,
-    targetLine: lyric.lineAt(35000), oldLine: lyric.lineAt(5300),
+    atSeek,
+    afterDispatch,
+    duringBuffering,
+    afterSound,
+    targetLine: lyric.lineAt(35000),
+    oldLine: lyric.lineAt(5300),
   }
 }
 
@@ -366,8 +370,12 @@ function runNativeFlacRewind(variant) {
   progress.getCurrentTime()
   const afterSound = { line: lyric.line }
   return {
-    atSeek, afterDispatch, duringBuffering, afterSound,
-    targetLine: lyric.lineAt(5300), oldLine: lyric.lineAt(35300),
+    atSeek,
+    afterDispatch,
+    duringBuffering,
+    afterSound,
+    targetLine: lyric.lineAt(5300),
+    oldLine: lyric.lineAt(35300),
   }
 }
 
@@ -381,7 +389,11 @@ function runNativeClockDuringSeek({ holdOnSeek }) {
   nowMs = 0
   const lyric = createLyric([0, 10, 20, 30, 40, 50])
   const nc = {
-    anchorMs: 8000, anchorSys: 0, rate: 1, hold: false, line: -1,
+    anchorMs: 8000,
+    anchorSys: 0,
+    rate: 1,
+    hold: false,
+    line: -1,
     position(ms) { return this.hold ? this.anchorMs : this.anchorMs + (ms - this.anchorSys) * this.rate },
     sync() { const i = lyric.lineAt(this.position(nowMs)); if (i !== this.line) this.line = i },
   }

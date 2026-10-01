@@ -78,7 +78,11 @@ const calc = ({ screenH, statusBarH = SHOT.statusBarHeight, playerH, paddingBott
   const free = containerH - paddingTop - paddingBottom - contentH
   const top = statusBarH + headerH
   return {
-    containerH, coverH, infoH, contentH, free,
+    containerH,
+    coverH,
+    infoH,
+    contentH,
+    free,
     coverTop: top + paddingTop,
     coverBottom: top + paddingTop + coverH,
     gap: free, // space-between 下 = 封面与信息块之间的中缝
@@ -89,10 +93,9 @@ const calc = ({ screenH, statusBarH = SHOT.statusBarHeight, playerH, paddingBott
   }
 }
 
-let pass = 0, fail = 0
+let pass = 0; let fail = 0
 const check = (name, cond, extra = '') => {
-  if (cond) { pass++; console.log(`  ✅ ${name}`) }
-  else { fail++; console.log(`  ❌ ${name} ${extra}`) }
+  if (cond) { pass++; console.log(`  ✅ ${name}`) } else { fail++; console.log(`  ❌ ${name} ${extra}`) }
 }
 
 console.log('='.repeat(78))
@@ -146,8 +149,12 @@ const SE = { screenH: 667, statusBarH: 26, playerH: 215 }
   // 生产降级：小屏只显示当前行，字号 17（仍比原先 13 放大），paddingBottom = 0
   const smallMini = miniLyricHeight({ lines: 1, hasTranslation: false, paddingV: 4, fontSize: { current: 17, neighbor: 15 }, lineGap: 6 })
   const small = calc({
-    screenH: SE.screenH, statusBarH: SE.statusBarH, playerH: SE.playerH,
-    paddingBottom: prodPaddingBottom(SE.screenH), miniLyric: smallMini, isSmallWindow: true,
+    screenH: SE.screenH,
+    statusBarH: SE.statusBarH,
+    playerH: SE.playerH,
+    paddingBottom: prodPaddingBottom(SE.screenH),
+    miniLyric: smallMini,
+    isSmallWindow: true,
   })
   console.log(`  小屏生产方案（1 行 + 字号 17 + pb=${prodPaddingBottom(SE.screenH)}）：free=${small.free.toFixed(0)}pt → 溢出=${small.overflow}`)
   check('小屏生产方案不溢出', !small.overflow, `free=${small.free}`)

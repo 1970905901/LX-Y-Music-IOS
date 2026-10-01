@@ -327,11 +327,11 @@ check(`爱心线宽与相邻 Tab 中位数偏差 ≤5%（${((heartPt - medianPt)
 // 只看线宽会漏掉这一半——历史上正是「线宽对了但爱心小一圈」。
 check(`爱心视觉高 ${heartH.toFixed(2)}pt 与相邻 Tab 视觉高中位偏差 ≤5%` +
   `（${((heartH - tabMedH) / tabMedH * 100).toFixed(1)}%）`,
-  Math.abs(heartH - tabMedH) / tabMedH <= 0.05,
+Math.abs(heartH - tabMedH) / tabMedH <= 0.05,
   `heart=${heartH.toFixed(2)} median=${tabMedH.toFixed(2)}`)
 check(`爱心视觉宽 ${heartW.toFixed(2)}pt 落在相邻 Tab 宽度区间 ` +
   `[${tabWidths[0].toFixed(2)}, ${tabWidths[3].toFixed(2)}]pt 内`,
-  heartW >= tabWidths[0] && heartW <= tabWidths[3],
+heartW >= tabWidths[0] && heartW <= tabWidths[3],
   `heart=${heartW.toFixed(2)}`)
 // 爱心比相邻图标窄（心形带尖角）是形状使然，但明显更窄就说明字号还偏小
 check(`爱心视觉宽不小于相邻 Tab 宽度中位的 90%（${(heartW / tabMedW * 100).toFixed(1)}%）`,

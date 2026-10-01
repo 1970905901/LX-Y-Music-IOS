@@ -139,6 +139,7 @@ report(
 // --- 不变量 3（反例）：形状过滤必须挡住动态 key，否则会大量误报 ---
 {
   const legal = ['setting_ok_key', 'saved', 'understand']
+  // eslint-disable-next-line no-template-curly-in-string -- 反例样本必须原样保留 ${...} 字面量
   const illegal = ['${dynamic}', 'Setting_Upper', '有中文', 'has space', 'theme.blur', '']
   const legalPass = legal.every((s) => KEY_SHAPE.test(s))
   const illegalPass = illegal.every((s) => !KEY_SHAPE.test(s))

@@ -162,8 +162,8 @@ const results = invariants(REAL).map(r => ({ ...r, group: '正例' }))
 const TAMPER_CASES = [
   {
     label: '① 删掉补白（门控恒 false）',
-    from: `{position === 'bottom' && !keyboardShown && safeAreaBottom > 0 ? (`,
-    to: `{false && safeAreaBottom > 0 ? (`,
+    from: '{position === \'bottom\' && !keyboardShown && safeAreaBottom > 0 ? (',
+    to: '{false && safeAreaBottom > 0 ? (',
   },
   {
     label: '② 偏移写成 bottom: 0（补白落回面板内部）',
@@ -172,8 +172,8 @@ const TAMPER_CASES = [
   },
   {
     label: '③ 去掉键盘门控（键盘弹起时被实心补白填满）',
-    from: `{position === 'bottom' && !keyboardShown && safeAreaBottom > 0 ? (`,
-    to: `{position === 'bottom' && safeAreaBottom > 0 ? (`,
+    from: '{position === \'bottom\' && !keyboardShown && safeAreaBottom > 0 ? (',
+    to: '{position === \'bottom\' && safeAreaBottom > 0 ? (',
   },
   {
     label: '④ 宽度写死（iPad 横屏补白横向溢出）',

@@ -848,7 +848,7 @@ private let lxTrackPlayerLifecycleNotification = Notification.Name("LXTrackPlaye
 `,
       },
       {
-        from: `    func handleAudioPlayerStateChange(state: AVPlayerWrapperState) {`,
+        from: '    func handleAudioPlayerStateChange(state: AVPlayerWrapperState) {',
         to: `    // ≈ HTMLMediaElement 的 seeked：seek completion 回调（SeekEventData = (seconds: Int, didFinish: Bool)）。
     // 同时发 lifecycle 通知（控制中心歌词时钟重锚到真实落点）与 JS 事件（歌词重锚触发）。
     private func handleAudioPlayerSeekCompleted(_ data: (seconds: Int, didFinish: Bool)) {

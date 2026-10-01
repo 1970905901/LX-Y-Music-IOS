@@ -80,7 +80,12 @@ function resetWorld() { nowMs = 0; timers = [] }
 // ---------------------------------------------------------------------------
 function makeClock() {
   return {
-    anchorPositionMs: 0, anchorSystemMs: 0, rate: 1, playing: false, holding: false, holdMs: 0,
+    anchorPositionMs: 0,
+    anchorSystemMs: 0,
+    rate: 1,
+    playing: false,
+    holding: false,
+    holdMs: 0,
     reset() { this.anchorPositionMs = 0; this.anchorSystemMs = 0; this.rate = 1; this.playing = false; this.holding = false; this.holdMs = 0 },
     setAnchor(positionMs, rate = this.rate, playing = true) {
       this.anchorPositionMs = positionMs; this.anchorSystemMs = nowMs; this.rate = rate; this.playing = playing; this.holding = false
@@ -105,7 +110,11 @@ function makeClock() {
 // ---------------------------------------------------------------------------
 function makeLyric(lineTimes) {
   const lyric = {
-    lines: lineTimes, isPlay: false, anchorMs: 0, sysMs: 0, curLine: -1,
+    lines: lineTimes,
+    isPlay: false,
+    anchorMs: 0,
+    sysMs: 0,
+    curLine: -1,
     lineChanges: [], // { at, line }
     lineAt(tMs) {
       let idx = 0
@@ -136,7 +145,13 @@ function makeLyric(lineTimes) {
 // ---------------------------------------------------------------------------
 function makeEngine({ lineTimes }) {
   const e = {
-    state: 'playing', anchorPos: 0, anchorT: 0, rate: 1, reportPos: null, _seekGen: 0, listeners: [],
+    state: 'playing',
+    anchorPos: 0,
+    anchorT: 0,
+    rate: 1,
+    reportPos: null,
+    _seekGen: 0,
+    listeners: [],
     // reportOffset：引擎「报告位置」与可听内容的偏差模型（高码率大文件 range 不精确/
     // 解码恢复偏移）——seek 应用时置为 misLandBy，再次 seek 归零。正值=报告超前。
     reportOffset: 0,
@@ -168,10 +183,8 @@ function makeEngine({ lineTimes }) {
               this.state = 'buffering'
               after(silentResumeUntil, () => { if (this.state === 'buffering') this.state = 'playing' })
             }
-          }
-          else this.setState('playing')
-        }
-        else if (emitPlayingOnApply) this.emitState() // 无状态变化也补发 playing（HTMLMediaElement 语义）
+          } else this.setState('playing')
+        } else if (emitPlayingOnApply) this.emitState() // 无状态变化也补发 playing（HTMLMediaElement 语义）
       }
       if (buffering) {
         if (stateFlapMs > 0) {
@@ -203,9 +216,15 @@ function makeEngine({ lineTimes }) {
 function createNewSystem(engine, lyric, { pollPhase = 0, eventHoldNoAnchorFallback = true, lineSyncDetector = true, resolveLandingAnchor = true, syncRetry = true, resumeSnap = true, watchdogGrace = true, pullBackGate = true, songGuard = true } = {}) {
   const clock = makeClock()
   const sys = {
-    clock, lyric, engine,
-    nowPlayTime: 0, seekTarget: null, seekHoldUntil: 0, seekGen: 0,
-    engineConfirmed: false, bufferingHold: false,
+    clock,
+    lyric,
+    engine,
+    nowPlayTime: 0,
+    seekTarget: null,
+    seekHoldUntil: 0,
+    seekGen: 0,
+    engineConfirmed: false,
+    bufferingHold: false,
     screenOn: true,
     userPlay: true, // ≈ playerState.isPlay（store 标志，用户点播放即 true，与引擎状态无关）
     lineSyncDetector, // 行级自愈探针（verifyLyricLineSync）：慢校准层的第二道网
@@ -214,7 +233,9 @@ function createNewSystem(engine, lyric, { pollPhase = 0, eventHoldNoAnchorFallba
     resumeSnap, // 出声回拉（上游 handlePlaying）：restorePlayTime 意图位置强制回拉音频
     restorePlayTime: null, // ≈ 上游 restorePlayTime（setProgress 记录的 seek 意图位置）
     mediaBufferPlayTime: null, // ≈ 上游 mediaBuffer.playTime（缓冲看门狗记录的卡住位置）
-    wdActive: false, wdAttempts: 0, wdProbes: 0, // ≈ mediaBuffer.timeout/attempts + 探测计数（可观测）
+    wdActive: false,
+    wdAttempts: 0,
+    wdProbes: 0, // ≈ mediaBuffer.timeout/attempts + 探测计数（可观测）
     watchdogGrace, // 慢缓冲宽限：seek 意图/回拉/探测后 10s 内看门狗不记录不探测（防越位拉锯）
     pullBackGate, // 回拉预算（3 次/seek 意图）：false = 关闭预算（旧无界模型）
     lastSeekIntentAt: 0, // ≈ lastSeekIntentAt（宽限/回拉新鲜度基准）
@@ -225,7 +246,7 @@ function createNewSystem(engine, lyric, { pollPhase = 0, eventHoldNoAnchorFallba
     songGuard, // 切歌守卫：意图歌曲≠当前歌曲即作废回拉
     ccReanchors: [],
   }
-  const isPlay = () => sys.engineConfirmed || engine.state === 'playing'
+  const _isPlay = () => sys.engineConfirmed || engine.state === 'playing'
 
   // —— controller 事件映射：buffering/paused → app pause；playing → app play ——
   engine.listeners.push((ev) => {
@@ -353,7 +374,6 @@ function createNewSystem(engine, lyric, { pollPhase = 0, eventHoldNoAnchorFallba
     sys.nowPlayTime = time
     sys.seekTarget = time; sys.seekHoldUntil = nowMs + 2000; sys.seekGen++
     // setCurrentTime：立即 resolve（模拟 AVPlayer/nativeFlac seekTo 语义由场景驱动）
-    engine.seekTo && null
     return time
   }
   // 场景显式调用 engine.seekTo 驱动引擎；这里模拟「seek 受理回调」链路。
@@ -417,9 +437,15 @@ function createNewSystem(engine, lyric, { pollPhase = 0, eventHoldNoAnchorFallba
 function createOldSystem(engine, lyric, { pollPhase = 0 } = {}) {
   const clock = makeClock()
   const sys = {
-    clock, lyric, engine,
-    nowPlayTime: 0, seekTarget: null, seekHoldUntil: 0,
-    engineConfirmed: false, bufferingHold: false, screenOn: true,
+    clock,
+    lyric,
+    engine,
+    nowPlayTime: 0,
+    seekTarget: null,
+    seekHoldUntil: 0,
+    engineConfirmed: false,
+    bufferingHold: false,
+    screenOn: true,
   }
   engine.listeners.push((ev) => {
     if (ev.type !== 'state') return
@@ -465,7 +491,10 @@ function createOldSystem(engine, lyric, { pollPhase = 0 } = {}) {
       if (!sys.screenOn) return
       const t = clock.getTime() * 1000
       const i = lyric.lineAt(t)
-      if (i > lyric.curLine) lyric.play(t), lyric.pause()
+      if (i > lyric.curLine) {
+        lyric.play(t)
+        lyric.pause()
+      }
       raf()
     })
   }
@@ -618,7 +647,7 @@ check('5 播放中无轮询无 rAF：ticker 按行时间表自行推进', () => 
   resetWorld()
   const engine = makeEngine({ lineTimes: LINES })
   const lyric = makeLyric(LINES)
-  const sys = createNewSystem(engine, lyric, { pollPhase: 3600000 }) // 轮询永不触发
+  const _sys = createNewSystem(engine, lyric, { pollPhase: 3600000 }) // 轮询永不触发
   engine.playFrom(5000); lyric.play(5000)
   advance(5500) // 跨过 10s 行界（t≈5.5s→10.5s 歌词时间）
   assert(lyric.curLine === 1, `ticker 应自行推进到行 1，实际 ${lyric.curLine}`)
@@ -630,7 +659,7 @@ check('5x 反例：旧模型无 rAF/轮询时行永远不动（ticker 被杀，�
   resetWorld()
   const engine = makeEngine({ lineTimes: LINES })
   const lyric = makeLyric(LINES)
-  const sys = createOldSystem(engine, lyric, { pollPhase: 3600000 })
+  const _sys = createOldSystem(engine, lyric, { pollPhase: 3600000 })
   engine.playFrom(5000); lyric.play(5000)
   advance(15500)
   assert(lyric.curLine === 0, `旧模型行应卡在第 0 行（缺陷存在），实际 ${lyric.curLine}`)

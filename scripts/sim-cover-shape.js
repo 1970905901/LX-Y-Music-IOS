@@ -51,8 +51,9 @@ const REAL = {
 const stripComments = (src) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '')
 
 const SQUARE_RADIUS = 4
-const CIRCLE_SHAPE = 'circle'
-const SQUARE_SHAPE = 'square'
+// 形状字面量（保留作语义说明用；校验逻辑直接读源码字符串）
+const _CIRCLE_SHAPE = 'circle'
+const _SQUARE_SHAPE = 'square'
 
 /**
  * 封面组件的不变量。`src` = 组件源码，`lang` = 词条表。
@@ -81,12 +82,12 @@ function coverInvariants(name, src, lang) {
   {
     const readLine = /const\s+isCoverSpin\s*=\s*useSettingValue\([^)]*\)/
     const body = code
-      .replace(readLine, '')                                          // 去掉读取行
-      .replace(/const\s+allowSpin\s*=\s*isCoverSpin[^;\n]*;?/, '')     // 去掉合流行
+      .replace(readLine, '') // 去掉读取行
+      .replace(/const\s+allowSpin\s*=\s*isCoverSpin[^;\n]*;?/, '') // 去掉合流行
     const leftover = [...body.matchAll(/isCoverSpin/g)].length
     const hasRead = readLine.test(code)
-    const guards = [...code.matchAll(/!\s*allowSpin/g)].length          // startAnimation 守卫
-    const gates = [...code.matchAll(/isPlay\s*&&\s*allowSpin/g)].length  // 两个 effect 的启停门控
+    const guards = [...code.matchAll(/!\s*allowSpin/g)].length // startAnimation 守卫
+    const gates = [...code.matchAll(/isPlay\s*&&\s*allowSpin/g)].length // 两个 effect 的启停门控
     add(
       'invariant 2: 旋转启停全部走 allowSpin（守卫 1 处 + 门控 2 处），除读取/合流行外无残留',
       hasRead && leftover === 0 && guards === 1 && gates === 2,
@@ -169,9 +170,9 @@ function coverInvariants(name, src, lang) {
       stripComments(REAL.setting),
     )
     const hasDesc = /t\(['"]play_detail_setting_cover_shape_desc['"]\)/.test(stripComments(REAL.setting))
-    const descExists = lang['play_detail_setting_cover_shape_desc'] != null &&
-      lang['play_detail_setting_cover_shape_desc'] !== ''
-    const descSaysNoSpin = /不旋转/.test(String(lang['play_detail_setting_cover_shape_desc'] ?? ''))
+    const descExists = lang.play_detail_setting_cover_shape_desc != null &&
+      lang.play_detail_setting_cover_shape_desc !== ''
+    const descSaysNoSpin = /不旋转/.test(String(lang.play_detail_setting_cover_shape_desc ?? ''))
     add(
       'invariant 6: 设置组件写入 square/circle，且「不旋转」被写进说明文案（文案不得与实现脱节）',
       writesSquare && hasDesc && descExists && descSaysNoSpin,
@@ -208,7 +209,7 @@ function globalInvariants() {
   }
 
   {
-    const label = REAL.lang['play_detail_setting_cover_shape']
+    const label = REAL.lang.play_detail_setting_cover_shape
     add('invariant 10: 词条 play_detail_setting_cover_shape 存在（否则开关无文字，UI 空白）',
       label != null && label !== '', String(label ?? '缺失'))
   }
@@ -265,7 +266,7 @@ function tamperCases(src) {
 const results = []
 const push = (r) => results.push(r)
 
-for (const [label, file, src] of [
+for (const [label, _file, src] of [
   ['竖屏 Pic', VERTICAL, REAL.vertical],
   ['横屏 Pic', HORIZONTAL, REAL.horizontal],
 ]) {
@@ -302,8 +303,11 @@ for (const r of globalInvariants()) push({ group: '不变量', ...r })
     {
       label: '⑦ defaultSetting 默认值改成 square（会悄悄改掉所有用户的既有观感）',
       run: () => {
-        const patched = { ...REAL, defaults: REAL.defaults.replace(
-          "'playDetail.style.coverShape': 'circle'", "'playDetail.style.coverShape': 'square'") }
+        const patched = {
+          ...REAL,
+          defaults: REAL.defaults.replace(
+            "'playDetail.style.coverShape': 'circle'", "'playDetail.style.coverShape': 'square'"),
+        }
         return patched
       },
     },
@@ -323,8 +327,8 @@ for (const r of globalInvariants()) push({ group: '不变量', ...r })
         ...REAL,
         lang: {
           ...REAL.lang,
-          'play_detail_setting_cover_shape_desc':
-            String(REAL.lang['play_detail_setting_cover_shape_desc'] ?? '').replace(/不旋转/g, ''),
+          play_detail_setting_cover_shape_desc:
+            String(REAL.lang.play_detail_setting_cover_shape_desc ?? '').replace(/不旋转/g, ''),
         },
       }),
     },

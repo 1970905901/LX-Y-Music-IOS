@@ -131,8 +131,8 @@ console.log('\n[seek 链路契约] 两条引擎统一行为')
 
 // 断言6：两条引擎的 seek 真实落点（>0）→ 立即重锚链路必触发
 {
-  const avplayerLanding = 121.5   // seekToTime 轮询收敛后的真实落点
-  const nativeLanding = 121.5     // seekNativeFlacPlayback(stream) 轮询收敛后的真实落点
+  const avplayerLanding = 121.5 // seekToTime 轮询收敛后的真实落点
+  const nativeLanding = 121.5 // seekNativeFlacPlayback(stream) 轮询收敛后的真实落点
   check('AVPlayer / nativeFlac seek 落点 > 0 → syncLyric(落点) + 快路径重锚必触发',
     seekConfirmsAndResyncs(avplayerLanding) && seekConfirmsAndResyncs(nativeLanding))
 }

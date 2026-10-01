@@ -43,10 +43,12 @@ let pendingClearIndex = false
 let setPageCalls = []
 let log = []
 
-// 原生 pager 是否已失效（setPage 空操作）+ 兜底重建的状态
+// 原生 pager 是否已失效（setPage 空操作）+ 兜底重建状态。
+// 注意：_rebuilds / _lastRebuildAt 只做占位写（重建计数在 run() 的局部对象里断言），
+// 这里用 _ 前缀声明，避免 lint 的「赋值未使用」规则误报。
 let nativeDead = false
-let rebuilds = 0
-let lastRebuildAt = 0
+let _rebuilds = 0
+let _lastRebuildAt = 0
 
 // ---- 旧实现（修复前）----
 const setNavActiveId_old = (id) => {
@@ -104,7 +106,7 @@ const forceSyncNavActiveId = () => { forceSync = true; handleUpdate_new(navActiv
 const reset = (dead = false) => {
   navActiveId = 'nav_discovery'; observedIndex = 0; forceSync = false
   lastIssuedIndex = null; pendingClearIndex = false; setPageCalls = []; log = []
-  nativeDead = dead; rebuilds = 0; lastRebuildAt = 0
+  nativeDead = dead; _rebuilds = 0; _lastRebuildAt = 0
 }
 
 const run = (name, impl) => {
@@ -231,6 +233,7 @@ for (const r of contract(SRC)) check(r.name, r.ok)
 
 const TAMPERS = [
   { label: '① 去掉失败后的重建调用（回到本次修复前）', from: '            else repairPager(index)', to: '            // else repairPager(index)' },
+  // eslint-disable-next-line no-template-curly-in-string -- 篡改源串必须与目标源码逐字符一致
   { label: '② key 不再包含 pagerRebuild（重建不生效）', from: 'key={`${pagerKey}#${pagerRebuild}`}', to: 'key={pagerKey}' },
   { label: '③ 去掉防抖（连点会反复重建）', from: 'if (now - lastRebuildAtRef.current < PAGER_REBUILD_DEBOUNCE_MS) return', to: '// debounce removed' },
   { label: '④ 去掉会话上限（修不好就一直重建）', from: 'if (rebuildCountRef.current >= MAX_PAGER_REBUILDS) return', to: '// limit removed' },

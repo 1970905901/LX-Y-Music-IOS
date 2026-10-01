@@ -76,7 +76,7 @@ const extractCFunction = (src, signature) => {
 }
 
 const nativeInvariants = (src) => {
-  const raw = src
+  const _raw = src
   const code = stripComments(src)
   const reasons = []
 
@@ -384,7 +384,7 @@ const runPausedCounterExamples = () => {
   }
   // P1 抹掉原生入口
   check('P1 EffectView 抹掉 setPaused', readGlass({
-    effectView: read(GLASS_FILES.effectView).replace(/@objc public func setPaused\(_ paused: Bool\) \{[\s\S]*?\n    \}/, ''),
+    effectView: read(GLASS_FILES.effectView).replace(/@objc public func setPaused\(_ paused: Bool\) \{[\s\S]*?\n {4}\}/, ''),
   }), '缺 setPaused:')
   // P2 抹掉 paused prop
   check('P2 manager 抹掉 paused prop', readGlass({

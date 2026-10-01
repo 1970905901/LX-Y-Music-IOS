@@ -166,7 +166,7 @@ const TAMPER_CASES = [
     label: '③ show() 不再取消待卸载定时器',
     from: `    clearUnmountTimer()
     setIsVisible(true)`,
-    to: `    setIsVisible(true)`,
+    to: '    setIsVisible(true)',
   },
   {
     label: '④ 面板 opacity 不接动画值（蒙层淡、面板瞬现）',
@@ -177,8 +177,8 @@ const TAMPER_CASES = [
   },
   {
     label: '⑤ 删掉卸载时的定时器清理',
-    from: `  useEffect(() => clearUnmountTimer, [clearUnmountTimer])`,
-    to: `  // useEffect(() => clearUnmountTimer, [clearUnmountTimer])`,
+    from: '  useEffect(() => clearUnmountTimer, [clearUnmountTimer])',
+    to: '  // useEffect(() => clearUnmountTimer, [clearUnmountTimer])',
   },
 ]
 

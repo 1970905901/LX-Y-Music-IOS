@@ -136,7 +136,7 @@ const makeNew = () => {
 const makeFetcher = ({ total, pageSize, playableCountPerPage }) => {
   const allIds = Array.from({ length: total }, (_, i) => `s${i + 1}`)
   // playableCountPerPage 指定每个源页「去重后实际返回」多少首（模拟下架/重复过滤）
-  return async (sourcePage) => {
+  return async(sourcePage) => {
     const begin = (sourcePage - 1) * pageSize
     if (begin >= total) return { list: [], total, limit: pageSize, source: 'tx' }
     const raw = allIds.slice(begin, begin + pageSize)
@@ -157,7 +157,7 @@ const check = (name, cond, extra = '') => {
   }
 }
 
-const runScenario = async (Impl, label, { total, pageSize, playableCountPerPage, pages, simulateRetry }) => {
+const runScenario = async(Impl, label, { total, pageSize, playableCountPerPage, pages: _pages, simulateRetry }) => {
   console.log(`\n[${label}] total=${total} pageSize=${pageSize} 每源页实际返回=${playableCountPerPage}`)
   const fn = Impl()
   const fetchSourcePage = makeFetcher({ total, pageSize, playableCountPerPage })
@@ -190,7 +190,7 @@ const runScenario = async (Impl, label, { total, pageSize, playableCountPerPage,
   return { firstOk, firstErr, retryOk, retryErr, retryList }
 }
 
-;(async () => {
+;(async() => {
   console.log('='.repeat(72))
   console.log('场景 A：歌单 100 首，源每页返回 20 首（有下架歌）')
   console.log('='.repeat(72))
@@ -238,7 +238,7 @@ const runScenario = async (Impl, label, { total, pageSize, playableCountPerPage,
     }
     check('新实现 连续翻 5 页均不崩溃', !crashed)
     console.log(`     各页歌曲数: ${seen.map(s => `p${s.p}=${s.len}`).join(', ')}`)
-    const allEmpty = seen.every(s => s.len === 0)
+    const _allEmpty = seen.every(s => s.len === 0)
     check('新实现 至少拿到歌曲', seen.some(s => s.len > 0))
     check('新实现 无空页夹在中间', !seen.some((s, i) => i < seen.length - 1 && s.len === 0))
   }

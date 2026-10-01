@@ -91,7 +91,7 @@ const lyricInitInvariants = (src) => {
   // 2b) 切歌必须清 realCurrentLyric（否则切歌瞬间开开关会补发上一首最后一行）
   const toggled = code.slice(code.indexOf("global.app_event.on('musicToggled'"))
   if (!toggled) {
-    reasons.push("缺少 musicToggled 处理")
+    reasons.push('缺少 musicToggled 处理')
   } else if (!/realCurrentLyric\s*=\s*undefined/.test(toggled)) {
     reasons.push('musicToggled 未清 realCurrentLyric（切歌瞬间开开关会补发上一首的歌词行）')
   }
@@ -99,7 +99,7 @@ const lyricInitInvariants = (src) => {
   // 3) 通路②：lyricUpdated 里的 setNowPlayingLyrics 必须经同一开关门控（关时传空数组）
   const updated = code.slice(code.indexOf("global.app_event.on('lyricUpdated'"))
   if (!updated) {
-    reasons.push("未找到 lyricUpdated 处理（原生时间轴通路）")
+    reasons.push('未找到 lyricUpdated 处理（原生时间轴通路）')
   } else {
     if (!/isShowBluetoothLyric\s*\(\s*\)/.test(updated)) {
       reasons.push('通路②未门控：lyricUpdated 未按开关决定是否提交原生时间轴（车机会照显歌词）')
@@ -307,8 +307,8 @@ cases.forEach(([name, run]) => {
 
 const total = 2 + cases.length
 const passed = total - failed
-console.log(`\n====================`)
+console.log('\n====================')
 console.log(`结果：${passed} 通过 / ${failed} 失败（共 ${total}）`)
-console.log(`====================`)
+console.log('====================')
 
 if (failed > 0) process.exit(1)

@@ -30,11 +30,11 @@ const check = (name, ok, detail) => {
 // 触发判定（handlePlayProgressChanged + preloadNextMusicUrl 前置条件）
 const shouldTriggerPreload = ({ duration, time, hasInfo, enabled, isLoading, preProgress }) =>
   duration > 10 &&
-  duration - time < 20 &&          // 对齐上游：剩余 < 20s
+  duration - time < 20 && // 对齐上游：剩余 < 20s
   !hasInfo &&
-  enabled &&                        // 对齐：受「音频预加载」开关控制
+  enabled && // 对齐：受「音频预加载」开关控制
   !isLoading &&
-  time - preProgress >= 2           // 对齐上游：2s 防重入
+  time - preProgress >= 2 // 对齐上游：2s 防重入
 
 // 竞态保护（requestId 模型）：发起时递增，各异步步回来校验
 const makePreloadSession = () => {

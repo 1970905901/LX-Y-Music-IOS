@@ -19,6 +19,8 @@ import { sizeFormate } from '@/utils'
 import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
 import { useSafeAreaBottom, useBottomOverlayInset } from '@/store/common/hook'
 import PageTopInset from '@/components/common/PageTopInset'
+import Image from '@/components/common/Image'
+import useCoverUrl from '@/utils/hooks/useCoverUrl'
 
 type TabId = 'local' | 'download'
 
@@ -93,17 +95,34 @@ const SongRow = memo(
   ({
     title,
     subText,
+    singer,
+    coverFile,
+    coverPicUrl,
     isPlaying,
     selected,
     onPress,
   }: {
     title: string
     subText: string
+    singer: string
+    // 本地文件路径（下载文件 / 「本地」文件夹音频）：封面优先读文件内嵌图，
+    // 缺失时再走在线匹配，与歌单列表的封面来源保持一致
+    coverFile?: string
+    coverPicUrl?: string | null
     isPlaying: boolean
     selected: boolean
     onPress: () => void
   }) => {
     const theme = useTheme()
+    // 封面来源复用列表统一链路（本地内嵌封面 → meta.picUrl → 在线匹配），
+    // 走 source='local' 让本地文件优先、离线可用
+    const coverSong = useMemo(() => ({
+      source: 'local',
+      name: title,
+      singer,
+      meta: { filePath: coverFile, picUrl: coverPicUrl ?? null },
+    }), [title, singer, coverFile, coverPicUrl])
+    const coverUrl = useCoverUrl(coverSong)
     return (
       <TouchableOpacity
         style={{
@@ -117,6 +136,7 @@ const SongRow = memo(
         }}
         onPress={onPress}
       >
+        <Image url={coverUrl} style={styles.albumArt} />
         <View style={styles.itemInfo}>
           <Text
             size={designTypography.body}
@@ -331,6 +351,9 @@ export default memo(() => {
             ]
               .filter(Boolean)
               .join(' · ')}
+            singer={item.musicInfo.singer ?? ''}
+            coverFile={item.filePath}
+            coverPicUrl={(item.musicInfo.meta as any)?.picUrl ?? null}
             isPlaying={isPlayingId == item.id}
             selected={selectedIds.has(item.id)}
             onPress={() => { selecting ? toggleSelect(item.id) : handlePlayTask(item, index) }}
@@ -347,6 +370,8 @@ export default memo(() => {
         <SongRow
           title={item.name}
           subText={[item.singer, item.size ? sizeFormate(item.size) : ''].filter(Boolean).join(' · ')}
+          singer={item.singer}
+          coverFile={item.path}
           isPlaying={isPlayingId == item.id}
           selected={selectedIds.has(item.id)}
           onPress={() => { selecting ? toggleSelect(item.id) : handlePlayLocal(item, index) }}
@@ -564,12 +589,19 @@ const styles = createStyle({
   songItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    minHeight: 62,
+    minHeight: 70,
     marginHorizontal: designSpacing.md,
     marginBottom: designSpacing.sm,
     paddingHorizontal: designSpacing.md,
+    paddingVertical: designSpacing.sm,
     borderWidth: 1,
     borderRadius: designRadius.lg,
+  },
+  albumArt: {
+    width: 54,
+    height: 54,
+    borderRadius: designRadius.md,
+    marginRight: designSpacing.sm,
   },
   songTitle: {
     fontWeight: '600',

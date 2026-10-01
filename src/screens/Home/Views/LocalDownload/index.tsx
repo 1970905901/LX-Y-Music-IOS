@@ -127,9 +127,12 @@ const SongRow = memo(
       <TouchableOpacity
         style={{
           ...styles.songItem,
+          // 与全局列表/卡片统一：正常态用「底边」令牌 c-primary-light-900-alpha-200
+          // （随主题色 + 主题页「底边不透明度」变化），播放中/选中用其它列表同款高亮色。
+          // 之前用的是实色 c-content-background，既不跟主题染色也不受底边不透明度影响，观感突兀。
           backgroundColor: isPlaying || selected
             ? theme['c-primary-background-hover']
-            : theme['c-content-background'],
+            : theme['c-primary-light-900-alpha-200'],
           borderColor: isPlaying || selected
             ? theme['c-primary-background-active']
             : theme['c-border-background'],

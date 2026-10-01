@@ -107,6 +107,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, isCreat
     // 缓存写入串行化：单条缓存可能上 MB（storage 走「先删后写」），并发写会互相覆盖
     let saveChain: Promise<void> = Promise.resolve()
     let lastSavedCount = 0
+    let lastSaveAt = 0
     const saveCache = async(list: LX.Music.MusicInfoOnline[], complete: boolean) => {
       if (!list.length) return
       saveChain = saveChain
@@ -132,8 +133,11 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, isCreat
         // 缓存必须与「组件是否还在屏幕上」解耦 —— 之前这里一旦 isUnmountedRef 为真
         // 就直接 return，连最终写缓存也被跳过，结果什么都没缓存，下次进入又从头拉，
         // 表现就是「歌单缓存没生效」。
-        if (done || songs.length - lastSavedCount >= 30) {
+        // 省电：进度落盘降到「每多 100 首且距上次落盘 ≥15s」——每条缓存可达 MB 级，
+        // 频繁写盘会带来明显的 I/O 与耗电；拉全时无论如何都会写一次最终态。
+        if (done || (songs.length - lastSavedCount >= 100 && Date.now() - lastSaveAt >= 15000)) {
           lastSavedCount = songs.length
+          lastSaveAt = Date.now()
           void saveCache(songs, done)
         }
         if (isUnmountedRef.current) return

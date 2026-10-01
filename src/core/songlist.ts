@@ -6,6 +6,7 @@ import songlistState, {
 import songlistActions, { LIST_LOAD_LIMIT } from '@/store/songlist/action'
 import { deduplicationList, toNewMusicInfo } from '@/utils'
 import musicSdk from '@/utils/musicSdk'
+import { AppState } from 'react-native'
 
 
 interface DetailPageCache {
@@ -300,6 +301,9 @@ export const getListDetailAll = async(
   onProgress?.(deduplicationList(allSongs), result.total, false)
 
   for (let page = 2; page <= maxPage; page++) {
+    // 省电：App 退到后台就停止继续翻页。后台里持续「串行请求 + 落盘」是明显耗电源；
+    // 已拉到的部分由调用方写入缓存，下次进入（或回到前台再进）继续补全。
+    if (AppState.currentState !== 'active') break
     const pageResult = await loadData(page)
     if (!pageResult.list.length) break
     let addedCount = 0

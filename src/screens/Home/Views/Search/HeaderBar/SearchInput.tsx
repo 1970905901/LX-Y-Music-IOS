@@ -44,12 +44,6 @@ export default forwardRef<SearchInputType, SearchInputProps>(
       onChangeText(text.trim())
     }
 
-    const handleClearText = useCallback(() => {
-      setText('')
-      onChangeText('')
-      onSubmit('')
-    }, [onChangeText, onSubmit])
-
     const handleSubmit = useCallback<NonNullable<InputProps['onSubmitEditing']>>(
       ({ nativeEvent: { text } }) => {
         onSubmit(text)
@@ -67,9 +61,7 @@ export default forwardRef<SearchInputType, SearchInputProps>(
         onBlur={onBlur}
         onFocus={onFocus}
         onSubmitEditing={handleSubmit}
-        onClearText={handleClearText}
         onTouchStart={onTouchStart}
-        clearBtn
       />
     )
   },

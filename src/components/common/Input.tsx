@@ -1,4 +1,4 @@
-import { useRef, useImperativeHandle, forwardRef, useCallback } from 'react'
+import { useRef, useImperativeHandle, forwardRef, useCallback, useState, useEffect } from 'react'
 import { TextInput, View, TouchableOpacity, StyleSheet, type TextInputProps } from 'react-native'
 import { Icon } from '@/components/common/Icon'
 import { createStyle } from '@/utils/tools'
@@ -61,6 +61,14 @@ export default forwardRef<InputType, InputProps>(
   ({ onChangeText, onClearText, clearBtn, style, size = 14, ...props }, ref) => {
     const inputRef = useRef<TextInput>(null)
     const theme = useTheme()
+    // 清空按钮只在**有内容**时出现：此前无条件渲染，空输入框也挂着一个 ✕（用户反馈
+    // 「没输入任何内容时仍然会显示一个 ✕」）。受控用法（父级传 value）跟随父值，
+    // 非受控用法由输入事件维护；两者都覆盖，避免漏掉某一种调用方式。
+    const [hasText, setHasText] = useState(() => String(props.value ?? '').length > 0)
+    useEffect(() => {
+      if (props.value === undefined) return
+      setHasText(String(props.value).length > 0)
+    }, [props.value])
     // const scaleClearBtn = useRef(new Animated.Value(0)).current
 
     useImperativeHandle(ref, () => ({
@@ -96,12 +104,14 @@ export default forwardRef<InputType, InputProps>(
     const clearText = useCallback(() => {
       inputRef.current?.clear()
       // hideClearBtn()
+      setHasText(false)
       onChangeText?.('')
       onClearText?.()
     }, [onChangeText, onClearText])
 
     const changeText = useCallback(
       (text: string) => {
+        setHasText(text.length > 0)
         // if (text.length) {
         //   showClearBtn()
         // } else {
@@ -129,7 +139,7 @@ export default forwardRef<InputType, InputProps>(
         />
         {/* <View style={styles.clearBtnContent}>
       <Animated.View style={{ ...styles.clearBtnContent, transform: [{ scale: scaleClearBtn }] }}> */}
-        {clearBtn ? (
+        {clearBtn && hasText ? (
           <View style={styles.clearBtnContent}>
             <TouchableOpacity style={styles.clearBtn} onPress={clearText}>
               <Icon name="remove" color={theme['c-primary-dark-100-alpha-500']} size={11} />

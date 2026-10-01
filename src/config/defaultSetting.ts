@@ -193,6 +193,10 @@ const defaultSetting: LX.AppSetting = {
   // 首页卡片等）统一取自主题色令牌 c-primary-light-900-alpha-200，这里给出它的基础浓度。
   // 80 = 与历史外观一致（主题自带 alpha 0.80）。
   'theme.cardOpacity': 80,
+  // 「Tab 栏距离」（0~100）：首页展开态迷你播放器与底部 Tab 栏之间的间距，
+  // 100 = 当前间距（手机 12pt / iPad 横屏 8pt），0 = 贴在 Tab 栏上。
+  // 与字体大小无关（间距是固定 token），滑杆只在 0~当前值之间缩放。
+  'theme.tabBarDistance': 100,
   // 液态玻璃（vendored LiquidGlassKit Metal 折射）开关，仅 iOS 14~26.1 生效；
   // 关闭走系统磨砂。「玻璃不透明度」设置只对磨砂形态有意义（见 ThemeScreen）。
   // 26.2+ 强制磨砂（开关已隐藏、消费点门控，2026-09-30 定案）

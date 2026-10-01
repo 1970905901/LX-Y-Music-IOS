@@ -27,7 +27,7 @@ import { designSpacing, designTypography } from '@/theme/DesignTokens'
 
 interface SliderRowProps {
   /** 该行对应的设置项 key（值必须是 number） */
-  settingKey: 'theme.blur' | 'theme.glassOpacity' | 'theme.picOpacity' | 'theme.subContainerOpacity' | 'theme.cardOpacity'
+  settingKey: 'theme.blur' | 'theme.glassOpacity' | 'theme.picOpacity' | 'theme.subContainerOpacity' | 'theme.cardOpacity' | 'theme.tabBarDistance'
   title: string
   value: number
   /**

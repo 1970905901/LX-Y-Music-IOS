@@ -38,6 +38,10 @@ export default memo(({ componentId, isHome = false }: { componentId?: string, is
   // (.regular) 在白底/图底页面切换瞬间闪烁，开关已从设置页隐藏，残留的开关值在此
   // 屏蔽。最终兜底在 LiquidGlass 组件内部。
   const liquidGlassOn = useSettingValue('theme.liquidGlass') && !isIOS26_2OrAbove
+  // 「Tab 栏距离」（0~100，默认 100 = 当前距离）：调节首页展开态迷你播放器与底部
+  // Tab 栏之间的间距；0 = 贴在 Tab 栏上，100 = 现在的间距。
+  // 间距是固定 token（与字体大小无关），滑杆只在 0~最大值之间缩放它。
+  const tabBarDistance = useSettingValue('theme.tabBarDistance')
 
   // Tab 栏收起时（仅 Home）：迷你播放器下移到收起按钮所在行并左侧让位（对齐参考交互）。
   // 动画为逐帧收窄：bottom/paddingLeft 两布局属性随 220ms 插值同步变化，胶囊边收窄
@@ -75,10 +79,14 @@ export default memo(({ componentId, isHome = false }: { componentId?: string, is
       // 液态玻璃模式：背景折射由原生 LiquidGlass（vendored LiquidGlassKit）实时渲染，
       // 容器透明、无描边（纯玻璃质感，玻璃材质自带明暗自适应的染色与边缘光）。
       // 外圈投影已移除（用户反馈胶囊下方有「底子」）。
-      // 首页悬浮态比收起态高出一个 tab 栏高 + 12pt 间距；tab 栏底缝收紧
-      // （12→4）后整体同步下移 8，保持与 tab 栏顶的相对间距不变
+      // 首页悬浮态 = 收起态底缝 + Tab 栏高度 + 与 Tab 栏的间距（可调）。
+      // 手机：底缝 4 + 栏高 64 + 间距 12 = 80；iPad 横屏：底缝 4 + 栏高 64 + 间距 8 = 76
+      // —— 与历史硬编码值完全一致，默认（100）外观不变。
+      const TAB_BAR_BAND_HEIGHT = 64
+      const maxGap = isHorizontalMode ? 8 : 12
+      const gapRatio = Math.min(Math.max(Number(tabBarDistance) || 0, 0), 100) / 100
       const bottomExpanded = safeAreaBottom + (isHome
-        ? (isHorizontalMode ? 76 : designSpacing.xl + 48)
+        ? (bottomFloatGap + TAB_BAR_BAND_HEIGHT + maxGap * gapRatio)
         : bottomFloatGap)
       const bottomCollapsed = safeAreaBottom + bottomFloatGap
       return (
@@ -119,7 +127,7 @@ export default memo(({ componentId, isHome = false }: { componentId?: string, is
         </Animated.View>
       )
     },
-    [glassOpacity, liquidGlassOn, screenCovered, theme.isDark, isHome, handleNavigate, safeAreaBottom, isHorizontalMode, collapseAnim],
+    [glassOpacity, liquidGlassOn, screenCovered, theme.isDark, isHome, handleNavigate, safeAreaBottom, isHorizontalMode, collapseAnim, tabBarDistance],
   )
 
   return keyboardShown ? null : playerComponent

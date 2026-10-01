@@ -3,6 +3,15 @@ declare global {
     type AddMusicLocationType = 'top' | 'bottom'
     type DownloadFileNameFormat = '歌名 - 歌手' | '歌手 - 歌名' | '歌名'
 
+    /**
+     * Home 内嵌的「分界面」状态（目前只有歌单详情）：退出软件后再次进入时恢复。
+     * navId 限定写入方（推荐 / 歌单），搜索 / 我的 / 设置只恢复 Tab 主界面。
+     */
+    interface HomeSubView {
+      navId: string
+      info: Record<string, any>
+    }
+
     interface AppSetting {
       // 索引签名：lx-music 的设置键为点分字符串（如 'common.wy_cookie'），
       // 新增加设置项常未同步声明到该接口，导致调用方用字符串键索引时报 TS7053 /
@@ -203,6 +212,13 @@ declare global {
        * 默认 80，与历史外观一致（主题自带 alpha 0.80）。
        */
       'theme.cardOpacity': number
+
+      /**
+       * 「Tab 栏距离」（0~100）：首页展开态迷你播放器与底部 Tab 栏之间的间距。
+       * 100 = 当前间距（手机 12pt / iPad 横屏 8pt），0 = 贴在 Tab 栏上；
+       * 与字体大小无关（间距为固定 token）。
+       */
+      'theme.tabBarDistance': number
     }
   }
 }

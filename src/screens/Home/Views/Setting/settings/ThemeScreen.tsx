@@ -12,6 +12,7 @@ import CustomBg from './Theme/CustomBg'
 import PicOpacity from './Theme/PicOpacity'
 import SubContainerOpacity from './Theme/SubContainerOpacity'
 import CardOpacity from './Theme/CardOpacity'
+import TabBarDistance from './Theme/TabBarDistance'
 import { useSettingValue } from '@/store/setting/hook'
 import { isIOS26_2OrAbove } from '@/utils/tools'
 
@@ -40,6 +41,7 @@ export default memo(() => {
       <SubContainerOpacity />
       <CardOpacity />
       <IsFontShadow />
+      <TabBarDistance />
     </Section>
   )
 })

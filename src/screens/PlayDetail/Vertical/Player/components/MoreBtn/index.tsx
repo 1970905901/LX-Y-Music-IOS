@@ -12,7 +12,6 @@ import { handleDislikeMusic, handleClearMusicCache } from '@/screens/Home/Views/
 import { downloadMusic } from '@/core/download'
 import { handleLikeMusic, handleTxLikeMusic, handleKgLikeMusic, handleShowAlbumDetail, handleShowArtistDetail } from '@/components/OnlineList/listAction'
 import MusicAddModal, { type MusicAddModalType } from '@/components/MusicAddModal'
-import settingState from '@/store/setting/state'
 import SimilarSongsModal, { type SimilarSongsModalType } from '@/components/SimilarSongsModal'
 
 
@@ -58,9 +57,8 @@ export default memo(({ componentId }: { componentId: string }) => {
   }
 
   const onDownload = (info: SelectInfo) => {
-    if (settingState.setting['download.enable']) {
-      downloadMusic(info.musicInfo)
-    }
+    // 不再用 download.enable 预判短路：关掉下载开关时 downloadMusic 会给出提示
+    downloadMusic(info.musicInfo)
   }
 
   const onArtistDetail = (info: SelectInfo) => {

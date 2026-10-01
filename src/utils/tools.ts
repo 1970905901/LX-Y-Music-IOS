@@ -209,14 +209,17 @@ export const toast = (
     })
   }
 
-  // 若上一个 Toast 仍在，先 dismiss 再显示新的，防止多个 overlay 堆叠
-  if (currentToastId) {
-    void Navigation.dismissOverlay(currentToastId)
-      .catch(() => {})
-      .finally(showOverlay)
-  } else {
-    showOverlay()
-  }
+  // 若上一个 Toast 仍在，先 dismiss 再显示新的，防止多个 overlay 堆叠。
+  // 注意：**绝不能**把 showOverlay 挂在 dismissOverlay 的 .finally 上——
+  // Toast 组件自身 2s 后已自动 dismiss，此时 currentToastId 是失效 id，
+  // dismissOverlay 可能既不 resolve 也不 reject（RNN 对失效 id 不保证回调），
+  // .finally 就永不执行，表现为「上一次 Toast 之后的所有 Toast 都不出现」
+  // （用户反馈：播放页点下载完全没反馈，其它提示偶发也不弹）。
+  // 现在改为：dismiss 旧的一律不阻塞，新 Toast 立即显示。
+  const previousToastId = currentToastId
+  currentToastId = null
+  if (previousToastId) void Navigation.dismissOverlay(previousToastId).catch(() => {})
+  showOverlay()
 }
 
 export const openUrl = async(url: string): Promise<void> =>

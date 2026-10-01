@@ -9,7 +9,6 @@ import playerState from '@/store/player/state'
 import PlayDetailMenu, { type PlayDetailMenuType, type SelectInfo } from '@/screens/PlayDetail/components/PlayDetailMenu'
 import MusicAddModal, { type MusicAddModalType } from '@/components/MusicAddModal'
 import SimilarSongsModal, { type SimilarSongsModalType } from '@/components/SimilarSongsModal'
-import settingState from '@/store/setting/state'
 import { handleDislikeMusic, handleClearMusicCache } from '@/screens/Home/Views/Mylist/MusicList/listAction'
 import { downloadMusic } from '@/core/download'
 import { handleLikeMusic, handleTxLikeMusic, handleKgLikeMusic, handleShowAlbumDetail, handleShowArtistDetail } from '@/components/OnlineList/listAction'
@@ -33,9 +32,9 @@ export default memo(({ componentId }: { componentId: string }) => {
     const info = playerState.playMusicInfo.musicInfo
     if (!info) return
     const musicInfo = 'progress' in info ? info.metadata.musicInfo : info
-    if (settingState.setting['download.enable']) {
-      downloadMusic(musicInfo)
-    }
+    // 不再用 download.enable 预判短路：关掉下载开关时 downloadMusic 会给出提示，
+    // 静默 return 会让用户以为「点了没反应」（用户反馈的播放页下载无反馈）。
+    downloadMusic(musicInfo)
   }, [])
 
   const handleCommentPress = useCallback(() => {
@@ -85,9 +84,8 @@ export default memo(({ componentId }: { componentId: string }) => {
   }, [])
 
   const onDownload = useCallback((info: SelectInfo) => {
-    if (settingState.setting['download.enable']) {
-      downloadMusic(info.musicInfo)
-    }
+    // 同上：由 downloadMusic 统一负责「未开启下载」的提示，不静默丢弃点击
+    downloadMusic(info.musicInfo)
   }, [])
 
   const onArtistDetail = useCallback((info: SelectInfo) => {

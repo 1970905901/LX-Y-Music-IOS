@@ -450,7 +450,13 @@ export const resumeTask = async(taskId: string) => {
   processQueue()
 }
 
-export const addTask = (musicInfo: LX.Music.MusicInfo, quality: LX.Quality, isForceCookie: boolean = false) => {
+export const addTask = (
+  musicInfo: LX.Music.MusicInfo,
+  quality: LX.Quality,
+  isForceCookie: boolean = false,
+  /** 批量入队时静默（批量流程自己会弹汇总提示，避免几十条刷屏） */
+  silent: boolean = false,
+) => {
   let extension = getFileExtension(quality)
   if (musicInfo.source === 'bilibili') {
     extension = 'mp3'
@@ -488,6 +494,17 @@ export const addTask = (musicInfo: LX.Music.MusicInfo, quality: LX.Quality, isFo
   downloadActions.addTask(task)
   taskQueue.push(task)
   processQueue()
+  // 统一在这里给反馈：任何入口（播放页按钮 / 封面长按 / 歌曲菜单 / 批量）点了都有提示。
+  // 延迟 350ms 是为了等 RN Modal（iOS 独立原生窗口、层级高于 RNN Toast overlay）退场，
+  // 否则播放页里的提示会被菜单盖住，看起来「点了没反应」。
+  if (!silent) {
+    setTimeout(() => {
+      toast(
+        global.i18n.t('download_added_tip', { name: musicInfo.name, quality: global.i18n.t(quality) }),
+        'short',
+      )
+    }, 350)
+  }
 }
 
 export const removeTask = (id: string) => {
@@ -540,7 +557,7 @@ export const batchDownload = async(musicInfos: LX.Music.MusicInfo[]) => {
 
   for (const musicInfo of musicInfos) {
     const isWyAndHasCookie = musicInfo.source === 'wy' && !!cookie
-    addTask(musicInfo, quality, isWyAndHasCookie)
+    addTask(musicInfo, quality, isWyAndHasCookie, true)
     await new Promise(resolve => setTimeout(resolve, 1000))
   }
 }
@@ -551,22 +568,18 @@ export const batchDownload = async(musicInfos: LX.Music.MusicInfo[]) => {
  * 用户只能等下载完成后在悬浮球上看到状态变化。
  */
 export const downloadMusicWithQuality = (musicInfo: LX.Music.MusicInfo, quality: LX.Quality) => {
+  // 提示已下沉到 addTask（所有入口统一），这里不再重复弹
   addTask(musicInfo, quality)
-  // 延迟提示：播放详情页/歌曲菜单是 RN Modal 弹层（iOS 上是独立的原生窗口，
-  // 层级高于 RNN 的 Toast overlay）。立即弹 Toast 会被仍在退场的菜单盖住，
-  // 用户看到的就是「点了下载没有任何反馈」。等菜单退场后再提示。
-  setTimeout(() => {
-    toast(
-      global.i18n.t('download_added_tip', { name: musicInfo.name, quality: global.i18n.t(quality) }),
-      'short',
-    )
-  }, 350)
 }
 
 /**
  * 直接按下载设置中的音质下载单曲，并提示所添加的音质（不再弹确认框）
  */
 export const downloadMusic = (musicInfo: LX.Music.MusicInfo) => {
-  if (!settingState.setting['download.enable']) return
+  // 之前这里是静默 return：下载开关关掉时点下载既没下载也没提示（用户反馈「点了没反应」）
+  if (!settingState.setting['download.enable']) {
+    toast('下载功能未开启（设置 → 下载设置里打开）', 'short')
+    return
+  }
   downloadMusicWithQuality(musicInfo, settingState.setting['download.quality'] as LX.Quality)
 }

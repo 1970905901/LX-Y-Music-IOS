@@ -71,6 +71,10 @@ const List = forwardRef<ListType, ListProps>(
   ) => {
     const theme = useTheme()
     const flatListRef = useRef<FlatList>(null)
+    // 首次进入的幽灵偏移修正（详见 usePhantomScrollGuard 注释）：页头在列表内容里，
+    // 页首次上屏时原生安全区插图的一次性变化会把 contentOffset 抬到 0 以上，
+    // 整页上移、页头被顶到刘海后面（返回再进就正常）。
+    const phantomGuard = usePhantomScrollGuard(flatListRef as any)
     const [currentList, setList] = useState<LX.Music.MusicInfoOnline[]>([])
     // 上次经命令式 setList 写入的数组引用。引用相同（数据已是该数组）时跳过整表替换，
     // 阻断 musicInfoUpdate → onListUpdate 回传父组件 → 父组件回传 setList 的回环，
@@ -150,6 +154,8 @@ const List = forwardRef<ListType, ListProps>(
       scrollToInfo(info) {
         const index = listDataRef.current.findIndex(item => item.id === info.id)
         if (index > -1) {
+          // 程序化定位：先停用幽灵守卫，避免它把定位结果拉回顶部
+          phantomGuard.stop()
           flatListRef.current?.scrollToIndex({
             index: Math.floor(index / numColumns),
             viewPosition: 0.3,
@@ -342,11 +348,6 @@ const List = forwardRef<ListType, ListProps>(
       if (listId !== 'search') Keyboard.dismiss()
     }
 
-    // 首次进入的幽灵滚动偏移修正（详见 usePhantomScrollGuard 注释）：
-    // 页头在列表内容里，首帧布局高度未稳定时留下的非零偏移会把页头顶到刘海后面，
-    // 表现为「首次进入整页上飘、返回再进就正常」。
-    const phantomGuard = usePhantomScrollGuard(flatListRef as any)
-
     // 底部悬浮层（迷你播放器 + 底部 Tab + 安全区）统一避让高度
     const bottomInset = useBottomOverlayInset()
 
@@ -375,8 +376,8 @@ const List = forwardRef<ListType, ListProps>(
         // iOS 上必须显式设置 scrollEventThrottle，否则滚动事件只在手势结束时
         // 触发一次，VirtualizedList 的渲染窗口无法跟随滚动推进，表现为
         // 列表滚动到下方一片空白。
-        {...phantomGuard}
-        onScrollBeginDrag={() => { phantomGuard.onScrollBeginDrag(); handleScrollBeginDrag() }}
+        {...phantomGuard.props}
+        onScrollBeginDrag={() => { phantomGuard.props.onScrollBeginDrag(); handleScrollBeginDrag() }}
         // 列表头部的按钮触摸立即下发，避免概率性点击无响应
         delaysContentTouches={false}
         // 行数据原地更新（musicInfoUpdate）+ 播放状态变化时驱动对应行重渲染；

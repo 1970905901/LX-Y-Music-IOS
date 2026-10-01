@@ -159,7 +159,7 @@ export default memo(({ header, type, onOpenDetail }: Props) => {
       <View style={{ flex: 1 }}>
         <FlatList
           ref={homeListRef}
-          {...homePhantomGuard}
+          {...homePhantomGuard.props}
           data={playlists}
           ListHeaderComponent={header}
           // 底部悬浮层（迷你播放器 + 底部 Tab + 安全区）统一避让高度

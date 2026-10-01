@@ -22,6 +22,7 @@ import type { SelectMode } from './MultipleModeBar'
 import { useActiveListId } from '@/store/list/hook'
 import { useSettingValue } from '@/store/setting/hook'
 import { useBottomOverlayInset } from '@/store/common/hook'
+import { usePhantomScrollGuard } from '@/utils/hooks/usePhantomScrollGuard'
 
 type FlatListType = FlatListProps<LX.Music.MusicInfo>
 
@@ -59,6 +60,11 @@ const List = forwardRef<ListType, ListProps>(
   ({ header, listId, onShowMenu, onMuiltSelectMode, onSelectAll, showCover }, ref) => {
     // const t = useI18n()
     const flatListRef = useRef<FlatList>(null)
+    // 首次进入的幽灵偏移修正（详见 usePhantomScrollGuard 注释）：
+    // 试听列表 / 我的收藏的页头（PageTopInset + ActiveList）在列表内容里，
+    // 页首次上屏时原生安全区插图的一次性变化会把 contentOffset 抬到 0 以上，
+    // 整页上移、标题被顶到刘海后面（返回再进就正常）。
+    const phantomGuard = usePhantomScrollGuard(flatListRef as any)
     const [currentList, setList] = useState<LX.List.ListMusics>([])
     // 当前列表数据的镜像引用 + 版本号：handleChange / musicInfoUpdate 时原地更新行对象，
     // 保持 data 数组引用不变 → FlatList(VirtualizedList) 不重算渲染窗口，
@@ -118,6 +124,8 @@ const List = forwardRef<ListType, ListProps>(
         void getListMusics(listState.activeListId).then((list) => {
           const index = list.findIndex((m) => m.id == info.id)
           if (index < 0) return
+          // 程序化定位：先停用幽灵守卫，避免它把定位结果拉回顶部
+          phantomGuard.stop()
           flatListRef.current?.scrollToIndex({
             index: Math.floor(index / numColumns),
             viewPosition: 0.3,
@@ -141,6 +149,10 @@ const List = forwardRef<ListType, ListProps>(
       // 是本页「反复进出后只剩列表能滑、其余点击全失效」的可疑来源之一。
       let cancelled = false
       const rafIds: number[] = []
+      // 进页首屏的滚动事件（幽灵偏移纠正 / 程序化恢复位置）都不是用户滚动，
+      // 不能写回「上次滚动位置」——否则一次幽灵偏移就把用户存的滚动位置冲成 0。
+      // （原来只在恢复位置那一帧才置位，幽灵偏移更早到达时仍会误存。）
+      listFirstScrollRef.current = true
       const scheduleRaf = (fn: () => void) => {
         rafIds.push(requestAnimationFrame(() => {
           if (cancelled) return
@@ -168,6 +180,8 @@ const List = forwardRef<ListType, ListProps>(
                   waitJumpListPositionRef.current = false
                   if (playerState.playMusicInfo.listId == id && playerState.playInfo.playIndex > -1) {
                     try {
+                      // 程序化定位到当前播放：先停用幽灵守卫，避免定位结果被拉回顶部
+                      phantomGuard.stop()
                       flatListRef.current?.scrollToIndex({
                         index: Math.floor(
                           playerState.playInfo.playIndex / (rowInfoRef.current.rowNum ?? 1),
@@ -179,6 +193,8 @@ const List = forwardRef<ListType, ListProps>(
                     } catch {}
                   }
                 }
+                // 有「上次滚动位置」要恢复时同样先停用守卫（0 不必停：此时守卫正好负责归零）
+                if (position > 0) phantomGuard.stop()
                 flatListRef.current?.scrollToOffset({ offset: position, animated: false })
               })
             })
@@ -382,7 +398,8 @@ const List = forwardRef<ListType, ListProps>(
     return (
       <FlatList
         ref={flatListRef}
-        onScroll={handleScroll}
+        {...phantomGuard.props}
+        onScroll={(e) => { phantomGuard.props.onScroll(e); handleScroll(e) }}
         style={styles.list}
         contentContainerStyle={{ paddingBottom: bottomInset }}
         data={currentList}

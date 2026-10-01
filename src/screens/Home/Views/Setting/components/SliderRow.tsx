@@ -27,7 +27,7 @@ import { designSpacing, designTypography } from '@/theme/DesignTokens'
 
 interface SliderRowProps {
   /** 该行对应的设置项 key（值必须是 number） */
-  settingKey: 'theme.blur' | 'theme.glassOpacity' | 'theme.picOpacity' | 'theme.subContainerOpacity'
+  settingKey: 'theme.blur' | 'theme.glassOpacity' | 'theme.picOpacity' | 'theme.subContainerOpacity' | 'theme.cardOpacity'
   title: string
   value: number
   /**
@@ -39,6 +39,11 @@ interface SliderRowProps {
   minimumValue?: number
   maximumValue?: number
   step?: number
+  /**
+   * 值写入设置后的回调。用于「改完还需要主动重算」的设置项：
+   * 例如底边不透明度走主题色令牌，必须重新生成主题色板并广播才会全局生效。
+   */
+  onChanged?: () => void
 }
 
 export default memo(({
@@ -49,6 +54,7 @@ export default memo(({
   minimumValue = 0,
   maximumValue = 100,
   step = 1,
+  onChanged,
 }: SliderRowProps) => {
   const theme = useTheme()
   const settingValue = useSettingValue(settingKey)
@@ -69,8 +75,9 @@ export default memo(({
       if (settingValue === next) return
       // updateSetting 的 key 是联合类型，这里按传入的具体 key 收窄
       updateSetting({ [settingKey]: next } as Partial<LX.AppSetting>)
+      onChanged?.()
     },
-    [settingValue, settingKey],
+    [settingValue, settingKey, onChanged],
   )
 
   return (

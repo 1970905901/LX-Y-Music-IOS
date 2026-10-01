@@ -196,6 +196,13 @@ declare global {
        * 各消费点与 LiquidGlass 组件内被门控（UIGlassEffect 白底/图底切换闪烁）。
        */
       'theme.liquidGlass': boolean
+
+      /**
+       * 「底边不透明度」（0~100）：全软件半透明底（排行榜按钮、设置页开关行与操作按钮、
+       * 首页卡片等）的浓淡，统一作用于主题色令牌 c-primary-light-900-alpha-200。
+       * 默认 80，与历史外观一致（主题自带 alpha 0.80）。
+       */
+      'theme.cardOpacity': number
     }
   }
 }

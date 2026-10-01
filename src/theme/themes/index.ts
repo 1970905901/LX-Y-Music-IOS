@@ -46,6 +46,22 @@ export const removeTheme = async(id: string) => {
 export type LocalTheme = (typeof themes)[number]
 type ColorsKey = keyof LX.Theme['config']['themeColors']
 const varColorRxp = /^var\((.+)\)$/
+
+/**
+ * 把已有颜色改写为指定 alpha（0~1），用于「底边不透明度」。
+ * 与 applyOpacity 的区别：applyOpacity 是在原 alpha 上**叠加**比例，而这里要的是
+ * **直接设定**最终 alpha（滑杆 80 = 0.80，与主题自带值一致，而不是 0.80 × 0.8）。
+ * 只处理 rgb/rgba/#rrggbb(#rrggbbaa) 三类主题色格式，其余原样返回。
+ */
+const withAlpha = (color: string, alpha: number): string => {
+  const ratio = Math.min(Math.max(alpha, 0), 1)
+  const rgba = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*[\d.]+\s*)?\)$/.exec(color)
+  if (rgba) return `rgba(${rgba[1]}, ${rgba[2]}, ${rgba[3]}, ${ratio.toFixed(2)})`
+  const hex = /^#([0-9a-fA-F]{6})([0-9a-fA-F]{2})?$/.exec(color.trim())
+  if (hex) return `#${hex[1]}${Math.round(ratio * 255).toString(16).padStart(2, '0')}`
+  return color
+}
+
 export const buildActiveThemeColors = (theme: LX.Theme): LX.ActiveTheme => {
   let bgImg: ImageSourcePropType | undefined
   if (theme.isCustom) {
@@ -94,6 +110,15 @@ export const buildActiveThemeColors = (theme: LX.Theme): LX.ActiveTheme => {
     'c-border-background': theme.config.themeColors['c-primary-light-100-alpha-700'],
     'c-liked': theme.config.extInfo['c-liked']!,
     'bg-image': bgImg,
+  }
+
+  // 「底边不透明度」：全软件半透明底（排行榜按钮 / 设置页开关行与操作按钮 /
+  // 首页卡片等）统一取自 c-primary-light-900-alpha-200，这里按用户设置直接设定
+  // 它的最终 alpha。未设置（旧版本无该键 → NaN）时保持主题自带值，外观不变。
+  const cardOpacity = Number(settingState.setting['theme.cardOpacity'])
+  if (Number.isFinite(cardOpacity)) {
+    activeTheme['c-primary-light-900-alpha-200'] =
+      withAlpha(activeTheme['c-primary-light-900-alpha-200'], cardOpacity / 100)
   }
 
   if (theme.isDark) {

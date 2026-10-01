@@ -189,6 +189,10 @@ const defaultSetting: LX.AppSetting = {
   'theme.blur': 18,
   'theme.fontShadow': false,
   'theme.glassOpacity': 40,
+  // 「底边不透明度」（0~100）：全软件半透明底（排行榜按钮 / 设置页开关行、操作按钮 /
+  // 首页卡片等）统一取自主题色令牌 c-primary-light-900-alpha-200，这里给出它的基础浓度。
+  // 80 = 与历史外观一致（主题自带 alpha 0.80）。
+  'theme.cardOpacity': 80,
   // 液态玻璃（vendored LiquidGlassKit Metal 折射）开关，仅 iOS 14~26.1 生效；
   // 关闭走系统磨砂。「玻璃不透明度」设置只对磨砂形态有意义（见 ThemeScreen）。
   // 26.2+ 强制磨砂（开关已隐藏、消费点门控，2026-09-30 定案）

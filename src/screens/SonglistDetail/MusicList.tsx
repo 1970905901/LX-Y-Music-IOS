@@ -102,50 +102,59 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, isCreat
   ) => {
     let lastTotal = 0
     let finished = false
+    // 最近一次累计到的歌曲：**不受组件是否已卸载影响**，供失败/退出时落盘
+    let latestSongs: LX.Music.MusicInfoOnline[] = []
+    // 缓存写入串行化：单条缓存可能上 MB（storage 走「先删后写」），并发写会互相覆盖
+    let saveChain: Promise<void> = Promise.resolve()
+    let lastSavedCount = 0
+    const saveCache = async(list: LX.Music.MusicInfoOnline[], complete: boolean) => {
+      if (!list.length) return
+      saveChain = saveChain
+        .then(async() => saveSonglistDetailCache({
+          source,
+          id,
+          name: detailInfo.name ?? '',
+          total: lastTotal || list.length,
+          complete,
+          updatedAt: Date.now(),
+          info: detailInfo,
+          list,
+        }))
+        .catch(() => {})
+      await saveChain
+    }
     try {
       const list = await getListDetailAll(source, id, isRefresh, (songs, total, done) => {
         lastTotal = total || lastTotal
         if (done) finished = true
+        latestSongs = songs
+        // 进度落盘（每多 30 首或拉完时写一次）：用户常常没等拉全就退出页面，
+        // 缓存必须与「组件是否还在屏幕上」解耦 —— 之前这里一旦 isUnmountedRef 为真
+        // 就直接 return，连最终写缓存也被跳过，结果什么都没缓存，下次进入又从头拉，
+        // 表现就是「歌单缓存没生效」。
+        if (done || songs.length - lastSavedCount >= 30) {
+          lastSavedCount = songs.length
+          void saveCache(songs, done)
+        }
         if (isUnmountedRef.current) return
         fullListRef.current = songs
         const filtered = searchText.trim() ? filterList(songs, searchText, isFuzzySearch) : songs
         listRef.current?.setList(filtered)
       })
+      // 先落盘，再决定要不要更新界面（组件已卸载时数据仍要缓存下来）
+      await saveCache(list, finished)
       if (isUnmountedRef.current) return
       songlistState.listDetailInfo.list = list
       fullListRef.current = list
       const filtered = searchText.trim() ? filterList(list, searchText, isFuzzySearch) : list
       listRef.current?.setList(filtered)
       listRef.current?.setStatus('end')
-      await saveSonglistDetailCache({
-        source,
-        id,
-        name: detailInfo.name ?? '',
-        total: lastTotal || songlistState.listDetailInfo.total || list.length,
-        // 分页正常跑完即视为「已拉全」：平台 total 有时大于实际可下发曲目（下架/版权），
-        // 若按 list.length >= total 判定会永远不完整，导致每次进歌单都重新拉。
-        complete: finished,
-        updatedAt: Date.now(),
-        info: detailInfo,
-        list,
-      })
     } catch (err) {
-      if (isUnmountedRef.current) return
       log.info('[SonglistDetail] 全量拉取失败', { source, id, error: (err as Error)?.message })
       // 失败保留已加载部分：写一份未完成的缓存，下次进入继续补全而不是从头再来
-      const partial = fullListRef.current
-      if (partial.length) {
-        void saveSonglistDetailCache({
-          source,
-          id,
-          name: detailInfo.name ?? '',
-          total: lastTotal || partial.length,
-          complete: false,
-          updatedAt: Date.now(),
-          info: detailInfo,
-          list: partial,
-        })
-      }
+      const partial = latestSongs.length ? latestSongs : fullListRef.current
+      await saveCache(partial, false)
+      if (isUnmountedRef.current) return
       listRef.current?.setStatus(partial.length ? 'idle' : 'error')
     }
   }, [filterList, searchText, isFuzzySearch])

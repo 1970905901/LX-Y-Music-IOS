@@ -5,6 +5,7 @@ import TxCookie from './Basic/TxCookie'
 import KgCookie from './Basic/KgCookie'
 import SerpApiKey from './Basic/SerpApiKey'
 import WebLoginBtn from './Basic/WebLoginBtn'
+import SonglistCacheSync from './Basic/SonglistCacheSync'
 
 export default memo(() => {
   return (
@@ -14,6 +15,7 @@ export default memo(() => {
       <KgCookie />
       <SerpApiKey />
       <WebLoginBtn />
+      <SonglistCacheSync />
     </Section>
   )
 })

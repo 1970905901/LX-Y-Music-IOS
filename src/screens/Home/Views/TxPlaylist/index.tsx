@@ -19,6 +19,7 @@ import { useHorizontalMode } from '@/utils/hooks'
 import { designSpacing } from '@/theme/DesignTokens'
 import PageTopInset from '@/components/common/PageTopInset'
 import { useBottomOverlayInset } from '@/store/common/hook'
+import { getPlaylistIndex } from '@/core/playlistIndex'
 
 interface PlaylistInfo {
   id: string
@@ -63,47 +64,6 @@ export default memo(() => {
 
   const playlists = activeTab === 'created' ? createdPlaylists : collectedPlaylists
 
-  const fetchCreatedPlaylists = useCallback(async(isRefresh = false) => {
-    try {
-      const lists = await txUserApi.getCreatedPlaylists()
-
-      const favoritesPlaylist = lists.find((p: PlaylistInfo) => p.isFavorites)
-      if (favoritesPlaylist && favoritesPlaylist.songCount > 0) {
-        try {
-          const favSongs = await txUserApi.getFavSongs(1, 1)
-          if (favSongs.list && favSongs.list.length > 0) {
-            const firstSong = favSongs.list[0]
-            const coverUrl = firstSong.albumMid
-              ? `https://y.gtimg.cn/music/photo_new/T002R800x800M000${firstSong.albumMid}.jpg`
-              : favoritesPlaylist.cover
-            favoritesPlaylist.cover = coverUrl
-          }
-        } catch (err) {
-          console.warn('获取"我喜欢"歌单详情失败:', err)
-        }
-      }
-
-      setCreatedPlaylists(lists as PlaylistInfo[])
-    } catch (err: any) {
-      console.error('获取自建歌单失败:', err)
-      if (!isRefresh) {
-        toast(`获取自建歌单失败: ${err.message}`)
-      }
-    }
-  }, [])
-
-  const fetchCollectedPlaylists = useCallback(async(isRefresh = false) => {
-    try {
-      const result = await txUserApi.getFavPlaylists(1, 50)
-      setCollectedPlaylists((result.list || []) as PlaylistInfo[])
-    } catch (err: any) {
-      console.error('获取收藏歌单失败:', err)
-      if (!isRefresh) {
-        toast(`获取收藏歌单失败: ${err.message}`)
-      }
-    }
-  }, [])
-
   const fetchPlaylists = useCallback(async(isRefresh = false) => {
     try {
       if (isRefresh) {
@@ -111,17 +71,19 @@ export default memo(() => {
       } else {
         setLoading(true)
       }
-      await Promise.all([
-        fetchCreatedPlaylists(isRefresh),
-        fetchCollectedPlaylists(isRefresh),
-      ])
+      // 缓存优先：有本地缓存直接回填（不必每次进页面都联网拉列表）；
+      // isRefresh（下拉刷新 / 新建、删除歌单后）强制重拉并覆盖缓存
+      const result = await getPlaylistIndex('tx', { force: isRefresh })
+      setCreatedPlaylists((result.lists.created ?? []) as PlaylistInfo[])
+      setCollectedPlaylists((result.lists.collected ?? []) as PlaylistInfo[])
     } catch (err: any) {
       console.error('获取歌单失败:', err)
+      if (!isRefresh) toast(`获取歌单失败: ${err.message}`)
     } finally {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [fetchCreatedPlaylists, fetchCollectedPlaylists])
+  }, [])
 
   useEffect(() => {
     void fetchPlaylists()

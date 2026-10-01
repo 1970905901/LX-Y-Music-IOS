@@ -10,16 +10,13 @@ import { unlink } from '@/utils/fs'
 import { TEMP_FILE_PATH } from '@/utils/tools'
 import wyUserApi from '@/utils/musicSdk/wy/user'
 import txUserApi from '@/utils/musicSdk/tx/user'
-import { getUserPlaylists as getKgUserPlaylists } from '@/utils/musicSdk/kg/utils/api'
+import { getPlaylistIndex } from '@/core/playlistIndex'
 import {
   setWyFollowedArtists,
   setWyLikedSongs,
   setWySubscribedAlbums,
-  setWySubscribedPlaylists,
   setWyUid,
   setTxLikedSongs,
-  setTxSubscribedPlaylists,
-  setKgSubscribedPlaylists,
   setKgLikedSongs,
 } from '@/store/user/action.ts'
 import { getDownloadTasks } from '@/utils/data/download.ts'
@@ -77,9 +74,9 @@ export default async(appSetting: LX.AppSetting) => {
         }).catch(err => {
           bootLog(`Wy liked albums init failed: ${err.message}`)
         })
-        wyUserApi.getUserPlaylists(uid, wy_cookie).then((playlists: any) => {
-          setWySubscribedPlaylists(playlists)
-          bootLog('Wy subscribed playlists inited.')
+        // 「我的歌单」索引缓存优先：命中则不联网（离线也有列表），未命中才拉取并写缓存
+        getPlaylistIndex('wy').then((result) => {
+          bootLog(`Wy subscribed playlists ${result.fromCache ? 'loaded from cache' : 'inited'}.`)
         }).catch((err: any) => {
           bootLog(`Wy subscribed playlists init failed: ${err.message}`)
         })
@@ -116,21 +113,8 @@ export default async(appSetting: LX.AppSetting) => {
     })()
 
     bootLog('Tx playlists init...')
-    txUserApi.getUserPlaylists().then(playlists => {
-      const formattedPlaylists = playlists.map((p: any) => ({
-        id: `tx__${p.id}`,
-        name: p.name,
-        cover: p.cover,
-        songCount: p.songCount,
-        creator: { nickname: 'QQ音乐' },
-        dirid: p.dirid,
-        tid: p.tid,
-        desc: p.desc,
-        isFavorites: p.isFavorites,
-        isCollected: p.isCollected,
-      }))
-      setTxSubscribedPlaylists(formattedPlaylists)
-      bootLog('Tx playlists inited.')
+    getPlaylistIndex('tx').then((result) => {
+      bootLog(`Tx playlists ${result.fromCache ? 'loaded from cache' : 'inited'}.`)
     }).catch(err => {
       bootLog(`Tx playlists init failed: ${err.message}`)
     })
@@ -139,52 +123,39 @@ export default async(appSetting: LX.AppSetting) => {
   const kg_cookie = appSetting['common.kg_cookie']
   if (kg_cookie) {
     bootLog('Kg playlists init...')
-    getKgUserPlaylists(kg_cookie).then(async result => {
-      if (result.success && result.data) {
-        const allPlaylists = [...(result.data.createdList || []), ...(result.data.collectedList || [])]
-        const formattedPlaylists = allPlaylists.map((p: any) => ({
-          id: p.id || `kg_${p.listid}`,
-          listid: p.listid,
-          name: p.name,
-          cover: p.cover,
-          songCount: p.songCount,
-          desc: p.desc,
-          isCollected: p.isCollected || false,
-        }))
-        setKgSubscribedPlaylists(formattedPlaylists)
-        bootLog('Kg playlists inited.')
+    getPlaylistIndex('kg').then(async(result) => {
+      bootLog(`Kg playlists ${result.fromCache ? 'loaded from cache' : 'inited'}.`)
 
-        const favoritesPlaylist = result.data.createdList.find((p: any) => p.isFavorites)
-        if (favoritesPlaylist) {
-          bootLog('Kg like list init...')
-          try {
-            const { getPlaylistSongs } = await import('@/utils/musicSdk/kg/utils/api')
-            const allLikedIds: string[] = []
-            let page = 1
-            const pageSize = 500
-            let hasMore = true
+      const favoritesPlaylist = (result.lists.created ?? []).find((p: any) => p.isFavorites)
+      if (favoritesPlaylist) {
+        bootLog('Kg like list init...')
+        try {
+          const { getPlaylistSongs } = await import('@/utils/musicSdk/kg/utils/api')
+          const allLikedIds: string[] = []
+          let page = 1
+          const pageSize = 500
+          let hasMore = true
 
-            while (hasMore) {
-              const songsResult = await getPlaylistSongs(kg_cookie, favoritesPlaylist.id, page, pageSize)
-              if (songsResult.success && songsResult.data?.list?.length) {
-                for (const song of songsResult.data.list) {
-                  const songId = song.hash || song.songmid || song.audio_id
-                  if (songId) {
-                    allLikedIds.push(String(songId))
-                  }
+          while (hasMore) {
+            const songsResult = await getPlaylistSongs(kg_cookie, favoritesPlaylist.id, page, pageSize)
+            if (songsResult.success && songsResult.data?.list?.length) {
+              for (const song of songsResult.data.list) {
+                const songId = song.hash || song.songmid || song.audio_id
+                if (songId) {
+                  allLikedIds.push(String(songId))
                 }
-                hasMore = songsResult.data.list.length === pageSize
-                page++
-              } else {
-                hasMore = false
               }
+              hasMore = songsResult.data.list.length === pageSize
+              page++
+            } else {
+              hasMore = false
             }
-
-            setKgLikedSongs(allLikedIds)
-            bootLog(`Kg like list inited. (${allLikedIds.length} songs)`)
-          } catch (err: any) {
-            bootLog(`Kg like list init failed: ${err.message}`)
           }
+
+          setKgLikedSongs(allLikedIds)
+          bootLog(`Kg like list inited. (${allLikedIds.length} songs)`)
+        } catch (err: any) {
+          bootLog(`Kg like list init failed: ${err.message}`)
         }
       }
     }).catch(err => {

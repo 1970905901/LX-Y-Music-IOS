@@ -22,6 +22,7 @@ import SonglistDetail from '../../../SonglistDetail'
 import { type ListInfoItem } from '@/store/songlist/state'
 import commonState from '@/store/common/state'
 import { setWySubscribedPlaylists, removeWySubscribedPlaylist } from '@/store/user/action.ts'
+import { getPlaylistIndex } from '@/core/playlistIndex'
 import Menu, { type MenuType, type Position } from '@/components/common/Menu'
 import PlaylistEditModal, { type PlaylistEditModalType } from './PlaylistEditModal'
 import MusicInfoOnline = LX.Music.MusicInfoOnline
@@ -48,6 +49,9 @@ export default memo(() => {
 
   // 记录上一次加载的 cookie+uid 组合，避免重复请求；cookie 或 uid 变化时强制刷新。
   const lastLoadKeyRef = useRef('')
+  // 歌单列表已在启动时从本地缓存回填（core/playlistIndex），有数据就不再重复联网拉取
+  const playlistsRef = useRef(playlists)
+  playlistsRef.current = playlists
   useEffect(() => {
     if (!cookie || !uid) {
       lastLoadKeyRef.current = ''
@@ -61,11 +65,13 @@ export default memo(() => {
       return
     }
     lastLoadKeyRef.current = loadKey
+    if (playlistsRef.current.length) {
+      // 缓存命中：直接展示，不再联网；需要更新时用「设置 - 平台设置 - 刷新同步」或下拉刷新
+      setLoading(false)
+      return
+    }
     setLoading(true)
-    wyApi.getUserPlaylists(uid, cookie)
-      .then((playlists: any[]) => {
-        setWySubscribedPlaylists(playlists)
-      })
+    void getPlaylistIndex('wy') // 缓存优先，无缓存才联网拉取并写入缓存
       .catch((err: any) => {
         lastLoadKeyRef.current = ''
         toast(`获取歌单失败: ${err.message}`)
@@ -82,10 +88,7 @@ export default memo(() => {
       return
     }
     setLoading(true)
-    wyApi.getUserPlaylists(uid, cookie)
-      .then((playlists: any[]) => {
-        setWySubscribedPlaylists(playlists)
-      })
+    void getPlaylistIndex('wy', { force: true })
       .catch((err: any) => {
         toast(`刷新歌单失败: ${err.message}`)
       })

@@ -82,6 +82,8 @@ export const storageDataPrefix = {
 
   userApi: '@user_api__',
   downloadList: '@download_list',
+  songlistDetailCache: '@songlist_detail_cache__',
+  playlistIndexCache: '@playlist_index_cache__',
   wyUidCache: '@wy_uid_cache__',
   similarSongsCache: '@similar_songs_cache',
   localAnnouncementId: '@local_announcement_id',

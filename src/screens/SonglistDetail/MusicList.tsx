@@ -1,6 +1,8 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import OnlineList, { type OnlineListType, type OnlineListProps } from '@/components/OnlineList'
-import { clearListDetail, getListDetail, setListDetail, setListDetailInfo } from '@/core/songlist'
+import { clearListDetail, getListDetail, getListDetailAll, setListDetail, setListDetailInfo } from '@/core/songlist'
+import { LIST_LOAD_LIMIT } from '@/store/songlist/action'
+import { getSonglistDetailCache, saveSonglistDetailCache, type SonglistDetailCacheInfo } from '@/utils/data/songlistDetail'
 import songlistState from '@/store/songlist/state'
 import { handlePlay } from './listAction'
 import { useListInfo } from './state'
@@ -90,11 +92,78 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, isCreat
 
   const finalIsCreator = info.source === 'tx' ? txIsUserCreated : info.source === 'kg' ? kgIsUserCreated : isCreator
 
+  // 把整张歌单逐页拉全并写入本地缓存（进歌单补全 / 主动更新同步共用）。
+  // 每拉一页只刷新已显示的列表，不动滚动位置；拉完写缓存并置 end。
+  const syncFullList = useCallback(async(
+    source: LX.OnlineSource,
+    id: string,
+    detailInfo: SonglistDetailCacheInfo,
+    isRefresh: boolean,
+  ) => {
+    let lastTotal = 0
+    let finished = false
+    try {
+      const list = await getListDetailAll(source, id, isRefresh, (songs, total, done) => {
+        lastTotal = total || lastTotal
+        if (done) finished = true
+        if (isUnmountedRef.current) return
+        fullListRef.current = songs
+        const filtered = searchText.trim() ? filterList(songs, searchText, isFuzzySearch) : songs
+        listRef.current?.setList(filtered)
+      })
+      if (isUnmountedRef.current) return
+      songlistState.listDetailInfo.list = list
+      fullListRef.current = list
+      const filtered = searchText.trim() ? filterList(list, searchText, isFuzzySearch) : list
+      listRef.current?.setList(filtered)
+      listRef.current?.setStatus('end')
+      await saveSonglistDetailCache({
+        source,
+        id,
+        name: detailInfo.name ?? '',
+        total: lastTotal || songlistState.listDetailInfo.total || list.length,
+        // 分页正常跑完即视为「已拉全」：平台 total 有时大于实际可下发曲目（下架/版权），
+        // 若按 list.length >= total 判定会永远不完整，导致每次进歌单都重新拉。
+        complete: finished,
+        updatedAt: Date.now(),
+        info: detailInfo,
+        list,
+      })
+    } catch (err) {
+      if (isUnmountedRef.current) return
+      log.info('[SonglistDetail] 全量拉取失败', { source, id, error: (err as Error)?.message })
+      // 失败保留已加载部分：写一份未完成的缓存，下次进入继续补全而不是从头再来
+      const partial = fullListRef.current
+      if (partial.length) {
+        void saveSonglistDetailCache({
+          source,
+          id,
+          name: detailInfo.name ?? '',
+          total: lastTotal || partial.length,
+          complete: false,
+          updatedAt: Date.now(),
+          info: detailInfo,
+          list: partial,
+        })
+      }
+      listRef.current?.setStatus(partial.length ? 'idle' : 'error')
+    }
+  }, [filterList, searchText, isFuzzySearch])
+
   useImperativeHandle(
     ref,
     () => ({
       async loadList(source, id, isRefresh = false) {
         if (global.lx.isEnableLog) console.log('[SonglistDetail] loadList', { source, id, isRefresh })
+        // 进入前先留一份内存快照：clearListDetail() 清空的是同一份 store 对象，
+        // 原实现「先清空再判断内存命中」，条件恒为 false —— 表现就是每次进歌单都重新拉。
+        const prevDetail = {
+          id: songlistState.listDetailInfo.id,
+          source: songlistState.listDetailInfo.source,
+          info: songlistState.listDetailInfo.info,
+          list: songlistState.listDetailInfo.list,
+          total: songlistState.listDetailInfo.total,
+        }
         clearListDetail()
         const listDetailInfo = songlistState.listDetailInfo
         const createDetailInfo = (detail: typeof listDetailInfo.info): DetailInfo => ({
@@ -105,6 +174,62 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, isCreat
           userId: info.userId || detail.userId,
           total: listDetailInfo.total,
         })
+
+        // 1) 本地整表缓存命中：把缓存的全部歌曲一次铺进列表，完全不请求网络。
+        // 之前每次进歌单都从第一页重拉，上千首的歌单永远拉不完，未拉到的部分
+        // 既看不到也搜不到（搜索只覆盖已加载数据）。
+        if (!isRefresh) {
+          const cached = await getSonglistDetailCache(source, id).catch(() => null)
+          if (isUnmountedRef.current) return createDetailInfo(cached?.info ?? {})
+          if (cached?.list.length) {
+            if (global.lx.isEnableLog) log.info('[SonglistDetail] 命中本地缓存', { songCount: cached.list.length, complete: cached.complete })
+            setListDetailInfo(source, id)
+            setListDetail({
+              list: cached.list,
+              total: cached.total || cached.list.length,
+              page: 1,
+              limit: LIST_LOAD_LIMIT,
+              maxPage: 1,
+              key: null,
+              source,
+              info: cached.info,
+              id,
+            }, id, 1)
+            const cachedFiltered = searchText.trim() ? filterList(cached.list, searchText, isFuzzySearch) : cached.list
+            requestAnimationFrame(() => {
+              fullListRef.current = cached.list
+              listRef.current?.setList(cachedFiltered)
+              // 未拉全的缓存继续在后台补全：状态保持 loading，避免用户滚动触发的
+              // loadMore 与后台补全并发写列表（会重复/丢歌）
+              listRef.current?.setStatus(cached.complete ? 'end' : 'loading')
+            })
+            if (!cached.complete) void syncFullList(source, id, cached.info, false)
+            return createDetailInfo(cached.info)
+          }
+        }
+
+        // 2) 同一歌单本次运行内已加载过的数据：直接复用，不闪加载态
+        if (!isRefresh && prevDetail.id === id && prevDetail.source === source && prevDetail.list.length) {
+          setListDetailInfo(source, id)
+          setListDetail({
+            list: prevDetail.list,
+            total: prevDetail.total || prevDetail.list.length,
+            page: 1,
+            limit: LIST_LOAD_LIMIT,
+            maxPage: 1,
+            key: null,
+            source,
+            info: prevDetail.info,
+            id,
+          }, id, 1)
+          const prevFiltered = searchText.trim() ? filterList(prevDetail.list, searchText, isFuzzySearch) : prevDetail.list
+          requestAnimationFrame(() => {
+            fullListRef.current = prevDetail.list
+            listRef.current?.setList(prevFiltered)
+            listRef.current?.setStatus('end')
+          })
+          return createDetailInfo(prevDetail.info)
+        }
 
         if (
           listDetailInfo.id === id &&
@@ -128,14 +253,15 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, isCreat
             if (global.lx.isEnableLog) log.info('[SonglistDetail] loadList got data', { songCount: listDetail.list.length, total: listDetail.total })
             const result = setListDetail(listDetail, id, page)
             if (isUnmountedRef.current) return createDetailInfo(result.info)
-            const filtered = searchText.trim() ? filterList(result.list, searchText) : result.list
+            const filtered = searchText.trim() ? filterList(result.list, searchText, isFuzzySearch) : result.list
             requestAnimationFrame(() => {
               fullListRef.current = result.list
               listRef.current?.setList(filtered)
-              listRef.current?.setStatus(
-                songlistState.listDetailInfo.maxPage <= page ? 'end' : 'idle',
-              )
+              // 首屏已出：剩余页在后台补全并写入本地缓存，状态保持 loading，
+              // 由 syncFullList 结束时统一置 end（下次进入直接读缓存整表铺开）
+              listRef.current?.setStatus('loading')
             })
+            void syncFullList(source, id, result.info as SonglistDetailCacheInfo, false)
             return createDetailInfo(result.info)
           })
           .catch((err) => {
@@ -198,7 +324,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, isCreat
         }
       },
     }),
-    [filterList, info.desc, info.img, info.name, info.play_count, info.source, info.id, info.userId, searchText],
+    [filterList, syncFullList, isFuzzySearch, info.desc, info.img, info.name, info.play_count, info.source, info.id, info.userId, searchText],
   )
 
   useEffect(() => {
@@ -214,21 +340,11 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, isCreat
   }
 
   const handleRefresh: OnlineListProps['onRefresh'] = () => {
-    const page = 1
+    const { id, source, info: detailInfo } = songlistState.listDetailInfo
+    if (!id) return
     listRef.current?.setStatus('refreshing')
-    getListDetail(songlistState.listDetailInfo.id, songlistState.listDetailInfo.source, page, true)
-      .then((listDetail) => {
-        const result = setListDetail(listDetail, songlistState.listDetailInfo.id, page)
-        if (isUnmountedRef.current) return
-        fullListRef.current = result.list
-        const filtered = filterList(result.list, searchText)
-        listRef.current?.setList(filtered)
-        listRef.current?.setStatus(songlistState.listDetailInfo.maxPage <= page ? 'end' : 'idle')
-      })
-      .catch(() => {
-        if (songlistState.listDetailInfo.list.length && page == 1) clearListDetail()
-        listRef.current?.setStatus('error')
-      })
+    // 下拉刷新 = 只刷新当前这张歌单：清掉内存分页缓存后逐页重拉全量并覆盖本地缓存
+    void syncFullList(source, id, detailInfo as SonglistDetailCacheInfo, true)
   }
 
   const handleLoadMore: OnlineListProps['onLoadMore'] = () => {

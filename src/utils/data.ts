@@ -472,12 +472,13 @@ export const getMetaCache = async() => {
   const keys = await getAllKeys()
   const info = {
     otherSourceKeys: [] as string[],
-    // musicUrlKeys: [] as string[],
+    musicUrlKeys: [] as string[],
     lyricKeys: [] as string[],
   }
 
   for (const key of keys) {
     if (key.startsWith(storageDataPrefix.musicOtherSource)) info.otherSourceKeys.push(key)
+    else if (key.startsWith(storageDataPrefix.musicUrl)) info.musicUrlKeys.push(key)
     else if (key.startsWith(storageDataPrefix.lyric)) info.lyricKeys.push(key)
   }
 

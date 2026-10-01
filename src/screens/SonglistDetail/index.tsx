@@ -172,7 +172,9 @@ export default ({ info, onBack, componentId, initialScrollToInfo }: { info: List
   }, [info.source, info.id])
 
   useEffect(() => {
-    refreshList(true)
+    // 进入歌单先读本地缓存（loadList 内部整表铺开，不请求网络）；
+    // 平台侧有更新时由「设置 - 平台设置 - 更新同步」或页面下拉刷新强制重拉
+    refreshList()
   }, [refreshList])
 
   useEffect(() => {

@@ -280,7 +280,7 @@
   "setting__other_music_url_label": "歌曲 URL 数量：",
   "setting__other_other_source_clear_btn": "清理换源歌曲缓存",
   "setting__other_other_source_label": "换源歌曲信息数量：",
-  "setting__other_resource_cache": "资源缓存管理（包括歌曲、图片缓存）",
+  "setting__other_resource_cache": "资源缓存管理（歌曲、图片、歌单、歌词、URL、换源）",
   "setting_about": "关于 LX-Y Music",
   "setting_backup": "备份与恢复",
   "setting_backup_all": "所有数据（歌单、播放历史、下载记录、设置与自定义音源）",

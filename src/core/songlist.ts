@@ -268,12 +268,16 @@ export const getListDetailAll = async(
   source: LX.OnlineSource,
   id: string,
   isRefresh = false,
+  // 逐页进度回调：每拉到一页就把「当前累计歌曲 / 平台总数 / 是否已拉完」回报给调用方，
+  // 供歌单详情页渐进渲染 + 落本地缓存；done = true 表示后续不会再增长（循环已结束）。
+  onProgress?: (songs: LX.Music.MusicInfoOnline[], total: number, done: boolean) => void,
 ): Promise<LX.Music.MusicInfoOnline[]> => {
   const listKey = `sdetail__${source}__${id}`
+  // 刷新时清掉内存分页缓存，并让 kg 这类自带详情缓存的音源同步失效，
+  // 否则「更新同步」拿到的仍是音源 SDK 里那份旧数据。
+  if (isRefresh) clearListDetailCache(source, id)
   let listCache = cache.get(listKey) as LimitDetailCache
-  if (!listCache || isRefresh) {
-    cache.set(listKey, (listCache = new Map()))
-  }
+  if (!listCache) cache.set(listKey, (listCache = new Map()))
 
   const loadData = async(page: number): Promise<ListDetailInfo> => {
     const pageKey = `sdetail__${source}__${id}__${page}`
@@ -284,11 +288,16 @@ export const getListDetailAll = async(
 
   const result = await loadData(1)
   // 优先以实际返回的歌曲数为准：如果第一页已经把 total 首歌都拿到了，直接返回。
-  if (result.list.length >= result.total) return deduplicationList(result.list)
+  if (result.list.length >= result.total) {
+    const onlyPage = deduplicationList(result.list)
+    onProgress?.(onlyPage, result.total || onlyPage.length, true)
+    return onlyPage
+  }
 
   const allSongs = [...result.list]
   const seenIds = new Set(allSongs.map(m => m.id))
   let maxPage = Math.max(2, Math.ceil(result.total / result.limit))
+  onProgress?.(deduplicationList(allSongs), result.total, false)
 
   for (let page = 2; page <= maxPage; page++) {
     const pageResult = await loadData(page)
@@ -301,11 +310,14 @@ export const getListDetailAll = async(
         addedCount++
       }
     }
+    onProgress?.(deduplicationList(allSongs), result.total, false)
     // 某页没有新增歌曲说明分页已失效或返回重复，停止加载避免死循环/只显示 30 首。
     if (addedCount === 0) break
   }
 
-  return deduplicationList(allSongs)
+  const finalList = deduplicationList(allSongs)
+  onProgress?.(finalList, result.total || finalList.length, true)
+  return finalList
 }
 
 export const clearListDetailCache = (source: LX.OnlineSource, id: string) => {

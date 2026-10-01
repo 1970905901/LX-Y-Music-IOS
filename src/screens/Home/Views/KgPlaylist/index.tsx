@@ -5,7 +5,8 @@
 import { memo, useEffect, useState, useCallback, useRef } from 'react'
 import { View, FlatList, RefreshControl, BackHandler, StyleSheet, Keyboard, TouchableOpacity } from 'react-native'
 import ListItem from './ListItem'
-import { getUserPlaylists, subscribePlaylist, unsubscribePlaylist } from '@/utils/musicSdk/kg/utils/api'
+import { subscribePlaylist, unsubscribePlaylist } from '@/utils/musicSdk/kg/utils/api'
+import { getPlaylistIndex } from '@/core/playlistIndex'
 import { useI18n } from '@/lang'
 import { useTheme } from '@/store/theme/hook'
 import Text from '@/components/common/Text'
@@ -78,13 +79,11 @@ export default memo(() => {
       } else {
         setLoading(true)
       }
-      const result = await getUserPlaylists(kgCookie)
-      if (result.success && result.data) {
-        setCreatedPlaylists((result.data.createdList || []) as PlaylistInfo[])
-        setCollectedPlaylists((result.data.collectedList || []) as PlaylistInfo[])
-      } else if (!isRefresh) {
-        toast(`获取歌单失败: ${result.message}`)
-      }
+      // 缓存优先：有本地缓存直接回填（不必每次进页面都联网拉列表）；
+      // isRefresh（下拉刷新 / 新建、删除歌单后）强制重拉并覆盖缓存
+      const index = await getPlaylistIndex('kg', { force: isRefresh })
+      setCreatedPlaylists((index.lists.created ?? []) as PlaylistInfo[])
+      setCollectedPlaylists((index.lists.collected ?? []) as PlaylistInfo[])
     } catch (err: any) {
       console.error('获取酷狗歌单失败:', err)
       if (!isRefresh) {

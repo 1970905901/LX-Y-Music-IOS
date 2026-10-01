@@ -79,3 +79,41 @@ export const getPlayHistoryByRange = async(startTime: number, endTime: number) =
   const history = await getPlayHistory()
   return history.filter(item => item.playedAt >= startTime && item.playedAt <= endTime)
 }
+
+/**
+ * 从播放历史移除条目。
+ *
+ * - entryIds：历史条目 id（`${musicInfo.id}_${playedAt}`），精确删一条；
+ * - musicIds：歌曲 id，用于「按歌移除」——同一首歌在多天各有一条历史。
+ *
+ * 播放历史此前**没有删除接口**，列表菜单里的「移除」点了没有任何反应
+ * （OnlineList 的 handleRemoveMusic 只处理平台歌单 id）。删完发
+ * playHistoryUpdated，播放历史页据此自动刷新。
+ */
+export const removePlayHistoryItems = async({
+  entryIds = [],
+  musicIds = [],
+}: {
+  entryIds?: string[]
+  musicIds?: string[]
+}): Promise<number> => {
+  if (!entryIds.length && !musicIds.length) return 0
+  const history = await getPlayHistory()
+  const entrySet = new Set(entryIds)
+  const musicSet = new Set(musicIds)
+  const next = history.filter(item => !entrySet.has(item.id) && !musicSet.has(item.musicInfo.id))
+  const removed = history.length - next.length
+  if (!removed) return 0
+  await savePlayHistory(next)
+  global.app_event.playHistoryUpdated()
+  return removed
+}
+
+/** 清空全部播放历史 */
+export const clearPlayHistory = async() => {
+  const history = await getPlayHistory()
+  if (!history.length) return 0
+  await savePlayHistory([])
+  global.app_event.playHistoryUpdated()
+  return history.length
+}

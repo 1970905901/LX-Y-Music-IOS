@@ -28,6 +28,7 @@ import { batchDownload, downloadMusic } from '@/core/download'
 import { useI18n } from '@/lang'
 import { removeWyLikedSong, updateWySubscribedPlaylistTrackCount } from '@/store/user/action.ts'
 import { clearListDetailCache } from '@/core/songlist.ts'
+import { removePlayHistoryItems } from '@/core/player/playHistory'
 import commonState from '@/store/common/state'
 import { useWySubscribedPlaylists } from '@/store/user/hook.ts'
 import type { SubscribedPlaylistInfo } from '@/store/user/state'
@@ -249,6 +250,22 @@ export default forwardRef<OnlineListType, OnlineListProps>(
         }).catch(err => {
           toast('移除失败: ' + err.message)
         })
+      } else if (listId === 'play_history') {
+        // 播放历史不是平台歌单：走本地历史删除。
+        // 此前这里没有分支，菜单里的「移除」点了没有任何反应（用户反馈「无法移除」）。
+        // 行上带 playHistoryId（唯一一条）；没有时按歌曲 id 移除该歌的全部历史条目。
+        const entryIds = musicInfos
+          .map(m => (m as any).playHistoryId as string | undefined)
+          .filter((id): id is string => !!id)
+        const musicIds = musicInfos.map(m => m.id)
+        void removePlayHistoryItems({ entryIds, musicIds })
+          .then((removed) => {
+            toast(removed ? t('list_edit_action_tip_remove_success') : '未找到可移除的历史记录')
+            if (removed) hancelExitSelect()
+          })
+          .catch((err: Error) => {
+            toast('移除失败: ' + err.message)
+          })
       } else {
         toast('不支持的操作')
       }

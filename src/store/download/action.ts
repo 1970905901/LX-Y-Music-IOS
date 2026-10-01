@@ -44,6 +44,9 @@ export default {
       if (updatedFields.metadataStatus) {
         global.app_event.download_metadata_update({ id, metadataStatus: updatedFields.metadataStatus })
       }
+      if (updatedFields.actualQuality) {
+        global.app_event.download_quality_update({ id, actualQuality: updatedFields.actualQuality })
+      }
       if (shouldSyncTaskChange(updatedFields)) markListsChanged()
       throttledSave()
     }

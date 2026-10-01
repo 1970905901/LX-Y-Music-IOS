@@ -552,10 +552,15 @@ export const batchDownload = async(musicInfos: LX.Music.MusicInfo[]) => {
  */
 export const downloadMusicWithQuality = (musicInfo: LX.Music.MusicInfo, quality: LX.Quality) => {
   addTask(musicInfo, quality)
-  toast(
-    global.i18n.t('download_added_tip', { name: musicInfo.name, quality: global.i18n.t(quality) }),
-    'short',
-  )
+  // 延迟提示：播放详情页/歌曲菜单是 RN Modal 弹层（iOS 上是独立的原生窗口，
+  // 层级高于 RNN 的 Toast overlay）。立即弹 Toast 会被仍在退场的菜单盖住，
+  // 用户看到的就是「点了下载没有任何反馈」。等菜单退场后再提示。
+  setTimeout(() => {
+    toast(
+      global.i18n.t('download_added_tip', { name: musicInfo.name, quality: global.i18n.t(quality) }),
+      'short',
+    )
+  }, 350)
 }
 
 /**

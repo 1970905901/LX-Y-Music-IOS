@@ -13,6 +13,7 @@ import { playList } from '@/core/player/player'
 import { clearPlayedList } from '@/core/player/playedList'
 import { type ListInfoItem } from '@/store/songlist/state'
 import { useBottomOverlayInset } from '@/store/common/hook'
+import { usePhantomScrollGuard } from '@/utils/hooks/usePhantomScrollGuard'
 
 type RecType = 'home' | 'radar' | 'newsong'
 
@@ -50,6 +51,10 @@ export default memo(({ header, type, onOpenDetail }: Props) => {
   const listRef = useRef<OnlineListType>(null)
   const playerMusicInfo = usePlayerMusicInfo()
   const [playlists, setPlaylists] = useState<Array<{ id: string, name: string, cover: string, playCount: number }>>([])
+  // 首次进入幽灵偏移修正（详见 usePhantomScrollGuard）：
+  // 「主页推荐」的页头在列表内容里，首帧布局未稳时的非零偏移会把页头顶到刘海后面。
+  const homeListRef = useRef<any>(null)
+  const homePhantomGuard = usePhantomScrollGuard(homeListRef)
   const [loading, setLoading] = useState(false)
   const theme = useTheme()
   const isHorizontal = useHorizontalMode()
@@ -153,6 +158,8 @@ export default memo(({ header, type, onOpenDetail }: Props) => {
     return (
       <View style={{ flex: 1 }}>
         <FlatList
+          ref={homeListRef}
+          {...homePhantomGuard}
           data={playlists}
           ListHeaderComponent={header}
           // 底部悬浮层（迷你播放器 + 底部 Tab + 安全区）统一避让高度

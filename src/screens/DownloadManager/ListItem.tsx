@@ -8,11 +8,15 @@ import { useTheme } from '@/store/theme/hook'
 import { createStyle } from '@/utils/tools'
 import { dateFormat, sizeFormate } from '@/utils/common'
 import { resumeTask, retryTask } from '@/core/download'
+import { useI18n } from '@/lang'
 
 export default memo(({ task: initialTask, rowWidth = '100%', onRemove }: { task: LX.Download.DownloadTask, rowWidth?: `${number}%`, onRemove: (id: string) => void }) => {
   const theme = useTheme()
+  const t = useI18n()
   const [task, setTask] = useState(initialTask)
   const errorColor = theme['c-600']
+  // 实际音质（请求音质不支持时会降级，如 hires → flac）：没有记录时回退请求音质
+  const quality = task.actualQuality ?? task.quality
 
   useEffect(() => {
     const handleProgressUpdate = ({ id, progress }: { id: string, progress: LX.Download.DownloadTask['progress'] }) => {
@@ -31,9 +35,17 @@ export default memo(({ task: initialTask, rowWidth = '100%', onRemove }: { task:
         setTask(prevTask => ({ ...prevTask, metadataStatus }))
       }
     }
+    // 实际音质（降级后）走独立事件同步：不监听 download_list_changed ——
+    // 后者每次进度回调都会发，跟着做 O(n) 查找会随下载进度产生无谓开销（耗电）。
+    const handleQualityUpdate = ({ id, actualQuality }: { id: string, actualQuality: LX.Quality }) => {
+      if (id === task.id) {
+        setTask(prevTask => ({ ...prevTask, actualQuality }))
+      }
+    }
     global.app_event.on('download_progress_update', handleProgressUpdate)
     global.app_event.on('download_status_update', handleStatusUpdate)
     global.app_event.on('download_metadata_update', handleMetadataUpdate)
+    global.app_event.on('download_quality_update', handleQualityUpdate)
 
     setTask(initialTask)
 
@@ -41,6 +53,7 @@ export default memo(({ task: initialTask, rowWidth = '100%', onRemove }: { task:
       global.app_event.off('download_progress_update', handleProgressUpdate)
       global.app_event.off('download_status_update', handleStatusUpdate)
       global.app_event.off('download_metadata_update', handleMetadataUpdate)
+      global.app_event.off('download_quality_update', handleQualityUpdate)
     }
   }, [task.id, initialTask])
 
@@ -124,7 +137,7 @@ export default memo(({ task: initialTask, rowWidth = '100%', onRemove }: { task:
           <Text size={12} color={theme['c-font-label']}>  {task.musicInfo.singer}</Text>
         </Text>
         <View style={styles.detailsRow}>
-          <Text size={11} color={theme['c-font-label']}>{task.quality.toUpperCase()}</Text>
+          <Text size={11} color={theme['c-font-label']}>{t(quality) || String(quality).toUpperCase()}</Text>
           {task.status === 'completed' && task.progress.total > 0 &&
             <Text size={11} color={theme['c-font-label']}> • {sizeFormate(task.progress.total)}</Text>
           }

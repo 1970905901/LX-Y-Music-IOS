@@ -250,6 +250,15 @@ export class AppEvent extends Event {
     this.emit('download_metadata_update', payload)
   }
 
+  /**
+   * 实际音质确定（请求音质不支持而降级时）。
+   * 单独发一个事件而不是让列表行去监听 download_list_changed：后者每次进度回调都会发，
+   * 列表行若跟着做 O(n) 查找会随下载进度产生无谓开销（耗电）。
+   */
+  download_quality_update(payload: { id: string, actualQuality: LX.Quality }) {
+    this.emit('download_quality_update', payload)
+  }
+
   show_download_ball() {
     this.emit('show_download_ball')
   }

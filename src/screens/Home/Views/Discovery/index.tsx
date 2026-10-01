@@ -20,6 +20,7 @@ import PlatformChips from '@/components/home/PlatformChips'
 import DailyRecommendCard from '@/components/home/DailyRecommendCard'
 import HorizontalShelf from '@/components/home/HorizontalShelf'
 import SonglistDetail from '../../../SonglistDetail'
+import { rememberHomeSubView, clearHomeSubView, takeRestorableSubView } from '@/core/homeSubView'
 
 // 每日推荐入口与「首页推荐平台」联动：网易/酷狗/QQ 有每日推荐页，
 // 进入前要求对应平台的 Cookie 已登录；酷我/咪咕无每日推荐页，隐藏入口。
@@ -221,16 +222,26 @@ export default memo(() => {
 
   const handleOpenDetail = useCallback((item: ListInfoItem) => {
     setSelectedPlaylist(item)
+    rememberHomeSubView(item, 'nav_discovery')
   }, [])
 
   const handleCloseDetail = useCallback(() => {
     setSelectedPlaylist(null)
+    clearHomeSubView()
+  }, [])
+
+  // 退出恢复：上次在推荐页打开了某张歌单详情，进入本页直接恢复
+  useEffect(() => {
+    void takeRestorableSubView('nav_discovery').then((info) => {
+      if (info) setSelectedPlaylist(info)
+    })
   }, [])
 
   useEffect(() => {
     const onBackPress = () => {
       if (selectedPlaylistRef.current) {
         setSelectedPlaylist(null)
+        clearHomeSubView()
         return true
       }
       return false

@@ -78,8 +78,10 @@ export const setNavActiveId = (id: Parameters<typeof commonActions.setNavActiveI
   commonActions.setNavActiveId(id)
   if (id != 'nav_setting' && id != 'nav_play_history') {
     commonActions.setLastNavActiveId(id)
-    saveViewPrevState({ id })
   }
+  // 退出恢复：任何 Tab 都记住（否则停在设置页退出后再进会回到上一个 Tab）；
+  // 播放历史是覆盖层（不是 Tab），不记。分界面由 core/homeSubView 单独记录。
+  if (id !== 'nav_play_history') saveViewPrevState({ id })
 }
 
 /**

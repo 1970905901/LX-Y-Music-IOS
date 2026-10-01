@@ -22,6 +22,7 @@ const playInfoStorageKey = storageDataPrefix.playInfo
 const playHistoryStorageKey = storageDataPrefix.playHistory
 const userListKey = storageDataPrefix.userList
 const viewPrevStateKey = storageDataPrefix.viewPrevState
+const viewSubViewKey = storageDataPrefix.viewSubView
 const listScrollPositionKey = storageDataPrefix.listScrollPosition
 const listUpdateInfoKey = storageDataPrefix.listUpdateInfo
 const ignoreVersionKey = storageDataPrefix.ignoreVersion
@@ -314,6 +315,21 @@ export const getViewPrevState = async() => {
 }
 export const saveViewPrevState = (state: { id: NAV_ID_Type }) => {
   saveViewPrevStateThrottle(state)
+}
+
+// Home 内嵌的「分界面」（歌单详情）状态：用于退出软件后再次进入时恢复。
+// 只对推荐 / 歌单两个 Tab 生效（写入方限定），搜索 / 我的 / 设置不写，故不会被恢复。
+let viewSubView: LX.HomeSubView | null | undefined
+const saveViewSubViewThrottle = throttle((sub: LX.HomeSubView | null) => {
+  void saveData(viewSubViewKey, sub)
+}, 500)
+export const getViewSubView = async(): Promise<LX.HomeSubView | null> => {
+  viewSubView ??= (await getData<LX.HomeSubView | null>(viewSubViewKey)) ?? null
+  return viewSubView
+}
+export const saveViewSubView = (sub: LX.HomeSubView | null) => {
+  viewSubView = sub
+  saveViewSubViewThrottle(sub)
 }
 
 const idFixRxp = /\.0$/

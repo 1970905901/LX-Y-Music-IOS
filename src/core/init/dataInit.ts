@@ -2,7 +2,7 @@
 // import { log } from '@/utils/log'
 import { init as musicSdkInit } from '@/utils/musicSdk'
 import { getUserLists, setUserList } from '@/core/list'
-import { setNavActiveId } from '../common'
+import { setNavActiveId, forceSyncNavActiveId } from '../common'
 import { getViewPrevState, cleanOneDriveDirtyData } from '@/utils/data'
 import { bootLog } from '@/utils/bootLog'
 import { getDislikeInfo, setDislikeInfo } from '@/core/dislikeList'
@@ -164,5 +164,9 @@ export default async(appSetting: LX.AppSetting) => {
   }
 
   setNavActiveId((await getViewPrevState()).id)
+  // 退出恢复：只改 navActiveId 不够——Home 可能早于本步骤挂载（首帧 initialPage 落在
+  // 默认的推荐页），且 setNavActiveId 在同一值时会短路不发事件。这里强制重播一次，
+  // 让 PagerView 校正到恢复出来的 Tab（否则表现为「退出再进只显示推荐主界面」）。
+  forceSyncNavActiveId()
   void unlink(TEMP_FILE_PATH)
 }

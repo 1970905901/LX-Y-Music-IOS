@@ -40,6 +40,7 @@ export const storageDataPrefix = {
   setting: '@setting_v1',
   userList: '@user_list',
   viewPrevState: '@view_prev_state',
+  viewSubView: '@view_sub_view',
 
   list: '@list__',
   listScrollPosition: '@list_scroll_position',

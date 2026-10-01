@@ -7,6 +7,7 @@ import HeaderBar, { type HeaderBarProps, type HeaderBarType } from './HeaderBar'
 import songlistState, { type InitState, type SortInfo, type ListInfoItem } from '@/store/songlist/state'
 import List, { type ListType } from './List'
 import SonglistDetail from '../../../SonglistDetail'
+import { rememberHomeSubView, clearHomeSubView, takeRestorableSubView } from '@/core/homeSubView'
 import commonState from '@/store/common/state'
 import { useI18n } from '@/lang'
 import MusicInfoOnline = LX.Music.MusicInfoOnline
@@ -31,6 +32,13 @@ export default () => {
     listRef.current?.loadList(songlistInfo.current.source, songlistInfo.current.sortId, songlistInfo.current.tagId)
   }, [])
 
+  // 退出恢复：上次停留在某张歌单详情时，进入本页直接把它打开（核心状态见 core/homeSubView）
+  useEffect(() => {
+    void takeRestorableSubView('nav_songlist').then((info) => {
+      if (info) setSelectedList(info)
+    })
+  }, [])
+
   useEffect(() => {
     const onBackPress = () => {
       if (selectedListRef.current) {
@@ -39,6 +47,7 @@ export default () => {
         }
 
         setSelectedList(null)
+        clearHomeSubView()
         return true
       }
 
@@ -101,11 +110,13 @@ export default () => {
 
   const handleOpenDetail = useCallback((item: ListInfoItem) => {
     setSelectedList(item)
+    rememberHomeSubView(item, 'nav_songlist')
   }, [])
 
   const handleBack = useCallback(() => {
     setSelectedList(null)
     setScrollToMusicInfo(null)
+    clearHomeSubView()
   }, [])
 
   useEffect(() => {

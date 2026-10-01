@@ -1,6 +1,6 @@
 import RNFetchBlob from '@/utils/rnFetchBlob'
 import { toMD5, toast, requestStoragePermission } from '@/utils/tools'
-import { getMusicUrl, getLyricInfo } from '@/core/music'
+import { getMusicUrl, getMusicUrlWithQuality, getLyricInfo } from '@/core/music'
 import { getFileExtension, getFileExtensionFromUrl } from '@/screens/Home/Views/Mylist/MusicList/download/utils'
 import { mergeLyrics } from '@/screens/Home/Views/Mylist/MusicList/download/lrcTool'
 import { writeFile, unlink, downloadFile, mkdir, moveFile, stopDownload } from '@/utils/fs'
@@ -42,6 +42,9 @@ const processQueue = async() => {
     await startDownload(task)
   } catch (error: any) {
     downloadActions.updateTask(task.id, { status: 'error', errorMsg: error.message })
+    // 失败也要有反馈：此前只有「正在下载」与「下载完成」两个提示，出错时界面静默，
+    // 用户只能靠下载悬浮球上的状态点看出异常。
+    toast(`${task.fileName} 下载失败: ${error.message}`, 'short')
   } finally {
     isProcessing = false
     processQueue()
@@ -51,7 +54,15 @@ const processQueue = async() => {
 const startDownload = async(task: DownloadTask) => {
   downloadActions.updateTask(task.id, { status: 'downloading' })
 
+  // 立刻给出「已开始下载」反馈：等 URL 解析（可能要几秒）后再提示，
+  // 用户会以为点击没有生效（播放详情页点下载尤其明显）。
+  if (!task.isForceCookie) {
+    toast(`${task.fileName} 开始下载...`, 'short')
+  }
+
   let url: string
+  // 实际拿到的音质（可能因歌曲不支持请求档位而降级）：写入任务，供「本地与下载」列表显示
+  let actualQuality: LX.Quality | undefined
   let headers: any = getDownloadHeaders(task)
   if (task.isForceCookie && task.musicInfo.source === 'wy') {
     const highQualityLevels: LX.Quality[] = ['flac', 'hires', 'master', 'atmos', 'atmos_plus']
@@ -84,8 +95,24 @@ const startDownload = async(task: DownloadTask) => {
         return
       }
     } else {
-      url = await getMusicUrl({ musicInfo: task.musicInfo, quality: task.quality, isRefresh: true })
+      if (task.musicInfo.source === 'local') {
+        // 本地 / 网盘音频（webdav 也是 source=local）：不存在「请求音质降级」，沿用原链路
+        url = await getMusicUrl({ musicInfo: task.musicInfo, quality: task.quality, isRefresh: true })
+      } else {
+        const resolved = await getMusicUrlWithQuality({
+          musicInfo: task.musicInfo as LX.Music.MusicInfoOnline,
+          quality: task.quality,
+          isRefresh: true,
+        })
+        url = resolved.url
+        actualQuality = resolved.quality
+      }
     }
+  }
+
+  if (actualQuality && actualQuality !== task.quality) {
+    // 记录降级结果（hires → flac 之类），列表按实际音质展示
+    downloadActions.updateTask(task.id, { actualQuality })
   }
 
   const isBilibiliSource = task.musicInfo.source === 'bilibili'
@@ -107,10 +134,6 @@ const startDownload = async(task: DownloadTask) => {
   }
 
   await requestStoragePermission()
-
-  if (!task.isForceCookie) {
-    toast(`${task.fileName} 正在下载...`, 'short')
-  }
   let lastWritten = 0
   let lastTime = Date.now()
   let downloadedFilePath: string
@@ -523,14 +546,22 @@ export const batchDownload = async(musicInfos: LX.Music.MusicInfo[]) => {
 }
 
 /**
- * 直接按下载设置中的音质下载单曲，并提示所添加的音质（不再弹确认框）
+ * 「立即下载」入口：按指定音质入队并立刻给出反馈（播放详情页 / 歌曲菜单共用）。
+ * 此前播放详情页封面长按「下载歌曲」是直接 addTask，点下去没有任何提示，
+ * 用户只能等下载完成后在悬浮球上看到状态变化。
  */
-export const downloadMusic = (musicInfo: LX.Music.MusicInfo) => {
-  if (!settingState.setting['download.enable']) return
-  const quality = settingState.setting['download.quality'] as LX.Quality
+export const downloadMusicWithQuality = (musicInfo: LX.Music.MusicInfo, quality: LX.Quality) => {
   addTask(musicInfo, quality)
   toast(
     global.i18n.t('download_added_tip', { name: musicInfo.name, quality: global.i18n.t(quality) }),
     'short',
   )
+}
+
+/**
+ * 直接按下载设置中的音质下载单曲，并提示所添加的音质（不再弹确认框）
+ */
+export const downloadMusic = (musicInfo: LX.Music.MusicInfo) => {
+  if (!settingState.setting['download.enable']) return
+  downloadMusicWithQuality(musicInfo, settingState.setting['download.quality'] as LX.Quality)
 }

@@ -9,7 +9,7 @@ import { useStatusbarHeight } from '@/store/common/hook'
 import { HEADER_HEIGHT } from './components/Header'
 import { createStyle, toast, requestStoragePermission } from '@/utils/tools'
 import Menu, { type MenuType, type Menus } from '@/components/common/Menu'
-import { addTask } from '@/core/download'
+import { downloadMusicWithQuality } from '@/core/download'
 import RNFetchBlob from '@/utils/rnFetchBlob'
 import { getPicUrl } from '@/core/music/online'
 import { getFileExtensionFromUrl } from '@/screens/Home/Views/Mylist/MusicList/download/utils'
@@ -186,7 +186,8 @@ export default memo(({ componentId: _componentId, maxCoverHeight = 0 }: { compon
       case 'download_song':
         if (menuMusicInfo) {
           const quality = settingState.setting['player.playQuality']
-          addTask(menuMusicInfo as LX.Music.MusicInfo, quality)
+          // 立即提示「已加入下载 + 音质」，不再让点击看起来毫无反馈
+          downloadMusicWithQuality(menuMusicInfo as LX.Music.MusicInfo, quality)
         }
         break
       case 'download_pic':

@@ -39,7 +39,33 @@ export const setPic = (datas: {
 }
  */
 
-export const getMusicUrl = async({
+// 网易云 cookie 接口返回的实际档位（standard/higher/exhigh/lossless/hires/jymaster，
+// 见 utils/musicSdk/wy/api-cookie.js）→ LX 音质标识。未收录的档位（jyeffect/sky 等）
+// 回退为请求音质，不做猜测。
+const WY_LEVEL_TO_QUALITY: Record<string, LX.Quality> = {
+  standard: '128k',
+  higher: '192k',
+  exhigh: '320k',
+  lossless: 'flac',
+  hires: 'hires',
+  jymaster: 'master',
+}
+
+export const getMusicUrl = async(options: {
+  musicInfo: LX.Music.MusicInfoOnline
+  quality?: LX.Quality
+  isRefresh: boolean
+  allowToggleSource?: boolean
+  onToggleSource?: (musicInfo?: LX.Music.MusicInfoOnline) => void
+  silent?: boolean
+}): Promise<string> => (await resolveMusicUrl(options)).url
+
+/**
+ * 解析播放地址，并同时报出**实际**拿到的音质（歌曲不支持请求档位时会降级）。
+ * 播放链路只关心 url（用 getMusicUrl）；下载链路需要把实际音质记下来展示
+ * （见 core/download.ts 的 actualQuality：请求 hires、实际降级 flac 时列表要显示 flac）。
+ */
+export const resolveMusicUrl = async({
   musicInfo,
   quality,
   isRefresh,
@@ -53,7 +79,7 @@ export const getMusicUrl = async({
   allowToggleSource?: boolean
   onToggleSource?: (musicInfo?: LX.Music.MusicInfoOnline) => void
   silent?: boolean
-}): Promise<string> => {
+}): Promise<{ url: string, quality: LX.Quality }> => {
   // if (!musicInfo._types[type]) {
   //   if (!(musicInfo.source == 'kw' && type == '128k')) throw new Error('该歌曲没有可播放的音频')
 
@@ -88,7 +114,7 @@ export const getMusicUrl = async({
     const cachedUrl = await getStoreMusicUrl(currentMusicInfo, targetQuality)
     if (cachedUrl) {
       setLastTryQuality(currentMusicInfo.id, targetQuality)
-      return cachedUrl
+      return { url: cachedUrl, quality: targetQuality }
     }
   }
 
@@ -115,7 +141,7 @@ export const getMusicUrl = async({
       if (!silent) console.log('### [WHITEBOX_API_URL] 异步 URL 真正就绪 ###', { title: currentMusicInfo.name, songId: currentMusicInfo.id, url: result.url })
       void saveMusicUrl(currentMusicInfo, result.quality, result.url)
       setLastTryQuality(currentMusicInfo.id, result.quality)
-      return result.url
+      return { url: result.url, quality: result.quality ?? targetQuality }
     } catch (apiError) {
       if (!silent) console.log('Custom API request failed', apiError)
       throw apiError
@@ -124,12 +150,14 @@ export const getMusicUrl = async({
 
   if (musicInfo.source == 'wy' && settingState.setting['common.wy_cookie']) {
     try {
-      const { url } = await wySdk.cookie.getMusicUrl(currentMusicInfo, targetQuality).promise
+      const result: any = await wySdk.cookie.getMusicUrl(currentMusicInfo, targetQuality).promise
+      const url: string | undefined = result?.url
       if (url) {
+        // 缓存仍按「请求档位」存，避免换 key 后播放缓存失效；实际档位只作为返回值上报
         void saveMusicUrl(currentMusicInfo, targetQuality, url)
         setLastTryQuality(currentMusicInfo.id, targetQuality)
         if (currentMusicInfo.id !== musicInfo.id) void saveMusicUrl(musicInfo, targetQuality, url)
-        return url
+        return { url, quality: WY_LEVEL_TO_QUALITY[result?.level] ?? targetQuality }
       }
     } catch (error) {
       if (!silent) console.log('Get music url with cookie failed, fallback to custom api', error)
@@ -142,12 +170,12 @@ export const getMusicUrl = async({
     onToggleSource,
     isRefresh,
     allowToggleSource,
-  }).then(({ url, quality: targetQuality, musicInfo: targetMusicInfo, isFromCache }) => {
-    if (targetMusicInfo.id != currentMusicInfo.id && !isFromCache) { void saveMusicUrl(targetMusicInfo, targetQuality, url) }
-    void saveMusicUrl(currentMusicInfo, targetQuality, url)
-    setLastTryQuality(currentMusicInfo.id, targetQuality)
-    if (currentMusicInfo.id !== musicInfo.id) void saveMusicUrl(musicInfo, targetQuality, url)
-    return url
+  }).then(({ url, quality: resolvedQuality, musicInfo: targetMusicInfo, isFromCache }) => {
+    if (targetMusicInfo.id != currentMusicInfo.id && !isFromCache) { void saveMusicUrl(targetMusicInfo, resolvedQuality, url) }
+    void saveMusicUrl(currentMusicInfo, resolvedQuality, url)
+    setLastTryQuality(currentMusicInfo.id, resolvedQuality)
+    if (currentMusicInfo.id !== musicInfo.id) void saveMusicUrl(musicInfo, resolvedQuality, url)
+    return { url, quality: resolvedQuality ?? targetQuality }
   })
 }
 

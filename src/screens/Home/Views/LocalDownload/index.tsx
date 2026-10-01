@@ -335,6 +335,12 @@ export default memo(() => {
 
   const isPlayingId = playMusicInfo.musicInfo?.id
 
+  // 音质展示：优先用词条（FLAC / Hi-Res / 臻品母带…），缺失的档位退回大写标识
+  const qualityLabel = useCallback((quality?: LX.Quality | null) => {
+    if (!quality) return ''
+    return t(quality) || String(quality).toUpperCase()
+  }, [t])
+
   // 渲染项提取为稳定 useCallback：避免父组件因加载更多/选择状态变化重渲时，
   // 内联 renderItem 每次重建函数引用导致所有可见 cell 跟着重渲（低端机卡顿）
   const renderDownloadItem = useCallback(
@@ -346,7 +352,8 @@ export default memo(() => {
             title={item.musicInfo.name}
             subText={[
               item.musicInfo.singer,
-              item.quality ? item.quality.toUpperCase() : '',
+              // 显示**实际**音质：请求 hires 但平台只给到 flac 时，这里应为 FLAC
+              qualityLabel(item.actualQuality ?? item.quality),
               fileSize ? sizeFormate(fileSize) : '',
             ]
               .filter(Boolean)
@@ -361,7 +368,7 @@ export default memo(() => {
         </View>
       )
     },
-    [isHorizontal, isPlayingId, selectedIds, selecting, toggleSelect, handlePlayTask, taskSizes],
+    [isHorizontal, isPlayingId, selectedIds, selecting, toggleSelect, handlePlayTask, taskSizes, qualityLabel],
   )
 
   const renderLocalItem = useCallback(

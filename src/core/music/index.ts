@@ -1,5 +1,6 @@
 import {
   getMusicUrl as getOnlineMusicUrl,
+  resolveMusicUrl as resolveOnlineMusicUrl,
   getPicUrl as getOnlinePicUrl,
   getLyricInfo as getOnlineLyricInfo,
 } from './online'
@@ -13,6 +14,22 @@ import { handleGetOnlinePicUrl } from './utils'
 import { webDAVLog } from '@/core/webdavMusic/logger'
 
 export { handleGetOnlinePicUrl }
+
+/**
+ * 在线源：解析播放地址，并返回**实际**音质（请求档位不被支持时会降级）。
+ * 供下载链路记录 actualQuality —— 之前下载列表一律显示「下载设置里的音质」，
+ * 请求 hires 但实际降级 flac 的场景会被错标成 hires（见 core/download.ts）。
+ */
+export const getMusicUrlWithQuality = async({
+  musicInfo,
+  quality,
+  isRefresh,
+}: {
+  musicInfo: LX.Music.MusicInfoOnline
+  quality?: LX.Quality
+  isRefresh: boolean
+}): Promise<{ url: string, quality: LX.Quality }> =>
+  resolveOnlineMusicUrl({ musicInfo, quality, isRefresh })
 
 // 「本地与下载」专用链路：不走自定义源管理，本地文件优先 + 内置平台直连回退
 const getTaskTarget = (musicInfo: LX.Download.ListItem): localPlay.LocalPlayTarget => {

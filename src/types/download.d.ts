@@ -3,6 +3,8 @@ declare namespace LX {
     interface DownloadTask {
       id: string
       musicInfo: LX.Music.MusicInfo
+      /** 实际下载到的音质（请求音质不支持时会降级，例如 hires → flac）；旧任务无此字段 */
+      actualQuality?: LX.Quality
       quality: LX.Quality
       status: 'waiting' | 'downloading' | 'paused' | 'completed' | 'error'
       progress: {

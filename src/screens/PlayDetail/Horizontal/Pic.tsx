@@ -8,7 +8,7 @@ import { HEADER_HEIGHT } from './components/Header'
 import { BTN_WIDTH } from './MoreBtn/Btn'
 import { marginLeft } from './constant'
 import Image from '@/components/common/Image'
-import { useStatusbarHeight } from '@/store/common/hook'
+import { useStatusbarHeight, useAppActive, usePlayDetailCovered } from '@/store/common/hook'
 import { useSettingValue } from '@/store/setting/hook'
 import { useLandscapeLayout, getLeftWidth } from '@/utils/landscapeLayout'
 
@@ -30,6 +30,12 @@ export default memo(({ componentId: _componentId }: { componentId: string }) => 
   const isAnimating = useRef(false)
   const isUnmounted = useRef(false)
 
+  // 不可见即停（前台省电）：封面旋转是原生驱动动画，被压栈页覆盖 / App 退后台时
+  // iOS 都不会自动暂停它，必须显式停掉；恢复时从当前角度继续旋转。
+  const covered = usePlayDetailCovered()
+  const appActive = useAppActive()
+  const spinAllowed = allowSpin && !covered && appActive
+
   const createAnimation = useCallback((value: number) => {
     return Animated.timing(spinValue, {
       toValue: 1,
@@ -40,7 +46,7 @@ export default memo(({ componentId: _componentId }: { componentId: string }) => 
   }, [spinValue])
 
   const startAnimation = useCallback(() => {
-    if (isAnimating.current || !allowSpin || isUnmounted.current) return
+    if (isAnimating.current || !spinAllowed || isUnmounted.current) return
     isAnimating.current = true
     spinValue.stopAnimation(value => {
       if (isUnmounted.current) return
@@ -53,7 +59,7 @@ export default memo(({ componentId: _componentId }: { componentId: string }) => 
         }
       })
     })
-  }, [spinValue, createAnimation, allowSpin])
+  }, [spinValue, createAnimation, spinAllowed])
 
   const stopAnimation = useCallback(() => {
     if (!isAnimating.current) return
@@ -64,20 +70,20 @@ export default memo(({ componentId: _componentId }: { componentId: string }) => 
   }, [spinValue])
 
   useEffect(() => {
-    if (isPlay && allowSpin) {
+    if (isPlay && spinAllowed) {
       startAnimation()
     } else {
       stopAnimation()
     }
-  }, [isPlay, allowSpin, startAnimation, stopAnimation])
+  }, [isPlay, spinAllowed, startAnimation, stopAnimation])
 
   useEffect(() => {
     stopAnimation()
     spinValue.setValue(0)
-    if (isPlay && allowSpin) {
+    if (isPlay && spinAllowed) {
       startAnimation()
     }
-  }, [musicInfo.id, isPlay, allowSpin, startAnimation, stopAnimation, spinValue])
+  }, [musicInfo.id, isPlay, spinAllowed, startAnimation, stopAnimation, spinValue])
 
   useEffect(() => {
     return () => {

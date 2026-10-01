@@ -14,7 +14,7 @@ import { createStyle } from '@/utils/tools'
 import { updateSetting } from '@/core/common'
 import { useTheme } from '@/store/theme/hook'
 import { useSettingValue } from '@/store/setting/hook'
-import { useSafeAreaBottom } from '@/store/common/hook'
+import { useSafeAreaBottom, useAppActive, usePlayDetailCovered } from '@/store/common/hook'
 import { AnimatedColorText } from '@/components/common/Text'
 import { setSpText } from '@/utils/pixelRatio'
 import settingState from '@/store/setting/state'
@@ -147,6 +147,10 @@ export default () => {
   // 逐字时间轴（与 lyricLines 同序）：第 i 项为第 i 行歌词的逐字数组；无逐字（纯 LRC）为 null。
   // 激活行据此走逐字卡拉OK渲染，否则退回整行高亮。
   const wordsByIndex = useLrcWordsMap()
+  // 不可见即停（前台省电）：页面被压栈页覆盖、或 App 退到后台时，下面的「每帧连续
+  // 滚动」循环仍在跑（每帧一次 bridge 调用 + 原生 scrollToOffset），纯属不可见的浪费。
+  const covered = usePlayDetailCovered()
+  const appActive = useAppActive()
   const flatListRef = useRef<FlatList>(null)
   const isPauseScrollRef = useRef(true)
   const scrollTimoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -539,6 +543,10 @@ export default () => {
   // 每帧连续平滑滚动循环：歌词页激活且非用户手动滚动、非强制定位时，基于外推时钟精确时间驱动歌词连续上移。
   // iOS 后台 / 锁屏时 rAF 暂停（歌词停滚无妨）；前台播放每帧（~16ms）定位，消除原来的行级跳变。
   useEffect(() => {
+    if (covered || !appActive) return
+    // 从「被覆盖 / 退后台」恢复的首帧：把平滑基准重置为列表真实位置（与「用户暂停
+    // 滚动后恢复」同款处理），否则会沿用停顿前的旧基准把列表瞬间拽回去。
+    wasPauseRef.current = true
     let rafId = 0
     const loop = (ts: number) => {
       if (isPauseScrollRef.current) {
@@ -561,7 +569,7 @@ export default () => {
     }
     rafId = requestAnimationFrame(loop)
     return () => { cancelAnimationFrame(rafId) }
-  }, [lyricLines, scrollToActiveContinuous])
+  }, [lyricLines, scrollToActiveContinuous, covered, appActive])
 
   // 拖动进度条 / 跳转 / 恢复播放等用户动作期间强制让歌词列表立即滚动到高亮行，
   // 保证高亮行与进度条（及音频）绝对同步，结束后回归连续滚动。

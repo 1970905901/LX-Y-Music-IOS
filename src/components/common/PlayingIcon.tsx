@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { Animated, View } from 'react-native'
 import { createStyle } from '@/utils/tools'
 import { useIsPlay } from '@/store/player/hook'
-import { useHomeCovered } from '@/store/common/hook'
+import { useHomeCovered, useAppActive } from '@/store/common/hook'
 
 export default ({ color = '#1cd0a6' }: { color?: string }) => {
   const isPlay = useIsPlay()
@@ -10,7 +10,10 @@ export default ({ color = '#1cd0a6' }: { color?: string }) => {
   // （播放详情等）覆盖时整棵列表不可见，循环动画仍在每帧驱动 —— 不可见即停，
   // 返回 Home 后 effect 依 isPlay/covered 变化自动重启，无观感差异。
   const homeCovered = useHomeCovered()
-  const active = isPlay && !homeCovered
+  // 省电门（2026-10-01）：锁屏/后台时原生驱动（useNativeDriver）的四根跳动条不会被
+  // iOS 自动暂停，边听歌边锁屏仍在持续提交合成帧。前后台一并门控：不可见即停。
+  const appActive = useAppActive()
+  const active = isPlay && !homeCovered && appActive
   const anim1 = useRef(new Animated.Value(0.3)).current
   const anim2 = useRef(new Animated.Value(0.8)).current
   const anim3 = useRef(new Animated.Value(0.5)).current

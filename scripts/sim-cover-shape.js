@@ -76,22 +76,28 @@ function coverInvariants(name, src, lang) {
     )
   }
 
-  // 2. **旋转维度**：动画启停的每一处都必须用 allowSpin（不得残留 isCoverSpin）。
-  //    合法的两处 `isCoverSpin` 出现位置：① `useSettingValue('...')` 读取行；
-  //    ② `allowSpin = isCoverSpin && !isSquare` 合流行。其余任何地方出现都算漏改。
+  // 2. **旋转维度**：动画启停的每一处都必须走最终的旋转门 `spinAllowed`，且
+  //    spinAllowed 必须以 allowSpin（方形互斥）为前提合流：
+  //      allowSpin    = isCoverSpin && !isSquare              （方形不旋转）
+  //      spinAllowed  = allowSpin && !covered && appActive     （不可见即停，2026-10-01）
+  //    只做后者、丢掉方形判定，等于把「方形不旋转」又放回去了；
+  //    只做前者、丢掉不可见门，则方形判定成立但锁屏/被覆盖时照转。
+  //    合法的 `isCoverSpin` 出现位置只有两处：① useSettingValue 读取行；② allowSpin 合流行。
   {
     const readLine = /const\s+isCoverSpin\s*=\s*useSettingValue\([^)]*\)/
     const body = code
       .replace(readLine, '') // 去掉读取行
-      .replace(/const\s+allowSpin\s*=\s*isCoverSpin[^;\n]*;?/, '') // 去掉合流行
+      .replace(/const\s+allowSpin\s*=\s*isCoverSpin[^;\n]*;?/, '') // 去掉 allowSpin 合流行
     const leftover = [...body.matchAll(/isCoverSpin/g)].length
     const hasRead = readLine.test(code)
-    const guards = [...code.matchAll(/!\s*allowSpin/g)].length // startAnimation 守卫
-    const gates = [...code.matchAll(/isPlay\s*&&\s*allowSpin/g)].length // 两个 effect 的启停门控
+    // 最终门必须以 allowSpin（而非裸 isCoverSpin）为前提合流
+    const gateOk = /const\s+spinAllowed\s*=\s*allowSpin\s*&&\s*!covered\s*&&\s*appActive/.test(code)
+    const guards = [...code.matchAll(/!\s*spinAllowed/g)].length // startAnimation 守卫
+    const gates = [...code.matchAll(/isPlay\s*&&\s*spinAllowed/g)].length // 两个 effect 的启停门控
     add(
-      'invariant 2: 旋转启停全部走 allowSpin（守卫 1 处 + 门控 2 处），除读取/合流行外无残留',
-      hasRead && leftover === 0 && guards === 1 && gates === 2,
-      `读取行=${hasRead} 残留=${leftover} 守卫=${guards} 门控=${gates}`,
+      'invariant 2: 旋转启停全部走 spinAllowed（= allowSpin && !covered && appActive；守卫 1 + 门控 2）',
+      hasRead && leftover === 0 && gateOk && guards === 1 && gates === 2,
+      `读取行=${hasRead} 残留=${leftover} 合流=${gateOk} 守卫=${guards} 门控=${gates}`,
     )
   }
 
@@ -251,13 +257,20 @@ function tamperCases(src) {
         .replace(/(\} as any\), \[size, )radius(, spin\])/, '$1$2'),
     },
     {
-      label: '⑤ 动画门控退回 isCoverSpin（等于没关旋转）',
-      mutate: (s) => s.replace('if (isPlay && allowSpin) {', 'if (isPlay && isCoverSpin) {'),
+      label: '⑤ 旋转门丢了方形判定（spinAllowed 以裸 isCoverSpin 为前提，方形仍会转）',
+      mutate: (s) => s.replace(
+        'const spinAllowed = allowSpin && !covered && appActive',
+        'const spinAllowed = isCoverSpin && !covered && appActive',
+      ),
     },
     {
       label: '⑥ 把 allowSpin 定义注释掉（去注释后必须失效）',
       mutate: (s) => s.replace('const allowSpin = isCoverSpin && !isSquare',
         '// const allowSpin = isCoverSpin && !isSquare'),
+    },
+    {
+      label: '⑦ 启停门控绕过 spinAllowed 直接用 isCoverSpin（同时丢掉方形门与不可见门）',
+      mutate: (s) => s.replace('if (isPlay && spinAllowed) {', 'if (isPlay && isCoverSpin) {'),
     },
   ]
 }

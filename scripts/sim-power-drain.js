@@ -409,12 +409,191 @@ const runPausedCounterExamples = () => {
 }
 
 // ---------------------------------------------------------------------------
+// 前台「不可见即停」（2026-10-01）：被压栈页覆盖 / App 退后台时必须停掉的持续动画
+//
+// 背景：
+//   ① 封面旋转、「正在播放」跳动条走 useNativeDriver（原生驱动）——iOS 不会因为
+//      锁屏/后台自动暂停它们，边听歌边锁屏仍在持续提交合成帧；
+//   ② 歌词「每帧连续滚动」循环（rAF）后台会随显示链路停摆，但被压栈页
+//      （评论 / 歌单详情 / 设置详情…）覆盖时照跑：每帧一次 bridge 调用 +
+//      原生 scrollToOffset，是不可见的净耗电。
+// 这些都不会崩溃、也过得了 tsc/eslint，只能靠契约绑住。
+// ---------------------------------------------------------------------------
+
+const VISIBILITY_FILES = {
+  hookCommon: 'src/store/common/hook.ts',
+  playingIcon: 'src/components/common/PlayingIcon.tsx',
+  picVertical: 'src/screens/PlayDetail/Vertical/Pic.tsx',
+  picHorizontal: 'src/screens/PlayDetail/Horizontal/Pic.tsx',
+  lyricVertical: 'src/screens/PlayDetail/Vertical/Lyric.tsx',
+  lyricHorizontal: 'src/screens/PlayDetail/Horizontal/Lyric.tsx',
+  karaoke: 'src/screens/PlayDetail/components/KaraokeLyric.tsx',
+}
+
+const readVisibility = (over = {}) => {
+  const files = {}
+  for (const key of Object.keys(VISIBILITY_FILES)) {
+    files[key] = over[key] !== undefined ? over[key] : read(VISIBILITY_FILES[key])
+  }
+  return files
+}
+
+/** 截出 `export const <name> = ...` 的函数体（到下一个顶格 '}' 为止），把不变量绑在具体函数上。 */
+const sliceExportedFunction = (src, name) => {
+  const start = src.indexOf(`export const ${name}`)
+  if (start < 0) return ''
+  const rest = src.slice(start)
+  const end = rest.indexOf('\n}\n')
+  return end < 0 ? rest : rest.slice(0, end)
+}
+
+const visibilityInvariants = (files) => {
+  const reasons = []
+
+  // ① 门控 hook 本体：前台判定 + 「播放详情被压栈页覆盖」判定
+  const appActiveBody = sliceExportedFunction(files.hookCommon, 'useAppActive')
+  if (!appActiveBody) {
+    reasons.push('common/hook 缺 useAppActive（原生驱动动画的「App 前台」门无从判定）')
+  } else if (!/AppState\.addEventListener\(\s*'change'/.test(appActiveBody)) {
+    reasons.push('useAppActive 未订阅 AppState change（前后台切换不会重算门控值）')
+  }
+  const coveredBody = sliceExportedFunction(files.hookCommon, 'usePlayDetailCovered')
+  if (!coveredBody) {
+    reasons.push('common/hook 缺 usePlayDetailCovered（无法判定播放详情被压栈页覆盖）')
+  } else if (!/state_event\.on\(\s*'componentIdsUpdated'/.test(coveredBody)) {
+    reasons.push('usePlayDetailCovered 未订阅 componentIdsUpdated（压栈/出栈后门控值不更新）')
+  }
+
+  // ② 封面旋转（竖屏 / 横屏）：必须是 allowSpin && !covered && appActive
+  const spinGateOk = (src) => /const spinAllowed\s*=\s*allowSpin\s*&&\s*!covered\s*&&\s*appActive/.test(src)
+  if (!spinGateOk(files.picVertical)) {
+    reasons.push('竖屏封面旋转未接不可见门（缺 spinAllowed = allowSpin && !covered && appActive）')
+  }
+  if (!spinGateOk(files.picHorizontal)) {
+    reasons.push('横屏封面旋转未接不可见门（缺 spinAllowed = allowSpin && !covered && appActive）')
+  }
+  for (const [key, label] of [['picVertical', '竖屏'], ['picHorizontal', '横屏']]) {
+    if (/if\s*\(\s*isPlay\s*&&\s*allowSpin\s*\)/.test(files[key])) {
+      reasons.push(`${label}封面旋转仍用裸 allowSpin 启停（被覆盖/退后台时照转）`)
+    }
+  }
+
+  // ③ 歌词每帧连续滚动循环：必须被 covered/appActive 门控，且门控值进 deps（否则切回不重启）
+  if (!/if\s*\(\s*!active\s*\|\|\s*covered\s*\|\|\s*!appActive\s*\)\s*return/.test(files.lyricVertical)) {
+    reasons.push('竖屏歌词连续滚动未接不可见门（缺 if (!active || covered || !appActive) return）')
+  }
+  if (!/\[\s*active,\s*lyricLines,\s*covered,\s*appActive\s*\]/.test(files.lyricVertical)) {
+    reasons.push('竖屏歌词连续滚动 effect 依赖未含 covered/appActive（门控值变化不重启循环）')
+  }
+  if (!/if\s*\(\s*covered\s*\|\|\s*!appActive\s*\)\s*return/.test(files.lyricHorizontal)) {
+    reasons.push('横屏歌词连续滚动未接不可见门（缺 if (covered || !appActive) return）')
+  }
+  if (!/\[\s*lyricLines,\s*scrollToActiveContinuous,\s*covered,\s*appActive\s*\]/.test(files.lyricHorizontal)) {
+    reasons.push('横屏歌词连续滚动 effect 依赖未含 covered/appActive（门控值变化不重启循环）')
+  }
+
+  // ④ 逐字卡拉OK：门控值算了还必须真的早退
+  if (!/const canTick\s*=\s*isActive\s*&&\s*!covered\s*&&\s*appActive/.test(files.karaoke)) {
+    reasons.push('逐字卡拉OK未接不可见门（缺 canTick = isActive && !covered && appActive）')
+  } else if (!/if\s*\(\s*!canTick\s*\)\s*return/.test(files.karaoke)) {
+    reasons.push('逐字卡拉OK的 rAF 未按 canTick 早退（门控值算了却没用）')
+  }
+
+  // ⑤ 列表「正在播放」跳动条：覆盖 + 前台双门
+  if (!/const active\s*=\s*isPlay\s*&&\s*!homeCovered\s*&&\s*appActive/.test(files.playingIcon)) {
+    reasons.push('PlayingIcon 未同时门控「Home 被覆盖」与「App 前台」')
+  }
+
+  return reasons
+}
+
+const runVisibilityCounterExamples = () => {
+  const results = []
+  const check = (name, files, expectSubstr) => {
+    let hits = []
+    try {
+      hits = visibilityInvariants(files)
+    } catch (e) {
+      results.push({ name, ok: false, detail: `抛异常: ${e.message}` })
+      return
+    }
+    const hit = hits.some(r => r.includes(expectSubstr))
+    results.push({ name, ok: hit, detail: hit ? '已拦下' : `未拦下（reasons=${JSON.stringify(hits)}）` })
+  }
+  const hookSrc = read(VISIBILITY_FILES.hookCommon)
+
+  // V1 抹掉 useAppActive
+  check('V1 抹掉 useAppActive', readVisibility({
+    hookCommon: hookSrc.replace('export const useAppActive', 'const removedUseAppActive'),
+  }), '缺 useAppActive')
+  // V2 useAppActive 不再订阅 AppState
+  check('V2 useAppActive 不订阅 AppState', readVisibility({
+    hookCommon: hookSrc.replace("AppState.addEventListener('change'", "AppState.addEventListener('removed'"),
+  }), '未订阅 AppState change')
+  // V3 抹掉 usePlayDetailCovered
+  check('V3 抹掉 usePlayDetailCovered', readVisibility({
+    hookCommon: hookSrc.replace('export const usePlayDetailCovered', 'const removedUsePlayDetailCovered'),
+  }), '缺 usePlayDetailCovered')
+  // V4 usePlayDetailCovered 不再订阅压栈事件
+  check('V4 usePlayDetailCovered 不订阅组件栈事件', readVisibility({
+    hookCommon: hookSrc.replace("global.state_event.on('componentIdsUpdated', handleUpdate)",
+      "global.state_event.on('componentIdsUpdatedX', handleUpdate)"),
+  }), '未订阅 componentIdsUpdated')
+  // V5/V6 封面旋转回退成裸 allowSpin
+  check('V5 竖屏封面回退裸 allowSpin', readVisibility({
+    picVertical: read(VISIBILITY_FILES.picVertical).replace(
+      'const spinAllowed = allowSpin && !covered && appActive',
+      'const spinAllowed = allowSpin'),
+  }), '竖屏封面旋转未接不可见门')
+  check('V6 横屏封面回退裸 allowSpin', readVisibility({
+    picHorizontal: read(VISIBILITY_FILES.picHorizontal).replace(
+      'const spinAllowed = allowSpin && !covered && appActive',
+      'const spinAllowed = allowSpin'),
+  }), '横屏封面旋转未接不可见门')
+  // V7/V8 竖屏歌词循环：抹门控 / 门控值不进 deps
+  check('V7 竖屏歌词循环抹掉门控', readVisibility({
+    lyricVertical: read(VISIBILITY_FILES.lyricVertical).replace(
+      'if (!active || covered || !appActive) return', 'if (!active) return'),
+  }), '竖屏歌词连续滚动未接不可见门')
+  check('V8 竖屏歌词循环 deps 漏门控值', readVisibility({
+    lyricVertical: read(VISIBILITY_FILES.lyricVertical).replace(
+      '[active, lyricLines, covered, appActive]', '[active, lyricLines]'),
+  }), '竖屏歌词连续滚动 effect 依赖未含')
+  // V9/V10 横屏歌词循环
+  check('V9 横屏歌词循环抹掉门控', readVisibility({
+    lyricHorizontal: read(VISIBILITY_FILES.lyricHorizontal).replace(
+      'if (covered || !appActive) return', ''),
+  }), '横屏歌词连续滚动未接不可见门')
+  check('V10 横屏歌词循环 deps 漏门控值', readVisibility({
+    lyricHorizontal: read(VISIBILITY_FILES.lyricHorizontal).replace(
+      '[lyricLines, scrollToActiveContinuous, covered, appActive]',
+      '[lyricLines, scrollToActiveContinuous]'),
+  }), '横屏歌词连续滚动 effect 依赖未含')
+  // V11/V12 逐字卡拉OK：抹门控 / 算了不早退
+  check('V11 逐字卡拉OK 抹掉门控', readVisibility({
+    karaoke: read(VISIBILITY_FILES.karaoke).replace(
+      'const canTick = isActive && !covered && appActive', 'const canTick = isActive'),
+  }), '逐字卡拉OK未接不可见门')
+  check('V12 逐字卡拉OK 不按 canTick 早退', readVisibility({
+    karaoke: read(VISIBILITY_FILES.karaoke).replace('if (!canTick) return', ''),
+  }), '未按 canTick 早退')
+  // V13 PlayingIcon 只门控覆盖、不门控前台
+  check('V13 PlayingIcon 漏前台门', readVisibility({
+    playingIcon: read(VISIBILITY_FILES.playingIcon).replace(
+      'const active = isPlay && !homeCovered && appActive', 'const active = isPlay && !homeCovered'),
+  }), 'PlayingIcon 未同时门控')
+
+  return results
+}
+
+// ---------------------------------------------------------------------------
 // 主流程
 // ---------------------------------------------------------------------------
 
 const realNative = nativeInvariants(REAL.appdel)
 const realJs = jsInvariants(REAL.playProgress)
 const realPaused = pausedInvariants(readGlass())
+const realVisibility = visibilityInvariants(readVisibility())
 
 console.log('=== sim-power-drain ===')
 console.log('\n[原生 AppDelegate.mm]')
@@ -429,15 +608,22 @@ console.log('\n[玻璃覆盖暂停链路（前台省电）]')
 if (realPaused.length === 0) console.log('  PASS paused 链路 8 文件贯通（EffectView/manager/组件/消费点/hook/图标）')
 else realPaused.forEach(r => console.log('  FAIL ' + r))
 
+console.log('\n[前台不可见即停（压栈覆盖 / App 退后台）]')
+if (realVisibility.length === 0) console.log('  PASS 封面旋转×2 / 歌词连续滚动×2 / 逐字卡拉OK / 正在播放图标 / 门控 hook 全部贯通')
+else realVisibility.forEach(r => console.log('  FAIL ' + r))
+
 console.log('\n[反例自检]')
 const ceResults = runCounterExamples()
 const peResults = runPausedCounterExamples()
+const veResults = runVisibilityCounterExamples()
 let ceAllOk = true
-for (const r of [...ceResults, ...peResults]) {
+for (const r of [...ceResults, ...peResults, ...veResults]) {
   console.log(`  ${r.ok ? 'PASS' : 'FAIL'} ${r.name} —— ${r.ok ? '已拦下' : `未拦下（reasons=${JSON.stringify(r.detail)}）`}`)
   if (!r.ok) ceAllOk = false
 }
 
-const allOk = realNative.ok && realJs.ok && realPaused.length === 0 && ceAllOk
-console.log(`\n结果：${allOk ? 'ALL PASS' : '有失败项'}（不变量 ${realNative.ok && realJs.ok && realPaused.length === 0 ? '3/3' : '有失败'}；反例 ${[...ceResults, ...peResults].filter(r => r.ok).length}/${ceResults.length + peResults.length}）`)
+const invariantsOk = realNative.ok && realJs.ok && realPaused.length === 0 && realVisibility.length === 0
+const allOk = invariantsOk && ceAllOk
+const allCe = [...ceResults, ...peResults, ...veResults]
+console.log(`\n结果：${allOk ? 'ALL PASS' : '有失败项'}（不变量 ${invariantsOk ? '4/4' : '有失败'}；反例 ${allCe.filter(r => r.ok).length}/${allCe.length}）`)
 process.exit(allOk ? 0 : 1)

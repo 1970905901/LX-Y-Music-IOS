@@ -5,7 +5,7 @@ import { useIsPlay, usePlayerMusicInfo, usePlayMusicInfo } from '@/store/player/
 import { useWindowSize } from '@/utils/hooks'
 import { useSettingValue } from '@/store/setting/hook'
 import Image, { defaultHeaders } from '@/components/common/Image'
-import { useStatusbarHeight } from '@/store/common/hook'
+import { useStatusbarHeight, useAppActive, usePlayDetailCovered } from '@/store/common/hook'
 import { HEADER_HEIGHT } from './components/Header'
 import { createStyle, toast, requestStoragePermission } from '@/utils/tools'
 import Menu, { type MenuType, type Menus } from '@/components/common/Menu'
@@ -99,6 +99,14 @@ export default memo(({ componentId: _componentId, maxCoverHeight = 0 }: { compon
   const isAnimating = useRef(false)
   const isUnmounted = useRef(false)
 
+  // 不可见即停（前台省电）：封面旋转走 useNativeDriver（原生驱动），
+  // ① 页面被压栈页（评论/歌单详情/设置详情…）盖住时，② App 退到后台/锁屏时，
+  // iOS 都不会自动暂停它——锁屏听歌是最常见场景，必须显式停掉。
+  // 恢复时从当前角度继续（startAnimation 内部先 stopAnimation 取当前值）。
+  const covered = usePlayDetailCovered()
+  const appActive = useAppActive()
+  const spinAllowed = allowSpin && !covered && appActive
+
   const createAnimation = useCallback((value: number) => {
     return Animated.timing(spinValue, {
       toValue: 1,
@@ -109,7 +117,7 @@ export default memo(({ componentId: _componentId, maxCoverHeight = 0 }: { compon
   }, [spinValue])
 
   const startAnimation = useCallback(() => {
-    if (isAnimating.current || !allowSpin || isUnmounted.current) return
+    if (isAnimating.current || !spinAllowed || isUnmounted.current) return
     isAnimating.current = true
     spinValue.stopAnimation((value) => {
       if (isUnmounted.current) return
@@ -122,7 +130,7 @@ export default memo(({ componentId: _componentId, maxCoverHeight = 0 }: { compon
         }
       })
     })
-  }, [spinValue, createAnimation, allowSpin])
+  }, [spinValue, createAnimation, spinAllowed])
 
   const stopAnimation = useCallback(() => {
     if (!isAnimating.current) return
@@ -133,20 +141,20 @@ export default memo(({ componentId: _componentId, maxCoverHeight = 0 }: { compon
   }, [spinValue])
 
   useEffect(() => {
-    if (isPlay && allowSpin) {
+    if (isPlay && spinAllowed) {
       startAnimation()
     } else {
       stopAnimation()
     }
-  }, [isPlay, allowSpin, startAnimation, stopAnimation])
+  }, [isPlay, spinAllowed, startAnimation, stopAnimation])
 
   useEffect(() => {
     stopAnimation()
     spinValue.setValue(0)
-    if (isPlay && allowSpin && musicId) {
+    if (isPlay && spinAllowed && musicId) {
       startAnimation()
     }
-  }, [musicId, isPlay, allowSpin, startAnimation, stopAnimation, spinValue])
+  }, [musicId, isPlay, spinAllowed, startAnimation, stopAnimation, spinValue])
 
   useEffect(() => {
     return () => {

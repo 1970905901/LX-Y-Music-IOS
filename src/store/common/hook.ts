@@ -1,6 +1,6 @@
 import { COMPONENT_IDS } from '@/config/constant'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Platform } from 'react-native'
+import { AppState, Platform } from 'react-native'
 import state, { type InitState } from './state'
 
 export const useFontSize = () => {
@@ -110,6 +110,60 @@ export const useScreenCovered = (componentId?: string) => {
   const ids = useComponentIds()
   if (!componentId) return false
   return String(ids[ids.length - 1]?.id) !== String(componentId)
+}
+
+/**
+ * App 是否在前台（active）。
+ *
+ * 后台/锁屏时 **原生驱动**（useNativeDriver: true）的循环动画不会被 iOS 自动暂停：
+ * 封面旋转、歌名跑马灯、「正在播放」跳动条等仍会持续提交合成帧。
+ * 边听歌边锁屏恰恰是最常见的使用场景，这些不可见动画必须靠这个门停掉。
+ * （JS 侧 rAF 循环后台本就随显示链路停摆，这里一并门控是为了行为一致、可被契约脚本守护。）
+ */
+export const useAppActive = () => {
+  const [active, update] = useState(() => AppState.currentState === 'active')
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (next) => {
+      const nextActive = next === 'active'
+      // 依赖 useState 的同值 bail-out：AppState 变化相对频繁（控制中心 / 来电横幅 /
+      // 切换器手势都会发 inactive），只有真跨过「前台↔非前台」边界才让消费者重渲染。
+      update((prev) => (prev === nextActive ? prev : nextActive))
+    })
+    return () => { sub.remove() }
+  }, [])
+  return active
+}
+
+const isPlayDetailCovered = (ids: InitState['componentIds']) => {
+  const index = ids.findIndex(({ name }) => String(name) === COMPONENT_IDS.playDetail)
+  return index >= 0 && index < ids.length - 1
+}
+
+/**
+ * 播放详情页是否被压栈页（评论 / 歌单详情 / 设置详情 / 歌手专辑…）覆盖而**不可见**。
+ *
+ * 播放详情里的逐帧与循环动画（封面旋转、歌词每帧连续滚动、逐字卡拉OK）
+ * 必须用它暂停：页面被盖住时它们仍照常跑，是前台最实在的一笔无效耗电
+ * （歌词连续滚动每帧还要过一次 bridge 调 scrollToOffset、再驱动原生滚动）。
+ * 不可见即停，返回播放详情时 componentIdsUpdated 会自动恢复。
+ *
+ * 只用「是否被覆盖」这一个布尔量驱动消费者（同值 bail-out），
+ * 避免每次压栈/出栈把上百个歌词行组件全部重渲染。
+ */
+export const usePlayDetailCovered = () => {
+  const [covered, update] = useState(() => isPlayDetailCovered(state.componentIds))
+  useEffect(() => {
+    const handleUpdate = (ids: InitState['componentIds']) => {
+      const next = isPlayDetailCovered(ids)
+      update((prev) => (prev === next ? prev : next))
+    }
+    handleUpdate(state.componentIds)
+    global.state_event.on('componentIdsUpdated', handleUpdate)
+    return () => {
+      global.state_event.off('componentIdsUpdated', handleUpdate)
+    }
+  }, [])
+  return covered
 }
 
 const hasVisible = (visibleNames: COMPONENT_IDS[], ids: InitState['componentIds']) => {

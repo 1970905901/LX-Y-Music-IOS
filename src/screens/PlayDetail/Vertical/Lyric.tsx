@@ -25,6 +25,7 @@ import settingState from '@/store/setting/state'
 import playerState from '@/store/player/state'
 import { useWindowSize } from '@/utils/hooks'
 import KaraokeLyric from '@/screens/PlayDetail/components/KaraokeLyric'
+import { useAppActive, usePlayDetailCovered } from '@/store/common/hook'
 // import { screenkeepAwake } from '@/utils/nativeModules/utils'
 // import { log } from '@/utils/log'
 // import { toast } from '@/utils/tools'
@@ -196,6 +197,11 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHei
   // 逐字时间轴（与 lyricLines 同序）：第 i 项为第 i 行歌词的逐字数组；无逐字（纯 LRC）为 null。
   // 激活行据此走逐字卡拉OK渲染，否则退回整行高亮。
   const wordsByIndex = useLrcWordsMap()
+  // 不可见即停（前台省电）：页面被压栈页（评论/歌单详情/设置详情…）覆盖、或 App 退到
+  // 后台时，下面这条「每帧连续滚动」循环仍在跑 —— 每帧一次 bridge 调用 + 原生
+  // scrollToOffset，纯属不可见的浪费（锁屏听歌时 rAF 由系统暂停，覆盖时不会）。
+  const covered = usePlayDetailCovered()
+  const appActive = useAppActive()
   const { height: winHeight } = useWindowSize()
   const isSmallWindow = winHeight < 700
   // 歌词页实际可用高度由父容器（PagerView 子页面）的 onLayout 给出，
@@ -650,7 +656,10 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHei
   // 每帧连续平滑滚动循环：歌词页激活且非用户手动滚动时，基于外推时钟精确时间驱动歌词连续上移。
   // iOS 后台 / 锁屏时 rAF 暂停（歌词停滚无妨）；前台播放每帧（~16ms）定位，消除原来的行级跳变。
   useEffect(() => {
-    if (!active) return
+    if (!active || covered || !appActive) return
+    // 从「被覆盖 / 退后台」恢复的首帧：把平滑基准重置为列表真实位置（与「用户暂停
+    // 滚动后恢复」同款处理），否则会沿用停顿前的旧基准把列表瞬间拽回去。
+    wasPauseRef.current = true
     let rafId = 0
     const loop = (ts: number) => {
       if (isPauseScrollRef.current) {
@@ -674,7 +683,7 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHei
     rafId = requestAnimationFrame(loop)
     return () => { cancelAnimationFrame(rafId) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, lyricLines])
+  }, [active, lyricLines, covered, appActive])
 
   // 从封面页切回歌词页时，立即把歌词时钟重锚到真实音频位置，并强制把当前行定位到 42% 位置，
   // 避免“长暂停后再播放 / 重开后”高亮行姗姗来迟、与音频不同步。

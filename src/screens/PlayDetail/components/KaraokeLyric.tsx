@@ -5,6 +5,7 @@ import KaraokeLine from './KaraokeLine'
 import { audioClock } from '@/core/player/audioClock'
 import { getWordState } from '@/plugins/lyric'
 import type { LxLyricWord } from '@/plugins/lxLyricPlayer'
+import { useAppActive, usePlayDetailCovered } from '@/store/common/hook'
 
 // 逐字歌词渲染：自带 rAF 循环，根据 audioClock 外推时钟实时计算当前字索引与进度，
 // 仅重渲染本组件（不触发整张歌词列表重渲染）。务必与音频绝对同步：时间来自 audioClock，
@@ -28,6 +29,12 @@ const KaraokeLyric = memo(({
 }) => {
   const [state, setState] = useState({ index: -1, progress: 0 })
   const stateRef = useRef(state)
+  // 不可见即停（前台省电）：播放详情被压栈页覆盖、或 App 退到后台时，本组件不再逐帧
+  // 取音频时钟重算当前字（每帧一次 bridge/JS 计算 + 命中步长时的 setState 重渲染）。
+  // 只对激活行生效——非激活行本来就不跑 rAF。
+  const covered = usePlayDetailCovered()
+  const appActive = useAppActive()
+  const canTick = isActive && !covered && appActive
 
   useEffect(() => {
     // 非激活行静态渲染：停掉 rAF、进度归零（全部字用未播放颜色）。
@@ -38,6 +45,8 @@ const KaraokeLyric = memo(({
       setState(stateRef.current)
       return
     }
+    // 不可见：停掉 rAF 但**保留**当前进度，返回时首帧立即回到正确高亮，不会闪回未播放态。
+    if (!canTick) return
     let raf = 0
     const tick = () => {
       // audioClock 返回秒，歌词时间为毫秒
@@ -53,7 +62,7 @@ const KaraokeLyric = memo(({
     }
     raf = requestAnimationFrame(tick)
     return () => { cancelAnimationFrame(raf) }
-  }, [words, lineTime, isActive])
+  }, [words, lineTime, isActive, canTick])
 
   return (
     <Text style={style}>

@@ -33,9 +33,10 @@ const AnimatedCover = Animated.createAnimatedComponent(FastImage)
  *   全链路不使用 overflow:'hidden' 裁切——iOS 上 clipsToBounds 祖先
  *   会把带 transform 的后代剔除出渲染树。
  * - 不使用 RNN sharedElementTransitions：iOS 上会被原生层劫持成错位大图；封面与导航转场解耦。
- * - 尺寸：min(屏宽 * 0.65, 可用高 * 0.5)，居中。
+ * - 尺寸：基准 min(屏宽 * 0.65, 可用高 * 0.5)，再乘「封面大小」设置（50%~150%，
+ *   与横屏 Pic 同一语义）；并用父级量出的可用高度兜底，放大后不会把信息块挤出容器。
  */
-export default memo(({ componentId: _componentId }: { componentId: string }) => {
+export default memo(({ componentId: _componentId, maxCoverHeight = 0 }: { componentId: string, maxCoverHeight?: number }) => {
   const playerMusicInfo = usePlayerMusicInfo()
   const playMusicInfo = usePlayMusicInfo()
   const { width: winWidth, height: winHeight } = useWindowSize()
@@ -48,6 +49,10 @@ export default memo(({ componentId: _componentId }: { componentId: string }) => 
   // 这样「方形时不旋转」只需一处判据，不会出现「方形 + 旋转」被部分应用。
   const isSquare = coverShape === 'square'
   const allowSpin = isCoverSpin && !isSquare
+  // 封面大小设置（50%~150%，100 = 原基准尺寸）：此前只有横屏 Pic 读取该设置，
+  // 竖屏写死公式，导致播放详情页里拖动「封面大小」滑杆无效。
+  const coverSizeRaw = useSettingValue('playDetail.style.coverSize')
+  const coverSize = typeof coverSizeRaw === 'number' && !isNaN(coverSizeRaw) ? coverSizeRaw : 100
 
   // 封面 URL：playerMusicInfo.pic 已兼容在线 + 下载两种来源（playInfo.ts setPlayerMusicInfo）。
   // 同时兜底 playMusicInfo.musicInfo.meta.picUrl，保证和参考版 e58d1ab1 的数据入口一致。
@@ -70,11 +75,20 @@ export default memo(({ componentId: _componentId }: { componentId: string }) => 
   // 当前歌曲 id，用于切歌时重置旋转角度
   const musicId = playerMusicInfo.id
 
-  // 圆形封面尺寸
-  const size = useMemo(() => {
+  // 基准封面尺寸（100% 档）
+  const baseSize = useMemo(() => {
     const availableHeight = winHeight - statusBarHeight - HEADER_HEIGHT
     return Math.min(winWidth * 0.65, availableHeight * 0.5)
   }, [winWidth, winHeight, statusBarHeight])
+
+  // 实际封面尺寸 = 基准 × 百分比，并用父级量出的可用高度封顶
+  // （竖屏封面页是「封面贴顶 + 信息块贴底」的 space-between 布局，
+  //   放大到 150% 时必须留出信息块高度，否则信息块会被挤出容器压到控制条上）
+  const size = useMemo(() => {
+    const scaled = baseSize * (coverSize / 100)
+    const limit = maxCoverHeight > 0 ? maxCoverHeight : Number.POSITIVE_INFINITY
+    return Math.min(scaled, limit)
+  }, [baseSize, coverSize, maxCoverHeight])
 
   // ---- 旋转动画：采用与横屏/沉浸一致的 createAnimation/start/stop 模式 ----
   // 原 Animated.loop 在首屏挂载时常不启动（进页面不转、切歌才转），

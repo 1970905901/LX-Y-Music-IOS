@@ -116,6 +116,10 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
 
   const containerPaddingH = useMemo(() => scaleSizeW(10), [])
   const isSmallWindow = winHeight < 700
+  // 封面页容器与歌曲信息块的实际高度：用于给「封面大小」设置算一个安全上限，
+  // 保证封面放大到 150% 时也不会把 flexShrink:0 的信息块挤出容器、压到控制条上。
+  const [picPageHeight, setPicPageHeight] = useState(0)
+  const [infoHeight, setInfoHeight] = useState(0)
   // 歌曲信息块（歌名/歌手/专辑 + 迷你歌词）整体上移。
   // picPageContainerNew 用 justifyContent:'space-between'（封面贴顶、信息块贴底），
   // 容器高度里扣掉 paddingBottom 后，剩余的多余空间全部落到「封面 ↔ 信息块」的中缝上，
@@ -140,6 +144,16 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
   const pageBottomPadding = useMemo(() => ({
     paddingBottom: isSmallWindow ? 0 : PAGE_BOTTOM_PADDING,
   }), [isSmallWindow])
+  const maxCoverHeight = useMemo(() => {
+    if (picPageHeight <= 0 || infoHeight <= 0) return 0
+    const paddingBottom = isSmallWindow ? 0 : PAGE_BOTTOM_PADDING
+    const freeSpace = picPageHeight - containerPaddingH - paddingBottom - infoHeight
+    // 留一点「封面 ↔ 信息块」的呼吸间距：取剩余空间的 8%，最多 32pt、最少 8pt。
+    // 间距取得小是为了尽量把剩余空间让给「封面大小」设置——竖屏封面页的可用余量
+    // 主要由「容器高 − 信息块高」决定，余量本身就不大。
+    const gap = Math.min(32, Math.max(8, freeSpace * 0.08))
+    return Math.max(0, freeSpace - gap)
+  }, [picPageHeight, infoHeight, containerPaddingH, isSmallWindow])
 
   return (
     <>
@@ -158,14 +172,27 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
           }}
         >
           <View collapsable={false} style={styles.pageContainer}>
-            <View collapsable={false} style={[styles.picPageContainerNew, pageBottomPadding, { paddingTop: containerPaddingH }]}>
+            <View
+              collapsable={false}
+              style={[styles.picPageContainerNew, pageBottomPadding, { paddingTop: containerPaddingH }]}
+              onLayout={({ nativeEvent }) => {
+                const h = Math.round(nativeEvent.layout.height)
+                if (h > 0 && h !== picPageHeight) setPicPageHeight(h)
+              }}
+            >
               <View style={styles.picContainer}>
                 {/* 移植用户实测正常的 v20260826（e58d1ab1）VerticalOld 封面用法：
                     不传 maxCoverHeight，让 Pic 内部按 isNewUI=false 计算封面尺寸
                     （50% 高/85% 宽，container 居中布局）——这正是参考版封面正常的分支。 */}
-                <Pic componentId={componentId} />
+                <Pic componentId={componentId} maxCoverHeight={maxCoverHeight} />
               </View>
-              <View style={[styles.infoContainer, { paddingHorizontal: containerPaddingH, marginTop: containerPaddingH }]}>
+              <View
+                style={[styles.infoContainer, { paddingHorizontal: containerPaddingH, marginTop: containerPaddingH }]}
+                onLayout={({ nativeEvent }) => {
+                  const h = Math.round(nativeEvent.layout.height)
+                  if (h > 0 && h !== infoHeight) setInfoHeight(h)
+                }}
+              >
                 <SongInfo componentId={componentId} />
                 <MiniLyric
                   onPress={handleSwitchToLyricPage}

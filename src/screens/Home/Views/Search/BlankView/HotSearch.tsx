@@ -39,7 +39,7 @@ const ListItem = ({
       }}
     >
       <Icon name="search-2" size={16} color={theme['c-primary']} style={styles.icon} />
-      <Text color={theme['c-font']} size={13}>
+      <Text style={styles.keyword} color={theme['c-font']} size={13} numberOfLines={1}>
         {keyword}
       </Text>
     </Button>
@@ -107,7 +107,9 @@ const styles = createStyle({
     width: '48%',
     height: 44,
     flexDirection: 'row',
-    justifyContent: 'center',
+    // 图标 + 文字一律从左侧内边距起排（原来是居中：关键字长短不同会让图标左右跳动、
+    // 同一列的标签图标参差不齐），即标签内图标与文字左对齐
+    justifyContent: 'flex-start',
     alignItems: 'center',
     paddingHorizontal: designSpacing.md,
     borderRadius: 22,

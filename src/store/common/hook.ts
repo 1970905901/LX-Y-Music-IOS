@@ -41,6 +41,22 @@ export const useStatusbarHeight = () => {
   return (value > 0 ? value : STATUSBAR_FALLBACK) + STATUSBAR_TOP_OFFSET
 }
 
+// 顶部安全区高度（pt）：刘海 / 灵动岛 / iPad 状态栏区域。
+// 列表（ScrollView / FlatList）在 iOS 上由 RN 自动叠加这份插图，页头放在列表里时
+// 系统已经让过刘海；页头不在列表里（固定页头）时必须用 PageTopInset 自己补上。
+export const useSafeAreaTop = () => {
+  const [value, update] = useState(state.safeAreaTop)
+
+  useEffect(() => {
+    global.state_event.on('safeAreaTopUpdated', update)
+    return () => {
+      global.state_event.off('safeAreaTopUpdated', update)
+    }
+  }, [])
+
+  return value
+}
+
 /**
  * 底部安全区高度（pt）：Home 指示器 / iPad 底部区域。
  * 底部弹层、列表需用它补 paddingBottom，否则最后一行会被系统 UI 遮挡。

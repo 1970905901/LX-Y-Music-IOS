@@ -68,6 +68,10 @@ export class StateEvent extends Event {
     this.emit('statusbarHeightUpdated', size)
   }
 
+  safeAreaTopUpdated(size: number) {
+    this.emit('safeAreaTopUpdated', size)
+  }
+
   safeAreaBottomUpdated(size: number) {
     this.emit('safeAreaBottomUpdated', size)
   }

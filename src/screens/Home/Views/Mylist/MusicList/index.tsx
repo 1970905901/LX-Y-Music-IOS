@@ -206,9 +206,12 @@ export default ({ onBack, listId }: MusicListProps) => {
             塞进滚动内容里。此前「冷启动后第一次点开试听列表 / 我的收藏」会整页上飘、标题被
             顶到刘海后面（返回再进就正常）——页头在可滚动内容里时，首帧布局/原生安全区插图
             落定产生的偏移会把页头一起推上去。独立出来后页头位置只由页面顶部决定，
-            与列表滚动彻底解耦；进入搜索时代码会 setVisibleBar(false) 让页头自然隐藏，行为不变。 */}
+            与列表滚动彻底解耦；进入搜索时代码会 setVisibleBar(false) 让页头自然隐藏，行为不变。
+            注意 withSafeAreaTop：页头独立在列表之外后，拿不到 RN 自动给列表叠加的
+            安全区顶部插图（原先进列表内容里时是系统让的位），必须自己补，否则大标题会
+            比「推荐」页标题高一个安全区（iPhone 59~62pt）贴住状态栏。 */}
         <View>
-          <PageTopInset />
+          <PageTopInset withSafeAreaTop />
           <ActiveList
             ref={activeListRef}
             onShowSearchBar={handleShowSearch}

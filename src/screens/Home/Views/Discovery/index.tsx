@@ -1,8 +1,8 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { BackHandler, Keyboard, ScrollView, StyleSheet, TouchableOpacity, View, useWindowDimensions } from 'react-native'
+import { BackHandler, Keyboard, ScrollView, StyleSheet, TouchableOpacity, View, useWindowDimensions, type LayoutChangeEvent } from 'react-native'
 import { getDiscoveryPlatformOrder, type NAV_ID_Type } from '@/config/constant'
 import { useTheme } from '@/store/theme/hook'
-import { useStatusbarHeight, useBottomOverlayInset } from '@/store/common/hook'
+import { useStatusbarHeight, useSafeAreaTop, useBottomOverlayInset } from '@/store/common/hook'
 import { useI18n } from '@/lang'
 import { useSettingValue } from '@/store/setting/hook'
 import { forceSyncNavActiveId, setNavActiveId } from '@/core/common'
@@ -136,6 +136,8 @@ const styles = createStyle({
 export default memo(() => {
   const theme = useTheme()
   const statusBarHeight = useStatusbarHeight()
+  // 列表被 RN 自动叠加的安全区顶部插图（固定页比较一屏是否放得下时要用）
+  const safeAreaTop = useSafeAreaTop()
   // 底部悬浮层（迷你播放器 + 底部 Tab + 安全区）统一避让高度
   const bottomInset = useBottomOverlayInset()
   // 宽屏判定（iPad 竖屏 768+ / iPad 横屏右栏；iPhone 全系 < 700 不受影响）：
@@ -178,6 +180,9 @@ export default memo(() => {
   const selectedPlaylistRef = useRef(selectedPlaylist)
   selectedPlaylistRef.current = selectedPlaylist
   const loadIdRef = useRef(0)
+  // 固定页（不可上下滑动）需要的两个实测尺寸：视口高度 + 内容高度。
+  const [scrollViewportHeight, setScrollViewportHeight] = useState(0)
+  const [scrollContentHeight, setScrollContentHeight] = useState(0)
   const [boards, setBoards] = useState<BoardItem[]>([])
   const boardsLoadIdRef = useRef(0)
 
@@ -331,6 +336,23 @@ export default memo(() => {
   const shelfData = useMemo(() => playlists.slice(0, 24), [playlists])
   const shelfCardWidth = isWide ? 168 : 132
 
+  // 推荐页固定（不可上下滑动）：内容一屏放得下时关掉纵向滚动与回弹，整页不动；
+  // 只有小屏 / 超大字号真放不下时才留纵向滚动兜底，避免「推荐歌单」被裁掉看不到。
+  // 比较口径：contentSize 含 contentContainerStyle 的 paddingBottom(=bottomInset，
+  // 为底部悬浮层预留)，先减掉它还原「可见内容高度」；列表还会被 RN 自动叠加
+  // 一份安全区顶部插图（contentInset.top = safeAreaTop），这部分也算进占用高度。
+  const canScrollVertically = useMemo(
+    () => scrollViewportHeight > 0 &&
+      scrollContentHeight - bottomInset + safeAreaTop > scrollViewportHeight + 1,
+    [scrollContentHeight, scrollViewportHeight, bottomInset, safeAreaTop],
+  )
+  const handleScrollLayout = useCallback((e: LayoutChangeEvent) => {
+    setScrollViewportHeight(e.nativeEvent.layout.height)
+  }, [])
+  const handleContentSizeChange = useCallback((_contentWidth: number, contentHeight: number) => {
+    setScrollContentHeight(contentHeight)
+  }, [])
+
   const renderBoardCard = useCallback((board: BoardItem, wide: boolean) => (
     <TouchableOpacity
       key={board.id}
@@ -363,6 +385,12 @@ export default memo(() => {
         showsVerticalScrollIndicator={false}
         pointerEvents={selectedPlaylist ? 'none' : 'auto'}
         delaysContentTouches={false}
+        // 固定页：内容放得下时禁止纵向滚动与回弹（整页固定不动），放不下才放开
+        scrollEnabled={canScrollVertically}
+        bounces={canScrollVertically}
+        alwaysBounceVertical={false}
+        onLayout={handleScrollLayout}
+        onContentSizeChange={handleContentSizeChange}
       >
         <View style={headerStyle}>
           <Text style={titleStyle} size={34}>{t('nav_discovery')}</Text>

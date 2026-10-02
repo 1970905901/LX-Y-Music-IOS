@@ -11,6 +11,11 @@ export default {
     state.statusbarHeight = size
     global.state_event.statusbarHeightUpdated(size)
   },
+  setSafeAreaTop(size: number) {
+    if (state.safeAreaTop == size) return
+    state.safeAreaTop = size
+    global.state_event.safeAreaTopUpdated(size)
+  },
   setSafeAreaBottom(size: number) {
     if (state.safeAreaBottom == size) return
     state.safeAreaBottom = size

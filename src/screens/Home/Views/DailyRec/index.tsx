@@ -129,12 +129,15 @@ export default memo(() => {
 
   const pageHeader = (
     <>
-      <PageTopInset />
+      <PageTopInset withSafeAreaTop />
       {/* 标题在上、四个按钮在同一行在其下方（原来按钮挤在标题右侧、子模式还另起一行） */}
       <View style={styles.titleBlock}>
-        <Text style={styles.titleText} size={34} color={theme['c-font']}>
-          {t('nav_daily_rec')}
-        </Text>
+        {/* 与「推荐」页大标题同一条水平线：同字号/字重，标题行与推荐页 header 行等高、垂直居中 */}
+        <View style={styles.titleRow}>
+          <Text style={styles.titleText} size={34} color={theme['c-font']}>
+            {t('nav_daily_rec')}
+          </Text>
+        </View>
         <Tabs
           activeTab={activeTab}
           onTabChange={handleTabChange}
@@ -213,9 +216,16 @@ const styles = createStyle({
   titleBlock: {
     paddingHorizontal: designSpacing.lg,
   },
+  // 标题行与「推荐」页 header 行等高（该页那行的高度由右上角 42pt 圆形按钮决定），
+  // 标题垂直居中后，两页大标题才落在同一条水平线上
+  titleRow: {
+    minHeight: 42,
+    justifyContent: 'center',
+  },
   titleText: {
     fontWeight: '800',
-    lineHeight: 36,
+    // 不写死 lineHeight：行高小于字高会把字形往上顶（更贴状态栏）、字号放大时还会裁掉笔画，
+    // 与「推荐」页大标题一致，交给系统按字体度量计算
   },
   // 四个按钮同一行；窄屏 / 放大字号放不下时自动换行，避免最后一个按钮被裁掉
   tabsRow: {

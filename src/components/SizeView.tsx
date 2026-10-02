@@ -1,7 +1,7 @@
 import { memo, useCallback, useRef, useEffect } from 'react'
 import { type LayoutChangeEvent, StyleSheet, View, StatusBar, NativeModules, Platform, Dimensions } from 'react-native'
 import commonState from '@/store/common/state'
-import { setStatusbarHeight, setSafeAreaBottom } from '@/core/common'
+import { setStatusbarHeight, setSafeAreaTop, setSafeAreaBottom } from '@/core/common'
 import { windowSizeTools, getWindowSize } from '@/utils/windowSizeTools'
 import { getSafeAreaInsets } from '@/utils/nativeModules/utils'
 
@@ -44,15 +44,23 @@ const getStatusbarHeight = (winHeight: number, layoutHeight: number) => {
 export default memo(
   () => {
     const currentHeightRef = useRef(commonState.statusbarHeight)
+    const currentSafeAreaTopRef = useRef(commonState.safeAreaTop)
     const currentSafeAreaBottomRef = useRef(commonState.safeAreaBottom)
 
-    // 底部安全区（Home 指示器）高度随机型不同：iPhone 约 34pt、全面屏 iPad 约 20pt、
-    // 带 Home 键的设备为 0。
+    // 安全区（顶部刘海/灵动岛、底部 Home 指示器）高度随机型与方向变化：
+    // iPhone 顶部 44~62pt / 底部 34pt，全面屏 iPad 底部约 20pt，带 Home 键的 iPad 底部为 0。
     // iPhone 系统层面仅支持竖屏（Info.plist 只声明 Portrait），iPad 支持竖屏 + 左右横屏，
     // 因此旋转会改变窗口尺寸。这里在每次尺寸变化时重新向原生侧取一次，
-    // 避免旋转后底部弹层沿用旧值。
-    const syncSafeAreaBottom = useCallback(() => {
-      void getSafeAreaInsets().then(({ bottom }) => {
+    // 避免旋转后底部弹层、固定页头沿用旧值。
+    //
+    // 顶部值（safeAreaTop）供「固定页头」补系统安全区用：列表（ScrollView/FlatList）
+    // 由 RN 自动叠加这份插图，页头不在列表里时拿不到，必须自己补（见 PageTopInset）。
+    const syncSafeAreaInsets = useCallback(() => {
+      void getSafeAreaInsets().then(({ top, bottom }) => {
+        if (currentSafeAreaTopRef.current != top) {
+          currentSafeAreaTopRef.current = top
+          setSafeAreaTop(top)
+        }
         if (currentSafeAreaBottomRef.current != bottom) {
           currentSafeAreaBottomRef.current = bottom
           setSafeAreaBottom(bottom)
@@ -82,15 +90,15 @@ export default memo(
           // iOS 状态栏高度需异步校准（StatusBarManager 首次可能为 0），拿到真实值后再更新一次
           if (Platform.OS === 'ios') syncIosStatusbarHeight()
         })
-        syncSafeAreaBottom()
+        syncSafeAreaInsets()
       },
-      [syncSafeAreaBottom],
+      [syncSafeAreaInsets],
     )
     useEffect(() => {
       // iOS 首次进入主动校准一次状态栏高度（StatusBarManager 异步）
       if (Platform.OS === 'ios') syncIosStatusbarHeight()
-      // 首帧同步一次底部安全区，供底部弹层 / 列表避让 Home 指示器
-      syncSafeAreaBottom()
+      // 首帧同步一次安全区，供底部弹层 / 列表 / 固定页头避让系统 UI
+      syncSafeAreaInsets()
 
       // 兜底：Modal/Dialog 覆盖期间设备旋转或分屏时，底层 SizeView 的 onLayout 可能不触发，
       // 导致 windowSizeTools.size 停留在旧尺寸、横屏被卡成竖屏 sidebar。用 Dimensions 事件再同步一次。
@@ -101,7 +109,7 @@ export default memo(
         })
       })
       return () => { sub?.remove() }
-    }, [syncSafeAreaBottom])
+    }, [syncSafeAreaInsets])
     return <View style={StyleSheet.absoluteFill} onLayout={handleLayout} />
   },
   () => true,

@@ -5521,6 +5521,9 @@ static void LXSetTabBarCollapsed(BOOL collapsed);
 
 @interface UtilsModule : RCTEventEmitter<RCTBridgeModule>
 @property (nonatomic, assign) BOOL hasListeners;
+// 听歌识曲：麦克风录音状态（见文件后部「听歌识曲」区块）
+@property (nonatomic, strong) AVAudioRecorder *recognizeRecorder;
+@property (nonatomic, copy) NSString *recognizeFilePath;
 @end
 
 @implementation UtilsModule
@@ -5909,6 +5912,159 @@ RCT_REMAP_METHOD(getSafeAreaInsets,
       @"left": @(insets.left),
       @"right": @(insets.right),
     });
+  });
+}
+
+#pragma mark - 听歌识曲（acoustic fingerprint 麦克风录音）
+
+// 需求：把 EchoMusic 的「听歌识曲」移植过来，按钮放在搜索框最右侧。
+// 流程：JS 调 recognizeStart 开始录音 → 10s 后（或用户提前取消）调 recognizeStop →
+// 原生把录音转成上游指纹接口要求的 **8000Hz / 单声道 / 16bit little-endian PCM**，
+// 以 base64 交回 JS，由 JS 侧签名后 POST 到酷狗指纹接口。
+//
+// 实现要点：
+//  * 用 AVAudioRecorder 直接按 8000Hz / mono / PCM 写入 WAV（系统内部完成硬件重采样），
+//    比 AVAudioEngine + AVAudioConverter 手写重采样简单且稳定；
+//  * 录音期间把 AVAudioSession 切到 Record 分类（会短暂打断本 App 播放，符合
+//    「识别外界声音」的预期），结束后 deactivate，下一次播放由播放器重新激活；
+//  * 权限：Info.plist 必须声明 NSMicrophoneUsageDescription，否则首次请求录音直接崩溃。
+
+- (NSString *)lxRecognizeFilePath {
+  return [NSTemporaryDirectory() stringByAppendingPathComponent:@"lx_recognize_capture.wav"];
+}
+
+// 只停止录音器，不动文件（调用方负责读取/删除）
+- (void)lxStopRecognizeRecorder {
+  AVAudioRecorder *recorder = self.recognizeRecorder;
+  self.recognizeRecorder = nil;
+  if (recorder != nil) [recorder stop];
+}
+
+- (void)lxDeactivateRecognizeSession {
+  AVAudioSession *session = [AVAudioSession sharedInstance];
+  [session setActive:NO withOptions:AVAudioSessionSetActiveOptionNotifyOthersOnDeactivation error:nil];
+}
+
+// 从 WAV 文件里取出 data 块的裸 PCM：AVAudioRecorder 会写 LIST/FLLR 等附加块，
+// 不能假定固定 44 字节头。
+- (NSData *)lxPcmDataFromWavFile:(NSString *)path {
+  NSData *fileData = [NSData dataWithContentsOfFile:path];
+  if (fileData.length < 44) return nil;
+  const uint8_t *bytes = (const uint8_t *)fileData.bytes;
+  NSUInteger offset = 12; // 跳过 "RIFF" + size + "WAVE"
+  while (offset + 8 <= fileData.length) {
+    uint32_t chunkSize = (uint32_t)bytes[offset + 4] |
+                         ((uint32_t)bytes[offset + 5] << 8) |
+                         ((uint32_t)bytes[offset + 6] << 16) |
+                         ((uint32_t)bytes[offset + 7] << 24);
+    if (bytes[offset] == 'd' && bytes[offset + 1] == 'a' && bytes[offset + 2] == 't' && bytes[offset + 3] == 'a') {
+      NSUInteger start = offset + 8;
+      if (start > fileData.length) return nil;
+      NSUInteger length = MIN((NSUInteger)chunkSize, fileData.length - start);
+      return [fileData subdataWithRange:NSMakeRange(start, length)];
+    }
+    offset += 8 + (NSUInteger)chunkSize + ((NSUInteger)chunkSize & 1);
+  }
+  return nil;
+}
+
+- (void)lxStartRecognizeRecorderWithResolver:(RCTPromiseResolveBlock)resolve {
+  [self lxStopRecognizeRecorder];
+  NSString *path = [self lxRecognizeFilePath];
+  [[NSFileManager defaultManager] removeItemAtPath:path error:nil];
+
+  NSError *error = nil;
+  AVAudioSession *session = [AVAudioSession sharedInstance];
+  [session setCategory:AVAudioSessionCategoryRecord mode:AVAudioSessionModeMeasurement options:0 error:&error];
+  if (![session setActive:YES error:&error]) {
+    resolve(@{ @"ok": @NO, @"error": error.localizedDescription ?: @"audio session error" });
+    return;
+  }
+
+  NSDictionary *settings = @{
+    AVFormatIDKey: @(kAudioFormatLinearPCM),
+    AVSampleRateKey: @8000.0,
+    AVNumberOfChannelsKey: @1,
+    AVLinearPCMBitDepthKey: @16,
+    AVLinearPCMIsFloatKey: @NO,
+    AVLinearPCMIsBigEndianKey: @NO,
+    AVLinearPCMIsNonInterleaved: @NO,
+  };
+  AVAudioRecorder *recorder = [[AVAudioRecorder alloc] initWithURL:[NSURL fileURLWithPath:path]
+                                                          settings:settings
+                                                             error:&error];
+  if (recorder == nil || ![recorder prepareToRecord] || ![recorder record]) {
+    [self lxDeactivateRecognizeSession];
+    resolve(@{ @"ok": @NO, @"error": error.localizedDescription ?: @"recorder start failed" });
+    return;
+  }
+  self.recognizeRecorder = recorder;
+  self.recognizeFilePath = path;
+  resolve(@{ @"ok": @YES });
+}
+
+// 开始录音：按需申请麦克风权限（未决时弹系统授权）后再启动录音
+RCT_REMAP_METHOD(recognizeStart,
+                 recognizeStartWithResolver:(RCTPromiseResolveBlock)resolve
+                 rejecter:(RCTPromiseRejectBlock)reject) {
+  dispatch_async(dispatch_get_main_queue(), ^{
+    AVAudioSession *session = [AVAudioSession sharedInstance];
+    AVAudioSessionRecordPermission permission = session.recordPermission;
+    if (permission == AVAudioSessionRecordPermissionDenied) {
+      resolve(@{ @"ok": @NO, @"error": @"denied" });
+      return;
+    }
+    if (permission == AVAudioSessionRecordPermissionUndetermined) {
+      [session requestRecordPermission:^(BOOL granted) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+          if (!granted) {
+            resolve(@{ @"ok": @NO, @"error": @"denied" });
+            return;
+          }
+          [self lxStartRecognizeRecorderWithResolver:resolve];
+        });
+      }];
+      return;
+    }
+    [self lxStartRecognizeRecorderWithResolver:resolve];
+  });
+}
+
+// 结束录音并把 PCM 交回 JS：{ ok, data(base64), sampleRate, duration }
+RCT_REMAP_METHOD(recognizeStop,
+                 recognizeStopWithResolver:(RCTPromiseResolveBlock)resolve
+                 rejecter:(RCTPromiseRejectBlock)reject) {
+  dispatch_async(dispatch_get_main_queue(), ^{
+    NSString *path = self.recognizeFilePath ?: [self lxRecognizeFilePath];
+    [self lxStopRecognizeRecorder];
+    self.recognizeFilePath = nil;
+    NSData *pcm = [self lxPcmDataFromWavFile:path];
+    [[NSFileManager defaultManager] removeItemAtPath:path error:nil];
+    [self lxDeactivateRecognizeSession];
+    if (pcm.length == 0) {
+      resolve(@{ @"ok": @NO, @"error": @"empty" });
+      return;
+    }
+    resolve(@{
+      @"ok": @YES,
+      @"data": [pcm base64EncodedStringWithOptions:0],
+      @"sampleRate": @8000,
+      @"duration": @((double)pcm.length / (8000.0 * 2.0)),
+    });
+  });
+}
+
+// 取消录音：停止并丢弃，不产生任何音频数据
+RCT_REMAP_METHOD(recognizeCancel,
+                 recognizeCancelWithResolver:(RCTPromiseResolveBlock)resolve
+                 rejecter:(RCTPromiseRejectBlock)reject) {
+  dispatch_async(dispatch_get_main_queue(), ^{
+    NSString *path = self.recognizeFilePath ?: [self lxRecognizeFilePath];
+    [self lxStopRecognizeRecorder];
+    self.recognizeFilePath = nil;
+    [[NSFileManager defaultManager] removeItemAtPath:path error:nil];
+    [self lxDeactivateRecognizeSession];
+    resolve(@{ @"ok": @YES });
   });
 }
 

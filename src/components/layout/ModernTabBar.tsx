@@ -136,14 +136,29 @@ export default memo(() => {
   const miniPlayerHeight = useMiniPlayerHeight()
   const pillSize = miniPlayerHeight > 0 ? miniPlayerHeight : scaleSizeW(56)
   const collapseAnim = useRef(new Animated.Value(collapsed ? 1 : 0)).current
+  // 收起动画是否已停稳（=== collapsed 表示动画结束、两侧只剩一侧可见）。
+  // 动画期间两侧交叉淡入/淡出，都算「可能被看见」；停稳后不可见的那一侧纯属空转：
+  // MTKView 连续渲染照跑，还会参与全局 33ms 背景捕获节流、抢掉可见侧的捕获配额。
+  const [collapseSettled, setCollapseSettled] = useState(collapsed)
   useEffect(() => {
     Animated.timing(collapseAnim, {
       toValue: collapsed ? 1 : 0,
       duration: 220,
       easing: Easing.out(Easing.quad),
       useNativeDriver: true,
-    }).start()
+    }).start(({ finished }) => {
+      if (finished) setCollapseSettled(collapsed)
+    })
   }, [collapsed, collapseAnim])
+  // 「这一侧此刻有没有可能被看见」：处于当前形态，或收起/展开动画还在跑。
+  const collapseAnimating = collapseSettled !== collapsed
+  const pillGlassVisible = collapsed || collapseAnimating
+  const barGlassVisible = !collapsed || collapseAnimating
+  // 省电（2026-10-02）：不可见侧的玻璃停止 Metal 渲染——与已有的「App 退后台 / 被
+  // 压栈页覆盖」门取并集，任一命中即停（原生 setPaused → MTKView.isPaused，恢复时
+  // 下一帧重捕获背景，无残帧）。
+  const pillGlassPaused = glassPaused || !pillGlassVisible
+  const barGlassPaused = glassPaused || !barGlassVisible
 
   const handlePillPress = useCallback(() => {
     setTabBarExpanded()
@@ -193,7 +208,7 @@ export default memo(() => {
         ]}
         pointerEvents={collapsed ? 'auto' : 'none'}
       >
-        <LiquidGlass glassOpacity={glassOpacity} dark={theme.isDark} liquid={liquidGlassOn} paused={glassPaused} style={{ borderRadius: designRadius.pill }} />
+        <LiquidGlass glassOpacity={glassOpacity} dark={theme.isDark} liquid={liquidGlassOn} paused={pillGlassPaused} style={{ borderRadius: designRadius.pill }} />
         <Pressable style={styles.pillInner} onPress={handlePillPress}>
           <View style={styles.pillIcon} pointerEvents="none">
             <Icon name="menu" size={20} color={theme['c-primary']} />
@@ -215,7 +230,7 @@ export default memo(() => {
         {/* 玻璃衬底带与容器一致的圆角：按压下陷内缩时仍呈圆角，不露直角边。
             圆角 28 = 透镜圆角（56 药丸的胶囊半高，见 LiquidLensView），2026-09-29
             起玻璃端头曲线统一 circular，观感与透镜一致 */}
-        <LiquidGlass glassOpacity={glassOpacity} dark={theme.isDark} liquid={liquidGlassOn} paused={glassPaused} style={{ borderRadius: designRadius.glass }} />
+        <LiquidGlass glassOpacity={glassOpacity} dark={theme.isDark} liquid={liquidGlassOn} paused={barGlassPaused} style={{ borderRadius: designRadius.glass }} />
         {/* 液态透镜药丸（tab 切换动画）：玻璃之上、tab 内容之下；快速点击走
             Pressable 切页，透镜动画由原生弹簧驱动 */}
         {liquidGlassOn && !collapsed && barWidth > 0 && (

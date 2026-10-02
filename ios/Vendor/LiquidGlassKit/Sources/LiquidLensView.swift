@@ -135,6 +135,10 @@ public final class LiquidLensView: UIView, AnyLiquidLensView {
         addSubview(restingPillView)
 
         // Setup liquid glass view - initially hidden（上游行为：lift 时才 addSubview）
+        // 省电例外（2026-10-02）：常态玻璃在 LiquidGlassView 里降到 30fps（对齐 33ms
+        // 背景捕获节流），而透镜抬起态是逐帧的 morph/跟随（几何每帧变化），必须保持
+        // 满帧，否则 morph 中玻璃形状会滞后于视图本身。
+        liquidGlassView.preferredFramesPerSecond = 60
         liquidGlassView.isUserInteractionEnabled = false
         liquidGlassView.alpha = 0
         // Not added to view hierarchy initially - only shown when lifted

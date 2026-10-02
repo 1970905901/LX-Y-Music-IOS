@@ -5,7 +5,6 @@ import { ScrollView, TouchableOpacity, View } from 'react-native'
 import { designSpacing } from '@/theme/DesignTokens'
 // import InsetShadow from 'react-native-inset-shadow'
 import SearchInput, { type SearchInputType, type SearchInputProps } from './SearchInput'
-import RecognizeButton from './RecognizeButton'
 import { createStyle } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
 import { useStatusbarHeight } from '@/store/common/hook'
@@ -88,8 +87,6 @@ export default forwardRef<HeaderBarType, HeaderBarProps>(
               onChangeText={handleChangeText}
               onSubmit={onSearch}
             />
-            {/* 听歌识曲：按钮放在搜索框内最右侧（用户要求） */}
-            <RecognizeButton />
           </View>
           {hasText ? (
             <Text style={styles.cancelButton} color={theme['c-primary']} onPress={onCancelSearch}>

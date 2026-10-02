@@ -235,18 +235,6 @@ const HeartFilledIcon = ({ size, color }: { size: number, color: string }) => (
 )
 
 
-const MicIcon = ({ size, color }: { size: number, color: string }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    {/* 话筒本体 */}
-    <Rect x="9" y="2.5" width="6" height="11" rx="3" stroke={color} strokeWidth="1.6" fill="none" />
-    {/* 拾音弧 */}
-    <Path d="M5.5 11.5a6.5 6.5 0 0 0 13 0" stroke={color} strokeWidth="1.6" strokeLinecap="round" fill="none" />
-    {/* 支杆与底座 */}
-    <Line x1="12" y1="18" x2="12" y2="21" stroke={color} strokeWidth="1.6" strokeLinecap="round" />
-    <Line x1="8.5" y1="21" x2="15.5" y2="21" stroke={color} strokeWidth="1.6" strokeLinecap="round" />
-  </Svg>
-)
-
 const SvgIcon = memo(({ name, size = 15, rawSize, color = '#000', style }: SvgIconProps) => {
   const finalSize = rawSize ?? scaleSizeW(size)
 
@@ -278,8 +266,6 @@ const SvgIcon = memo(({ name, size = 15, rawSize, color = '#000', style }: SvgIc
         return <CollapseIcon size={finalSize} color={color} />
       case 'lyric':
         return <LyricIcon size={finalSize} color={color} />
-      case 'mic':
-        return <MicIcon size={finalSize} color={color} />
       case 'fuzzy-search':
         return <FuzzySearchIcon size={finalSize} color={color} />
       case 'heart':

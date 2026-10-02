@@ -168,37 +168,11 @@ export function useProgress(updateInterval: number) {
     // @ts-expect-error
     if (!pollTrackPlayerStates.includes(playerState)) return
 
-    // 省电门（2026-10-02）：这份进度轮询只在 App 前台有意义（后台没有可渲染的进度
-    // UI）。退后台立刻停表——否则每秒 3 次原生桥往返 + setState 会持续唤醒 JS 线程。
-    // 与 useBufferProgress、core/init/player/playProgress.ts 的门控保持一致。
-    let appActive = AppState.currentState === 'active'
-    let interval: ReturnType<typeof setInterval> | null = null
-    const clearItv = () => {
-      if (interval == null) return
-      clearInterval(interval)
-      interval = null
-    }
-    const startItv = () => {
-      if (!appActive || interval) return
-      interval = setInterval(() => { void getProgress() }, updateInterval || 1000)
-    }
     void getProgress()
-    startItv()
-    const progressStateSub = AppState.addEventListener('change', (next) => {
-      const nextActive = next === 'active'
-      if (nextActive === appActive) return
-      appActive = nextActive
-      if (!appActive) {
-        clearItv()
-        return
-      }
-      void getProgress()
-      startItv()
-    })
-    return () => {
-      progressStateSub.remove()
-      clearItv()
-    }
+
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
+    const poll = setInterval(getProgress, updateInterval || 1000)
+    return () => { clearInterval(poll) }
   }, [playerState, updateInterval])
 
   return state

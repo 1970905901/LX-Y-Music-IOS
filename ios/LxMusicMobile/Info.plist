@@ -71,8 +71,6 @@
 	</dict>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>用于局域网内获取歌词与声学指纹数据</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>用于听歌识曲：录制一小段声音并生成声学指纹来识别正在播放的歌曲</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>用于选择自定义背景图片</string>
 	<key>UTImportedTypeDeclarations</key>

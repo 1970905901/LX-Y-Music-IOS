@@ -27,17 +27,24 @@ export interface HeaderBarProps {
   onCancelSearch: () => void
   onShowTipList: SearchInputProps['onTouchStart']
   /**
-   * 输入行（搜索框所在那一行）底边相对本组件顶部的距离，单位 pt。
-   * 「推荐联想」浮层用它在搜索框正下方贴边显示——此前贴的是整个页头（搜索框 +
-   * 搜索平台胶囊 + 类型选择行）的底边，联想列表离输入框很远（用户反馈）。
+   * 输入行（搜索框所在那一行）底边在**窗口坐标系**里的 y（pt）。
+   *
+   * 为什么必须用窗口坐标：联想浮层是页面级的绝对定位层（与结果列表同级），而搜索框
+   * 在结果列表的 header 里——iOS（react-native-navigation 的全局 swizzle：
+   * contentInsetAdjustmentBehavior = scrollableAxes）会给列表自动叠加安全区顶部插图，
+   * 列表内容因此整体下移（能否滚动还会让这份插图时有时无）。用组件内 layout.y 报位置
+   * 会与浮层差出一个安全区：实测已出现「联想词把搜索框整个盖住」（用户反馈截图）。
+   * 直接报窗口坐标，浮层贴边位置与搜索框在屏幕上的真实位置永远一致。
    */
-  onSearchBarLayout?: (bottom: number) => void
+  onSearchBarLayout?: (bottomInWindow: number) => void
 }
 
 export interface HeaderBarType {
   setText: SearchInputType['setText']
   focus: SearchInputType['focus']
   blur: SearchInputType['blur']
+  /** 重新实测「搜索框行底边」的窗口坐标（联想浮层显示前刷新贴边位置） */
+  measureSearchBar: () => void
 }
 
 export default forwardRef<HeaderBarType, HeaderBarProps>(
@@ -54,6 +61,8 @@ export default forwardRef<HeaderBarType, HeaderBarProps>(
     onSearchBarLayout,
   }, ref) => {
     const searchInputRef = useRef<SearchInputType>(null)
+    // 输入行节点：用 measureInWindow 报「搜索框底边」的窗口坐标（见 onSearchBarLayout 注释）
+    const openHeaderRef = useRef<View>(null)
     const theme = useTheme()
     const statusBarHeight = useStatusbarHeight()
     const t = useI18n()
@@ -66,9 +75,21 @@ export default forwardRef<HeaderBarType, HeaderBarProps>(
       onTipSearch(text)
     }, [onTipSearch])
 
+    // 用窗口坐标上报「搜索框那一行的底边」：measureInWindow 给的是它在屏幕上的真实位置，
+    // 已经把 iOS 给结果列表叠加的安全区插图 / 列表滚动偏移算进去了（见 onSearchBarLayout 注释）。
+    const reportSearchBar = useCallback(() => {
+      openHeaderRef.current?.measureInWindow((_x, y, _width, height) => {
+        if (!Number.isFinite(y) || !Number.isFinite(height)) return
+        onSearchBarLayout?.(y + height)
+      })
+    }, [onSearchBarLayout])
+
     useImperativeHandle(
       ref,
       () => ({
+        measureSearchBar() {
+          reportSearchBar()
+        },
         setText(text) {
           // 父级预填/清空（例如从歌单菜单「搜索同名歌曲」、返回时复位）也要同步取消按钮
           setHasText(text.trim().length > 0)
@@ -81,16 +102,15 @@ export default forwardRef<HeaderBarType, HeaderBarProps>(
           searchInputRef.current?.blur()
         },
       }),
-      [],
+      [reportSearchBar],
     )
 
     return (
       <View style={[styles.container, { paddingTop: Math.max(designSpacing.sm, statusBarHeight - designSpacing.md) }]}>
         <View
+          ref={openHeaderRef}
           style={styles.openHeader}
-          onLayout={({ nativeEvent }) => {
-            onSearchBarLayout?.(nativeEvent.layout.y + nativeEvent.layout.height)
-          }}
+          onLayout={reportSearchBar}
         >
           <View
             style={{

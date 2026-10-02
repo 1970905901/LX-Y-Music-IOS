@@ -29,10 +29,13 @@ export default () => {
   const searchTipListRef = useRef<TipListType>(null)
   const listRef = useRef<ListType>(null)
   const layoutHeightRef = useRef<number>(0)
+  // 联想浮层所在的普通 View（KeyboardAvoidingView 实例没有 measureInWindow）：
+  // 用它自己的窗口 y，把「搜索框底边的窗口坐标」换算成本层坐标
+  const containerRef = useRef<View>(null)
   const containerHeightRef = useRef(0)
-  // 搜索框（输入行）底边相对页面顶部的距离：联想列表就贴在这个位置下方。
-  // 此前贴的是「整个搜索页头」（搜索框 + 搜索平台胶囊 + 类型选择行）的底边，
-  // 联想列表因此离输入框很远（用户反馈「联想内容与搜索框距离太远」）。
+  // 搜索框（输入行）底边在**本层坐标**里的位置（由窗口坐标换算而来，见 handleSearchBarLayout）：
+  // 联想列表就贴在它下方。历史两次偏差都出在这里：贴整个页头底边 → 离输入框太远；
+  // 用结果列表 header 内的 layout 值当本层坐标 → 差一个安全区，把搜索框整个盖住。
   const searchBarBottomRef = useRef(0)
   const searchInfo = useRef<SearchInfo>({ temp_source: 'kw', source: 'kw', searchType: 'music' })
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -204,6 +207,9 @@ export default () => {
   }
 
   const handleTipSearch: HeaderBarProps['onTipSearch'] = (text) => {
+    // 联想浮层出现前重新实测搜索框位置：列表能否滚动会让系统安全区插图出现/消失，
+    // 列表在屏幕上的实际位置随之变化（见 handleSearchBarLayout 注释）
+    headerBarRef.current?.measureSearchBar()
     setTimeout(() => {
       searchTipListRef.current?.search(text, layoutHeightRef.current)
     }, 500)
@@ -224,6 +230,7 @@ export default () => {
     void listRef.current?.loadList('', searchInfo.current.source, searchInfo.current.searchType)
   }, [])
   const handleShowTipList: HeaderBarProps['onShowTipList'] = () => {
+    headerBarRef.current?.measureSearchBar()
     if (timeoutRef.current) clearTimeout(timeoutRef.current)
     timeoutRef.current = setTimeout(() => {
       searchTipListRef.current?.show(layoutHeightRef.current)
@@ -234,11 +241,23 @@ export default () => {
     setSelectedList(item)
   }, [])
 
-  const handleSearchBarLayout = useCallback((bottom: number) => {
-    if (!bottom || bottom === searchBarBottomRef.current) return
-    searchBarBottomRef.current = bottom
-    layoutHeightRef.current = Math.max(0, containerHeightRef.current - bottom)
-    setSearchBarBottom(bottom)
+  // 联想浮层的贴边位置：HeaderBar 报来的是「搜索框行底边」的**窗口坐标**，这里减去本层
+  // 容器自身的窗口 y，换算成本层坐标（浮层与本层同级）。必须用窗口坐标的原因：搜索框在
+  // 结果列表的 header 里，而 iOS（react-native-navigation 的 contentInsetAdjustmentBehavior
+  // = scrollableAxes swizzle）会给列表自动叠加安全区顶部插图，列表内容整体下移、且这份
+  // 插图会随「内容能否滚动」出现/消失——用组件内 layout 值当坐标会差整整一个安全区，
+  // 表现为联想词把搜索框整个盖住（用户反馈截图）。
+  const handleSearchBarLayout = useCallback((bottomInWindow: number) => {
+    const applyTop = (pageTop: number) => {
+      const bottom = Math.max(0, Math.round(bottomInWindow - pageTop))
+      if (!bottom || bottom === searchBarBottomRef.current) return
+      searchBarBottomRef.current = bottom
+      layoutHeightRef.current = Math.max(0, containerHeightRef.current - bottom)
+      setSearchBarBottom(bottom)
+    }
+    const node = containerRef.current
+    if (node?.measureInWindow) node.measureInWindow((_x, y) => { applyTop(Number.isFinite(y) ? y : 0) })
+    else applyTop(0)
   }, [])
 
   const searchHeader = selectedList ? null : (
@@ -275,27 +294,30 @@ export default () => {
       behavior={Platform.OS == 'ios' ? 'padding' : undefined}
       onLayout={handleLayout}
     >
-      { !selectedList && (
-        <List
-          ref={listRef}
-          header={searchHeader ?? undefined}
-          onSearch={handleSearch}
-          onOpenDetail={handleOpenDetail}
-        />
-      )}
-      {selectedList ? (
-        <View style={styles.content} onLayout={handleLayout}>
-          <SonglistDetail
-            info={selectedList}
-            onBack={() => { setSelectedList(null) }}
-            initialScrollToInfo={null}
+      {/* 结果列表与联想浮层都挂在这一层：它是普通 View，可用 measureInWindow 取窗口坐标 */}
+      <View ref={containerRef} style={styles.containerInner} collapsable={false}>
+        { !selectedList && (
+          <List
+            ref={listRef}
+            header={searchHeader ?? undefined}
+            onSearch={handleSearch}
+            onOpenDetail={handleOpenDetail}
           />
-        </View>
-      ) : (
-        <View style={[styles.tipListContainer, tipListTopStyle]} pointerEvents="box-none">
-          <TipList ref={searchTipListRef} onSearch={handleSearch} />
-        </View>
-      )}
+        )}
+        {selectedList ? (
+          <View style={styles.content} onLayout={handleLayout}>
+            <SonglistDetail
+              info={selectedList}
+              onBack={() => { setSelectedList(null) }}
+              initialScrollToInfo={null}
+            />
+          </View>
+        ) : (
+          <View style={[styles.tipListContainer, tipListTopStyle]} pointerEvents="box-none">
+            <TipList ref={searchTipListRef} onSearch={handleSearch} />
+          </View>
+        )}
+      </View>
     </KeyboardAvoidingView>
   )
 }
@@ -304,6 +326,10 @@ export default () => {
 const styles = createStyle({
   container: {
     width: '100%',
+    flex: 1,
+  },
+  // 承载结果列表与联想浮层的容器：普通 View 才能用 measureInWindow 取窗口坐标
+  containerInner: {
     flex: 1,
   },
   content: {

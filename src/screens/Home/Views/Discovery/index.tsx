@@ -308,11 +308,17 @@ export default memo(() => {
     setNavActiveId(nav)
   }, [selectedSource, sourceLabel])
 
+  // 大标题距状态栏的距离与底部 tab「歌单」页完全一致：
+  //   歌单页的大标题在列表内容里，iOS 会给列表自动叠加一份安全区顶部插图（= safeAreaTop），
+  //   再叠加 HeaderBar 自己的 max(sm, 状态栏-16)。本页为了「整页固定不滚动」在 ScrollView 上
+  //   关掉了那份系统插图（contentInsetAdjustmentBehavior + automaticallyAdjustContentInsets，
+  //   见下方 ScrollView 注释），所以必须自己补上 safeAreaTop，否则标题会比歌单页高出一整个
+  //   安全区（iPhone 59~62pt），看起来贴着状态栏/灵动岛。
   const headerStyle = useMemo(
     () => StyleSheet.compose(styles.header, {
-      paddingTop: Math.max(designSpacing.sm, statusBarHeight - designSpacing.md),
+      paddingTop: safeAreaTop + Math.max(designSpacing.sm, statusBarHeight - designSpacing.md),
     }),
-    [statusBarHeight],
+    [safeAreaTop, statusBarHeight],
   )
 
   const titleStyle = useMemo(
@@ -338,13 +344,13 @@ export default memo(() => {
 
   // 推荐页固定（不可上下滑动）：内容一屏放得下时关掉纵向滚动与回弹，整页不动；
   // 只有小屏 / 超大字号真放不下时才留纵向滚动兜底，避免「推荐歌单」被裁掉看不到。
-  // 比较口径：contentSize 含 contentContainerStyle 的 paddingBottom(=bottomInset，
-  // 为底部悬浮层预留)，先减掉它还原「可见内容高度」；列表还会被 RN 自动叠加
-  // 一份安全区顶部插图（contentInset.top = safeAreaTop），这部分也算进占用高度。
+  // 比较口径：contentSize 含 contentContainerStyle 的 paddingBottom(=bottomInset，为底部
+  // 悬浮层预留)，减掉它还原本页真正渲染的内容高度（大标题自己的 safeAreaTop 留白已含在
+  // 内容里）——它 ≤ 视口高度即整页放得下。
   const canScrollVertically = useMemo(
     () => scrollViewportHeight > 0 &&
-      scrollContentHeight - bottomInset + safeAreaTop > scrollViewportHeight + 1,
-    [scrollContentHeight, scrollViewportHeight, bottomInset, safeAreaTop],
+      scrollContentHeight - bottomInset > scrollViewportHeight + 1,
+    [scrollContentHeight, scrollViewportHeight, bottomInset],
   )
   const handleScrollLayout = useCallback((e: LayoutChangeEvent) => {
     setScrollViewportHeight(e.nativeEvent.layout.height)
@@ -385,6 +391,17 @@ export default memo(() => {
         showsVerticalScrollIndicator={false}
         pointerEvents={selectedPlaylist ? 'none' : 'auto'}
         delaysContentTouches={false}
+        // 关掉系统给列表自动叠加的安全区插图：
+        //   - contentInsetAdjustmentBehavior='never' 覆盖 react-native-navigation 的
+        //     全局 swizzle（RNNSwizzles.m 把每个 RCTScrollView 强制成 scrollableAxes：
+        //     内容可纵向滚动时才自动补 safeAreaInsets.top）。本页「整页固定不滚动」后内容
+        //     不再可滚，那份插图会时有时无 —— 标题就会突然贴到状态栏/灵动岛（本页就是
+        //     这么被顶上去的）；
+        //   - automaticallyAdjustContentInsets 关掉 RN 自己那条同样会改 contentOffset 的插图路径。
+        // 于是本页位置只由 JS 样式决定：大标题自己补 safeAreaTop（见 headerStyle），数值与
+        // 底部 tab「歌单」页（列表自动插图 + HeaderBar 公式）完全一致，且不随能否滚动变化。
+        contentInsetAdjustmentBehavior="never"
+        automaticallyAdjustContentInsets={false}
         // 固定页：内容放得下时禁止纵向滚动与回弹（整页固定不动），放不下才放开
         scrollEnabled={canScrollVertically}
         bounces={canScrollVertically}

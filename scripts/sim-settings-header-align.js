@@ -53,9 +53,20 @@ const discoverySrc = read('src/screens/Home/Views/Discovery/index.tsx')
 const discoveryHeaderPad = stylePad(discoverySrc, 'header')
 const discoveryTitleWeight = styleFontWeight(discoverySrc, 'title')
 const discoveryHasTitle34 = /size=\{34\}/.test(discoverySrc)
-const discoveryPadTopFormula = /paddingTop:\s*Math\.max\(designSpacing\.(\w+),\s*statusBarHeight\s*-\s*designSpacing\.(\w+)\)/
+// 推荐页（2026-10-02 起）在 ScrollView 上显式关掉了系统安全区插图
+// （contentInsetAdjustmentBehavior="never" + automaticallyAdjustContentInsets={false}）：
+// 「整页固定不滚动」后，react-native-navigation 的全局 swizzle（RNNSwizzles.m 把每个
+// RCTScrollView 强制成 scrollableAxes）让那份插图时有时无 —— 内容可滚时才补，不滚就没了，
+// 表现就是标题突然贴到状态栏/灵动岛。所以推荐页的 paddingTop 自己补 safeAreaTop：
+//   paddingTop = safeAreaTop + max(sm, 状态栏-md)
+// 而设置页的大标题在 ScrollView 内容里，系统插图（= safeAreaTop）仍由列表叠加，自身只写
+// max(sm, 状态栏-md)。两者**效果等价**，故这里抓「共同的 max(...) 部分」比对，并单独断言
+// 推荐页「自己补 safeAreaTop」与「关掉系统插图」必须成对出现。
+const discoveryPadTopFormula = /paddingTop:\s*(?:safeAreaTop\s*\+\s*)?Math\.max\(designSpacing\.(\w+),\s*statusBarHeight\s*-\s*designSpacing\.(\w+)\)/
   .exec(discoverySrc)
-
+const discoverySelfSafeArea = /paddingTop:\s*safeAreaTop\s*\+\s*Math\.max\(/.test(discoverySrc)
+const discoveryDisablesAutoInset = /contentInsetAdjustmentBehavior="never"/.test(discoverySrc) &&
+  /automaticallyAdjustContentInsets=\{false\}/.test(discoverySrc)
 // --- 设置 Tab 页 ---
 const pageHeaderSrc = read('src/components/common/PageHeader.tsx')
 const pageHeaderPad = stylePad(pageHeaderSrc, 'container')
@@ -124,6 +135,17 @@ check('两页大标题 paddingTop 公式一致（max(sm, statusBarHeight - md)�
     ? `推荐=max(${discoveryPadTopFormula[1]}, h-${discoveryPadTopFormula[2]}) 设置=max(${pageHeaderPadTopFormula[1]}, h-${pageHeaderPadTopFormula[2]})`
     : '公式未匹配')
 
+// 推荐页（固定页）走「自己补 safeAreaTop + 关掉系统插图」这一对：
+// 只补不收 → 双倍留白（标题掉到屏幕中间）；只收不补 → 标题贴状态栏/灵动岛。
+const pairOk = discoverySelfSafeArea && discoveryDisablesAutoInset
+check('推荐页「自己补 safeAreaTop」与「关掉系统插图」成对出现', pairOk,
+  `selfSafeArea=${discoverySelfSafeArea} disableAutoInset=${discoveryDisablesAutoInset}`)
+const tamperedDiscovery = discoverySrc.replace('contentInsetAdjustmentBehavior="never"', '')
+const tamperedPair = /paddingTop:\s*safeAreaTop\s*\+\s*Math\.max\(/.test(tamperedDiscovery) &&
+  /contentInsetAdjustmentBehavior="never"/.test(tamperedDiscovery) &&
+  /automaticallyAdjustContentInsets=\{false\}/.test(tamperedDiscovery)
+check('反例：推荐页去掉 contentInsetAdjustmentBehavior="never" 后成对断言判不合格', !tamperedPair,
+  `tamperedPair=${tamperedPair}`)
 // 字号/字重一致，否则左右对齐也会显得不一样宽
 check('两页大标题字号一致（size 34）', discoveryHasTitle34 && /size=\{34\}/.test(pageHeaderSrc), '34')
 check('两页大标题字重一致（800）',

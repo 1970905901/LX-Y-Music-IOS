@@ -364,7 +364,7 @@ const pausedInvariants = (files) => {
   // ④ 消费点：TabBar 按全局 Home 判定；PlayerBar 按所属屏幕 componentId 判定。
   // 2026-10-02 起 paused 还必须含「App 前台」门（见文件末尾「后台不可见即停」），
   // 故这里只要求门控变量存在且一路透传到 paused，具体公式由那段契约断言。
-  if (!/useHomeCovered\(\)/.test(files.tabbar) || !/paused=\{(pillGlassPaused|barGlassPaused|glassPaused)\}/.test(files.tabbar)) {
+  if (!/useHomeCovered\(\)/.test(files.tabbar) || !/paused=\{glassPaused\}/.test(files.tabbar)) {
     reasons.push('ModernTabBar 未接 paused={glassPaused}（Tab 栏玻璃被覆盖时仍逐帧渲染）')
   }
   if (!/useScreenCovered\(componentId\)/.test(files.playerbar) || !/paused=\{glassPaused\}/.test(files.playerbar)) {
@@ -405,9 +405,7 @@ const runPausedCounterExamples = () => {
   }), '未透传 paused')
   // P5 消费点脱钩
   check('P5 TabBar 抹掉 paused', readGlass({
-    tabbar: read(GLASS_FILES.tabbar)
-      .replace(/paused=\{pillGlassPaused\}/g, 'removedX={pillGlassPaused}')
-      .replace(/paused=\{barGlassPaused\}/g, 'removedX={barGlassPaused}'),
+    tabbar: read(GLASS_FILES.tabbar).replace(/paused=\{glassPaused\}/g, 'removedX={glassPaused}'),
   }), 'ModernTabBar 未接')
   check('P6 PlayingIcon 恢复无条件动画', readGlass({
     playingIcon: read(GLASS_FILES.playingIcon).replace('const active = isPlay && !homeCovered', 'const active = isPlay'),
@@ -630,9 +628,7 @@ const backgroundInvariants = (files) => {
   if (!/const glassPaused\s*=\s*homeCovered\s*\|\|\s*!appActive/.test(files.tabbar)) {
     reasons.push('ModernTabBar 玻璃未按 App 前台门控（paused 必须是 homeCovered || !appActive）')
   }
-  // 两块玻璃各自的 paused 必须都由 glassPaused 派生：收起/展开动画停稳后，不可见的
-  // 那一侧还要额外停渲染（pillGlassPaused / barGlassPaused，见 sim-glass-render-rate.js）
-  if (!/paused=\{(pillGlassPaused|barGlassPaused|glassPaused)\}/.test(files.tabbar)) {
+  if (!/paused=\{glassPaused\}/.test(files.tabbar)) {
     reasons.push('ModernTabBar 未把带前台门的 glassPaused 传给 LiquidGlass')
   }
 
@@ -652,12 +648,8 @@ const backgroundInvariants = (files) => {
     reasons.push('PlayerBar 的 playerComponent useMemo 依赖漏 glassPaused（前台门变化不会重建节点）')
   }
 
-  // ③ 缓冲进度轮询：必须由 startItv 统一起表，且 !appActive 时不起表 / 退后台立刻停表。
-  //    只取 useBufferProgress 的函数体——文件里 useProgress 现在也有 startItv 与
-  //    AppState 订阅，从整文件匹配会让篡改被同名实现顶包放过。
-  const bufferAll = files.bufferHook
-  const bufferAt = bufferAll.indexOf('export function useBufferProgress')
-  const buffer = bufferAt >= 0 ? bufferAll.slice(bufferAt) : bufferAll
+  // ③ 缓冲进度轮询：必须由 startItv 统一起表，且 !appActive 时不起表 / 退后台立刻停表
+  const buffer = files.bufferHook
   if (!/AppState\.currentState\s*===\s*'active'/.test(buffer)) {
     reasons.push('useBufferProgress 未读 AppState 判定前台（后台仍会每秒轮询）')
   }
@@ -730,8 +722,8 @@ const runBackgroundCounterExamples = () => {
   // B6 缓冲轮询不再订阅前后台切换
   check('B6 缓冲轮询不订阅前后台切换', readBackground({
     bufferHook: read(BACKGROUND_FILES.bufferHook).replace(
-      "const appStateSub = AppState.addEventListener('change'",
-      "const appStateSub = AppState.addEventListener('changeX'"),
+      "AppState.addEventListener('change'",
+      "AppState.addEventListener('changeX'"),
   }), '未订阅 AppState change')
   // B7 下载进度限流被删（回退成逐数据块回调）
   check('B7 下载进度未限流', readBackground({

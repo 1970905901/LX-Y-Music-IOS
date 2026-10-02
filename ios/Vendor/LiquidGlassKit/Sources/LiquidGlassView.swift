@@ -391,6 +391,13 @@ final class LiquidGlassView: MTKView {
         // 清屏色全透明：空帧（纹理未就绪等）不改变画面，避免闪黑
         clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 0)
 
+        // 省电（2026-10-02）：背景捕获有全局 33ms（≈30Hz）节流——见 captureBackdrop /
+        // captureRootView 里的 globalLastCaptureAt；shader 又没有任何随时间变化的
+        // uniform。也就是说按 60fps 连续渲染只是把同一张纹理重复绘制一遍（Tab 栏 /
+        // 迷你播放条玻璃常驻，这是纯 GPU 开销 + 每帧唤醒 CPU）。降到 30fps 与捕获
+        // 节流同速，画面无可见差异。LiquidLens 抬起态是逐帧几何变化，单独抬回
+        // 60fps（见 LiquidLensView.commonInit），不受这里影响。
+        preferredFramesPerSecond = 30
         isPaused = false
     }
 

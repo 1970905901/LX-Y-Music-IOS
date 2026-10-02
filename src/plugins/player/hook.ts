@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
+import { AppState } from 'react-native'
 import TrackPlayer, { State, Event } from 'react-native-track-player'
 import {
   getNativeFlacBufferedPosition,
@@ -185,6 +186,13 @@ export function useBufferProgress() {
     let preBuffered = 0
     let duration = 0
     let interval: ReturnType<typeof setInterval> | null = null
+    // 省电门（2026-10-02）：缓冲进度条只在 App 前台可见。锁屏后台播放是本 App 的主
+    // 场景，此时每秒一次的原生桥往返 + setState 只会白白唤醒 JS 线程（原生 FLAC 路径
+    // 的 updateBuffer 会一直轮询到整首歌缓冲完），故退后台即停表、回前台补一次实测
+    // 再按需重启（缓冲进度是实测值，不存在状态残留）。
+    let appActive = AppState.currentState === 'active'
+    // 「当前引擎状态是否需要轮询」：退后台只停表、保留该意愿，回前台据此恢复。
+    let pollWanted = false
 
     const clearItv = () => {
       if (!interval) return
@@ -193,6 +201,7 @@ export function useBufferProgress() {
     }
     const resetBuffer = () => {
       clearItv()
+      pollWanted = false
       preBuffered = 0
       duration = 0
       if (!isUnmounted) setProgress(0)
@@ -212,10 +221,19 @@ export function useBufferProgress() {
           })))
       // console.log('updateBuffer', buffered, duration, buffered > 0, buffered == duration)
       // After the asynchronous code is executed, if the component has been uninstalled, do not update the status
-      if (buffered > 0 && buffered == duration) clearItv()
+      if (buffered > 0 && buffered == duration) {
+        clearItv()
+        pollWanted = false
+      }
       if (buffered == preBuffered || isUnmounted) return
       preBuffered = buffered
       setProgress(duration ? (buffered / duration) : 0)
+    }
+
+    // 需要轮询时才真正起表：后台（!appActive）或已在轮询中则不起第二份表
+    const startItv = () => {
+      if (!appActive || isUnmounted || interval) return
+      interval = setInterval(updateBuffer, 1000)
     }
 
     const sub = TrackPlayer.addEventListener(Event.PlaybackState, data => {
@@ -241,7 +259,8 @@ export function useBufferProgress() {
           // console.log('state', 'Buffering')
           clearItv()
           duration = 0
-          interval = setInterval(updateBuffer, 1000)
+          pollWanted = true
+          startItv()
           void updateBuffer()
           break
         // case State.Connecting:
@@ -261,11 +280,13 @@ export function useBufferProgress() {
             case 'playing':
               clearItv()
               duration = event.duration ?? duration
-              interval = setInterval(updateBuffer, 1000)
+              pollWanted = true
+              startItv()
               void updateBuffer()
               break
             case 'paused':
               clearItv()
+              pollWanted = false
               void updateBuffer()
               break
             case 'idle':
@@ -279,6 +300,7 @@ export function useBufferProgress() {
           break
         case 'error':
           clearItv()
+          pollWanted = false
           void updateBuffer()
           break
       }
@@ -287,10 +309,29 @@ export function useBufferProgress() {
     void updateBuffer()
     if (isNativeFlacActive()) void updateBuffer()
     void TrackPlayer.getState().then((state) => {
-      if (!isNativeFlacActive() && state == State.Buffering) interval = setInterval(updateBuffer, 1000)
+      if (!isNativeFlacActive() && state == State.Buffering) {
+        pollWanted = true
+        startItv()
+      }
+    })
+    // 前后台切换：退后台立刻停表（后台零唤醒），回前台补一次实测并按需恢复轮询。
+    // AppState 只在真正跨过前台/非前台边界时才改变 appActive（inactive 不触发停表：
+    // 控制中心/来电横幅等短暂 inactive 后马上回 active，停表再起表反而更费）。
+    const appStateSub = AppState.addEventListener('change', (next) => {
+      const nextActive = next === 'active'
+      if (nextActive === appActive) return
+      appActive = nextActive
+      if (!appActive) {
+        clearItv()
+        return
+      }
+      if (!pollWanted) return
+      void updateBuffer()
+      startItv()
     })
     return () => {
       isUnmounted = true
+      appStateSub.remove()
       sub.remove()
       removeNativeFlacListener()
       clearItv()

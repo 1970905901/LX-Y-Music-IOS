@@ -22,6 +22,9 @@
  *
  * 本脚本把这些绑成不变量，并带反例自检（tsc/eslint 对「定时器未停」「日志未删」
  * 完全无感）。运行：node scripts/sim-power-drain.js
+ *
+ * 2026-10-02 追加第五段「后台不可见即停」：液态玻璃的 MTKView 连续渲染与播放详情
+ * 的缓冲进度轮询都只在 App 前台有意义，锁屏后台必须停（见文件末尾 BACKGROUND_*）。
  * 退出码：不变量全过、且全部反例被拦下时为 0，否则 1。
  */
 
@@ -358,12 +361,14 @@ const pausedInvariants = (files) => {
   if (!/paused=\{paused\}/.test(files.comp)) {
     reasons.push('LiquidGlass.tsx 未透传 paused（声明了但没接）')
   }
-  // ④ 消费点：TabBar 按全局 Home 判定；PlayerBar 按所属屏幕 componentId 判定
-  if (!/useHomeCovered\(\)/.test(files.tabbar) || !/paused=\{homeCovered\}/.test(files.tabbar)) {
-    reasons.push('ModernTabBar 未接 paused={homeCovered}（Tab 栏玻璃被覆盖时仍逐帧渲染）')
+  // ④ 消费点：TabBar 按全局 Home 判定；PlayerBar 按所属屏幕 componentId 判定。
+  // 2026-10-02 起 paused 还必须含「App 前台」门（见文件末尾「后台不可见即停」），
+  // 故这里只要求门控变量存在且一路透传到 paused，具体公式由那段契约断言。
+  if (!/useHomeCovered\(\)/.test(files.tabbar) || !/paused=\{glassPaused\}/.test(files.tabbar)) {
+    reasons.push('ModernTabBar 未接 paused={glassPaused}（Tab 栏玻璃被覆盖时仍逐帧渲染）')
   }
-  if (!/useScreenCovered\(componentId\)/.test(files.playerbar) || !/paused=\{screenCovered\}/.test(files.playerbar)) {
-    reasons.push('PlayerBar 未接 paused={screenCovered}（迷你条玻璃被覆盖时仍逐帧渲染）')
+  if (!/useScreenCovered\(componentId\)/.test(files.playerbar) || !/paused=\{glassPaused\}/.test(files.playerbar)) {
+    reasons.push('PlayerBar 未接 paused={glassPaused}（迷你条玻璃被覆盖时仍逐帧渲染）')
   }
   // ⑤ 覆盖判定 hook 本体
   if (!/export const useHomeCovered/.test(files.hookCommon) || !/export const useScreenCovered/.test(files.hookCommon)) {
@@ -400,7 +405,7 @@ const runPausedCounterExamples = () => {
   }), '未透传 paused')
   // P5 消费点脱钩
   check('P5 TabBar 抹掉 paused', readGlass({
-    tabbar: read(GLASS_FILES.tabbar).replace(/paused=\{homeCovered\}/g, 'removedX={homeCovered}'),
+    tabbar: read(GLASS_FILES.tabbar).replace(/paused=\{glassPaused\}/g, 'removedX={glassPaused}'),
   }), 'ModernTabBar 未接')
   check('P6 PlayingIcon 恢复无条件动画', readGlass({
     playingIcon: read(GLASS_FILES.playingIcon).replace('const active = isPlay && !homeCovered', 'const active = isPlay'),
@@ -587,6 +592,147 @@ const runVisibilityCounterExamples = () => {
 }
 
 // ---------------------------------------------------------------------------
+// 后台「不可见即停」（2026-10-02）：边听歌边锁屏时不得继续渲染 / 轮询
+//
+// 背景：本 App 的音频后台播放能力让进程在锁屏后仍常驻，于是两类「前台才需要」的
+// 工作会跟着跑一整个晚上：
+//   ① 液态玻璃的 MTKView 是**连续渲染**（isPaused=false），不会随锁屏自动停 ——
+//      Tab 栏 2 块 + 迷你播放器 1 块，锁屏期间白烧 GPU（此前只按「被压栈页覆盖」停）；
+//   ② 播放详情页的缓冲进度轮询 useBufferProgress 每秒一次原生桥往返 + setState，
+//      原生 FLAC 路径会一直轮询到整首歌缓冲完 —— 锁屏时进度条根本不可见。
+// 两者都不会崩、也过得了 tsc/eslint，只能靠契约绑住。
+// ---------------------------------------------------------------------------
+
+const BACKGROUND_FILES = {
+  tabbar: 'src/components/layout/ModernTabBar.tsx',
+  playerbar: 'src/components/player/PlayerBar/index.tsx',
+  bufferHook: 'src/plugins/player/hook.ts',
+  fsIos: 'src/utils/fs.ios.ts',
+}
+
+const readBackground = (over = {}) => {
+  const files = {}
+  for (const key of Object.keys(BACKGROUND_FILES)) {
+    files[key] = over[key] !== undefined ? over[key] : read(BACKGROUND_FILES[key])
+  }
+  return files
+}
+
+const backgroundInvariants = (files) => {
+  const reasons = []
+
+  // ① Tab 栏两块玻璃：paused = homeCovered || !appActive
+  if (!/useAppActive\(\)/.test(files.tabbar)) {
+    reasons.push('ModernTabBar 未引 useAppActive（玻璃没有「App 前台」门）')
+  }
+  if (!/const glassPaused\s*=\s*homeCovered\s*\|\|\s*!appActive/.test(files.tabbar)) {
+    reasons.push('ModernTabBar 玻璃未按 App 前台门控（paused 必须是 homeCovered || !appActive）')
+  }
+  if (!/paused=\{glassPaused\}/.test(files.tabbar)) {
+    reasons.push('ModernTabBar 未把带前台门的 glassPaused 传给 LiquidGlass')
+  }
+
+  // ② 迷你播放器玻璃：paused = screenCovered || !appActive，且必须进 useMemo 依赖
+  if (!/useAppActive\(\)/.test(files.playerbar)) {
+    reasons.push('PlayerBar 未引 useAppActive（玻璃没有「App 前台」门）')
+  }
+  if (!/const glassPaused\s*=\s*screenCovered\s*\|\|\s*!appActive/.test(files.playerbar)) {
+    reasons.push('PlayerBar 玻璃未按 App 前台门控（paused 必须是 screenCovered || !appActive）')
+  }
+  if (!/paused=\{glassPaused\}/.test(files.playerbar)) {
+    reasons.push('PlayerBar 未把带前台门的 glassPaused 传给 LiquidGlass')
+  }
+  // playerComponent 走 useMemo：依赖漏掉 glassPaused 会让 paused 永远停在旧值
+  const playerMemoDeps = /\},\s*\[([^\]]*)\]/.exec(files.playerbar.slice(files.playerbar.indexOf('const playerComponent = useMemo')))
+  if (!playerMemoDeps || !/glassPaused/.test(playerMemoDeps[1])) {
+    reasons.push('PlayerBar 的 playerComponent useMemo 依赖漏 glassPaused（前台门变化不会重建节点）')
+  }
+
+  // ③ 缓冲进度轮询：必须由 startItv 统一起表，且 !appActive 时不起表 / 退后台立刻停表
+  const buffer = files.bufferHook
+  if (!/AppState\.currentState\s*===\s*'active'/.test(buffer)) {
+    reasons.push('useBufferProgress 未读 AppState 判定前台（后台仍会每秒轮询）')
+  }
+  if (!/const startItv\s*=\s*\(\)\s*=>\s*\{[\s\S]{0,200}?!appActive/.test(buffer)) {
+    reasons.push('useBufferProgress 的 startItv 缺 !appActive 早退（后台照样起表）')
+  }
+  const setItvCount = (buffer.match(/interval\s*=\s*setInterval\(updateBuffer, 1000\)/g) || []).length
+  if (setItvCount !== 1) {
+    reasons.push(`useBufferProgress 起表点必须唯一（收到 ${setItvCount} 处；散在各监听里后台停不干净）`)
+  }
+  if (!/AppState\.addEventListener\(\s*'change'/.test(buffer)) {
+    reasons.push('useBufferProgress 未订阅 AppState change（前后台切换不会停/起表）')
+  }
+  if (!/if\s*\(!appActive\)\s*\{[\s\S]{0,80}?clearItv\(\)/.test(buffer)) {
+    reasons.push('useBufferProgress 退后台未 clearItv（后台仍在每秒轮询）')
+  }
+
+  // ④ 下载进度上报限流：RNFS 默认（progressInterval/Divider 都为 0）逐数据块回调，
+  // 每次都会串起 store 事件 + React 渲染（悬浮下载球/下载管理列表）
+  if (!/progressInterval:\s*\d+/.test(files.fsIos)) {
+    reasons.push('fs.ios.ts 的 downloadFile 未限流 progressInterval（逐数据块回调 → 每次一串 React 渲染）')
+  }
+
+  return reasons
+}
+
+const runBackgroundCounterExamples = () => {
+  const results = []
+  const check = (name, files, expectSubstr) => {
+    let hits = []
+    try {
+      hits = backgroundInvariants(files)
+    } catch (e) {
+      results.push({ name, ok: false, detail: `抛异常: ${e.message}` })
+      return
+    }
+    const hit = hits.some(r => r.includes(expectSubstr))
+    results.push({ name, ok: hit, detail: hit ? '已拦下' : `未拦下（reasons=${JSON.stringify(hits)}）` })
+  }
+
+  // B1/B2 玻璃丢掉「App 前台」门（回退成只按覆盖门控）
+  check('B1 TabBar 玻璃漏前台门', readBackground({
+    tabbar: read(BACKGROUND_FILES.tabbar).replace(
+      'const glassPaused = homeCovered || !appActive',
+      'const glassPaused = homeCovered'),
+  }), 'ModernTabBar 玻璃未按 App 前台门控')
+  check('B2 PlayerBar 玻璃漏前台门', readBackground({
+    playerbar: read(BACKGROUND_FILES.playerbar).replace(
+      'const glassPaused = screenCovered || !appActive',
+      'const glassPaused = screenCovered'),
+  }), 'PlayerBar 玻璃未按 App 前台门控')
+  // B3 useMemo 依赖漏 glassPaused
+  check('B3 PlayerBar useMemo 依赖漏前台门', readBackground({
+    playerbar: read(BACKGROUND_FILES.playerbar).replace(
+      '[glassOpacity, liquidGlassOn, glassPaused,',
+      '[glassOpacity, liquidGlassOn,'),
+  }), 'useMemo 依赖漏 glassPaused')
+  // B4 缓冲轮询去掉前台早退
+  check('B4 缓冲轮询去掉前台早退', readBackground({
+    bufferHook: read(BACKGROUND_FILES.bufferHook).replace(
+      'if (!appActive || isUnmounted || interval) return',
+      'if (isUnmounted || interval) return'),
+  }), 'startItv 缺 !appActive 早退')
+  // B5 起表散回各监听（回归到旧实现：后台停不干净）
+  check('B5 缓冲轮询起表散回监听', readBackground({
+    bufferHook: read(BACKGROUND_FILES.bufferHook).replace(
+      '          pollWanted = true\n          startItv()',
+      '          pollWanted = true\n          interval = setInterval(updateBuffer, 1000)'),
+  }), '起表点必须唯一')
+  // B6 缓冲轮询不再订阅前后台切换
+  check('B6 缓冲轮询不订阅前后台切换', readBackground({
+    bufferHook: read(BACKGROUND_FILES.bufferHook).replace(
+      "AppState.addEventListener('change'",
+      "AppState.addEventListener('changeX'"),
+  }), '未订阅 AppState change')
+  // B7 下载进度限流被删（回退成逐数据块回调）
+  check('B7 下载进度未限流', readBackground({
+    fsIos: read(BACKGROUND_FILES.fsIos).replace('progressInterval: 250,', ''),
+  }), '未限流 progressInterval')
+
+  return results
+}
+// ---------------------------------------------------------------------------
 // 主流程
 // ---------------------------------------------------------------------------
 
@@ -594,6 +740,7 @@ const realNative = nativeInvariants(REAL.appdel)
 const realJs = jsInvariants(REAL.playProgress)
 const realPaused = pausedInvariants(readGlass())
 const realVisibility = visibilityInvariants(readVisibility())
+const realBackground = backgroundInvariants(readBackground())
 
 console.log('=== sim-power-drain ===')
 console.log('\n[原生 AppDelegate.mm]')
@@ -612,18 +759,23 @@ console.log('\n[前台不可见即停（压栈覆盖 / App 退后台）]')
 if (realVisibility.length === 0) console.log('  PASS 封面旋转×2 / 歌词连续滚动×2 / 逐字卡拉OK / 正在播放图标 / 门控 hook 全部贯通')
 else realVisibility.forEach(r => console.log('  FAIL ' + r))
 
+console.log('\n[后台不可见即停（玻璃 Metal 渲染 / 缓冲进度轮询）]')
+if (realBackground.length === 0) console.log('  PASS 玻璃 ×3 与缓冲轮询均按「App 前台」停摆（锁屏后台零 GPU / 零轮询）')
+else realBackground.forEach(r => console.log('  FAIL ' + r))
+
 console.log('\n[反例自检]')
 const ceResults = runCounterExamples()
 const peResults = runPausedCounterExamples()
 const veResults = runVisibilityCounterExamples()
+const beResults = runBackgroundCounterExamples()
 let ceAllOk = true
-for (const r of [...ceResults, ...peResults, ...veResults]) {
+for (const r of [...ceResults, ...peResults, ...veResults, ...beResults]) {
   console.log(`  ${r.ok ? 'PASS' : 'FAIL'} ${r.name} —— ${r.ok ? '已拦下' : `未拦下（reasons=${JSON.stringify(r.detail)}）`}`)
   if (!r.ok) ceAllOk = false
 }
 
-const invariantsOk = realNative.ok && realJs.ok && realPaused.length === 0 && realVisibility.length === 0
+const invariantsOk = realNative.ok && realJs.ok && realPaused.length === 0 && realVisibility.length === 0 && realBackground.length === 0
 const allOk = invariantsOk && ceAllOk
-const allCe = [...ceResults, ...peResults, ...veResults]
-console.log(`\n结果：${allOk ? 'ALL PASS' : '有失败项'}（不变量 ${invariantsOk ? '4/4' : '有失败'}；反例 ${allCe.filter(r => r.ok).length}/${allCe.length}）`)
+const allCe = [...ceResults, ...peResults, ...veResults, ...beResults]
+console.log(`\n结果：${allOk ? 'ALL PASS' : '有失败项'}（不变量 ${invariantsOk ? '5/5' : '有失败'}；反例 ${allCe.filter(r => r.ok).length}/${allCe.length}）`)
 process.exit(allOk ? 0 : 1)

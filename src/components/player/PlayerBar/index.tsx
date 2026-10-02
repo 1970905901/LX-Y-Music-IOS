@@ -13,7 +13,7 @@ import { useSettingValue } from '@/store/setting/hook'
 import { navigations } from '@/navigation'
 import { PLAY_DETAIL_SCREEN } from '@/navigation/screenNames'
 import commonState from '@/store/common/state'
-import { useSafeAreaBottom, useScreenCovered } from '@/store/common/hook'
+import { useSafeAreaBottom, useScreenCovered, useAppActive } from '@/store/common/hook'
 import { usePlayerMusicInfo } from '@/store/player/hook'
 import { designRadius, designSpacing, bottomFloatGap } from '@/theme/DesignTokens'
 import LiquidGlass from '@/components/common/LiquidGlass'
@@ -23,6 +23,10 @@ export default memo(({ componentId, isHome = false }: { componentId?: string, is
   // PlayerBar 多屏复用（Home / 专辑页 / 歌手页…），按各自 componentId 判定；
   // 调用方未传 componentId 时恒不门控（行为同旧版）。
   const screenCovered = useScreenCovered(componentId)
+  // 省电门之二：App 退到后台/锁屏时也暂停玻璃 Metal 渲染循环——边听歌边锁屏时本页仍
+  // 常驻，MTKView 连续渲染不会随锁屏自动停（详见 ModernTabBar 同处注释）。
+  const appActive = useAppActive()
+  const glassPaused = screenCovered || !appActive
   const { keyboardShown } = useKeyboard()
   const isHorizontalMode = useHorizontalMode()
   const theme = useTheme()
@@ -112,7 +116,7 @@ export default memo(({ componentId, isHome = false }: { componentId?: string, is
             style={styles.container}
             onLayout={(e) => { setMiniPlayerHeight(e.nativeEvent.layout.height) }}
           >
-            <LiquidGlass glassOpacity={glassOpacity} dark={theme.isDark} liquid={liquidGlassOn} paused={screenCovered} style={{ borderRadius: designRadius.glass }} />
+            <LiquidGlass glassOpacity={glassOpacity} dark={theme.isDark} liquid={liquidGlassOn} paused={glassPaused} style={{ borderRadius: designRadius.glass }} />
             <TouchableOpacity style={styles.left} onPress={handleNavigate} activeOpacity={0.8}>
               <Pic />
               <View style={styles.center}>
@@ -127,7 +131,7 @@ export default memo(({ componentId, isHome = false }: { componentId?: string, is
         </Animated.View>
       )
     },
-    [glassOpacity, liquidGlassOn, screenCovered, theme.isDark, isHome, handleNavigate, safeAreaBottom, isHorizontalMode, collapseAnim, tabBarDistance],
+    [glassOpacity, liquidGlassOn, glassPaused, theme.isDark, isHome, handleNavigate, safeAreaBottom, isHorizontalMode, collapseAnim, tabBarDistance],
   )
 
   return keyboardShown ? null : playerComponent

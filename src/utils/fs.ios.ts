@@ -169,6 +169,13 @@ export const downloadFile = (url: string, path: string, options: Omit<RNFS.Downl
   return RNFS.downloadFile({
     fromUrl: url,
     toFile: normalizePath(path),
+    // 省电（2026-10-02）：RNFS 默认 progressInterval/progressDivider 都是 0，原生在
+    // didReceiveData 里**每个下载数据块**都回调一次 progress。下载任务那条链上每次
+    // 回调都会走 store 事件 + React 渲染（悬浮下载球 / 下载管理列表），大文件下载
+    // 期间 JS 线程每秒被唤醒几十次；边听歌边下载时尤其明显。限流到 ≥250ms 一次：
+    // 进度/速度观感不变（速度本就按时间差算，限流后反而是更稳的平均值），唤醒次数
+    // 降到 1/10 量级。调用方若确需更细粒度可自行传 progressInterval 覆盖。
+    progressInterval: 250,
     ...options,
   })
 }

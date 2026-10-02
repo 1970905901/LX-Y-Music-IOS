@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Animated, Easing, Pressable, StyleSheet, View, type LayoutChangeEvent } from 'react-native'
 import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
-import { useNavActiveId, useSafeAreaBottom, useHomeCovered } from '@/store/common/hook'
+import { useNavActiveId, useSafeAreaBottom, useHomeCovered, useAppActive } from '@/store/common/hook'
 import { setNavActiveId } from '@/core/common'
 import { useSettingValue } from '@/store/setting/hook'
 import { createStyle, isIOS26_2OrAbove } from '@/utils/tools'
@@ -121,9 +121,13 @@ export default memo(() => {
   // 切换瞬间闪烁，开关已从设置页隐藏，残留的开关值在此屏蔽——同时控制玻璃形态与
   // 液态透镜（LiquidLens）的渲染。最终兜底在 LiquidGlass 组件内部。
   const liquidGlassOn = useSettingValue('theme.liquidGlass') && !isIOS26_2OrAbove
-  // 省电门：Home 被压栈页（播放详情等）完全覆盖时暂停玻璃的 Metal 渲染循环
-  // （不可见期间零逐帧 draw；返回 Home 即恢复，原生重捕获背景无残帧）
+  // 省电门：Home 被压栈页（播放详情等）完全覆盖、或 App 退到后台/锁屏时，暂停玻璃的
+  // Metal 渲染循环（不可见期间零逐帧 draw；回到前台即恢复，原生重捕获背景无残帧）。
+  // 后台门不能省：边听歌边锁屏时 App 仍常驻运行，MTKView 的连续渲染循环不会随锁屏
+  // 自动停，是实打实的后台耗电。
   const homeCovered = useHomeCovered()
+  const appActive = useAppActive()
+  const glassPaused = homeCovered || !appActive
 
   // 收起形态（iOS 26 风格）：歌曲列表滚动离开顶部 → 整条 tab 栏收成左下角
   // 圆形玻璃按钮（宫格图标）；点击按钮弹出，保持展开直到下一次滚动离开顶部。
@@ -189,7 +193,7 @@ export default memo(() => {
         ]}
         pointerEvents={collapsed ? 'auto' : 'none'}
       >
-        <LiquidGlass glassOpacity={glassOpacity} dark={theme.isDark} liquid={liquidGlassOn} paused={homeCovered} style={{ borderRadius: designRadius.pill }} />
+        <LiquidGlass glassOpacity={glassOpacity} dark={theme.isDark} liquid={liquidGlassOn} paused={glassPaused} style={{ borderRadius: designRadius.pill }} />
         <Pressable style={styles.pillInner} onPress={handlePillPress}>
           <View style={styles.pillIcon} pointerEvents="none">
             <Icon name="menu" size={20} color={theme['c-primary']} />
@@ -211,7 +215,7 @@ export default memo(() => {
         {/* 玻璃衬底带与容器一致的圆角：按压下陷内缩时仍呈圆角，不露直角边。
             圆角 28 = 透镜圆角（56 药丸的胶囊半高，见 LiquidLensView），2026-09-29
             起玻璃端头曲线统一 circular，观感与透镜一致 */}
-        <LiquidGlass glassOpacity={glassOpacity} dark={theme.isDark} liquid={liquidGlassOn} paused={homeCovered} style={{ borderRadius: designRadius.glass }} />
+        <LiquidGlass glassOpacity={glassOpacity} dark={theme.isDark} liquid={liquidGlassOn} paused={glassPaused} style={{ borderRadius: designRadius.glass }} />
         {/* 液态透镜药丸（tab 切换动画）：玻璃之上、tab 内容之下；快速点击走
             Pressable 切页，透镜动画由原生弹簧驱动 */}
         {liquidGlassOn && !collapsed && barWidth > 0 && (

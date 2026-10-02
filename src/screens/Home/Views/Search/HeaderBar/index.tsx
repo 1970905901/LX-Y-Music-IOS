@@ -26,6 +26,12 @@ export interface HeaderBarProps {
   onOpenSearch: SearchInputProps['onFocus']
   onCancelSearch: () => void
   onShowTipList: SearchInputProps['onTouchStart']
+  /**
+   * 输入行（搜索框所在那一行）底边相对本组件顶部的距离，单位 pt。
+   * 「推荐联想」浮层用它在搜索框正下方贴边显示——此前贴的是整个页头（搜索框 +
+   * 搜索平台胶囊 + 类型选择行）的底边，联想列表离输入框很远（用户反馈）。
+   */
+  onSearchBarLayout?: (bottom: number) => void
 }
 
 export interface HeaderBarType {
@@ -45,6 +51,7 @@ export default forwardRef<HeaderBarType, HeaderBarProps>(
     onOpenSearch,
     onCancelSearch,
     onShowTipList,
+    onSearchBarLayout,
   }, ref) => {
     const searchInputRef = useRef<SearchInputType>(null)
     const theme = useTheme()
@@ -79,7 +86,12 @@ export default forwardRef<HeaderBarType, HeaderBarProps>(
 
     return (
       <View style={[styles.container, { paddingTop: Math.max(designSpacing.sm, statusBarHeight - designSpacing.md) }]}>
-        <View style={styles.openHeader}>
+        <View
+          style={styles.openHeader}
+          onLayout={({ nativeEvent }) => {
+            onSearchBarLayout?.(nativeEvent.layout.y + nativeEvent.layout.height)
+          }}
+        >
           <View
             style={{
               ...styles.searchBar,

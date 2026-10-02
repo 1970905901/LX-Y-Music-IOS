@@ -28,6 +28,9 @@ const Item = ({ id, name }: { id: SourceNameType, name: string }) => {
       marginBottom={3}
       check={isActive}
       label={name}
+      // 原名 / 别名 两个并排短选项：标签保持单行（空间紧张时宁可整行换行，也不要把
+      // 「原名」折成两行——用户反馈「文字横着排列更好看」）
+      labelNumberOfLines={1}
       onChange={() => {
         setSourceNameType(id)
       }}

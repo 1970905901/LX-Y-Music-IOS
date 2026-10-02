@@ -33,6 +33,12 @@ export interface CheckBoxProps {
    * 独占整行：卡片铺满可用宽度，并去掉用于并排项之间留缝的右外边距。
    */
   block?: boolean
+  /**
+   * 标签文字的 numberOfLines（默认不限行，保持各处历史行为）。
+   * 并排的短选项（如「原名 / 别名」「显示警告 / 显示降级」）传 1：
+   * 空间紧张时宁可整行换行，也不要让标签折成两行（用户反馈「文字横着排更好看」）。
+   */
+  labelNumberOfLines?: number
 }
 
 export default ({
@@ -49,6 +55,7 @@ export default ({
   size = 1,
   variant = 'card',
   block = false,
+  labelNumberOfLines,
 }: CheckBoxProps) => {
   const theme = useTheme()
   const [isDisabled, setDisabled] = useState(false)
@@ -135,7 +142,7 @@ export default ({
       />
       <View style={labelStyle}>
         {label ? (
-          <Text style={nameStyle} color={theme['c-500']} size={15 * size}>
+          <Text style={nameStyle} color={theme['c-500']} size={15 * size} numberOfLines={labelNumberOfLines}>
             {label}
           </Text>
         ) : (
@@ -155,7 +162,7 @@ export default ({
       />
       <TouchableOpacity style={labelStyle} activeOpacity={0.3} onPress={handleLabelPress}>
         {label ? (
-          <Text style={nameStyle} size={15 * size}>
+          <Text style={nameStyle} size={15 * size} numberOfLines={labelNumberOfLines}>
             {label}
           </Text>
         ) : (

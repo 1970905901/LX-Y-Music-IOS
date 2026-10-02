@@ -30,11 +30,15 @@ export default () => {
   const listRef = useRef<ListType>(null)
   const layoutHeightRef = useRef<number>(0)
   const containerHeightRef = useRef(0)
-  const headerHeightRef = useRef(0)
+  // 搜索框（输入行）底边相对页面顶部的距离：联想列表就贴在这个位置下方。
+  // 此前贴的是「整个搜索页头」（搜索框 + 搜索平台胶囊 + 类型选择行）的底边，
+  // 联想列表因此离输入框很远（用户反馈「联想内容与搜索框距离太远」）。
+  const searchBarBottomRef = useRef(0)
   const searchInfo = useRef<SearchInfo>({ temp_source: 'kw', source: 'kw', searchType: 'music' })
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
   const [selectedList, setSelectedList] = useState<ListInfoItem | null>(null)
-  const [headerHeight, setHeaderHeight] = useState(0)
+  // 搜索框底边（实测）：联想列表的 top / 动画高度都基于它
+  const [searchBarBottom, setSearchBarBottom] = useState(0)
   const [source, setSource] = useState<SearchInfo['source']>(searchInfo.current.source)
   const [sourceType, setSourceType] = useState<SearchInfo['searchType']>(searchInfo.current.searchType)
   const selectedListRef = useRef(selectedList)
@@ -187,7 +191,7 @@ export default () => {
 
   const handleLayout = (e: LayoutChangeEvent) => {
     containerHeightRef.current = e.nativeEvent.layout.height
-    layoutHeightRef.current = Math.max(0, e.nativeEvent.layout.height - headerHeightRef.current)
+    layoutHeightRef.current = Math.max(0, e.nativeEvent.layout.height - searchBarBottomRef.current)
   }
   const handleSourceChange: HeaderBarProps['onSourceChange'] = (source) => {
     setSelectedList(null)
@@ -227,16 +231,18 @@ export default () => {
   }
 
   const handleOpenDetail = useCallback((item: ListInfoItem) => {
-    headerHeightRef.current = 0
     setSelectedList(item)
   }, [])
 
+  const handleSearchBarLayout = useCallback((bottom: number) => {
+    if (!bottom || bottom === searchBarBottomRef.current) return
+    searchBarBottomRef.current = bottom
+    layoutHeightRef.current = Math.max(0, containerHeightRef.current - bottom)
+    setSearchBarBottom(bottom)
+  }, [])
+
   const searchHeader = selectedList ? null : (
-    <View onLayout={({ nativeEvent }) => {
-      headerHeightRef.current = nativeEvent.layout.height
-      setHeaderHeight(nativeEvent.layout.height)
-      layoutHeightRef.current = Math.max(0, containerHeightRef.current - headerHeightRef.current)
-    }}>
+    <View>
       <HeaderBar
         key={headerKey}
         ref={headerBarRef}
@@ -249,6 +255,7 @@ export default () => {
         onOpenSearch={() => {}}
         onCancelSearch={handleCancelSearch}
         onShowTipList={handleShowTipList}
+        onSearchBarLayout={handleSearchBarLayout}
       />
       <View style={styles.typeRow}>
         <SearchTypeSelector />
@@ -257,8 +264,8 @@ export default () => {
   )
 
   const tipListTopStyle = useMemo(
-    () => (headerHeight ? { top: headerHeight } : undefined),
-    [headerHeight],
+    () => (searchBarBottom ? { top: searchBarBottom } : undefined),
+    [searchBarBottom],
   )
 
   return (

@@ -1514,6 +1514,9 @@ export default memo(() => {
           check={showErrors}
           onChange={setShowErrors}
           label="显示警告"
+          // 与「显示降级」「测试日志」挤在同一行：标签保持单行（放不下时整行换行，
+          // 而不是把「显示警告」折成两行——用户反馈「文字横着排列更好看」）
+          labelNumberOfLines={1}
           disabled={isTesting}
           size={0.8}
         />
@@ -1521,6 +1524,7 @@ export default memo(() => {
           check={showDowngrades}
           onChange={setShowDowngrades}
           label="显示降级"
+          labelNumberOfLines={1}
           disabled={isTesting}
           size={0.8}
         />
@@ -1850,8 +1854,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: designSpacing.xs,
+    rowGap: designSpacing.xs,
     marginTop: designSpacing.sm,
-    flexWrap: 'nowrap',
+    // 放不下就整体换行（此前 nowrap + 标签可收缩 = 标签被压成两行「显示/降级」，
+    // 用户反馈「文字横着排列更好看」）；换行后每个标签仍是单行
+    flexWrap: 'wrap',
   },
 
   settingsLabel: {

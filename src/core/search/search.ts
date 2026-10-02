@@ -9,12 +9,6 @@ export const setSearchType: (typeof searchActions)['setSearchType'] = (type) => 
 export const setSearchText: (typeof searchActions)['setSearchText'] = (text) => {
   searchActions.setSearchText(text)
 }
-export const setTipListInfo: (typeof searchActions)['setTipListInfo'] = (text, source) => {
-  searchActions.setTipListInfo(text, source)
-}
-export const setTipList: (typeof searchActions)['setTipList'] = (list) => {
-  searchActions.setTipList(list)
-}
 
 export const getSearchHistory = async() => {
   if (!searchState.historyList.length) { searchActions.setHistoryWord(await getSearchHistoryFromStore()) }

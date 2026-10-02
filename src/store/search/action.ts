@@ -34,16 +34,6 @@ export default {
   setSearchText(text: string) {
     state.searchText = text
   },
-  setTipListInfo(
-    keyword: InitState['tipListInfo']['text'],
-    source: InitState['tipListInfo']['source'],
-  ) {
-    state.tipListInfo.text = keyword
-    state.tipListInfo.source = source
-  },
-  setTipList(list: InitState['tipListInfo']['list']) {
-    state.tipListInfo.list = list
-  },
   setHistoryWord(list: string[]) {
     state.historyList = list
   },

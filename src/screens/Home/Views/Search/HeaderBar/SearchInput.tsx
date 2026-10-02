@@ -6,9 +6,6 @@ import { designTypography } from '@/theme/DesignTokens'
 export interface SearchInputProps {
   onChangeText: (text: string) => void
   onSubmit: (text: string) => void
-  onBlur: () => void
-  onFocus: () => void
-  onTouchStart: () => void
 }
 
 export interface SearchInputType {
@@ -19,7 +16,7 @@ export interface SearchInputType {
 }
 
 export default forwardRef<SearchInputType, SearchInputProps>(
-  ({ onChangeText, onSubmit, onBlur, onFocus, onTouchStart }, ref) => {
+  ({ onChangeText, onSubmit }, ref) => {
     // const theme = useTheme()
     const [text, setText] = useState('')
     const inputRef = useRef<InputType>(null)
@@ -58,10 +55,7 @@ export default forwardRef<SearchInputType, SearchInputProps>(
         value={text}
         onChangeText={handleChangeText}
         style={styles.input}
-        onBlur={onBlur}
-        onFocus={onFocus}
         onSubmitEditing={handleSubmit}
-        onTouchStart={onTouchStart}
       />
     )
   },

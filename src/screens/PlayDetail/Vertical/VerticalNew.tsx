@@ -84,8 +84,16 @@ const VerticalNew = memo(({ componentId }: { componentId: string }) => {
     })
 
     const handleComponentIdsChange = (ids: CommonState['componentIds']) => {
-      if (ids.find(item => item.name === COMPONENT_IDS.comment)) screenUnkeepAwake()
-      else if (AppState.currentState === 'active') screenkeepAwake()
+      // 常亮范围必须与 onPageSelected / AppState 的 active 分支一致：**只有歌词页**
+      // 需要屏幕常亮。这里此前是无条件 screenkeepAwake()，于是停在封面页（默认页）时，
+      // 任何一次导航栈变化（压栈/返回，比如看歌手页再回来）都会把常亮打开，且此后没有
+      // 任何路径释放它 —— 封面页不需要常亮，屏幕再也不自动熄灭 = 最实在的耗电
+      // （灭屏时间才是整机耗电的大头）。判定改用同一个 showLyricRef。
+      if (ids.find(item => item.name === COMPONENT_IDS.comment) || !showLyricRef.current) {
+        screenUnkeepAwake()
+      } else if (AppState.currentState === 'active') {
+        screenkeepAwake()
+      }
     }
 
     // 进度条拖动期间禁用 PagerView 横滑，避免与“切到歌词页”的原生手势冲突

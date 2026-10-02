@@ -648,8 +648,12 @@ const backgroundInvariants = (files) => {
     reasons.push('PlayerBar 的 playerComponent useMemo 依赖漏 glassPaused（前台门变化不会重建节点）')
   }
 
-  // ③ 缓冲进度轮询：必须由 startItv 统一起表，且 !appActive 时不起表 / 退后台立刻停表
-  const buffer = files.bufferHook
+  // ③ 缓冲进度轮询：必须由 startItv 统一起表，且 !appActive 时不起表 / 退后台立刻停表。
+  //    只取 useBufferProgress 的函数体——文件里 useProgress 现在也有 startItv 与
+  //    AppState 订阅，从整文件匹配会让篡改被同名实现顶包放过。
+  const bufferAll = files.bufferHook
+  const bufferAt = bufferAll.indexOf('export function useBufferProgress')
+  const buffer = bufferAt >= 0 ? bufferAll.slice(bufferAt) : bufferAll
   if (!/AppState\.currentState\s*===\s*'active'/.test(buffer)) {
     reasons.push('useBufferProgress 未读 AppState 判定前台（后台仍会每秒轮询）')
   }
@@ -722,8 +726,8 @@ const runBackgroundCounterExamples = () => {
   // B6 缓冲轮询不再订阅前后台切换
   check('B6 缓冲轮询不订阅前后台切换', readBackground({
     bufferHook: read(BACKGROUND_FILES.bufferHook).replace(
-      "AppState.addEventListener('change'",
-      "AppState.addEventListener('changeX'"),
+      "const appStateSub = AppState.addEventListener('change'",
+      "const appStateSub = AppState.addEventListener('changeX'"),
   }), '未订阅 AppState change')
   // B7 下载进度限流被删（回退成逐数据块回调）
   check('B7 下载进度未限流', readBackground({

@@ -149,20 +149,30 @@ const getMusicPlayUrl = async(musicInfo: LX.Music.MusicInfo | LX.Download.ListIt
 // 旧实现非刷新路径直接取 playerState.progress.nowPlayTime —— 切歌时该值是旧歌的
 // 残留位置（handleStop 归零走异步 stop 事件，与 debounce 后的 URL 加载竞态），
 // 捕获到旧值就把新歌 seek 到旧位置 = 「切歌不从头上播放」（真机有概率复现）。
-let pendingRestoreSeekTime: number | null = null
+//
+// ⚠️ 必须带「是哪首歌」的身份：这个值是全局单例，而启动恢复只是**预置**了恢复位置
+// （handleRestorePlay 不真正起播），要等被恢复那首歌的 URL 加载时才消费。若用户启动后
+// 直接点另一首歌（用户实锤：听一半退出 → 重开 App → 点别的歌），那次 setMusicUrl 会把这个
+// 全局值当成自己的起点，把新歌 seek 到上一首的位置 = 「新歌从旧歌进度开始播放」。
+// 所以按 createGettingUrlId()（id + 切源 id）绑定：只有同一首歌才吃这个恢复位置，
+// 其它歌一律从 0 开始（该全局值也会在这次加载完成时被清掉，不跨歌残留）。
+let pendingRestoreSeek: { key: string, time: number } | null = null
 export const setMusicUrl = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem, isRefresh?: boolean, quality?: LX.Quality) => {
   // addLoadTimeout()
   if (!diffCurrentMusicInfo(musicInfo)) return
   if (cancelDelayRetry) cancelDelayRetry()
   global.lx.gettingUrlId = createGettingUrlId(musicInfo)
+  // 非 refresh = 新歌：只有「启动恢复的那首歌」携带显式恢复时间，其余一律从 0 开始
+  const restoreSeek = pendingRestoreSeek
+  const isRestoredMusic = !isRefresh && restoreSeek != null && restoreSeek.key === createGettingUrlId(musicInfo)
   const currentTimePromise = isRefresh
     ? getPosition().catch(() => playerState.progress.nowPlayTime)
-    // 非 refresh = 新歌：仅启动恢复携带显式恢复时间，其余一律从 0 开始
-    : Promise.resolve(pendingRestoreSeekTime ?? 0)
+    : Promise.resolve(isRestoredMusic ? restoreSeek.time : 0)
   void getMusicPlayUrl(musicInfo, isRefresh, false, quality).then(async(result) => {
     if (!result) return
     const currentTime = await currentTimePromise
-    pendingRestoreSeekTime = null // 一次性消费
+    // 一次性消费：无论这次加载的是不是被恢复的那首歌，都清掉这个全局值
+    pendingRestoreSeek = null
     currentStreamInfo.musicId = musicInfo.id
     currentStreamInfo.url = result.url
     currentStreamInfo.quality = result.quality
@@ -186,7 +196,8 @@ const handleRestorePlay = async(restorePlayInfo: LX.Player.SavedPlayInfo) => {
 
   // Avoid seeking the 2-second placeholder track during startup restore.
   const restoreTime = settingState.setting['player.isSavePlayTime'] ? restorePlayInfo.time : 0
-  pendingRestoreSeekTime = restoreTime // 交给随后的 setMusicUrl 精确 seek（一次性）
+  // 交给随后这首歌的 setMusicUrl 精确 seek（一次性、且按 id 绑定，别的歌不会被误 seek）
+  pendingRestoreSeek = restoreTime > 0 ? { key: createGettingUrlId(musicInfo), time: restoreTime } : null
   updatePlayProgress(restoreTime, restorePlayInfo.maxTime)
   global.app_event.seekLyric(restoreTime)
 

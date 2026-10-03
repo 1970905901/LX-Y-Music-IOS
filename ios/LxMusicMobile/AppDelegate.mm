@@ -5566,7 +5566,9 @@ RCT_EXPORT_MODULE();
 - (NSArray<NSString *> *)supportedEvents {
   // screen-size-changed 已移除：iOS 端从未发送该事件（窗口尺寸由 JS 侧 SizeView onLayout 同步），
   // 声明而不发送属于死事件，且避免误导后续接入
-  return @[ @"headphones-disconnected", @"remote-command", @"screen-state", @"tabBarCollapseChanged", @"player-position", @"player-seeked" ];
+  // screen-state 已删除：本工程从未有发送方（详见 sim-background-js-timers 契约），
+  // 「熄屏/回屏」统一以 JS 侧 AppState 为准。
+  return @[ @"headphones-disconnected", @"remote-command", @"tabBarCollapseChanged", @"player-position", @"player-seeked" ];
 }
 
 // Tab 栏收起状态（原生跟踪器维护，JS 经 tabBarCollapseChanged 事件与 setTabBarExpanded 命令交互）

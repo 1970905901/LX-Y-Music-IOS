@@ -307,12 +307,13 @@ export const migratePlayerCache = async() => {
   if (await existsFile(newCachePath)) return
   const oldCachePath = privateStorageDirectoryPath + '/TrackPlayer'
   if (!await existsFile(oldCachePath)) return
-  let timeout: number | null = BackgroundTimer.setTimeout(() => {
+  // 普通 setTimeout：只是「迁移耗时较久」的 UI 提示，后台不需要它（也不该为它申请后台任务断言）
+  let timeout: ReturnType<typeof setTimeout> | null = setTimeout(() => {
     timeout = null
     toast(global.i18n.t('player_cache_migrating'), 'long')
   }, 2_000)
   await moveFile(oldCachePath, newCachePath).finally(() => {
-    if (timeout) BackgroundTimer.clearTimeout(timeout)
+    if (timeout) clearTimeout(timeout)
   })
 }
 

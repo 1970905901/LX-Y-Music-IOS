@@ -126,17 +126,6 @@ export const getSystemLocales = async(): Promise<string> => {
   return UtilsModule.getSystemLocales()
 }
 
-export const onScreenStateChange = (handler: (state: 'ON' | 'OFF') => void): (() => void) => {
-  if (isIOS) return () => {}
-  const eventEmitter = new NativeEventEmitter(UtilsModule)
-  const eventListener = eventEmitter.addListener('screen-state', (event) => {
-    handler(event.state as 'ON' | 'OFF')
-  })
-
-  return () => {
-    eventListener.remove()
-  }
-}
 
 export const getWindowSize = async(): Promise<{ width: number, height: number }> => {
   // iOS 未实现 UtilsModule.getWindowSize，回退到 Dimensions（返回逻辑像素的物理像素当量）

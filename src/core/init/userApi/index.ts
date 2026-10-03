@@ -8,7 +8,6 @@ import {
 } from '@/utils/nativeModules/userApi'
 import { log, setUserApiList, setUserApiStatus } from '@/core/userApi'
 import settingState from '@/store/setting/state'
-import BackgroundTimer from 'react-native-background-timer'
 import { fetchData } from './request'
 import { getUserApiList } from '@/utils/data'
 import { confirmDialog, openUrl, tipDialog } from '@/utils/tools'
@@ -62,7 +61,8 @@ export default async(_setting: LX.AppSetting) => {
   {
     resolve: (value: ResponseParams['result']) => void
     reject: (error: Error) => void
-    timeout: number
+    // 普通 setTimeout 的句柄（Node 类型下是 Timeout；不再用 BackgroundTimer）
+    timeout: ReturnType<typeof setTimeout>
   }
   >()
   const scriptRequestMap = new Map<string, { request: Promise<any>, abort: () => void }>()
@@ -105,14 +105,16 @@ export default async(_setting: LX.AppSetting) => {
       const target = userApiRequestMap.get(data.requestKey)
       if (!target) return
       userApiRequestMap.delete(data.requestKey)
-      BackgroundTimer.clearTimeout(target.timeout)
+      clearTimeout(target.timeout)
       target.reject(new Error('request failed'))
     }
     const requestPromise = new Promise<ResponseParams['result']>((resolve, reject) => {
       userApiRequestMap.set(data.requestKey, {
         resolve,
         reject,
-        timeout: BackgroundTimer.setTimeout(() => {
+        // 普通 setTimeout：请求超时只是失败保护，不需要在 App 被挂起时唤醒；用
+        // BackgroundTimer 会为整段 20s 申请后台任务断言（阻止挂起 = 净耗电）。
+        timeout: setTimeout(() => {
           const target = userApiRequestMap.get(data.requestKey)
           if (!target) return
           userApiRequestMap.delete(data.requestKey)
@@ -130,7 +132,7 @@ export default async(_setting: LX.AppSetting) => {
     const target = userApiRequestMap.get(requestKey)
     if (!target) return
     userApiRequestMap.delete(requestKey)
-    BackgroundTimer.clearTimeout(target.timeout)
+    clearTimeout(target.timeout)
     if (status) target.resolve(result)
     else target.reject(new Error(errorMessage ?? 'failed'))
   }

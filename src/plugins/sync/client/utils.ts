@@ -1,13 +1,14 @@
 // import { generateKeyPair } from 'crypto'
 import { gzipString, unGzipString } from '@/utils/fs'
-import BackgroundTimer from 'react-native-background-timer'
 
 export const request = async(
   url: string,
   { timeout = 10000, ...options }: RequestInit & { timeout?: number } = {},
 ) => {
   const controller = new AbortController()
-  let id: number | null = BackgroundTimer.setTimeout(() => {
+  // 普通 setTimeout：这里只是请求超时后的 abort 兜底，不需要在 App 被挂起时唤醒；
+  // 用 BackgroundTimer 会为整段请求申请后台任务断言（阻止挂起 = 净耗电）。
+  let id: ReturnType<typeof setTimeout> | null = setTimeout(() => {
     id = null
     controller.abort()
   }, timeout)
@@ -28,7 +29,7 @@ export const request = async(
     })
     .finally(() => {
       if (id == null) return
-      BackgroundTimer.clearTimeout(id)
+      clearTimeout(id)
     })
 }
 

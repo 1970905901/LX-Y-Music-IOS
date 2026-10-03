@@ -9,7 +9,7 @@ import { throttleBackgroundTimer } from '@/utils/tools'
 import BackgroundTimer from 'react-native-background-timer'
 import playerState from '@/store/player/state'
 import settingState from '@/store/setting/state'
-import { onScreenStateChange, onPlayerPosition, onPlayerSeeked } from '@/utils/nativeModules/utils'
+import { onPlayerPosition, onPlayerSeeked } from '@/utils/nativeModules/utils'
 import { reanchorNowPlayingLyric } from '@/utils/nativeModules/nowPlaying'
 import { syncNowPlayingState } from '@/core/player/nowPlaying'
 import { AppState } from 'react-native'
@@ -46,7 +46,8 @@ export default () => {
   // 普通 JS 定时器句柄（ReturnType 兼顾 RN/Node 的 number 与 Timeout 两种类型）
   let updateTimeout: ReturnType<typeof setInterval> | null = null
 
-  let isScreenOn = true
+  // App 前台（可见）状态：退后台=不可见，用于停掉只在有 UI 时才需要的轮询
+  let isAppForeground = true
 
   // 进度条拖动期间暂停 1s 慢校准轮询：每次 tick 都有 getPositionStamped/getPlaybackEngineState
   // 两次原生桥往返 + setNowPlayTime → playProgressChanged 连锁的 PlayInfo 子树 React
@@ -186,7 +187,7 @@ export default () => {
     updateTimeout = null
   }
   const startUpdateTimeout = () => {
-    if (!isScreenOn) return
+    if (!isAppForeground) return
     clearUpdateTimeout()
     // 慢速校准 tick（1s）：引擎真实位置重锚（快路径由原生 4Hz 位置事件驱动）+
     // 引擎状态/缓冲检测 + seek 生效窗口确认 + scrobble/播放记录/进度持久化。
@@ -199,7 +200,7 @@ export default () => {
     // tick body 第一步就是 `AppState !== 'active' → return`（后台不做任何工作），
     // 后台真正需要的歌词/进度刷新已由原生 GCD 时钟（LXNowPlayingLyricStep）承担，
     // 不依赖 JS 定时器。普通 setInterval 在后台被系统冻结（无唤醒、无断言），
-    // 回前台后 handleScreenStateChanged/syncFromEngine 会重锚，状态无残留。
+    // 回前台后 handleAppForegroundChanged/syncFromEngine 会重锚，状态无残留。
     // 若将来让本 tick 承担后台工作，必须换回并在原生侧评估断言成本。
     updateTimeout = setInterval(() => {
       if (isProgressDragging) return
@@ -614,48 +615,50 @@ export default () => {
     }
   }
 
-  const handleScreenStateChanged: Parameters<typeof onScreenStateChange>[0] = (state) => {
-    isScreenOn = state == 'ON'
-    if (isScreenOn) {
+  const handleAppForegroundChanged = (isForeground: boolean) => {
+    isAppForeground = isForeground
+    if (isForeground) {
       if (playerState.isPlay && playerState.musicInfo.id) {
         startUpdateTimeout()
-        // 熄屏期间系统节流定时器：歌词引擎内部 ticker 的锚点已过期，行级高亮与
+        // 退后台期间系统节流定时器：歌词引擎内部 ticker 的锚点已过期，行级高亮与
         // 逐字插值都需要以引擎绝对位置重新出发（≈上游 onVisibilityChange 恢复处理）。
         // syncFromEngine 重锚时钟/原生时钟/基线；resyncLyricToEngine 以引擎时间
         // 重启行级 ticker。
         syncFromEngine(playerState.musicInfo.id)
         resyncLyricToEngine()
       }
-    } else {
-      clearUpdateTimeout()
-      // 对齐上游 beforeunload 兜底：熄屏（对应桌面端失活）瞬间把当前进度
-      // 落盘一次——熄屏期间轮询停止无新进度，此后被杀进程也能恢复到熄屏前位置
-      if (playerState.musicInfo.id && !playerState.playMusicInfo.isTempPlay) {
-        void savePlayInfo({
-          time: settingState.setting['player.isSavePlayTime'] ? playerState.progress.nowPlayTime : 0,
-          maxTime: playerState.progress.maxPlayTime,
-          listId: playerState.playMusicInfo.listId!,
-          index: playerState.playInfo.playIndex,
-        })
-      }
+      return
+    }
+    clearUpdateTimeout()
+    // 对齐上游 beforeunload 兜底：退后台（对应桌面端失活）瞬间把当前进度
+    // 落盘一次——后台期间轮询停止无新进度，此后被杀进程也能恢复到退后台前位置
+    if (playerState.musicInfo.id && !playerState.playMusicInfo.isTempPlay) {
+      void savePlayInfo({
+        time: settingState.setting['player.isSavePlayTime'] ? playerState.progress.nowPlayTime : 0,
+        maxTime: playerState.progress.maxPlayTime,
+        listId: playerState.playMusicInfo.listId!,
+        index: playerState.playInfo.playIndex,
+      })
     }
   }
 
-  // 前台门（2026-10-03 耗电盘点）：原生 `screen-state` 事件在当前工程里**没有任何发送方**
-  // （AppDelegate.mm 只在 supportedEvents 里声明过它），所以「熄屏/回屏」只能以 AppState 为准：
-  //   - 回前台 = 亮屏：恢复 1s 慢校准并重锚（syncFromEngine + resyncLyricToEngine，修复
-  //     「某些设备屏幕状态事件未触发导致进度条不更新」的原有兜底逻辑保留）；
-  //   - 退后台 = 熄屏：停掉 1s 慢校准并把进度落盘一次。带 audio 后台模式的 App 在后台仍
-  //     存活，这颗普通 setInterval 会一直每秒唤醒 JS 线程（tick body 首行就 return，
-  //     是纯唤醒开销）；后台播放所需的歌词/控制中心刷新由原生 GCD 时钟承担，不依赖它。
+  // 前台门（2026-10-03 耗电盘点）：退后台（含锁屏）→ 停掉 1s 慢校准表 + 进度落盘一次；
+  // 回前台 → 恢复慢校准并重锚（syncFromEngine + resyncLyricToEngine，修复「某些设备
+  // 屏幕状态事件未触发导致进度条不更新」的原有兜底逻辑保留）。
+  // 为什么只认 AppState：原生 `screen-state` 事件在本工程里**双保险地死着**——原生侧没有
+  // 任何发送方（AppDelegate 只在 supportedEvents 里声明过），JS 侧旧封装还写着
+  // `if (isIOS) return () => {}`；相关死代码本轮已删除，屏幕状态统一以 AppState 为准。
+  // 带 audio 后台模式的 App 在后台仍存活，这颗普通 setInterval 会一直每秒唤醒 JS 线程
+  // （tick body 首行即 return，纯唤醒开销）；后台播放所需的歌词/控制中心刷新由原生 GCD
+  // 时钟承担，不依赖它。
   // 只认 'background' 不认 'inactive'：下拉控制中心 / 来电横幅只是 inactive，瞬时且仍可能
   // 有 UI 在刷新，不在这里停表。
   AppState.addEventListener('change', (state) => {
     if (state == 'active') {
-      if (!isScreenOn) handleScreenStateChanged('ON')
+      if (!isAppForeground) handleAppForegroundChanged(true)
       return
     }
-    if (state == 'background' && isScreenOn) handleScreenStateChanged('OFF')
+    if (state == 'background' && isAppForeground) handleAppForegroundChanged(false)
   })
 
   // 原生位置事件快路径（4Hz，仅前台播放时由歌词时钟发布）：免桥接查询驱动进度 UI，
@@ -714,6 +717,6 @@ export default () => {
   // global.app_event.on('playerEmptied', handleEmpied)
   global.app_event.on('musicToggled', handleSetPlayInfo)
   global.state_event.on('configUpdated', handleConfigUpdated)
-
-  onScreenStateChange(handleScreenStateChanged)
 }
+
+

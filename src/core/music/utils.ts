@@ -10,7 +10,6 @@ import { langS2T, toNewMusicInfo, toOldMusicInfo } from '@/utils'
 import { assertApiSupport } from '@/utils/tools'
 import settingState from '@/store/setting/state'
 import { requestMsg } from '@/utils/message'
-import BackgroundTimer from 'react-native-background-timer'
 import { storageDataPrefix } from '@/config/constant'
 import { removeData } from '@/plugins/storage'
 import { apis } from '@/utils/musicSdk/api-source'
@@ -139,7 +138,9 @@ export const getOtherSource = async(
   userApiLog.info('[在线匹配源] 开始调用 findMusic 进行搜索')
 
   const promise = new Promise<LX.Music.MusicInfoOnline[]>((resolve, reject) => {
-    let timeout: null | number = BackgroundTimer.setTimeout(() => {
+    // 普通 setTimeout：这只是一道失败保护（超时 reject），不需要在 App 被挂起时唤醒；
+    // 用 BackgroundTimer 会为整段 12s 申请后台任务断言（阻止挂起 = 净耗电）。
+    let timeout: ReturnType<typeof setTimeout> | null = setTimeout(() => {
       timeout = null
       userApiLog.error('[在线匹配源] 搜索超时 (12秒)')
       userApiLog.error(`[在线匹配源] 超时详情 - 歌曲: ${originalName} - 歌手: ${originalSinger}`)
@@ -177,7 +178,7 @@ export const getOtherSource = async(
         reject(err)
       })
       .finally(() => {
-        if (timeout) BackgroundTimer.clearTimeout(timeout)
+        if (timeout) clearTimeout(timeout)
       })
   })
     .then((otherSource) => {

@@ -78,8 +78,11 @@ const invariants = (files) => {
     }
   }
   // 命令动作必须落到本 App 自己的播放器语义
-  if (!/case 'toggle':\s*\n\s*togglePlay\(\)/.test(files.remoteCommand)) {
-    reasons.push("remoteCommand.ts 的 'toggle' 未走 togglePlay()（RNTP 的 toggle 按它自己的播放态判，nativeFlac 下会判错）")
+  // toggle 的方向必须由**本 App 自己**决定，不能交给 RNTP 的 playerState：
+  // 允许两种写法 —— 直接用 togglePlay()，或先查引擎真实状态（getUnifiedPlaybackState）
+  // 再决定 play/pause（后者见 sim-remote-command-resilience：滞后一拍会导致「按两下才生效」）。
+  if (!/case 'toggle':[\s\S]{0,600}?(togglePlay\(\)|getUnifiedPlaybackState\(\))/.test(files.remoteCommand)) {
+    reasons.push("remoteCommand.ts 的 'toggle' 未落到本 App 自己的播放语义（RNTP 的 toggle 按它自己的播放态判，nativeFlac 下会判错）")
   }
   if (!/case 'next':\s*\n\s*runNavCommand\(playNext\)/.test(files.remoteCommand)) {
     reasons.push("remoteCommand.ts 的 'next' 未走 runNavCommand(playNext)（缺少在途去重）")
@@ -87,9 +90,14 @@ const invariants = (files) => {
   if (!/case 'previous':\s*\n\s*runNavCommand\(playPrev\)/.test(files.remoteCommand)) {
     reasons.push("remoteCommand.ts 的 'previous' 未走 runNavCommand(playPrev)（缺少在途去重）")
   }
-  if (!/let navCommandInFlight = false/.test(files.remoteCommand) ||
-    !/if \(navCommandInFlight\) return/.test(files.remoteCommand)) {
-    reasons.push('remoteCommand.ts 缺「切歌在途去重」实现（车机重复投递会连跳两首）')
+  // 切歌去重：两种实现都接受 —— ①旧的「在途布尔量」（复位时机依赖 Promise settle，有被
+  // 永久锁死的风险，见 sim-remote-command-resilience）；②新的时间窗（推荐）。缺了就报。
+  const hasInFlightGuard = /let navCommandInFlight = false/.test(files.remoteCommand) &&
+    /if \(navCommandInFlight\) return/.test(files.remoteCommand)
+  const hasWindowGuard = /NAV_COMMAND_DEDUP_MS/.test(files.remoteCommand) &&
+    /now - lastNavCommandAt </.test(files.remoteCommand)
+  if (!hasInFlightGuard && !hasWindowGuard) {
+    reasons.push('remoteCommand.ts 缺「切歌去重」实现（车机重复投递会连跳两首）')
   }
 
   // ③ 原生通路必须完整：AppDelegate 挂 target + 发通知；UtilsModule 转发给 JS

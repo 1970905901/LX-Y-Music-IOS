@@ -689,6 +689,13 @@ static id LXNowPlayingScreenObserver = nil;
 static id LXNowPlayingRouteObserver = nil;
 static NSString * const LXRemoteCommandNotificationName = @"LXRemoteCommand";
 static BOOL LXRemoteCommandHandlersInstalled = NO;
+// 最近一次收到遥控命令（播放/暂停/切歌/拖进度）的时间戳（CACurrentMediaTime 毫秒）。
+// 卡片重绘靠「把 playbackState 切到相反值再切回」实现，翻转期间控制中心 / 灵动岛的
+// 播放暂停按钮图标是反的；若用户正好在这段时间按下，系统会发出「另一边」的命令
+// （例如实际在播却发来 play），那一次按压就被吞掉 —— 用户实锤的「暂停/播放要按
+// 两下才生效」。因此用户刚操作过的窗口内跳过翻转，优先保证按钮语义正确。
+static double LXNowPlayingLastRemoteCommandAtMs = 0;
+static const double LXNowPlayingRepaintQuietWindowMs = 1200;
 static void LXBeginReceivingRemoteControlEvents(void);
 // 歌词行时钟：锚点刷新 / 清行（定义在文件后部歌词驱动区块，此处前置声明）
 static void LXRefreshNowPlayingLyricAnchor(void);
@@ -731,11 +738,13 @@ static void LXPostRemoteCommandNotification(NSString *command, NSDictionary *ext
 }
 
 static MPRemoteCommandHandlerStatus LXHandleRemoteCommandEvent(NSString *command) {
+  LXNowPlayingLastRemoteCommandAtMs = CACurrentMediaTime() * 1000.0;
   LXPostRemoteCommandNotification(command, nil);
   return MPRemoteCommandHandlerStatusSuccess;
 }
 
 static MPRemoteCommandHandlerStatus LXHandleRemoteChangePlaybackPositionEvent(MPChangePlaybackPositionCommandEvent *event) {
+  LXNowPlayingLastRemoteCommandAtMs = CACurrentMediaTime() * 1000.0;
   LXPostRemoteCommandNotification(@"seek", @{
     @"position": @(event.positionTime),
   });
@@ -1600,6 +1609,12 @@ static void LXForceNowPlayingCardRepaint(void) {
     hasInfo = LXNowPlayingInfoCache.count > 0;
   }
   if (!hasInfo) return;
+  // 用户刚按过播放/暂停/切歌：这段时间不翻转 playbackState，避免按钮图标在用户
+  // 手指底下变反、把这一次按压吞掉（见 LXNowPlayingLastRemoteCommandAtMs 注释）。
+  if (LXNowPlayingLastRemoteCommandAtMs > 0 &&
+      CACurrentMediaTime() * 1000.0 - LXNowPlayingLastRemoteCommandAtMs < LXNowPlayingRepaintQuietWindowMs) {
+    return;
+  }
   if (LXNowPlayingCardRepaintInFlight) {
     LXNowPlayingCardRepaintQueued = YES;
     return;

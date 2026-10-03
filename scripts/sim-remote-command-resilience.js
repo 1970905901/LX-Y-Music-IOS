@@ -68,7 +68,7 @@ const structuralReasons = (files) => {
     reasons.push('原生的播放/暂停与 seek 遥控入口没有都记录命令时刻')
   }
   if (!/CACurrentMediaTime\(\) \* 1000\.0 - LXNowPlayingLastRemoteCommandAtMs < LXNowPlayingRepaintQuietWindowMs/.test(mm)) {
-    reasons.push('原生卡片重绘没有「用户刚操作过就跳过翻转」的静默窗口')
+    reasons.push('原生卡片重绘没有「用户刚操作过就先不动翻转」的静默窗口（改为延迟补绘也要有这道门）')
   }
 
   return reasons
@@ -186,7 +186,8 @@ const cases = []
   const tampered = {
     ...REAL,
     appDelegate: REAL.appDelegate.replace(
-      / {2}if \(LXNowPlayingLastRemoteCommandAtMs > 0 &&[\s\S]*?LXNowPlayingRepaintQuietWindowMs\) \{\n {4}return;\n {2}\}\n/,
+      // 静默窗口块：窗口内不再翻转，改为延迟补绘（见 sim-nowplaying-card-refresh）
+      / {2}if \(LXNowPlayingLastRemoteCommandAtMs > 0 &&\n {6}CACurrentMediaTime\(\) \* 1000\.0 - LXNowPlayingLastRemoteCommandAtMs < LXNowPlayingRepaintQuietWindowMs\) \{\n[\s\S]{0,320}?\n {2}\}\n/,
       '',
     ),
   }

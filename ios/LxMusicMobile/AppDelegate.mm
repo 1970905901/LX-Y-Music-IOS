@@ -697,6 +697,13 @@ static BOOL LXRemoteCommandHandlersInstalled = NO;
 // 两下才生效」。因此用户刚操作过的窗口内跳过翻转，优先保证按钮语义正确。
 static double LXNowPlayingLastRemoteCommandAtMs = 0;
 static const double LXNowPlayingRepaintQuietWindowMs = 1200;
+// 遥控命令之后的「补绘」延迟与安全间隔（见 LXScheduleDeferredNowPlayingCardRepaint）：
+// 命令收到后不在当拍翻转（会把手指底下的按压吞掉），而是等 LXNowPlayingCommandSettleDelayMs
+// 再补一次卡片重绘；补绘前若又收到新命令（间隔 < LXNowPlayingCommandSafetyGapMs）则顺延。
+static const double LXNowPlayingCommandSettleDelayMs = 500.0;
+static const double LXNowPlayingCommandSafetyGapMs = 250.0;
+static void LXScheduleDeferredNowPlayingCardRepaint(void);
+static void LXPerformNowPlayingCardRepaintFlip(void);
 static void LXBeginReceivingRemoteControlEvents(void);
 // 歌词行时钟：锚点刷新 / 清行（定义在文件后部歌词驱动区块，此处前置声明）
 static void LXRefreshNowPlayingLyricAnchor(void);
@@ -754,6 +761,11 @@ static void LXActivateAudioSessionForPlayback(void) {
 
 static MPRemoteCommandHandlerStatus LXHandleRemoteCommandEvent(NSString *command) {
   LXNowPlayingLastRemoteCommandAtMs = CACurrentMediaTime() * 1000.0;
+  // 命令处理完之后补一次卡片重绘：卡片按钮的图标只认「playbackState 反转再转回」这条
+  // 刷新链路（见 LXForceNowPlayingCardRepaint 注释），不补绘的话这次状态变化只能等下一次
+  // 歌词换行才可见 —— 用户看到按钮没变、再按发的还是同一个方向（表现为「按一下没反应，
+  // 要按两下」；用户 2026-10-03 实锤：正常播放时控制中心 / 灵动岛按钮还是没修复）。
+  LXScheduleDeferredNowPlayingCardRepaint();
   if ([command isEqualToString:@"play"] || [command isEqualToString:@"toggle"]) {
     LXActivateAudioSessionForPlayback();
   }
@@ -1067,6 +1079,8 @@ static void LXSetNowPlayingPlaybackState(MPNowPlayingPlaybackState state, NSDict
 
     LXApplyNowPlayingInfo();
   }
+  // 播放态变化同样要刷新卡片按钮（详情见 LXScheduleDeferredNowPlayingCardRepaint）
+  LXScheduleDeferredNowPlayingCardRepaint();
 }
 
 static void LXClearNowPlayingInfo(void) {
@@ -1636,9 +1650,9 @@ static void LXQueueNowPlayingLyricRedraw(void) {
 //    这里改为主队列原子完成：立即切反，60ms 后切回并重发信息。
 // 2) 旧实现没有单飞保护，换行密集时会叠加多次翻转。这里 inFlight/Queued
 //    两级保护：执行中收到新请求只记一个待办，完成后再补一次（不丢换行）。
-static void LXForceNowPlayingCardRepaint(void) {
+static void LXPerformNowPlayingCardRepaintFlip(void) {
   if (![NSThread isMainThread]) {
-    dispatch_async(dispatch_get_main_queue(), ^{ LXForceNowPlayingCardRepaint(); });
+    dispatch_async(dispatch_get_main_queue(), ^{ LXPerformNowPlayingCardRepaintFlip(); });
     return;
   }
   // 部署目标 iOS 14.0，MPNowPlayingInfoCenter.playbackState 恒可用，无需 @available 守卫
@@ -1648,12 +1662,6 @@ static void LXForceNowPlayingCardRepaint(void) {
     hasInfo = LXNowPlayingInfoCache.count > 0;
   }
   if (!hasInfo) return;
-  // 用户刚按过播放/暂停/切歌：这段时间不翻转 playbackState，避免按钮图标在用户
-  // 手指底下变反、把这一次按压吞掉（见 LXNowPlayingLastRemoteCommandAtMs 注释）。
-  if (LXNowPlayingLastRemoteCommandAtMs > 0 &&
-      CACurrentMediaTime() * 1000.0 - LXNowPlayingLastRemoteCommandAtMs < LXNowPlayingRepaintQuietWindowMs) {
-    return;
-  }
   if (LXNowPlayingCardRepaintInFlight) {
     LXNowPlayingCardRepaintQueued = YES;
     return;
@@ -1674,6 +1682,55 @@ static void LXForceNowPlayingCardRepaint(void) {
       LXForceNowPlayingCardRepaint();
     }
   });
+}
+
+// 命令处理完之后的「补绘」：把因静默窗口被推迟的卡片刷新在几百毫秒内补上。
+// 为什么必须补：卡片（按钮图标 + 歌词）只认「playbackState 切反再切回」这条刷新链路；
+// 若因为「用户刚按过」而不刷，这次状态变化要等下一次歌词换行才可见 —— 按钮图标停在
+// 旧的播放态，用户再按时系统发的还是同一个方向（对已满足的方向是空操作），表现就是
+// 「按一下没反应、要按两下」（用户 2026-10-03 实锤：正常播放时控制中心/灵动岛按钮）。
+// 约束：① 只在卡片可能可见（App 非 active）时补；② 单飞 + 顺延 —— 补绘前若又有新命令
+// （间隔 < LXNowPlayingCommandSafetyGapMs）就推迟，绝不在用户连按的当拍翻转。
+static void LXScheduleDeferredNowPlayingCardRepaint(void) {
+  static BOOL scheduled = NO;
+  if (scheduled) return;
+  if ([UIApplication sharedApplication].applicationState == UIApplicationStateActive) return;
+
+  scheduled = YES;
+  double nowMs = CACurrentMediaTime() * 1000.0;
+  double sinceCommandMs = LXNowPlayingLastRemoteCommandAtMs > 0
+    ? nowMs - LXNowPlayingLastRemoteCommandAtMs
+    : LXNowPlayingCommandSettleDelayMs;
+  double waitMs = sinceCommandMs >= LXNowPlayingCommandSettleDelayMs
+    ? 0.0
+    : LXNowPlayingCommandSettleDelayMs - sinceCommandMs;
+
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(waitMs * NSEC_PER_MSEC)), dispatch_get_main_queue(), ^{
+    scheduled = NO;
+    // 等待期间又来了新命令：顺延（用户还在按，先把按键语义保住）
+    if (LXNowPlayingLastRemoteCommandAtMs > 0 &&
+        CACurrentMediaTime() * 1000.0 - LXNowPlayingLastRemoteCommandAtMs < LXNowPlayingCommandSafetyGapMs) {
+      LXScheduleDeferredNowPlayingCardRepaint();
+      return;
+    }
+    if ([UIApplication sharedApplication].applicationState == UIApplicationStateActive) return;
+    LXPerformNowPlayingCardRepaintFlip();
+  });
+}
+
+// 外部统一入口：安静窗口内不立刻翻转（会吞掉手指底下的按压），改为安排一次延迟补绘。
+static void LXForceNowPlayingCardRepaint(void) {
+  if (![NSThread isMainThread]) {
+    dispatch_async(dispatch_get_main_queue(), ^{ LXForceNowPlayingCardRepaint(); });
+    return;
+  }
+  if (LXNowPlayingLastRemoteCommandAtMs > 0 &&
+      CACurrentMediaTime() * 1000.0 - LXNowPlayingLastRemoteCommandAtMs < LXNowPlayingRepaintQuietWindowMs) {
+    // 用户刚按过：不在按压当拍翻转，改为延迟补绘（见 LXScheduleDeferredNowPlayingCardRepaint）
+    LXScheduleDeferredNowPlayingCardRepaint();
+    return;
+  }
+  LXPerformNowPlayingCardRepaintFlip();
 }
 
 static UIViewController *LXTopViewController(void) {

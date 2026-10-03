@@ -681,6 +681,16 @@ static NSMutableDictionary *LXNowPlayingInfoCache = nil;
 static NSString *LXNowPlayingArtworkPath = nil;
 static NSUInteger LXNowPlayingArtworkRequestId = 0;
 static MPNowPlayingPlaybackState LXNowPlayingState = MPNowPlayingPlaybackStateStopped;
+// —— 蓝牙（车机）字段布局 ——
+// 车机（AVRCP）大多只显示/优先显示媒体信息的 title；Android 端与本项目参考实现都是
+// 「歌词行进 title、歌名·歌手进 artist」。iOS 端此前把歌词行放 artist，于是手机控制中心 /
+// 锁屏能看到歌词，而只读 title 的车机看不到 —— 用户实锤「车载蓝牙歌词还是没有显示」
+// （2026-10-03）。处理：只在**蓝牙输出**且**确有歌词行**时做字段对调
+// （title = 当前行 / artist = 歌名·歌手）；外放 / 有线耳机 / 关闭「显示蓝牙歌词」时保持原布局。
+// LXNowPlayingSongLine 始终保存 JS 发布的原始 title（歌名 - 歌手）：字段对调的还原值，
+// 也是「换歌」判定的基准（cache 里的 title 在蓝牙模式下会是歌词行，不能用来判换歌）。
+static NSString *LXNowPlayingSongLine = nil;
+static NSString *LXNowPlayingCurrentLyricLine = nil;
 static BOOL LXIsReceivingRemoteControlEvents = NO;
 static NSString * const LXTrackPlayerLifecycleNotificationName = @"LXTrackPlayerLifecycle";
 static id LXTrackPlayerLifecycleObserver = nil;
@@ -704,6 +714,10 @@ static const double LXNowPlayingCommandSettleDelayMs = 500.0;
 static const double LXNowPlayingCommandSafetyGapMs = 250.0;
 static void LXScheduleDeferredNowPlayingCardRepaint(void);
 static void LXPerformNowPlayingCardRepaintFlip(void);
+// 当前输出路由是否蓝牙（定义在文件后部的可见性判定区块，字段布局这里要用）
+static BOOL LXHasBluetoothAudioRoute(void);
+// 蓝牙（车机）字段布局：按当前输出路由重排 title/artist（定义在 LXSetNowPlayingInfo 之前）
+static void LXApplyNowPlayingTitleArtistFields(NSMutableDictionary *info);
 static void LXBeginReceivingRemoteControlEvents(void);
 // 歌词行时钟：锚点刷新 / 清行（定义在文件后部歌词驱动区块，此处前置声明）
 static void LXRefreshNowPlayingLyricAnchor(void);
@@ -1089,6 +1103,7 @@ static void LXClearNowPlayingInfo(void) {
     LXNowPlayingArtworkRequestId += 1;
     LXNowPlayingArtworkPath = nil;
     LXNowPlayingInfoCache = nil;
+    LXNowPlayingSongLine = nil;
     LXNowPlayingState = MPNowPlayingPlaybackStateStopped;
     LXNowPlayingElapsedSnapshotAtMs = 0;
     LXClearNowPlayingLyricLines();
@@ -1193,6 +1208,14 @@ static void LXRegisterTrackPlayerLifecycleObserver(void) {
   if (LXNowPlayingRouteObserver == nil) {
     LXNowPlayingRouteObserver = [[NSNotificationCenter defaultCenter] addObserverForName:AVAudioSessionRouteChangeNotification object:nil queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification * _Nonnull note) {
       LXUpdateNowPlayingLyricTimerVisibility();
+      // 车机接入/断开会切换字段布局（蓝牙把歌词行放 title）：立即重排并重发一次，
+      // 不等下一次换行/元数据发布（否则刚连上车机时车机看到的还是旧布局）。
+      @synchronized (LXLyricLock()) {
+        if (LXNowPlayingInfoCache.count > 0) {
+          LXApplyNowPlayingTitleArtistFields(LXNowPlayingInfoCache);
+          LXApplyNowPlayingInfo();
+        }
+      }
     }];
   }
 
@@ -1211,6 +1234,21 @@ static void LXRefreshNowPlayingLyricAnchor(void);
 static void LXClearNowPlayingLyricLines(void);
 static void LXReanchorNowPlayingLyric(double elapsedMs, double snapshotAtMs, double ageMs);
 
+// 按当前输出路由把「歌名行 / 当前歌词行」写进缓存的两个展示字段（见文件前部字段布局注释）：
+//   蓝牙 + 有歌词行 → title = 当前行，artist = 歌名·歌手（车机看 title 也能看到歌词）
+//   其它情况        → title = 歌名·歌手，artist = 当前行（手机控制中心/锁屏既有布局）
+static void LXApplyNowPlayingTitleArtistFields(NSMutableDictionary *info) {
+  if (info == nil) return;
+  BOOL useBluetoothLayout = LXHasBluetoothAudioRoute() && LXNowPlayingCurrentLyricLine.length > 0;
+  if (useBluetoothLayout) {
+    info[MPMediaItemPropertyTitle] = LXNowPlayingCurrentLyricLine;
+    info[MPMediaItemPropertyArtist] = LXNowPlayingSongLine ?: @"";
+    return;
+  }
+  if (LXNowPlayingSongLine.length) info[MPMediaItemPropertyTitle] = LXNowPlayingSongLine;
+  info[MPMediaItemPropertyArtist] = LXNowPlayingCurrentLyricLine ?: @"";
+}
+
 static void LXSetNowPlayingInfo(NSDictionary *metadata) {
   @synchronized (LXLyricLock()) {
     NSMutableDictionary *info = LXNowPlayingMutableInfo();
@@ -1226,13 +1264,14 @@ static void LXSetNowPlayingInfo(NSDictionary *metadata) {
     // lyricUpdated 重新注入）。不能用"artist 为空"判定换歌——封面图等后到的
     // 元数据发布时 artist 也为空，会把已注入的时间轴误清（真机实测表现为
     // 控制中心歌词整首歌不显示，诊断模式显示"无时间轴"）。
-    NSString *previousTitle = [LXNowPlayingInfoCache[MPMediaItemPropertyTitle] isKindOfClass:[NSString class]]
-      ? LXNowPlayingInfoCache[MPMediaItemPropertyTitle]
-      : nil;
-    BOOL isNewSong = title != nil && previousTitle != nil && ![title isEqualToString:previousTitle];
+    // 基准用 LXNowPlayingSongLine（JS 原始 title）而不是 cache.title：蓝牙模式下
+    // cache.title 已被换成歌词行，拿它判定会把每次换行都当成换歌（歌词时间轴被清空）。
+    NSString *previousTitle = LXNowPlayingSongLine;
+    BOOL isNewSong = title != nil && previousTitle.length > 0 && ![title isEqualToString:previousTitle];
 
-    if (title != nil) info[MPMediaItemPropertyTitle] = title;
-    if (artist != nil) info[MPMediaItemPropertyArtist] = artist;
+    if (title != nil) LXNowPlayingSongLine = title;
+    if (artist != nil) LXNowPlayingCurrentLyricLine = artist.length > 0 ? artist : nil;
+    LXApplyNowPlayingTitleArtistFields(info);
     if (album != nil) info[MPMediaItemPropertyAlbumTitle] = album;
     if (duration != nil) info[MPMediaItemPropertyPlaybackDuration] = duration;
     double nowMs = CACurrentMediaTime() * 1000.0;
@@ -1359,6 +1398,8 @@ static void LXClearNowPlayingLyricLines(void) {
   @synchronized (LXLyricLock()) {
     LXNowPlayingLyricLines = nil;
     LXNowPlayingLyricIndex = -1;
+    // 字段布局的还原值也要清：否则旧歌/旧行会继续留在卡片与车机上
+    LXNowPlayingCurrentLyricLine = nil;
   }
 }
 
@@ -1456,7 +1497,9 @@ static void LXNowPlayingLyricStep(void) {
     // 并与快照戳成对更新为现在（歌词锚点重锚读同一缓存对，值/戳错配会推超前）
     LXNowPlayingInfoCache[MPNowPlayingInfoPropertyElapsedPlaybackTime] = @(positionMs / 1000.0);
     LXNowPlayingElapsedSnapshotAtMs = CACurrentMediaTime() * 1000.0;
-    LXNowPlayingInfoCache[MPMediaItemPropertyArtist] = text;
+    LXNowPlayingCurrentLyricLine = text;
+    // 蓝牙（车机）模式下把当前行写进 title，其它场景仍写 artist —— 见文件前部字段布局注释
+    LXApplyNowPlayingTitleArtistFields(LXNowPlayingInfoCache);
     // 热路径（每次换行）不得写 NSLog：NSLog 同步写 Apple System Log，锁屏后台期间
     // 每次换行都会唤醒 I/O，是后台耗电的可观来源之一。需要诊断时用
     // LX_LYRIC_DEBUG 分支（写卡片 artist）而非日志。

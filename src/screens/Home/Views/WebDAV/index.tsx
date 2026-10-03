@@ -34,7 +34,6 @@ import {
   scanWebDAVSongs,
   updateWebDAVMusicMeta,
 } from '@/core/webdavMusic/drive'
-import settingState from '@/store/setting/state'
 import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
 import { useBottomOverlayInset } from '@/store/common/hook'
 import PageTopInset from '@/components/common/PageTopInset'
@@ -48,6 +47,11 @@ import {
   handleWebDAVDownloadAndImport,
 } from './WebDAVListAction'
 import { readMetadata, readPic } from '@/utils/localMediaMetadata'
+import { useSettingValue } from '@/store/setting/hook'
+import { testConnection, resetClient } from '@/utils/webdav'
+import { existsFile } from '@/utils/fs'
+import InputItem from '@/screens/Home/Views/Setting/components/InputItem'
+import { updateSetting } from '@/core/common'
 
 type ActiveTab = 'config' | 'list' | 'folders'
 const ITEM_HEIGHT = scaleSizeH(LIST_ITEM_HEIGHT)
@@ -124,7 +128,8 @@ const SongItem = memo(
   }) => {
     const theme = useTheme()
     const moreButtonRef = useRef<TouchableOpacity>(null)
-    const subText = item.singer || item.meta.filePath
+    // 没有歌手时退回展示远程路径（filePath 只表示本地已下载文件，未下载时为空）
+    const subText = item.singer || item.meta.remotePath || item.meta.filePath || ''
     const sizeText = formatSize(item.meta.size)
     const timeText = formatBriefTime(item.meta.lastModifiedTime)
     const detailText = [sizeText, timeText].filter(Boolean).join(' · ')
@@ -226,10 +231,14 @@ export default memo(() => {
 
   const currentFolder = folderStack.at(-1) ?? null
 
-  const hasConfig = useMemo(() => {
-    const settings = settingState.setting
-    return !!(settings['sync.webdav.url'] && settings['sync.webdav.username'])
-  }, [])
+  // 连接配置（与「设置 → 数据同步 → WebDAV 同步」写的是同一批键，两边永远同源）。
+  // 必须是响应式的：此前用 useMemo(..., []) 只在挂载时算一次 —— 用户先在设置里填好
+  // 再回到本页，页面仍认定「未配置」，扫描/下载/目录按钮永远灰着（本页不能用的主因之一）。
+  const webdavUrl = useSettingValue('sync.webdav.url')
+  const webdavUsername = useSettingValue('sync.webdav.username')
+  const webdavPassword = useSettingValue('sync.webdav.password')
+  const hasConfig = !!(webdavUrl && webdavUsername)
+  const [isTesting, setIsTesting] = useState(false)
 
   const filteredSongs = useMemo(() => {
     let list = songs
@@ -250,6 +259,7 @@ export default memo(() => {
         item.singer,
         item.meta.fileName,
         item.meta.filePath,
+        item.meta.remotePath,
       ].some(value => (value ?? '').toLowerCase().includes(text))
     })
   }, [searchText, songs, filterPath])
@@ -313,11 +323,45 @@ export default memo(() => {
     void saveWebDAVFilterPath(path)
   }, [])
 
+  // 连接配置：与「设置 → 数据同步 → WebDAV 同步」共用 sync.webdav.* 同一批键，
+  // 写完立刻 resetClient()，让页面内的目录浏览/扫描/下载用上新凭据。
+  const handleWebdavSettingChanged = useCallback(
+    (key: 'sync.webdav.url' | 'sync.webdav.username' | 'sync.webdav.password') =>
+      (text: string, callback: (value: string) => void) => {
+        updateSetting({ [key]: text })
+        resetClient()
+        callback(text)
+      },
+    [],
+  )
+
+  const handleTestConnection = useCallback(async() => {
+    if (isTesting) return
+    setIsTesting(true)
+    toast('正在测试连接...')
+    try {
+      await testConnection()
+      toast('连接成功！')
+    } catch (error: any) {
+      toast(`连接失败：${error.message}`, 'long')
+    } finally {
+      setIsTesting(false)
+    }
+  }, [isTesting])
+
+  // 下拉刷新 = 重新读取**已下载到本地**文件的标签（联网扫描请用「扫描」按钮）。
+  // 旧实现对所有歌曲都拿 meta.filePath 去 readMetadata —— 未下载时那是远程路径，
+  // 必然读失败，却照样弹「标签加载完成」，看着像刷新了其实什么都没做。
   const handleRefresh = useCallback(() => {
+    const localSongs = songs.filter(song => !!song.meta.filePath)
+    if (!localSongs.length) {
+      toast('没有已下载到本地的歌曲；联网扫描请点「扫描」', 'long')
+      return
+    }
     setLoading(true)
-    setScanText('正在加载标签...')
+    setScanText(`正在读取 ${localSongs.length} 首本地文件的标签...`)
     void Promise.all(
-      songs.map(async(song) => {
+      localSongs.map(async(song) => {
         if (!song.meta.filePath) return song
         try {
           const fileMetadata = await readMetadata(song.meta.filePath).catch(() => null)
@@ -345,7 +389,7 @@ export default memo(() => {
     }).then((config) => {
       setSongs(config.songs ?? [])
       setScanText('')
-      toast('标签加载完成')
+      toast(`已更新 ${localSongs.length} 首本地文件的标签`)
     }).catch((err: any) => {
       const message = err.message ?? String(err)
       setScanText(message)
@@ -456,8 +500,21 @@ export default memo(() => {
   }, [])
 
   const handleEditMetadata = useCallback((info: WebDAVSelectInfo) => {
-    selectedMusicInfoRef.current = info.musicInfo
-    metadataEditTypeRef.current?.show(info.musicInfo.meta.filePath, info.musicInfo)
+    const filePath = info.musicInfo.meta.filePath
+    // 编辑标签只能改本地文件：未下载的歌曲 filePath 为空（旧数据里还可能是远程路径），
+    // 直接弹编辑器会去读写一个根本不在本地的文件。
+    if (!filePath) {
+      toast('请先下载歌曲，再编辑标签')
+      return
+    }
+    void existsFile(filePath).then((exists) => {
+      if (!exists) {
+        toast('本地文件不存在，请先下载', 'long')
+        return
+      }
+      selectedMusicInfoRef.current = info.musicInfo
+      metadataEditTypeRef.current?.show(filePath, info.musicInfo)
+    })
   }, [])
 
   const handleUpdateMetadata = useCallback(() => {
@@ -472,6 +529,11 @@ export default memo(() => {
   }, [])
 
   const handleBatchDownload = useCallback(() => {
+    if (!hasConfig) {
+      toast('请先在「配置」里填写 WebDAV 地址与账号')
+      setActiveTab('config')
+      return
+    }
     void confirmDialog({
       title: '扫描并下载',
       message: '此操作将先扫描 WebDAV 目录，然后下载所有扫描到的歌曲。下载后的歌曲将添加到下载列表中，并自动读取音乐标签。',
@@ -506,7 +568,7 @@ export default memo(() => {
           setLoading(false)
         })
     })
-  }, [selectedFolder])
+  }, [hasConfig, selectedFolder])
 
   const loadFolders = useCallback((folder: LX.WebDAV.DriveFolder | null) => {
     setFolderLoading(true)
@@ -547,7 +609,7 @@ export default memo(() => {
 
   const handleScan = useCallback(() => {
     if (!hasConfig) {
-      toast('请先在设置中配置 WebDAV')
+      toast('请先在「配置」里填写 WebDAV 地址与账号')
       setActiveTab('config')
       return
     }
@@ -708,7 +770,7 @@ export default memo(() => {
       <PageTopInset />
       <View style={{ ...styles.tabs, borderBottomColor: theme['c-border-background'] }}>
         <TabButton label="列表" tab="list" activeTab={activeTab} onPress={() => { setActiveTab('list') }} />
-        <TabButton label="文件列表" tab="folders" activeTab={activeTab} onPress={() => { setActiveTab('folders') }} />
+        <TabButton label="目录" tab="folders" activeTab={activeTab} onPress={() => { setActiveTab('folders') }} />
         <TabButton label="配置" tab="config" activeTab={activeTab} onPress={() => { setActiveTab('config') }} />
       </View>
     </>
@@ -722,22 +784,81 @@ export default memo(() => {
       contentContainerStyle={styles.content}
     >
       {renderTabsHeader()}
-      <View style={{ ...styles.panel, borderColor: theme['c-border-background'] }}>
-        <Text style={styles.label}>连接状态</Text>
-        <Text color={hasConfig ? theme['c-primary-font'] : theme['c-font-label']}>
-          {hasConfig ? '已配置' : '未配置，请在设置中配置 WebDAV'}
+      {/* 连接配置就地可改：与「设置 → 数据同步 → WebDAV 同步」共用同一批设置键
+          （sync.webdav.*），不再像旧版那样只给一句「请在设置中配置」把人赶去别的页面。
+          注：输入项本身已是卡片（InputItem 自带边框/底色），这里不再套一层 panel，避免双层边框。 */}
+      <View style={styles.section}>
+        <Text style={styles.label}>连接</Text>
+        <Text size={12} color={theme['c-font-label']} style={styles.sectionTip}>
+          与「设置 → 数据同步 → WebDAV 同步」是同一份配置，两边改哪边都生效。
         </Text>
       </View>
+      <InputItem
+        label="服务器地址"
+        value={webdavUrl}
+        onChanged={handleWebdavSettingChanged('sync.webdav.url')}
+        placeholder="https://example.com/webdav"
+        autoCapitalize="none"
+        autoCorrect={false}
+      />
+      <InputItem
+        label="用户名"
+        value={webdavUsername}
+        onChanged={handleWebdavSettingChanged('sync.webdav.username')}
+        placeholder="请输入用户名"
+        autoCapitalize="none"
+        autoCorrect={false}
+      />
+      <InputItem
+        label="密码"
+        value={webdavPassword}
+        onChanged={handleWebdavSettingChanged('sync.webdav.password')}
+        placeholder="请输入密码"
+        secureTextEntry
+      />
+      <View style={styles.buttonRow}>
+        <Button
+          style={{ ...styles.button, backgroundColor: theme['c-button-background'] }}
+          disabled={!hasConfig || isTesting}
+          onPress={handleTestConnection}
+        >
+          <Text color={theme['c-button-font']}>{isTesting ? '测试中...' : '测试连接'}</Text>
+        </Button>
+      </View>
+      <Text color={hasConfig ? theme['c-primary-font'] : theme['c-font-label']} style={styles.meta}>
+        {hasConfig ? '已配置：可直接浏览目录、扫描歌曲' : '未配置：填好服务器地址与用户名后即可使用'}
+      </Text>
 
       <WebDAVDownloadPath />
 
       <View style={{ ...styles.panel, borderColor: theme['c-border-background'] }}>
-        <Text style={styles.label}>目录</Text>
+        <Text style={styles.label}>扫描范围</Text>
+        <Text color={theme['c-font-label']} style={styles.meta}>
+          {getFolderName(selectedFolder)}
+        </Text>
+        <Text size={12} color={theme['c-font-label']} style={styles.meta}>
+          到「目录」页浏览服务器目录并选择；不选则扫描整个根目录。
+        </Text>
+      </View>
+    </ScrollView>
+  )
+
+  const renderFolders = () => (
+    <ScrollView
+      keyboardShouldPersistTaps="handled"
+      style={styles.scroll}
+      contentContainerStyle={styles.content}
+    >
+      {renderTabsHeader()}
+      {/* 服务器目录：浏览并选择「扫描范围」。旧版把这块藏在「配置」页里，
+          与这里「已扫描歌曲的目录」分属两页、两个名字，是用户说的「割裂」来源之一。 */}
+      <View style={{ ...styles.panel, borderColor: theme['c-border-background'] }}>
+        <Text style={styles.label}>服务器目录</Text>
         <Text color={theme['c-font-label']} style={styles.meta}>
           当前：{getFolderName(currentFolder)}
         </Text>
         <Text color={theme['c-font-label']} style={styles.meta}>
-          已选择：{getFolderName(selectedFolder)}
+          扫描范围：{getFolderName(selectedFolder)}
         </Text>
         <View style={styles.buttonRow}>
           <Button
@@ -775,61 +896,57 @@ export default memo(() => {
           ))
         ) : (
           <Text style={styles.tip} color={theme['c-font-label']}>
-            {hasConfig ? '当前目录没有子目录。' : '请先在设置中配置 WebDAV。'}
+            {hasConfig ? '当前目录没有子目录。' : '请先在「配置」里填写服务器地址与用户名。'}
           </Text>
         )}
       </View>
-    </ScrollView>
-  )
 
-  const renderFolders = () => (
-    <ScrollView
-      style={styles.scroll}
-      contentContainerStyle={styles.content}
-    >
-      {renderTabsHeader()}
-      <TouchableOpacity
-        style={{ ...styles.folderItem, borderBottomColor: theme['c-border-background'] }}
-        onPress={() => {
-          handleSetFilterPath(null)
-          setActiveTab('list')
-        }}
-      >
-        <View style={styles.folderItemInfo}>
-          <SvgIcon name="music-list" size={18} color={theme['c-primary-font']} style={{ marginRight: 10 }} />
-          <View style={{ flex: 1 }}>
-            <Text>全部歌曲</Text>
-          </View>
-          <Text size={12} color={theme['c-font-label']}>{songs.length} 首</Text>
-        </View>
-      </TouchableOpacity>
-      {songFolders.length ? (
-        songFolders.map(folder => (
-          <TouchableOpacity
-            key={folder.path}
-            style={{ ...styles.folderItem, borderBottomColor: theme['c-border-background'] }}
-            onPress={() => {
-              handleSetFilterPath(folder.path)
-              setActiveTab('list')
-            }}
-          >
-            <View style={styles.folderItemInfo}>
-              <SvgIcon name="folder" size={18} color={theme['c-primary-font']} style={{ marginRight: 10 }} />
-              <View style={{ flex: 1 }}>
-                <Text numberOfLines={1}>{folder.name}</Text>
-                <Text size={11} color={theme['c-font-label']} numberOfLines={1}>
-                  {folder.path}
-                </Text>
-              </View>
-              <Text size={12} color={theme['c-font-label']}>{folder.count} 首</Text>
+      {/* 已扫描歌曲按目录分组：点一行就把歌曲列表筛到该目录 */}
+      <View style={{ ...styles.panel, borderColor: theme['c-border-background'] }}>
+        <Text style={styles.label}>已扫描歌曲的目录</Text>
+        <TouchableOpacity
+          style={{ ...styles.folderItem, borderBottomColor: theme['c-border-background'] }}
+          onPress={() => {
+            handleSetFilterPath(null)
+            setActiveTab('list')
+          }}
+        >
+          <View style={styles.folderItemInfo}>
+            <SvgIcon name="music-list" size={18} color={theme['c-primary-font']} style={{ marginRight: 10 }} />
+            <View style={{ flex: 1 }}>
+              <Text>全部歌曲</Text>
             </View>
-          </TouchableOpacity>
-        ))
-      ) : (
-        <View style={styles.empty}>
-          <Text color={theme['c-font-label']}>还没有扫描到包含音乐的文件夹</Text>
-        </View>
-      )}
+            <Text size={12} color={theme['c-font-label']}>{songs.length} 首</Text>
+          </View>
+        </TouchableOpacity>
+        {songFolders.length ? (
+          songFolders.map(folder => (
+            <TouchableOpacity
+              key={folder.path}
+              style={{ ...styles.folderItem, borderBottomColor: theme['c-border-background'] }}
+              onPress={() => {
+                handleSetFilterPath(folder.path)
+                setActiveTab('list')
+              }}
+            >
+              <View style={styles.folderItemInfo}>
+                <SvgIcon name="folder" size={18} color={theme['c-primary-font']} style={{ marginRight: 10 }} />
+                <View style={{ flex: 1 }}>
+                  <Text numberOfLines={1}>{folder.name}</Text>
+                  <Text size={11} color={theme['c-font-label']} numberOfLines={1}>
+                    {folder.path}
+                  </Text>
+                </View>
+                <Text size={12} color={theme['c-font-label']}>{folder.count} 首</Text>
+              </View>
+            </TouchableOpacity>
+          ))
+        ) : (
+          <View style={styles.empty}>
+            <Text color={theme['c-font-label']}>还没有扫描到包含音乐的文件夹</Text>
+          </View>
+        )}
+      </View>
     </ScrollView>
   )
 
@@ -874,7 +991,7 @@ export default memo(() => {
                 ) : null}
               </View>
               <Text size={11} color={theme['c-font-label']} numberOfLines={1}>
-                {scanText || headerText}
+                {!hasConfig ? '未配置 WebDAV：请到「配置」页填写服务器地址与用户名' : (scanText || headerText)}
               </Text>
             </View>
           )}
@@ -889,14 +1006,14 @@ export default memo(() => {
               ) : null}
               <Button
                 style={{ ...styles.scanButton, backgroundColor: theme['c-button-background'] }}
-                disabled={!hasConfig || loading || !!batchLoadingText}
+                disabled={loading || !!batchLoadingText}
                 onPress={handleScan}
               >
                 <Text color={theme['c-button-font']}>扫描</Text>
               </Button>
               <Button
                 style={{ ...styles.scanButton, backgroundColor: theme['c-primary-background-hover'], marginLeft: 8 }}
-                disabled={!hasConfig || loading || !!batchLoadingText}
+                disabled={loading || !!batchLoadingText}
                 onPress={handleBatchDownload}
               >
                 <Text color={theme['c-primary-font']}>扫描并下载</Text>
@@ -928,7 +1045,13 @@ export default memo(() => {
         }}
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text color={theme['c-font-label']}>{searchText.trim() ? '没有匹配的歌曲' : '还没有扫描到歌曲'}</Text>
+            <Text color={theme['c-font-label']}>
+              {!hasConfig
+                ? '未配置 WebDAV：请到「配置」页填写服务器地址与用户名'
+                : searchText.trim()
+                  ? '没有匹配的歌曲'
+                  : '还没有扫描到歌曲，点右上角「扫描」'}
+            </Text>
           </View>
         }
         refreshControl={
@@ -996,6 +1119,14 @@ const styles = createStyle({
   },
   label: {
     marginBottom: 6,
+  },
+  // 说明型小节（不套 panel）：InputItem 自带卡片边框，外层再画框会成双层容器
+  section: {
+    marginBottom: designSpacing.xs,
+  },
+  sectionTip: {
+    marginTop: 2,
+    marginBottom: designSpacing.sm,
   },
   meta: {
     marginTop: 5,

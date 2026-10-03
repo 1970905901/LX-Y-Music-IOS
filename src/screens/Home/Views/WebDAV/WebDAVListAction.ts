@@ -266,7 +266,10 @@ export const handleWebDAVDownloadAndImport = async(
 
 const getDefaultDownloadDir = () => {
   const settings = settingState.setting
-  const webdavPath = settings['sync.webdav.downloadPath']
+  // 键名必须是 'webdav.downloadPath'（默认设置 / 「WebDAV 下载路径」选择器 /
+  // core/music/local.ts 用的都是它）。此前这里写成 'sync.webdav.downloadPath'，
+  // 该键并不存在 → 用户在配置页选的下载目录被完全忽略，下载永远落到私有目录。
+  const webdavPath = settings['webdav.downloadPath']
   if (webdavPath && typeof webdavPath === 'string' && webdavPath.trim()) {
     return webdavPath.trim()
   }

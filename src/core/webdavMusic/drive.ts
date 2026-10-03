@@ -132,7 +132,11 @@ const toMusicInfo = (item: FileStat, path: string): LX.WebDAV.MusicInfo => {
     meta: {
       webdav: true,
       fileName: item.basename,
-      filePath: path,
+      // 注意：meta.filePath 只表示**本地已下载文件**（播放链路 existsFile / 读标签 /
+      // 编辑标签都按本地文件用它）。远程路径必须只放 remotePath ——
+      // 旧实现把扫描到的远程路径写进 filePath，导致「未下载」被当成「已下载」，
+      // 读/编辑标签去读一个根本不在本地的路径，下拉刷新永远假成功。
+      filePath: '',
       remotePath: path,
       ext,
       size: item.size,
@@ -144,9 +148,15 @@ const toMusicInfo = (item: FileStat, path: string): LX.WebDAV.MusicInfo => {
 }
 
 export const normalizeWebDAVMusicInfo = (musicInfo: LX.WebDAV.MusicInfo) => {
-  const title = parseFileName(musicInfo.meta.fileName || musicInfo.name)
-  musicInfo.name = title.name
-  musicInfo.singer = title.singer
+  const remotePath = musicInfo.meta.remotePath
+  // 旧数据迁移：早期扫描把远程路径写进了 filePath（见 toMusicInfo 的注释），
+  // 这里清掉，让「本地已下载」的判定恢复正确。
+  if (remotePath && musicInfo.meta.filePath === remotePath) musicInfo.meta.filePath = ''
+  // 只在名称/歌手缺失时用文件名兜底：已有值可能来自「下载后读标签」或「编辑标签」，
+  // 旧实现每次读取配置都拿文件名重解析，会把读到的标签重新洗掉。
+  const title = parseFileName(musicInfo.meta.fileName || musicInfo.name || '')
+  if (!musicInfo.name) musicInfo.name = title.name
+  if (!musicInfo.singer) musicInfo.singer = title.singer
   return musicInfo
 }
 
@@ -309,6 +319,10 @@ export const getWebDAVDownloadUrl = (musicInfo: LX.WebDAV.MusicInfo) => {
 export interface WebDAVMusicMetaUpdate {
   picUrl?: string
   filePath?: string | null
+  /** 标题/艺术家/专辑：下载后读标签、在线封面匹配、编辑标签都会回写 */
+  name?: string
+  singer?: string
+  albumName?: string
 }
 
 export const updateWebDAVMusicMeta = async(musicId: string, update: WebDAVMusicMetaUpdate): Promise<void> => {
@@ -322,6 +336,10 @@ export const updateWebDAVMusicMeta = async(musicId: string, update: WebDAVMusicM
   if (update.picUrl !== undefined) {
     song.meta.picUrl = update.picUrl
   }
+  // 标签类字段（此前被静默丢弃，导致「读取标签」只留下封面、名称/歌手/专辑不落库）
+  if (update.name) song.name = update.name
+  if (update.singer) song.singer = update.singer
+  if (update.albumName !== undefined) song.meta.albumName = update.albumName
   // filePath 允许显式清空（传 null 或 ''）：文件被本地删除后需要清掉旧路径，
   // 否则播放链路会一直误判"已下载"而尝试读取不存在的文件。
   if (update.filePath !== undefined) {

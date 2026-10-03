@@ -7,6 +7,7 @@ import { fixNewMusicInfoQuality } from '@/utils'
 import { saveListPrevSelectId } from '@/utils/data'
 import { playList } from '@/core/player/player'
 import { clearPlayedList } from '@/core/player/playedList'
+import { setMusicList } from '@/utils/listManage'
 
 /**
  * Play a temporary online song list
@@ -259,6 +260,22 @@ export const setUserList = (lists: LX.List.UserListInfo[]) => {
 export const setTempList = async(id: string, list: LX.Music.MusicInfoOnline[]) => {
   await overwriteListMusics(LIST_IDS.TEMP, list)
   listAction.setTempListMeta({ id })
+}
+
+// 覆盖临时列表并**立即播放**其中某一首（不等列表落盘）。
+//
+// 为什么播放路径不能用 `await setTempList(...)` 再 `playList(...)`：
+// setTempList 的 Promise 要等整张列表**落盘**（2000 首 ≈ 1~2MB JSON + 分片写 AsyncStorage，
+// iOS 上几百 ms 起步）才 resolve，await 期间歌曲根本没开始加载 —— 用户看到的是
+// 「点了歌大概率没反应」，歌单越大越明显。
+// 这里把「内存生效」与「落盘完成」解耦：setMusicList 是同步的，写进内存后立刻 playList；
+// 落盘与 myListMusicUpdate 事件（watchList 靠它重锚播放下标）在后台继续跑，
+// 最终状态与 await setTempList 完全一致，只是不再阻塞播放。
+export const playTempList = (id: string, list: LX.Music.MusicInfoOnline[], index: number) => {
+  setMusicList(LIST_IDS.TEMP, list)
+  listAction.setTempListMeta({ id })
+  void overwriteListMusics(LIST_IDS.TEMP, list)
+  void playList(LIST_IDS.TEMP, index)
 }
 
 export const setFetchingListStatus = (id: string, status: boolean) => {

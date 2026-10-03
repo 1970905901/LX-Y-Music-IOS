@@ -24,7 +24,9 @@ export interface ListProps {
   onSelectAll: (isAll: boolean) => void
   onRefresh: () => void
   onLoadMore: () => void
-  onPlayList?: (index: number) => void
+  // 第二个参数把「被点击的那一行」也给出去：搜索过滤后显示下标 ≠ 全量下标，
+  // 调用方需要用它回推真实位置（否则会播错歌 / 取不到歌）。
+  onPlayList?: (index: number, item: LX.Music.MusicInfoOnline) => void
   progressViewOffset?: number
   ListHeaderComponent?: FlatListType['ListEmptyComponent']
   ListFooterComponent?: FlatListType['ListFooterComponent']
@@ -232,7 +234,7 @@ const List = forwardRef<ListType, ListProps>(
       if (isMultiSelectModeRef.current) {
         handleSelect(item, index)
       } else if ((forcePlayList || settingState.setting['list.isClickPlayList']) && onPlayList != null) {
-        onPlayList(index)
+        onPlayList(index, item)
       } else {
         // 用行数据本身（item）而不是 currentList[index]：列表在点击瞬间发生变化时，
         // 下标可能越界取到 undefined，导致播放链路静默返回（表现为点了没反应）。

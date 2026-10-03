@@ -584,7 +584,10 @@ export default {
   },
 
   async getUserListDetailByPcChain(chain) {
-    let key = `${chain}_pc_list`
+    // 键名必须是 `${chain}_pc_list`：旧实现下面把歌曲列表写进 `chain` 键，会**覆盖**
+    // getListInfoByChain 的歌单信息缓存（同一会话第二次进该歌单时 specialname/imgurl 取到数组
+    // 上的 undefined → 页头歌单名/封面变空），而 `_pc_list` 缓存因从未写入而永远 miss（每次都重抓）。
+    const key = `${chain}_pc_list`
     if (this.cache.has(key)) return this.cache.get(key)
     const { body } = await httpFetch(`http://www.kugou.com/share/${chain}.html`, {
       headers: {
@@ -594,9 +597,27 @@ export default {
     }).promise
     let result = body.match(/var\sdataFromSmarty\s=\s(\[.+?\])/)
     if (result) result = JSON.parse(result[1])
-    this.cache.set(chain, result)
+    // 必须先映射成 app 内部结构再缓存：缓存里存原始 kg 字段的话，命中时调用方
+    // （doGetListDetailLimit → toNewMusicInfo）会因为缺 songmid/source 把整单过滤成空。
     result = await this.getMusicInfos(result)
+    this.cache.set(key, result)
     return result
+  },
+
+  /**
+   * 清掉某张链式（chain）歌单的会话缓存。
+   *
+   * core/songlist.ts 的 clearListDetailCache('kg', id) 会调它：下拉刷新 / 更新同步时若这里
+   * 是空实现，SDK 会把会话缓存里的旧数据原样返回 —— 用户看到「刷新了但歌曲没变化」。
+   * id 可能是分享链接（含 chain=xxx），也可能是 collection_/数字 id（那些路径不走 cache）。
+   */
+  evictDetailCache(id) {
+    const text = String(id ?? '')
+    if (!text) return
+    const matched = /^.*?chain=(\w+)/.exec(text)
+    const chain = matched ? matched[1] : text
+    this.cache.delete(chain)
+    this.cache.delete(`${chain}_pc_list`)
   },
 
   async getUserListDetail4(songInfo, chain, page) {

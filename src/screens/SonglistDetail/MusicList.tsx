@@ -141,6 +141,11 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, isCreat
           lastSaveAt = Date.now()
           void saveCache(songs, done)
         }
+        // store 必须与界面同源：handlePlayList 用「store 的列表 + 界面下标」点歌，
+        // 后台逐页补全时若只刷新界面不更新 store，界面有 800 首而 store 还停在 100 首，
+        // 点第 300 行 → getList()[299] 是 undefined → 静默不播（用户：点了没反应）。
+        songlistState.listDetailInfo.list = songs
+        songlistState.listDetailInfo.total = lastTotal || songs.length
         if (isUnmountedRef.current) return
         fullListRef.current = songs
         const filtered = searchText.trim() ? filterList(songs, searchText, isFuzzySearch) : songs
@@ -150,6 +155,7 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, isCreat
       await saveCache(list, finished)
       if (isUnmountedRef.current) return
       songlistState.listDetailInfo.list = list
+      songlistState.listDetailInfo.total = lastTotal || list.length
       fullListRef.current = list
       const filtered = searchText.trim() ? filterList(list, searchText, isFuzzySearch) : list
       listRef.current?.setList(filtered)
@@ -353,9 +359,15 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, isCreat
     }
   }, [])
 
-  const handlePlayList: OnlineListProps['onPlayList'] = (index) => {
+  // 点歌：列表用「界面当前那份」（fullListRef），下标用被点中的那首歌回推。
+  // 显示下标在两种情况下都不等于全量下标：① 搜索过滤后显示的是子集；
+  // ② 后台补全/store 落后期间界面比 store 长。直接用显示下标会播错歌或取到
+  // undefined（点了没反应）。回推后 handlePlay 拿到的列表与下标必定自洽。
+  const handlePlayList: OnlineListProps['onPlayList'] = (index, item) => {
     const listDetailInfo = songlistState.listDetailInfo
-    void handlePlay(listDetailInfo.id, listDetailInfo.source, listDetailInfo.list, index)
+    const list = fullListRef.current.length ? fullListRef.current : listDetailInfo.list
+    const targetIndex = item ? list.findIndex(m => m.id === item.id) : index
+    void handlePlay(listDetailInfo.id, listDetailInfo.source, list, targetIndex < 0 ? index : targetIndex)
   }
 
   const handleRefresh: OnlineListProps['onRefresh'] = () => {
@@ -379,6 +391,9 @@ export default forwardRef<MusicListType, MusicListProps>(({ componentId, isCreat
         const existingIds = new Set(fullListRef.current.map(m => m.id))
         const newSongs = result.list.filter(m => !existingIds.has(m.id))
         fullListRef.current = [...fullListRef.current, ...newSongs]
+        // 分页手动加载同样保持「store = 界面」：setListDetail 是按本地页拼接的，
+        // 若与界面上已有数据重复拼接，store 会比界面更脏，点歌下标又会错位。
+        songlistState.listDetailInfo.list = fullListRef.current
         // 同步更新列表显示
         const filtered = searchText.trim() ? filterList(fullListRef.current, searchText) : fullListRef.current
         listRef.current?.setList(filtered)

@@ -297,10 +297,18 @@ export const getListDetailAll = async(
 
   const allSongs = [...result.list]
   const seenIds = new Set(allSongs.map(m => m.id))
-  let maxPage = Math.max(2, Math.ceil(result.total / result.limit))
+  // 目标总数（平台自报）：拿不到（0/undefined）时退化成「翻到没有新歌为止」
+  const expectedTotal = result.total > 0 ? result.total : 0
   onProgress?.(deduplicationList(allSongs), result.total, false)
 
-  for (let page = 2; page <= maxPage; page++) {
+  // 终止条件必须看【累计到的歌曲数】，不能用「总页数 = ceil(total / limit)」预计算：
+  // 平台单页实际返回量可能与请求量不一致（QQ 的 CgiGetDiss 就会少给），预计算会在
+  // 没拉满时就停下 —— 真机实锤：「我喜欢」2000 首，缓存里只有几百首（平台设置页数字对不上）。
+  // MAX_DETAIL_PAGES 只做兜底，防止平台 total 虚高时无限翻页。
+  const MAX_DETAIL_PAGES = 200
+  for (let page = 2; ; page++) {
+    if (expectedTotal > 0 && allSongs.length >= expectedTotal) break
+    if (page > MAX_DETAIL_PAGES) break
     // 省电：App 退到后台就停止继续翻页。后台里持续「串行请求 + 落盘」是明显耗电源；
     // 已拉到的部分由调用方写入缓存，下次进入（或回到前台再进）继续补全。
     if (AppState.currentState !== 'active') break
@@ -314,9 +322,11 @@ export const getListDetailAll = async(
         addedCount++
       }
     }
-    onProgress?.(deduplicationList(allSongs), result.total, false)
-    // 某页没有新增歌曲说明分页已失效或返回重复，停止加载避免死循环/只显示 30 首。
+    onProgress?.(deduplicationList(allSongs), result.total || allSongs.length, false)
+    // 某页没有新增歌曲说明分页已失效或返回重复，停止加载避免死循环。
     if (addedCount === 0) break
+    // 平台没给 total 时，以「本页拿到的数量少于请求量」作为翻页结束信号
+    if (expectedTotal === 0 && pageResult.list.length < (pageResult.limit || result.limit)) break
   }
 
   const finalList = deduplicationList(allSongs)

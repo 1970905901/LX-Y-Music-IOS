@@ -150,8 +150,10 @@ export default {
       const types = []
       const _types = {}
       let size
+      // privileges 与 tracks 长度不一定对齐（接口偶发少给）：privileges[index] 可能是
+      // undefined，旧写法 `privilege.id` 会抛 TypeError → 整页歌单详情被判「加载失败」。
       let privilege = privileges[index]
-      if (privilege.id !== item.id) privilege = privileges.find((p) => p.id === item.id)
+      if (!privilege || privilege.id !== item.id) privilege = privileges.find((p) => p.id === item.id)
       if (!privilege) return
 
       if (privilege.maxBrLevel == 'hires') {

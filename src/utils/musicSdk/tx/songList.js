@@ -6,6 +6,16 @@ import { log } from '@/utils/log'
 import settingState from '@/store/setting/state'
 import musicSearchApi from './musicSearch'
 
+// 歌单基础信息（名称 / 封面 / 简介 / 作者 / 播放量 / 总曲目数）内存缓存。
+//
+// 旧详情接口 fcg_ucc_getcdinfo_byids_cp **忽略分页参数**，一次就返回整张歌单
+// （2026-10 实测：1270 首的歌单单次响应约 1.9MB、约 0.5s；加 num / song_begin / onlysong 都一样）。
+// 旧实现每翻一页都请求它一次 —— 2000 首的歌单 = 约 20 次 x 2MB，JSON 解析与网络把 JS
+// 线程占满，进歌单卡顿、点击与返回都迟钝（用户实锤）。歌单信息在一次全量翻页里不会变，
+// 这里按歌单 id 缓存一次（TTL 10 分钟），后续分页只走 musicu.fcg 的 100 首/页。
+const LIST_META_TTL = 10 * 60 * 1000
+const listMetaCache = new Map()
+
 export default {
   _requestObj_tags: null,
   _requestObj_hotTags: null,
@@ -206,6 +216,65 @@ export default {
     }
     return id
   },
+  /**
+   * 歌单基础信息 + 平台侧总曲目数（带缓存，详见文件顶部 listMetaCache 注释）。
+   * 命中缓存时**不发任何请求**；失败 / 空结果不写缓存，避免把坏数据固化 10 分钟。
+   */
+  async getListMeta(id, data) {
+    const cacheKey = String(id)
+    const cached = listMetaCache.get(cacheKey)
+    if (cached && Date.now() - cached.at < LIST_META_TTL) {
+      log.info('[TX SongList] 歌单信息命中缓存，跳过旧接口', { id: cacheKey })
+      return cached.meta
+    }
+
+    const meta = {
+      name: '',
+      img: '',
+      desc: '',
+      author: '',
+      play_count: '',
+      total: 0,
+    }
+
+    try {
+      const oldUrl = this.getListDetailUrl(id)
+      log.info('[TX SongList] 请求歌单信息接口（整单响应，仅每张歌单一次）', { oldUrl })
+      const referer = 'https://y.qq.com/n/yqq/playsquare/' + id + '.html'
+      const { body: oldBody, statusCode } = await httpFetch(oldUrl, {
+        headers: { Origin: 'https://y.qq.com', Referer: referer },
+      }).promise
+      log.info('[TX SongList] 歌单信息接口响应', { statusCode, bodyCode: oldBody?.code, cdlistLength: oldBody?.cdlist?.length })
+
+      const cdlist = oldBody?.cdlist?.[0]
+      if (cdlist) {
+        meta.name = cdlist.dissname || ''
+        meta.img = cdlist.logo || ''
+        meta.desc = cdlist.desc ? decodeName(cdlist.desc).replace(/<br>/g, '\n') : ''
+        meta.author = cdlist.nickname || ''
+        meta.total = cdlist.songnum || 0
+        meta.play_count = cdlist.visitnum ? formatPlayCount(cdlist.visitnum) : ''
+      } else {
+        log.warn('[TX SongList] 歌单信息接口未返回 cdlist[0]，降级使用新接口 dissinfo')
+      }
+    } catch (e) {
+      log.error('[TX SongList] 歌单信息接口请求异常', { error: e.message })
+    }
+
+    // 新接口（带 cookie 时）可能自带 dissinfo，作为缺字段的兜底
+    const dissinfo = data?.dissinfo
+    if (dissinfo) {
+      meta.name = meta.name || dissinfo.dissname || ''
+      meta.img = meta.img || dissinfo.logo || ''
+      meta.desc = meta.desc || (dissinfo.desc ? decodeName(dissinfo.desc).replace(/<br>/g, '\n') : '')
+      meta.author = meta.author || dissinfo.nickname || ''
+      meta.total = meta.total || dissinfo.songnum || 0
+      if (!meta.play_count && dissinfo.visitnum) meta.play_count = formatPlayCount(dissinfo.visitnum)
+    }
+
+    if (meta.name || meta.img || meta.total) listMetaCache.set(cacheKey, { at: Date.now(), meta })
+    return meta
+  },
   async getListDetailNew(id, page = 1, tryNum = 0) {
     log.info('[TX SongList] getListDetailNew 开始', { id, page, tryNum })
 
@@ -216,7 +285,11 @@ export default {
 
     id = await this.getListId(id)
 
-    const pageSize = 30
+    // 单页请求量：旧值 30 —— 两千首的歌单要 67 次串行请求（每次还带一轮音质批量查询），
+    // 进歌单要等十几秒、列表被反复重渲染（用户实锤：「我喜欢」两千首卡顿）。
+    // 这套 CgiGetDiss 接口与 user.getFavSongs 同族，song_num=100 稳定可用
+    // （dataInit 里的喜欢歌曲全量拉取就是用 100/页），请求数降到约 1/3。
+    const pageSize = 100
     const songBegin = (page - 1) * pageSize
     const payload = {
       comm: { ct: 24, cv: 1800 },
@@ -296,56 +369,13 @@ export default {
       dissinfo: data.dissinfo,
     })
 
-    let dissname = ''
-    let logo = ''
-    let desc = ''
-    let nickname = ''
-    let visitnum = 0
+    // 歌单信息（名称 / 封面 / 简介 / 作者 / 播放量）整单只请求一次，命中缓存则完全跳过旧接口。
+    // 旧实现每翻一页都打一次整单接口（约 2MB），2000 首的歌单光这一项就白跑约 20 次。
+    const meta = await this.getListMeta(id, data)
 
-    try {
-      log.info('[TX SongList] getListDetailNew 开始请求旧接口', { oldUrl: this.getListDetailUrl(id) })
-      const oldUrl = this.getListDetailUrl(id)
-      const { body: oldBody, statusCode } = await httpFetch(oldUrl, {
-        headers: { Origin: 'https://y.qq.com', Referer: `https://y.qq.com/n/yqq/playsquare/${id}.html` },
-      }).promise
-      log.info('[TX SongList] 旧接口响应', { statusCode, bodyCode: oldBody?.code, cdlistLength: oldBody?.cdlist?.length })
-      log.info('[TX SongList] 旧接口完整返回', { oldBodyKeys: oldBody ? Object.keys(oldBody) : [], oldBody })
+    log.info('[TX SongList] getListDetailNew 最终返回歌单信息', { dissname: meta.name, logo: meta.img, playCount: meta.play_count, descLen: meta.desc?.length, nickname: meta.author })
 
-      if (oldBody?.cdlist?.[0]) {
-        const cdlist = oldBody.cdlist[0]
-        log.info('[TX SongList] 旧接口 cdlist[0] 完整数据', {
-          cdlistKeys: Object.keys(cdlist),
-          cdlist,
-        })
-        dissname = cdlist.dissname || ''
-        logo = cdlist.logo || ''
-        desc = cdlist.desc ? decodeName(cdlist.desc).replace(/<br>/g, '\n') : ''
-        nickname = cdlist.nickname || ''
-        visitnum = cdlist.visitnum || 0
-        log.info('[TX SongList] 旧接口获取到歌单信息', { dissname, logo, visitnum, desc: desc?.substring(0, 50), nickname })
-      } else {
-        log.warn('[TX SongList] 旧接口未返回 cdlist[0]，降级使用新接口')
-        dissname = data.dissinfo?.dissname || ''
-        logo = data.dissinfo?.logo || ''
-        desc = data.dissinfo?.desc ? decodeName(data.dissinfo.desc).replace(/<br>/g, '\n') : ''
-        nickname = data.dissinfo?.nickname || ''
-        visitnum = data.dissinfo?.visitnum || 0
-        log.info('[TX SongList] 新接口 dissinfo 降级数据', { dissname, logo, visitnum })
-      }
-    } catch (e) {
-      log.error('[TX SongList] 旧接口请求异常', { error: e.message, stack: e.stack })
-      log.warn('[TX SongList] 旧接口请求失败，降级使用新接口')
-      dissname = data.dissinfo?.dissname || ''
-      logo = data.dissinfo?.logo || ''
-      desc = data.dissinfo?.desc ? decodeName(data.dissinfo.desc).replace(/<br>/g, '\n') : ''
-      nickname = data.dissinfo?.nickname || ''
-      visitnum = data.dissinfo?.visitnum || 0
-      log.info('[TX SongList] 新接口 dissinfo 降级数据', { dissname, logo, visitnum })
-    }
-
-    log.info('[TX SongList] getListDetailNew 最终返回歌单信息', { dissname, logo, visitnum, descLen: desc?.length, nickname })
-
-    const totalSongNum = data.dissinfo?.songnum ?? data.songnum ?? data.total_song_num ?? data.songlist.length
+    const totalSongNum = data.dissinfo?.songnum || data.songnum || data.total_song_num || meta.total || data.songlist.length
     log.info('[TX SongList] getListDetailNew 分页信息', { page, pageSize, returned: data.songlist.length, total: totalSongNum })
 
     return {
@@ -355,11 +385,11 @@ export default {
       total: totalSongNum,
       source: 'tx',
       info: {
-        name: dissname,
-        img: logo,
-        desc,
-        author: nickname,
-        play_count: visitnum ? formatPlayCount(visitnum) : '',
+        name: meta.name,
+        img: meta.img,
+        desc: meta.desc,
+        author: meta.author,
+        play_count: meta.play_count,
       },
     }
   },
@@ -384,8 +414,8 @@ export default {
         return {
           singer: formatSingerName(item.singer, 'name'),
           name: item.title || item.name,
-          albumName: item.album.name,
-          albumId: item.album.mid,
+          albumName: item.album?.name ?? '',
+          albumId: item.album?.mid ?? '',
           source: 'tx',
           interval: formatPlayTime(item.interval),
           songId: item.id,
@@ -393,7 +423,7 @@ export default {
           strMediaMid: item.file?.media_mid || '',
           songmid: item.mid,
           img:
-          item.album.name === '' || item.album.name === '空'
+          !item.album?.name || item.album.name === '空'
             ? item.singer?.length
               ? `https://y.gtimg.cn/music/photo_new/T001R500x500M000${item.singer[0].mid}.jpg`
               : ''
@@ -498,8 +528,8 @@ export default {
         return {
           singer: formatSingerName(item.singer, 'name'),
           name: item.title,
-          albumName: item.album.name,
-          albumId: item.album.mid,
+          albumName: item.album?.name ?? '',
+          albumId: item.album?.mid ?? '',
           source: 'tx',
           interval: formatPlayTime(item.interval),
           songId: item.id,
@@ -507,7 +537,7 @@ export default {
           strMediaMid: item.file.media_mid,
           songmid: item.mid,
           img:
-          item.album.name === '' || item.album.name === '空'
+          !item.album?.name || item.album.name === '空'
             ? item.singer?.length
               ? `https://y.gtimg.cn/music/photo_new/T001R500x500M000${item.singer[0].mid}.jpg`
               : ''

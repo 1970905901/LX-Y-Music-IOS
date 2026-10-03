@@ -219,6 +219,26 @@ const nativeInvariants = (src) => {
     reasons.push('LXRememberScreenBrightness 调用点不足（亮度变化与回前台都必须记录亮度证据）')
   }
 
+  // 5e) 生命周期观察者里调用的每个 LX* 函数，必须在观察者【之前】已有 static 声明/定义：
+  //     C 语言「先调用后定义且无前置声明」是编译错误，而本项目在 Windows 上编不了 iOS，
+  //     只能等 CI 报错 —— 2026-10-03 就因为漏了 LXRememberScreenBrightness 的前置声明
+  //     让 Build iOS IPA 直接失败。这里把它绑成契约，避免同类错误再次上线。
+  const observerSig = 'static void LXRegisterTrackPlayerLifecycleObserver(void)'
+  const observerBody = extractCFunction(code, observerSig)
+  if (!observerBody) {
+    reasons.push('未找到 LXRegisterTrackPlayerLifecycleObserver（前置声明契约锚点失效）')
+  } else {
+    const observerStart = code.indexOf(observerSig)
+    const before = code.slice(0, observerStart)
+    const calledNames = new Set([...observerBody.matchAll(/\b(LX[A-Za-z0-9_]+)\s*\(/g)].map(m => m[1]))
+    for (const name of calledNames) {
+      if (name === 'LXRegisterTrackPlayerLifecycleObserver') continue
+      if (!new RegExp(`static[^;{]*\\b${name}\\s*\\(`).test(before)) {
+        reasons.push(`观察者调用的 ${name}() 在其之前没有 static 声明/定义（先调用后定义 = 编译错误）`)
+      }
+    }
+  }
+
   // 5c) 禁止降频：歌词时钟只有 0.12s（周期）+ 0.03s（leeway）两档，出现 0.2~5s 的第二档
   //     = 方案 a（已否决）
   const startFn = extractCFunction(code, 'static void LXStartNowPlayingLyricTimer(void)')
@@ -409,6 +429,12 @@ const runCounterExamples = () => {
     const s = tamper(REAL.appdel, '      LXRememberScreenBrightness();\n      LXUpdateNowPlayingLyricTimerVisibility();', '      LXUpdateNowPlayingLyricTimerVisibility();')
     return nativeInvariants(s).reasons
   }, '调用点不足')
+
+  // ⑬ 去掉前置声明（= 本次 CI 编译失败的真实原因）→ 报告「在其之前没有 static 声明」
+  check('原生⑬ 漏前置声明（CI 编译失败复现）', () => {
+    const s = tamper(REAL.appdel, 'static void LXRememberScreenBrightness(void);\n', '')
+    return nativeInvariants(s).reasons
+  }, '在其之前没有 static 声明')
 
   // — JS 反例 —
   // ⑥ 删掉 getCurrentTime 的 AppState 守卫 → 报「无 AppState 前台守卫」
@@ -914,3 +940,4 @@ const allOk = invariantsOk && ceAllOk
 const allCe = [...ceResults, ...peResults, ...veResults, ...beResults]
 console.log(`\n结果：${allOk ? 'ALL PASS' : '有失败项'}（不变量 ${invariantsOk ? '5/5' : '有失败'}；反例 ${allCe.filter(r => r.ok).length}/${allCe.length}）`)
 process.exit(allOk ? 0 : 1)
+

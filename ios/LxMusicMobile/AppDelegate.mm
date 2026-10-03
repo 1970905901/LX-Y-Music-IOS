@@ -701,6 +701,10 @@ static void LXForceNowPlayingCardRepaint(void);
 static NSObject *LXLyricLock(void);
 // 屏幕/音频路由变化后重新判定 8.3Hz 歌词时钟是否该跑（熄屏且无蓝牙歌词可送车机时停钟）
 static void LXUpdateNowPlayingLyricTimerVisibility(void);
+// 记录「屏幕确实亮着」的亮度证据（亮度 0 是「熄屏」与「最低亮度」的公共值，
+// 靠这份证据区分）。观察者注册处（文件前部）即需调用，故必须在此前置声明 ——
+// 漏了它会直接编译失败（2026-10-03 CI 实例，见 sim-power-drain 契约不变量 5e）。
+static void LXRememberScreenBrightness(void);
 // 播放位置事件（原生 4Hz 外推位置广播给 JS，驱动进度条等 UI，替代 JS 侧桥接轮询）
 static NSNotificationName const LXPlayerPositionNotificationName = @"LXPlayerPosition";
 // 时钟冻结标志：RNTP state 事件报告 loading/暂停等非播放态时置 YES——网络流
@@ -6341,6 +6345,7 @@ RCT_REMAP_METHOD(sha1, sha1:(NSString *)input resolver:(RCTPromiseResolveBlock)r
 }
 
 @end
+
 
 
 

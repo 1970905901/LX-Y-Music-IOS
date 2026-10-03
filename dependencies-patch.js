@@ -865,6 +865,22 @@ private let lxTrackPlayerLifecycleNotification = Notification.Name("LXTrackPlaye
             "playback-state",
             "player-seeked",`,
       },
+      {
+        // iOS「中断结束」通知不带 AVAudioSessionInterruptionOptionKey 时，旧实现直接 return ——
+        // 「中断结束」这件事根本不会通知 JS，于是永远没有恢复播放的时机（车机蓝牙下高德
+        // 播报结束、音乐不恢复的成因之一，2026-10-03 用户反馈）。缺省按「无 shouldResume」
+        // （值 0）处理，事件照发，是否恢复由 JS 侧 plugins/player/service.ts 判断。
+        from: `        else if type == .ended {
+            guard let optionsValue =
+                    userInfo[AVAudioSessionInterruptionOptionKey] as? UInt else {
+                return
+            }
+            let options = AVAudioSession.InterruptionOptions(rawValue: optionsValue)`,
+        to: `        else if type == .ended {
+            // 缺省 0 = 无 shouldResume：事件照发，是否恢复交给 JS 判断（见 dependencies-patch.js）
+            let optionsValue = userInfo[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
+            let options = AVAudioSession.InterruptionOptions(rawValue: optionsValue)`,
+      },
     ],
   },
   {

@@ -5614,7 +5614,9 @@ RCT_EXPORT_MODULE();
   self.hasListeners = NO;
 }
 
-- (BOOL)shouldEmitHeadphonesDisconnectedForPreviousRoute:(AVAudioSessionRouteDescription *)route {
+// 「私有输出」= 耳机 / 蓝牙：只有这类输出才谈得上「拔出 / 断开 → 自动暂停」
+- (BOOL)isPrivateOutputRoute:(AVAudioSessionRouteDescription *)route {
+  if (route == nil) return NO;
   for (AVAudioSessionPortDescription *output in route.outputs) {
     NSString *portType = output.portType;
     if ([portType isEqualToString:AVAudioSessionPortHeadphones] ||
@@ -5627,6 +5629,17 @@ RCT_EXPORT_MODULE();
   return NO;
 }
 
+- (BOOL)shouldEmitHeadphonesDisconnectedForPreviousRoute:(AVAudioSessionRouteDescription *)previousRoute currentRoute:(AVAudioSessionRouteDescription *)currentRoute {
+  if (![self isPrivateOutputRoute:previousRoute]) return NO;
+  // 新路由仍落在耳机 / 蓝牙输出上时不算「耳机拔出」：音频只是换了一条通道，仍在同一台
+  // 设备上出声。车机在导航播报（HFP）与媒体播放（A2DP）之间来回切换正是这种情况 ——
+  // 旧实现会把它误判成耳机拔出 → 暂停播放，而且此后没有任何恢复时机，表现为
+  // 「车机蓝牙下高德一播报音乐就停、播报结束也不恢复」（用户 2026-10-03 反馈；
+  // 不外接蓝牙时高德只 duck，音量压小但不停播，所以看起来正常）。
+  if ([self isPrivateOutputRoute:currentRoute]) return NO;
+  return YES;
+}
+
 - (void)handleAudioRouteChange:(NSNotification *)notification {
   if (!self.hasListeners) return;
 
@@ -5637,7 +5650,10 @@ RCT_EXPORT_MODULE();
   if (reasonValue == nil || [reasonValue unsignedIntegerValue] != AVAudioSessionRouteChangeReasonOldDeviceUnavailable) return;
 
   AVAudioSessionRouteDescription *previousRoute = userInfo[AVAudioSessionRouteChangePreviousRouteKey];
-  if (previousRoute == nil || ![self shouldEmitHeadphonesDisconnectedForPreviousRoute:previousRoute]) return;
+  if (previousRoute == nil) return;
+  // 同时看新路由：只有「确实从耳机 / 蓝牙切到了别的输出」才算断开（见上方说明）
+  AVAudioSessionRouteDescription *currentRoute = [AVAudioSession sharedInstance].currentRoute;
+  if (![self shouldEmitHeadphonesDisconnectedForPreviousRoute:previousRoute currentRoute:currentRoute]) return;
 
   dispatch_async(dispatch_get_main_queue(), ^{
     [self sendEventWithName:@"headphones-disconnected" body:nil];

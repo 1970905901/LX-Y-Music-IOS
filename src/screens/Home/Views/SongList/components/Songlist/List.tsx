@@ -1,5 +1,5 @@
 import { useRef, useState, useMemo, forwardRef, useImperativeHandle, type ReactElement } from 'react'
-import { FlatList, View, RefreshControl, type FlatListProps, Keyboard } from 'react-native'
+import { FlatList, View, RefreshControl, Platform, type FlatListProps, Keyboard } from 'react-native'
 
 import ListItem from './ListItem'
 // import { navigations } from '@/navigation'
@@ -134,7 +134,14 @@ export default forwardRef<ListType, ListProps>(({ header, onRefresh, onLoadMore,
     let n = available / (minWidth + GAP)
     if (n > 10) n = 10
     let computedItemWidth = Math.floor(w / n)
-    const num = Math.max(Math.floor(available / computedItemWidth), 2)
+    // 手机竖屏固定 2 列：Plus / Pro Max / 16 Pro 这类宽屏机型（可用宽 ≥ ~395pt）按上面的
+    // 宽度公式会算出 3 列 —— 封面缩到约 115pt、两行标题被截成「…」（用户 2026-10-03 反馈，
+    // 正常应与 390pt 机型一样是双列）。iPad（竖屏 / 横屏）仍按可用宽度排多列，大屏不浪费横向空间。
+    // Platform.isPad 只在 iOS 分支类型上存在，需先用 OS 收窄（与 store/common/hook.ts 同一写法）；
+    // available >= 600 是兜底：iPad 竖屏 768pt 起，任何真机手机都到不了这个宽度。
+    const isPad = Platform.OS === 'ios' && Platform.isPad
+    const maxNum = isPad || available >= 600 ? 10 : 2
+    const num = Math.min(Math.max(Math.floor(available / computedItemWidth), 2), maxNum)
     return {
       num,
       width: (available - GAP) / num,

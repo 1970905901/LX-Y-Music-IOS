@@ -219,6 +219,12 @@ declare global {
        * 与字体大小无关（间距为固定 token）。
        */
       'theme.tabBarDistance': number
+
+      /**
+       * 歌单封面列数：手机竖屏的歌单页封面网格 2 / 3 个一排（iPad 与大屏按宽度自适应）。
+       * 默认 2（宽屏手机按宽度公式会误排 3 列，封面缩小且标题被截断，故默认两列）。
+       */
+      'theme.songlistColumns': 2 | 3
     }
   }
 }

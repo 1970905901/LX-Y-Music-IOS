@@ -4,6 +4,7 @@ import Theme from './Theme/Theme'
 import ThemeMode from './Theme/ThemeMode'
 import IsDynamicBg from './Theme/IsDynamicBg'
 import IsLandscapeStretch from './Theme/IsLandscapeStretch'
+import SonglistColumns from './Theme/SonglistColumns'
 import IsFontShadow from './Theme/IsFontShadow'
 import Blur from './Theme/Blur'
 import LiquidGlassToggle from './Theme/LiquidGlassToggle'
@@ -32,6 +33,7 @@ export default memo(() => {
       <ThemeMode />
       <IsDynamicBg />
       <IsLandscapeStretch />
+      <SonglistColumns />
       <CustomBg />
       <PicOpacity />
       <Blur />

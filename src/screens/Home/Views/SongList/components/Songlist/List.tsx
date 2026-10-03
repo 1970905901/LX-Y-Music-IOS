@@ -11,6 +11,7 @@ import { scaleSizeW } from '@/utils/pixelRatio'
 import { createStyle } from '@/utils/tools'
 import Text from '@/components/common/Text'
 import { useBottomOverlayInset } from '@/store/common/hook'
+import { useSettingValue } from '@/store/setting/hook'
 
 type FlatListType = FlatListProps<ListInfoItem>
 
@@ -124,6 +125,8 @@ export default forwardRef<ListType, ListProps>(({ header, onRefresh, onLoadMore,
   const isHorizontal = useHorizontalMode()
   // 底部悬浮层（迷你播放器 + 底部 Tab + 安全区）统一避让高度
   const bottomInset = useBottomOverlayInset()
+  // 主题设置 →「歌单封面列数」：手机竖屏 2 / 3 个一排（默认 2）
+  const songlistColumns = useSettingValue('theme.songlistColumns') ?? 2
 
   const rowInfo = useMemo(() => {
     // FlatList 框架自带左右 10pt 内边距，列宽必须按扣除后的可用宽度计算，
@@ -134,19 +137,23 @@ export default forwardRef<ListType, ListProps>(({ header, onRefresh, onLoadMore,
     let n = available / (minWidth + GAP)
     if (n > 10) n = 10
     let computedItemWidth = Math.floor(w / n)
-    // 手机竖屏固定 2 列：Plus / Pro Max / 16 Pro 这类宽屏机型（可用宽 ≥ ~395pt）按上面的
-    // 宽度公式会算出 3 列 —— 封面缩到约 115pt、两行标题被截成「…」（用户 2026-10-03 反馈，
-    // 正常应与 390pt 机型一样是双列）。iPad（竖屏 / 横屏）仍按可用宽度排多列，大屏不浪费横向空间。
+    // 手机竖屏的列数由「主题设置 → 歌单封面列数」决定（2 / 3，默认 2）。
+    // 历史：Plus / Pro Max / 16 Pro 这类宽屏机型（可用宽 ≥ ~395pt）按宽度公式会算出 3 列，
+    // 封面缩到约 115pt、两行标题被截成「…」（用户 2026-10-03 反馈），当时把上限钉成 2 列；
+    // 现在 2 / 3 交给用户选，不再写死。
+    // iPad（竖屏 / 横屏）与大屏（可用宽 ≥ 600pt）仍按可用宽度自适应多列，不浪费横向空间。
     // Platform.isPad 只在 iOS 分支类型上存在，需先用 OS 收窄（与 store/common/hook.ts 同一写法）；
     // available >= 600 是兜底：iPad 竖屏 768pt 起，任何真机手机都到不了这个宽度。
     const isPad = Platform.OS === 'ios' && Platform.isPad
-    const maxNum = isPad || available >= 600 ? 10 : 2
-    const num = Math.min(Math.max(Math.floor(available / computedItemWidth), 2), maxNum)
+    const isLargeScreen = isPad || available >= 600
+    const num = isLargeScreen
+      ? Math.min(Math.max(Math.floor(available / computedItemWidth), 2), 10)
+      : songlistColumns
     return {
       num,
       width: (available - GAP) / num,
     }
-  }, [width, isHorizontal])
+  }, [width, isHorizontal, songlistColumns])
   // console.log(rowNum)
   const list = useMemo(() => {
     const list = [...currentList]

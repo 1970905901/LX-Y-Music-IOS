@@ -1,20 +1,23 @@
 /**
  * sim-songlist-grid-columns.js
  *
- * 「歌单」页封面网格的列数契约：手机竖屏必须 2 列。
+ * 「歌单」页封面网格的列数契约：手机竖屏 = 主题设置里的 2 / 3 列，iPad 自适应多列。
  *
- * 为什么需要它：`src/screens/Home/Views/SongList/components/Songlist/List.tsx` 的列数由
- * 「可用宽度 ÷ 最小卡宽」反推，公式对宽度极敏感 —— 可用宽跨过 ~395pt 时 2 列会翻成 3 列。
- * 也就是 Plus / Pro Max / 16 Pro 这类宽屏机型上封面缩到 ~115pt、两行标题被截成「…」，
- * 而 390pt 机型正常（用户 2026-10-03 反馈：图 1 是 3 列反例，图 2 是正常双列）。
- * 修法：手机竖屏把列数上限钉死 2，iPad（竖屏 / 横屏）仍按可用宽度排多列。
+ * 为什么需要它：`src/screens/Home/Views/SongList/components/Songlist/List.tsx` 的列数原由
+ * 「可用宽度 ÷ 最小卡宽」反推，公式对宽度极敏感 —— 可用宽跨过 ~395pt 时 2 列会翻成 3 列：
+ * Plus / Pro Max / 16 Pro 这类宽屏机型上封面缩到 ~115pt、两行标题被截成「…」，
+ * 而 390pt 机型正常（用户 2026-10-03 反馈）。当时把手机竖屏上限钉死 2 列（5f3ffa0）；
+ * 随后用户要求「2 个一排和 3 个一排都保留，加到主题设置里可以切换」，于是列数改由
+ * `theme.songlistColumns`（默认 2）决定，iPad 与大屏仍按可用宽度自适应。
  *
  * 两层断言：
- *   ① 源码层：列数上限门控 + 最终列数表达式必须仍是「取 min(宽度反推, 上限)」，
- *      且上限门控保留 `: 2` 的手机分支 —— 有人删回无上限即失败；
- *   ② 数值层：用与 scaleSizeW 等价的模型跑机型矩阵，手机竖屏全 2 列、iPad 竖屏/横屏 ≥4 列。
- * 反例：把上限换成恒 10（= 修复前行为），模型必须在 430pt 上算出 3 列；
- * 反例拦不下来说明断言没有区分力。
+ *   ① 源码层：手机竖屏分支必须直接用设置值（`: songlistColumns`），大屏分支保留
+ *      `isLargeScreen` 自适应，且不得再出现「写死 : 2」的历史写法；
+ *   ② 数值层：用与 scaleSizeW 等价的模型跑机型矩阵 —— 设置 2 时手机全 2 列（守住 5f3ffa0
+ *      的回归：宽屏机型不得自己翻成 3 列），设置 3 时手机全 3 列（守住「选了 3 却仍 2 列」），
+ *      iPad 竖屏 / 横屏两种情况都仍排 ≥4 列（设置不影响大屏）。
+ * 反例：模型去掉设置项、回到「无上限按宽度反推」（= 修复前行为）时，430pt 必须复现 3 列，
+ * 而设置 2 的期望是 2 列 —— 拦不下来说明断言没有区分力。
  *
  * 运行：node scripts/sim-songlist-grid-columns.js
  * 退出码：全过 0，任一失败 1。
@@ -53,10 +56,12 @@ const scaleSizeW = (size, width, height, pixelRatio) => {
 }
 
 /**
- * 列数模型。capToTwo = false 复现「修复前」的无上限行为，用作反例。
+ * 列数模型。
+ *   setting      = 主题设置 theme.songlistColumns（2 / 3），只在手机竖屏生效
+ *   legacyNoCap  = true 复现「修复前」的手机竖屏无设置项行为（纯按宽度反推），用作反例
  * isPad 对应源码里的 Platform.isPad（真机 iPad），模型里显式传入。
  */
-const columns = ({ width, height, pixelRatio, isPad = false, capToTwo = true }) => {
+const columns = ({ width, height, pixelRatio, isPad = false, setting = 2, legacyNoCap = false }) => {
   const available = width - SIDE_PADDING
   const gap = scaleSizeW(GAP_DESIGN, width, height, pixelRatio)
   const horizontal = width / height > 1.2
@@ -64,9 +69,10 @@ const columns = ({ width, height, pixelRatio, isPad = false, capToTwo = true }) 
   let n = available / (minWidth + gap)
   if (n > 10) n = 10
   const computedItemWidth = Math.floor((available - gap) / n)
-  const raw = Math.max(Math.floor(available / computedItemWidth), 2)
-  const maxNum = capToTwo ? (isPad || available >= 600 ? 10 : 2) : 10
-  return Math.min(raw, maxNum)
+  const isLargeScreen = isPad || available >= 600
+  if (isLargeScreen) return Math.min(Math.max(Math.floor(available / computedItemWidth), 2), 10)
+  if (legacyNoCap) return Math.max(Math.floor(available / computedItemWidth), 2)
+  return setting
 }
 
 const PHONES = [
@@ -91,33 +97,47 @@ const PADS = [
 check('源码仍从两个最小卡宽常数反推列数', MIN_PORTRAIT !== null && MIN_LANDSCAPE !== null)
 check('源码仍按可用宽度扣除内边距反推列数', SIDE_PADDING !== null && GAP_DESIGN !== null)
 check(
-  '列数仍取 min(宽度反推, 上限)',
-  /const num = Math\.min\(Math\.max\(Math\.floor\(available \/ computedItemWidth\), 2\), maxNum\)/.test(SRC),
+  '手机竖屏列数直接取主题设置（: songlistColumns）',
+  /:\s*songlistColumns\b/.test(SRC),
 )
 check(
-  '手机竖屏列数上限仍钉在 2（上限门控保留 : 2 分支）',
-  /const maxNum = [^\n]*\? 10 : 2/.test(SRC),
+  '大屏分支仍按宽度反推（isLargeScreen + min(..., 10)）',
+  /const isLargeScreen = isPad \|\| available >= 600/.test(SRC) &&
+    /Math\.min\(Math\.max\(Math\.floor\(available \/ computedItemWidth\), 2\), 10\)/.test(SRC),
+)
+check(
+  '列数来自主题设置 theme.songlistColumns',
+  /useSettingValue\('theme\.songlistColumns'\)/.test(SRC),
+)
+check(
+  '历史写法（手机竖屏写死 2）不得回归',
+  !/const maxNum = [^\n]*\? 10 : 2/.test(SRC),
 )
 
-// ② 手机竖屏必须 2 列（含触发过 3 列的宽屏机型）
+// ② 手机竖屏：设置 2 → 2 列（含触发过 3 列的宽屏机型）；设置 3 → 3 列
 for (const [name, width, height, pixelRatio] of PHONES) {
-  const num = columns({ width, height, pixelRatio })
-  check(`${name}（${width}×${height}pt）竖屏 2 列`, num === 2, `实际 ${num} 列`)
+  const num2 = columns({ width, height, pixelRatio, setting: 2 })
+  check(`${name}（${width}×${height}pt）设 2 时 2 列`, num2 === 2, `实际 ${num2} 列`)
+  const num3 = columns({ width, height, pixelRatio, setting: 3 })
+  check(`${name}（${width}×${height}pt）设 3 时 3 列`, num3 === 3, `实际 ${num3} 列`)
 }
 
-// ③ iPad 仍按可用宽度排多列
+// ③ iPad 仍按可用宽度排多列（设置项对大屏不生效）
 for (const [name, width, height, pixelRatio] of PADS) {
-  const num = columns({ width, height, pixelRatio, isPad: true })
-  check(`${name} 仍排多列（≥4）`, num >= 4, `实际 ${num} 列`)
+  for (const setting of [2, 3]) {
+    const num = columns({ width, height, pixelRatio, isPad: true, setting })
+    check(`${name}（设 ${setting}）仍排多列（≥4）`, num >= 4, `实际 ${num} 列`)
+  }
 }
 
-// ④ 反例：去掉上限（= 修复前）必须能在宽屏手机上复现 3 列，否则断言无区分力
-const beforeFix = columns({ width: 430, height: 932, pixelRatio: 3, capToTwo: false })
-check('反例：无上限时 430pt 机型复现 3 列', beforeFix === 3, `实际 ${beforeFix} 列`)
+// ④ 反例：去掉设置项、回到「手机也按宽度反推」（= 修复前）必须能在宽屏手机上复现 3 列，
+//    否则「设 2 时全 2 列」的断言没有区分力
+const beforeFix = columns({ width: 430, height: 932, pixelRatio: 3, legacyNoCap: true })
+check('反例：无设置项时 430pt 机型复现 3 列（与「设 2 → 2 列」形成区分）', beforeFix === 3, `实际 ${beforeFix} 列`)
 
 if (failures.length) {
   console.error(`✗ sim-songlist-grid-columns：${failures.length} 项失败`)
   for (const f of failures) console.error(`  - ${f}`)
   process.exit(1)
 }
-console.log('✓ sim-songlist-grid-columns：手机竖屏 2 列契约全过（含 1 例反例）')
+console.log('✓ sim-songlist-grid-columns：手机竖屏 2 / 3 列可切换、iPad 自适应多列（含 1 例反例）')

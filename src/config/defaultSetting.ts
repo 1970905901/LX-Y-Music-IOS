@@ -205,6 +205,9 @@ const defaultSetting: LX.AppSetting = {
   // 26.2+ 强制磨砂（开关已隐藏、消费点门控，2026-09-30 定案）
   'theme.liquidGlass': true,
   'theme.isLandscapeStretch': false,
+  // 歌单页封面列数（手机竖屏）：2 / 3 个一排，默认 2。
+  // iPad 与大屏仍在 List.tsx 里按可用宽度自适应多列。
+  'theme.songlistColumns': 2,
   'theme.customBgPicPath': '',
   'theme.picOpacity': 76,
   'theme.subContainerOpacity': 50,

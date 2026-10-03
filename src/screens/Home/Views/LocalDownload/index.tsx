@@ -556,6 +556,9 @@ const styles = createStyle({
     marginLeft: 'auto',
     flexDirection: 'row',
     alignItems: 'center',
+    // 「批量管理 / 取消」与「刷新」两个胶囊按钮原先左右贴合，视觉上很挤；
+    // 这里补一个横向间距（与其它并排操作按钮一致），按钮自身尺寸与右对齐不变。
+    gap: designSpacing.sm,
   },
   headerBtn: {
     height: 32,

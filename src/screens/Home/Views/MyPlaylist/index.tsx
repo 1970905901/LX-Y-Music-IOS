@@ -10,6 +10,7 @@ import { updateSetting } from '@/core/common'
 import { useWySubscribedPlaylists, useWyUid } from '@/store/user/hook.ts'
 import { useBottomOverlayInset } from '@/store/common/hook'
 import { useHorizontalMode } from '@/utils/hooks'
+import { usePhantomScrollGuard } from '@/utils/hooks/usePhantomScrollGuard'
 import { useI18n } from '@/lang'
 import { designSpacing } from '@/theme/DesignTokens'
 import PageTopInset from '@/components/common/PageTopInset'
@@ -39,6 +40,17 @@ export default memo(() => {
   const isHorizontal = useHorizontalMode()
   const [selectedPlaylist, setSelectedPlaylist] = useState<ListInfoItem | null>(null)
   const [scrollToMusicInfo, setScrollToMusicInfo] = useState<MusicInfoOnline | null>(null)
+  const listRef = useRef<FlatList>(null)
+  // 首次进入的幽灵偏移修正（详见 usePhantomScrollGuard 注释）：本页页头（PageTopInset + 大标题）
+  // 在列表内容里，首次上屏 / 首次拉取完歌单后原生安全区插图的一次性变化会把 contentOffset 抬到
+  // 0 以上（幅度≈刘海高度），表现为整页上移、标题被顶到刘海后面，返回再进就正常。
+  // 本页首次进入是联网拉取歌单索引（可能耗时数秒），保护窗口比默认值放宽。
+  const phantomGuard = usePhantomScrollGuard(listRef as any, 6000)
+  // 守卫与「拖动即收键盘」两个 onScrollBeginDrag 都要保留（前者负责用户一拖动就永久停用守卫）
+  const handleScrollBeginDrag = useCallback(() => {
+    Keyboard.dismiss()
+    phantomGuard.props.onScrollBeginDrag()
+  }, [phantomGuard])
   const selectedPlaylistRef = useRef(selectedPlaylist)
   selectedPlaylistRef.current = selectedPlaylist
 
@@ -201,7 +213,9 @@ export default memo(() => {
     <View style={{ flex: 1 }}>
       <View style={[{ flex: 1 }, selectedPlaylist ? { opacity: 0 } : null]} pointerEvents={selectedPlaylist ? 'none' : 'auto'}>
         <FlatList
-          onScrollBeginDrag={Keyboard.dismiss}
+          ref={listRef}
+          {...phantomGuard.props}
+          onScrollBeginDrag={handleScrollBeginDrag}
           data={playlists}
           ListHeaderComponent={
             <>

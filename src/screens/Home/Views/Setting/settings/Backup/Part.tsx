@@ -26,12 +26,14 @@ export default memo(() => {
           <Button onPress={() => listImportExportRef.current?.export()}>
             {t('setting_backup_part_export_list')}
           </Button>
-          <Text style={styles.tip} size={12} color={theme['c-font-label']}>
-            {t('setting_backup_all_tip')}
-          </Text>
           {/* <Button onPress={() => importAndExportData('import', 'setting')}>{t('setting_backup_part_import_setting')}</Button>
           <Button onPress={() => importAndExportData('export', 'setting')}>{t('setting_backup_part_export_setting')}</Button> */}
         </View>
+        {/* 说明小字原先与两个按钮挤在同一个 flex 行里（被按钮挤在右侧/贴在按钮下方），
+            现拆成独立一块：与按钮行左端对齐，并在上方留出间距 */}
+        <Text style={styles.tip} size={12} color={theme['c-font-label']}>
+          {t('setting_backup_all_tip')}
+        </Text>
       </SubTitle>
       {/* <SubTitle title={t('setting_backup_all')}>
         <View style={styles.list}>
@@ -53,7 +55,9 @@ const styles = StyleSheet.create({
     marginTop: designSpacing.xs,
   },
   tip: {
-    flexShrink: 1,
-    marginLeft: designSpacing.sm,
+    // 与按钮行共用同一个左内边距（左对齐），并向下留一点间距，避免小字挤在按钮上/按钮右侧
+    marginTop: designSpacing.sm,
+    paddingLeft: designSpacing.md,
+    paddingRight: designSpacing.md,
   },
 })

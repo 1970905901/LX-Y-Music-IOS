@@ -144,6 +144,92 @@ const nativeInvariants = (src) => {
     reasons.push('歌词时钟周期不再是 0.12s（契约值；改大则控制中心歌词换行延迟变化，需同步评估）')
   }
 
+  // 5) 「不可见即停」可见性门控（2026-10-03）：歌词**可见时必须保持 0.12s 原速**
+  //    —— 用户明确否决了「后台降频（0.3~0.5s）」方案（歌词有延迟不可接受）；
+  //    只在「熄屏 + 非前台 + 无蓝牙歌词可送车机」时停钟省电。
+  if (!/static\s+BOOL\s+LXShouldRunNowPlayingLyricTimer\s*\(\s*void\s*\)/.test(code)) {
+    reasons.push('缺少 LXShouldRunNowPlayingLyricTimer()：熄屏后 8.3Hz 仍在空转')
+  } else {
+    const gate = extractCFunction(code, 'static BOOL LXShouldRunNowPlayingLyricTimer(void)')
+    if (!gate || !/applicationState\s*==\s*UIApplicationStateActive/.test(gate)) {
+      reasons.push('可见性门控缺「App 前台」分支（前台进度条依赖 4Hz 位置事件）')
+    }
+    if (!gate || !/LXScreenIsOn\s*\(\s*\)/.test(gate)) {
+      reasons.push('可见性门控缺「屏幕点亮」分支（亮屏时歌词必须继续刷新）')
+    }
+    if (!gate || !/LXNowPlayingLyricLines\.count\s*>\s*0/.test(gate) || !/LXHasBluetoothAudioRoute\s*\(\s*\)/.test(gate)) {
+      reasons.push('可见性门控缺「熄屏但蓝牙歌词送车机」分支（车机歌词会被冻住）')
+    }
+    const syncFn = extractCFunction(code, 'static void LXSyncNowPlayingLyricTimer(void)')
+    if (!syncFn || !/LXShouldRunNowPlayingLyricTimer\s*\(\s*\)/.test(syncFn)) {
+      reasons.push('LXSyncNowPlayingLyricTimer 未走可见性门控（熄屏仍在空转 / 亮屏可能被停）')
+    }
+  }
+
+  // 5b) 由暗转亮必须补一次「步进 + 重绘」：否则用户亮屏第一眼看到的是熄屏前的旧行
+  const visibilityUpdater = extractCFunction(code, 'static void LXUpdateNowPlayingLyricTimerVisibility(void)')
+  if (!visibilityUpdater) {
+    reasons.push('缺少 LXUpdateNowPlayingLyricTimerVisibility()：亮屏后不会补行/重绘')
+  } else {
+    if (!/LXNowPlayingLyricStep\s*\(\s*\)/.test(visibilityUpdater)) {
+      reasons.push('亮屏边沿未补一次 LXNowPlayingLyricStep（第一眼会停在旧行 = 用户不接受的延迟）')
+    }
+    if (!/LXQueueNowPlayingLyricRedraw\s*\(\s*\)/.test(visibilityUpdater)) {
+      reasons.push('亮屏边沿未补一次卡片重绘')
+    }
+  }
+  if (!/UIScreenBrightnessDidChangeNotification/.test(code)) {
+    reasons.push('未观察屏幕亮度变化（熄屏/亮屏无法驱动停钟与补行）')
+  }
+  if (!/AVAudioSessionRouteChangeNotification[\s\S]{0,500}?LXUpdateNowPlayingLyricTimerVisibility/.test(code)) {
+    reasons.push('未在音频路由变化时重新判定（蓝牙歌词是否可见）')
+  }
+
+  // 5d) 「最低亮度 ≠ 熄屏」：UIScreen.brightness 的 0.0 就是「最低亮度」（Apple 文档原话），
+  //     所以亮度 0 不能直接当熄屏 —— 否则用户把亮度调到最低看锁屏卡片时歌词会被冻住
+  //     （用户 2026-10-03 实机反馈）。必须用「刚才是否明显亮过」的证据来区分。
+  const screenFn = extractCFunction(code, 'static BOOL LXScreenIsOn(void)')
+  if (!screenFn) {
+    reasons.push('缺少 LXScreenIsOn()：无法判定屏幕点亮状态')
+  } else {
+    if (!/LXLastNonZeroBrightness\s*<\s*LXScreenOffTrustBrightness/.test(screenFn)) {
+      reasons.push('亮度 0 时未用「最近非零亮度」证据区分最低亮度与熄屏（最低亮度会被误判成熄屏 → 冻歌词）')
+    }
+    if (!/return\s+YES/.test(screenFn)) {
+      reasons.push('LXScreenIsOn 缺「不确定即按亮处理」的兜底')
+    }
+  }
+  const trustMatch = code.match(/static\s+const\s+CGFloat\s+LXScreenOffTrustBrightness\s*=\s*([0-9.]+)/)
+  if (!trustMatch) {
+    reasons.push('缺少 LXScreenOffTrustBrightness 常量（熄屏判定阈值）')
+  } else if (Number(trustMatch[1]) < 0.2) {
+    reasons.push(`LXScreenOffTrustBrightness = ${trustMatch[1]} 过低：暗环境/最低亮度会被误判成熄屏`)
+  }
+  const rememberFn = extractCFunction(code, 'static void LXRememberScreenBrightness(void)')
+  if (!rememberFn || !/brightness\s*>\s*0/.test(rememberFn)) {
+    reasons.push('缺少 LXRememberScreenBrightness()（只在读到非零亮度时记录证据）')
+  }
+  if (!/UIScreenBrightnessDidChangeNotification[\s\S]{0,700}?LXRememberScreenBrightness\s*\(\s*\)/.test(code)) {
+    reasons.push('亮度变化通知里未先记录亮度证据（判定会丢掉唯一依据）')
+  }
+  // 调用点计数（「亮度变化」与「回前台」两处调用；定义是 (void) 不参与计数）：
+  // 用计数而不是「窗口内正则」——两个观察者彼此相邻，窗口式断言会把另一处的调用误当成本处证据。
+  const rememberCallCount = (code.match(/LXRememberScreenBrightness\s*\(\s*\)/g) ?? []).length
+  if (rememberCallCount < 2) {
+    reasons.push('LXRememberScreenBrightness 调用点不足（亮度变化与回前台都必须记录亮度证据）')
+  }
+
+  // 5c) 禁止降频：歌词时钟只有 0.12s（周期）+ 0.03s（leeway）两档，出现 0.2~5s 的第二档
+  //     = 方案 a（已否决）
+  const startFn = extractCFunction(code, 'static void LXStartNowPlayingLyricTimer(void)')
+  const timerPeriods = [...(startFn ?? '').matchAll(/(\d+(?:\.\d+)?)\s*\*\s*NSEC_PER_SEC/g)].map(m => Number(m[1]))
+  if (!timerPeriods.includes(0.12)) {
+    reasons.push('歌词时钟周期不再是 0.12s（可见时歌词会有延迟）')
+  }
+  if (timerPeriods.some(v => v >= 0.2 && v < 5)) {
+    reasons.push('歌词时钟出现「后台降频」第二档周期 0.2~5s：用户明确要求歌词不能有延迟，禁止降频')
+  }
+
   return { ok: reasons.length === 0, reasons }
 }
 
@@ -253,8 +339,8 @@ const runCounterExamples = () => {
   // ③ 停钟不再被统一守卫调用（守卫删掉停钟分支）→ 报「未在非 Playing 时停钟」
   check('原生③ 守卫不停钟', () => {
     const s = tamper(REAL.appdel,
-      'if (LXNowPlayingState == MPNowPlayingPlaybackStatePlaying) {\n    LXStartNowPlayingLyricTimer();\n  } else {\n    LXStopNowPlayingLyricTimer();\n  }',
-      'LXStartNowPlayingLyricTimer();')
+      '  if (LXShouldRunNowPlayingLyricTimer()) {\n    LXStartNowPlayingLyricTimer();\n  } else {\n    LXStopNowPlayingLyricTimer();\n  }',
+      '  LXStartNowPlayingLyricTimer();')
     return nativeInvariants(s).reasons
   }, '未在非 Playing 时停钟')
 
@@ -278,6 +364,51 @@ const runCounterExamples = () => {
     const s2 = REAL.appdel.replace(/0\.12 \* NSEC_PER_SEC/g, '1.0 * NSEC_PER_SEC')
     return nativeInvariants(s2).reasons
   }, '周期不再是 0.12s')
+
+  // ⑥ 亮屏边沿不补行 → 报告「亮屏边沿未补一次」
+  check('原生⑥ 亮屏不补行（第一眼是旧行）', () => {
+    const s = tamper(REAL.appdel, '    LXNowPlayingLyricStep();\n    LXQueueNowPlayingLyricRedraw();', '    LXQueueNowPlayingLyricRedraw();')
+    return nativeInvariants(s).reasons
+  }, '亮屏边沿未补一次')
+
+  // ⑦ 引入后台降频第二档（0.5s，即被否决的方案 a）→ 报告「禁止降频」
+  check('原生⑦ 后台降频（方案 a，已否决）', () => {
+    const s = REAL.appdel.replace('(uint64_t)(0.12 * NSEC_PER_SEC),\n                            (uint64_t)(0.03 * NSEC_PER_SEC)', '(uint64_t)(0.5 * NSEC_PER_SEC),\n                            (uint64_t)(0.03 * NSEC_PER_SEC)')
+    if (s === REAL.appdel) throw new Error('tamper 锚点未命中: 0.12 周期')
+    return nativeInvariants(s).reasons
+  }, '禁止降频')
+
+  // ⑧ 可见性门控去掉「屏幕点亮」分支 → 报告「缺「屏幕点亮」分支」
+  check('原生⑧ 门控缺屏幕判定', () => {
+    const s = tamper(REAL.appdel, '  if (LXScreenIsOn()) return YES;\n', '')
+    return nativeInvariants(s).reasons
+  }, '缺「屏幕点亮」分支')
+
+  // ⑨ 不观察亮度变化 → 报告「未观察屏幕亮度变化」
+  check('原生⑨ 不观察屏幕亮度', () => {
+    const s = tamper(REAL.appdel, 'UIScreenBrightnessDidChangeNotification', 'UIApplicationDidBecomeActiveNotificationX')
+    return nativeInvariants(s).reasons
+  }, '未观察屏幕亮度变化')
+
+  // ⑩ 屏幕判定退回「亮度 > 0 才算亮」→ 最低亮度会被误判成熄屏（用户实机踩过的坑）
+  check('原生⑩ 最低亮度被判成熄屏', () => {
+    const s = tamper(REAL.appdel,
+      '  return LXLastNonZeroBrightness < LXScreenOffTrustBrightness;',
+      '  return NO;')
+    return nativeInvariants(s).reasons
+  }, '最低亮度会被误判成熄屏')
+
+  // ⑪ 熄屏阈值降到 0 → 暗环境/最低亮度又会被误判
+  check('原生⑪ 熄屏阈值过低', () => {
+    const s = tamper(REAL.appdel, 'static const CGFloat LXScreenOffTrustBrightness = 0.3;', 'static const CGFloat LXScreenOffTrustBrightness = 0.0;')
+    return nativeInvariants(s).reasons
+  }, '过低')
+
+  // ⑫ 亮度变化通知里不记录证据 → 判定失去依据
+  check('原生⑫ 不记录亮度证据', () => {
+    const s = tamper(REAL.appdel, '      LXRememberScreenBrightness();\n      LXUpdateNowPlayingLyricTimerVisibility();', '      LXUpdateNowPlayingLyricTimerVisibility();')
+    return nativeInvariants(s).reasons
+  }, '调用点不足')
 
   // — JS 反例 —
   // ⑥ 删掉 getCurrentTime 的 AppState 守卫 → 报「无 AppState 前台守卫」

@@ -685,6 +685,8 @@ static BOOL LXIsReceivingRemoteControlEvents = NO;
 static NSString * const LXTrackPlayerLifecycleNotificationName = @"LXTrackPlayerLifecycle";
 static id LXTrackPlayerLifecycleObserver = nil;
 static id LXNowPlayingApplicationObserver = nil;
+static id LXNowPlayingScreenObserver = nil;
+static id LXNowPlayingRouteObserver = nil;
 static NSString * const LXRemoteCommandNotificationName = @"LXRemoteCommand";
 static BOOL LXRemoteCommandHandlersInstalled = NO;
 static void LXBeginReceivingRemoteControlEvents(void);
@@ -697,6 +699,8 @@ static void LXSyncNowPlayingLyricTimer(void);
 static void LXQueueNowPlayingLyricRedraw(void);
 static void LXForceNowPlayingCardRepaint(void);
 static NSObject *LXLyricLock(void);
+// 屏幕/音频路由变化后重新判定 8.3Hz 歌词时钟是否该跑（熄屏且无蓝牙歌词可送车机时停钟）
+static void LXUpdateNowPlayingLyricTimerVisibility(void);
 // 播放位置事件（原生 4Hz 外推位置广播给 JS，驱动进度条等 UI，替代 JS 侧桥接轮询）
 static NSNotificationName const LXPlayerPositionNotificationName = @"LXPlayerPosition";
 // 时钟冻结标志：RNTP state 事件报告 loading/暂停等非播放态时置 YES——网络流
@@ -1102,11 +1106,36 @@ static void LXRegisterTrackPlayerLifecycleObserver(void) {
 
   if (LXNowPlayingApplicationObserver == nil) {
     LXNowPlayingApplicationObserver = [[NSNotificationCenter defaultCenter] addObserverForName:UIApplicationDidBecomeActiveNotification object:nil queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification * _Nonnull note) {
+      // 回前台 = 屏幕一定亮着：先记录亮度证据（用于区分「熄屏」与「最低亮度仍亮」），
+      // 再按可见性重新判定歌词时钟（熄屏期间可能被停掉）。时钟逻辑自身会在「由暗转亮」时
+      // 补一次步进 + 重绘，保证第一眼就是正确行。
+      LXRememberScreenBrightness();
+      LXUpdateNowPlayingLyricTimerVisibility();
       if (LXNowPlayingInfoCache.count == 0) return;
       // iOS 27 Beta 7 可能在应用切换/控制中心展开后丢弃当前媒体会话；
       // 重新激活音频会话并重新提交缓存，可让 iPad 控制中心/锁屏恢复歌曲信息和播放按钮。
       [[AVAudioSession sharedInstance] setActive:YES error:nil];
       LXApplyNowPlayingInfo();
+    }];
+  }
+
+  // 屏幕点亮状态：iOS 没有公开 API，唯一可用判据是 UIScreen.brightness（熄屏/锁屏时为 0）。
+  // 亮度变化通知覆盖「锁屏熄屏 / 抬腕亮屏到锁屏界面」这条链路 —— App 在后台时
+  // AppState 不会变，只有亮度会变，所以必须单独观察。
+  if (LXNowPlayingScreenObserver == nil) {
+    LXNowPlayingScreenObserver = [[NSNotificationCenter defaultCenter] addObserverForName:UIScreenBrightnessDidChangeNotification object:nil queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification * _Nonnull note) {
+      // 先记录「屏幕亮着」的证据（读到非零亮度），再判定是否熄屏 —— 顺序不能反，
+      // 否则「从明显亮掉到 0」这一次通知里会丢掉唯一的判定依据。
+      LXRememberScreenBrightness();
+      LXUpdateNowPlayingLyricTimerVisibility();
+    }];
+  }
+
+  // 音频路由变化：决定「蓝牙歌词能否送到车机」（蓝牙输出才可能显示，耳机/外放不会），
+  // 进而决定熄屏时要不要继续跑 8.3Hz 时钟。
+  if (LXNowPlayingRouteObserver == nil) {
+    LXNowPlayingRouteObserver = [[NSNotificationCenter defaultCenter] addObserverForName:AVAudioSessionRouteChangeNotification object:nil queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification * _Nonnull note) {
+      LXUpdateNowPlayingLyricTimerVisibility();
     }];
   }
 }
@@ -1404,15 +1433,109 @@ static void LXStopNowPlayingLyricTimer(void) {
   LXNowPlayingLyricQueue = nil;
 }
 
-// 时钟生命周期守卫：只在「正在播放」时才让 8.3Hz 时钟运行。
+// 读取主屏亮度；读不到返回 -1（未知）。UIScreen.brightness 取值 0.0~1.0，
+// **0.0 就是「最低亮度」**（Apple 文档原话），所以 0 既可能是熄屏、也可能是屏幕亮着但被调到最低。
+static CGFloat LXReadScreenBrightness(void) {
+  UIScreen *screen = nil;
+  if (@available(iOS 13.0, *)) {
+    for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
+      if (![scene isKindOfClass:[UIWindowScene class]]) continue;
+      screen = ((UIWindowScene *)scene).screen;
+      if (screen != nil) break;
+    }
+  }
+  if (screen == nil) return -1;
+  return screen.brightness;
+}
+
+// 「刚才还明显亮」的亮度阈值：只有从明显亮直接掉到 0，才敢认定屏幕熄灭。
+// 低于该值（最低亮度 / 暗环境自动亮度 / 渐暗到 0）一律按「屏幕仍亮」处理 ——
+// 用户实机反馈：亮度调到最低看锁屏卡片时，歌词曾被冻住（误判成熄屏），这里从根上避免。
+static const CGFloat LXScreenOffTrustBrightness = 0.3;
+
+// 最近一次观测到的非零亮度（-1 = 未知）：只在读到 > 0 时更新，0 不覆盖它。
+static CGFloat LXLastNonZeroBrightness = -1;
+
+// 记录「屏幕确实亮着」时的亮度证据（只要读到非零就记）。
+static void LXRememberScreenBrightness(void) {
+  CGFloat brightness = LXReadScreenBrightness();
+  if (brightness > 0) LXLastNonZeroBrightness = brightness;
+}
+
+// 屏幕是否点亮（所有不确定情形一律判「亮」——宁可不省电，也绝不让可见的歌词冻结）：
+//   · App 前台 / 读到亮度 > 0            → 一定亮；
+//   · 读不到亮度（无场景/异常）           → 按亮处理；
+//   · 亮度 == 0：仅当「刚才明显亮过（>= 0.3）」才认定熄灭；
+//     最低亮度、暗环境自动亮度、渐暗到 0、从未观测到非零亮度 → 全部按亮处理。
+static BOOL LXScreenIsOn(void) {
+  if ([UIApplication sharedApplication].applicationState == UIApplicationStateActive) return YES;
+  CGFloat brightness = LXReadScreenBrightness();
+  if (brightness < 0) return YES;
+  if (brightness > 0) return YES;
+  return LXLastNonZeroBrightness < LXScreenOffTrustBrightness;
+}
+
+// 当前输出路由是否蓝牙：只有蓝牙输出才可能把 now playing 元数据（含歌词行）送到车机屏幕；
+// 耳机（有线）/ 外放都不存在「别处正在显示我们的歌词」这回事。
+static BOOL LXHasBluetoothAudioRoute(void) {
+  for (AVAudioSessionPortDescription *output in [AVAudioSession sharedInstance].currentRoute.outputs) {
+    NSString *portType = output.portType;
+    if ([portType isEqualToString:AVAudioSessionPortBluetoothA2DP] ||
+        [portType isEqualToString:AVAudioSessionPortBluetoothHFP] ||
+        [portType isEqualToString:AVAudioSessionPortBluetoothLE]) {
+      return YES;
+    }
+  }
+  return NO;
+}
+
+// 8.3Hz（0.12s）时钟的可见性门控 —— **不降频**：用户明确要求歌词不能有延迟，所以只要
+// 可能被人看到，就必须维持 0.12s 原速（改 0.3~0.5s 的方案已否决）。
+// 「屏幕点亮」判定见 LXScreenIsOn：亮度 0 时只有「刚才明显亮过（>= 0.3）」才算熄屏，
+// 最低亮度 / 暗环境自动亮度一律按亮处理（用户实机反馈的最低亮度冻歌词问题）。
+// 只在「任何地方都不可能看到歌词」时停钟：
+//   ① App 前台：歌词页/进度条需要 4Hz 位置事件 → 必须跑；
+//   ② 屏幕点亮：锁屏卡片 / 控制中心可能正被看着 → 必须跑；
+//   ③ 熄屏 + 非前台 + 歌词时间轴非空 + 蓝牙输出：车机屏幕可能正在滚动歌词
+//      （「蓝牙歌词」把行写进 artist，再由系统送到车机）→ 必须跑。
+// 其余情况（熄屏、非前台、没有蓝牙歌词可送）时停钟省电；亮屏/回前台/路由变化时由
+// LXUpdateNowPlayingLyricTimerVisibility() 重建。
+static BOOL LXShouldRunNowPlayingLyricTimer(void) {
+  if (LXNowPlayingState != MPNowPlayingPlaybackStatePlaying) return NO;
+  if ([UIApplication sharedApplication].applicationState == UIApplicationStateActive) return YES;
+  if (LXScreenIsOn()) return YES;
+  BOOL hasLyricLines = NO;
+  @synchronized (LXLyricLock()) {
+    hasLyricLines = LXNowPlayingLyricLines.count > 0;
+  }
+  return hasLyricLines && LXHasBluetoothAudioRoute();
+}
+
+// 屏幕/路由/前台状态变化后的统一入口：由暗转亮时先把当前行补上并重绘一次，再同步时钟，
+// 保证「亮起来的第一眼就是正确行」（不做任何降频，因此不存在延迟问题）。
+static void LXUpdateNowPlayingLyricTimerVisibility(void) {
+  static BOOL lastScreenOn = YES;
+  BOOL screenOn = LXScreenIsOn();
+  BOOL becameVisible = screenOn && !lastScreenOn;
+  lastScreenOn = screenOn;
+
+  if (becameVisible && LXNowPlayingState == MPNowPlayingPlaybackStatePlaying) {
+    // 熄屏期间时钟可能已停：手动走一拍把行推进到当前时刻，再补一次卡片重绘
+    LXNowPlayingLyricStep();
+    LXQueueNowPlayingLyricRedraw();
+  }
+  LXSyncNowPlayingLyricTimer();
+}
+
+// 时钟生命周期守卫：只在「正在播放且歌词可能被看到」时才让 8.3Hz 时钟运行。
 // 暂停 / 停止 / 空闲时停钟——这些状态下 tick 里 rate ≤ 0 会立刻早退（不做任何事），
 // 但 8.3Hz 的唤醒本身仍在阻止 CPU 深度睡眠，是锁屏后台的净耗电。播放态恢复时
 // （LXNowPlayingState 由 JS 的 play 发布置为 Playing，或元数据发布触发同步）重建。
-// 注意：时钟同时承担「前台 4Hz 位置事件 → JS 进度条」的枢纽职责，故只要在播放
-// 就必须运行（不能只在有歌词时运行，否则无歌词的歌在前台进度条失去平滑驱动，
-// 退化为 1s 慢校准的跳变）。
+// 注意：时钟同时承担「前台 4Hz 位置事件 → JS 进度条」的枢纽职责，故前台播放时
+// 必须运行（不能只在有歌词时运行，否则无歌词的歌在前台进度条失去平滑驱动，
+// 退化为 1s 慢校准的跳变）。可见性判定见 LXShouldRunNowPlayingLyricTimer。
 static void LXSyncNowPlayingLyricTimer(void) {
-  if (LXNowPlayingState == MPNowPlayingPlaybackStatePlaying) {
+  if (LXShouldRunNowPlayingLyricTimer()) {
     LXStartNowPlayingLyricTimer();
   } else {
     LXStopNowPlayingLyricTimer();
@@ -6218,4 +6341,6 @@ RCT_REMAP_METHOD(sha1, sha1:(NSString *)input resolver:(RCTPromiseResolveBlock)r
 }
 
 @end
+
+
 

@@ -641,9 +641,21 @@ export default () => {
     }
   }
 
-  // 修复在某些设备上屏幕状态改变事件未触发导致的进度条未更新的问题
+  // 前台门（2026-10-03 耗电盘点）：原生 `screen-state` 事件在当前工程里**没有任何发送方**
+  // （AppDelegate.mm 只在 supportedEvents 里声明过它），所以「熄屏/回屏」只能以 AppState 为准：
+  //   - 回前台 = 亮屏：恢复 1s 慢校准并重锚（syncFromEngine + resyncLyricToEngine，修复
+  //     「某些设备屏幕状态事件未触发导致进度条不更新」的原有兜底逻辑保留）；
+  //   - 退后台 = 熄屏：停掉 1s 慢校准并把进度落盘一次。带 audio 后台模式的 App 在后台仍
+  //     存活，这颗普通 setInterval 会一直每秒唤醒 JS 线程（tick body 首行就 return，
+  //     是纯唤醒开销）；后台播放所需的歌词/控制中心刷新由原生 GCD 时钟承担，不依赖它。
+  // 只认 'background' 不认 'inactive'：下拉控制中心 / 来电横幅只是 inactive，瞬时且仍可能
+  // 有 UI 在刷新，不在这里停表。
   AppState.addEventListener('change', (state) => {
-    if (state == 'active' && !isScreenOn) handleScreenStateChanged('ON')
+    if (state == 'active') {
+      if (!isScreenOn) handleScreenStateChanged('ON')
+      return
+    }
+    if (state == 'background' && isScreenOn) handleScreenStateChanged('OFF')
   })
 
   // 原生位置事件快路径（4Hz，仅前台播放时由歌词时钟发布）：免桥接查询驱动进度 UI，

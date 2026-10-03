@@ -11,7 +11,7 @@ import { addListMusics, removeListMusics, updateListMusicPosition, updateListMus
 
 import { addTempPlayList } from '@/core/player/tempPlayList'
 
-import { filterFileName, similar, sortInsert, toOldMusicInfo } from '@/utils'
+import { filterFileName, toOldMusicInfo } from '@/utils'
 import { confirmDialog, openUrl, toast, requestStoragePermission } from '@/utils/tools'
 import { addDislikeInfo, hasDislike } from '@/core/dislikeList'
 
@@ -109,54 +109,6 @@ export const handleUpdateMusicInfo = (
       },
     },
   ])
-}
-
-export const searchListMusic = (list: LX.Music.MusicInfo[], text: string) => {
-  const fullMathNameResults = new Set<LX.Music.MusicInfo>()
-  const fullMathSingerResults = new Set<LX.Music.MusicInfo>()
-  const fullMathAlbumResults = new Set<LX.Music.MusicInfo>()
-  const textLower = text.toLowerCase()
-  for (const mInfo of list) {
-    if (mInfo.name?.toLowerCase().includes(textLower)) {
-      fullMathNameResults.add(mInfo)
-    } else if (mInfo.singer?.toLowerCase().includes(textLower)) {
-      fullMathSingerResults.add(mInfo)
-    } else if (mInfo.meta.albumName?.toLowerCase().includes(textLower)) {
-      fullMathAlbumResults.add(mInfo)
-    }
-  }
-  let result: LX.Music.MusicInfo[] = []
-  let rxp = new RegExp(
-    text
-      .split('')
-      .map((s) => s.replace(/[.*+?^${}()|[\]\\]/, '\\$&'))
-      .join('.*') + '.*',
-    'i',
-  )
-  for (const mInfo of list) {
-    if (fullMathNameResults.has(mInfo) || fullMathSingerResults.has(mInfo) || fullMathAlbumResults.has(mInfo)) continue
-
-    const str = `${mInfo.name}${mInfo.singer}${mInfo.meta.albumName ? mInfo.meta.albumName : ''}`
-    if (rxp.test(str)) result.push(mInfo)
-  }
-
-  const sortedList: Array<{ num: number, data: LX.Music.MusicInfo }> = []
-
-  for (const mInfo of result) {
-    sortInsert(sortedList, {
-      num: similar(
-        text,
-        `${mInfo.name}${mInfo.singer}${mInfo.meta.albumName ? mInfo.meta.albumName : ''}`,
-      ),
-      data: mInfo,
-    })
-  }
-  return [
-    ...fullMathNameResults.values(),
-    ...fullMathSingerResults.values(),
-    ...fullMathAlbumResults.values(),
-    ...sortedList.map((item) => item.data).reverse(),
-  ]
 }
 
 export const handleShowMusicSourceDetail = async(minfo: SelectInfo['musicInfo']) => {

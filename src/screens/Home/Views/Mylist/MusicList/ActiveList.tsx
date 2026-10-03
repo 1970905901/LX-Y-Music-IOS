@@ -84,6 +84,8 @@ export default forwardRef<ActiveListType, ActiveListProps>(
         <TouchableOpacity style={styles.currentListBtns} onPress={onToggleView}>
           <Icon color={theme['c-button-font']} name={showCover ? 'menu' : 'album'} />
         </TouchableOpacity>
+        {/* 搜索入口：输入条与结果都就地留在本列表里（见 ListSearchBar / List.tsx），
+            不再像旧版那样藏页头 + 弹浮层结果。 */}
         <TouchableOpacity style={styles.currentListBtns} onPress={onShowSearchBar}>
           <Icon color={theme['c-button-font']} name="search-2" />
         </TouchableOpacity>

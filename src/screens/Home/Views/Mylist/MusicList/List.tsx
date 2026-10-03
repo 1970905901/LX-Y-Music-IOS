@@ -4,7 +4,7 @@ import {
   FlatList,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
-  type FlatListProps, Keyboard,
+  type FlatListProps, Keyboard, View,
 } from 'react-native'
 
 import OnlineListItem from '@/components/OnlineList/ListItem'
@@ -14,6 +14,7 @@ import { getListPosition, getListPrevSelectId, saveListPosition } from '@/utils/
 // import { useMusicList } from '@/store/list/hook'
 import { getListMusics } from '@/core/list'
 import ListItem, { ITEM_HEIGHT } from './ListItem'
+import { filterListMusic } from './listFilter'
 import { createStyle, getRowInfo } from '@/utils/tools'
 import { useHorizontalMode } from '@/utils/hooks'
 import { usePlayInfo, usePlayMusicInfo } from '@/store/player/hook'
@@ -23,6 +24,9 @@ import { useActiveListId } from '@/store/list/hook'
 import { useSettingValue } from '@/store/setting/hook'
 import { useBottomOverlayInset } from '@/store/common/hook'
 import { usePhantomScrollGuard } from '@/utils/hooks/usePhantomScrollGuard'
+import Text from '@/components/common/Text'
+import { useI18n } from '@/lang'
+import { useTheme } from '@/store/theme/hook'
 
 type FlatListType = FlatListProps<LX.Music.MusicInfo>
 
@@ -30,6 +34,11 @@ export interface ListProps {
   header?: ReactElement
   /** 指定初始载入的列表 id。传入时优先于持久化的「上次选中列表」。 */
   listId?: string
+  /**
+   * 就地搜索关键字（空 = 不过滤）。非空时只渲染匹配行，结果就是本列表本身——
+   * 没有第二份结果列表/浮层（见 listFilter.ts 的文件头说明）。
+   */
+  filterKeyword?: string
   onShowMenu: (musicInfo: LX.Music.MusicInfo, index: number, position: Position) => void
   onMuiltSelectMode: () => void
   onSelectAll: (isAll: boolean) => void
@@ -40,7 +49,6 @@ export interface ListType {
   setSelectMode: (mode: SelectMode) => void
   selectAll: (isAll: boolean) => void
   getSelectedList: () => LX.List.ListMusics
-  scrollToInfo: (info: LX.Music.MusicInfo) => void
   scrollToTop: () => void
 }
 
@@ -57,8 +65,9 @@ const usePlayIndex = () => {
 }
 
 const List = forwardRef<ListType, ListProps>(
-  ({ header, listId, onShowMenu, onMuiltSelectMode, onSelectAll, showCover }, ref) => {
-    // const t = useI18n()
+  ({ header, listId, filterKeyword, onShowMenu, onMuiltSelectMode, onSelectAll, showCover }, ref) => {
+    const t = useI18n()
+    const theme = useTheme()
     const flatListRef = useRef<FlatList>(null)
     // 首次进入的幽灵偏移修正（详见 usePhantomScrollGuard 注释）：
     // 试听列表 / 我的收藏的页头（PageTopInset + ActiveList）在列表内容里，
@@ -71,6 +80,34 @@ const List = forwardRef<ListType, ListProps>(
     // 避免播放中列表被重置回 initialNumToRender 而「加载不全 / 空白」。
     const listDataRef = useRef<LX.List.ListMusics>([])
     const [listVersion, setListVersion] = useState(0)
+    // ---- 就地搜索（我的收藏 / 自建列表） ----------------------------------
+    // 关键字非空时，把同一份 currentList 过滤出的「可见列表」交给 FlatList，
+    // 不另开结果浮层/结果列表（旧实现被用户评价「太割裂」的根源）。
+    // 两张 id→下标 映射负责把「可见行」与「原列表行」对齐：
+    //   originalById —— 行号显示、播放、播放态高亮都用原列表下标，搜索中
+    //                   点击某行播的还是整表里的同一首，序号也不跳动；
+    //   visibleById  —— 多选「区间」按用户实际看到的行序算。
+    // 未过滤时 filterState 为 null（filterListMusic 原样返回 currentList），
+    // data 引用不变，不会触发 VirtualizedList 重算渲染窗口。
+    const filterText = (filterKeyword ?? '').trim()
+    const filterState = useMemo(() => {
+      // listVersion 本身不参与过滤，只用来在「原地换行对象」（数组引用不变）后
+      // 强制重算一次命中集合，与 rowInfo 的 `void isHorizontal` 同一套写法。
+      void listVersion
+      const visible = filterListMusic(currentList, filterText)
+      if (visible === currentList) return null
+      const originalById = new Map<string, number>()
+      const visibleById = new Map<string, number>()
+      currentList.forEach((info, index) => { originalById.set(info.id, index) })
+      visible.forEach((info, index) => { visibleById.set(info.id, index) })
+      return { visible, originalById, visibleById }
+      // listVersion：handleChange 会**原地**换掉行对象（数组引用不变），过滤结果也得跟着重算
+    }, [currentList, filterText, listVersion])
+    const visibleList = filterState?.visible ?? currentList
+    const isFiltering = filterState != null
+    // renderItem / 点击回调都经 ref 读最新过滤状态（renderItem 引用必须恒定）
+    const filterStateRef = useRef(filterState)
+    filterStateRef.current = filterState
     const listFirstScrollRef = useRef(false)
     const isMultiSelectModeRef = useRef(false)
     const selectModeRef = useRef<SelectMode>('single')
@@ -110,7 +147,8 @@ const List = forwardRef<ListType, ListProps>(
       selectAll(isAll) {
         let list: LX.List.ListMusics
         if (isAll) {
-          list = [...currentList]
+          // 只全选用户当前看到的行（搜索过滤时就是命中的那些）
+          list = [...visibleList]
         } else {
           list = []
         }
@@ -119,19 +157,6 @@ const List = forwardRef<ListType, ListProps>(
       },
       getSelectedList() {
         return selectedListRef.current
-      },
-      scrollToInfo(info) {
-        void getListMusics(listState.activeListId).then((list) => {
-          const index = list.findIndex((m) => m.id == info.id)
-          if (index < 0) return
-          // 程序化定位：先停用幽灵守卫，避免它把定位结果拉回顶部
-          phantomGuard.stop()
-          flatListRef.current?.scrollToIndex({
-            index: Math.floor(index / numColumns),
-            viewPosition: 0.3,
-            animated: true,
-          })
-        })
       },
       scrollToTop() {
         flatListRef.current?.scrollToOffset({
@@ -250,14 +275,25 @@ const List = forwardRef<ListType, ListProps>(
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
+    // 关键字一变（进入/退出搜索、边打字边过滤）就回到顶部：
+    // 过滤后可见行数可能远小于原滚动位置，不回顶会看到「列表中部一片空白」；
+    // 这次程序化滚动同样不能写回整表的持久位置（listFirstScrollRef）。
+    const prevFilterRef = useRef('')
+    useEffect(() => {
+      if (prevFilterRef.current === filterText) return
+      prevFilterRef.current = filterText
+      listFirstScrollRef.current = true
+      flatListRef.current?.scrollToOffset({ offset: 0, animated: false })
+    }, [filterText])
+
     const activeIndex = usePlayIndex()
     const handlePlay = (index: number) => {
       void playList(listState.activeListId, index)
     }
 
     const handleUpdateSelectedList = (newList: LX.List.ListMusics) => {
-      if (selectedListRef.current.length && newList.length == currentList.length) onSelectAll(true)
-      else if (selectedListRef.current.length == currentList.length) onSelectAll(false)
+      if (selectedListRef.current.length && newList.length == visibleList.length) onSelectAll(true)
+      else if (selectedListRef.current.length == visibleList.length) onSelectAll(false)
       selectedListRef.current = newList
       setSelectedList(newList)
     }
@@ -279,9 +315,9 @@ const List = forwardRef<ListType, ListProps>(
           if (prevIndex == currentIndex) {
             newList = []
           } else if (currentIndex > prevIndex) {
-            newList = currentList.slice(prevIndex, currentIndex + 1)
+            newList = visibleList.slice(prevIndex, currentIndex + 1)
           } else {
-            newList = currentList.slice(currentIndex, prevIndex + 1)
+            newList = visibleList.slice(currentIndex, prevIndex + 1)
             newList.reverse()
           }
         } else {
@@ -293,12 +329,19 @@ const List = forwardRef<ListType, ListProps>(
       handleUpdateSelectedList(newList)
     }
 
+    // 行组件（ListItem / OnlineListItem）收到的 index 是**原列表下标**——
+    // 行号显示、播放、播放态高亮都依赖它，所以就地过滤时序号也不会跳动。
+    // 只有多选「区间」要按用户实际看到的行序算，这里换算一次（未过滤时两者相同）。
+    const toVisibleIndex = (item: LX.Music.MusicInfo, originalIndex: number) => {
+      return filterStateRef.current?.visibleById.get(item.id) ?? originalIndex
+    }
+
     const handlePress = (item: LX.Music.MusicInfo, index: number) => {
       // 同 OnlineList/List.tsx：去掉 rAF 延迟与 homePagerIdle 守卫（PagerView 已
       // scrollEnabled={false}，守卫已无意义，且历史上会把点击静默吞掉）。
       // 点击直接同步进入播放链路，避免 JS 帧驱动停摆时「列表能滑、点了没反应」。
       if (isMultiSelectModeRef.current) {
-        handleSelect(item, index)
+        handleSelect(item, toVisibleIndex(item, index))
       } else {
         handlePlay(index)
       }
@@ -306,7 +349,7 @@ const List = forwardRef<ListType, ListProps>(
 
     const handleLongPress = (item: LX.Music.MusicInfo, index: number) => {
       if (isMultiSelectModeRef.current) return
-      prevSelectIndexRef.current = index
+      prevSelectIndexRef.current = toVisibleIndex(item, index)
       handleUpdateSelectedList([item])
       onMuiltSelectMode()
     }
@@ -316,6 +359,9 @@ const List = forwardRef<ListType, ListProps>(
         listFirstScrollRef.current = false
         return
       }
+      // 过滤中列表是「临时视图」：滚动位置属于整表的持久状态，不能在这里写回，
+      // 否则搜完退出，整表会被带到搜索结果所在的位置。
+      if (filterStateRef.current) return
       void saveListPosition(listState.activeListId, nativeEvent.contentOffset.y)
     }
 
@@ -334,6 +380,8 @@ const List = forwardRef<ListType, ListProps>(
       isShowInterval,
       isShowSource,
       showCover,
+      // 过滤时：可见行下标 → 原列表下标（行号 / 播放 / 高亮用）
+      filterOriginalById: filterState?.originalById ?? null,
       playingId: playerState.playMusicInfo.musicInfo?.id ?? '',
     })
     renderDepsRef.current = {
@@ -347,17 +395,21 @@ const List = forwardRef<ListType, ListProps>(
       isShowInterval,
       isShowSource,
       showCover,
+      filterOriginalById: filterState?.originalById ?? null,
       playingId: playerState.playMusicInfo.musicInfo?.id ?? '',
     }
     // 底部悬浮层（迷你播放器 + 底部 Tab + 安全区）统一避让高度
     const bottomInset = useBottomOverlayInset()
     const renderItem = useCallback<NonNullable<FlatListType['renderItem']>>(({ item, index }) => {
       const d = renderDepsRef.current
+      // 就地过滤时 FlatList 给的是「可见行」下标；行号、播放、播放态高亮都要用
+      // 原列表下标，这里换算（未过滤时映射表为 null，等价于原样透传）。
+      const itemIndex = d.filterOriginalById?.get(item.id) ?? index
       if (item.source === 'wy') {
         return (
           <OnlineListItem
             item={item as LX.Music.MusicInfoOnline}
-            index={index}
+            index={itemIndex}
             onPress={d.handlePress}
             onLongPress={d.handleLongPress}
             onShowMenu={d.onShowMenu}
@@ -375,7 +427,7 @@ const List = forwardRef<ListType, ListProps>(
         return (
           <ListItem
             item={item}
-            index={index}
+            index={itemIndex}
             activeIndex={d.activeIndex}
             onScrollBeginDrag={Keyboard.dismiss}
             onPress={d.handlePress}
@@ -402,8 +454,18 @@ const List = forwardRef<ListType, ListProps>(
         onScroll={(e) => { phantomGuard.props.onScroll(e); handleScroll(e) }}
         style={styles.list}
         contentContainerStyle={{ paddingBottom: bottomInset }}
-        data={currentList}
+        // 就地过滤：命中的行仍由**这一个** FlatList 渲染，不另开结果列表
+        data={visibleList}
         ListHeaderComponent={header}
+        ListEmptyComponent={isFiltering ? (
+          <View style={styles.empty}>
+            <Text color={theme['c-font-label']}>{t('list_search_empty')}</Text>
+          </View>
+        ) : null}
+        // 搜索时键盘是弹起的：必须让行上的点击穿透（否则第一次点是「收键盘」），
+        // 拖动列表则顺手收键盘。
+        keyboardShouldPersistTaps='handled'
+        keyboardDismissMode='on-drag'
         maxToRenderPerBatch={20}
         updateCellsBatchingPeriod={50}
         // key：numColumns 变更（旋转/分屏）时强制重挂载 FlatList——
@@ -434,6 +496,12 @@ const styles = createStyle({
   list: {
     flexGrow: 1,
     flexShrink: 1,
+  },
+  empty: {
+    paddingTop: 36,
+    paddingBottom: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 })
 

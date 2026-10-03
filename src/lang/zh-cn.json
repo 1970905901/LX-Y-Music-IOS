@@ -109,6 +109,8 @@
   "list_remove_tip_button": "是的，没错",
   "list_rename": "重命名",
   "list_rename_title": "重命名列表",
+  "list_search_empty": "没有找到匹配的歌曲",
+  "list_search_placeholder": "搜索歌曲、歌手、专辑",
   "list_select_all": "全选",
   "list_select_cancel": "取消",
   "list_select_local_file": "添加本地歌曲",

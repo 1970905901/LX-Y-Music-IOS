@@ -687,6 +687,7 @@ static id LXTrackPlayerLifecycleObserver = nil;
 static id LXNowPlayingApplicationObserver = nil;
 static id LXNowPlayingScreenObserver = nil;
 static id LXNowPlayingRouteObserver = nil;
+static id LXNowPlayingInterruptionObserver = nil;
 static NSString * const LXRemoteCommandNotificationName = @"LXRemoteCommand";
 static BOOL LXRemoteCommandHandlersInstalled = NO;
 // 最近一次收到遥控命令（播放/暂停/切歌/拖进度）的时间戳（CACurrentMediaTime 毫秒）。
@@ -737,8 +738,25 @@ static void LXPostRemoteCommandNotification(NSString *command, NSDictionary *ext
   [[NSNotificationCenter defaultCenter] postNotificationName:LXRemoteCommandNotificationName object:nil userInfo:userInfo];
 }
 
+// 播放/切换键可能要「重新出声」：先把音频会话拉起来。
+// 关闭「与其他应用同时播放」时，被其它 App 打断会把 AVAudioSession 置为非激活，
+// 重新出声必须先 setActive:YES —— 以前这一步只发生在 JS 的 TrackPlayer.play() 里，
+// App 在后台被挂起时第一次按压会落在 JS 尚未跑起来的窗口，引擎收到 play 也不出声
+// （用户 2026-10-03 反馈：控制中心点播放无效、要按两次）。放到原生遥控入口后，
+// 按压当拍就恢复会话，不再依赖 JS 的到达时机；中断仍在进行时激活失败属正常，
+// 那一次由 JS 侧的播放意图重试在中断结束后再拉起（见 core/player/player.ts）。
+static void LXActivateAudioSessionForPlayback(void) {
+  NSError *sessionError = nil;
+  if (![[AVAudioSession sharedInstance] setActive:YES error:&sessionError]) {
+    (void)sessionError;
+  }
+}
+
 static MPRemoteCommandHandlerStatus LXHandleRemoteCommandEvent(NSString *command) {
   LXNowPlayingLastRemoteCommandAtMs = CACurrentMediaTime() * 1000.0;
+  if ([command isEqualToString:@"play"] || [command isEqualToString:@"toggle"]) {
+    LXActivateAudioSessionForPlayback();
+  }
   LXPostRemoteCommandNotification(command, nil);
   return MPRemoteCommandHandlerStatusSuccess;
 }
@@ -1110,6 +1128,18 @@ static void LXHandleTrackPlayerLifecycleNotification(NSNotification *notificatio
   }
 }
 
+// 系统音频中断（被其它 App 抢占 / 来电）：引擎会立刻停声，而 JS 侧要等 RemoteDuck 事件
+// 到达才能把 Now Playing 播放态改成 Paused —— App 在后台被挂起时这段延迟可能很长，期间
+// 控制中心 / 灵动岛显示的还是「暂停」图标：用户点它，系统发的是 pause（本来就没在播，
+// 看起来「点播放没反应」），要按第二次才轮到真正的 play（用户 2026-10-03 反馈）。
+// 原生在中断当拍就把卡片置成 Paused（只动显示态，不碰真实播放），第一次按下即 play。
+static void LXHandleNowPlayingInterruptionBegan(void) {
+  if (LXNowPlayingState != MPNowPlayingPlaybackStatePlaying) return;
+  if (LXNowPlayingInfoCache.count == 0) return;
+  // playbackRate 必须显式写 0：系统同时按 info 里的速率外推进度，缺省会沿用旧的正速率
+  LXSetNowPlayingPlaybackState(MPNowPlayingPlaybackStatePaused, @{ @"playbackRate": @0 });
+}
+
 static void LXRegisterTrackPlayerLifecycleObserver(void) {
   if (LXTrackPlayerLifecycleObserver == nil) {
     LXTrackPlayerLifecycleObserver = [[NSNotificationCenter defaultCenter] addObserverForName:LXTrackPlayerLifecycleNotificationName object:nil queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification * _Nonnull note) {
@@ -1149,6 +1179,15 @@ static void LXRegisterTrackPlayerLifecycleObserver(void) {
   if (LXNowPlayingRouteObserver == nil) {
     LXNowPlayingRouteObserver = [[NSNotificationCenter defaultCenter] addObserverForName:AVAudioSessionRouteChangeNotification object:nil queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification * _Nonnull note) {
       LXUpdateNowPlayingLyricTimerVisibility();
+    }];
+  }
+
+  // 音频中断开始：原生立刻把卡片播放态置为 Paused，不等 JS（见 LXHandleNowPlayingInterruptionBegan）
+  if (LXNowPlayingInterruptionObserver == nil) {
+    LXNowPlayingInterruptionObserver = [[NSNotificationCenter defaultCenter] addObserverForName:AVAudioSessionInterruptionNotification object:[AVAudioSession sharedInstance] queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification * _Nonnull note) {
+      NSNumber *typeValue = [note.userInfo[AVAudioSessionInterruptionTypeKey] isKindOfClass:[NSNumber class]] ? note.userInfo[AVAudioSessionInterruptionTypeKey] : nil;
+      if (typeValue == nil || typeValue.unsignedIntegerValue != AVAudioSessionInterruptionTypeBegan) return;
+      LXHandleNowPlayingInterruptionBegan();
     }];
   }
 }
@@ -5662,8 +5701,13 @@ static BOOL LXTabBarManualExpanded = NO;
 static NSNotificationName const LXTabBarCollapseChangedNotification = @"LXTabBarCollapseChanged";
 static void LXSetTabBarCollapsed(BOOL collapsed);
 
+// JS 监听器（startObserving）尚未就绪时暂存的遥控命令，见 handleRemoteCommandNotification
+static const double LXRemoteCommandPendingMaxAgeMs = 30000.0;
+
 @interface UtilsModule : RCTEventEmitter<RCTBridgeModule>
 @property (nonatomic, assign) BOOL hasListeners;
+// JS 监听器还没就绪时暂存的遥控命令（startObserving 时补发）
+@property (nonatomic, strong) NSMutableArray<NSDictionary *> *pendingRemoteCommands;
 @end
 
 @implementation UtilsModule
@@ -5751,8 +5795,29 @@ RCT_EXPORT_MODULE();
   });
 }
 
+// 把暂存的遥控命令按时间窗补发给 JS；过期（如上一次会话遗留）的直接丢弃，
+// 避免 App 回到前台时补发一个早就不该生效的操作。
+- (void)flushPendingRemoteCommands {
+  NSMutableArray<NSDictionary *> *pending = self.pendingRemoteCommands;
+  self.pendingRemoteCommands = nil;
+  if (pending.count == 0) return;
+
+  double nowMs = CACurrentMediaTime() * 1000.0;
+  for (NSDictionary *queued in pending) {
+    NSNumber *queuedAtMs = [queued[@"queuedAtMs"] isKindOfClass:[NSNumber class]] ? queued[@"queuedAtMs"] : nil;
+    if (queuedAtMs == nil || nowMs - queuedAtMs.doubleValue > LXRemoteCommandPendingMaxAgeMs) continue;
+    NSMutableDictionary *body = [queued mutableCopy];
+    [body removeObjectForKey:@"queuedAtMs"];
+    [self sendEventWithName:@"remote-command" body:body];
+  }
+}
+
 - (void)startObserving {
   self.hasListeners = YES;
+  // 补发「JS 监听器就绪前」收到的遥控命令（详情见 handleRemoteCommandNotification）
+  dispatch_async(dispatch_get_main_queue(), ^{
+    [self flushPendingRemoteCommands];
+  });
 }
 
 - (void)stopObserving {
@@ -5806,8 +5871,6 @@ RCT_EXPORT_MODULE();
 }
 
 - (void)handleRemoteCommandNotification:(NSNotification *)notification {
-  if (!self.hasListeners) return;
-
   NSDictionary *userInfo = [notification.userInfo isKindOfClass:[NSDictionary class]] ? notification.userInfo : @{};
   NSString *command = [userInfo[@"command"] isKindOfClass:[NSString class]] ? userInfo[@"command"] : @"";
   if (!command.length) return;
@@ -5816,6 +5879,15 @@ RCT_EXPORT_MODULE();
   body[@"command"] = command;
 
   dispatch_async(dispatch_get_main_queue(), ^{
+    // JS 监听器还没就绪（App 被遥控命令唤起 / JS 重载）：先排队，startObserving 时补发。
+    // 以前这里直接丢，丢掉的正是用户按的那一次 ——「第一次点播放没反应、要按两次」。
+    if (!self.hasListeners) {
+      if (self.pendingRemoteCommands == nil) self.pendingRemoteCommands = [NSMutableArray array];
+      if (self.pendingRemoteCommands.count >= 4) [self.pendingRemoteCommands removeObjectAtIndex:0];
+      body[@"queuedAtMs"] = @(CACurrentMediaTime() * 1000.0);
+      [self.pendingRemoteCommands addObject:body];
+      return;
+    }
     [self sendEventWithName:@"remote-command" body:body];
   });
 }

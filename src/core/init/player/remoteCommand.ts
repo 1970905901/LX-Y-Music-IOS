@@ -1,5 +1,5 @@
 import { onRemoteCommand } from '@/utils/nativeModules/utils'
-import { pause, play, playNext, playPrev, togglePlay } from '@/core/player/player'
+import { pause, playNext, playPrev, requestPlay, togglePlay } from '@/core/player/player'
 import { markTimeoutExitInteraction } from '@/core/player/timeoutExit'
 import { getUnifiedPlaybackState } from '@/plugins/player/engine'
 
@@ -34,7 +34,8 @@ export default () => {
 
     switch (event.command) {
       case 'play':
-        play()
+        // 手动播放必须一次生效：走「播放意图」（首次 play 被中断吞掉时按短延迟复查并补发）
+        requestPlay()
         break
       case 'pause':
         void pause()
@@ -48,7 +49,7 @@ export default () => {
         void getUnifiedPlaybackState()
           .then((state) => {
             if (state === 'playing' || state === 'buffering') void pause()
-            else play()
+            else requestPlay()
           })
           .catch(() => {
             // 引擎状态查询失败时退回旧口径，至少保证按键有动作

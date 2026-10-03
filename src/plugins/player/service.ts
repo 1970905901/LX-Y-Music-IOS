@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-misused-promises */
 import TrackPlayer, { Event as TPEvent } from 'react-native-track-player'
 import { Platform } from 'react-native'
-import { pause, play } from '@/core/player/player'
+import { hasRecentManualPlayIntent, pause, play } from '@/core/player/player'
 import { initUnifiedPlayerController } from './controller'
 import { exitApp } from '@/core/common'
 import playerState from '@/store/player/state'
@@ -120,7 +120,9 @@ const registerPlaybackService = async() => {
       shouldResumeAfterDuck = false
       interruptionStartedAt = 0
       clearDuckRecoveryTimeouts()
-      if (paused) void pause()
+      // 用户刚按过播放（控制中心 / 灵动岛）时不能再补 pause()：那条 pause 会按停用户刚
+      // 起来的播放，表现就是「第一次点播放没反应、要按两次」（见 core/player/player.ts）。
+      if (paused && !hasRecentManualPlayIntent()) void pause()
       if (shouldResumeShortInterruption) resumeAfterInterruption()
       return
     }

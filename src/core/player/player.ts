@@ -30,6 +30,7 @@ import { LIST_IDS } from '@/config/constant'
 import { addListMusics, removeListMusics } from '@/core/list'
 import { addDislikeInfo } from '@/core/dislikeList'
 import { markTimeoutExitInteraction } from './timeoutExit'
+import { getUnifiedPlaybackState } from '@/plugins/player/engine'
 
 // import { checkMusicFileAvailable } from '@renderer/utils/music'
 
@@ -632,6 +633,59 @@ export const playPrev = async(isAutoToggle = false): Promise<void> => {
   })
 }
 
+// —— 手动播放意图（控制中心 / 灵动岛 / 锁屏的「播放」）——
+// 背景（2026-10-03 用户反馈）：关闭「与其他应用同时播放」后，音乐被其它 App 打断暂停，
+// 在别的 App 里下拉控制中心再点播放，第一次无效、要点两次才恢复。
+//
+// 第一次为什么会无效（任一环都足以吞掉那次按压）：
+//   ① 中断会把 AVAudioSession 置为非激活，重新出声必须先 setActive(true)（TrackPlayer.play()
+//      与原生遥控入口里做）；App 在后台被挂起时第一次按压可能落在 JS 还没跑起来的窗口，
+//      引擎收到 play 但会话没起来 → 不出声；
+//   ② 中断结束（permanent / paused）分支会补一次 pause()：若它压在这次手动 play 之后到达，
+//      刚起来的播放会被立刻按停；
+//   ③ 中断 / 缓冲抖动后引擎可能吞掉第一次 play（状态没回到 playing）。
+// 处理：把「用户明确要求播放」记成一条有时间窗的意图 —— 立即播放，之后按短延迟复查引擎
+// 真实状态，没进播放（playing / buffering / loading）就补发一次；用户手动暂停 / 停止时
+// 立即清掉意图，重试绝不与用户对着干（service.ts 的中断结束分支读同一个意图）。
+const PLAY_INTENT_WINDOW_MS = 2500
+const PLAY_CONFIRM_DELAYS = [500, 1500]
+let manualPlayIntentAt = 0
+let playConfirmTimeouts: Array<ReturnType<typeof setTimeout>> = []
+
+const clearPlayConfirmTimeouts = () => {
+  for (const timeout of playConfirmTimeouts) clearTimeout(timeout)
+  playConfirmTimeouts = []
+}
+
+/** 最近是否有「用户明确要求播放」的意图（中断结束的补 pause 不能压掉它） */
+export const hasRecentManualPlayIntent = () =>
+  manualPlayIntentAt > 0 && Date.now() - manualPlayIntentAt <= PLAY_INTENT_WINDOW_MS
+
+const clearManualPlayIntent = () => {
+  manualPlayIntentAt = 0
+  clearPlayConfirmTimeouts()
+}
+
+/**
+ * 用户明确要求播放（控制中心 / 灵动岛 / 锁屏的播放键）
+ * 立即播放 + 延迟复查引擎真实播放态，没进播放就补发（见上方「第一次无效」三环）
+ */
+export const requestPlay = () => {
+  manualPlayIntentAt = Date.now()
+  clearPlayConfirmTimeouts()
+  play()
+  playConfirmTimeouts = PLAY_CONFIRM_DELAYS.map(delay => setTimeout(() => {
+    if (!hasRecentManualPlayIntent()) return
+    void getUnifiedPlaybackState().then((state) => {
+      if (!hasRecentManualPlayIntent()) return
+      if (state === 'playing' || state === 'buffering' || state === 'loading') return
+      play()
+    }).catch(() => {
+      // 查询失败按「没起来」处理：下一拍复查继续兜底
+    })
+  }, delay))
+}
+
 /**
  * 恢复播放
  */
@@ -648,6 +702,8 @@ export const play = () => {
  * 暂停播放
  */
 export const pause = async() => {
+  // 任何暂停（用户按键 / 中断自身）都让待补发的播放意图失效，避免重试把播放抢回来
+  clearManualPlayIntent()
   await setPause()
 }
 
@@ -655,6 +711,7 @@ export const pause = async() => {
  * 停止播放
  */
 export const stop = async() => {
+  clearManualPlayIntent()
   await setStop()
   setTimeout(() => {
     global.app_event.stop()

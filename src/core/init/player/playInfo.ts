@@ -1,6 +1,7 @@
 import { getPlayInfo } from '@/utils/data'
 import { getListMusics } from '@/core/list'
 import { playList, play } from '@/core/player/player'
+import playerState from '@/store/player/state'
 
 
 export default async(setting: LX.AppSetting) => {
@@ -14,7 +15,16 @@ export default async(setting: LX.AppSetting) => {
 
   await playList(info.listId, info.index)
 
-  if (setting['player.startupAutoPlay']) setTimeout(play)
+  // 启动软件自动播放：前提是「软件内有暂停的歌曲」——上面已从持久化信息里恢复出一首
+  // 歌，且 playList() 只把它加载成暂停态（不出声）。这里再显式校验一次前提，避免
+  // 将来播放链路变化（已自动起播 / 无歌可播）时重复播放或空播。
+  if (setting['player.startupAutoPlay']) {
+    setTimeout(() => {
+      if (playerState.isPlay) return
+      if (!playerState.playMusicInfo.musicInfo) return
+      play()
+    })
+  }
 
 
   // if (!info.list || !info.list[info.index]) {

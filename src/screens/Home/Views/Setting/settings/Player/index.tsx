@@ -14,13 +14,13 @@ import IsShowLyricRoma from './IsShowLyricRoma'
 import IsShowBluetoothLyric from './IsShowBluetoothLyric'
 import IsS2T from './IsS2T'
 import ClearCache from './ClearCache'
-import IsAutoPlayOnReturn from './IsAutoPlayOnReturn'
+import IsAutoPlayOnStartup from './IsAutoPlayOnStartup'
 
 export default memo(() => {
   return (
     <Section sectionId="setting_player">
       <IsSavePlayTime />
-      <IsAutoPlayOnReturn />
+      <IsAutoPlayOnStartup />
       <IsAutoCleanPlayedList />
       <IsAutoSkipOnError />
       <IsHandleAudioFocus />

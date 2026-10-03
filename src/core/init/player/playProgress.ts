@@ -66,6 +66,22 @@ export default () => {
   let engineConfirmedPlaying = false
   let isBufferingHold = false
 
+  // —— 长暂停恢复意图 ——
+  // 现象（2026-10-03 用户反馈）：音乐暂停久了再播放，歌词与音频不同步。
+  // 成因：暂停够久后引擎的缓冲/连接被系统回收，恢复出声时「引擎报告位置」与
+  // 「实际可听位置」可能出现固定偏移（与在线源 seek 落点偏差同一类问题，见下方
+  // 出声回拉说明）。而所有自愈网（1s 慢校准 / 4Hz 快路径 / 行级探针）都以报告
+  // 位置为真值——它们只能把歌词对齐到偏移后的位置，永远修不回「歌词 ↔ 可听内容」。
+  // 上游对这类偏差的既有解法就是「出声回拉」：把音频重新精确 seek 到意图位置
+  // （本项目 seek 已补零容差 + 偏离>0.2s 重试，落点即出声点）。
+  // 所以：真实暂停时记下暂停位置作为恢复意图；恢复出声时若暂停够久，把音频精确
+  // 拉回该位置一次，音频/进度/歌词/控制中心随之回到同一时间轴。
+  // 只对 AVPlayer（trackPlayer）在线源生效：nativeFlac 的位置是帧累加「已播」语义、
+  // 本地文件不存在重取流偏移，都不需要（也不该）多一次 seek。
+  const LONG_PAUSE_RESUME_MIN_MS = 5000
+  let pauseResumePosition: number | null = null
+  let pauseResumeAt = 0
+
   const isRestoringCurrentMusic = () => {
     const restorePlayInfo = global.lx.restorePlayInfo
     if (!restorePlayInfo) return false
@@ -312,6 +328,23 @@ export default () => {
             void setCurrentTime(resumeTime).catch(() => {})
           })
         }
+        // 长暂停恢复（见上方「长暂停恢复意图」）：恢复出声即把音频精确拉回暂停位置一次，
+        // 消除「引擎报告位置 ≠ 可听内容」的固定偏移；落点确认后由 seeked/playing 重锚。
+        // 每次出声都消费掉意图：暂停不够久（或引擎/源类型不适用）就直接丢弃，绝不留给
+        // 后续的 buffering→playing 迟到事件（否则会在播放中途凭空把音频拉回旧位置）。
+        if (pauseResumePosition != null) {
+          const recoveryTime = pauseResumePosition
+          const pauseDurationMs = Date.now() - pauseResumeAt
+          pauseResumePosition = null
+          pauseResumeAt = 0
+          const currentMusicInfo = playerState.playMusicInfo.musicInfo
+          const isLocalTrack = currentMusicInfo != null && 'source' in currentMusicInfo && currentMusicInfo.source == 'local'
+          if (pauseDurationMs >= LONG_PAUSE_RESUME_MIN_MS && recoveryTime > 0 && event.driver == 'trackPlayer' && !isLocalTrack) {
+            lastSeekIntentAt = Date.now()
+            pullBackCount = 0
+            void setCurrentTime(recoveryTime).catch(() => {})
+          }
+        }
         break
       }
       case 'buffering':
@@ -342,6 +375,16 @@ export default () => {
         // 真实暂停/停止才清看门狗（上游 handlePause 语义：waiting 引发的 pause
         // 要保留看门狗与重试预算——我们的事件订阅天然区分真实 paused 与 buffering）
         clearBufferTimeout()
+        if (event.state === 'paused' && event.driver == 'trackPlayer') {
+          // 记「长暂停恢复意图」（只认真实暂停；buffering 引发的 pause 走 mediaBuffer 卡点机制）。
+          // 位置取音频时钟（逐帧外推，比 UI 进度状态新）。
+          const pausedPosition = audioClock.hasAnchor ? audioClock.getTime() : playerState.progress.nowPlayTime
+          pauseResumePosition = pausedPosition > 0 ? pausedPosition : null
+          pauseResumeAt = pauseResumePosition == null ? 0 : Date.now()
+        } else if (event.state === 'stopped') {
+          pauseResumePosition = null
+          pauseResumeAt = 0
+        }
         break
     }
   })
@@ -463,6 +506,9 @@ export default () => {
     restorePlayTimeTrack = musicId
     lastSeekIntentAt = Date.now()
     pullBackCount = 0
+    // 用户自己 seek 了：暂停恢复意图作废（新落点才是意图位置）
+    pauseResumePosition = null
+    pauseResumeAt = 0
     if (mediaBuffer.timeout != null || mediaBuffer.playTime != null) {
       // 缓冲看门狗进行中又 seek：清旧轮次，以新目标为回拉基准重启看门狗（上游同语义）
       clearBufferTimeout()
@@ -540,6 +586,8 @@ export default () => {
     restorePlayTimeTrack = null
     lastSeekIntentAt = 0
     pullBackCount = 0
+    pauseResumePosition = null
+    pauseResumeAt = 0
     // 切歌/停播可能没有任何引擎状态事件（尤其 nativeFlac stop 不走状态机），
     // 快路径门控必须显式复位，否则残留的 engineConfirmedPlaying 会让 4Hz 位置
     // 事件/自愈探针在上首歌曲的原生时钟位置上继续工作。

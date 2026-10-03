@@ -119,6 +119,13 @@ export const initSetting = async() => {
     }
   }
 
+  // 老键迁移：player.autoPlayOnReturn（返回软件自动播放）→ player.startupAutoPlay
+  // （启动软件自动播放）。旧键在功能上从未接线（只有设置项、没有消费方），这里只把
+  // 用户当时的开关意图带过来，语义由新功能重新定义（见 core/init/player/playInfo.ts）。
+  if (setting && setting['player.startupAutoPlay'] === undefined && typeof setting['player.autoPlayOnReturn'] === 'boolean') {
+    setting['player.startupAutoPlay'] = setting['player.autoPlayOnReturn']
+  }
+
   const updatedSetting = updateSetting(setting, true)
 
   // 导航顺序迁移：以当前 NAV_MENUS 为权威来源，把后续新增的菜单项

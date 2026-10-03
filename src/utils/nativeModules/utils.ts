@@ -33,6 +33,19 @@ export const screenUnkeepAwake = () => {
   global.lx.isScreenKeepAwake = false
   UtilsModule.screenUnkeepAwake?.()
 }
+/**
+ * 保存图片到系统相册（iOS 原生 PHPhotoLibrary「仅新增」写入，对应 Info.plist 的
+ * NSPhotoLibraryAddUsageDescription）。
+ *
+ * 为什么必须走原生：iOS 沙盒里的 Pictures/Document 目录用户与「文件」App 都看不到，
+ * 把封面写进沙盒等于功能无效（2026-10-03 用户实锤「下载封面无效」）。
+ */
+export const saveImageToPhotosLibrary = async(imagePath: string): Promise<boolean> => {
+  if (!isIOS || typeof UtilsModule?.saveImageToPhotosLibrary != 'function') {
+    throw new Error('当前平台不支持保存到相册')
+  }
+  return UtilsModule.saveImageToPhotosLibrary(imagePath) as Promise<boolean>
+}
 
 // 把 RNN 的浮层窗口（Toast 等）提到主窗口之上。
 // RNN 浮层是独立 UIWindow（RNNOverlayWindow，windowLevel = Normal），与 App 主窗口同级：
@@ -457,3 +470,4 @@ export const getSafeAreaInsets = async(): Promise<SafeAreaInsets> => {
     return { ...ZERO_INSETS }
   }
 }
+

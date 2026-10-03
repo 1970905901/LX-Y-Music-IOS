@@ -46,8 +46,9 @@ export default memo(({ visible, url, name = 'image', onClose }: Props) => {
     void (async() => {
       try {
         toast('正在保存图片...', 'short')
-        const targetPath = await saveImageToPictures(url, name)
-        if (targetPath) toast(`图片已保存到: ${targetPath}`, 'long')
+        // 保存目标是系统相册（不再是沙盒路径）：成功只回「已保存到相册」，避免暴露沙盒路径
+        const saved = await saveImageToPictures(url, name)
+        if (saved) toast('图片已保存到相册', 'long')
       } catch (err: any) {
         toast(`保存图片失败: ${err.message}`, 'long')
       }
@@ -146,3 +147,4 @@ const styles = createStyle({
     justifyContent: 'center',
   },
 })
+

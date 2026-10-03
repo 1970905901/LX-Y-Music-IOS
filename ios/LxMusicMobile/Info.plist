@@ -71,6 +71,8 @@
 	</dict>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>用于局域网内获取歌词与声学指纹数据</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>用于把歌曲封面、歌词海报保存到相册</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>用于选择自定义背景图片</string>
 	<key>UTImportedTypeDeclarations</key>

@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useRef, useState, useCallback } from 'react'
-import { View, Animated, Easing, TouchableWithoutFeedback } from 'react-native'
+import { View, Animated, Easing } from 'react-native'
 import FastImage from '@d11/react-native-fast-image'
 import { useIsPlay, usePlayerMusicInfo, usePlayMusicInfo } from '@/store/player/hook'
 import { useWindowSize } from '@/utils/hooks'
@@ -7,13 +7,8 @@ import { useSettingValue } from '@/store/setting/hook'
 import Image, { defaultHeaders } from '@/components/common/Image'
 import { useStatusbarHeight, useAppActive, usePlayDetailCovered } from '@/store/common/hook'
 import { HEADER_HEIGHT } from './components/Header'
-import { createStyle, toast, requestStoragePermission } from '@/utils/tools'
-import Menu, { type MenuType, type Menus } from '@/components/common/Menu'
-import { downloadMusicWithQuality } from '@/core/download'
-import RNFetchBlob from '@/utils/rnFetchBlob'
-import { getPicUrl } from '@/core/music/online'
-import { getFileExtensionFromUrl } from '@/screens/Home/Views/Mylist/MusicList/download/utils'
-import settingState from '@/store/setting/state'
+import { createStyle } from '@/utils/tools'
+import CoverLongPressMenu from '../components/CoverLongPressMenu'
 
 const AnimatedCover = Animated.createAnimatedComponent(FastImage)
 
@@ -168,75 +163,8 @@ export default memo(({ componentId: _componentId, maxCoverHeight = 0 }: { compon
     outputRange: ['0deg', '360deg'],
   })
 
-  // ---- 长按菜单：下载歌曲 / 下载封面（保留原功能）----
-  const menuRef = useRef<MenuType>(null)
-  const coverRef = useRef<View>(null)
-  const [menuVisible, setMenuVisible] = useState(false)
-
-  const menus = useMemo((): Menus => [
-    { action: 'download_song', label: '下载歌曲' },
-    { action: 'download_pic', label: '下载封面' },
-  ], [])
-
-  const handleLongPress = () => {
-    if (!coverRef.current) return
-    coverRef.current.measure((x, y, w, h, px, py) => {
-      setMenuVisible(true)
-      requestAnimationFrame(() => {
-        menuRef.current?.show({ x: px, y: py, w, h })
-      })
-    })
-  }
-
+  // 长按封面 → 下载歌曲 / 下载封面：逻辑与横屏共用 CoverLongPressMenu（唯一实现）
   const menuMusicInfo = playMusicInfo.musicInfo
-  const handleMenuPress = ({ action }: typeof menus[number]) => {
-    switch (action) {
-      case 'download_song':
-        if (menuMusicInfo) {
-          const quality = settingState.setting['player.playQuality']
-          // 立即提示「已加入下载 + 音质」，不再让点击看起来毫无反馈
-          downloadMusicWithQuality(menuMusicInfo as LX.Music.MusicInfo, quality)
-        }
-        break
-      case 'download_pic':
-        if (menuMusicInfo) {
-          void (async() => {
-            try {
-              const isGranted = await requestStoragePermission()
-              if (isGranted === false) {
-                toast('没有存储权限，无法下载', 'short')
-                return
-              }
-              toast('正在下载封面...', 'short')
-              const picUrl = await getPicUrl({ musicInfo: menuMusicInfo as LX.Music.MusicInfoOnline, isRefresh: true })
-              const extension = getFileExtensionFromUrl(picUrl)
-              const picBaseDir = RNFetchBlob.fs.dirs.PictureDir || RNFetchBlob.fs.dirs.DownloadDir
-              const downloadDir = `${picBaseDir}/LX-N-Music`
-              const mInfo = menuMusicInfo as LX.Music.MusicInfo
-              const fileName = `${mInfo.name}_${mInfo.singer}.${extension}`.replace(/[\\/:*?"<>|]/g, '_')
-              const filePath = `${downloadDir}/${fileName}`
-
-              const exists = await RNFetchBlob.fs.exists(downloadDir)
-              if (!exists) {
-                try {
-                  await RNFetchBlob.fs.mkdir(downloadDir)
-                } catch (e) {
-                  console.warn('mkdir failed')
-                }
-              }
-              const targetPath = (await RNFetchBlob.fs.exists(downloadDir)) ? filePath : `${picBaseDir}/${fileName}`
-              await RNFetchBlob.config({ path: targetPath }).fetch('GET', picUrl)
-              await RNFetchBlob.fs.scanFile([{ path: targetPath }])
-              toast(`封面已保存到: ${targetPath}`, 'long')
-            } catch (err: any) {
-              toast(`下载封面失败: ${err.message}`, 'long')
-            }
-          })()
-        }
-        break
-    }
-  }
-
   // 方形封面的圆角：小圆角，保留图本身的方形观感。
   // 与横屏 Pic.tsx 的方形分支保持同一个 4（两处都是「非圆形」档）。
   const SQUARE_RADIUS = 4
@@ -270,30 +198,23 @@ export default memo(({ componentId: _componentId, maxCoverHeight = 0 }: { compon
 
   return (
     <View style={styles.container}>
-      <TouchableWithoutFeedback onLongPress={handleLongPress}>
-        <View
-          ref={coverRef}
-          collapsable={false}
-          style={coverContainerStyle}
-        >
-          {coverUrl && !isLoadError ? (
-            <AnimatedCover
-              source={{
-                uri: coverUrl,
-                headers: defaultHeaders,
-                priority: 'normal',
-                cache: 'immutable',
-              }}
-              style={animatedCoverStyle}
-              resizeMode={FastImage.resizeMode.cover}
-              onError={handleCoverError}
-            />
-          ) : (
-            <Image url={coverUrl} style={emptyImageStyle} />
-          )}
-        </View>
-      </TouchableWithoutFeedback>
-      {menuVisible && <Menu ref={menuRef} menus={menus} onPress={handleMenuPress} onHide={() => { setMenuVisible(false) }} />}
+      <CoverLongPressMenu musicInfo={menuMusicInfo} coverUrl={coverUrl} style={coverContainerStyle}>
+        {coverUrl && !isLoadError ? (
+          <AnimatedCover
+            source={{
+              uri: coverUrl,
+              headers: defaultHeaders,
+              priority: 'normal',
+              cache: 'immutable',
+            }}
+            style={animatedCoverStyle}
+            resizeMode={FastImage.resizeMode.cover}
+            onError={handleCoverError}
+          />
+        ) : (
+          <Image url={coverUrl} style={emptyImageStyle} />
+        )}
+      </CoverLongPressMenu>
     </View>
   )
 })
@@ -305,3 +226,5 @@ const styles = createStyle({
     alignItems: 'center',
   },
 })
+
+

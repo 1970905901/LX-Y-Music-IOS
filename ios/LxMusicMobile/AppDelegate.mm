@@ -15,6 +15,7 @@
 #import <AVFoundation/AVFoundation.h>
 #import <Accelerate/Accelerate.h>
 #import <MediaPlayer/MediaPlayer.h>
+#import <Photos/Photos.h>
 #import <JavaScriptCore/JavaScriptCore.h>
 #import <math.h>
 #include <alloca.h>
@@ -5691,6 +5692,36 @@ RCT_EXPORT_METHOD(screenUnkeepAwake) {
   dispatch_async(dispatch_get_main_queue(), ^{
     [UIApplication sharedApplication].idleTimerDisabled = NO;
   });
+}
+
+// 保存图片到系统相册（歌曲封面 / 歌词海报等）。
+// 为什么需要原生：iOS 沙盒里的 Pictures 目录用户不可见（文件 App 也看不到），
+// 之前用 RNFetchBlob 兼容层把封面写进沙盒 → 用户点「下载封面」后相册里什么也没有，
+// 表现为功能无效。这里改走 PHPhotoLibrary 的「仅新增」写入（对应 Info.plist 的
+// NSPhotoLibraryAddUsageDescription，只申请新增权限、不读相册）。
+// 入参同时兼容本地路径与 file:// URL。
+RCT_EXPORT_METHOD(saveImageToPhotosLibrary:(NSString *)path
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
+  NSString *filePath = path;
+  if ([filePath hasPrefix:@"file://"]) {
+    NSURL *url = [NSURL URLWithString:filePath];
+    filePath = url.isFileURL ? url.path : filePath;
+  }
+  UIImage *image = filePath.length > 0 ? [UIImage imageWithContentsOfFile:filePath] : nil;
+  if (image == nil) {
+    reject(@"image_not_found", @"读取图片失败（文件不存在或不是图片）", nil);
+    return;
+  }
+  [[PHPhotoLibrary sharedPhotoLibrary] performChanges:^{
+    [PHAssetChangeRequest creationRequestForAssetFromImage:image];
+  } completionHandler:^(BOOL success, NSError *error) {
+    if (success) {
+      resolve(@(YES));
+      return;
+    }
+    reject(@"save_image_failed", error.localizedDescription ?: @"保存到相册失败", error);
+  }];
 }
 
 // Toast 浮层提层：浮层与主窗口同为 windowLevel = Normal 的独立 UIWindow，

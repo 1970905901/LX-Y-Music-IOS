@@ -19,22 +19,54 @@ import {
   mkdir as fsMkdir,
   moveFile,
   unlink as fsUnlink,
+  readFile as fsReadFile,
 } from 'react-native-fs'
+import { copyFile as fsCopyFile, downloadFile as fsDownloadFile } from '@/utils/fs'
 
 interface FetchResult {
   path: () => string
   base64: () => Promise<string>
 }
 
-const config = (opts: { path?: string } = {}) => ({
-  async fetch(_method: string, _url: string): Promise<FetchResult> {
-    // 真实下载由调用方通过 react-native-fs 完成；此处仅提供兼容签名。
-    // 由于本 shim 主要服务于 fs 工具方法，下载路径由各调用点自行实现，
-    // 这里返回一个占位实现以避免直接崩溃。
-    return Promise.resolve({
-      path: () => opts.path ?? '',
-      base64: async() => Promise.resolve(''),
-    })
+interface FetchConfigOptions {
+  path?: string
+  headers?: Record<string, string>
+}
+
+const config = (opts: FetchConfigOptions = {}) => ({
+  /**
+   * 真实下载到 opts.path（未指定时落 Cache 目录）。
+   *
+   * 【2026-10-03 修复】此前这里是**占位实现**：不请求网络、不落盘，却直接 resolve ——
+   * 于是「播放详情页长按封面 → 下载封面」与图片预览的「保存」全都提示成功，但磁盘/相册里
+   * 什么都没有（用户实锤「下载封面无效」）。现在：
+   *   - http(s)：走项目已有下载器（@/utils/fs 的 downloadFile，自带 UA 与 250ms 进度限流）
+   *   - file:// 或本地路径：copyFile 直接复制
+   * 目标路径已存在时先删除：iOS 侧下载器内部用 moveItemAtURL 落盘，目标存在会失败。
+   */
+  async fetch(_method: string, url: string): Promise<FetchResult> {
+    const target = opts.path ?? `${CachesDirectoryPath}/rnfetchblob_${Date.now()}`
+    await fsUnlink(target).catch(() => {})
+
+    if (/^https?:/i.test(url)) {
+      const { promise } = fsDownloadFile(url, target, { headers: opts.headers })
+      const result = await promise
+      if (result.statusCode >= 400) {
+        await fsUnlink(target).catch(() => {})
+        throw new Error(`HTTP ${result.statusCode}`)
+      }
+      return {
+        path: () => target,
+        base64: async() => fsReadFile(target, 'base64'),
+      }
+    }
+
+    const source = url.startsWith('file://') ? decodeURIComponent(url.replace(/^file:\/\//, '')) : url
+    await fsCopyFile(source, target)
+    return {
+      path: () => target,
+      base64: async() => fsReadFile(target, 'base64'),
+    }
   },
 })
 

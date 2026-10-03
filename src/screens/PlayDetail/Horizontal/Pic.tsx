@@ -11,6 +11,7 @@ import Image from '@/components/common/Image'
 import { useStatusbarHeight, useAppActive, usePlayDetailCovered } from '@/store/common/hook'
 import { useSettingValue } from '@/store/setting/hook'
 import { useLandscapeLayout, getLeftWidth } from '@/utils/landscapeLayout'
+import CoverLongPressMenu from '../components/CoverLongPressMenu'
 
 export default memo(({ componentId: _componentId }: { componentId: string }) => {
   const musicInfo = usePlayerMusicInfo()
@@ -131,14 +132,21 @@ export default memo(({ componentId: _componentId }: { componentId: string }) => 
 
   return (
     <View style={{ ...styles.container, height: contentHeight }}>
-      <View style={[styles.content, imageContainerStyle, { overflow: 'hidden' }]}>
-        <Animated.View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: imageContainerStyle.borderRadius, transform: [{ rotate: spin }] }}>
-          <Image
-            url={musicInfo.pic}
-            style={imageStyle}
-          />
-        </Animated.View>
-      </View>
+      {/* 长按封面 → 下载歌曲 / 下载封面：与竖屏共用 CoverLongPressMenu（同尺寸热区，保证菜单定位对齐封面） */}
+      <CoverLongPressMenu
+        musicInfo={musicInfo as unknown as LX.Player.PlayMusicInfo['musicInfo']}
+        coverUrl={musicInfo.pic ?? ''}
+        style={{ width: imageContainerStyle.width, height: imageContainerStyle.height }}
+      >
+        <View style={[styles.content, imageContainerStyle, { overflow: 'hidden' }]}>
+          <Animated.View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: imageContainerStyle.borderRadius, transform: [{ rotate: spin }] }}>
+            <Image
+              url={musicInfo.pic}
+              style={imageStyle}
+            />
+          </Animated.View>
+        </View>
+      </CoverLongPressMenu>
     </View>
   )
 })

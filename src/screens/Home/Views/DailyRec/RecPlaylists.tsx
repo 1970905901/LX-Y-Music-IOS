@@ -1,18 +1,24 @@
 import { memo, useEffect, useState, useCallback, type ReactElement } from 'react'
-import { View, FlatList, RefreshControl, Keyboard } from 'react-native'
+import { View, FlatList, RefreshControl, Keyboard, StyleSheet } from 'react-native'
 import { useSettingValue } from '@/store/setting/hook'
 import { toast } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
 import { useHorizontalMode } from '@/utils/hooks'
 import wyApi from '@/utils/musicSdk/wy/dailyRec'
 import wy from '@/utils/musicSdk/wy/index'
+import Text from '@/components/common/Text'
 import ListItem from '../MyPlaylist/ListItem'
 import { useBottomOverlayInset } from '@/store/common/hook'
 import { getDailyRecPlaylistsCache, setDailyRecPlaylistsCache, clearDailyRecPlaylistsCache } from '@/core/cache'
 
 export default memo(({ header, onOpenDetail }: { header?: ReactElement, onOpenDetail: (info: any) => void }) => {
   const [playlists, setPlaylists] = useState<any[]>([])
+  // loading = 首次/缓存加载态；refreshing = 只有用户下拉才置位。
+  // 【2026-10-03】此前 RefreshControl.refreshing 直接接 loading（初值 true）→ 首次进入（无缓存）
+  // 时首帧就被程序化置为 refreshing，iOS 撑开刷新 inset、数据到达后回弹 = 「顶部上移一下」。
+  // 与 TxPlaylist/KgPlaylist/MyPlaylist 保持一致：两套状态分离。
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const cookie = useSettingValue('common.wy_cookie')
   const theme = useTheme()
   const isHorizontal = useHorizontalMode()
@@ -35,7 +41,8 @@ export default memo(({ header, onOpenDetail }: { header?: ReactElement, onOpenDe
       }
     }
 
-    setLoading(true)
+    if (isRefresh) setRefreshing(true)
+    else setLoading(true)
     wyApi.getRecPlaylists(cookie).then(async(list: any) => {
       const adaptedList = list
         // .filter(item => !item.name.includes('雷达'))
@@ -72,6 +79,7 @@ export default memo(({ header, onOpenDetail }: { header?: ReactElement, onOpenDe
       toast(`获取推荐歌单失败: ${err.message}`)
     }).finally(() => {
       setLoading(false)
+      setRefreshing(false)
     })
   }, [cookie])
 
@@ -104,10 +112,15 @@ export default memo(({ header, onOpenDetail }: { header?: ReactElement, onOpenDe
           </View>
         )}
         keyExtractor={item => String(item.id)}
+        ListEmptyComponent={
+          <View style={styles.emptyHint}>
+            <Text size={13} color={theme['c-500']}>{loading ? '加载中...' : '暂无歌单'}</Text>
+          </View>
+        }
         refreshControl={
           <RefreshControl
             colors={[theme['c-primary']]}
-            refreshing={loading}
+            refreshing={refreshing}
             onRefresh={handleRefresh}
           />
         }
@@ -115,3 +128,12 @@ export default memo(({ header, onOpenDetail }: { header?: ReactElement, onOpenDe
     </View>
   )
 })
+
+const styles = StyleSheet.create({
+  emptyHint: {
+    paddingTop: 24,
+    alignItems: 'center',
+  },
+})
+
+

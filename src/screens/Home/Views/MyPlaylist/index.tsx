@@ -33,7 +33,14 @@ export default memo(() => {
   const uid = useWyUid()
   // 底部悬浮层（迷你播放器 + 底部 Tab + 安全区）统一避让高度
   const bottomInset = useBottomOverlayInset()
+  // loading = 首次/缓存加载态；refreshing = 只有用户下拉才置位。
+  // 【2026-10-03 修复】此前把 RefreshControl.refreshing 直接接在 loading 上，而 loading 初值是
+  // true —— 首次进入（无缓存、要联网拉歌单索引）时 RefreshControl 会在首帧就被程序化置为
+  // refreshing：iOS 立刻撑开刷新 inset（内容被顶下去），数据到达后 endRefreshing 再回弹，
+  // 表现为「首次进入顶部上移一下」；第二次进入有缓存、loading 为 false，所以正常。
+  // 与同族页面（TxPlaylist/KgPlaylist）保持一致：只有 onRefresh（用户下拉）才动 refreshing。
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const cookie = useSettingValue('common.wy_cookie')
   const theme = useTheme()
   const t = useI18n()
@@ -99,13 +106,15 @@ export default memo(() => {
       setWySubscribedPlaylists([])
       return
     }
-    setLoading(true)
+    // 只动 refreshing：loading 仍代表「首次加载」，页面挂载期间它变 true→false 会让
+    // iOS 刷新控件程序化撑开/回弹 inset（就是「顶部上移一下」的根因），这里必须隔离。
+    setRefreshing(true)
     void getPlaylistIndex('wy', { force: true })
       .catch((err: any) => {
         toast(`刷新歌单失败: ${err.message}`)
       })
       .finally(() => {
-        setLoading(false)
+        setRefreshing(false)
       })
   }, [cookie, uid])
 
@@ -237,10 +246,17 @@ export default memo(() => {
             </View>
           )}
           keyExtractor={item => String(item.id)}
+          ListEmptyComponent={
+            // 首屏加载不再用 RefreshControl 的 spinner（那会撑开 inset 造成顶部回弹），
+            // 改为列表内一条轻提示：加载中 / 暂无歌单
+            <View style={styles.emptyHint}>
+              <Text size={13} color={theme['c-500']}>{loading ? t('list_loading') : t('list_empty')}</Text>
+            </View>
+          }
           refreshControl={
             <RefreshControl
               colors={[theme['c-primary']]}
-              refreshing={loading}
+              refreshing={refreshing}
               onRefresh={onRefresh}
             />
           }
@@ -276,4 +292,9 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     lineHeight: 36,
   },
+  emptyHint: {
+    paddingTop: designSpacing.lg,
+    alignItems: 'center',
+  },
 })
+

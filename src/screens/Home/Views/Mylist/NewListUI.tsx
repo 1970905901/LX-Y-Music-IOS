@@ -751,6 +751,9 @@ export default memo(() => {
             scrollEnabled={draggingIndex == null}
             refreshControl={
               <RefreshControl
+                // sim-refresh-ok: 该 FlatList 只在 isLoading === false 时渲染（上面 isLoading 分支
+                // 走 ActivityIndicator），因此 RefreshControl 挂载时 refreshing 恒为 false，
+                // 不存在「首帧程序化刷新撑 inset」的问题。
                 refreshing={isLoading}
                 onRefresh={() => { void refreshListInfo(false) }}
                 colors={[theme['c-primary-font']]}

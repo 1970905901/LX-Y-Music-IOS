@@ -509,7 +509,7 @@
   "setting_play_auto_skip_error_tip": "播放失败（链接重试耗尽、长时间无法恢复的持续缓冲）时，自动切换到下一首歌曲。关闭后失败将停留在当前歌曲，由你手动处理。",  "setting_play_cache_size": "最大缓存大小（MB）",
   "setting_play_cache_size_no_cache": "禁用缓存",
   "setting_play_cache_size_save_tip": "缓存设置完毕，重启应用后生效",
-  "setting_play_handle_audio_focus": "其他应用播放声音时，自动暂停播放",
+  "setting_play_handle_audio_focus": "与其他应用同时播放",
   "setting_play_handle_audio_focus_tip": "重启应用后生效",
   "setting_play_lyric_transition": "显示歌词翻译",
   "setting_play_play_quality": "优先播放的音质（如果可用）",

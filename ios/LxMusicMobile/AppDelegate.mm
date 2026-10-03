@@ -775,6 +775,19 @@ static void LXActivateAudioSessionForPlayback(void) {
 
 static MPRemoteCommandHandlerStatus LXHandleRemoteCommandEvent(NSString *command) {
   LXNowPlayingLastRemoteCommandAtMs = CACurrentMediaTime() * 1000.0;
+  // 遥控命令是**低频**路径（用户每按一次才走一遍），不属于 LXNowPlayingLyricStep 注释里
+  // 禁写 NSLog 的 8.3Hz 歌词热路径。这里按固定前缀打印投递链的每一跳：这一类问题已经
+  // 反复回归多轮（4a0b5ad / b2883d1 / 437e6d0），每次都只能靠读代码猜是哪一跳吞掉了
+  // 按压。有了这几行，下一次再报「按了没反应」时直接 grep ###LXRemote### 即可定位。
+  // 注意 hasInfo 要持锁读：歌词时钟线程可能正在改缓存。
+  unsigned long lxInfoCount = 0;
+  @synchronized (LXLyricLock()) { lxInfoCount = LXNowPlayingInfoCache.count; }
+  NSLog(@"###LXRemote### recv=%@ appState=%ld infoCount=%lu nowPlayingState=%ld enabled=%@",
+        command,
+        (long)[UIApplication sharedApplication].applicationState,
+        lxInfoCount,
+        (long)LXNowPlayingState,
+        [MPRemoteCommandCenter sharedCommandCenter].nextTrackCommand.enabled ? @"YES" : @"NO");
   // 命令处理完之后补一次卡片重绘：卡片按钮的图标只认「playbackState 反转再转回」这条
   // 刷新链路（见 LXForceNowPlayingCardRepaint 注释），不补绘的话这次状态变化只能等下一次
   // 歌词换行才可见 —— 用户看到按钮没变、再按发的还是同一个方向（表现为「按一下没反应，
@@ -1317,10 +1330,15 @@ static void LXSetNowPlayingInfo(NSDictionary *metadata) {
       LXApplyNowPlayingInfo();
     }
 
-    // 卡片可见（App 非 active = 控制中心/锁屏已打开）时，JS 侧写入的歌词行同样
-    // 需要一次强制重绘，否则系统不会实时刷新媒体卡片。前台无卡片时整体跳过，
-    // 避免每次换行都做一次无意义的 playbackState 翻转。
-    if ([UIApplication sharedApplication].applicationState != UIApplicationStateActive) {
+    // 卡片重绘不能用 applicationState 当「卡片是否可见」的代理（同 LXScheduleDeferredNowPlayingCardRepaint）：
+    // 灵动岛展开/点按、前台下拉控制中心时，App 都停在 Active，卡片却摆在用户眼前。
+    // 旧实现在这里直接 return，而这正是「上一首/下一首按了没反应」的正体：
+    //   · 换歌后整张卡片冻在上一首（title / 封面 / 进度都是旧的），音乐确实切了但看不出；
+    //   · 更没歌词的歌：新歌没有歌词时时间轴为空，原生歌词时钟那条兜底重绘（LXNowPlayingLyricStep）
+    //     也不会触发（无行变化就直接 return）—— 卡片永远不更新，用户归因于「上一首/下一首没有用」。
+    // 节奏控制：前台只在**换歌**（isNewSong）时强制重绘（每首一次），逐行歌词刷新交给原生
+    // 歌词时钟（那里**没有** app-state 门控），不在这里叠加翻转；后台仍按旧行为每次发布都重绘。
+    if (isNewSong || [UIApplication sharedApplication].applicationState != UIApplicationStateActive) {
       LXForceNowPlayingCardRepaint();
     }
   }
@@ -1732,12 +1750,24 @@ static void LXPerformNowPlayingCardRepaintFlip(void) {
 // 若因为「用户刚按过」而不刷，这次状态变化要等下一次歌词换行才可见 —— 按钮图标停在
 // 旧的播放态，用户再按时系统发的还是同一个方向（对已满足的方向是空操作），表现就是
 // 「按一下没反应、要按两下」（用户 2026-10-03 实锤：正常播放时控制中心/灵动岛按钮）。
-// 约束：① 只在卡片可能可见（App 非 active）时补；② 单飞 + 顺延 —— 补绘前若又有新命令
-// （间隔 < LXNowPlayingCommandSafetyGapMs）就推迟，绝不在用户连按的当拍翻转。
+//
+// 可见性判定：**不能**用 applicationState 当「卡片是否可见」的代理。旧实现在排期处与
+// 触发处各加了一道 `applicationState == Active 就 return`，而 applicationState 只有「前台 / 非活跃 /
+// 后台」三态，媒体卡片却在这三态下都可能摆在用户眼前：
+//   · 灵动岛：展开/点按是系统覆盖层，App 全程停在 Active —— 这道门 100% 拦死补绘，
+//     表现为「前台点灵动岛按钮，音乐会切但图标不动，再按还是同一个方向」。
+//   · 控制中心：按完 500ms 落点时用户往往已经收起面板、App 回到 Active —— 同样拦死。
+//   · 锁屏 / 后台：本来就是非 Active，这道门从来没起过作用（纯负担）。
+// 于是「用户刚按过之后的这 1.2s 静默窗口」把所有重绘都汇进本函数、本函数又把它们
+// 全部丢弃 —— 前台按控制中心/灵动岛后卡片必然冻住，直到下一次歌词换行才恢复
+// （无歌词 / 稀疏歌的歌尤其明显）。现在不再按 App 状态拦：真正的「没人看」由
+// LXPerformNowPlayingCardRepaintFlip 里的 hasInfo（没有 nowPlayingInfo 就没有卡片）兜底，而一次翻转只是两次
+// playbackState 赋值、间隔 60ms、且被下面的单飞 + 顺延限流，代价可忽略。
+// 保留的约束：单飞 + 顺延 —— 补绘前若又有新命令（间隔 < LXNowPlayingCommandSafetyGapMs）
+// 就推迟，绝不在用户连按的当拍翻转。
 static void LXScheduleDeferredNowPlayingCardRepaint(void) {
   static BOOL scheduled = NO;
   if (scheduled) return;
-  if ([UIApplication sharedApplication].applicationState == UIApplicationStateActive) return;
 
   scheduled = YES;
   double nowMs = CACurrentMediaTime() * 1000.0;
@@ -1756,7 +1786,7 @@ static void LXScheduleDeferredNowPlayingCardRepaint(void) {
       LXScheduleDeferredNowPlayingCardRepaint();
       return;
     }
-    if ([UIApplication sharedApplication].applicationState == UIApplicationStateActive) return;
+    // 不再按 applicationState 兜底：灵动岛 / 前台控制中心下卡片同样可见，按前台丢弃本身就是本事故正体。
     LXPerformNowPlayingCardRepaintFlip();
   });
 }
@@ -5908,6 +5938,8 @@ RCT_EXPORT_MODULE();
     if (queuedAtMs == nil || nowMs - queuedAtMs.doubleValue > LXRemoteCommandPendingMaxAgeMs) continue;
     NSMutableDictionary *body = [queued mutableCopy];
     [body removeObjectForKey:@"queuedAtMs"];
+    NSString *flushedCommand = [body[@"command"] isKindOfClass:[NSString class]] ? body[@"command"] : @"";
+    NSLog(@"###LXRemote### flush=%@ age=%.0fms", flushedCommand, nowMs - queuedAtMs.doubleValue);
     [self sendEventWithName:@"remote-command" body:body];
   }
 }
@@ -5982,12 +6014,14 @@ RCT_EXPORT_MODULE();
     // JS 监听器还没就绪（App 被遥控命令唤起 / JS 重载）：先排队，startObserving 时补发。
     // 以前这里直接丢，丢掉的正是用户按的那一次 ——「第一次点播放没反应、要按两次」。
     if (!self.hasListeners) {
+      NSLog(@"###LXRemote### queue(no-listener)=%@", command);
       if (self.pendingRemoteCommands == nil) self.pendingRemoteCommands = [NSMutableArray array];
       if (self.pendingRemoteCommands.count >= 4) [self.pendingRemoteCommands removeObjectAtIndex:0];
       body[@"queuedAtMs"] = @(CACurrentMediaTime() * 1000.0);
       [self.pendingRemoteCommands addObject:body];
       return;
     }
+    NSLog(@"###LXRemote### deliver=%@", command);
     [self sendEventWithName:@"remote-command" body:body];
   });
 }

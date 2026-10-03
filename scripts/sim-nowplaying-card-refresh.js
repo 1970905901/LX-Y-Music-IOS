@@ -17,8 +17,17 @@
  *   - 命令到达后 LXNowPlayingCommandSettleDelayMs(500ms) 再翻转（用户这一按早已结束）；
  *   - 单飞（scheduled 标志）+ 顺延：补绘前又有新命令（间隔 < LXNowPlayingCommandSafetyGapMs
  *     250ms）就推迟，绝不在用户连按的当拍翻转；
- *   - 只在卡片可能可见（App 非 active）时补，避免前台无意义翻转；
  *   - 遥控命令入口与播放态发布（LXSetNowPlayingPlaybackState）都会安排这次补绘。
+ *
+ * 第二轮根因（2026-10-03 用户再报「控制中心和灵动岛按钮又出问题」）：
+ * 上面的延迟补绘自带一道「App 前台（applicationState == Active）就 return」的门控，而这道门正好把需要
+ * 补绘的场景全部杀掉：
+ *   · 灵动岛展开/点按是系统覆盖层，App 全程停在 Active → 100% 拦死；
+ *   · 控制中心按完 500ms 落点时面板已收起、App 回到 Active → 同样拦死；
+ *   · 锁屏/后台本来就是非 Active → 这道门从未起过作用（纯负担）。
+ * 结果：「用户刚按过之后的 1.2s 静默窗口」把所有重绘汇进延迟补绘，而延迟补绘把它们
+ * 全部丢弃 —— 音乐确实切了，卡片图标不动，再按还是同一个方向。修法：删掉两道门控，
+ * 「没人看」改由翻转实现里的 hasInfo（没有 nowPlayingInfo 就没有卡片）兜底。
  *
  * 运行：node scripts/sim-nowplaying-card-refresh.js
  */
@@ -59,9 +68,13 @@ const invariants = (src) => {
     if (!/center\.playbackState = opposite;/.test(flip) || !/center\.playbackState = current;/.test(flip)) {
       reasons.push('翻转实现没有「切反再切回」playbackState（iOS 不会重绘卡片）')
     }
+    // 「没人看」的兜底：去掉前台门控后，只能由 hasInfo 判定到底有没有卡片
+    if (!/hasInfo = LXNowPlayingInfoCache\.count > 0;/.test(flip) || !/if \(!hasInfo\) return;/.test(flip)) {
+      reasons.push('无卡片仍无意义翻转（flip 里的 hasInfo 兜底被删了）')
+    }
   }
 
-  // ③ 延迟补绘：单飞 + 顺延 + 只对非前台 + 使用命令后的 settle 延迟
+  // ③ 延迟补绘：单飞 + 顺延 + 使用命令后的 settle 延迟 + **禁止按 App 状态门控**
   const scheduler = windowBetween(src, 'static void LXScheduleDeferredNowPlayingCardRepaint(void) {', 'static void LXForceNowPlayingCardRepaint(void) {', 3000)
   if (!scheduler) {
     reasons.push('找不到 LXScheduleDeferredNowPlayingCardRepaint（延迟补绘）')
@@ -69,8 +82,8 @@ const invariants = (src) => {
     if (!/static BOOL scheduled = NO;[\s\S]{0,200}?if \(scheduled\) return;/.test(scheduler)) {
       reasons.push('延迟补绘没有单飞保护（歌词/元数据高频调用会叠加多次翻转）')
     }
-    if (!/applicationState == UIApplicationStateActive\) return;/.test(scheduler)) {
-      reasons.push('延迟补绘没有「只对非前台」门控（前台也会翻转卡片）')
+    if (/applicationState == UIApplicationStateActive/.test(scheduler)) {
+      reasons.push('延迟补绘按 applicationState 门控（灵动岛/前台控制中心下 App 停在 Active，补绘会被全部丢弃 → 按钮图标不动）')
     }
     if (!/LXNowPlayingCommandSettleDelayMs - sinceCommandMs/.test(scheduler)) {
       reasons.push('延迟补绘没有按「命令后 settle 延迟」计算等待时间')
@@ -91,6 +104,19 @@ const invariants = (src) => {
   const stateSetter = windowBetween(src, 'static void LXSetNowPlayingPlaybackState(MPNowPlayingPlaybackState state, NSDictionary *options) {', 'static void LXClearNowPlayingInfo(void) {', 4000)
   if (!/LXScheduleDeferredNowPlayingCardRepaint\(\);/.test(stateSetter)) {
     reasons.push('播放态发布没有安排补绘（JS/中断/定时暂停的卡片图标不会刷新）')
+  }
+
+  // ⑤ 换歌（上一首/下一首）必须重绘，且不得按 app 状态跳过：这一处的 app-state 门控
+  //   是「上一首/下一首按了没反应」的正体（换歌后整张卡片冻在上一首；没歌词的歌连
+  //   原生歌词时钟那条兜底重绘也不会触发）
+  const infoSetter = windowBetween(src,
+    'static void LXSetNowPlayingInfo(NSDictionary *metadata) {',
+    'static NSMutableArray<NSDictionary<NSString *, id> *> *LXNowPlayingLyricLines = nil;',
+    6000)
+  if (!infoSetter) {
+    reasons.push('找不到 LXSetNowPlayingInfo（JS 元数据发布入口）')
+  } else if (!/if \(isNewSong \|\| \[UIApplication sharedApplication\]\.applicationState != UIApplicationStateActive\) \{\s*LXForceNowPlayingCardRepaint\(\);/.test(infoSetter)) {
+    reasons.push('换歌没有重绘卡片（上一首/下一首后卡片冻在上一首 → 看起来「按了没反应」）')
   }
 
   return reasons
@@ -162,11 +188,27 @@ const models = []
   ])
 }
 {
-  // 前台（App active）不补绘：由调度器的前台门控负责（结构不变量 ③）
-  const foregroundGateHeld = /applicationState == UIApplicationStateActive\) return;/.test(real)
+  // 前台（灵动岛）也必须补绘：展开/点按灵动岛是系统覆盖层，App 全程 Active。
+  // 若调度器按 applicationState 门控，这个场景的补绘 100% 被丢弃 → 音乐切了但图标不动。
+  const schedulerWindow = windowBetween(real, 'static void LXScheduleDeferredNowPlayingCardRepaint(void) {', 'static void LXForceNowPlayingCardRepaint(void) {', 3000)
+  const foregroundGated = /applicationState == UIApplicationStateActive/.test(schedulerWindow)
+  const flipWindow = windowBetween(real, 'static void LXPerformNowPlayingCardRepaintFlip(void) {', 'static void LXScheduleDeferredNowPlayingCardRepaint(void) {', 3000)
   models.push([
-    '前台不补绘：应用 active 时调度器直接返回（结构不变量已守）',
-    foregroundGateHeld,
+    '前台/灵动岛同样补绘：调度器不按 applicationState 丢弃，「没人看」交给 flip 的 hasInfo 兜底',
+    !foregroundGated && /hasInfo/.test(flipWindow),
+  ])
+}
+
+{
+  // 换歌场景：新歌发布元数据后必须重绘，否则卡片停在上一首。
+  // 没有歌词的歌尤其致命：原生歌词时钟靠「行变化」触发重绘，无歌词就永不触发。
+  const infoWin = windowBetween(real,
+    'static void LXSetNowPlayingInfo(NSDictionary *metadata) {',
+    'static NSMutableArray<NSDictionary<NSString *, id> *> *LXNowPlayingLyricLines = nil;',
+    6000)
+  models.push([
+    '换歌即重绘：isNewSong 时无条件重绘，不被 app 状态门控挡住',
+    /if \(isNewSong \|\|/.test(infoWin),
   ])
 }
 
@@ -207,6 +249,18 @@ checkCase('C3 去掉单飞保护',
 checkCase('C4 播放态发布不再安排补绘',
   tamper(real, '  // 播放态变化同样要刷新卡片按钮（详情见 LXScheduleDeferredNowPlayingCardRepaint）\n  LXScheduleDeferredNowPlayingCardRepaint();\n}', '}'),
   '播放态发布没有安排补绘')
+
+checkCase('C5 延迟补绘按 applicationState 门控（灵动岛/前台控制中心补绘被全部丢弃）',
+  tamper(real, '  if (scheduled) return;\n', '  if (scheduled) return;\n  if ([UIApplication sharedApplication].applicationState == UIApplicationStateActive) return;\n'),
+  '补绘按 applicationState 门控')
+
+checkCase('C6 flip 里的 hasInfo 兜底被删（无卡片时会无意义翻转）',
+  tamper(real, 'hasInfo = LXNowPlayingInfoCache.count > 0;', 'hasInfo = YES;'),
+  '无卡片仍无意义翻转')
+
+checkCase('C7 换歌重绘退回「仅非前台」（上一首/下一首后卡片冻在上一首）',
+  tamper(real, 'if (isNewSong || [UIApplication sharedApplication].applicationState != UIApplicationStateActive) {', 'if ([UIApplication sharedApplication].applicationState != UIApplicationStateActive) {'),
+  '换歌没有重绘卡片')
 
 const missed = cases.filter(([, ok]) => !ok)
 

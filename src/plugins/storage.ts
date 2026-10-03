@@ -43,9 +43,11 @@ const handleGetData = async <T>(partKeys: string): Promise<T> => {
 
 export const saveData = async(key: string, value: any) => {
   const datas: Array<[string, string]> = []
-  buildData(key, value, datas)
 
   try {
+    // buildData 里做 JSON.stringify：放进 try 才能把「序列化失败」（如循环引用）
+    // 也写进日志 —— 否则这类失败在页面上只表现为「像没写进缓存」，排查时没有线索。
+    buildData(key, value, datas)
     await removeData(key)
     await AsyncStorage.multiSet(datas)
   } catch (e: any) {
@@ -152,10 +154,11 @@ export const getDataMultiple = async <T extends readonly string[]>(keys: T) => {
 
 export const saveDataMultiple = async(datas: Array<[string, any]>) => {
   const allData: Array<[string, string]> = []
-  for (const [key, value] of datas) {
-    buildData(key, value, allData)
-  }
   try {
+    // 同 saveData：序列化也放进 try，失败必须留日志
+    for (const [key, value] of datas) {
+      buildData(key, value, allData)
+    }
     await removeDataMultiple(datas.map((k) => k[0]))
     await AsyncStorage.multiSet(allData)
   } catch (e: any) {

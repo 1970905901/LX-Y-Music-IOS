@@ -154,7 +154,13 @@ export const getPlaylistIndex = async(
   if (!loginKey) throw new Error('未登录，请先在平台设置中填写 Cookie')
   const lists = await fetchPlaylistIndex(source)
   applyToStore(source, lists)
-  await savePlaylistIndexCache(source, loginKey, lists)
+  try {
+    await savePlaylistIndexCache(source, loginKey, lists)
+  } catch (err: any) {
+    // 列表本身已经拿到并回填 store（用户能看到），失败的是落盘：给一条能区分
+    // 「拉取失败」与「缓存写入失败」的错误信息，页面据此提示，便于定位存储问题。
+    throw new Error(`歌单已获取，但写入缓存失败：${err?.message ?? err}`)
+  }
   return { source, lists, fromCache: false, updatedAt: Date.now() }
 }
 

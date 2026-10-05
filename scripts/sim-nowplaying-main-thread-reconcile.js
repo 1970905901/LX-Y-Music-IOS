@@ -95,6 +95,14 @@ const structuralReasons = (src) => {
     reasons.push('清卡片（LXClearNowPlayingInfo）没有停看门狗')
   }
 
+  // ⑤ 翻转还原同样必须主线程（否则这次「还原」会被系统忽略，卡片留在假状态）
+  const earlyEnd = windowBetween(src, 'static void LXEndNowPlayingCardRepaintFlipEarly(void) {', 'static void LXScheduleDeferredNowPlayingCardRepaint', 1500)
+  if (!earlyEnd) {
+    reasons.push('找不到 LXEndNowPlayingCardRepaintFlipEarly（翻转提前结束）')
+  } else if (!/if \(!\[NSThread isMainThread\]\) \{\s*dispatch_async\(dispatch_get_main_queue\(\), \^\{ LXEndNowPlayingCardRepaintFlipEarly\(\); \}\);\s*return;\s*\}/.test(earlyEnd)) {
+    reasons.push('翻转还原没有主线程约束（后台线程写 MediaPlayer 会被忽略，卡片留在假状态）')
+  }
+
   // ④ 封面翻转窗口记账
   if (!/LXNowPlayingArtworkRepaintFlipUntilMs = CACurrentMediaTime\(\) \* 1000\.0 \+ LXNowPlayingArtworkRepaintFlipMs;/.test(src)) {
     reasons.push('封面翻转没有记账假状态窗口（看门狗会与其打架）')
@@ -167,7 +175,25 @@ for (const [name, ok] of models) console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}`)
 console.log('')
 console.log('反例自检')
 console.log(`${tamper1 ? 'PASS' : 'FAIL'}  拿掉主线程守卫 —— ${tamper1Detail}`)
+// 反例自检 3：拿掉翻转还原的主线程约束 → 必须报错
+let tamper3 = false
+let tamper3Detail = ''
+try {
+  const guard = 'if (![NSThread isMainThread]) {\n    dispatch_async(dispatch_get_main_queue(), ^{ LXEndNowPlayingCardRepaintFlipEarly(); });\n    return;\n  }\n'
+  const t3 = SRC.replace(guard, '')
+  if (t3 === SRC) {
+    tamper3Detail = '找不到可 tamper 的主线程约束锚点'
+  } else {
+    const reasons = structuralReasons(t3)
+    tamper3 = reasons.some((r) => r.includes('翻转还原没有主线程约束'))
+    tamper3Detail = tamper3 ? '已拦下' : `未拦下（reasons=${JSON.stringify(reasons)}）`
+  }
+} catch (err) {
+  tamper3Detail = `异常: ${err.message}`
+}
+
 console.log(`${tamper2 ? 'PASS' : 'FAIL'}  拿掉看门狗接线 —— ${tamper2Detail}`)
+console.log(`${tamper3 ? 'PASS' : 'FAIL'}  拿掉翻转还原的主线程约束 —— ${tamper3Detail}`)
 
 if (realReasons.length) {
   console.error(`\nFAIL  主线程写入 + 漂移自愈契约未通过（${realReasons.length} 项）：`)
@@ -175,9 +201,9 @@ if (realReasons.length) {
 }
 const failedModels = models.filter(([, ok]) => !ok)
 if (failedModels.length) console.error(`\nFAIL  行为模型未通过（${failedModels.length} 例）`)
-if (failedModels.length || realReasons.length || !tamper1 || !tamper2) {
+if (failedModels.length || realReasons.length || !tamper1 || !tamper2 || !tamper3) {
   console.error('\nFAIL  主线程写入 + 漂移自愈契约未通过')
   process.exit(1)
 }
-console.log(`\nPASS  MediaPlayer 写入主线程化 + 看门狗收敛（结构不变量 4 组 + 行为模型 ${models.length} 例 + 反例 2 例）`)
+console.log(`\nPASS  MediaPlayer 写入主线程化 + 看门狗收敛（结构不变量 5 组 + 行为模型 ${models.length} 例 + 反例 3 例）`)
 process.exit(0)

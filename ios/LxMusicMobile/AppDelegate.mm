@@ -1935,6 +1935,12 @@ static void LXPerformNowPlayingCardRepaintFlip(void) {
 // 命令落在翻转的假状态窗口内时提前结束翻转：图标立刻恢复真实播放态（后续按压不再基于假图标）；
 // 待执行的还原块由代际守卫作废。
 static void LXEndNowPlayingCardRepaintFlipEarly(void) {
+  // 与 LXApplyNowPlayingInfo 同理：MediaPlayer 的写入必须在主线程（遥控命令处理器在系统实现上
+  // 通常已是主线程，这里把约束写死，避免将来换调用点时这次「还原」被静默忽略、卡片留在假状态）。
+  if (![NSThread isMainThread]) {
+    dispatch_async(dispatch_get_main_queue(), ^{ LXEndNowPlayingCardRepaintFlipEarly(); });
+    return;
+  }
   if (LXNowPlayingCardRepaintFlipUntilMs <= 0) return;
   LXNowPlayingCardRepaintFlipGeneration += 1;
   [MPNowPlayingInfoCenter defaultCenter].playbackState = LXNowPlayingCardRepaintFlipRestoreState;

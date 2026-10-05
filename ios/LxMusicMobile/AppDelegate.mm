@@ -724,6 +724,7 @@ static const double LXNowPlayingCardRepaintFlipMs = 60.0;
 static double LXNowPlayingCardRepaintFlipUntilMs = 0;
 // 封面重绘翻转的假状态窗口（0.15s 延迟 + 0.08s 翻转）：收敛看门狗在这段时间内不得判定
 // 「漂移」，否则会把正在翻转的假状态当成错误去纠正，与翻转互相打架。
+// 注意：这里不查询 AVAudioSession 的激活态（iOS 26 SDK 无 isActive 选择器，见下方修复注释）。
 static const double LXNowPlayingArtworkRepaintFlipMs = 230.0;
 static double LXNowPlayingArtworkRepaintFlipUntilMs = 0;
 static NSUInteger LXNowPlayingCardRepaintFlipGeneration = 0;
@@ -994,13 +995,15 @@ static void LXReconcileNowPlayingCardNow(void) {
   MPRemoteCommandCenter *commandCenter = [MPRemoteCommandCenter sharedCommandCenter];
   BOOL stateDrift = (center.playbackState != expected);
   BOOL commandsDrift = !commandCenter.playCommand.enabled || !commandCenter.nextTrackCommand.enabled;
-  BOOL sessionInactive = (LXNowPlayingState == MPNowPlayingPlaybackStatePlaying) && ![[AVAudioSession sharedInstance] isActive];
-  if (!stateDrift && !infoMissing && !commandsDrift && !sessionInactive) return;
+  if (!stateDrift && !infoMissing && !commandsDrift) return;
 
-  NSLog(@"###LXNowPlaying### reconcile stateDrift=%d infoMissing=%d commandsDrift=%d sessionInactive=%d expected=%ld published=%ld internal=%ld info=%lu",
-        stateDrift ? 1 : 0, infoMissing ? 1 : 0, commandsDrift ? 1 : 0, sessionInactive ? 1 : 0,
+  NSLog(@"###LXNowPlaying### reconcile stateDrift=%d infoMissing=%d commandsDrift=%d expected=%ld published=%ld internal=%ld info=%lu",
+        stateDrift ? 1 : 0, infoMissing ? 1 : 0, commandsDrift ? 1 : 0,
         (long)expected, (long)center.playbackState, (long)LXNowPlayingState, infoCount);
-  if (sessionInactive) LXActivateAudioSessionForPlayback();
+  // 播放态下修复卡片时顺手确保音频会话是激活的（不再查询 isActive：iOS 26 SDK 无该选择器，
+  // CI run#954 实测 `no visible @interface for AVAudioSession declares the selector isActive`）。
+  // setActive:YES 幂等，且只在「检测到漂移」这种低频路径调用。
+  if (LXNowPlayingState == MPNowPlayingPlaybackStatePlaying) LXActivateAudioSessionForPlayback();
   // 重发一次即可把信息 / 播放态 / 命令可用性全部拉回（内部会走 LXSyncRemoteCommandAvailability）
   LXApplyNowPlayingInfo();
 }

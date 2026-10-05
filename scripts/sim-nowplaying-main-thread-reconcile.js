@@ -77,8 +77,13 @@ const structuralReasons = (src) => {
     if (!/infoMissing = \(infoCount > 0 && center\.nowPlayingInfo == nil\)/.test(reconcile)) {
       reasons.push('看门狗没有核对「卡片信息是否丢失」')
     }
-    if (!/sessionInactive = \(LXNowPlayingState == MPNowPlayingPlaybackStatePlaying\) && !\[\[AVAudioSession sharedInstance\] isActive\]/.test(reconcile)) {
-      reasons.push('看门狗没有核对「播放中但音频会话不 active」')
+    // iOS 26 SDK 的 AVAudioSession 没有 isActive 选择器（CI run#954 实测编译失败）：
+    // 这里把「不得查询 isActive」写成硬约束，改为「修复时按播放态顺手激活会话」。
+    if (/AVAudioSession sharedInstance\] isActive\]/.test(src)) {
+      reasons.push('仍查询 AVAudioSession isActive（iOS 26 SDK 无该选择器，会直接编译失败）')
+    }
+    if (!/if \(LXNowPlayingState == MPNowPlayingPlaybackStatePlaying\) LXActivateAudioSessionForPlayback\(\);/.test(reconcile)) {
+      reasons.push('看门狗修复卡片时没有按播放态确保音频会话激活')
     }
     if (!/!commandCenter\.playCommand\.enabled/.test(reconcile)) {
       reasons.push('看门狗没有核对遥控命令可用性')
@@ -175,6 +180,7 @@ for (const [name, ok] of models) console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}`)
 console.log('')
 console.log('反例自检')
 console.log(`${tamper1 ? 'PASS' : 'FAIL'}  拿掉主线程守卫 —— ${tamper1Detail}`)
+console.log(`${tamper2 ? 'PASS' : 'FAIL'}  拿掉看门狗接线 —— ${tamper2Detail}`)
 // 反例自检 3：拿掉翻转还原的主线程约束 → 必须报错
 let tamper3 = false
 let tamper3Detail = ''
@@ -191,9 +197,24 @@ try {
 } catch (err) {
   tamper3Detail = `异常: ${err.message}`
 }
-
-console.log(`${tamper2 ? 'PASS' : 'FAIL'}  拿掉看门狗接线 —— ${tamper2Detail}`)
 console.log(`${tamper3 ? 'PASS' : 'FAIL'}  拿掉翻转还原的主线程约束 —— ${tamper3Detail}`)
+
+// 反例自检 4：重新引入 AVAudioSession isActive（iOS 26 SDK 无此选择器）→ 必须报错
+let tamper4 = false
+let tamper4Detail = ''
+try {
+  const injected = SRC.replace('  BOOL stateDrift = (center.playbackState != expected);', '  BOOL bad = ![[AVAudioSession sharedInstance] isActive];\n  BOOL stateDrift = (center.playbackState != expected);')
+  if (injected === SRC) {
+    tamper4Detail = '找不到可注入的锚点'
+  } else {
+    const reasons = structuralReasons(injected)
+    tamper4 = reasons.some((r) => r.includes('AVAudioSession isActive'))
+    tamper4Detail = tamper4 ? '已拦下' : `未拦下（reasons=${JSON.stringify(reasons)}）`
+  }
+} catch (err) {
+  tamper4Detail = `异常: ${err.message}`
+}
+console.log(`${tamper4 ? 'PASS' : 'FAIL'}  重新引入 AVAudioSession isActive —— ${tamper4Detail}`)
 
 if (realReasons.length) {
   console.error(`\nFAIL  主线程写入 + 漂移自愈契约未通过（${realReasons.length} 项）：`)
@@ -201,9 +222,10 @@ if (realReasons.length) {
 }
 const failedModels = models.filter(([, ok]) => !ok)
 if (failedModels.length) console.error(`\nFAIL  行为模型未通过（${failedModels.length} 例）`)
-if (failedModels.length || realReasons.length || !tamper1 || !tamper2 || !tamper3) {
+
+if (failedModels.length || realReasons.length || !tamper1 || !tamper2 || !tamper3 || !tamper4) {
   console.error('\nFAIL  主线程写入 + 漂移自愈契约未通过')
   process.exit(1)
 }
-console.log(`\nPASS  MediaPlayer 写入主线程化 + 看门狗收敛（结构不变量 5 组 + 行为模型 ${models.length} 例 + 反例 3 例）`)
+console.log(`\nPASS  MediaPlayer 写入主线程化 + 看门狗收敛（结构不变量 5 组 + 行为模型 ${models.length} 例 + 反例 4 例）`)
 process.exit(0)

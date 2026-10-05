@@ -12,6 +12,8 @@ import { getUnifiedPlaybackState } from '@/plugins/player/engine'
 // 布尔量就永久停在 true —— 这两个键从此彻底失效，直到重启 App。
 // 时间窗只需要压掉「一次物理按键被重复投递」（越狱 CarPlay 实锤），窗口过后自然恢复。
 const NAV_COMMAND_DEDUP_MS = 350
+// toggle 的引擎状态查询兜底窗口（见 toggle 分支）：查询挂起时不能吞掉这次按压
+const TOGGLE_STATE_QUERY_TIMEOUT_MS = 250
 let lastNavCommandAt = 0
 const runNavCommand = (run: () => Promise<void>) => {
   const now = Date.now()
@@ -40,22 +42,42 @@ export default () => {
       case 'pause':
         void pause()
         break
-      case 'toggle':
+      case 'toggle': {
         // 播放/暂停方向以**引擎真实状态**为准，不看 playerState.isPlay。
         // 控制中心 / 灵动岛的按钮图标来自系统缓存的 playbackState，而 JS 侧的
         // playerState.isPlay 在系统中断、蓝牙路由抖动、nativeFlac 引擎切换后会滞后一拍；
         // 那一拍里 togglePlay() 会执行「其实已经满足」的动作（按下看起来没反应），
         // 要按第二下才生效 —— 用户 2026-10-03 反馈的「暂停/播放要按两下」即此。
+        //
+        // 但「查引擎状态」本身不能再变成一次永不结算的等待：查询**挂起**（不是 reject）
+        // 时 catch 永远不触发，这一次按压被静默吞掉。蓝牙耳机（AVRCP 单键）只发 toggle，
+        // 连接蓝牙时的引擎重建 / 后台桥接停摆都可能让查询悬着 —— 用户 2026-10-05 反馈的
+        // 「连接蓝牙后蓝牙耳机控制失效」即这一类（同 dfcaa92 的「在途 Promise 永不 settle
+        // → 按键永久失效」教训）。这里加超时兜底：到点查询仍没回来就按旧口径 togglePlay()
+        // 保证按压有动作；晚到的结果因单次结算被丢弃，绝不会补出第二次动作。
+        let settled = false
+        const settle = (action: () => void) => {
+          if (settled) return
+          settled = true
+          clearTimeout(fallbackTimer)
+          action()
+        }
+        const fallbackTimer = setTimeout(() => {
+          settle(togglePlay)
+        }, TOGGLE_STATE_QUERY_TIMEOUT_MS)
         void getUnifiedPlaybackState()
           .then((state) => {
-            if (state === 'playing' || state === 'buffering') void pause()
-            else requestPlay()
+            settle(() => {
+              if (state === 'playing' || state === 'buffering') void pause()
+              else requestPlay()
+            })
           })
           .catch(() => {
             // 引擎状态查询失败时退回旧口径，至少保证按键有动作
-            togglePlay()
+            settle(togglePlay)
           })
         break
+      }
       case 'next':
         runNavCommand(playNext)
         break

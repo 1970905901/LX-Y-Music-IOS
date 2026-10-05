@@ -782,12 +782,20 @@ static MPRemoteCommandHandlerStatus LXHandleRemoteCommandEvent(NSString *command
   // 注意 hasInfo 要持锁读：歌词时钟线程可能正在改缓存。
   unsigned long lxInfoCount = 0;
   @synchronized (LXLyricLock()) { lxInfoCount = LXNowPlayingInfoCache.count; }
-  NSLog(@"###LXRemote### recv=%@ appState=%ld infoCount=%lu nowPlayingState=%ld enabled=%@",
+  // 带上输出路由与各命令的 enabled 状态：蓝牙耳机若「完全没反应」，这一行能区分
+  // 「命令没到 App（系统按 disabled 吞掉 / Now Playing 被别的 App 抢走）」与
+  // 「到了 App 但后续 JS 投递链丢了」——前者 recv 不打印，后者 recv 打印但无 deliver。
+  MPRemoteCommandCenter *recvCommandCenter = [MPRemoteCommandCenter sharedCommandCenter];
+  NSLog(@"###LXRemote### recv=%@ appState=%ld bt=%d infoCount=%lu nowPlayingState=%ld enabled(play=%d pause=%d toggle=%d next=%d)",
         command,
         (long)[UIApplication sharedApplication].applicationState,
+        LXHasBluetoothAudioRoute() ? 1 : 0,
         lxInfoCount,
         (long)LXNowPlayingState,
-        [MPRemoteCommandCenter sharedCommandCenter].nextTrackCommand.enabled ? @"YES" : @"NO");
+        recvCommandCenter.playCommand.enabled ? 1 : 0,
+        recvCommandCenter.pauseCommand.enabled ? 1 : 0,
+        recvCommandCenter.togglePlayPauseCommand.enabled ? 1 : 0,
+        recvCommandCenter.nextTrackCommand.enabled ? 1 : 0);
   // 命令处理完之后补一次卡片重绘：卡片按钮的图标只认「playbackState 反转再转回」这条
   // 刷新链路（见 LXForceNowPlayingCardRepaint 注释），不补绘的话这次状态变化只能等下一次
   // 歌词换行才可见 —— 用户看到按钮没变、再按发的还是同一个方向（表现为「按一下没反应，
@@ -857,10 +865,20 @@ static void LXSyncRemoteCommandAvailability(void) {
   }
 
 
-  BOOL isPlaying = LXNowPlayingState == MPNowPlayingPlaybackStatePlaying;
-  commandCenter.playCommand.enabled = !isPlaying;
-  commandCenter.pauseCommand.enabled = isPlaying;
-  // 控制中心合并的「播放/暂停」按钮对应 togglePlayPauseCommand，必须启用，否则按钮灰置不可点
+  // ⚠️ 有信息时传输类命令**必须常开**，不得再按 LXNowPlayingState 门控
+  // （2026-10-05 用户反馈「连接蓝牙后，蓝牙耳机控制功能失效」）：
+  //   · Apple 文档（MPRemoteCommand.isEnabled）：置 NO 后「events for this command are not
+  //     sent to your app」——命令被系统直接吞掉，原生与 JS 谁都收不到；
+  //   · 而 LXNowPlayingState 是 JS 异步发布的缓存值，天然滞后引擎一拍（remoteCommand.ts
+  //     对 playerState.isPlay 的同类说明：系统中断 / 蓝牙路由抖动 / 引擎切换后都会滞后）；
+  //     卡片重绘把 playbackState 翻到相反值的 60ms 内，它还与真实状态相反；
+  //   · 蓝牙耳机（AVRCP）按键发的是**显式 play / pause**，一旦与缓存态相反，对应的
+  //     playCommand / pauseCommand 正好是 disabled → 系统不投递 → 表现即「耳机按键失效」；
+  //     控制中心合并按钮走 togglePlayPauseCommand（一直启用），所以同一时刻控制中心仍可用。
+  // 方向判定交给 JS：toggle 分支读引擎真实状态（core/init/player/remoteCommand.ts），
+  // play / pause 本身幂等，最坏只是重复一次已满足的动作，不会再吞掉一次真实按压。
+  commandCenter.playCommand.enabled = YES;
+  commandCenter.pauseCommand.enabled = YES;
   commandCenter.togglePlayPauseCommand.enabled = YES;
   commandCenter.nextTrackCommand.enabled = YES;
   commandCenter.previousTrackCommand.enabled = YES;

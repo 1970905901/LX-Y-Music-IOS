@@ -829,6 +829,16 @@ static MPRemoteCommandHandlerStatus LXHandleRemoteCommandEvent(NSString *command
 
 static MPRemoteCommandHandlerStatus LXHandleRemoteChangePlaybackPositionEvent(MPChangePlaybackPositionCommandEvent *event) {
   LXNowPlayingLastRemoteCommandAtMs = CACurrentMediaTime() * 1000.0;
+  // 拖进度条此前是唯一没有 recv= 打点的命令入口（2026-10-05 真机日志里只有 deliver=seek，
+  // 无法区分「拖到哪」和「App 认为当前在哪」）；位置单位为秒，elapsed 取系统进度基线。
+  double lxSeekElapsed = 0;
+  unsigned long lxSeekInfoCount = 0;
+  @synchronized (LXLyricLock()) {
+    NSNumber *elapsedValue = LXNowPlayingInfoCache[MPNowPlayingInfoPropertyElapsedPlaybackTime];
+    lxSeekElapsed = [elapsedValue isKindOfClass:[NSNumber class]] ? elapsedValue.doubleValue : 0;
+    lxSeekInfoCount = LXNowPlayingInfoCache.count;
+  }
+  NSLog(@"###LXRemote### recv=seek pos=%.2f elapsed=%.2f state=%ld info=%lu", event.positionTime, lxSeekElapsed, (long)LXNowPlayingState, lxSeekInfoCount);
   LXPostRemoteCommandNotification(@"seek", @{
     @"position": @(event.positionTime),
   });
@@ -908,12 +918,33 @@ static void LXSyncRemoteCommandAvailability(void) {
   LXBeginReceivingRemoteControlEvents();
 }
 
+// 系统只把遥控命令 / 进度条拖动投递给「不是 stopped」的会话：只要 cache 里还有曲目上下文
+// （歌名等），把 stopped 写给系统就会得到一张「看得见但按不动、进度条也拖不动」的卡片。
+// 典型触发：重装后首次启动（JS 恢复了上一首歌，只发布元数据、还没播放过）、停止播放之后。
+// 这种时候按 paused（速率 0）发布：卡片保持可交互，按播放键走 LXHandleRemoteCommandEvent
+// 的 play 分支续播；真正没有曲目（cache 空）时才写 stopped，把媒体会话交还给系统。
+// 必须在持有 LXLyricLock 时调用（会写回 cache 的 PlaybackRate）。
+static MPNowPlayingPlaybackState LXResolveNowPlayingPublishStateLocked(void) {
+  if (LXNowPlayingState != MPNowPlayingPlaybackStateStopped || LXNowPlayingInfoCache.count == 0) return LXNowPlayingState;
+  // 暂停语义要求速率为 0：否则系统会继续按旧速率外推进度条
+  LXNowPlayingInfoCache[MPNowPlayingInfoPropertyPlaybackRate] = @0;
+  return MPNowPlayingPlaybackStatePaused;
+}
+
 static void LXApplyNowPlayingInfo(void) {
   @synchronized (LXLyricLock()) {
     MPNowPlayingInfoCenter *center = [MPNowPlayingInfoCenter defaultCenter];
     center.nowPlayingInfo = LXNowPlayingInfoCache.count ? [LXNowPlayingInfoCache copy] : nil;
     if (@available(iOS 13.0, *)) {
-      center.playbackState = LXNowPlayingState;
+      MPNowPlayingPlaybackState publishState = LXResolveNowPlayingPublishStateLocked();
+      // 只在发布态变化时打点：本函数被歌词时钟高频调用，逐次打点会淹掉系统日志
+      static MPNowPlayingPlaybackState lastLoggedPublishState = MPNowPlayingPlaybackStateUnknown;
+      if (publishState != lastLoggedPublishState) {
+        lastLoggedPublishState = publishState;
+        NSLog(@"###LXNowPlaying### publish state=%ld internal=%ld info=%lu",
+              (long)publishState, (long)LXNowPlayingState, (unsigned long)LXNowPlayingInfoCache.count);
+      }
+      center.playbackState = publishState;
     }
     LXSyncRemoteCommandAvailability();
   }
@@ -1086,9 +1117,14 @@ static double LXAdvanceElapsedToNowSec(double elapsedSec, double snapshotAtMs, d
 }
 
 static void LXSetNowPlayingPlaybackState(MPNowPlayingPlaybackState state, NSDictionary *options) {
+  MPNowPlayingPlaybackState previousState = LXNowPlayingState;
   LXNowPlayingState = state;
   // 会话生命周期：只有真正的 Stopped 结束会话（播放/暂停/缓冲都算会话仍在）
   LXNowPlayingHasPlaybackSession = (state != MPNowPlayingPlaybackStateStopped);
+  if (state != previousState) {
+    NSLog(@"###LXNowPlaying### setState %ld -> %ld session=%d info=%lu",
+          (long)previousState, (long)state, LXNowPlayingHasPlaybackSession ? 1 : 0, (unsigned long)LXNowPlayingInfoCache.count);
+  }
 
   // 时钟冻结标志与 Now Playing 播放态联动：nativeFlac 驱动下 TrackPlayer 已
   // reset，不再产生 state 生命周期事件，hold 只会停留在 reset 时的 YES ——
@@ -1154,6 +1190,8 @@ static void LXSetNowPlayingPlaybackState(MPNowPlayingPlaybackState state, NSDict
 
 static void LXClearNowPlayingInfo(void) {
   @synchronized (LXLyricLock()) {
+    NSLog(@"###LXNowPlaying### clear wasState=%ld wasInfo=%lu session=%d",
+          (long)LXNowPlayingState, (unsigned long)LXNowPlayingInfoCache.count, LXNowPlayingHasPlaybackSession ? 1 : 0);
     LXCancelNowPlayingArtworkTask();
     LXNowPlayingArtworkRequestId += 1;
     LXNowPlayingArtworkPath = nil;
@@ -1313,6 +1351,9 @@ static void LXSetNowPlayingInfo(NSDictionary *metadata) {
     NSString *title = [metadata[@"title"] isKindOfClass:[NSString class]] ? metadata[@"title"] : nil;
     // 有标题 = 有当前曲目：会话开始（换歌 reset 清缓存期间靠它保持遥控命令可用）
     if (title != nil) LXNowPlayingHasPlaybackSession = YES;
+    // 只打长度与状态，不打歌名（日志可能被用户导出）
+    NSLog(@"###LXNowPlaying### metadata titleLen=%lu state=%ld session=%d",
+          (unsigned long)(title ? title.length : 0), (long)LXNowPlayingState, LXNowPlayingHasPlaybackSession ? 1 : 0);
     NSString *artist = [metadata[@"artist"] isKindOfClass:[NSString class]] ? metadata[@"artist"] : nil;
     NSString *album = [metadata[@"album"] isKindOfClass:[NSString class]] ? metadata[@"album"] : nil;
     NSNumber *duration = [metadata[@"duration"] isKindOfClass:[NSNumber class]] ? metadata[@"duration"] : nil;

@@ -722,6 +722,10 @@ static const double LXNowPlayingCommandSafetyGapMs = 250.0;
 // 翻转（立刻恢复真实播放态）并把 flip=1 写进 ###LXRemote### 日志，便于真机归因。
 static const double LXNowPlayingCardRepaintFlipMs = 60.0;
 static double LXNowPlayingCardRepaintFlipUntilMs = 0;
+// 封面重绘翻转的假状态窗口（0.15s 延迟 + 0.08s 翻转）：收敛看门狗在这段时间内不得判定
+// 「漂移」，否则会把正在翻转的假状态当成错误去纠正，与翻转互相打架。
+static const double LXNowPlayingArtworkRepaintFlipMs = 230.0;
+static double LXNowPlayingArtworkRepaintFlipUntilMs = 0;
 static NSUInteger LXNowPlayingCardRepaintFlipGeneration = 0;
 static MPNowPlayingPlaybackState LXNowPlayingCardRepaintFlipRestoreState = MPNowPlayingPlaybackStateStopped;
 static void LXScheduleDeferredNowPlayingCardRepaint(void);
@@ -931,7 +935,82 @@ static MPNowPlayingPlaybackState LXResolveNowPlayingPublishStateLocked(void) {
   return MPNowPlayingPlaybackStatePaused;
 }
 
+// —— 卡片收敛看门狗 ——
+// 卡片是「系统持有的一份副本」：任何一次没落地的写入（后台线程写 MediaPlayer 被系统忽略、
+// 翻转被封面换代打断、系统回收媒体会话）都会让它与真实状态漂移，而漂移之后**没有任何自愈
+// 路径** —— 无歌词 / 稀疏歌词的歌尤其明显（用户 2026-10-05：正常一段时间又失效）。
+// 这里在主线程以 3s 低频核对（只在有卡片时运行，代价可忽略）：不一致就重发，并打一行
+// ###LXNowPlaying### reconcile 说明坏在哪，既保证收敛，也让真机日志一次定位。
+static dispatch_source_t LXNowPlayingReconcileTimer = nil;
+static void LXReconcileNowPlayingCardNow(void);
+
+static void LXStopNowPlayingReconcileTimer(void) {
+  if (LXNowPlayingReconcileTimer == nil) return;
+  dispatch_source_cancel(LXNowPlayingReconcileTimer);
+  LXNowPlayingReconcileTimer = nil;
+}
+
+static void LXStartNowPlayingReconcileTimer(void) {
+  if (LXNowPlayingReconcileTimer != nil) return;
+  if (![NSThread isMainThread]) {
+    dispatch_async(dispatch_get_main_queue(), ^{ LXStartNowPlayingReconcileTimer(); });
+    return;
+  }
+  dispatch_source_t timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
+  dispatch_source_set_timer(timer, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(3.0 * NSEC_PER_SEC)), (uint64_t)(3.0 * NSEC_PER_SEC), (uint64_t)(0.5 * NSEC_PER_SEC));
+  dispatch_source_set_event_handler(timer, ^{ LXReconcileNowPlayingCardNow(); });
+  LXNowPlayingReconcileTimer = timer;
+  dispatch_resume(timer);
+}
+
+static void LXReconcileNowPlayingCardNow(void) {
+  if (![NSThread isMainThread]) {
+    dispatch_async(dispatch_get_main_queue(), ^{ LXReconcileNowPlayingCardNow(); });
+    return;
+  }
+  BOOL hasInfo = NO;
+  @synchronized (LXLyricLock()) { hasInfo = LXNowPlayingInfoCache.count > 0; }
+  if (!hasInfo) {
+    // 没有卡片（会话已结束）：停表，不空转
+    LXStopNowPlayingReconcileTimer();
+    return;
+  }
+  // 翻转窗口内系统持有的就是「假状态」，此时比对会把正常翻转误判成漂移
+  double nowMs = CACurrentMediaTime() * 1000.0;
+  if (nowMs < LXNowPlayingCardRepaintFlipUntilMs || nowMs < LXNowPlayingArtworkRepaintFlipUntilMs) return;
+
+  MPNowPlayingInfoCenter *center = [MPNowPlayingInfoCenter defaultCenter];
+  MPNowPlayingPlaybackState expected = MPNowPlayingPlaybackStateUnknown;
+  BOOL infoMissing = NO;
+  unsigned long infoCount = 0;
+  @synchronized (LXLyricLock()) {
+    expected = LXResolveNowPlayingPublishStateLocked();
+    infoCount = LXNowPlayingInfoCache.count;
+    infoMissing = (infoCount > 0 && center.nowPlayingInfo == nil);
+  }
+  MPRemoteCommandCenter *commandCenter = [MPRemoteCommandCenter sharedCommandCenter];
+  BOOL stateDrift = (center.playbackState != expected);
+  BOOL commandsDrift = !commandCenter.playCommand.enabled || !commandCenter.nextTrackCommand.enabled;
+  BOOL sessionInactive = (LXNowPlayingState == MPNowPlayingPlaybackStatePlaying) && ![[AVAudioSession sharedInstance] isActive];
+  if (!stateDrift && !infoMissing && !commandsDrift && !sessionInactive) return;
+
+  NSLog(@"###LXNowPlaying### reconcile stateDrift=%d infoMissing=%d commandsDrift=%d sessionInactive=%d expected=%ld published=%ld internal=%ld info=%lu",
+        stateDrift ? 1 : 0, infoMissing ? 1 : 0, commandsDrift ? 1 : 0, sessionInactive ? 1 : 0,
+        (long)expected, (long)center.playbackState, (long)LXNowPlayingState, infoCount);
+  if (sessionInactive) LXActivateAudioSessionForPlayback();
+  // 重发一次即可把信息 / 播放态 / 命令可用性全部拉回（内部会走 LXSyncRemoteCommandAvailability）
+  LXApplyNowPlayingInfo();
+}
+
 static void LXApplyNowPlayingInfo(void) {
+  // MediaPlayer 的接口（MPNowPlayingInfoCenter / MPRemoteCommandCenter）必须在主线程使用：
+  // 歌词时钟跑在专用后台串行队列（com.lxmusic.nowplaying.lyric），它每次歌词换行都会走到这里。
+  // 后台线程写这些属性会被系统忽略，并与主线程的写入互相覆盖 —— 卡片会随机停在错误的播放态
+  // 或丢失某次发布（按钮方向反、进度条停走，表现为「正常一段时间又失效」）。
+  if (![NSThread isMainThread]) {
+    dispatch_async(dispatch_get_main_queue(), ^{ LXApplyNowPlayingInfo(); });
+    return;
+  }
   @synchronized (LXLyricLock()) {
     MPNowPlayingInfoCenter *center = [MPNowPlayingInfoCenter defaultCenter];
     center.nowPlayingInfo = LXNowPlayingInfoCache.count ? [LXNowPlayingInfoCache copy] : nil;
@@ -948,6 +1027,10 @@ static void LXApplyNowPlayingInfo(void) {
     }
     LXSyncRemoteCommandAvailability();
   }
+  // 有卡片就确保看门狗在跑（幂等）；没有卡片时由看门狗自己停表
+  BOOL hasCard = NO;
+  @synchronized (LXLyricLock()) { hasCard = LXNowPlayingInfoCache.count > 0; }
+  if (hasCard) LXStartNowPlayingReconcileTimer();
 }
 
 static void LXBeginReceivingRemoteControlEvents(void) {
@@ -1008,6 +1091,7 @@ static void LXApplyNowPlayingArtwork(UIImage *image, NSUInteger requestId) {
       dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.15 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         // 还没翻转就换代：本次翻转作废，直接交给新任务（此时卡片仍是真实态，安全）
         if (requestId != LXNowPlayingArtworkRequestId) return;
+        LXNowPlayingArtworkRepaintFlipUntilMs = CACurrentMediaTime() * 1000.0 + LXNowPlayingArtworkRepaintFlipMs;
         center.playbackState = opposite;
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.08 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
           // 已经翻转了，还原必须无条件执行：翻转期间卡片显示的是「假状态」，任何提前 return
@@ -1019,6 +1103,7 @@ static void LXApplyNowPlayingArtwork(UIImage *image, NSUInteger requestId) {
             NSLog(@"###LXNowPlaying### artworkFlip superseded mid-flip → restore state=%ld (修复前会永久停在假状态)", (long)current);
           }
           center.playbackState = current;
+          LXNowPlayingArtworkRepaintFlipUntilMs = 0;
           LXApplyNowPlayingInfo();
         });
       });
@@ -1209,6 +1294,7 @@ static void LXClearNowPlayingInfo(void) {
     LXNowPlayingElapsedSnapshotAtMs = 0;
     LXClearNowPlayingLyricLines();
     LXApplyNowPlayingInfo();
+    LXStopNowPlayingReconcileTimer();
   }
   // 停止 / 销毁播放会话：停掉 8.3Hz 歌词时钟（state=Stopped，守卫会停钟）。
   // 放在锁外调用——LXSyncNowPlayingLyricTimer 内部走 LXLyricLock 保护的启动路径，

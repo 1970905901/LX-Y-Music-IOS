@@ -84,3 +84,6 @@ ios/assets/
 
 # 本项目以 npm 为准（package-lock.json 已入库），pnpm lock 不入库
 pnpm-lock.yaml
+# 本机 Agent / 编辑器私有配置（仓库为 public：只共享规则，不入库）
+AGENTS.md
+.zcodeignore

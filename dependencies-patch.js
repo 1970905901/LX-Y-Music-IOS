@@ -10,7 +10,7 @@ const sharedIRBridgeHeaderSource = fs.readFileSync(path.join(rootPath, 'patches/
 const sharedIRBridgeSource = fs.readFileSync(path.join(rootPath, 'patches/ios/LXSharedIRConvolutionBridge.mm'), 'utf8')
 
 /**
- * @typedef {{ from: string, to: string }} PatchChange
+ * @typedef {{ from: string, to: string, optional?: boolean }} PatchChange
  * @typedef {{ filePath: string, changes: PatchChange[] }} PatchTarget
  */
 
@@ -35,6 +35,25 @@ private let lxTrackPlayerLifecycleNotification = Notification.Name("LXTrackPlaye
 
 @objc(RNTrackPlayer)
 public class RNTrackPlayer: RCTEventEmitter {
+`,
+      },
+      {
+        // 旧 equalizer 属性块 → soundEffect 属性块：仅「曾应用旧补丁」的本机 node_modules 需要，缺失属正常。
+        // 这里必须整段替换而不是「先删后插」：patchFile 的已应用判定会拿 to 去 includes，
+        // 删除形态（to 是 from 的子串）必然命中而静默跳过。
+        optional: true,
+        from: `    private var hasInitialized = false
+    private let player = QueuedAudioPlayer()
+    private var equalizerEnabled = false
+    private var equalizerGains = LXEqualizerAudioMixController.normalizeGains([])
+    private var equalizerTapProcessor: LXEqualizerAudioMixController?
+    private weak var equalizedPlayerItem: AVPlayerItem?
+`,
+        to: `    private var hasInitialized = false
+    private let player = QueuedAudioPlayer()
+    private var soundEffectConfig = LXSoundEffectConfiguration()
+    private var soundEffectTapProcessor: LXEqualizerAudioMixController?
+    private weak var soundEffectPlayerItem: AVPlayerItem?
 `,
       },
       {
@@ -236,10 +255,6 @@ private let lxTrackPlayerLifecycleNotification = Notification.Name("LXTrackPlaye
       {
         from: `    private var hasInitialized = false
     private let player = QueuedAudioPlayer()
-    private var equalizerEnabled = false
-    private var equalizerGains = LXEqualizerAudioMixController.normalizeGains([])
-    private var equalizerTapProcessor: LXEqualizerAudioMixController?
-    private weak var equalizedPlayerItem: AVPlayerItem?
 `,
         to: `    private var hasInitialized = false
     private let player = QueuedAudioPlayer()
@@ -249,6 +264,7 @@ private let lxTrackPlayerLifecycleNotification = Notification.Name("LXTrackPlaye
 `,
       },
       {
+        optional: true,
         from: `        self.player.stop()
         equalizedPlayerItem = nil
         equalizerTapProcessor = nil
@@ -262,6 +278,20 @@ private let lxTrackPlayerLifecycleNotification = Notification.Name("LXTrackPlaye
 `,
       },
       {
+        // 全新安装（CI / npm ci / 新机器）：上游源码里没有 sound effect 清理，需要补齐；
+        // 已应用过的机器会命中上面可选迁移的 to，或本段 to 的逐字匹配而跳过。
+        from: `        self.player.stop()
+        self.player.nowPlayingInfoController.clear()
+`,
+        to: `        self.player.stop()
+        soundEffectPlayerItem?.audioMix = nil
+        soundEffectPlayerItem = nil
+        soundEffectTapProcessor = nil
+        self.player.nowPlayingInfoController.clear()
+`,
+      },
+      {
+        optional: true,
         from: `        player.stop()
         equalizedPlayerItem = nil
         equalizerTapProcessor = nil
@@ -275,6 +305,19 @@ private let lxTrackPlayerLifecycleNotification = Notification.Name("LXTrackPlaye
 `,
       },
       {
+        // 全新安装：reset 里同样缺少释放 audioMix 的步骤（与 destroy 对称）。
+        from: `        player.stop()
+        postLifecycleEvent("reset", state: .idle, position: 0, rate: 0)
+`,
+        to: `        player.stop()
+        soundEffectPlayerItem?.audioMix = nil
+        soundEffectPlayerItem = nil
+        soundEffectTapProcessor = nil
+        postLifecycleEvent("reset", state: .idle, position: 0, rate: 0)
+`,
+      },
+      {
+        optional: true,
         from: `    @objc private func handleSoundEffectConfigChanged(_ notification: Notification) {
         applySoundEffectConfig(notification.userInfo)
         refreshEqualizerAudioMix()
@@ -387,6 +430,7 @@ private let lxTrackPlayerLifecycleNotification = Notification.Name("LXTrackPlaye
 `,
       },
       {
+        optional: true,
         from: `    @objc private func handleSoundEffectConfigChanged(_ notification: Notification) {
         soundEffectConfig = LXSoundEffectConfiguration.fromUserInfo(notification.userInfo)
         refreshSoundEffectAudioMix()
@@ -507,6 +551,107 @@ private let lxTrackPlayerLifecycleNotification = Notification.Name("LXTrackPlaye
 `,
       },
       {
+        // 全新安装：上游基线里 stateChange / queueIndexChange 没有音效刷新调用；
+        // 旧机器由上面的 optional 迁移负责，跑到这里时 to 已存在而跳过。
+        from: `    func handleAudioPlayerStateChange(state: AVPlayerWrapperState) {
+        sendEvent(withName: "playback-state", body: ["state": state.rawValue])
+        postLifecycleEvent("state", state: state)
+    }
+`,
+        to: `    func handleAudioPlayerStateChange(state: AVPlayerWrapperState) {
+        refreshSoundEffectAudioMixOnMainThread()
+        sendEvent(withName: "playback-state", body: ["state": state.rawValue])
+        postLifecycleEvent("state", state: state)
+    }
+`,
+      },
+      {
+        from: `    func handleAudioPlayerQueueIndexChange(previousIndex: Int?, nextIndex: Int?) {
+        var dictionary: [String: Any] = [ "position": player.currentTime ]
+`,
+        to: `    func handleAudioPlayerQueueIndexChange(previousIndex: Int?, nextIndex: Int?) {
+        refreshSoundEffectAudioMixOnMainThread()
+        var dictionary: [String: Any] = [ "position": player.currentTime ]
+`,
+      },
+      {
+        // 全新安装：上游源码里根本没有 soundEffect handler（而 target#2 已注册了 selector），
+        // 必须按 marker 位置补齐 v2 实现，否则运行时 selector 找不到方法会崩。
+        from: `    // MARK: - QueuedAudioPlayer Event Handlers
+`,
+        to: `    @objc private func handleSoundEffectConfigChanged(_ notification: Notification) {
+        let nextConfig = LXSoundEffectConfiguration.fromUserInfo(notification.userInfo)
+        if Thread.isMainThread {
+            soundEffectConfig = nextConfig
+            refreshSoundEffectAudioMix()
+            return
+        }
+        DispatchQueue.main.async { [weak self] in
+            self?.soundEffectConfig = nextConfig
+            self?.refreshSoundEffectAudioMix()
+        }
+    }
+
+    private func refreshSoundEffectAudioMixOnMainThread() {
+        if Thread.isMainThread {
+            refreshSoundEffectAudioMix()
+            return
+        }
+        DispatchQueue.main.async { [weak self] in
+            self?.refreshSoundEffectAudioMix()
+        }
+    }
+
+    private func refreshSoundEffectAudioMix() {
+        guard let currentItem = player.currentPlayerItem else {
+            soundEffectPlayerItem = nil
+            soundEffectTapProcessor = nil
+            return
+        }
+
+        if soundEffectPlayerItem !== currentItem {
+            soundEffectPlayerItem?.audioMix = nil
+        }
+
+        if let processor = soundEffectTapProcessor, soundEffectPlayerItem === currentItem {
+            processor.updateConfig(soundEffectConfig)
+            if soundEffectConfig.isActive {
+                if currentItem.audioMix == nil, let audioMix = processor.makeAudioMix(for: currentItem.asset) {
+                    currentItem.audioMix = audioMix
+                }
+            } else {
+                currentItem.audioMix = nil
+                soundEffectTapProcessor = nil
+                soundEffectPlayerItem = nil
+            }
+            return
+        }
+
+        guard soundEffectConfig.isActive else {
+            currentItem.audioMix = nil
+            soundEffectPlayerItem = nil
+            soundEffectTapProcessor = nil
+            return
+        }
+
+        let processor = LXEqualizerAudioMixController(config: soundEffectConfig)
+        guard let audioMix = processor.makeAudioMix(for: currentItem.asset) else {
+            currentItem.audioMix = nil
+            soundEffectPlayerItem = nil
+            soundEffectTapProcessor = nil
+            return
+        }
+
+        currentItem.audioMix = audioMix
+        soundEffectPlayerItem = currentItem
+        soundEffectTapProcessor = processor
+    }
+
+    // MARK: - QueuedAudioPlayer Event Handlers
+`,
+      },
+      {
+        optional: true,
         from: `    func handleAudioPlayerStateChange(state: AVPlayerWrapperState) {
         refreshEqualizerAudioMix()
         sendEvent(withName: "playback-state", body: ["state": state.rawValue])
@@ -521,6 +666,7 @@ private let lxTrackPlayerLifecycleNotification = Notification.Name("LXTrackPlaye
 `,
       },
       {
+        optional: true,
         from: `    func handleAudioPlayerQueueIndexChange(previousIndex: Int?, nextIndex: Int?) {
         refreshEqualizerAudioMix()
         var dictionary: [String: Any] = [ "position": player.currentTime ]
@@ -531,6 +677,7 @@ private let lxTrackPlayerLifecycleNotification = Notification.Name("LXTrackPlaye
 `,
       },
       {
+        optional: true,
         from: `    func handleAudioPlayerStateChange(state: AVPlayerWrapperState) {
         refreshSoundEffectAudioMix()
         sendEvent(withName: "playback-state", body: ["state": state.rawValue])
@@ -545,6 +692,7 @@ private let lxTrackPlayerLifecycleNotification = Notification.Name("LXTrackPlaye
 `,
       },
       {
+        optional: true,
         from: `    func handleAudioPlayerQueueIndexChange(previousIndex: Int?, nextIndex: Int?) {
         refreshSoundEffectAudioMix()
         var dictionary: [String: Any] = [ "position": player.currentTime ]
@@ -666,14 +814,24 @@ const patchFile = async({ filePath, changes }) => {
   let normalizedFile = file.replace(/\r\n/g, '\n')
   const originalFile = normalizedFile
 
-  for (const { from, to } of changes) {
+  for (const { from, to, optional } of changes) {
     if (normalizedFile.includes(to)) continue
     // 其它补丁可能在同一插入点添加了内容，使整段 to 不再逐字匹配：
     // 若 to 相对 from 新增的全部代码行（长度 >= 24）都已存在，视为已应用。
+    // 但必须同时确认前置锚点 from 已不存在：同一次运行里另一个补丁在「别处」插入
+    // 了相同的几行（destroy 与 reset 都要写同样的 soundEffect 清理；handler 里也有
+    // 同名函数），否则这里会把必做的插入误判为「已应用」而静默跳过（CI 构建即因此缺件）。
+    const fromStillPresent = normalizedFile.includes(from)
     const addedLines = String(to).split('\n').map((line) => line.trim())
       .filter((line) => line.length >= 24 && !String(from).includes(line))
-    if (addedLines.length > 0 && addedLines.every((line) => normalizedFile.includes(line))) continue
-    if (!normalizedFile.includes(from)) {
+    if (!fromStillPresent && addedLines.length > 0 && addedLines.every((line) => normalizedFile.includes(line))) continue
+    if (!fromStillPresent) {
+      // optional = 针对「旧补丁遗留的本机 node_modules」的迁移步骤：缺失属正常，跳过但留日志；
+      // 必需补丁仍然硬失败，暴露依赖升级导致的锚点漂移。
+      if (optional) {
+        console.log(`Skip optional patch segment (legacy state not present): ${filePath}`)
+        continue
+      }
       const anchorHint = String(from).trim().split('\n')[0].slice(0, 80)
       throw new Error(`Patch anchor not found: ${filePath} (anchor: "${anchorHint}") —— 依赖升级后补丁片段缺失，请更新 dependencies-patch.js`)
     }

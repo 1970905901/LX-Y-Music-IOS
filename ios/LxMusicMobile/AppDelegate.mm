@@ -769,6 +769,9 @@ static double LXNowPlayingElapsedSnapshotAtMs = 0;
 // ageMs（JS Date.now 往返年龄）换算为「now − 年龄」的等价戳；都无 → 0。
 static double LXResolveElapsedSnapshotAtMs(NSDictionary *payload, double nowMs);
 static void LXEndReceivingRemoteControlEvents(void);
+// 看门狗（LXReconcileNowPlayingCardNow）在 LXApplyNowPlayingInfo 定义之前调用它：.mm 是 ObjC++，
+// 缺前置声明会直接编译失败（CI run#951/#952 即此）。新增「声明顺序」契约脚本守护。
+static void LXApplyNowPlayingInfo(void);
 
 static void LXPostRemoteCommandNotification(NSString *command, NSDictionary *extra) {
   NSMutableDictionary *userInfo = [NSMutableDictionary dictionaryWithDictionary:extra ?: @{}];

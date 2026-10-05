@@ -113,10 +113,12 @@ const QQWebLoginModal = forwardRef<QQWebLoginModalType, object>((props, ref) => 
 
     try {
       const cookies = await CookieManager.get(LOGIN_URL, true)
-      const cookieString = Object.values(cookies)
+      const cookieList = Object.values(cookies)
+      const cookieString = cookieList
         .map(c => `${c.name}=${c.value}`)
         .join('; ')
-      console.log('QQ登录: CookieManager captured cookies:', cookieString)
+      // 只打印长度与字段名：Cookie 是会话凭据，不能进设备日志
+      console.log(`QQ登录: CookieManager captured cookies length=${cookieString.length} names=[${cookieList.map(c => c.name).join(',')}]`)
 
       if (!cookieString || cookieString.length < 10) {
         toast('未获取到Cookie，可能是Cookie已失效，请重新登录')

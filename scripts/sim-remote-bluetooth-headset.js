@@ -18,7 +18,10 @@
  *      查询**挂起**（不是 reject）时 .catch 永远不触发，这一次按压被静默吞掉。蓝牙单键耳机
  *      只发 toggle，连接蓝牙时的引擎重建 / 后台桥接停摆都可能让查询悬着 —— 与 dfcaa92 的
  *      「在途 Promise 永不 settle → 按键永久失效」同类。修法：TOGGLE_STATE_QUERY_TIMEOUT_MS
- *      超时兜底 togglePlay() + 单次结算守卫（晚到结果丢弃，不会补出第二次动作）。
+ *      超时兜底按「镜像意图」先动作（applyToggleIntent）+ 单次结算守卫；晚到结果只在
+ *      「兜底是空操作」时同方向对齐一次（engineIntent === fallbackIntent），不反转、不补第二次 toggle。
+ *   ②.5 缓存为空 ≠ 没有歌：nativeFlac 换歌会 reset → 清缓存 → 等远端流打开后重新发布。
+ *      这期间用 LXNowPlayingHasPlaybackSession 保持命令可用，否则耳机/车机按键被系统吞掉。
  *   ③ 诊断：###LXRemote### recv= 行带 bt= 与各命令 enabled 状态。蓝牙耳机再报「没反应」时：
  *      没有 recv= → 命令没到 App（disabled 吞掉 / Now Playing 被别的 App 抢走）；
  *      有 recv= 无 deliver= → UtilsModule → JS 投递链。
@@ -67,7 +70,7 @@ const structuralReasons = (files) => {
   }
 
   // ② 无信息分支：仍必须全关 + 结束接收遥控事件（没有歌时不得抢媒体键）
-  const noInfoIndex = avail.indexOf('if (!hasInfo)')
+  const noInfoIndex = avail.indexOf('if (!hasInfo && !hasSession)')
   const noInfoPart = noInfoIndex >= 0 ? avail.slice(noInfoIndex, avail.indexOf('return;')) : ''
   if (!noInfoPart) {
     reasons.push('找不到 !hasInfo 分支（没歌时必须交出遥控命令）')
@@ -82,6 +85,23 @@ const structuralReasons = (files) => {
     }
   }
 
+  // ②.5 播放会话标志：换歌 reset 清缓存期间必须保持命令可用
+  if (!/static BOOL LXNowPlayingHasPlaybackSession = NO;/.test(mm)) {
+    reasons.push('缺少「有播放会话」标志（换歌清缓存期间会全关遥控命令、吞掉耳机按键）')
+  }
+  if (!/if \(!hasInfo && !hasSession\) \{/.test(avail)) {
+    reasons.push('可用性判定没有把「有播放会话」算进去（换歌窗口仍会全关命令）')
+  }
+  if (!/if \(title != nil\) LXNowPlayingHasPlaybackSession = YES;/.test(mm)) {
+    reasons.push('元数据发布没有标记播放会话（会话无法开始）')
+  }
+  if (!/LXNowPlayingHasPlaybackSession = \(state != MPNowPlayingPlaybackStateStopped\);/.test(mm)) {
+    reasons.push('播放态发布没有维护会话生命周期（stop 后仍占着媒体键）')
+  }
+  if ((mm.match(/LXNowPlayingHasPlaybackSession = NO;/g) || []).length < 2) {
+    reasons.push('destroy / JS clear 没有结束播放会话（会话泄漏）')
+  }
+
   // ③ 诊断：recv 行必须带蓝牙路由与各命令 enabled 状态
   if (!/###LXRemote### recv=[\s\S]{0,600}?bt=%d/.test(mm)) {
     reasons.push('###LXRemote### recv= 诊断行没有 bt= 路由标记（下次「耳机没反应」无法区分是否到达 App）')
@@ -93,18 +113,24 @@ const structuralReasons = (files) => {
     reasons.push('recv= 的 bt= 没有调用 LXHasBluetoothAudioRoute()（路由标记不可信）')
   }
 
-  // ④ toggle 分支：必须有超时兜底 + 单次结算，且方向仍读引擎真实状态
+  // ④ toggle 分支：超时兜底（同意图先动作）+ 单次结算 + 引擎状态快速路径 + 晚到同向对齐 + JS 诊断
   if (!/TOGGLE_STATE_QUERY_TIMEOUT_MS/.test(ts)) {
     reasons.push('toggle 没有引擎状态查询超时兜底（查询挂起时这次按压被静默吞掉）')
   }
-  if (!/const fallbackTimer = setTimeout\(\(\) => \{\s*\n\s*settle\(togglePlay\)/.test(ts)) {
-    reasons.push('toggle 的超时兜底没有落到 togglePlay()（查询挂起时按键仍无动作）')
+  if (!/const fallbackTimer = setTimeout\(\(\) => \{\s*\n\s*if \(settled\) return\s*\n\s*settle\(\(\) => \{ applyToggleIntent\(mirrorIntent\) \}\)/.test(ts)) {
+    reasons.push('toggle 的超时兜底没有落到同意图的 applyToggleIntent（查询挂起时按键可能无动作）')
   }
-  if (!/if \(settled\) return/.test(ts)) {
+  if (!/const settle = \(action: \(\) => void\) => \{\s*\n\s*if \(settled\) return/.test(ts)) {
     reasons.push('toggle 没有单次结算守卫（晚到的查询结果会补出第二次动作）')
   }
   if (!/getUnifiedPlaybackState\(\)/.test(ts) || !/state === 'playing' \|\| state === 'buffering'/.test(ts)) {
     reasons.push('toggle 方向判断不再读引擎真实状态（退回滞后的 playerState.isPlay）')
+  }
+  if (!/engineIntent === fallbackIntent/.test(ts)) {
+    reasons.push('toggle 晚到结果没有「仅在兜底空操作时同方向对齐一次」的校正（长查询会丢掉这次按压）')
+  }
+  if (!/###LXRemoteJS###/.test(ts)) {
+    reasons.push('toggle 分支缺少 JS 侧诊断日志（真机无法区分快速路径/兜底/校正）')
   }
   if (/case 'toggle':\s*\n\s*togglePlay\(\)/.test(ts)) {
     reasons.push('toggle 分支又直接同步 togglePlay()（读滞后的 playerState.isPlay）')
@@ -119,6 +145,13 @@ const realReasons = structuralReasons(REAL)
 // 行为模型（复刻两条机制）
 // ---------------------------------------------------------------------------
 const models = []
+
+// 模型 C：可用性 = 有元数据缓存 或 有播放会话（换歌 reset 窗口靠会话兜住）
+const availabilityOf = ({ hasInfo, hasSession }) => hasInfo || hasSession
+models.push(['模型C 换歌窗口（无缓存、有会话）→ 命令保持可用，耳机按键不被系统吞掉',
+  availabilityOf({ hasInfo: false, hasSession: true }) === true])
+models.push(['模型C 对照 启动/停止（无缓存、无会话）→ 交出媒体键',
+  availabilityOf({ hasInfo: false, hasSession: false }) === false])
 
 // 模型 A：disabled 命令被系统吞掉（Apple 文档行为）——一次按键最多投递 1 次
 const deliverCount = (availability, opcode) => (availability[opcode] ? 1 : 0)
@@ -266,19 +299,19 @@ const main = async() => {
     const tampered = {
       ...REAL,
       remoteCommand: REAL.remoteCommand.replace(
-        /const fallbackTimer = setTimeout\(\(\) => \{\s*\n\s*settle\(togglePlay\)\s*\n\s*\}, TOGGLE_STATE_QUERY_TIMEOUT_MS\)/,
+        /const fallbackTimer = setTimeout\(\(\) => \{\s*\n\s*if \(settled\) return\s*\n\s*settle\(\(\) => \{ applyToggleIntent\(mirrorIntent\) \}\)/,
         'const fallbackTimer = null',
       ),
     }
-    const caught = structuralReasons(tampered).some((r) => r.includes('超时兜底没有落到 togglePlay'))
+    const caught = structuralReasons(tampered).some((r) => r.includes('超时兜底没有落到同意图'))
     cases.push(['C5 删掉 toggle 的超时兜底', caught])
   }
   {
     const tampered = {
       ...REAL,
       remoteCommand: REAL.remoteCommand.replace(
-        /let settled = false\s*\n\s*const settle = \(action: \(\) => void\) => \{\s*\n\s*if \(settled\) return/,
-        'let settled = true\n        const settle = (action: () => void) => {',
+        '        const settle = (action: () => void) => {\n          if (settled) return',
+        '        const settle = (action: () => void) => {\n          if (false) return',
       ),
     }
     const caught = structuralReasons(tampered).some((r) => r.includes('单次结算守卫'))
@@ -294,6 +327,18 @@ const main = async() => {
     }
     const caught = structuralReasons(tampered).some((r) => r.includes('又直接同步 togglePlay'))
     cases.push(['C7 toggle 退回直接同步 togglePlay()', caught])
+  }
+
+  {
+    const tampered = {
+      ...REAL,
+      appDelegate: REAL.appDelegate.replace(
+        'if (!hasInfo && !hasSession) {',
+        'if (!hasInfo) {',
+      ),
+    }
+    const caught = structuralReasons(tampered).some((r) => r.includes('没有把「有播放会话」算进去'))
+    cases.push(['C8 可用性判定丢掉播放会话', caught])
   }
 
   const failedModels = models.filter(([, pass]) => !pass)

@@ -2,6 +2,7 @@ import { getData, saveData } from '@/plugins/storage'
 import { createClient, type FileStat } from 'webdav'
 import settingState from '@/store/setting/state'
 import { webDAVLog } from './logger'
+import { assertSecureWebDAVUrl } from '@/utils/webdavUrl'
 import { btoa } from 'react-native-quick-base64'
 import { downloadFile, existsFile, mkdir, temporaryDirectoryPath } from '@/utils/fs'
 import { enforceCacheLimit } from '@/utils/nativeModules/cache'
@@ -35,6 +36,8 @@ async function getClient() {
     webDAVLog.error('WebDAV 未配置')
     throw new Error('WebDAV 未配置')
   }
+  // 明文 http 会随 Basic 认证头泄露账号密码（策略 A：直接拒绝）
+  assertSecureWebDAVUrl(url)
 
   // createClient imported at top
   return createClient(url, { username, password })
@@ -280,6 +283,8 @@ const getWebDAVRemoteUrl = (remoteFilePath: string): string => {
     webDAVLog.error('getWebDAVRemoteUrl: WebDAV 未配置')
     throw new Error('WebDAV 未配置')
   }
+  // 直链请求同样带 Basic 认证头：这里也要挡 http（下载/歌词/封面都会走本函数构造 URL）
+  assertSecureWebDAVUrl(url)
 
   let remote = String(remoteFilePath || '')
   if (!remote.startsWith('/')) remote = '/' + remote

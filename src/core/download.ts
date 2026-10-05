@@ -3,7 +3,7 @@ import { toMD5, toast, requestStoragePermission } from '@/utils/tools'
 import { getMusicUrl, getMusicUrlWithQuality, getLyricInfo } from '@/core/music'
 import { getFileExtension, getFileExtensionFromUrl } from '@/screens/Home/Views/Mylist/MusicList/download/utils'
 import { mergeLyrics } from '@/screens/Home/Views/Mylist/MusicList/download/lrcTool'
-import { writeFile, unlink, downloadFile, mkdir, moveFile, stopDownload } from '@/utils/fs'
+import { writeFile, unlink, downloadFile, mkdir, moveFile, existsFile, stopDownload } from '@/utils/fs'
 import { getDefaultDownloadPath } from '@/utils/downloadPath'
 import { writeMetadata, writePic, writeLyric, isWriteSupported } from '@/utils/localMediaMetadata'
 import settingState from '@/store/setting/state'
@@ -27,6 +27,10 @@ const getDownloadHeaders = (task: DownloadTask) => {
   return task.musicInfo.source === 'wy' ? WY_MEDIA_HEADERS : DOWNLOAD_HEADERS
 }
 let currentDownloadTask: any | null = null
+
+// 下载中的半成品统一写 `${最终路径}.download`（.download 结尾不会被本地扫描当音频）；
+// 删除任务 / 重试时也要清这个临时文件。
+const getDownloadTempPath = (filePath: string) => `${filePath}.download`
 
 const processQueue = async() => {
   if (isProcessing || taskQueue.length === 0) return
@@ -121,23 +125,21 @@ const startDownload = async(task: DownloadTask) => {
   const urlExtension = getFileExtensionFromUrl(url)
   const taskExt = task.filePath.substring(task.filePath.lastIndexOf('.') + 1).toLowerCase()
 
-  let downloadFilePath = task.filePath
-  if (isBilibiliSource && urlExtension) {
+  // 非 B 站源：URL 扩展名与任务扩展名不一致时，最终路径改用真实扩展名
+  if (!isBilibiliSource && urlExtension && urlExtension !== taskExt) {
     const downloadDir = settingState.setting['download.path'] || getDefaultDownloadPath()
-    downloadFilePath = `${downloadDir}/${task.fileName}.download.${urlExtension}`
-    console.log(`[Download] Bilibili 源使用临时路径下载: ${downloadFilePath}`)
-  } else if (urlExtension && urlExtension !== taskExt) {
-    const downloadDir = settingState.setting['download.path'] || getDefaultDownloadPath()
-    downloadFilePath = `${downloadDir}/${task.fileName}.download.${urlExtension}`
     finalFilePath = `${downloadDir}/${task.fileName}.${urlExtension}`
-    console.log(`[Download] URL 扩展名(${urlExtension})与任务扩展名(${taskExt})不一致，使用真实扩展名下载: ${downloadFilePath} -> ${finalFilePath}`)
+    console.log(`[Download] URL 扩展名(${urlExtension})与任务扩展名(${taskExt})不一致，最终路径: ${finalFilePath}`)
   }
+  // 下载全程只写临时文件：失败/被停止不会在最终路径留下半截文件
+  const downloadFilePath = getDownloadTempPath(task.filePath)
 
   await requestStoragePermission()
   let lastWritten = 0
   let lastTime = Date.now()
   let downloadedFilePath: string
   const effectiveDownloadDir = settingState.setting['download.path'] || getDefaultDownloadPath()
+  let downloadCompleted = false
   try {
     await mkdir(effectiveDownloadDir)
 
@@ -170,18 +172,27 @@ const startDownload = async(task: DownloadTask) => {
 
     currentDownloadTask = downloadTask
     await downloadTask.promise
+    downloadCompleted = true
     downloadedFilePath = downloadFilePath
     console.log('下载完成:', downloadedFilePath)
 
-    if (finalFilePath !== downloadedFilePath) {
-      try {
-        await moveFile(downloadedFilePath, finalFilePath)
-        downloadedFilePath = finalFilePath
-        console.log(`[Download] 重命名为最终路径: ${downloadedFilePath}`)
-      } catch (renameError) {
-        console.warn('[Download] 重命名失败:', renameError)
+    // 完成后再切到最终路径：目标已存在（重复下载）先挪成 .bak，移动失败回滚，绝不丢旧文件
+    const backupPath = finalFilePath + '.bak'
+    const hadExistingFile = await existsFile(finalFilePath)
+    if (hadExistingFile) await moveFile(finalFilePath, backupPath)
+    try {
+      await moveFile(downloadedFilePath, finalFilePath)
+      downloadedFilePath = finalFilePath
+      console.log(`[Download] 重命名为最终路径: ${downloadedFilePath}`)
+    } catch (moveError) {
+      if (hadExistingFile) {
+        await moveFile(backupPath, finalFilePath).catch((rollbackError) => {
+          console.error('[Download] 回滚旧文件失败:', rollbackError)
+        })
       }
+      throw moveError
     }
+    if (hadExistingFile) await unlink(backupPath)
 
     if (!isBilibiliSource) {
       await handleMetadata(task, downloadedFilePath)
@@ -203,6 +214,14 @@ const startDownload = async(task: DownloadTask) => {
     if (!task.isForceCookie) {
       toast(`${task.fileName} 下载完成!`, 'short')
     }
+  } catch (err) {
+    if (!downloadCompleted) {
+      // 半截临时文件：清理失败只记日志，不掩盖原始错误
+      await unlink(downloadFilePath).catch((cleanupError) => {
+        console.warn('[Download] 清理临时文件失败:', cleanupError)
+      })
+    }
+    throw err
   } finally {
     currentDownloadTask = null
   }
@@ -435,6 +454,7 @@ export const resumeTask = async(taskId: string) => {
   }
 
   try {
+    await unlink(getDownloadTempPath(task.filePath))
     await unlink(task.filePath)
   } catch (error) {
     // Ignore cleanup failures so we can still restart the download.
@@ -515,11 +535,13 @@ export const removeTask = (id: string) => {
       stopDownload(jobId)
     }
     if (taskToRemove.filePath) {
+      void unlink(getDownloadTempPath(taskToRemove.filePath)).catch(() => {})
       void unlink(taskToRemove.filePath).catch(() => {})
       console.log(`[Download Manager] Canceled and deleted partial file: ${taskToRemove.filePath}`)
     }
     currentDownloadTask = null
   } else if (taskToRemove && taskToRemove.status !== 'completed' && taskToRemove.filePath) {
+    void unlink(getDownloadTempPath(taskToRemove.filePath)).catch(() => {})
     void unlink(taskToRemove.filePath).catch(() => {})
   }
   const taskIndex = taskQueue.findIndex(t => t.id === id)

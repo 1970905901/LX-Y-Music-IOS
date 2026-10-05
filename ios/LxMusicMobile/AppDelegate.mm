@@ -681,6 +681,10 @@ static NSMutableDictionary *LXNowPlayingInfoCache = nil;
 static NSString *LXNowPlayingArtworkPath = nil;
 static NSUInteger LXNowPlayingArtworkRequestId = 0;
 static MPNowPlayingPlaybackState LXNowPlayingState = MPNowPlayingPlaybackStateStopped;
+// 「有播放会话」≠「有元数据缓存」：nativeFlac 换歌会 reset → 清缓存 → 等远端流打开后重新发布。
+// 这期间缓存为空但会话仍在；若按缓存为空立刻全关遥控命令，耳机/车机按键会被系统吞掉（连
+// recv= 日志都没有）。会话只在真正 stop（playbackState=Stopped）/ destroy / JS clear 时结束。
+static BOOL LXNowPlayingHasPlaybackSession = NO;
 // —— 蓝牙（车机）字段布局 ——
 // 车机（AVRCP）大多只显示/优先显示媒体信息的 title；Android 端与本项目参考实现都是
 // 「歌词行进 title、歌名·歌手进 artist」。iOS 端此前把歌词行放 artist，于是手机控制中心 /
@@ -708,12 +712,21 @@ static BOOL LXRemoteCommandHandlersInstalled = NO;
 static double LXNowPlayingLastRemoteCommandAtMs = 0;
 static const double LXNowPlayingRepaintQuietWindowMs = 1200;
 // 遥控命令之后的「补绘」延迟与安全间隔（见 LXScheduleDeferredNowPlayingCardRepaint）：
-// 命令收到后不在当拍翻转（会把手指底下的按压吞掉），而是等 LXNowPlayingCommandSettleDelayMs
-// 再补一次卡片重绘；补绘前若又收到新命令（间隔 < LXNowPlayingCommandSafetyGapMs）则顺延。
+// 命令收到后不在当拍翻转（会把手指底下的按压吞掉），而是等满「命令后静默窗」
+// （MAX(settle, quiet) ≥1200ms，覆盖用户二次按压的自然间隔）再补一次卡片重绘；
+// 补绘前若又收到新命令（间隔 < LXNowPlayingCommandSafetyGapMs）则顺延。
 static const double LXNowPlayingCommandSettleDelayMs = 500.0;
 static const double LXNowPlayingCommandSafetyGapMs = 250.0;
+// 重绘翻转的「假状态」窗口：翻转开始后到 LXNowPlayingCardRepaintFlipUntilMs 之前，系统持有的
+// 播放态与真实态相反（图标是反的）。这段时间内到达的遥控命令属于翻转噪声：命令入口会提前结束
+// 翻转（立刻恢复真实播放态）并把 flip=1 写进 ###LXRemote### 日志，便于真机归因。
+static const double LXNowPlayingCardRepaintFlipMs = 60.0;
+static double LXNowPlayingCardRepaintFlipUntilMs = 0;
+static NSUInteger LXNowPlayingCardRepaintFlipGeneration = 0;
+static MPNowPlayingPlaybackState LXNowPlayingCardRepaintFlipRestoreState = MPNowPlayingPlaybackStateStopped;
 static void LXScheduleDeferredNowPlayingCardRepaint(void);
 static void LXPerformNowPlayingCardRepaintFlip(void);
+static void LXEndNowPlayingCardRepaintFlipEarly(void);
 // 当前输出路由是否蓝牙（定义在文件后部的可见性判定区块，字段布局这里要用）
 static BOOL LXHasBluetoothAudioRoute(void);
 // 蓝牙（车机）字段布局：按当前输出路由重排 title/artist（定义在 LXSetNowPlayingInfo 之前）
@@ -775,6 +788,11 @@ static void LXActivateAudioSessionForPlayback(void) {
 
 static MPRemoteCommandHandlerStatus LXHandleRemoteCommandEvent(NSString *command) {
   LXNowPlayingLastRemoteCommandAtMs = CACurrentMediaTime() * 1000.0;
+  double commandNowMs = LXNowPlayingLastRemoteCommandAtMs;
+  // 落在重绘翻转的「假状态」窗口内：图标是反的，本次命令方向可能来自假图标。
+  // 立刻结束翻转恢复真实播放态，并记录 flip=1 便于真机归因（见静态常量注释）。
+  BOOL inRepaintFlipWindow = commandNowMs < LXNowPlayingCardRepaintFlipUntilMs;
+  if (inRepaintFlipWindow) LXEndNowPlayingCardRepaintFlipEarly();
   // 遥控命令是**低频**路径（用户每按一次才走一遍），不属于 LXNowPlayingLyricStep 注释里
   // 禁写 NSLog 的 8.3Hz 歌词热路径。这里按固定前缀打印投递链的每一跳：这一类问题已经
   // 反复回归多轮（4a0b5ad / b2883d1 / 437e6d0），每次都只能靠读代码猜是哪一跳吞掉了
@@ -786,12 +804,13 @@ static MPRemoteCommandHandlerStatus LXHandleRemoteCommandEvent(NSString *command
   // 「命令没到 App（系统按 disabled 吞掉 / Now Playing 被别的 App 抢走）」与
   // 「到了 App 但后续 JS 投递链丢了」——前者 recv 不打印，后者 recv 打印但无 deliver。
   MPRemoteCommandCenter *recvCommandCenter = [MPRemoteCommandCenter sharedCommandCenter];
-  NSLog(@"###LXRemote### recv=%@ appState=%ld bt=%d infoCount=%lu nowPlayingState=%ld enabled(play=%d pause=%d toggle=%d next=%d)",
+  NSLog(@"###LXRemote### recv=%@ appState=%ld bt=%d infoCount=%lu nowPlayingState=%ld flip=%d enabled(play=%d pause=%d toggle=%d next=%d)",
         command,
         (long)[UIApplication sharedApplication].applicationState,
         LXHasBluetoothAudioRoute() ? 1 : 0,
         lxInfoCount,
         (long)LXNowPlayingState,
+        inRepaintFlipWindow ? 1 : 0,
         recvCommandCenter.playCommand.enabled ? 1 : 0,
         recvCommandCenter.pauseCommand.enabled ? 1 : 0,
         recvCommandCenter.togglePlayPauseCommand.enabled ? 1 : 0,
@@ -852,8 +871,11 @@ static void LXSyncRemoteCommandAvailability(void) {
 
   MPRemoteCommandCenter *commandCenter = [MPRemoteCommandCenter sharedCommandCenter];
   BOOL hasInfo = LXNowPlayingInfoCache.count > 0;
+  // 换歌/重载窗口内元数据缓存会短暂为空，但播放会话仍在 —— 此时必须保持命令可用，
+  // 否则耳机/车机按键被系统吞掉（见 LXNowPlayingHasPlaybackSession 注释）。
+  BOOL hasSession = LXNowPlayingHasPlaybackSession;
 
-  if (!hasInfo) {
+  if (!hasInfo && !hasSession) {
     commandCenter.playCommand.enabled = NO;
     commandCenter.pauseCommand.enabled = NO;
     commandCenter.togglePlayPauseCommand.enabled = NO;
@@ -865,7 +887,7 @@ static void LXSyncRemoteCommandAvailability(void) {
   }
 
 
-  // ⚠️ 有信息时传输类命令**必须常开**，不得再按 LXNowPlayingState 门控
+  // ⚠️ 有信息（或有播放会话，见上方 hasSession）时传输类命令**必须常开**，不得再按 LXNowPlayingState 门控
   // （2026-10-05 用户反馈「连接蓝牙后，蓝牙耳机控制功能失效」）：
   //   · Apple 文档（MPRemoteCommand.isEnabled）：置 NO 后「events for this command are not
   //     sent to your app」——命令被系统直接吞掉，原生与 JS 谁都收不到；
@@ -1065,6 +1087,8 @@ static double LXAdvanceElapsedToNowSec(double elapsedSec, double snapshotAtMs, d
 
 static void LXSetNowPlayingPlaybackState(MPNowPlayingPlaybackState state, NSDictionary *options) {
   LXNowPlayingState = state;
+  // 会话生命周期：只有真正的 Stopped 结束会话（播放/暂停/缓冲都算会话仍在）
+  LXNowPlayingHasPlaybackSession = (state != MPNowPlayingPlaybackStateStopped);
 
   // 时钟冻结标志与 Now Playing 播放态联动：nativeFlac 驱动下 TrackPlayer 已
   // reset，不再产生 state 生命周期事件，hold 只会停留在 reset 时的 YES ——
@@ -1152,6 +1176,8 @@ static void LXHandleTrackPlayerLifecycleNotification(NSNotification *notificatio
   NSNumber *position = [userInfo[@"position"] isKindOfClass:[NSNumber class]] ? userInfo[@"position"] : nil;
 
   if ([event isEqualToString:@"destroy"] || [event isEqualToString:@"reset"]) {
+    // destroy = 会话结束；reset = nativeFlac 换歌中途，缓存要清但会话仍在（见静态标志注释）
+    if ([event isEqualToString:@"destroy"]) LXNowPlayingHasPlaybackSession = NO;
     LXClearNowPlayingInfo();
     return;
   }
@@ -1285,6 +1311,8 @@ static void LXSetNowPlayingInfo(NSDictionary *metadata) {
     NSMutableDictionary *info = LXNowPlayingMutableInfo();
 
     NSString *title = [metadata[@"title"] isKindOfClass:[NSString class]] ? metadata[@"title"] : nil;
+    // 有标题 = 有当前曲目：会话开始（换歌 reset 清缓存期间靠它保持遥控命令可用）
+    if (title != nil) LXNowPlayingHasPlaybackSession = YES;
     NSString *artist = [metadata[@"artist"] isKindOfClass:[NSString class]] ? metadata[@"artist"] : nil;
     NSString *album = [metadata[@"album"] isKindOfClass:[NSString class]] ? metadata[@"album"] : nil;
     NSNumber *duration = [metadata[@"duration"] isKindOfClass:[NSNumber class]] ? metadata[@"duration"] : nil;
@@ -1751,9 +1779,15 @@ static void LXPerformNowPlayingCardRepaintFlip(void) {
   MPNowPlayingPlaybackState opposite = (current == MPNowPlayingPlaybackStatePlaying)
     ? MPNowPlayingPlaybackStatePaused
     : MPNowPlayingPlaybackStatePlaying;
+  LXNowPlayingCardRepaintFlipGeneration += 1;
+  NSUInteger generation = LXNowPlayingCardRepaintFlipGeneration;
+  LXNowPlayingCardRepaintFlipRestoreState = current;
+  LXNowPlayingCardRepaintFlipUntilMs = CACurrentMediaTime() * 1000.0 + LXNowPlayingCardRepaintFlipMs;
   center.playbackState = opposite;
-  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.06 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(LXNowPlayingCardRepaintFlipMs * NSEC_PER_MSEC)), dispatch_get_main_queue(), ^{
+    if (generation != LXNowPlayingCardRepaintFlipGeneration) return; // 已被提前结束，还原交给 LXEndNowPlayingCardRepaintFlipEarly
     center.playbackState = current;
+    LXNowPlayingCardRepaintFlipUntilMs = 0;
     LXApplyNowPlayingInfo();
     LXNowPlayingCardRepaintInFlight = NO;
     if (LXNowPlayingCardRepaintQueued) {
@@ -1761,6 +1795,20 @@ static void LXPerformNowPlayingCardRepaintFlip(void) {
       LXForceNowPlayingCardRepaint();
     }
   });
+}
+
+// 命令落在翻转的假状态窗口内时提前结束翻转：图标立刻恢复真实播放态（后续按压不再基于假图标）；
+// 待执行的还原块由代际守卫作废。
+static void LXEndNowPlayingCardRepaintFlipEarly(void) {
+  if (LXNowPlayingCardRepaintFlipUntilMs <= 0) return;
+  LXNowPlayingCardRepaintFlipGeneration += 1;
+  [MPNowPlayingInfoCenter defaultCenter].playbackState = LXNowPlayingCardRepaintFlipRestoreState;
+  LXNowPlayingCardRepaintFlipUntilMs = 0;
+  LXNowPlayingCardRepaintInFlight = NO;
+  if (LXNowPlayingCardRepaintQueued) {
+    LXNowPlayingCardRepaintQueued = NO;
+    LXForceNowPlayingCardRepaint();
+  }
 }
 
 // 命令处理完之后的「补绘」：把因静默窗口被推迟的卡片刷新在几百毫秒内补上。
@@ -1792,9 +1840,12 @@ static void LXScheduleDeferredNowPlayingCardRepaint(void) {
   double sinceCommandMs = LXNowPlayingLastRemoteCommandAtMs > 0
     ? nowMs - LXNowPlayingLastRemoteCommandAtMs
     : LXNowPlayingCommandSettleDelayMs;
-  double waitMs = sinceCommandMs >= LXNowPlayingCommandSettleDelayMs
+  // 补绘必须等满「命令后静默窗」：500ms 正是用户二次按压的自然间隔，太早翻转会让这次按压
+  // 落在假状态窗口里（见 LXEndNowPlayingCardRepaintFlipEarly 注释），因此取两者较大值。
+  double targetDelayMs = MAX(LXNowPlayingCommandSettleDelayMs, LXNowPlayingRepaintQuietWindowMs);
+  double waitMs = sinceCommandMs >= targetDelayMs
     ? 0.0
-    : LXNowPlayingCommandSettleDelayMs - sinceCommandMs;
+    : targetDelayMs - sinceCommandMs;
 
   dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(waitMs * NSEC_PER_MSEC)), dispatch_get_main_queue(), ^{
     scheduled = NO;
@@ -5810,6 +5861,8 @@ RCT_REMAP_METHOD(stopNowPlaying, stopNowPlaying:(NSDictionary *)options resolver
 
 RCT_REMAP_METHOD(clearNowPlayingInfo, clearNowPlayingInfoWithResolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
   dispatch_async(dispatch_get_main_queue(), ^{
+    // JS 侧销毁播放会话（destroyTrackPlayerCore）→ 会话结束，交出媒体键
+    LXNowPlayingHasPlaybackSession = NO;
     LXClearNowPlayingInfo();
     resolve(nil);
   });

@@ -1,7 +1,9 @@
 import { onRemoteCommand } from '@/utils/nativeModules/utils'
-import { pause, playNext, playPrev, requestPlay, togglePlay } from '@/core/player/player'
+import { pause, playNext, playPrev, requestPlay } from '@/core/player/player'
 import { markTimeoutExitInteraction } from '@/core/player/timeoutExit'
 import { getUnifiedPlaybackState } from '@/plugins/player/engine'
+import type { UnifiedPlaybackState } from '@/plugins/player/engine/types'
+import playerState from '@/store/player/state'
 
 // 上一曲 / 下一曲的去重必须是**时间窗**，不能用「在途布尔量」。
 //
@@ -14,6 +16,16 @@ import { getUnifiedPlaybackState } from '@/plugins/player/engine'
 const NAV_COMMAND_DEDUP_MS = 350
 // toggle 的引擎状态查询兜底窗口（见 toggle 分支）：查询挂起时不能吞掉这次按压
 const TOGGLE_STATE_QUERY_TIMEOUT_MS = 250
+
+// toggle 的目标状态：把「按一下」表达成明确意图。超时兜底与晚到校正都只沿同一意图执行 ——
+// 既不反转用户意图，也不会补出第二次 toggle。
+type ToggleIntent = 'play' | 'pause'
+const applyToggleIntent = (intent: ToggleIntent) => {
+  if (intent === 'pause') void pause()
+  else requestPlay()
+}
+const intentFromEngineState = (state: UnifiedPlaybackState): ToggleIntent =>
+  state === 'playing' || state === 'buffering' ? 'pause' : 'play'
 let lastNavCommandAt = 0
 const runNavCommand = (run: () => Promise<void>) => {
   const now = Date.now()
@@ -43,19 +55,14 @@ export default () => {
         void pause()
         break
       case 'toggle': {
-        // 播放/暂停方向以**引擎真实状态**为准，不看 playerState.isPlay。
-        // 控制中心 / 灵动岛的按钮图标来自系统缓存的 playbackState，而 JS 侧的
-        // playerState.isPlay 在系统中断、蓝牙路由抖动、nativeFlac 引擎切换后会滞后一拍；
-        // 那一拍里 togglePlay() 会执行「其实已经满足」的动作（按下看起来没反应），
-        // 要按第二下才生效 —— 用户 2026-10-03 反馈的「暂停/播放要按两下」即此。
-        //
-        // 但「查引擎状态」本身不能再变成一次永不结算的等待：查询**挂起**（不是 reject）
-        // 时 catch 永远不触发，这一次按压被静默吞掉。蓝牙耳机（AVRCP 单键）只发 toggle，
-        // 连接蓝牙时的引擎重建 / 后台桥接停摆都可能让查询悬着 —— 用户 2026-10-05 反馈的
-        // 「连接蓝牙后蓝牙耳机控制失效」即这一类（同 dfcaa92 的「在途 Promise 永不 settle
-        // → 按键永久失效」教训）。这里加超时兜底：到点查询仍没回来就按旧口径 togglePlay()
-        // 保证按压有动作；晚到的结果因单次结算被丢弃，绝不会补出第二次动作。
+        // 播放/暂停方向：快速路径以**引擎真实状态**为准（图标可能滞后一拍）；
+        // 超时兜底按**镜像意图**先动作，晚到结果只在「兜底是空操作」时对齐一次。
+        // 任何路径都只沿同一意图（pause/play）执行，不会反转、也不会补出第二次 toggle。
+        const mirrorIntent: ToggleIntent = playerState.isPlay ? 'pause' : 'play'
         let settled = false
+        let fallbackIntent: ToggleIntent | null = null
+        let corrected = false
+
         const settle = (action: () => void) => {
           if (settled) return
           settled = true
@@ -63,19 +70,33 @@ export default () => {
           action()
         }
         const fallbackTimer = setTimeout(() => {
-          settle(togglePlay)
+          if (settled) return
+          settle(() => { applyToggleIntent(mirrorIntent) })
+          fallbackIntent = mirrorIntent
+          console.log(`###LXRemoteJS### toggle fallback intent=${mirrorIntent} after ${TOGGLE_STATE_QUERY_TIMEOUT_MS}ms`)
         }, TOGGLE_STATE_QUERY_TIMEOUT_MS)
+
         void getUnifiedPlaybackState()
           .then((state) => {
-            settle(() => {
-              if (state === 'playing' || state === 'buffering') void pause()
-              else requestPlay()
-            })
+            const engineIntent = intentFromEngineState(state)
+            if (!settled) {
+              console.log(`###LXRemoteJS### toggle resolved state=${state} intent=${engineIntent}`)
+              settle(() => { applyToggleIntent(engineIntent) })
+              return
+            }
+            // 兜底已执行：引擎状态仍指向同一意图 = 兜底是空操作（镜像滞后），
+            // 只做一次同方向幂等对齐；若已在目标态则什么都不做。
+            if (!corrected && fallbackIntent != null && engineIntent === fallbackIntent) {
+              corrected = true
+              console.log(`###LXRemoteJS### toggle fallback missed (state=${state}), re-apply intent=${fallbackIntent}`)
+              applyToggleIntent(fallbackIntent)
+            }
           })
           .catch(() => {
-            // 引擎状态查询失败时退回旧口径，至少保证按键有动作
-            settle(togglePlay)
+            console.log(`###LXRemoteJS### toggle state query failed, fallback intent=${mirrorIntent}`)
+            settle(() => { applyToggleIntent(mirrorIntent) })
           })
+
         break
       }
       case 'next':

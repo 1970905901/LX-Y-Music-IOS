@@ -75,3 +75,12 @@ buck-out/
 # 本地产物：ipa 解包目录与 Hermes sourcemap，不入库
 ipa-extract/
 sourcemap/
+# 本机/构建产物（2026-10 全仓评审收口）
+$null
+ios/assets/
+
+# 本机工具运行数据（同 CodeBuddy：只共享规则，不共享本机数据）
+.workbuddy/
+
+# 本项目以 npm 为准（package-lock.json 已入库），pnpm lock 不入库
+pnpm-lock.yaml

@@ -18,8 +18,8 @@
  *   - 设置页把两套缓存分开统计并显示（每行：索引 N 张 · 详情 M 张 / K 首），
  *     点「刷新歌单」后的提示带上写入后的索引条数（证明确实写进去了）；
  *   - getPlaylistIndex 把「写入缓存失败」单独包一条明确错误（区分拉取失败）；
- *   - storage 的 saveData / saveDataMultiple 把 buildData（JSON.stringify）放进 try，
- *     序列化失败也要落日志（否则页面只看到「像没写进去」，没有任何线索）。
+ *   - storage 的覆盖写（JSON.stringify + 落盘）必须在 try 内，失败要落日志
+ *     （否则页面只看到「像没写进去」，没有任何线索）。
  *
  * 运行：node scripts/sim-playlist-cache-sync.js
  */
@@ -72,17 +72,23 @@ const invariants = (files) => {
     reasons.push('歌单索引写盘失败没有独立错误提示（与「拉取失败」混在一起）')
   }
 
-  // ④ 序列化必须在 try 内（失败要落日志）
+  // ④ 覆盖写（JSON.stringify + 落盘）必须在 try 内（失败要落日志）
+  //    实现：saveData / saveDataMultiple → prepareWrite（序列化）→ commitWrites（批量落盘 + 指针提交）
+  const commitAt = storage.indexOf('const commitWrites = async(')
+  if (storage.indexOf('JSON.stringify(value)') < 0 || commitAt < 0 ||
+      !storage.slice(commitAt).includes('await AsyncStorage.multiSet(')) {
+    reasons.push('storage 缺少「先批量落盘、再提交指针、后回收旧分片」的覆盖写实现（commitWrites）')
+  }
   const saveData = (() => {
-    const start = storage.indexOf('export const saveData = async(key: string, value: any) => {')
+    const start = storage.indexOf('export const saveData = async')
     if (start < 0) return ''
     const end = storage.indexOf('export const getData =', start)
     return storage.slice(start, end < 0 ? start + 900 : end)
   })()
-  const buildAt = saveData.indexOf('buildData(key, value, datas)')
-  const tryAt = saveData.indexOf('try {')
-  if (buildAt < 0 || tryAt < 0 || buildAt < tryAt) {
-    reasons.push('saveData 的 buildData（JSON.stringify）在 try 之外：序列化失败不会落日志')
+  const saveCallAt = saveData.indexOf('await commitWrites(')
+  const saveTryAt = saveData.indexOf('try {')
+  if (saveCallAt < 0 || saveTryAt < 0 || saveCallAt < saveTryAt) {
+    reasons.push('saveData 的覆盖写在 try 之外：序列化/写入失败不会落日志')
   }
   const saveMultiple = (() => {
     const start = storage.indexOf('export const saveDataMultiple = async')
@@ -90,10 +96,10 @@ const invariants = (files) => {
     const end = storage.indexOf('export const removeDataMultiple', start)
     return storage.slice(start, end < 0 ? start + 900 : end)
   })()
-  const buildMultiAt = saveMultiple.indexOf('buildData(key, value, allData)')
-  const tryMultiAt = saveMultiple.indexOf('try {')
-  if (buildMultiAt < 0 || tryMultiAt < 0 || buildMultiAt < tryMultiAt) {
-    reasons.push('saveDataMultiple 的 buildData 在 try 之外：序列化失败不会落日志')
+  const multiCallAt = saveMultiple.indexOf('await commitWrites(')
+  const multiTryAt = saveMultiple.indexOf('try {')
+  if (multiCallAt < 0 || multiTryAt < 0 || multiCallAt < multiTryAt) {
+    reasons.push('saveDataMultiple 的覆盖写在 try 之外：序列化/写入失败不会落日志')
   }
 
   return reasons
@@ -153,8 +159,8 @@ checkCase('C3 索引写盘失败不再单独提示', {
 
 checkCase('C4 序列化退回 try 之外', {
   storage: tamper(REAL.storage,
-    '  try {\n    // buildData 里做 JSON.stringify',
-    '  buildData(key, value, datas)\n  try {\n    // buildData 里做 JSON.stringify'),
+    '  try {\n    const previous = await AsyncStorage.getItem(key)',
+    '  await commitWrites([prepareWrite(key, value)], [[key, previous]])\n  try {\n    const previous = await AsyncStorage.getItem(key)'),
 }, '在 try 之外')
 
 const missed = cases.filter(([, ok]) => !ok)

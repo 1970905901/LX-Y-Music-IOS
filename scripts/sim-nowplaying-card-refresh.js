@@ -72,6 +72,15 @@ const invariants = (src) => {
     if (!/hasInfo = LXNowPlayingInfoCache\.count > 0;/.test(flip) || !/if \(!hasInfo\) return;/.test(flip)) {
       reasons.push('无卡片仍无意义翻转（flip 里的 hasInfo 兜底被删了）')
     }
+    if (!/LXNowPlayingCardRepaintFlipUntilMs = CACurrentMediaTime\(\) \* 1000\.0 \+ LXNowPlayingCardRepaintFlipMs;/.test(flip)) {
+      reasons.push('翻转没有记录假状态窗口（命令无法归因、也无法提前结束）')
+    }
+    if (!/if \(generation != LXNowPlayingCardRepaintFlipGeneration\) return;/.test(flip)) {
+      reasons.push('翻转还原块没有代际守卫（提前结束后会被旧还原块覆盖）')
+    }
+    if (!/static void LXEndNowPlayingCardRepaintFlipEarly\(void\) \{/.test(flip)) {
+      reasons.push('缺少提前结束翻转的实现（命令落在假状态窗口内无补救）')
+    }
   }
 
   // ③ 延迟补绘：单飞 + 顺延 + 使用命令后的 settle 延迟 + **禁止按 App 状态门控**
@@ -85,8 +94,11 @@ const invariants = (src) => {
     if (/applicationState == UIApplicationStateActive/.test(scheduler)) {
       reasons.push('延迟补绘按 applicationState 门控（灵动岛/前台控制中心下 App 停在 Active，补绘会被全部丢弃 → 按钮图标不动）')
     }
-    if (!/LXNowPlayingCommandSettleDelayMs - sinceCommandMs/.test(scheduler)) {
-      reasons.push('延迟补绘没有按「命令后 settle 延迟」计算等待时间')
+    if (!/MAX\(LXNowPlayingCommandSettleDelayMs, LXNowPlayingRepaintQuietWindowMs\)/.test(scheduler)) {
+      reasons.push('补绘等待没有覆盖「命令后静默窗」（500ms 太早，二次按压会落在假状态窗口里）')
+    }
+    if (!/targetDelayMs - sinceCommandMs/.test(scheduler)) {
+      reasons.push('延迟补绘没有按「命令后静默窗」计算等待时间')
     }
     if (!/LXNowPlayingCommandSafetyGapMs\) \{[\s\S]{0,200}?LXScheduleDeferredNowPlayingCardRepaint\(\);/.test(scheduler)) {
       reasons.push('延迟补绘没有「又有新命令就顺延」（会在用户连按的当拍翻转，吞掉按压）')
@@ -100,6 +112,15 @@ const invariants = (src) => {
   const commandHandler = windowBetween(src, 'static MPRemoteCommandHandlerStatus LXHandleRemoteCommandEvent(NSString *command) {', 'static MPRemoteCommandHandlerStatus LXHandleRemoteChangePlaybackPositionEvent', 1200)
   if (!/LXScheduleDeferredNowPlayingCardRepaint\(\);/.test(commandHandler)) {
     reasons.push('遥控命令入口没有安排补绘（状态变化后卡片不会刷新）')
+  }
+  if (!/BOOL inRepaintFlipWindow = commandNowMs < LXNowPlayingCardRepaintFlipUntilMs;/.test(commandHandler)) {
+    reasons.push('命令入口没有检测翻转假状态窗口（无法提前结束/归因）')
+  }
+  if (!/if \(inRepaintFlipWindow\) LXEndNowPlayingCardRepaintFlipEarly\(\);/.test(commandHandler)) {
+    reasons.push('命令落在假状态窗口内没有提前结束翻转')
+  }
+  if (!/flip=%d/.test(src)) {
+    reasons.push('recv 日志没有 flip= 维度（真机无法区分「翻转噪声」与真实按压）')
   }
   const stateSetter = windowBetween(src, 'static void LXSetNowPlayingPlaybackState(MPNowPlayingPlaybackState state, NSDictionary *options) {', 'static void LXClearNowPlayingInfo(void) {', 4000)
   if (!/LXScheduleDeferredNowPlayingCardRepaint\(\);/.test(stateSetter)) {
@@ -212,6 +233,18 @@ const models = []
   ])
 }
 
+{
+  // 时间线：用户按一下（t=0）→ 约 500ms 后再按一次（"没反应再按一下"）。
+  // 旧：补绘在 500ms 翻转 → 第二次按压正好落在 60ms 假状态窗口；新：补绘推迟到 ≥1200ms → 不落窗口。
+  const flipWindowMs = 60
+  const secondPressAtMs = 500
+  const collide = (flipAtMs) => secondPressAtMs >= flipAtMs && secondPressAtMs < flipAtMs + flipWindowMs
+  models.push([
+    '模型：二次按压（500ms）在旧补绘时刻落在假状态窗口，新补绘（≥1200ms）不再落在窗口',
+    collide(500) === true && collide(Math.max(500, 1200)) === false,
+  ])
+}
+
 const failedModels = models.filter(([, ok]) => !ok)
 
 // ---------------------------------------------------------------------------
@@ -261,6 +294,14 @@ checkCase('C6 flip 里的 hasInfo 兜底被删（无卡片时会无意义翻转�
 checkCase('C7 换歌重绘退回「仅非前台」（上一首/下一首后卡片冻在上一首）',
   tamper(real, 'if (isNewSong || [UIApplication sharedApplication].applicationState != UIApplicationStateActive) {', 'if ([UIApplication sharedApplication].applicationState != UIApplicationStateActive) {'),
   '换歌没有重绘卡片')
+
+checkCase('C8 补绘等待退回只看 settle（二次按压落在假状态窗口）',
+  tamper(real, 'MAX(LXNowPlayingCommandSettleDelayMs, LXNowPlayingRepaintQuietWindowMs)', 'LXNowPlayingCommandSettleDelayMs'),
+  '没有覆盖「命令后静默窗」')
+
+checkCase('C9 命令落在假状态窗口内不再提前结束翻转',
+  tamper(real, '  if (inRepaintFlipWindow) LXEndNowPlayingCardRepaintFlipEarly();\n', ''),
+  '没有提前结束翻转')
 
 const missed = cases.filter(([, ok]) => !ok)
 

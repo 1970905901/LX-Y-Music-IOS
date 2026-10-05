@@ -9,6 +9,9 @@ import { setPendingAction } from '@/core/pendingAction'
 import { extname, stat } from '@/utils/fs'
 import { handleFileMusicAction, handleFileJSAction, handleFileLXMCAction } from './fileAction'
 
+// deeplink 日志只保留「类型/动作」：路径段与 # 后的 params 可能携带用户数据
+const deeplinkLogLabel = (link: string) => link.replace('lxmusic://', '').split('#')[0].split('/').slice(0, 2).join('/')
+
 const handleLinkAction = async(link: string) => {
   // console.log(link)
   const [url, hash] = link.split('#')
@@ -42,7 +45,7 @@ const handleLinkAction = async(link: string) => {
   }
   if (params.data) params.data = JSON.parse(decodeURIComponent(params.data))
   params.paths = paths.map((p) => decodeURIComponent(p))
-  console.log(params)
+  console.log('[deeplink]', deeplinkLogLabel(link), 'paths:', params.paths.length)
   switch (type) {
     case 'music':
       await handleMusicAction(action, params)
@@ -132,10 +135,10 @@ const runLinkAction = async(link: string) => {
 export const initDeeplink = async() => {
   Linking.addEventListener('url', ({ url }) => {
     void runLinkAction(url)
-    console.log('deeplink', url)
+    console.log('deeplink', deeplinkLogLabel(url))
   })
   const initialUrl = await Linking.getInitialURL()
   if (initialUrl == null) return
-  console.log('deeplink', initialUrl)
+  console.log('deeplink', deeplinkLogLabel(initialUrl))
   void runLinkAction(initialUrl)
 }

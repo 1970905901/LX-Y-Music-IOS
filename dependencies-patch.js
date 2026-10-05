@@ -204,22 +204,6 @@ private let lxTrackPlayerLifecycleNotification = Notification.Name("LXTrackPlaye
 `,
       },
       {
-        from: `    private var hasInitialized = false
-    private let player = QueuedAudioPlayer()
-
-    private func lifecycleStateName(_ state: AVPlayerWrapperState) -> String {
-`,
-        to: `    private var hasInitialized = false
-    private let player = QueuedAudioPlayer()
-    private var equalizerEnabled = false
-    private var equalizerGains = LXEqualizerAudioMixController.normalizeGains([])
-    private var equalizerTapProcessor: LXEqualizerAudioMixController?
-    private weak var equalizedPlayerItem: AVPlayerItem?
-
-    private func lifecycleStateName(_ state: AVPlayerWrapperState) -> String {
-`,
-      },
-      {
         from: `    deinit {
         reset(resolve: { _ in }, reject: { _, _, _  in })
     }
@@ -242,136 +226,6 @@ private let lxTrackPlayerLifecycleNotification = Notification.Name("LXTrackPlaye
                                                object: nil)
 
         // configure if player waits to play
-`,
-      },
-      {
-        from: `    @objc(destroy)
-    public func destroy() {
-        print("Destroying player")
-        self.player.stop()
-        self.player.nowPlayingInfoController.clear()
-        postLifecycleEvent("destroy", state: .idle, position: 0, rate: 0)
-        try? AVAudioSession.sharedInstance().setActive(false)
-        hasInitialized = false
-    }
-`,
-        to: `    @objc(destroy)
-    public func destroy() {
-        print("Destroying player")
-        self.player.stop()
-        equalizedPlayerItem = nil
-        equalizerTapProcessor = nil
-        self.player.nowPlayingInfoController.clear()
-        postLifecycleEvent("destroy", state: .idle, position: 0, rate: 0)
-        try? AVAudioSession.sharedInstance().setActive(false)
-        hasInitialized = false
-    }
-`,
-      },
-      {
-        from: `    @objc(reset:rejecter:)
-    public func reset(resolve: RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) {
-        print("Resetting player.")
-        player.stop()
-        postLifecycleEvent("reset", state: .idle, position: 0, rate: 0)
-        resolve(NSNull())
-        DispatchQueue.main.async {
-            UIApplication.shared.endReceivingRemoteControlEvents();
-        }
-    }
-`,
-        to: `    @objc(reset:rejecter:)
-    public func reset(resolve: RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) {
-        print("Resetting player.")
-        player.stop()
-        equalizedPlayerItem = nil
-        equalizerTapProcessor = nil
-        postLifecycleEvent("reset", state: .idle, position: 0, rate: 0)
-        resolve(NSNull())
-        DispatchQueue.main.async {
-            UIApplication.shared.endReceivingRemoteControlEvents();
-        }
-    }
-`,
-      },
-      {
-        from: `    @objc(updateNowPlayingMetadata:resolver:rejecter:)
-    public func updateNowPlayingMetadata(metadata: [String: Any], resolve: RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) {
-        Metadata.update(for: player, with: metadata)
-    }
-
-    // MARK: - QueuedAudioPlayer Event Handlers
-`,
-        to: `    @objc(updateNowPlayingMetadata:resolver:rejecter:)
-    public func updateNowPlayingMetadata(metadata: [String: Any], resolve: RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) {
-        Metadata.update(for: player, with: metadata)
-    }
-
-    @objc private func handleSoundEffectConfigChanged(_ notification: Notification) {
-        applySoundEffectConfig(notification.userInfo)
-        refreshEqualizerAudioMix()
-    }
-
-    private func applySoundEffectConfig(_ userInfo: [AnyHashable: Any]?) {
-        equalizerEnabled = userInfo?["enabled"] as? Bool ?? false
-        let inputGains = userInfo?["gains"] as? [NSNumber] ?? []
-        equalizerGains = LXEqualizerAudioMixController.normalizeGains(inputGains.map { $0.floatValue })
-        equalizerTapProcessor?.updateConfig(enabled: equalizerEnabled, gains: equalizerGains)
-    }
-
-    private func refreshEqualizerAudioMix() {
-        guard let currentItem = player.currentPlayerItem else {
-            equalizedPlayerItem = nil
-            equalizerTapProcessor = nil
-            return
-        }
-
-        if equalizedPlayerItem === currentItem, let processor = equalizerTapProcessor {
-            processor.updateConfig(enabled: equalizerEnabled, gains: equalizerGains)
-            return
-        }
-
-        guard equalizerEnabled else {
-            equalizedPlayerItem = nil
-            equalizerTapProcessor = nil
-            return
-        }
-
-        let processor = LXEqualizerAudioMixController(enabled: equalizerEnabled, gains: equalizerGains)
-        guard let audioMix = processor.makeAudioMix(for: currentItem.asset) else {
-            equalizedPlayerItem = nil
-            equalizerTapProcessor = nil
-            return
-        }
-
-        currentItem.audioMix = audioMix
-        equalizedPlayerItem = currentItem
-        equalizerTapProcessor = processor
-    }
-
-    // MARK: - QueuedAudioPlayer Event Handlers
-`,
-      },
-      {
-        from: `    func handleAudioPlayerStateChange(state: AVPlayerWrapperState) {
-        sendEvent(withName: "playback-state", body: ["state": state.rawValue])
-        postLifecycleEvent("state", state: state)
-    }
-`,
-        to: `    func handleAudioPlayerStateChange(state: AVPlayerWrapperState) {
-        refreshEqualizerAudioMix()
-        sendEvent(withName: "playback-state", body: ["state": state.rawValue])
-        postLifecycleEvent("state", state: state)
-    }
-`,
-      },
-      {
-        from: `    func handleAudioPlayerQueueIndexChange(previousIndex: Int?, nextIndex: Int?) {
-        var dictionary: [String: Any] = [ "position": player.currentTime ]
-`,
-        to: `    func handleAudioPlayerQueueIndexChange(previousIndex: Int?, nextIndex: Int?) {
-        refreshEqualizerAudioMix()
-        var dictionary: [String: Any] = [ "position": player.currentTime ]
 `,
       },
     ],
@@ -484,109 +338,6 @@ private let lxTrackPlayerLifecycleNotification = Notification.Name("LXTrackPlaye
         DispatchQueue.main.async { [weak self] in
             self?.refreshSoundEffectAudioMix()
         }
-    }
-
-    private func refreshSoundEffectAudioMix() {
-        guard let currentItem = player.currentPlayerItem else {
-            soundEffectPlayerItem = nil
-            soundEffectTapProcessor = nil
-            return
-        }
-
-        if soundEffectPlayerItem !== currentItem {
-            soundEffectPlayerItem?.audioMix = nil
-        }
-
-        if let processor = soundEffectTapProcessor, soundEffectPlayerItem === currentItem {
-            processor.updateConfig(soundEffectConfig)
-            if soundEffectConfig.isActive {
-                if currentItem.audioMix == nil, let audioMix = processor.makeAudioMix(for: currentItem.asset) {
-                    currentItem.audioMix = audioMix
-                }
-            } else {
-                currentItem.audioMix = nil
-                soundEffectTapProcessor = nil
-                soundEffectPlayerItem = nil
-            }
-            return
-        }
-
-        guard soundEffectConfig.isActive else {
-            currentItem.audioMix = nil
-            soundEffectPlayerItem = nil
-            soundEffectTapProcessor = nil
-            return
-        }
-
-        let processor = LXEqualizerAudioMixController(config: soundEffectConfig)
-        guard let audioMix = processor.makeAudioMix(for: currentItem.asset) else {
-            currentItem.audioMix = nil
-            soundEffectPlayerItem = nil
-            soundEffectTapProcessor = nil
-            return
-        }
-
-        currentItem.audioMix = audioMix
-        soundEffectPlayerItem = currentItem
-        soundEffectTapProcessor = processor
-    }
-`,
-      },
-      {
-        from: `    @objc private func handleSoundEffectConfigChanged(_ notification: Notification) {
-        soundEffectConfig = LXSoundEffectConfiguration.fromUserInfo(notification.userInfo)
-        soundEffectTapProcessor?.updateConfig(soundEffectConfig)
-        refreshSoundEffectAudioMix()
-    }
-
-    private func refreshSoundEffectAudioMix() {
-        guard let currentItem = player.currentPlayerItem else {
-            soundEffectPlayerItem = nil
-            soundEffectTapProcessor = nil
-            return
-        }
-
-        if soundEffectPlayerItem !== currentItem {
-            soundEffectPlayerItem?.audioMix = nil
-        }
-
-        if let processor = soundEffectTapProcessor, soundEffectPlayerItem === currentItem {
-            processor.updateConfig(soundEffectConfig)
-            if soundEffectConfig.isActive {
-                if currentItem.audioMix == nil, let audioMix = processor.makeAudioMix(for: currentItem.asset) {
-                    currentItem.audioMix = audioMix
-                }
-            } else {
-                currentItem.audioMix = nil
-                soundEffectTapProcessor = nil
-                soundEffectPlayerItem = nil
-            }
-            return
-        }
-
-        guard soundEffectConfig.isActive else {
-            currentItem.audioMix = nil
-            soundEffectPlayerItem = nil
-            soundEffectTapProcessor = nil
-            return
-        }
-
-        let processor = LXEqualizerAudioMixController(config: soundEffectConfig)
-        guard let audioMix = processor.makeAudioMix(for: currentItem.asset) else {
-            currentItem.audioMix = nil
-            soundEffectPlayerItem = nil
-            soundEffectTapProcessor = nil
-            return
-        }
-
-        currentItem.audioMix = audioMix
-        soundEffectPlayerItem = currentItem
-        soundEffectTapProcessor = processor
-    }
-`,
-        to: `    @objc private func handleSoundEffectConfigChanged(_ notification: Notification) {
-        soundEffectConfig = LXSoundEffectConfiguration.fromUserInfo(notification.userInfo)
-        refreshSoundEffectAudioMix()
     }
 
     private func refreshSoundEffectAudioMix() {
@@ -917,7 +668,15 @@ const patchFile = async({ filePath, changes }) => {
 
   for (const { from, to } of changes) {
     if (normalizedFile.includes(to)) continue
-    if (!normalizedFile.includes(from)) continue
+    // 其它补丁可能在同一插入点添加了内容，使整段 to 不再逐字匹配：
+    // 若 to 相对 from 新增的全部代码行（长度 >= 24）都已存在，视为已应用。
+    const addedLines = String(to).split('\n').map((line) => line.trim())
+      .filter((line) => line.length >= 24 && !String(from).includes(line))
+    if (addedLines.length > 0 && addedLines.every((line) => normalizedFile.includes(line))) continue
+    if (!normalizedFile.includes(from)) {
+      const anchorHint = String(from).trim().split('\n')[0].slice(0, 80)
+      throw new Error(`Patch anchor not found: ${filePath} (anchor: "${anchorHint}") —— 依赖升级后补丁片段缺失，请更新 dependencies-patch.js`)
+    }
     normalizedFile = normalizedFile.replace(from, to)
   }
 
@@ -1116,32 +875,29 @@ const patchTrackPlayerSoundEffectRefresh = async() => {
 }
 
 ;(async() => {
-  for (const target of patchTargets) {
+  // 每个补丁步骤都必须记录失败：依赖升级导致锚点漂移时，安装/CI 必须失败，
+  // 而不是打一行 console.error 后继续（否则构建成功但原生能力悄悄缺失）。
+  const failures = []
+  const runStep = async(name, run) => {
     try {
-      await patchFile(target)
+      await run()
     } catch (err) {
-      console.error(`Patch ${target.filePath} failed: ${err.message}`)
+      const message = err?.message ?? String(err)
+      failures.push(`${name}: ${message}`)
+      console.error(`Patch step failed: ${name}: ${message}`)
     }
   }
-  try {
-    await patchSwiftAudioSeek()
-  } catch (err) {
-    console.error(`Patch SwiftAudio seek failed: ${err.message}`)
+
+  for (const target of patchTargets) {
+    await runStep(target.filePath, () => patchFile(target))
   }
-  try {
-    await patchTrackPlayerSoundEffectRefresh()
-  } catch (err) {
-    console.error(`Patch TrackPlayer sound effect refresh failed: ${err.message}`)
-  }
-  try {
-    await ensureFileContent({
-      filePath: 'node_modules/react-native-track-player/ios/RNTrackPlayer/LXEqualizerAudioMix.swift',
-      content: equalizerAudioMixSwiftSource,
-    })
-  } catch (err) {
-    console.error(`Ensure LXEqualizerAudioMix.swift failed: ${err.message}`)
-  }
-  try {
+  await runStep('SwiftAudio seek patch', patchSwiftAudioSeek)
+  await runStep('TrackPlayer sound effect refresh', patchTrackPlayerSoundEffectRefresh)
+  await runStep('Ensure LXEqualizerAudioMix.swift', () => ensureFileContent({
+    filePath: 'node_modules/react-native-track-player/ios/RNTrackPlayer/LXEqualizerAudioMix.swift',
+    content: equalizerAudioMixSwiftSource,
+  }))
+  await runStep('Ensure shared IR bridge', async() => {
     await ensureFileContent({
       filePath: 'node_modules/react-native-track-player/ios/RNTrackPlayer/LXSharedIRConvolutionKernel.hpp',
       content: sharedIRKernelSource,
@@ -1154,8 +910,14 @@ const patchTrackPlayerSoundEffectRefresh = async() => {
       filePath: 'node_modules/react-native-track-player/ios/RNTrackPlayer/LXSharedIRConvolutionBridge.mm',
       content: sharedIRBridgeSource,
     })
-  } catch (err) {
-    console.error(`Ensure shared IR bridge failed: ${err.message}`)
+  })
+
+  if (failures.length) {
+    console.error('\nDependencies patch FAILED（补丁未全部生效，构建会缺少对应原生能力）：')
+    for (const item of failures) console.error(`  - ${item}`)
+    console.error('\n请确认依赖版本是否变化，并更新 dependencies-patch.js 中的补丁锚点。\n')
+    process.exitCode = 1
+    return
   }
   console.log('\nDependencies patch finished.\n')
 })()

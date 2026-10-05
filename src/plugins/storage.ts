@@ -8,20 +8,100 @@ const partKeyArrPrefixRxp = /^@___PART_A___/
 const keySplit = ','
 const limit = 500000
 
-const buildData = (key: string, value: any, datas: Array<[string, string]>) => {
-  let valueStr = JSON.stringify(value)
-  if (valueStr.length <= limit) {
-    datas.push([key, valueStr])
-    return
+// 分片键带一次性 token：覆盖写时新分片绝不与旧分片同名，
+// 旧指针在提交前始终指向旧分片，读路径不受写入过程影响。
+const createPartToken = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+
+// 从指针值解析分片键（兼容旧格式 @___PART___a,b 与新格式 @___PART_A___[...]）
+const parsePartKeys = (pointerValue: string | null): string[] => {
+  if (!pointerValue) return []
+  if (partKeyPrefixRxp.test(pointerValue)) {
+    return pointerValue.replace(partKeyPrefixRxp, '').split(keySplit)
+  }
+  if (partKeyArrPrefixRxp.test(pointerValue)) {
+    try {
+      const keys = JSON.parse(pointerValue.replace(partKeyArrPrefixRxp, '')) as unknown
+      return Array.isArray(keys) ? keys.filter((key): key is string => typeof key == 'string') : []
+    } catch {
+      return []
+    }
+  }
+  return []
+}
+
+const removePartKeys = async(partKeys: string[]) => {
+  if (!partKeys.length) return
+  try {
+    await AsyncStorage.multiRemove(partKeys)
+  } catch (e: any) {
+    // 旧分片回收失败不影响已提交的新数据，只留日志（下次写入/删除还会再清）
+    log.warn('storage warn[removePartKeys]:', e?.message ?? e)
+  }
+}
+
+interface StorageWrite {
+  key: string
+  // 小值 = [[key, valueStr]]；大值 = 全部分片键（旧数据不动，指针后置提交）
+  chunks: Array<[string, string]>
+  pointer?: string
+}
+
+// 只做序列化与键规划：任何写入之前先把全部值准备好（序列化失败不会碰旧数据）
+const prepareWrite = (key: string, value: any): StorageWrite => {
+  const valueStr = JSON.stringify(value)
+  if (valueStr.length <= limit) return { key, chunks: [[key, valueStr]] }
+
+  const token = createPartToken()
+  const partKeys: string[] = []
+  const chunks: Array<[string, string]> = []
+  for (let i = 0, len = Math.floor(valueStr.length / limit); i <= len; i++) {
+    const partKey = `${partKeyArrPrefix}${key}#${token}#${i}`
+    partKeys.push(partKey)
+    chunks.push([partKey, valueStr.substring(i * limit, (i + 1) * limit)])
+  }
+  return { key, chunks, pointer: partKeyArrPrefix + JSON.stringify(partKeys) }
+}
+
+const collectPartKeys = (writes: StorageWrite[]) =>
+  writes.reduce<string[]>((acc, item) => item.pointer == null
+    ? acc
+    : acc.concat(item.chunks.map(([partKey]) => partKey)), [])
+
+// 覆盖写顺序：① 一次 multiSet 落盘全部新值/新分片（旧键全程不动）
+//            ② 大值指针逐个单键提交（提交点）
+//            ③ 全部提交成功后才回收旧分片
+// 任一步失败/进程被杀：每个键要么旧值完好、要么新值已提交，不会出现「删了旧的、新的没写进去」。
+const commitWrites = async(writes: StorageWrite[], previousPointers: ReadonlyArray<[string, string | null]>) => {
+  if (!writes.length) return
+
+  const chunks = writes.reduce<Array<[string, string]>>((acc, item) => acc.concat(item.chunks), [])
+  try {
+    await AsyncStorage.multiSet(chunks)
+  } catch (e) {
+    // 批量落盘失败：小值可能已是完整新值（保留）；大值分片此时还没有被任何指针引用，可安全清理
+    await removePartKeys(collectPartKeys(writes))
+    throw e
   }
 
-  const partKeys = []
-  for (let i = 0, len = Math.floor(valueStr.length / limit); i <= len; i++) {
-    let partKey = `${partKeyArrPrefix}${key}${i}`
-    partKeys.push(partKey)
-    datas.push([partKey, valueStr.substring(i * limit, (i + 1) * limit)])
+  // 小值已随 multiSet 提交；大值需要指针切换后才对外可见
+  const committedKeys = new Set(writes.filter((item) => item.pointer == null).map((item) => item.key))
+  const pointerWrites = writes.filter((item) => item.pointer != null)
+  for (let i = 0; i < pointerWrites.length; i++) {
+    const item = pointerWrites[i]
+    try {
+      await AsyncStorage.setItem(item.key, item.pointer!)
+      committedKeys.add(item.key)
+    } catch (e) {
+      // 未提交项的新分片是孤儿，清掉；已提交项的旧分片已无引用，一并回收
+      await removePartKeys(collectPartKeys(pointerWrites.slice(i)))
+      await removePartKeys(previousPointers
+        .filter(([key]) => committedKeys.has(key))
+        .reduce<string[]>((acc, [, pointer]) => acc.concat(parsePartKeys(pointer)), []))
+      throw e
+    }
   }
-  datas.push([key, partKeyArrPrefix + JSON.stringify(partKeys)])
+
+  await removePartKeys(previousPointers.reduce<string[]>((acc, [, pointer]) => acc.concat(parsePartKeys(pointer)), []))
 }
 
 const handleGetDataOld = async <T>(partKeys: string): Promise<T> => {
@@ -42,14 +122,10 @@ const handleGetData = async <T>(partKeys: string): Promise<T> => {
 }
 
 export const saveData = async(key: string, value: any) => {
-  const datas: Array<[string, string]> = []
-
   try {
-    // buildData 里做 JSON.stringify：放进 try 才能把「序列化失败」（如循环引用）
-    // 也写进日志 —— 否则这类失败在页面上只表现为「像没写进缓存」，排查时没有线索。
-    buildData(key, value, datas)
-    await removeData(key)
-    await AsyncStorage.multiSet(datas)
+    const previous = await AsyncStorage.getItem(key)
+    // 序列化失败（如循环引用）也走这里：必须留日志，否则只表现为「像没写进缓存」
+    await commitWrites([prepareWrite(key, value)], [[key, previous]])
   } catch (e: any) {
     // saving error
     log.error('storage error[saveData]:', key, e.message)
@@ -153,14 +229,11 @@ export const getDataMultiple = async <T extends readonly string[]>(keys: T) => {
 }
 
 export const saveDataMultiple = async(datas: Array<[string, any]>) => {
-  const allData: Array<[string, string]> = []
   try {
-    // 同 saveData：序列化也放进 try，失败必须留日志
-    for (const [key, value] of datas) {
-      buildData(key, value, allData)
-    }
-    await removeDataMultiple(datas.map((k) => k[0]))
-    await AsyncStorage.multiSet(allData)
+    // 先把旧值整体读出来（回收旧分片用），再一次批量落盘：
+    // 任一步失败都不会先删旧数据，每个键要么旧值完好、要么新值已提交
+    const previous = await AsyncStorage.multiGet(datas.map(([key]) => key))
+    await commitWrites(datas.map(([key, value]) => prepareWrite(key, value)), previous)
   } catch (e: any) {
     // save error
     log.error('storage error[saveDataMultiple]:', e.message)

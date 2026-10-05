@@ -79,9 +79,9 @@ const invariants = (files) => {
   }
   // 命令动作必须落到本 App 自己的播放器语义
   // toggle 的方向必须由**本 App 自己**决定，不能交给 RNTP 的 playerState：
-  // 允许两种写法 —— 直接用 togglePlay()，或先查引擎真实状态（getUnifiedPlaybackState）
-  // 再决定 play/pause（后者见 sim-remote-command-resilience：滞后一拍会导致「按两下才生效」）。
-  if (!/case 'toggle':[\s\S]{0,600}?(togglePlay\(\)|getUnifiedPlaybackState\(\))/.test(files.remoteCommand)) {
+  // 现写法 —— 快速路径查引擎真实状态（intentFromEngineState）后 applyToggleIntent；
+  // 超时兜底与晚到校正也只沿同一意图（见 sim-remote-bluetooth-headset / sim-remote-toggle-resilience）。
+  if (!/case 'toggle':[\s\S]{0,1400}?(intentFromEngineState\(|getUnifiedPlaybackState\(\)|applyToggleIntent\()/.test(files.remoteCommand)) {
     reasons.push("remoteCommand.ts 的 'toggle' 未落到本 App 自己的播放语义（RNTP 的 toggle 按它自己的播放态判，nativeFlac 下会判错）")
   }
   if (!/case 'next':\s*\n\s*runNavCommand\(playNext\)/.test(files.remoteCommand)) {

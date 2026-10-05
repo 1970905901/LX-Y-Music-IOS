@@ -1,5 +1,6 @@
 import settingState from '@/store/setting/state'
 import { webDAVLog } from '@/core/webdavMusic/logger'
+import { assertSecureWebDAVUrl } from '@/utils/webdavUrl'
 
 import { createClient, type FileStat } from 'webdav'
 
@@ -17,6 +18,8 @@ function getClient() {
     webDAVLog.warn('WebDAV 未配置: URL 或用户名为空')
     return null
   }
+  // 明文 http 会随 Basic 认证头泄露账号密码（策略 A：直接拒绝）
+  assertSecureWebDAVUrl(url)
 
   // createClient imported at top
   client = createClient(url, { username, password })

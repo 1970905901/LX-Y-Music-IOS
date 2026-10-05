@@ -44,6 +44,14 @@ const hasMethod = <K extends keyof NativeNowPlayingModule>(method: K) => {
   return Platform.OS == 'ios' && typeof NowPlayingModule?.[method] == 'function'
 }
 
+// 卡片类桥调用失败必须可见：静默吞错会把「控制中心/灵动岛不更新」变成没有证据的黑盒
+// （2026-10-06 真机排障：投递链全绿但卡片状态漂移，日志里看不到任何失败）。
+// 只在失败时打一行 warn（低频），不改任何控制流。
+export const reportNowPlayingBridgeFailure = (action: string, error: unknown) => {
+  const message = error instanceof Error ? error.message : String(error)
+  console.warn(`###LXNowPlaying### bridge ${action} failed: ${message}`)
+}
+
 export const updateNowPlayingInfo = async(metadata: NowPlayingInfoMetadata) => {
   if (!hasMethod('updateNowPlayingInfo')) return
   return NowPlayingModule?.updateNowPlayingInfo?.(metadata)

@@ -2,7 +2,7 @@ import { getPositionStamped, elapsedSnapshotFields } from '@/plugins/player/util
 import { updateMetaData } from '@/plugins/player'
 import playerState from '@/store/player/state'
 import settingState from '@/store/setting/state'
-import { pauseNowPlaying, playNowPlaying, stopNowPlaying } from '@/utils/nativeModules/nowPlaying'
+import { pauseNowPlaying, playNowPlaying, reportNowPlayingBridgeFailure, stopNowPlaying } from '@/utils/nativeModules/nowPlaying'
 
 // 带快照时间信息的位置：elapsedTimeSnapshotAt/elapsedTimeAgeMs 随发布透传，
 // 原生歌词时钟重锚时据此把锚点回放到快照时刻（修灵动岛/控制中心歌词恒定滞后）
@@ -21,7 +21,7 @@ export const syncNowPlayingState = async(type: 'play' | 'pause' | 'stop') => {
     await playNowPlaying({
       ...elapsed,
       playbackRate: settingState.setting['player.playbackRate'],
-    }).catch(() => {})
+    }).catch((error) => { reportNowPlayingBridgeFailure('playNowPlaying', error) })
     return
   }
 
@@ -29,14 +29,14 @@ export const syncNowPlayingState = async(type: 'play' | 'pause' | 'stop') => {
     await pauseNowPlaying({
       ...elapsed,
       playbackRate: 0,
-    }).catch(() => {})
+    }).catch((error) => { reportNowPlayingBridgeFailure('pauseNowPlaying', error) })
     return
   }
 
   await stopNowPlaying({
     ...elapsed,
     playbackRate: 0,
-  }).catch(() => {})
+  }).catch((error) => { reportNowPlayingBridgeFailure('stopNowPlaying', error) })
 }
 
 export const syncNowPlayingMetadata = (force = false) => {

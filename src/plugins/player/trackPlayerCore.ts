@@ -3,7 +3,7 @@ import { defaultUrl } from '@/config'
 import { NativeModules, Platform } from 'react-native'
 import settingState from '@/store/setting/state'
 import { seekToTime } from './seek'
-import { clearNowPlayingInfo, updateNowPlayingInfo } from '@/utils/nativeModules/nowPlaying'
+import { clearNowPlayingInfo, reportNowPlayingBridgeFailure, updateNowPlayingInfo } from '@/utils/nativeModules/nowPlaying'
 
 const list: LX.Player.Track[] = []
 
@@ -149,7 +149,7 @@ export const updateCurrentTrackMetadata = async(metadata: {
     const nowPlayingMetadata: Parameters<typeof updateNowPlayingInfo>[0] = { ...metadata }
     if (metadata.artwork !== undefined) nowPlayingMetadata.artwork = metadata.artwork
     if (metadata.playbackRate !== undefined) nowPlayingMetadata.playbackRate = metadata.playbackRate
-    await updateNowPlayingInfo(nowPlayingMetadata).catch(() => {})
+    await updateNowPlayingInfo(nowPlayingMetadata).catch((error) => { reportNowPlayingBridgeFailure('updateNowPlayingInfo', error) })
     return
   }
   const currentTrackIndex = await TrackPlayer.getCurrentTrack().catch(() => null)
@@ -246,7 +246,7 @@ export const destroyTrackPlayerCore = async() => {
   try {
     await TrackPlayer.destroy()
   } finally {
-    if (Platform.OS == 'ios') await clearNowPlayingInfo().catch(() => {})
+    if (Platform.OS == 'ios') await clearNowPlayingInfo().catch((error) => { reportNowPlayingBridgeFailure('clearNowPlayingInfo', error) })
     clearTracks()
   }
 }

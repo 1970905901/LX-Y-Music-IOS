@@ -87,7 +87,7 @@ const Content = () => {
     void openUrl('https://github.com/WalnutBai/lx-lxwalnut-music-mobile#readme')
   }
   const openLicensePage = () => {
-    void openUrl('http://www.apache.org/licenses/LICENSE-2.0')
+    void openUrl('https://www.apache.org/licenses/LICENSE-2.0')
   }
 
   const textLinkStyle = {

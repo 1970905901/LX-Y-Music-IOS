@@ -13,7 +13,8 @@ const KG_CONFIG = {
 }
 
 const KG_API_BASE = 'https://gateway.kugou.com'
-const KG_LOGIN_BASE = 'http://login.user.kugou.com'
+// 登录态（手机验证码 / token）必须走 https：http 明文会让同网段任意节点直接拿到登录凭据
+const KG_LOGIN_BASE = 'https://login.user.kugou.com'
 
 let cachedDevice: { headers: Record<string, string>, defaultParams: Record<string, any> } | null = null
 

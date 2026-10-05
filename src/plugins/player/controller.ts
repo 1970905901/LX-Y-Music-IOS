@@ -11,7 +11,7 @@ import { getNextTryQuality, getLastTryQuality, removeMusicUrl } from '@/core/mus
 import { setStatusText } from '@/core/player/playStatus'
 import playerState from '@/store/player/state'
 import settingState from '@/store/setting/state'
-import { playNowPlaying, pauseNowPlaying } from '@/utils/nativeModules/nowPlaying'
+import { pauseNowPlaying, playNowPlaying, reportNowPlayingBridgeFailure } from '@/utils/nativeModules/nowPlaying'
 import { startPreload, stopPreload } from '@/core/player/preload'
 import { savePlayInfo } from '@/utils/data'
 
@@ -161,7 +161,7 @@ export const initUnifiedPlayerController = () => {
               // 轮询持续维持，不再依赖全局静音标志，避免标志泄漏到其它音质导致“没声音”。
               void setNativeFlacVolume(settingState.setting['player.volume'])
               void setNativeFlacRate(settingState.setting['player.playbackRate'])
-              void getPositionStamped().then(async(stamped) => playNowPlaying({ elapsedTime: stamped.position, ...elapsedSnapshotFields(stamped), playbackRate: settingState.setting['player.playbackRate'] }).catch(() => {}))
+              void getPositionStamped().then(async(stamped) => playNowPlaying({ elapsedTime: stamped.position, ...elapsedSnapshotFields(stamped), playbackRate: settingState.setting['player.playbackRate'] }).catch((error) => { reportNowPlayingBridgeFailure('playNowPlaying(nativeFlac)', error) }))
             } else if (Platform.OS == 'ios') {
               void TrackPlayer.setVolume(settingState.setting['player.volume'])
             }
@@ -180,7 +180,7 @@ export const initUnifiedPlayerController = () => {
             clearLoadingTimeout()
             if (event.driver == 'nativeFlac' && event.state != 'paused') global.lx.playerTrackId = ''
             global.app_event.playerPause()
-            if (event.driver == 'nativeFlac') void getPositionStamped().then(async(stamped) => pauseNowPlaying({ elapsedTime: stamped.position, ...elapsedSnapshotFields(stamped) }).catch(() => {}))
+            if (event.driver == 'nativeFlac') void getPositionStamped().then(async(stamped) => pauseNowPlaying({ elapsedTime: stamped.position, ...elapsedSnapshotFields(stamped) }).catch((error) => { reportNowPlayingBridgeFailure('pauseNowPlaying(nativeFlac)', error) }))
             global.app_event.pause()
             break
         }

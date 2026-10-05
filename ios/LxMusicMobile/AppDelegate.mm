@@ -1006,10 +1006,18 @@ static void LXApplyNowPlayingArtwork(UIImage *image, NSUInteger requestId) {
         ? MPNowPlayingPlaybackStatePaused
         : MPNowPlayingPlaybackStatePlaying;
       dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.15 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        // 还没翻转就换代：本次翻转作废，直接交给新任务（此时卡片仍是真实态，安全）
         if (requestId != LXNowPlayingArtworkRequestId) return;
         center.playbackState = opposite;
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.08 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-          if (requestId != LXNowPlayingArtworkRequestId) return;
+          // 已经翻转了，还原必须无条件执行：翻转期间卡片显示的是「假状态」，任何提前 return
+          // 都会把它永久留在相反播放态 —— 表现即「按钮方向反/按了没反应、进度条停走」，
+          // 直到下一次 LXApplyNowPlayingInfo 才恢复（新封面任务接手不代表假状态已被还原）。
+          // 换歌/首次播放时封面请求换代最频繁，正是这个窗口把卡片打成死卡的。
+          BOOL superseded = requestId != LXNowPlayingArtworkRequestId;
+          if (superseded) {
+            NSLog(@"###LXNowPlaying### artworkFlip superseded mid-flip → restore state=%ld (修复前会永久停在假状态)", (long)current);
+          }
           center.playbackState = current;
           LXApplyNowPlayingInfo();
         });

@@ -754,6 +754,12 @@ static NSObject *LXLyricLock(void);
 // 引擎播放真值（原生侧、不依赖 JS 桥）：由 RNTP 生命周期事件维护（见
 // LXHandleTrackPlayerLifecycleNotification）。看门狗在 JS 线程停摆 / 回传丢失时用它兜底。
 static BOOL LXNowPlayingEnginePlaying = NO;
+// 最近一次真正发布 nowPlayingInfo 的时刻（CACurrentMediaTime 毫秒）。
+// 看门狗据此只在「JS 侧已经静默 >5s」时才接管重发：JS 正常发布时原生不插手
+// （避免每 3s 的无谓重发干扰用户按压/拖进度），JS 停摆或发布丢失时原生 5s 内接管。
+// ⚠️ 必须在这里（文件前部）声明：看门狗（LXReconcileNowPlayingCardNow）先于
+// LXApplyNowPlayingInfo 定义，ObjC++ 里变量同样不能先用后声明（CI 实证）。
+static double LXNowPlayingLastPublishAtMs = 0;
 static void LXReportNowPlayingEngineTruthFromLifecycle(void);
 static void LXReinstallRemoteCommandHandlers(void);
 static void LXReassertNowPlayingSession(NSString *reason);
@@ -1090,11 +1096,6 @@ static void LXReconcileNowPlayingCardNow(void) {
   LXApplyNowPlayingInfo();
 }
 
-// 最近一次真正发布 nowPlayingInfo 的时刻（CACurrentMediaTime 毫秒）。
-// 看门狗据此只在「JS 侧已经静默 >5s」时才接管重发：JS 正常发布时原生不插手
-// （避免每 3s 的无谓重发干扰用户按压/拖进度），JS 停摆或发布丢失时原生 5s 内接管。
-static double LXNowPlayingLastPublishAtMs = 0;
-
 static void LXApplyNowPlayingInfo(void) {
   // MediaPlayer 的接口（MPNowPlayingInfoCenter / MPRemoteCommandCenter）必须在主线程使用：
   // 歌词时钟跑在专用后台串行队列（com.lxmusic.nowplaying.lyric），它每次歌词换行都会走到这里。
@@ -1180,6 +1181,7 @@ static void LXApplyNowPlayingArtwork(UIImage *image, NSUInteger requestId) {
     // 注意：playbackState 仅是控制中心/锁屏的显示状态，不驱动真实音频，不会
     // 导致实际播放暂停/继续，也不会触发 remote command 事件。
     if (@available(iOS 13.0, *)) {
+      MPNowPlayingInfoCenter *center = [MPNowPlayingInfoCenter defaultCenter];
       MPNowPlayingPlaybackState current = LXNowPlayingState;
       MPNowPlayingPlaybackState opposite = (current == MPNowPlayingPlaybackStatePlaying)
         ? MPNowPlayingPlaybackStatePaused

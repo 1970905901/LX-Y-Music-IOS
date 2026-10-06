@@ -135,7 +135,26 @@ const collectViolations = (src) => {
     }
   })
 
+  // —— 静态变量同样不能先用后声明（CI 实证 2026-10-06：LXNowPlayingLastPublishAtMs
+  //    声明在 LXApplyNowPlayingInfo 之前、却被更早定义的看门狗使用 →
+  //    error: use of undeclared identifier）——
+  const staticDeclLine = new Map()
+  lines.forEach((line, idx) => {
+    const m = line.match(/^\s*static\s+[^=(){};]*?\b(\w+)\s*[=;]/)
+    if (!m) return
+    const name = m[1]
+    if (!staticDeclLine.has(name)) staticDeclLine.set(name, idx + 1)
+  })
   const violations = []
+  for (const [name, declAt] of staticDeclLine) {
+    const token = new RegExp(`\\b${name}\\b`)
+    for (let i = 0; i < declAt - 1; i++) {
+      if (token.test(lines[i])) {
+        violations.push({ line: i + 1, name, declLine: declAt, text: lines[i].trim().slice(0, 96), kind: 'static' })
+        break
+      }
+    }
+  }
   lines.forEach((line, idx) => {
     const trimmed = line.trim()
     if (!trimmed || trimmed.startsWith('#')) return
@@ -168,17 +187,36 @@ if (!raw.includes(declLine)) {
 console.log('声明顺序检查')
 console.log(`  文件：${TARGET}（${raw.split('\n').length} 行）`)
 if (realViolations.length) {
-  for (const v of realViolations) console.error(`  ✗ 行${v.line}: 调用 ${v.name}() 早于其定义/声明（首次声明在第 ${v.declLine} 行）—— ${v.text}`)
+  for (const v of realViolations) {
+    const what = v.kind === 'static' ? `使用静态变量 ${v.name}` : `调用 ${v.name}()`
+    console.error(`  ✗ 行${v.line}: ${what} 早于其声明/定义（首次声明在第 ${v.declLine} 行）—— ${v.text}`)
+  }
 } else {
   console.log('  ✓ 所有 LX* 调用都有更早的定义或前置声明')
 }
 console.log('')
 console.log('反例自检')
 console.log(`${tamperCaught ? 'PASS' : 'FAIL'}  拿掉 LXApplyNowPlayingInfo 前置声明 —— ${tamperDetail}`)
+// 反例自检 2：把静态变量声明挪到使用之后（复现 2026-10-06 CI 失败：use of undeclared identifier）
+let staticTamperCaught = false
+let staticTamperDetail = ''
+const staticDecl = 'static double LXNowPlayingLastPublishAtMs = 0;\n'
+if (!raw.includes(staticDecl)) {
+  staticTamperDetail = '找不到 LXNowPlayingLastPublishAtMs 声明（契约锚点失效）'
+} else {
+  const moved = raw
+    .replace(staticDecl, '')
+    .replace('static void LXApplyNowPlayingInfo(void) {', staticDecl + '\nstatic void LXApplyNowPlayingInfo(void) {')
+  const v = collectViolations(moved)
+  const hit = v.find((x) => x.name === 'LXNowPlayingLastPublishAtMs' && x.kind === 'static')
+  staticTamperCaught = Boolean(hit)
+  staticTamperDetail = hit ? `已拦下（使用在第 ${hit.line} 行、声明在第 ${hit.declLine} 行）` : '未拦下'
+}
+console.log(`${staticTamperCaught ? 'PASS' : 'FAIL'}  把静态变量声明挪到使用之后 —— ${staticTamperDetail}`)
 
-if (realViolations.length || !tamperCaught) {
+if (realViolations.length || !tamperCaught || !staticTamperCaught) {
   console.error('\nFAIL  原生声明顺序契约未通过（.mm 为 ObjC++：定义前调用会直接构建失败）')
   process.exit(1)
 }
-console.log('\nPASS  原生声明顺序契约（ObjC++ 不允许隐式声明）')
+console.log('\nPASS  原生声明顺序契约（ObjC++ 函数与静态变量都不得先用后声明）')
 process.exit(0)

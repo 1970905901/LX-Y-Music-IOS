@@ -182,11 +182,19 @@ export default class LxLyricPlayer {
 
   private tick() {
     if (!this.isPlay) return
-    const currentTime = this.currentTime()
-    this.emitState(currentTime)
-    if (this.maxLine >= 0 && currentTime > this.getLineEndTime(this.maxLine)) {
-      this.pause()
-      return
+    try {
+      const currentTime = this.currentTime()
+      this.emitState(currentTime)
+      if (this.maxLine >= 0 && currentTime > this.getLineEndTime(this.maxLine)) {
+        this.pause()
+        return
+      }
+    } catch (error) {
+      // 行级 ticker 是一条 setTimeout 链：回调里任何异常都会让链断掉且无人重启 ——
+      // 歌词行与逐字高亮永久冻结、onPlay 不再触发（JS 逐行元数据与原生歌词时间轴都
+      // 收不到行变化），而音频照播；除用户恰好播放/暂停/seek 一次外没有任何自愈路径。
+      // 与「换源闸门 / 粘滞标记」同一类静默停摆，必须吞掉异常并继续续链。
+      console.log('###LXPlayerGuard### lyric tick 异常（ticker 已续链）：', error instanceof Error ? error.message : error)
     }
     this.timeoutId = setTimeout(() => {
       this.tick()

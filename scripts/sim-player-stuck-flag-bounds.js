@@ -32,6 +32,7 @@ const SRC = {
   globalData: read('src/config/globalData.ts'),
   appTypes: read('src/types/app.d.ts'),
   playProgress: read('src/core/init/player/playProgress.ts'),
+  lxLyricPlayer: read('src/plugins/lxLyricPlayer.ts'),
 }
 
 const windowBetween = (src, startAnchor, endAnchor, fallback = 3000) => {
@@ -112,6 +113,22 @@ const structuralReasons = (s) => {
     reasons.push('progressDragState 置位/复位没有盖时间戳')
   }
 
+  // ⑤ 歌词行级 ticker：异常不得断链（setTimeout 链断掉无人重启）
+  const tick = windowBetween(s.lxLyricPlayer, 'private tick() {', 'private initTag() {', 1200)
+  if (!tick) {
+    reasons.push('找不到 LxLyricPlayer.tick（行级歌词 ticker）')
+  } else {
+    if (!/try \{[\s\S]{0,400}?this\.emitState\(currentTime\)/.test(tick)) {
+      reasons.push('行级 ticker 没有 try/catch：onPlay 消费者一旦抛错，setTimeout 链断掉且无人重启（歌词永久冻结，音频照播）')
+    }
+    if (!/###LXPlayerGuard### lyric tick 异常/.test(tick)) {
+      reasons.push('行级 ticker 异常没有打点（真机无法归因「歌词行不再变化」）')
+    }
+    if (!/\} catch \(error\) \{[\s\S]{0,900}?\}\s*\n\s*this\.timeoutId = setTimeout/.test(tick)) {
+      reasons.push('行级 ticker 在 catch 之后没有续链（异常后不再调度下一次 tick）')
+    }
+  }
+
   return reasons
 }
 
@@ -133,6 +150,10 @@ const models = [
     modelNew({ stuck: false, bounded: true }) === 'ok'],
   ['异常安全：初始化抛错后 isIniting 复位 → 下一次 initial() 仍可重试',
     modelNew({ stuck: false, bounded: true }) === 'ok'],
+  ['反例：行级 ticker 回调抛错且无 try/catch → setTimeout 链断掉，歌词冻结到下次用户操作',
+    (() => { const legacyTick = (isPlay, throwAt) => (isPlay && throwAt ? 'chain-dead' : 'tick'); return legacyTick(true, true) === 'chain-dead' })()],
+  ['修复后：行级 ticker 回调抛错 → 吞掉异常并继续续链（仅丢一拍）',
+    (() => { const newTick = (throwAt) => (throwAt ? 'continue-after-catch' : 'tick'); return newTick(true) === 'continue-after-catch' && newTick(false) === 'tick' })()],
 ]
 
 const realReasons = structuralReasons(SRC)
@@ -142,6 +163,7 @@ const tamperCases = [
   ['拿掉 EventBus 监听器隔离', ({ bus }) => ({ bus: bus.replace('      try {\n        listener(event)\n      } catch (error) {\n        console.log(\'###LXPlayerBus### listener error:\', error instanceof Error ? error.message : error)\n      }', '      listener(event)') }), 'EventBus'],
   ['拿掉忽略生命周期标记的时间上界', ({ engine }) => ({ engine: engine.replace('  if (since > 0 && Date.now() - since > IGNORE_TP_LIFECYCLE_MAX_MS) {\n', '  if (false) {\n') }), '时间上界'],
   ['拿掉拖动标记的时间上界', ({ playProgress }) => ({ playProgress: playProgress.replace('  const PROGRESS_DRAG_MAX_MS = 120000\n', '') }), 'PROGRESS_DRAG_MAX_MS'],
+  ['拿掉歌词 ticker 的异常续链', ({ lxLyricPlayer }) => ({ lxLyricPlayer: lxLyricPlayer.replace('    try {\n', '    if (true) {\n') }), '歌词'],
 ]
 const tamperResults = tamperCases.map(([name, mutate, expectKeyword]) => {
   const mutated = { ...SRC, ...mutate(SRC) }
@@ -170,5 +192,5 @@ if (realReasons.length || failedModels.length || failedTampers.length) {
   console.error('\nFAIL  粘滞标记契约未通过')
   process.exit(1)
 }
-console.log(`\nPASS  粘滞标记有上界 / 初始化异常安全 / 监听器隔离（结构不变量 4 组 + 行为模型 ${models.length} 例 + 反例 ${tamperResults.length} 例）`)
+console.log(`\nPASS  粘滞标记有上界 / 初始化异常安全 / 监听器隔离 / ticker 异常续链（结构不变量 5 组 + 行为模型 ${models.length} 例 + 反例 ${tamperResults.length} 例）`)
 process.exit(0)

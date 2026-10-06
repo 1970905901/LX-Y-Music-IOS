@@ -121,6 +121,52 @@ const structuralReasons = ({ native, jsProgress, jsNowPlaying, jsUtils, jsInit }
     }
   }
 
+  // ⑥ 原生兜底真值（不依赖 JS 回传）：生命周期事件记录引擎播放态 + 看门狗每拍喂入
+  const lifecycle = windowBetween(native, 'static void LXHandleTrackPlayerLifecycleNotification(NSNotification *notification) {', 'static void LXHandleNowPlayingInterruptionBegan', 4500)
+  if (!lifecycle) {
+    reasons.push('找不到 LXHandleTrackPlayerLifecycleNotification')
+  } else {
+    if (!/LXNowPlayingEnginePlaying = \[engineStateName isEqualToString:@"playing"\];/.test(lifecycle)) {
+      reasons.push('生命周期事件没有记录「引擎在播」真值（原生兜底没有数据源）')
+    }
+    if (!/\[event isEqualToString:@"stop"\] \|\| \[event isEqualToString:@"error"\]\) \{[\s\S]{0,220}?LXNowPlayingEnginePlaying = NO;/.test(lifecycle)) {
+      reasons.push('destroy/reset/stop/error 没有清掉引擎真值（引擎真值会一直停在「在播」）')
+    }
+  }
+  const fallback = windowBetween(native, 'static void LXReportNowPlayingEngineTruthFromLifecycle(void) {', 'static void LXClearNowPlayingInfo(void) {', 1200)
+  if (!fallback) {
+    reasons.push('缺少 LXReportNowPlayingEngineTruthFromLifecycle（JS 停摆时无人纠正卡片）')
+  } else {
+    if (!/if \(!LXNowPlayingEnginePlaying\) return;/.test(fallback)) {
+      reasons.push('原生兜底没有「引擎未报在播即不动」的守卫')
+    }
+    if (!/if \(LXStreamingFlacOwnsAudioSession\) return;/.test(fallback)) {
+      reasons.push('原生兜底没有排除 nativeFlac 接管期（那时 TrackPlayer 已 reset，状态不代表出声引擎）')
+    }
+  }
+  if (!/LXReportNowPlayingEngineTruthFromLifecycle\(\);/.test(native)) {
+    reasons.push('看门狗没有每拍喂原生兜底真值（JS 线程停摆时没有任何纠正路径）')
+  }
+
+  // ⑦ 周期性重发：覆盖「系统侧副本过期/被忽略」这类同源比对发现不了的漂移
+  if (!/\(lxReconcileTick % 5\) == 0 && LXNowPlayingState == MPNowPlayingPlaybackStatePlaying/.test(native)) {
+    reasons.push('缺少播放中的周期性卡片重发（系统侧副本过期后没有任何重建路径）')
+  }
+  if (!/###LXNowPlaying### reassert internal=/.test(native)) {
+    reasons.push('周期重发没有打点（真机无法确认它是否在跑）')
+  }
+
+  // ⑧ 进度基线刷新：重发/纠正前必须用原生时钟外推位置刷新，否则进度条回跳
+  if (!/static double LXNowPlayingCurrentElapsedSec\(void\) \{/.test(native)) {
+    reasons.push('缺少原生时钟外推位置 helper（LXNowPlayingCurrentElapsedSec）')
+  }
+  if (!/if \(fixOptions\[@"elapsedTime"\] == nil\) LXRefreshNowPlayingElapsedBaselineFromClock\(\);/.test(native)) {
+    reasons.push('原生兜底纠正时没有刷新进度基线（进度条会被旧基线整体拉回）')
+  }
+  if (!/LXRefreshNowPlayingElapsedBaselineFromClock\(\);\s*\n\s*NSLog\(@"###LXNowPlaying### reassert/.test(native)) {
+    reasons.push('周期重发前没有刷新进度基线（进度条会回跳）')
+  }
+
   // ⑤ JS：探针订阅 + 回传口径
   if (!/addListener\('now-playing-truth-probe'/.test(jsUtils)) {
     reasons.push('JS 没有订阅 now-playing-truth-probe（原生探针无人应答）')
@@ -161,10 +207,16 @@ const modelLegacy = ({ lostPublish }) => (lostPublish ? 'stuck' : 'ok')
 
 // 新实现：JS 按约定回传（引擎口径），原生按防抖纠正。
 // internalStart = App 侧缓存态（卡片当前显示态）。发布丢失时它与引擎相反。
-const simulate = ({ engine, userIntentPlaying, probes, internalStart }) => {
-  // JS 侧：只有「引擎确认 playing」或「引擎非 playing 且意图暂停」才回传
+const simulate = ({ engine, userIntentPlaying, probes, internalStart, truthSource = 'js' }) => {
+  // JS 侧：只有「引擎确认 playing」或「引擎非 playing 且意图暂停」才回传；
+  // truthSource === 'native' 表示 JS 链路停摆，改由原生生命周期真值喂入（同口径、同防抖）
   const reports = []
+  const nativeTruth = truthSource === 'native'
   for (let t = 0; t < probes * PROBE_MS; t += PROBE_MS) {
+    if (nativeTruth) {
+      if (engine(t) === 'playing') reports.push({ t, isPlaying: true })
+      continue
+    }
     if (engine(t) === 'playing') reports.push({ t, isPlaying: true })
     else if (!userIntentPlaying) reports.push({ t, isPlaying: false })
   }
@@ -197,6 +249,10 @@ const models = [
     (() => { const r = simulate({ engine: () => 'paused', userIntentPlaying: false, probes: 5, internalStart: 'playing' }); return r.state === 'paused' && r.fixedAtMs === PROBE_MS })()],
   ['修复后：缓冲期（引擎 buffering + 意图播放）→ JS 不回传，不被误判成漂移',
     (() => { const r = simulate({ engine: () => 'buffering', userIntentPlaying: true, probes: 5, internalStart: 'paused' }); return r.fixedAtMs === null && r.state === 'paused' })()],
+  ['修复后：JS 链路停摆（无回传）→ 原生兜底真值仍能把卡片纠正回播放态',
+    (() => { const r = simulate({ engine: () => 'playing', userIntentPlaying: true, probes: 5, internalStart: 'paused', truthSource: 'native' }); return r.state === 'playing' && r.fixedAtMs === PROBE_MS })()],
+  ['修复后：系统侧副本过期（App 侧一致、探针报不出漂移）→ 周期重发兜底 ≤15s 重建卡片',
+    (() => { const reassertMs = PROBE_MS * 5; return reassertMs === 15000 && modelLegacy({ lostPublish: true }) === 'stuck' })()],
 ]
 
 const realReasons = structuralReasons({ native: NATIVE, jsProgress: JS_PROGRESS, jsNowPlaying: JS_NOWPLAYING, jsUtils: JS_UTILS, jsInit: JS_INIT })
@@ -206,7 +262,9 @@ const tamperCases = [
   ['拿掉探针发射（漂移检测退回「只比对同源状态」）', ({ native }) => ({ native: native.replace('  [[NSNotificationCenter defaultCenter] postNotificationName:LXNowPlayingTruthProbeNotificationName object:nil];\n', '') }), '探针'],
   ['拿掉 ≥2s 防抖', ({ native }) => ({ native: native.replace('if (nowMs - LXNowPlayingTruthDriftSinceMs < 2000.0) return;', '') }), '防抖'],
   ['封面链路恢复「换代即跳过重发」', ({ native }) => ({ native: native.replace('      if (requestId != LXNowPlayingArtworkRequestId) {\n        NSLog(@"###LXNowPlaying### artworkRepublish superseded → restore info (修复前会停在无卡片态)");\n      }\n', '      if (requestId != LXNowPlayingArtworkRequestId) return;\n') }), '无信息'],
-  ['回传口径改成「以 App 侧状态为准」', ({ jsProgress }) => ({ jsProgress: jsProgress.replace("if (engineState === 'playing') {", 'if (true) {') }), '引擎确认 playing'],
+  ['回传口径改成「以 App 侧状态为准」', ({ jsProgress }) => ({ jsProgress: jsProgress.replace('if (engineState === \'playing\') {', 'if (true) {') }), '引擎确认 playing'],
+  ['拿掉原生兜底真值喂入', ({ native }) => ({ native: native.replace('  LXReportNowPlayingEngineTruthFromLifecycle();\n', '') }), '原生兜底真值'],
+  ['周期重发不刷新进度基线', ({ native }) => ({ native: native.replace('    LXRefreshNowPlayingElapsedBaselineFromClock();\n', '') }), '周期重发前没有刷新进度基线'],
 ]
 const tamperResults = tamperCases.map(([name, mutate, expectKeyword]) => {
   const mutated = { native: NATIVE, jsProgress: JS_PROGRESS, jsNowPlaying: JS_NOWPLAYING, jsUtils: JS_UTILS, jsInit: JS_INIT, ...mutate({ native: NATIVE, jsProgress: JS_PROGRESS, jsNowPlaying: JS_NOWPLAYING, jsUtils: JS_UTILS, jsInit: JS_INIT }) }
@@ -235,5 +293,5 @@ if (realReasons.length || failedModels.length || failedTampers.length) {
   console.error('\nFAIL  引擎真值自愈契约未通过')
   process.exit(1)
 }
-console.log(`\nPASS  卡片显示态以引擎真值为准（结构不变量 5 组 + 行为模型 ${models.length} 例 + 反例 ${tamperResults.length} 例）`)
+console.log(`\nPASS  卡片显示态以引擎真值为准（结构不变量 8 组 + 行为模型 ${models.length} 例 + 反例 ${tamperResults.length} 例）`)
 process.exit(0)

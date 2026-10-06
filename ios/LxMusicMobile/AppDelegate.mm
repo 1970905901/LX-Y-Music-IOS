@@ -751,6 +751,13 @@ static void LXSyncNowPlayingLyricTimer(void);
 static void LXQueueNowPlayingLyricRedraw(void);
 static void LXForceNowPlayingCardRepaint(void);
 static NSObject *LXLyricLock(void);
+// 引擎播放真值（原生侧、不依赖 JS 桥）：由 RNTP 生命周期事件维护（见
+// LXHandleTrackPlayerLifecycleNotification）。看门狗在 JS 线程停摆 / 回传丢失时用它兜底。
+static BOOL LXNowPlayingEnginePlaying = NO;
+static void LXReportNowPlayingEngineTruthFromLifecycle(void);
+// 原生时钟外推位置（秒）：重发 / 纠正卡片前刷新进度基线（定义在文件后部歌词时钟区块）
+static double LXNowPlayingCurrentElapsedSec(void);
+static void LXRefreshNowPlayingElapsedBaselineFromClock(void);
 // 屏幕/音频路由变化后重新判定 8.3Hz 歌词时钟是否该跑（熄屏且无蓝牙歌词可送车机时停钟）
 static void LXUpdateNowPlayingLyricTimerVisibility(void);
 // 记录「屏幕确实亮着」的亮度证据（亮度 0 是「熄屏」与「最低亮度」的公共值，
@@ -996,9 +1003,30 @@ static void LXReconcileNowPlayingCardNow(void) {
   // 反应」。引擎是唯一独立真值，这里每拍（3s）请求 JS 回传一次；原生连续两次确认同一
   // 方向的漂移（≥2s）才纠正，避免把「发布在途」误判成漂移。
   [[NSNotificationCenter defaultCenter] postNotificationName:LXNowPlayingTruthProbeNotificationName object:nil];
+  // 原生兜底真值（不依赖 JS 回传）：RNTP 生命周期最近一次报告引擎在播时，走同一个纠正
+  // 入口（内置 ≥2s 防抖）。JS 线程停摆 / 事件丢失时这条链路仍然有效。
+  LXReportNowPlayingEngineTruthFromLifecycle();
   // 翻转窗口内系统持有的就是「假状态」，此时比对会把正常翻转误判成漂移
   double nowMs = CACurrentMediaTime() * 1000.0;
   if (nowMs < LXNowPlayingCardRepaintFlipUntilMs || nowMs < LXNowPlayingArtworkRepaintFlipUntilMs) return;
+
+  // —— 播放中的周期性卡片重发（每 15s，即第 5 拍）——
+  // 卡片的显示态是系统侧的一份副本：与 App 侧缓存态**同源**的比对发现不了「系统那份
+  // 过期 / 被忽略」——某次 playbackState / nowPlayingInfo 写入被 iOS 丢弃，或卡片在打开时
+  // 按 mediaremoted 的旧快照重建（2026-10-06 系统日志实测：卡片 elapsed=0.000 + play 图标，
+  // 同一时刻 App 仍在出声）。这种漂移 JS 探针与看门狗都报不出来，用户看到的就是
+  // 「有声音但按钮 / 进度条失效」。播放态下每 15s 用原生时钟刷新进度基线后重发信息 +
+  // 翻转重绘（等效用户手动「暂停→播放」一次），强制系统重建卡片；代价是每 15s 两次
+  // playbackState 赋值（翻转 60ms，且让位于用户按压，见 LXForceNowPlayingCardRepaint）。
+  static NSUInteger lxReconcileTick = 0;
+  lxReconcileTick += 1;
+  if ((lxReconcileTick % 5) == 0 && LXNowPlayingState == MPNowPlayingPlaybackStatePlaying) {
+    LXRefreshNowPlayingElapsedBaselineFromClock();
+    NSLog(@"###LXNowPlaying### reassert internal=%ld info=%lu",
+          (long)LXNowPlayingState, (unsigned long)LXNowPlayingInfoCache.count);
+    LXApplyNowPlayingInfo();
+    LXForceNowPlayingCardRepaint();
+  }
 
   MPNowPlayingInfoCenter *center = [MPNowPlayingInfoCenter defaultCenter];
   MPNowPlayingPlaybackState expected = MPNowPlayingPlaybackStateUnknown;
@@ -1365,6 +1393,9 @@ static void LXReportNowPlayingPlaybackTruth(BOOL isPlaying, NSDictionary *option
     // 新基线按速率外推，直接用缓存里的旧基线会把控制中心进度条整体拉回去。
     NSMutableDictionary *fixOptions = [NSMutableDictionary dictionaryWithDictionary:options ?: @{}];
     fixOptions[@"playbackRate"] = rate;
+    // JS 未带进度快照（原生兜底链路 options 为空）时用原生时钟外推位置刷新基线；
+    // 否则系统会从缓存里的旧基线继续外推（进度条整体拉回）
+    if (fixOptions[@"elapsedTime"] == nil) LXRefreshNowPlayingElapsedBaselineFromClock();
     LXSetNowPlayingPlaybackState(MPNowPlayingPlaybackStatePlaying, fixOptions);
   } else {
     LXSetNowPlayingPlaybackState(MPNowPlayingPlaybackStatePaused, @{ @"playbackRate": @0 });
@@ -1372,6 +1403,15 @@ static void LXReportNowPlayingPlaybackTruth(BOOL isPlaying, NSDictionary *option
   LXApplyNowPlayingInfo();
   // 卡片被系统冻结时，仅重发信息不一定重绘（同歌词换行链路）：补一次重绘翻转
   LXForceNowPlayingCardRepaint();
+}
+
+// 看门狗每拍调用的原生兜底真值入口（不依赖 JS 回传）：RNTP 生命周期最近一次报告
+// 引擎在播时，把「在播」喂给同一个纠正入口。nativeFlac 接管会话期间必须跳过 ——
+// 那时 TrackPlayer 已 reset，它的状态不代表出声引擎（nativeFlac 走 JS 探针的回传）。
+static void LXReportNowPlayingEngineTruthFromLifecycle(void) {
+  if (!LXNowPlayingEnginePlaying) return;
+  if (LXStreamingFlacOwnsAudioSession) return;
+  LXReportNowPlayingPlaybackTruth(YES, @{});
 }
 
 static void LXClearNowPlayingInfo(void) {
@@ -1402,6 +1442,16 @@ static void LXHandleTrackPlayerLifecycleNotification(NSNotification *notificatio
   NSDictionary *userInfo = [notification.userInfo isKindOfClass:[NSDictionary class]] ? notification.userInfo : @{};
   NSString *event = [userInfo[@"event"] isKindOfClass:[NSString class]] ? userInfo[@"event"] : @"";
   NSNumber *position = [userInfo[@"position"] isKindOfClass:[NSNumber class]] ? userInfo[@"position"] : nil;
+
+  // 引擎播放真值（原生侧、不依赖 JS）：只有 "state" 事件能声明「在播」，其余
+  // （destroy / reset / stop / error）一律清掉。看门狗据此在 JS 链路无声时兜底纠正卡片。
+  if ([event isEqualToString:@"state"]) {
+    NSString *engineStateName = [userInfo[@"state"] isKindOfClass:[NSString class]] ? userInfo[@"state"] : @"";
+    LXNowPlayingEnginePlaying = [engineStateName isEqualToString:@"playing"];
+  } else if ([event isEqualToString:@"destroy"] || [event isEqualToString:@"reset"] ||
+             [event isEqualToString:@"stop"] || [event isEqualToString:@"error"]) {
+    LXNowPlayingEnginePlaying = NO;
+  }
 
   if ([event isEqualToString:@"destroy"] || [event isEqualToString:@"reset"]) {
     // destroy = 会话结束；reset = nativeFlac 换歌中途，缓存要清但会话仍在（见静态标志注释）
@@ -1665,6 +1715,34 @@ static void LXRefreshNowPlayingLyricAnchor(void) {
   if (elapsed == nil) return;
   // 带元数据发布链路解析出的快照戳回放锚点（无戳时退回旧行为）
   LXReanchorNowPlayingLyric(elapsed.doubleValue * 1000.0, LXNowPlayingElapsedSnapshotAtMs, 0);
+}
+
+// 当前外推播放位置（秒）：歌词 / 位置时钟锚点 + 缓存速率外推。无锚点或非播放
+// （速率 ≤ 0）时返回 -1 —— 调用方保留缓存里的旧值，不做推进。
+static double LXNowPlayingCurrentElapsedSec(void) {
+  @synchronized (LXLyricLock()) {
+    if (LXNowPlayingLyricAnchorSystemMs <= 0) return -1;
+    NSNumber *cachedRate = [LXNowPlayingInfoCache[MPNowPlayingInfoPropertyPlaybackRate] isKindOfClass:[NSNumber class]]
+      ? LXNowPlayingInfoCache[MPNowPlayingInfoPropertyPlaybackRate]
+      : nil;
+    double rate = cachedRate != nil ? cachedRate.doubleValue : 0;
+    if (rate <= 0) return -1;
+    double dtMs = CACurrentMediaTime() * 1000.0 - LXNowPlayingLyricAnchorSystemMs;
+    if (dtMs < 0) dtMs = 0;
+    return MAX(0.0, (LXNowPlayingLyricAnchorElapsedMs + rate * dtMs) / 1000.0);
+  }
+}
+
+// 用原生时钟的外推位置刷新系统进度基线（值 + 快照戳必须成对更新，见 LXSetNowPlayingInfo
+// 里同一不变量的注释）。重发 / 纠正卡片前调用：否则系统会从缓存里的旧基线按速率继续
+// 外推，控制中心进度条整体回跳。
+static void LXRefreshNowPlayingElapsedBaselineFromClock(void) {
+  double elapsedSec = LXNowPlayingCurrentElapsedSec();
+  if (elapsedSec < 0) return;
+  @synchronized (LXLyricLock()) {
+    LXNowPlayingInfoCache[MPNowPlayingInfoPropertyElapsedPlaybackTime] = @(elapsedSec);
+    LXNowPlayingElapsedSnapshotAtMs = CACurrentMediaTime() * 1000.0;
+  }
 }
 
 // 以显式的引擎位置（ms）重锚歌词时钟（seek / state 事件携带的真实位置）。

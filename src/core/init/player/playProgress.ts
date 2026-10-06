@@ -2,15 +2,15 @@ import { updateListMusics } from '@/core/list'
 import { playNext } from '@/core/player/player'
 import { setMaxplayTime, setNowPlayTime } from '@/core/player/progress'
 import { getTimelineDuration } from '@/core/player/timeline'
-import { setCurrentTime, getDuration, getPosition, getPositionStamped, getPlaybackEngineState } from '@/plugins/player/utils'
+import { setCurrentTime, getDuration, getPosition, getPositionStamped, getPlaybackEngineState, elapsedSnapshotFields } from '@/plugins/player/utils'
 import { formatPlayTime2 } from '@/utils/common'
 import { savePlayInfo } from '@/utils/data'
 import { throttleBackgroundTimer } from '@/utils/tools'
 import BackgroundTimer from 'react-native-background-timer'
 import playerState from '@/store/player/state'
 import settingState from '@/store/setting/state'
-import { onPlayerPosition, onPlayerSeeked } from '@/utils/nativeModules/utils'
-import { reanchorNowPlayingLyric } from '@/utils/nativeModules/nowPlaying'
+import { onNowPlayingTruthProbe, onPlayerPosition, onPlayerSeeked } from '@/utils/nativeModules/utils'
+import { reanchorNowPlayingLyric, reportNowPlayingBridgeFailure, reportNowPlayingPlaybackTruth } from '@/utils/nativeModules/nowPlaying'
 import { syncNowPlayingState } from '@/core/player/nowPlaying'
 import { AppState } from 'react-native'
 // UI 平滑时钟：仅服务于逐字歌词高亮与歌词连续滚动的每帧插值，
@@ -748,6 +748,31 @@ export default () => {
     const musicId = playerState.musicInfo.id
     if (!musicId || !playerState.isPlay) return
     syncFromEngine(musicId)
+  })
+
+  // 卡片会话自愈（引擎为准）：原生探针每 3s 一发，收到即回传引擎真实播放态。
+  // 原生看门狗只能比对「App 侧缓存态 vs 卡片态」（同源），发布丢失时两边会一起停在
+  // 旧态 —— 引擎是唯一独立真值，这条回传让「有声音但卡片按钮/进度条失效」能自动收敛。
+  // 只回传两种无歧义态：① 引擎确认 playing（无论 App 侧怎么想，出声就是播放中）；
+  // ② 引擎非 playing 且用户意图就是暂停（!playerState.isPlay）。buffering/loading
+  // 期间 JS 按上游语义把卡片发布成暂停，不属于漂移，跳过不报。
+  onNowPlayingTruthProbe(() => {
+    void (async() => {
+      const engineState = await getPlaybackEngineState()
+      if (engineState === 'playing') {
+        const stamped = await getPositionStamped().catch(() => null)
+        await reportNowPlayingPlaybackTruth(true, {
+          elapsedTime: stamped?.position ?? playerState.progress.nowPlayTime,
+          ...(stamped ? elapsedSnapshotFields(stamped) : {}),
+          playbackRate: settingState.setting['player.playbackRate'],
+        }).catch((error) => { reportNowPlayingBridgeFailure('reportPlaybackTruth', error) })
+        return
+      }
+      if (!playerState.isPlay) {
+        await reportNowPlayingPlaybackTruth(false, { playbackRate: 0 })
+          .catch((error) => { reportNowPlayingBridgeFailure('reportPlaybackTruth', error) })
+      }
+    })().catch(() => {})
   })
 
   global.app_event.on('play', handlePlay)

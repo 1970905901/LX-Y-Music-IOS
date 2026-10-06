@@ -703,6 +703,11 @@ static id LXNowPlayingScreenObserver = nil;
 static id LXNowPlayingRouteObserver = nil;
 static id LXNowPlayingInterruptionObserver = nil;
 static NSString * const LXRemoteCommandNotificationName = @"LXRemoteCommand";
+// 「卡片显示态 vs 引擎真值」探针（原生 → JS）：看门狗每拍请求一次，JS 收到后立即把
+// 引擎真实播放态回传（见 LXReportNowPlayingPlaybackTruth）。之所以必须由原生发起：
+// JS 的 1s 慢校准 tick 在 App 非 active（控制中心打开 / 后台播放）时按耗电策略停摆，
+// 而卡片失效恰恰只在这两个场景被用户看到；原生事件不依赖 JS 定时器。
+static NSString * const LXNowPlayingTruthProbeNotificationName = @"LXNowPlayingTruthProbe";
 static BOOL LXRemoteCommandHandlersInstalled = NO;
 // 最近一次收到遥控命令（播放/暂停/切歌/拖进度）的时间戳（CACurrentMediaTime 毫秒）。
 // 卡片重绘靠「把 playbackState 切到相反值再切回」实现，翻转期间控制中心 / 灵动岛的
@@ -985,6 +990,12 @@ static void LXReconcileNowPlayingCardNow(void) {
     LXStopNowPlayingReconcileTimer();
     return;
   }
+  // 引擎真值探针：看门狗自身只能比对「App 侧状态 vs 卡片状态」，两者同源 —— 某次状态
+  // 发布丢失（缓冲→恢复、中断、翻转窗口、桥序）时内部状态与卡片会一起停在旧态，看门狗
+  // 看不出任何漂移，而引擎其实还在播：用户看到的就是「有声音、进度条停走、按钮按了没
+  // 反应」。引擎是唯一独立真值，这里每拍（3s）请求 JS 回传一次；原生连续两次确认同一
+  // 方向的漂移（≥2s）才纠正，避免把「发布在途」误判成漂移。
+  [[NSNotificationCenter defaultCenter] postNotificationName:LXNowPlayingTruthProbeNotificationName object:nil];
   // 翻转窗口内系统持有的就是「假状态」，此时比对会把正常翻转误判成漂移
   double nowMs = CACurrentMediaTime() * 1000.0;
   if (nowMs < LXNowPlayingCardRepaintFlipUntilMs || nowMs < LXNowPlayingArtworkRepaintFlipUntilMs) return;
@@ -1086,7 +1097,14 @@ static void LXApplyNowPlayingArtwork(UIImage *image, NSUInteger requestId) {
     MPNowPlayingInfoCenter *center = [MPNowPlayingInfoCenter defaultCenter];
     center.nowPlayingInfo = nil;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.05 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-      if (requestId != LXNowPlayingArtworkRequestId) return;
+      // 置空后的重发必须**无条件**执行（与下方翻转的还原同一条不变量）：
+      // 「换代」只说明封面归新任务管，而「nowPlayingInfo 不能停在 nil」是所有卡片
+      // 功能的前提。提前 return 会让卡片停在「没有信息」的空态（按钮 + 进度条全失效），
+      // 只能等 3s 看门狗救回 —— 换歌/首次播放时封面请求换代最频繁，正是这个窗口
+      // 把卡片打成死卡的。重发永远取最新缓存，因此无条件执行不会写回旧封面。
+      if (requestId != LXNowPlayingArtworkRequestId) {
+        NSLog(@"###LXNowPlaying### artworkRepublish superseded → restore info (修复前会停在无卡片态)");
+      }
       LXApplyNowPlayingInfo();
     });
     // 汽水(qs) / 排行榜等异步匹配封面的音源，封面是在播放中途才就绪的：仅重设
@@ -1291,6 +1309,69 @@ static void LXSetNowPlayingPlaybackState(MPNowPlayingPlaybackState state, NSDict
   }
   // 播放态变化同样要刷新卡片按钮（详情见 LXScheduleDeferredNowPlayingCardRepaint）
   LXScheduleDeferredNowPlayingCardRepaint();
+}
+
+// —— 卡片显示态「引擎真值」自愈 ——
+// JS 收到 LXNowPlayingTruthProbeNotificationName 事件后立即回传引擎真实播放态
+// （getPlaybackEngineState，AVPlayer / nativeFlac 两条引擎都算）。
+// 为什么需要它：3s 收敛看门狗（LXReconcileNowPlayingCardNow）只能比对
+// 「App 侧缓存态 vs 系统卡片态」——两者同源。一次状态发布丢失（缓冲→恢复、音频中断、
+// 翻转窗口、桥序颠倒、JS 定时器停摆）会让内部状态与卡片**一起**停在旧态，看门狗
+// 报不出漂移，而引擎还在出声：用户看到的正是「有声音、进度条停走、按钮按了没反应」，
+// 且此后没有任何自愈路径（重启软件才恢复）。引擎是唯一独立真值。
+// 防抖：同一方向的漂移必须连续 ≥2s（探针 3s 一拍，即连续两次回传）才纠正 ——
+// 单次回传可能撞上发布在途/翻转窗口，不是真漂移。
+static double LXNowPlayingTruthDriftSinceMs = 0;
+static BOOL LXNowPlayingTruthDriftValue = NO;
+
+static void LXReportNowPlayingPlaybackTruth(BOOL isPlaying, NSDictionary *options) {
+  if (![NSThread isMainThread]) {
+    dispatch_async(dispatch_get_main_queue(), ^{ LXReportNowPlayingPlaybackTruth(isPlaying, options); });
+    return;
+  }
+  unsigned long infoCount = 0;
+  MPNowPlayingPlaybackState internalState = MPNowPlayingPlaybackStateStopped;
+  @synchronized (LXLyricLock()) {
+    infoCount = LXNowPlayingInfoCache.count;
+    internalState = LXNowPlayingState;
+  }
+  // 没有曲目上下文（无卡片）：不参与自愈 —— 免得把「真的什么都没播」拉成播放态
+  if (infoCount == 0) {
+    LXNowPlayingTruthDriftSinceMs = 0;
+    return;
+  }
+  BOOL drift = isPlaying ? (internalState != MPNowPlayingPlaybackStatePlaying)
+                        : (internalState == MPNowPlayingPlaybackStatePlaying);
+  if (!drift) {
+    LXNowPlayingTruthDriftSinceMs = 0;
+    return;
+  }
+  double nowMs = CACurrentMediaTime() * 1000.0;
+  if (LXNowPlayingTruthDriftSinceMs <= 0 || LXNowPlayingTruthDriftValue != isPlaying) {
+    LXNowPlayingTruthDriftSinceMs = nowMs;
+    LXNowPlayingTruthDriftValue = isPlaying;
+    return;
+  }
+  if (nowMs - LXNowPlayingTruthDriftSinceMs < 2000.0) return;
+  LXNowPlayingTruthDriftSinceMs = 0;
+  NSLog(@"###LXNowPlaying### truthDrift engine=%d internal=%ld info=%lu action=fix",
+        isPlaying ? 1 : 0, (long)internalState, infoCount);
+  if (isPlaying) {
+    NSNumber *rate = LXCurrentNowPlayingRate();
+    if (rate.doubleValue <= 0) rate = @(1);
+    // 系统可能已把媒体会话撤回（这正是卡片按钮失效的机制）：重新激活会话再发布
+    LXActivateAudioSessionForPlayback();
+    // 必须带上 JS 回传的引擎进度快照（elapsedTime + 快照戳）：纠正播放态后系统会从
+    // 新基线按速率外推，直接用缓存里的旧基线会把控制中心进度条整体拉回去。
+    NSMutableDictionary *fixOptions = [NSMutableDictionary dictionaryWithDictionary:options ?: @{}];
+    fixOptions[@"playbackRate"] = rate;
+    LXSetNowPlayingPlaybackState(MPNowPlayingPlaybackStatePlaying, fixOptions);
+  } else {
+    LXSetNowPlayingPlaybackState(MPNowPlayingPlaybackStatePaused, @{ @"playbackRate": @0 });
+  }
+  LXApplyNowPlayingInfo();
+  // 卡片被系统冻结时，仅重发信息不一定重绘（同歌词换行链路）：补一次重绘翻转
+  LXForceNowPlayingCardRepaint();
 }
 
 static void LXClearNowPlayingInfo(void) {
@@ -6022,6 +6103,16 @@ RCT_REMAP_METHOD(stopNowPlaying, stopNowPlaying:(NSDictionary *)options resolver
   });
 }
 
+// 引擎真值回传（JS → 原生）：由 LXNowPlayingTruthProbeNotificationName 探针触发
+// （见 LXReportNowPlayingPlaybackTruth）。options 与 play/pauseNowPlaying 同形，
+// 纠正播放态时用它刷新进度基线，避免卡片进度回跳。
+RCT_REMAP_METHOD(reportPlaybackTruth, reportPlaybackTruth:(BOOL)isPlaying options:(NSDictionary *)options resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
+  dispatch_async(dispatch_get_main_queue(), ^{
+    LXReportNowPlayingPlaybackTruth(isPlaying, options ?: @{});
+    resolve(nil);
+  });
+}
+
 RCT_REMAP_METHOD(clearNowPlayingInfo, clearNowPlayingInfoWithResolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
   dispatch_async(dispatch_get_main_queue(), ^{
     // JS 侧销毁播放会话（destroyTrackPlayerCore）→ 会话结束，交出媒体键
@@ -6102,6 +6193,10 @@ RCT_EXPORT_MODULE();
                                                  name:LXPlayerPositionNotificationName
                                                object:nil];
     [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(handleNowPlayingTruthProbe:)
+                                                 name:LXNowPlayingTruthProbeNotificationName
+                                               object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self
                                              selector:@selector(handlePlayerSeeked:)
                                                  name:LXTrackPlayerLifecycleNotificationName
                                                object:nil];
@@ -6118,7 +6213,7 @@ RCT_EXPORT_MODULE();
   // 声明而不发送属于死事件，且避免误导后续接入
   // screen-state 已删除：本工程从未有发送方（详见 sim-background-js-timers 契约），
   // 「熄屏/回屏」统一以 JS 侧 AppState 为准。
-  return @[ @"headphones-disconnected", @"remote-command", @"tabBarCollapseChanged", @"player-position", @"player-seeked" ];
+  return @[ @"headphones-disconnected", @"remote-command", @"tabBarCollapseChanged", @"player-position", @"player-seeked", @"now-playing-truth-probe" ];
 }
 
 // Tab 栏收起状态（原生跟踪器维护，JS 经 tabBarCollapseChanged 事件与 setTabBarExpanded 命令交互）
@@ -6176,6 +6271,16 @@ RCT_EXPORT_MODULE();
     NSLog(@"###LXRemote### flush=%@ age=%.0fms", flushedCommand, nowMs - queuedAtMs.doubleValue);
     [self sendEventWithName:@"remote-command" body:body];
   }
+}
+
+// 「卡片显示态 vs 引擎真值」探针转发（见 LXReportNowPlayingPlaybackTruth）：
+// JS 收到事件后立即回传引擎状态，不依赖 JS 定时器 —— 控制中心打开（App inactive）
+// 与后台播放期间同样有效。
+- (void)handleNowPlayingTruthProbe:(NSNotification *)notification {
+  if (!self.hasListeners) return;
+  dispatch_async(dispatch_get_main_queue(), ^{
+    [self sendEventWithName:@"now-playing-truth-probe" body:nil];
+  });
 }
 
 - (void)startObserving {

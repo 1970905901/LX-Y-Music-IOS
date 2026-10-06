@@ -31,6 +31,9 @@ interface NativeNowPlayingModule {
   pauseNowPlaying?: (options?: NowPlayingStateOptions) => Promise<void>
   stopNowPlaying?: (options?: NowPlayingStateOptions) => Promise<void>
   clearNowPlayingInfo?: () => Promise<void>
+  /** 引擎真实播放态回传（由原生 LXNowPlayingTruthProbe 探针触发）：
+   * 原生发现「卡片显示态与引擎相反且持续 ≥2s」时就地纠正并重发卡片 */
+  reportPlaybackTruth?: (isPlaying: boolean, options?: NowPlayingStateOptions) => Promise<void>
   setNowPlayingLyrics?: (lines: NowPlayingLyricLine[]) => Promise<void>
   /** 引擎真实位置回传，重锚原生歌词/位置时钟（AppDelegate.mm 的 RCT_REMAP_METHOD 同名导出）。
    * snapshotAtMs：快照的原生时钟戳（CACurrentMediaTime 毫秒，精确回放锚点时刻）；
@@ -70,6 +73,16 @@ export const pauseNowPlaying = async(options: NowPlayingStateOptions = {}) => {
 export const stopNowPlaying = async(options: NowPlayingStateOptions = {}) => {
   if (!hasMethod('stopNowPlaying')) return
   return NowPlayingModule?.stopNowPlaying?.(options)
+}
+
+/** 引擎真实播放态回传：原生以引擎为准自愈卡片显示态（见原生 LXReportNowPlayingPlaybackTruth）。
+ * 为什么需要：原生看门狗只能比对「App 侧缓存态 vs 卡片态」，两者同源 —— 一次状态发布
+ * 丢失时两边一起停在旧态、看门狗看不出漂移，而引擎还在出声（用户看到的正是
+ * 「有声音、进度条停走、按钮按了没反应」）。引擎是唯一独立真值，这条回传把它接进
+ * 自愈闭环。探测事件由原生每 3s 发起（不依赖 JS 定时器，后台/控制中心打开时同样有效）。 */
+export const reportNowPlayingPlaybackTruth = async(isPlaying: boolean, options: NowPlayingStateOptions = {}) => {
+  if (!hasMethod('reportPlaybackTruth')) return
+  return NowPlayingModule?.reportPlaybackTruth?.(isPlaying, options)
 }
 
 export const clearNowPlayingInfo = async() => {

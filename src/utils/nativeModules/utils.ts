@@ -225,6 +225,21 @@ export const onPlayerSeeked = (handler: (position: number) => void): (() => void
   }
 }
 
+// 「卡片显示态 vs 引擎真值」探针（原生每 3s 一发，仅在有卡片时）：JS 收到后立即把
+// 引擎真实播放态经 reportNowPlayingPlaybackTruth 回传，原生据此纠正卡片显示态。
+// 为什么由原生发起：JS 的 1s 慢校准 tick 在 App 非 active（控制中心打开 / 后台播放）
+// 时按耗电策略停摆，而卡片失效只在这两个场景被用户看到；原生事件不依赖 JS 定时器。
+export const onNowPlayingTruthProbe = (handler: () => void): (() => void) => {
+  if (!isIOS || !UtilsModule) return () => {}
+  const eventEmitter = new NativeEventEmitter(UtilsModule)
+  const eventListener = eventEmitter.addListener('now-playing-truth-probe', () => {
+    handler()
+  })
+  return () => {
+    eventListener.remove()
+  }
+}
+
 // 点击收起按钮手动展开：保持展开直到下一次列表滚动离开顶部
 export const setTabBarExpanded = (): void => {
   if (!isIOS || !UtilsModule?.setTabBarExpanded) return

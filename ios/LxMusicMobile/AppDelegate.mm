@@ -1414,10 +1414,23 @@ static void LXReportNowPlayingPlaybackTruth(BOOL isPlaying, NSDictionary *option
     // JS 未带进度快照（原生兜底链路 options 为空）时用原生时钟外推位置刷新基线；
     // 否则系统会从缓存里的旧基线继续外推（进度条整体拉回）
     if (fixOptions[@"elapsedTime"] == nil) LXRefreshNowPlayingElapsedBaselineFromClock();
-    LXSetNowPlayingPlaybackState(MPNowPlayingPlaybackStatePlaying, fixOptions);
-  } else {
-    LXSetNowPlayingPlaybackState(MPNowPlayingPlaybackStatePaused, @{ @"playbackRate": @0 });
+    // —— 硬重建媒体会话（App 侧能做的最后一步）——
+    // 已经确认卡片显示态与引擎相反（漂移持续 ≥2s），此时单纯重发信息可能被系统那份
+    // 过期副本「覆盖/忽略」（2026-10-06 真机：卡片 elapsed=0.000 + play 图标而音频在播，
+    // 只是重发/翻转都救不回来，重启 App 才好）。这里改走硬重建：先把 nowPlayingInfo
+    // 置空（丢掉系统那份过期副本），隔一帧再重发完整信息 + 还原播放态 + 强制重绘 ——
+    // 等效「让系统重建卡片」，与封面链路强制重绘用的是同一手法（见 LXApplyNowPlayingArtwork）。
+    MPNowPlayingInfoCenter *center = [MPNowPlayingInfoCenter defaultCenter];
+    center.nowPlayingInfo = nil;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.12 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+      LXSetNowPlayingPlaybackState(MPNowPlayingPlaybackStatePlaying, fixOptions);
+      LXApplyNowPlayingInfo();
+      // 卡片被系统冻结时，仅重发信息不一定重绘（同歌词换行链路）：补一次重绘翻转
+      LXForceNowPlayingCardRepaint();
+    });
+    return;
   }
+  LXSetNowPlayingPlaybackState(MPNowPlayingPlaybackStatePaused, @{ @"playbackRate": @0 });
   LXApplyNowPlayingInfo();
   // 卡片被系统冻结时，仅重发信息不一定重绘（同歌词换行链路）：补一次重绘翻转
   LXForceNowPlayingCardRepaint();

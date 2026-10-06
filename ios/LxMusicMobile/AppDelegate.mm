@@ -755,6 +755,8 @@ static NSObject *LXLyricLock(void);
 // LXHandleTrackPlayerLifecycleNotification）。看门狗在 JS 线程停摆 / 回传丢失时用它兜底。
 static BOOL LXNowPlayingEnginePlaying = NO;
 static void LXReportNowPlayingEngineTruthFromLifecycle(void);
+static void LXReinstallRemoteCommandHandlers(void);
+static void LXReassertNowPlayingSession(NSString *reason);
 // 原生时钟外推位置（秒）：重发 / 纠正卡片前刷新进度基线（定义在文件后部歌词时钟区块）
 static double LXNowPlayingCurrentElapsedSec(void);
 static void LXRefreshNowPlayingElapsedBaselineFromClock(void);
@@ -904,6 +906,25 @@ static void LXInstallRemoteCommandHandlers(void) {
   LXRemoteCommandHandlersInstalled = YES;
 }
 
+// 重挂遥控命令目标：`removeTarget:nil` 摘掉该系统命令上的**全部** target（含
+// SwiftAudioEx/SwiftAudio 自己挂的那些），随后由 LXInstallRemoteCommandHandlers 只挂我们的。
+// 用途：卡片/耳机/车机的按键绑定疑似过期时刷新绑定（会话重绑的一部分），不碰任何播放信息。
+static void LXReinstallRemoteCommandHandlers(void) {
+  if (![NSThread isMainThread]) {
+    dispatch_async(dispatch_get_main_queue(), ^{ LXReinstallRemoteCommandHandlers(); });
+    return;
+  }
+  MPRemoteCommandCenter *commandCenter = [MPRemoteCommandCenter sharedCommandCenter];
+  [commandCenter.playCommand removeTarget:nil];
+  [commandCenter.pauseCommand removeTarget:nil];
+  [commandCenter.togglePlayPauseCommand removeTarget:nil];
+  [commandCenter.nextTrackCommand removeTarget:nil];
+  [commandCenter.previousTrackCommand removeTarget:nil];
+  [commandCenter.changePlaybackPositionCommand removeTarget:nil];
+  LXRemoteCommandHandlersInstalled = NO;
+  LXInstallRemoteCommandHandlers();
+}
+
 static void LXSyncRemoteCommandAvailability(void) {
   LXInstallRemoteCommandHandlers();
 
@@ -1025,13 +1046,22 @@ static void LXReconcileNowPlayingCardNow(void) {
   static NSUInteger lxConvergeTick = 0;
   lxConvergeTick += 1;
   if (LXNowPlayingEnginePlaying) {
-    LXRefreshNowPlayingElapsedBaselineFromClock();
-    LXApplyNowPlayingInfo();
-    // 心跳（每 5 拍 15s 一行）：真机日志里「App 侧一直在收敛」的直接证据
-    if ((lxConvergeTick % 5) == 0) {
-      NSLog(@"###LXNowPlaying### converge engine=1 internal=%ld rate=%.2f info=%lu",
+    // JS 侧正常发布时原生不插手：只在「JS 已静默 >5s」（发布丢失 / JS 停摆 / 无歌词歌
+    // 没有逐行发布）时接管，刷新进度基线并重发 —— 既保证卡片 ≤5s 收敛到真值，又避免
+    // 每 3s 的无谓重发去干扰用户按压 / 拖进度。
+    double sincePublishMs = nowMs - LXNowPlayingLastPublishAtMs;
+    BOOL jsSilent = LXNowPlayingLastPublishAtMs <= 0 || sincePublishMs > 5000.0;
+    if (jsSilent) {
+      LXRefreshNowPlayingElapsedBaselineFromClock();
+      LXApplyNowPlayingInfo();
+      NSLog(@"###LXNowPlaying### converge engine=1 internal=%ld rate=%.2f info=%lu silentMs=%.0f",
             (long)LXNowPlayingState, LXCurrentNowPlayingRate().doubleValue,
-            (unsigned long)LXNowPlayingInfoCache.count);
+            (unsigned long)LXNowPlayingInfoCache.count, LXNowPlayingLastPublishAtMs > 0 ? sincePublishMs : -1.0);
+    } else if ((lxConvergeTick % 5) == 0) {
+      // 心跳（每 5 拍 15s 一行）：证明看门狗活着、且 JS 发布是新鲜的
+      NSLog(@"###LXNowPlaying### converge engine=1 internal=%ld rate=%.2f info=%lu silentMs=%.0f",
+            (long)LXNowPlayingState, LXCurrentNowPlayingRate().doubleValue,
+            (unsigned long)LXNowPlayingInfoCache.count, sincePublishMs);
     }
   }
 
@@ -1060,6 +1090,11 @@ static void LXReconcileNowPlayingCardNow(void) {
   LXApplyNowPlayingInfo();
 }
 
+// 最近一次真正发布 nowPlayingInfo 的时刻（CACurrentMediaTime 毫秒）。
+// 看门狗据此只在「JS 侧已经静默 >5s」时才接管重发：JS 正常发布时原生不插手
+// （避免每 3s 的无谓重发干扰用户按压/拖进度），JS 停摆或发布丢失时原生 5s 内接管。
+static double LXNowPlayingLastPublishAtMs = 0;
+
 static void LXApplyNowPlayingInfo(void) {
   // MediaPlayer 的接口（MPNowPlayingInfoCenter / MPRemoteCommandCenter）必须在主线程使用：
   // 歌词时钟跑在专用后台串行队列（com.lxmusic.nowplaying.lyric），它每次歌词换行都会走到这里。
@@ -1071,6 +1106,7 @@ static void LXApplyNowPlayingInfo(void) {
   }
   @synchronized (LXLyricLock()) {
     MPNowPlayingInfoCenter *center = [MPNowPlayingInfoCenter defaultCenter];
+    LXNowPlayingLastPublishAtMs = CACurrentMediaTime() * 1000.0;
     center.nowPlayingInfo = LXNowPlayingInfoCache.count ? [LXNowPlayingInfoCache copy] : nil;
     if (@available(iOS 13.0, *)) {
       MPNowPlayingPlaybackState publishState = LXResolveNowPlayingPublishStateLocked();
@@ -1124,22 +1160,17 @@ static void LXApplyNowPlayingArtwork(UIImage *image, NSUInteger requestId) {
       return image;
     }];
     info[MPMediaItemPropertyArtwork] = artwork;
-    // iOS 已知行为：同一播放会话中 nowPlayingInfo 已发布过「无封面」版本后，
-    // 仅追加 artwork 再发布不一定能刷新锁屏/控制中心封面（表现为要暂停再播放
-    // 才出现封面）。同一 runloop 里「置空 + 立即重设」会被系统合并成一次更新，
-    // 仍无法触发重绘。这里先置空，延迟一帧后再发布，强制控制中心重新渲染
-    // 整张媒体卡片（含封面）。
-    MPNowPlayingInfoCenter *center = [MPNowPlayingInfoCenter defaultCenter];
-    center.nowPlayingInfo = nil;
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.05 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-      // 置空后的重发必须**无条件**执行（与下方翻转的还原同一条不变量）：
-      // 「换代」只说明封面归新任务管，而「nowPlayingInfo 不能停在 nil」是所有卡片
-      // 功能的前提。提前 return 会让卡片停在「没有信息」的空态（按钮 + 进度条全失效），
-      // 只能等 3s 看门狗救回 —— 换歌/首次播放时封面请求换代最频繁，正是这个窗口
-      // 把卡片打成死卡的。重发永远取最新缓存，因此无条件执行不会写回旧封面。
-      if (requestId != LXNowPlayingArtworkRequestId) {
-        NSLog(@"###LXNowPlaying### artworkRepublish superseded → restore info (修复前会停在无卡片态)");
-      }
+    // ⚠️ 只「合并 + 重发」，**绝不置空 nowPlayingInfo**（重构 2026-10-06）：
+    // 置空 = 告诉系统「本 App 没有播放信息」，系统会就此把这份媒体会话拆掉 ——
+    // 屏幕上的卡片从此停在最后一张快照（典型：暂停图标 + 0:00），之后任何重发都
+    // 改不动那张卡片，只有重建会话（重启 App / 切前台）才恢复。这正是用户反复
+    // 反馈的「卡片失效」；而封面刷新只是观感问题 —— 正确性优先于封面即时性。
+    // 封面若因此没能第一时间刷新，下面的延迟补发与心跳重发会补上。
+    LXApplyNowPlayingInfo();
+    // 部分音源封面在播放中途才就绪、系统可能排在本帧渲染之后：隔一帧再补发一次
+    // （仍然只重发，不置空；换代只是让路给新任务，重发永远取最新缓存）。
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.25 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+      if (requestId != LXNowPlayingArtworkRequestId) return;
       LXApplyNowPlayingInfo();
     });
     // 汽水(qs) / 排行榜等异步匹配封面的音源，封面是在播放中途才就绪的：仅重设
@@ -1418,20 +1449,10 @@ static void LXReportNowPlayingPlaybackTruth(BOOL isPlaying, NSDictionary *option
     // JS 未带进度快照（原生兜底链路 options 为空）时用原生时钟外推位置刷新基线；
     // 否则系统会从缓存里的旧基线继续外推（进度条整体拉回）
     if (fixOptions[@"elapsedTime"] == nil) LXRefreshNowPlayingElapsedBaselineFromClock();
-    // —— 硬重建媒体会话（App 侧能做的最后一步）——
-    // 已经确认卡片显示态与引擎相反（漂移持续 ≥2s），此时单纯重发信息可能被系统那份
-    // 过期副本「覆盖/忽略」（2026-10-06 真机：卡片 elapsed=0.000 + play 图标而音频在播，
-    // 只是重发/翻转都救不回来，重启 App 才好）。这里改走硬重建：先把 nowPlayingInfo
-    // 置空（丢掉系统那份过期副本），隔一帧再重发完整信息 + 还原播放态 + 强制重绘 ——
-    // 等效「让系统重建卡片」，与封面链路强制重绘用的是同一手法（见 LXApplyNowPlayingArtwork）。
-    MPNowPlayingInfoCenter *center = [MPNowPlayingInfoCenter defaultCenter];
-    center.nowPlayingInfo = nil;
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.12 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-      LXSetNowPlayingPlaybackState(MPNowPlayingPlaybackStatePlaying, fixOptions);
-      LXApplyNowPlayingInfo();
-      // 卡片被系统冻结时，仅重发信息不一定重绘（同歌词换行链路）：补一次重绘翻转
-      LXForceNowPlayingCardRepaint();
-    });
+    // 纠正：写入真值（速率/进度基线）后做一次**非破坏性**会话重绑
+    // （激活会话 + 重挂命令目标 + 重发信息），绝不置空 nowPlayingInfo。
+    LXSetNowPlayingPlaybackState(MPNowPlayingPlaybackStatePlaying, fixOptions);
+    LXReassertNowPlayingSession(@"drift-playing");
     return;
   }
   LXSetNowPlayingPlaybackState(MPNowPlayingPlaybackStatePaused, @{ @"playbackRate": @0 });
@@ -1440,27 +1461,27 @@ static void LXReportNowPlayingPlaybackTruth(BOOL isPlaying, NSDictionary *option
   LXForceNowPlayingCardRepaint();
 }
 
-// 硬重建媒体卡片：先把 nowPlayingInfo 置空（丢掉系统那份可能已过期/失效的副本），
-// 隔一帧再重发完整信息 + 强制重绘 —— 等效「让系统重建卡片」。
-// 仅重发信息在系统副本过期时救不回来（2026-10-06 真机实证：卡片 elapsed=0.000 + play 图标
-// 而音频在播，重发/翻转都没用，只有重启 App/切前台这种「重建会话」的动作能恢复）。
-// 调用方需保证缓存里的信息/速率/进度基线已经是正确的（本函数只负责重建动作）。
-static void LXHardRebuildNowPlayingCard(NSString *trigger) {
+// 会话重绑（非破坏性）：重新激活音频会话、重挂遥控命令目标、刷新进度基线后重发信息。
+// ⚠️ 绝不置空 nowPlayingInfo —— 置空会让系统把整个媒体会话拆掉（屏幕上的卡片停在最后
+// 一张快照，之后任何重发都改不动，只有重建会话才恢复；2026-10-06 重构时确认）。
+// 能救回「系统侧绑定过期」的是**重新注册**（会话 setActive + 命令目标重挂 + 信息重发），
+// 不是把信息清空。
+static void LXReassertNowPlayingSession(NSString *reason) {
   if (![NSThread isMainThread]) {
-    dispatch_async(dispatch_get_main_queue(), ^{ LXHardRebuildNowPlayingCard(trigger); });
+    dispatch_async(dispatch_get_main_queue(), ^{ LXReassertNowPlayingSession(reason); });
     return;
   }
   unsigned long infoCount = 0;
   @synchronized (LXLyricLock()) { infoCount = LXNowPlayingInfoCache.count; }
   if (infoCount == 0) return;
-  NSLog(@"###LXNowPlaying### hardRebuild trigger=%@ info=%lu", trigger ?: @"?", infoCount);
-  MPNowPlayingInfoCenter *center = [MPNowPlayingInfoCenter defaultCenter];
-  center.nowPlayingInfo = nil;
-  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.12 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-    LXApplyNowPlayingInfo();
-    // 卡片被系统冻结时，仅重发信息不一定重绘（同歌词换行链路）：补一次重绘翻转
-    LXForceNowPlayingCardRepaint();
-  });
+  NSLog(@"###LXNowPlaying### sessionReassert reason=%@ info=%lu", reason ?: @"?", infoCount);
+  LXActivateAudioSessionForPlayback();
+  LXBeginReceivingRemoteControlEvents();
+  LXReinstallRemoteCommandHandlers();
+  LXRefreshNowPlayingElapsedBaselineFromClock();
+  LXApplyNowPlayingInfo();
+  // 重绘翻转（iOS 忽略第三方 playbackState，实际是空操作；保留以兼容旧系统行为）
+  LXForceNowPlayingCardRepaint();
 }
 
 // 看门狗每拍调用的原生兜底真值入口（不依赖 JS 回传）：把 RNTP 生命周期给出的引擎真值
@@ -1593,11 +1614,9 @@ static void LXRegisterTrackPlayerLifecycleObserver(void) {
       // 重新激活音频会话并重新提交缓存，可让 iPad 控制中心/锁屏恢复歌曲信息和播放按钮。
       [[AVAudioSession sharedInstance] setActive:YES error:nil];
       if (LXNowPlayingEnginePlaying) {
-        // 回前台是用户已经验证有效的恢复时机（「重开 App 才好」的内核就是重建了会话/卡片）：
-        // 引擎仍在播时做一次硬重建，而不是只重发 —— 系统那份过期副本存在时只重发救不回来
-        // （2026-10-06 实证）。代价是回前台时卡片重建一次（卡片本来就在重绘，用户无感）。
-        LXRefreshNowPlayingElapsedBaselineFromClock();
-        LXHardRebuildNowPlayingCard(@"foreground");
+        // 回前台是用户已经验证有效的恢复时机（「重开 App 才好」的内核就是重建了会话/绑定）：
+        // 引擎仍在播时做一次非破坏性会话重绑（重挂命令目标 + 重发信息），不置空、不断会话。
+        LXReassertNowPlayingSession(@"foreground");
         return;
       }
       LXApplyNowPlayingInfo();

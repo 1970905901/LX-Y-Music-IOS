@@ -36,6 +36,7 @@ const JS_PROGRESS = read('src/core/init/player/playProgress.ts')
 const JS_NOWPLAYING = read('src/utils/nativeModules/nowPlaying.ts')
 const JS_UTILS = read('src/utils/nativeModules/utils.ts')
 const JS_INIT = read('src/core/init/player/index.ts')
+const PATCHES = read('dependencies-patch.js')
 
 const windowBetween = (src, startAnchor, endAnchor, fallback = 3000) => {
   const start = src.indexOf(startAnchor)
@@ -44,7 +45,7 @@ const windowBetween = (src, startAnchor, endAnchor, fallback = 3000) => {
   return end < 0 ? src.slice(start, start + fallback) : src.slice(start, end)
 }
 
-const structuralReasons = ({ native, jsProgress, jsNowPlaying, jsUtils, jsInit }) => {
+const structuralReasons = ({ native, jsProgress, jsNowPlaying, jsUtils, jsInit, patches }) => {
   const reasons = []
 
   // ① 原生：探针事件名 + 事件转发 + 声明
@@ -106,8 +107,8 @@ const structuralReasons = ({ native, jsProgress, jsNowPlaying, jsUtils, jsInit }
     if (!/BOOL rateStuck = isPlaying && \(cachedRate == nil \|\| cachedRate\.doubleValue <= 0\);/.test(truth)) {
       reasons.push('真值纠正没有识别「引擎在播但缓存速率 ≤ 0」（iOS 忽略 playbackState时，速率 0 就等于卡片被判成暂停）')
     }
-    if (!/center\.nowPlayingInfo = nil;[\s\S]{0,700}?dispatch_after\(dispatch_time\(DISPATCH_TIME_NOW, \(int64_t\)\(0\.12 \* NSEC_PER_SEC\)\)[\s\S]{0,500}?LXSetNowPlayingPlaybackState\(MPNowPlayingPlaybackStatePlaying, fixOptions\);[\s\S]{0,300}?LXApplyNowPlayingInfo\(\);[\s\S]{0,300}?LXForceNowPlayingCardRepaint\(\);/.test(truth)) {
-      reasons.push('纠正播放态时没有硬重建媒体会话（置空 → 一帧后重发 + 重绘）：系统那份过期副本存在时，单纯重发/翻转救不回来（真机实证：重启 App 才好）')
+    if (!/LXReassertNowPlayingSession\(@"drift-playing"\);/.test(truth)) {
+      reasons.push('漂移纠正没有走非破坏性会话重绑（应当写入真值后重绑会话，而不是置空）')
     }
   }
   if (!/entitlement[\s\S]{0,80}com\.apple\.mediaremote\.set-playback-state/.test(native)) {
@@ -116,36 +117,67 @@ const structuralReasons = ({ native, jsProgress, jsNowPlaying, jsUtils, jsInit }
   if (!/###LXNowPlaying### truthDrift engine=%d internal=%ld rateStuck=%d cachedRate=%.2f info=%lu action=fix/.test(native)) {
     reasons.push('真值纠正日志没有带 rateStuck / cachedRate（下一次真机日志无法一眼归因速率卡 0）')
   }
-  // 硬重建 helper（回前台 / 真值纠正共用）：置空 → 一帧后重发 + 重绘
-  const rebuild = windowBetween(native, 'static void LXHardRebuildNowPlayingCard(NSString *trigger) {', '// 看门狗每拍调用的原生兜底真值入口', 1500)
-  if (!rebuild) {
-    reasons.push('缺少 LXHardRebuildNowPlayingCard（硬重建：系统副本过期时唯一有效的动作）')
+  // —— 单一媒体会话所有者（2026-10-06 重构）——
+  // ① nowPlayingInfo 只能有一个写入点，且任何路径都不许「置空」它：
+  //    置空 = 让系统拆掉这份媒体会话 —— 屏幕上的卡片会停在最后一张快照
+  //    （典型：暂停图标 + 0:00），之后任何重发都改不动，只有重建会话才恢复。
+  const writeCount = (native.match(/center\.nowPlayingInfo =(?!=)/g) || []).length
+  if (writeCount !== 1) {
+    reasons.push(`nowPlayingInfo 的写入点必须唯一（当前 ${writeCount} 处）：多写入者互相覆盖会让卡片状态不可控`)
+  }
+  if (/center\.nowPlayingInfo = nil;/.test(native)) {
+    reasons.push('存在置空 nowPlayingInfo 的路径（= 让系统拆掉媒体会话，卡片会停在最后一张快照且无法被重发改动）')
+  }
+  if (!/center\.nowPlayingInfo = LXNowPlayingInfoCache\.count \? \[LXNowPlayingInfoCache copy\] : nil;/.test(native)) {
+    reasons.push('唯一写入点不是「按缓存发布、只有空缓存才 nil」的漏斗（LXApplyNowPlayingInfo）')
+  }
+  // ② RNTP/SwiftAudioEx 不得再写/清同一份信息（否则就是本 App 之外的第二写入者）
+  if (!/单一媒体会话所有者[\s\S]{0,900}?_ = metadata/.test(patches)) {
+    reasons.push('dependencies-patch.js 缺少「RNTP 的 Metadata.update 改为 no-op」补丁（第二写入者会写不带速率的 info，把卡片打成暂停）')
+  }
+  if (!/LX: 不在此处 clear 系统媒体信息/.test(patches)) {
+    reasons.push('dependencies-patch.js 缺少「RNTP destroy 不再 clear 系统媒体信息」补丁（clear = 拆会话）')
+  }
+  if (!/LX: no-op（单一媒体会话所有者/.test(patches)) {
+    reasons.push('dependencies-patch.js 缺少「RNTP clearNowPlayingMetadata 改为 no-op」补丁')
+  }
+  // ③ 会话重绑必须是非破坏性的（激活会话 + 重挂命令 + 重发，不置空）
+  const reassert = windowBetween(native, 'static void LXReassertNowPlayingSession(NSString *reason) {', '// 看门狗每拍调用的原生兜底真值入口', 2000)
+  if (!reassert) {
+    reasons.push('缺少 LXReassertNowPlayingSession（系统侧绑定过期时的非破坏性重绑）')
   } else {
-    if (!/center\.nowPlayingInfo = nil;[\s\S]{0,300}?0\.12 \* NSEC_PER_SEC[\s\S]{0,300}?LXApplyNowPlayingInfo\(\);[\s\S]{0,200}?LXForceNowPlayingCardRepaint\(\);/.test(rebuild)) {
-      reasons.push('硬重建没有「置空 → 一帧后重发 + 重绘」的完整序列')
+    if (!/LXActivateAudioSessionForPlayback\(\);/.test(reassert) ||
+        !/LXBeginReceivingRemoteControlEvents\(\);/.test(reassert) ||
+        !/LXReinstallRemoteCommandHandlers\(\);/.test(reassert)) {
+      reasons.push('会话重绑没有「激活会话 + 开始接收遥控事件 + 重挂命令目标」三件套')
     }
-    if (!/###LXNowPlaying### hardRebuild trigger=/.test(rebuild)) {
-      reasons.push('硬重建没有打点（真机无法确认它是否触发过）')
+    if (/nowPlayingInfo = nil/.test(reassert)) {
+      reasons.push('会话重绑里出现了置空（会拆会话，必须只做重绑/重发）')
+    }
+    if (!/###LXNowPlaying### sessionReassert reason=/.test(reassert)) {
+      reasons.push('会话重绑没有打点（真机无法确认它触发过）')
     }
   }
-  // 回前台：引擎仍在播 → 硬重建（用户验证过的恢复时机）
-  if (!/if \(LXNowPlayingEnginePlaying\) \{[\s\S]{0,400}?LXHardRebuildNowPlayingCard\(@"foreground"\);/.test(native)) {
-    reasons.push('回前台时没有对「引擎仍在播」做硬重建（用户验证过的恢复时机被浪费）')
+  if (!/LXReassertNowPlayingSession\(@"drift-playing"\);/.test(native)) {
+    reasons.push('漂移纠正没有走非破坏性会话重绑')
+  }
+  if (!/if \(LXNowPlayingEnginePlaying\) \{[\s\S]{0,300}?LXReassertNowPlayingSession\(@"foreground"\);/.test(native)) {
+    reasons.push('回前台时没有对「引擎仍在播」做会话重绑（用户验证过的恢复时机被浪费）')
   }
   if (!/RCT_REMAP_METHOD\(reportPlaybackTruth, reportPlaybackTruth:\(BOOL\)isPlaying options:\(NSDictionary \*\)options resolver:/.test(native)) {
     reasons.push('缺少 reportPlaybackTruth 桥方法（JS 回传无入口）')
   }
 
-  // ④ 封面链路：置空后必须无条件重发
-  const artwork = windowBetween(native, 'center.nowPlayingInfo = nil;', 'if (@available(iOS 13.0, *)) {', 1200)
+  // ④ 封面链路：只「合并 + 重发」，绝不置空（置空 = 拆会话 → 卡片停在最后一张快照）
+  const artwork = windowBetween(native, 'static void LXApplyNowPlayingArtwork(UIImage *image', 'static void LXBeginReceivingRemoteControlEvents', 4000)
   if (!artwork) {
-    reasons.push('找不到封面链路的「置空 → 重发」窗口')
+    reasons.push('找不到封面链路（LXApplyNowPlayingArtwork）')
   } else {
-    if (!/LXApplyNowPlayingInfo\(\);/.test(artwork)) {
-      reasons.push('封面链路置空后没有重发卡片信息')
+    if (/nowPlayingInfo = nil/.test(artwork)) {
+      reasons.push('封面链路里出现置空（会拆会话：卡片停在最后一张快照且无法被重发改动）')
     }
-    if (/if \(requestId != LXNowPlayingArtworkRequestId\) return;/.test(artwork)) {
-      reasons.push('封面链路置空后的重发仍被换代守卫跳过（卡片会停在「无信息」空态，按钮+进度条全失效）')
+    if (!/LXApplyNowPlayingInfo\(\);/.test(artwork)) {
+      reasons.push('封面链路没有重发信息（封面/元数据无法生效）')
     }
   }
 
@@ -187,12 +219,19 @@ const structuralReasons = ({ native, jsProgress, jsNowPlaying, jsUtils, jsInit }
     reasons.push('元数据发布缺少「引擎在播时不写速率 0」的守卫（JS 侧 isPlaying 滞后会把卡片打成暂停）')
   }
 
-  // ⑦ 每拍收敛（重构：发布权从 JS 链路收归原生，覆盖「系统侧副本过期 / 某次 JS 发布丢失」）
-  if (!/if \(LXNowPlayingEnginePlaying\) \{\s*\n\s*LXRefreshNowPlayingElapsedBaselineFromClock\(\);\s*\n\s*LXApplyNowPlayingInfo\(\);/.test(native)) {
-    reasons.push('看门狗没有每拍用引擎真值收敛卡片（发布仍依赖 JS 链路：任一次丢失就会永久停在旧状态）')
+  // ⑦ 每拍收敛（发布权收归原生）：JS 静默 >5s 才接管 —— 既不依赖 JS 发布，也不干扰按压/拖动
+  if (!/double sincePublishMs = nowMs - LXNowPlayingLastPublishAtMs;/.test(native) ||
+      !/BOOL jsSilent = LXNowPlayingLastPublishAtMs <= 0 \|\| sincePublishMs > 5000\.0;/.test(native)) {
+    reasons.push('看门狗没有「JS 静默 >5s 才接管」的门槛（要么完全不接管、要么每拍重发干扰按压/拖动）')
+  }
+  if (!/if \(jsSilent\) \{\s*\n\s*LXRefreshNowPlayingElapsedBaselineFromClock\(\);\s*\n\s*LXApplyNowPlayingInfo\(\);/.test(native)) {
+    reasons.push('JS 静默时没有刷新进度基线并重发（发布丢失后卡片不会收敛到真值）')
+  }
+  if (!/LXNowPlayingLastPublishAtMs = CACurrentMediaTime\(\) \* 1000\.0;/.test(native)) {
+    reasons.push('发布漏斗没有记录最近发布时刻（静默判定失效）')
   }
   if (!/###LXNowPlaying### converge engine=1 internal=/.test(native)) {
-    reasons.push('每拍收敛没有心跳打点（真机无法确认「App 侧一直在收敛」）')
+    reasons.push('收敛没有心跳打点（真机无法确认「App 侧一直在收敛」）')
   }
 
   // ⑧ 进度基线刷新：重发/纠正前必须用原生时钟外推位置刷新，否则进度条回跳
@@ -303,10 +342,10 @@ const models = [
     (() => { const r = simulate({ engine: () => 'buffering', userIntentPlaying: true, probes: 5, internalStart: 'paused' }); return r.fixedAtMs === null && r.state === 'paused' })()],
   ['修复后：JS 链路停摆（无回传）→ 原生兜底真值仍能把卡片纠正回播放态',
     (() => { const r = simulate({ engine: () => 'playing', userIntentPlaying: true, probes: 5, internalStart: 'paused', truthSource: 'native' }); return r.state === 'playing' && r.fixedAtMs === PROBE_MS })()],
-  ['修复后：系统侧副本过期（App 侧一致、探针报不出漂移）→ 每拍收敛 ≤3s 重建卡片',
+  ['修复后：系统侧副本过期（App 侧一致、探针报不出漂移）→ JS 静默后 ≤8s（5s 门槛 + 一拍）收敛',
     (() => {
-      const convergeMs = PROBE_MS
-      return convergeMs === 3000 && modelLegacy({ lostPublish: true }) === 'stuck'
+      const worstCaseMs = 5000 + PROBE_MS
+      return worstCaseMs === 8000 && modelLegacy({ lostPublish: true }) === 'stuck'
     })()],
   ['修复后：无任何 JS 发布（JS 停摆）→ 原生每拍收敛仍让卡片保持播放态 + 进度基线新鲜',
     (() => {
@@ -334,11 +373,8 @@ const models = [
       }
       return fixedAtMs != null && fixedAtMs <= 2500 && EVENT_FIX_MS < 2 * PROBE_MS && probes >= 0
     })()],
-  ['修复后：系统副本过期（重发/翻转都无效）→ 硬重建（置空 → 一帧后重发）作为最后一招',
-    (() => {
-      const recover = (strategy) => strategy === 'hard-rebuild' ? 'ok' : 'stuck'
-      return recover('hard-rebuild') === 'ok' && recover('republish-only') === 'stuck'
-    })()],
+  ['修复后：系统侧绑定过期 → 非破坏性会话重绑（激活会话 + 重挂命令 + 重发），绝不断会话',
+    (() => { const recover = (s) => s === 'reassert' ? 'recovered' : 'card-dead-until-restart'; return recover('reassert') === 'recovered' && recover('nil-teardown') === 'card-dead-until-restart' })()],
   ['修复后：元数据发布携带 rate 0（JS 侧 isPlaying 滞后）→ 守卫拦下、卡片保持播放态',
     (() => {
       const guard = (enginePlaying, internalState, payloadRate) =>
@@ -347,26 +383,26 @@ const models = [
     })()],
 ]
 
-const realReasons = structuralReasons({ native: NATIVE, jsProgress: JS_PROGRESS, jsNowPlaying: JS_NOWPLAYING, jsUtils: JS_UTILS, jsInit: JS_INIT })
+const realReasons = structuralReasons({ native: NATIVE, jsProgress: JS_PROGRESS, jsNowPlaying: JS_NOWPLAYING, jsUtils: JS_UTILS, jsInit: JS_INIT, patches: PATCHES })
 
 // 反例自检
 const tamperCases = [
   ['拿掉探针发射（漂移检测退回「只比对同源状态」）', ({ native }) => ({ native: native.replace('  [[NSNotificationCenter defaultCenter] postNotificationName:LXNowPlayingTruthProbeNotificationName object:nil];\n', '') }), '探针'],
   ['拿掉 ≥2s 防抖', ({ native }) => ({ native: native.replace('if (nowMs - LXNowPlayingTruthDriftSinceMs < 2000.0) return;', '') }), '防抖'],
-  ['封面链路恢复「换代即跳过重发」', ({ native }) => ({ native: native.replace('      if (requestId != LXNowPlayingArtworkRequestId) {\n        NSLog(@"###LXNowPlaying### artworkRepublish superseded → restore info (修复前会停在无卡片态)");\n      }\n', '      if (requestId != LXNowPlayingArtworkRequestId) return;\n') }), '无信息'],
+  ['封面链路恢复「置空再重发」', ({ native }) => ({ native: native.replace('    LXApplyNowPlayingInfo();\n    // 部分音源封面在播放中途才就绪', '    [MPNowPlayingInfoCenter defaultCenter].nowPlayingInfo = nil;\n    LXApplyNowPlayingInfo();\n    // 部分音源封面在播放中途才就绪') }), '置空'],
   ['回传口径改成「以 App 侧状态为准」', ({ jsProgress }) => ({ jsProgress: jsProgress.replace('if (engineState === \'playing\') {', 'if (true) {') }), '引擎确认 playing'],
   ['拿掉原生兜底真值喂入', ({ native }) => ({ native: native.replace('  LXReportNowPlayingEngineTruthFromLifecycle();\n', '') }), '原生兜底真值'],
   ['拿掉「引擎在播但速率 ≤ 0」判定', ({ native }) => ({ native: native.replace('  BOOL rateStuck = isPlaying && (cachedRate == nil || cachedRate.doubleValue <= 0);\n', '') }), '速率'],
   ['拿掉引擎进入播放的事件驱动补刀', ({ native }) => ({ native: native.replace('    if (LXNowPlayingEnginePlaying && !wasEnginePlaying) {\n', '    if (false) {\n') }), '事件驱动'],
-  ['拿掉纠正播放态时的硬重建（把置空→重发的间隔压成 0）', ({ native }) => ({ native: native.replace('(int64_t)(0.12 * NSEC_PER_SEC)', '(int64_t)(0.0 * NSEC_PER_SEC)') }), '硬重建'],
-  ['拿掉回前台的硬重建', ({ native }) => ({ native: native.replace('        LXHardRebuildNowPlayingCard(@"foreground");\n', '') }), '回前台'],
+  ['会话重绑里加回置空（拆会话）', ({ native }) => ({ native: native.replace('  LXActivateAudioSessionForPlayback();\n  LXBeginReceivingRemoteControlEvents();\n  LXReinstallRemoteCommandHandlers();', '  [MPNowPlayingInfoCenter defaultCenter].nowPlayingInfo = nil;\n  LXActivateAudioSessionForPlayback();\n  LXBeginReceivingRemoteControlEvents();\n  LXReinstallRemoteCommandHandlers();') }), '置空'],
+  ['拿掉回前台的会话重绑', ({ native }) => ({ native: native.replace('        LXReassertNowPlayingSession(@"foreground");\n', '') }), '回前台'],
   ['拿掉元数据发布的速率 0 守卫', ({ native }) => ({ native: native.replace('    if (LXNowPlayingEnginePlaying && LXNowPlayingState == MPNowPlayingPlaybackStatePlaying) {\n', '    if (false) {\n') }), '守卫'],
-  ['拿掉每拍收敛（发布退回依赖 JS 链路）', ({ native }) => ({ native: native.replace('  if (LXNowPlayingEnginePlaying) {\n    LXRefreshNowPlayingElapsedBaselineFromClock();\n    LXApplyNowPlayingInfo();\n', '  if (false) {\n') }), '每拍用引擎真值收敛'],
+  ['拿掉「JS 静默才接管」的门槛', ({ native }) => ({ native: native.replace('    BOOL jsSilent = LXNowPlayingLastPublishAtMs <= 0 || sincePublishMs > 5000.0;', '    BOOL jsSilent = NO;') }), '静默'],
   ['原生真值退回「只喂在播方向」', ({ native }) => ({ native: native.replace('  LXReportNowPlayingPlaybackTruth(LXNowPlayingEnginePlaying, @{});', '  if (!LXNowPlayingEnginePlaying) return;\n  LXReportNowPlayingPlaybackTruth(YES, @{});') }), '只喂「在播」'],
-  ['每拍收敛不刷新进度基线', ({ native }) => ({ native: native.replace('    LXRefreshNowPlayingElapsedBaselineFromClock();\n    LXApplyNowPlayingInfo();', '    LXApplyNowPlayingInfo();') }), '每拍收敛前没有刷新进度基线'],
+  ['静默接管时不刷新进度基线', ({ native }) => ({ native: native.replace('      LXRefreshNowPlayingElapsedBaselineFromClock();\n      LXApplyNowPlayingInfo();', '      LXApplyNowPlayingInfo();') }), '刷新进度基线'],
 ]
 const tamperResults = tamperCases.map(([name, mutate, expectKeyword]) => {
-  const mutated = { native: NATIVE, jsProgress: JS_PROGRESS, jsNowPlaying: JS_NOWPLAYING, jsUtils: JS_UTILS, jsInit: JS_INIT, ...mutate({ native: NATIVE, jsProgress: JS_PROGRESS, jsNowPlaying: JS_NOWPLAYING, jsUtils: JS_UTILS, jsInit: JS_INIT }) }
+  const mutated = { native: NATIVE, jsProgress: JS_PROGRESS, jsNowPlaying: JS_NOWPLAYING, jsUtils: JS_UTILS, jsInit: JS_INIT, patches: PATCHES, ...mutate({ native: NATIVE, jsProgress: JS_PROGRESS, jsNowPlaying: JS_NOWPLAYING, jsUtils: JS_UTILS, jsInit: JS_INIT, patches: PATCHES }) }
   const changed = mutated.native !== NATIVE || mutated.jsProgress !== JS_PROGRESS
   if (!changed) return [name, false, '找不到可篡改的锚点']
   const reasons = structuralReasons(mutated)
@@ -392,5 +428,5 @@ if (realReasons.length || failedModels.length || failedTampers.length) {
   console.error('\nFAIL  引擎真值自愈契约未通过')
   process.exit(1)
 }
-console.log(`\nPASS  卡片状态由原生按引擎真值收敛（结构不变量 8 组 + 行为模型 ${models.length} 例 + 反例 ${tamperResults.length} 例）`)
+console.log(`\nPASS  单一媒体会话所有者 + 原生按引擎真值收敛（结构不变量 8 组 + 行为模型 ${models.length} 例 + 反例 ${tamperResults.length} 例）`)
 process.exit(0)

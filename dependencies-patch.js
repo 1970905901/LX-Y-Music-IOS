@@ -803,6 +803,104 @@ private let lxTrackPlayerLifecycleNotification = Notification.Name("LXTrackPlaye
       },
     ],
   },
+  {
+    // —— 单一媒体会话所有者（2026-10-06 重构）——
+    // Now Playing 信息的写入者只能有一个：AppDelegate.mm 的原生模块
+    // （LXSetNowPlayingInfo / LXApplyNowPlayingInfo / LXClearNowPlayingInfo）。
+    // RNTP/SwiftAudioEx 在过去也会写/清同一份信息：
+    //   · destroy() / clearNowPlayingMetadata() → nowPlayingInfoController.clear()
+    //     —— 置空等于让系统拆掉整个媒体会话：屏幕上的卡片停在最后一张快照，
+    //     之后任何重发都改不动它，只有重建会话（重启 App / 切前台）才恢复；
+    //   · Metadata.update() 写的 info **不带 playbackRate** —— 系统据此把卡片判成
+    //     暂停、封面也不再刷新，还会覆盖我们刚发布的内容。
+    // 这里把这三处全部改成 no-op / 去掉 clear；会话结束由原生按会话语义清理。
+    filePath: 'node_modules/react-native-track-player/ios/RNTrackPlayer/Utils/Metadata.swift',
+    changes: [
+      {
+        from: `    static func update(for player: AudioPlayer, with metadata: [String: Any]) {
+        currentImageTask?.cancel()
+        var ret: [NowPlayingInfoKeyValue] = []
+        
+        if let title = metadata["title"] as? String {
+            ret.append(MediaItemProperty.title(title))
+        }
+        
+        if let artist = metadata["artist"] as? String {
+            ret.append(MediaItemProperty.artist(artist))
+        }
+        
+        if let album = metadata["album"] as? String {
+            ret.append(MediaItemProperty.albumTitle(album))
+        }
+        
+        if let duration = metadata["duration"] as? Double {
+            ret.append(MediaItemProperty.duration(duration))
+        }
+        
+        if let elapsedTime = metadata["elapsedTime"] as? Double {
+            ret.append(NowPlayingInfoProperty.elapsedPlaybackTime(elapsedTime))
+        }
+
+        if let isLiveStream = metadata["isLiveStream"] as? Bool {
+            ret.append(NowPlayingInfoProperty.isLiveStream(isLiveStream))
+        }
+        
+        player.nowPlayingInfoController.set(keyValues: ret)
+        
+        if let artworkURL = MediaURL(object: metadata["artwork"]) {
+            currentImageTask = URLSession.shared.dataTask(with: artworkURL.value, completionHandler: { [weak player] (data, _, error) in
+                if let data = data, let image = UIImage(data: data), error == nil {
+                    let artwork = MPMediaItemArtwork(boundsSize: image.size, requestHandler: { (size) -> UIImage in
+                        return image
+                    })
+                    player?.nowPlayingInfoController.set(keyValue: MediaItemProperty.artwork(artwork))
+                }
+            })
+            
+            currentImageTask?.resume()
+        }
+    }
+`,
+        to: `    static func update(for player: AudioPlayer, with metadata: [String: Any]) {
+        // LX: 单一媒体会话所有者（2026-10-06 重构，见 dependencies-patch.js）。
+        // Now Playing 信息只由 AppDelegate.mm 的原生模块写入（LXSetNowPlayingInfo /
+        // LXApplyNowPlayingInfo）：RNTP 这条路会写一份**不带 playbackRate** 的 info，
+        // 系统据此把卡片判成暂停 / 丢封面，并与本 App 的发布互相覆盖。
+        _ = player
+        _ = metadata
+    }
+`,
+      },
+    ],
+  },
+  {
+    filePath: 'node_modules/react-native-track-player/ios/RNTrackPlayer/RNTrackPlayer.swift',
+    changes: [
+      {
+        from: `        soundEffectTapProcessor = nil
+        self.player.nowPlayingInfoController.clear()
+        postLifecycleEvent("destroy", state: .idle, position: 0, rate: 0)
+`,
+        to: `        soundEffectTapProcessor = nil
+        // LX: 不在此处 clear 系统媒体信息（单一所有者见 AppDelegate.mm）。
+        // clear() = 置空 = 系统拆会话：屏幕上的卡片会停在最后一张快照且无法被重发改动；
+        // 会话结束由原生 LXClearNowPlayingInfo 按会话语义清理。
+        postLifecycleEvent("destroy", state: .idle, position: 0, rate: 0)
+`,
+      },
+      {
+        from: `    public func clearNowPlayingMetadata(resolve: RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) {
+        player.nowPlayingInfoController.clear()
+    }
+`,
+        to: `    public func clearNowPlayingMetadata(resolve: RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) {
+        // LX: no-op（单一媒体会话所有者，2026-10-06 重构）。
+        // 置空会让系统拆掉整个媒体会话（卡片停在最后一张快照，之后重发无效）。
+    }
+`,
+      },
+    ],
+  },
 ]
 
 const patchFile = async({ filePath, changes }) => {

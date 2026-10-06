@@ -6,7 +6,7 @@ import { initUnifiedPlayerEngine, onUnifiedPlayerEvent } from './engine'
 import { getNativeFlacTrackId, setNativeFlacRate, setNativeFlacVolume } from './nativeFlac'
 import { getPositionStamped, elapsedSnapshotFields, isEmpty, setStop } from './utils'
 import { exitApp } from '@/core/common'
-import { playNext, setMusicUrl } from '@/core/player/player'
+import { isGettingUrlIdGateActive, playNext, setMusicUrl } from '@/core/player/player'
 import { getNextTryQuality, getLastTryQuality, removeMusicUrl } from '@/core/music/utils'
 import { setStatusText } from '@/core/player/playStatus'
 import playerState from '@/store/player/state'
@@ -131,10 +131,17 @@ export const initUnifiedPlayerController = () => {
     if (settingState.setting['player.autoSkipOnError']) setTimeout(addDelayNextTimeout)
   }
   onUnifiedPlayerEvent(async(event) => {
+    // 换源闸门：换源期间丢弃旧引擎事件（避免把上一首的收尾事件当成新歌的），但闸门
+    // **必须有上界** —— 以前这里直接看 global.lx.gettingUrlId 是否非空，而该值可能永久
+    // 残留（详见 isGettingUrlIdGateActive 注释），会把引擎事件永久掐断：不发布
+    // nowPlaying（卡片冻结 / 按钮方向反 / 进度条停走）、不派发 trackChanged / ended
+    // （自动下一首停摆），而音频照播、App 内进度照走（不经此闸门）—— 正是用户反复
+    // 反馈的「有声音但卡片失效、重启才恢复」，也是「失效时在 App 内暂停→播放也无效」
+    // 的原因（那两次按键产生的 state 事件同样被闸门丢掉）。
     if (
       event.driver == 'trackPlayer' &&
       (
-        global.lx.gettingUrlId ||
+        isGettingUrlIdGateActive() ||
         (isEmpty(global.lx.playerTrackId) && /\/\/default\/\/restorePlay$/.test(global.lx.playerTrackId))
       )
     ) return

@@ -66,6 +66,40 @@ const createGettingUrlId = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem
   return `${musicInfo.id}_${tInfo?.id ?? ''}`
 }
 
+// —— 换源闸门（gettingUrlId）的时间上界 ——
+// 见 isGettingUrlIdGateActive 的注释：闸门曾能永久残留，把 controller 的引擎事件投递
+// 永久掐断（卡片冻结 / 自动下一首停摆，重启 App 才恢复）。
+let gettingUrlIdSetAt = 0
+let loggedStaleGateValue: string | null = null
+const GETTING_URL_ID_GATE_MAX_MS = 20000
+
+/**
+ * 「换源闸门」此刻是否仍然有效（controller.ts 用它决定要不要丢弃 trackPlayer 引擎事件）。
+ *
+ * 背景（2026-10-06 用户实测：卡片失效时在 App 内暂停→播放也无效）：
+ * `global.lx.gettingUrlId` 非空时 controller 会丢弃**所有** trackPlayer 事件，而它只在
+ * setMusicUrl 的 finally 里清，旧实现还要求 musicInfo 与当前播放信息**引用相等** ——
+ * 只要那次 URL 请求没走到 finally（请求不 settle），或加载期间播放信息被「同 id 的新对象」
+ * 换代，它就会永久非空：引擎事件永久被丢 —— 不发布 nowPlaying（控制中心 / 灵动岛卡片冻结
+ * 在旧态、按钮方向反、进度条停走）、不派发 trackChanged / ended（自动下一首等联动一并停摆）；
+ * 而音频照播、App 内进度照走（那条链路走原生 4Hz 位置事件与 1s 慢校准，不经过本闸门）。
+ * 直观表现就是「有声音但卡片失效、重启 App 才恢复」。
+ * 所以闸门必须有时间上界：超过 GETTING_URL_ID_GATE_MAX_MS 仍未被清就放行事件 ——
+ * 继续丢事件比卡片永久失效更糟；迟到的 URL 结果仍会被 diffCurrentMusicInfo 拦下。
+ */
+export const isGettingUrlIdGateActive = () => {
+  if (!global.lx.gettingUrlId) return false
+  if (gettingUrlIdSetAt <= 0) return true
+  const ageMs = Date.now() - gettingUrlIdSetAt
+  if (ageMs < GETTING_URL_ID_GATE_MAX_MS) return true
+  if (loggedStaleGateValue !== global.lx.gettingUrlId) {
+    loggedStaleGateValue = global.lx.gettingUrlId
+    // Release 的 JS console 会进系统日志：这一行是真机判断「闸门卡死」的直接证据
+    console.log(`###LXPlayerGuard### gettingUrl 闸门超时放行（已 ${ageMs}ms，值=${global.lx.gettingUrlId}）`)
+  }
+  return false
+}
+
 interface PlayUrlInfo {
   url: string
   quality: LX.Quality | null
@@ -160,9 +194,18 @@ const getMusicPlayUrl = async(musicInfo: LX.Music.MusicInfo | LX.Download.ListIt
 let pendingRestoreSeek: { key: string, time: number } | null = null
 export const setMusicUrl = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem, isRefresh?: boolean, quality?: LX.Quality) => {
   // addLoadTimeout()
-  if (!diffCurrentMusicInfo(musicInfo)) return
+  // 同一首歌：闸门正压着这首歌（URL 请求可能挂起）时只有**超时**才放行重试 ——
+  // 否则这首歌会被永久锁在「不能重新取 URL」的状态（loading 看门狗的 refresh 也会被挡掉）；
+  // 其余情况维持旧语义（无事可做直接早退，不会凭空重新起播）。
+  if (!diffCurrentMusicInfo(musicInfo)) {
+    const gateValue = global.lx.gettingUrlId
+    const gateHoldsThisSong = gateValue != '' && gateValue == createGettingUrlId(musicInfo)
+    if (!gateHoldsThisSong || isGettingUrlIdGateActive()) return
+  }
   if (cancelDelayRetry) cancelDelayRetry()
   global.lx.gettingUrlId = createGettingUrlId(musicInfo)
+  gettingUrlIdSetAt = Date.now()
+  loggedStaleGateValue = null
   // 非 refresh = 新歌：只有「启动恢复的那首歌」携带显式恢复时间，其余一律从 0 开始
   const restoreSeek = pendingRestoreSeek
   const isRestoredMusic = !isRefresh && restoreSeek != null && restoreSeek.key === createGettingUrlId(musicInfo)
@@ -183,8 +226,15 @@ export const setMusicUrl = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem
     global.app_event.error()
     addDelayNextTimeout()
   }).finally(() => {
-    if (musicInfo === playerState.playMusicInfo.musicInfo) {
+    // 用「歌曲 id」比较而不是对象引用：加载期间播放信息可能被同 id 的新对象换代
+    // （列表更新 / 切源等），引用比较会失败 → gettingUrlId 永久残留 → controller 的
+    // 闸门永久丢弃引擎事件（卡片冻结、自动下一首停摆，只有重启 App 才恢复）。
+    // 详见 isGettingUrlIdGateActive 的注释。
+    const currentId = playerState.playMusicInfo.musicInfo?.id
+    if (currentId != null && musicInfo.id == currentId) {
       global.lx.gettingUrlId = ''
+      gettingUrlIdSetAt = 0
+      loggedStaleGateValue = null
       clearLoadTimeout()
     }
   })

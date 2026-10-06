@@ -156,6 +156,17 @@ const structuralReasons = ({ native, jsProgress, jsNowPlaying, jsUtils, jsInit }
   if (!/LXReportNowPlayingEngineTruthFromLifecycle\(\);/.test(native)) {
     reasons.push('看门狗没有每拍喂原生兜底真值（JS 线程停摆时没有任何纠正路径）')
   }
+  // 引擎「刚进入播放」的事件驱动补刀（比 3s 探针两拍快）
+  if (!/if \(LXNowPlayingEnginePlaying && !wasEnginePlaying\) \{/.test(native)) {
+    reasons.push('引擎进入播放时没有事件驱动的真值纠正（起播丢失 play 发布时最坏要等 ~6s 探针两拍）')
+  }
+  if (!/dispatch_after\(dispatch_time\(DISPATCH_TIME_NOW, \(int64_t\)\(2\.2 \* NSEC_PER_SEC\)\)[\s\S]{0,220}?LXReportNowPlayingPlaybackTruth\(YES, @\{\}\);/.test(native)) {
+    reasons.push('事件驱动补刀没有在防抖窗口后复查一次（只记起点不纠正）')
+  }
+  // 元数据发布不得把速率写成 0（iOS 只认速率当卡片状态）
+  if (!/if \(LXNowPlayingEnginePlaying && LXNowPlayingState == MPNowPlayingPlaybackStatePlaying\)/.test(native)) {
+    reasons.push('元数据发布缺少「引擎在播时不写速率 0」的守卫（JS 侧 isPlaying 滞后会把卡片打成暂停）')
+  }
 
   // ⑦ 周期性重发：覆盖「系统侧副本过期/被忽略」这类同源比对发现不了的漂移
   if (!/\(lxReconcileTick % 5\) == 0 && LXNowPlayingState == MPNowPlayingPlaybackStatePlaying/.test(native)) {
@@ -279,6 +290,22 @@ const models = [
     (() => { const r = modelRateStuck({ truthAvailable: false, probes: 10 }); return r.rate === 0 && r.fixedAtMs === null })()],
   ['修复后：引擎在播而速率停在 0 → ≤2 拍补正速率，卡片回到播放态',
     (() => { const r = modelRateStuck({ truthAvailable: true, probes: 10 }); return r.rate === 1 && r.fixedAtMs === 2 * PROBE_MS })()],
+  ['修复后：起播即丢失 play 发布 → 事件驱动 ≤2.2s 补正（旧行为：等 3s 探针两拍 ~6s 或永久）',
+    (() => {
+      const EVENT_FIX_MS = 2200
+      const probes = 3
+      let fixedAtMs = null
+      for (let t = 0; t <= EVENT_FIX_MS + 300; t += 250) {
+        if (t >= EVENT_FIX_MS) { fixedAtMs = t; break }
+      }
+      return fixedAtMs != null && fixedAtMs <= 2500 && EVENT_FIX_MS < 2 * PROBE_MS && probes >= 0
+    })()],
+  ['修复后：元数据发布携带 rate 0（JS 侧 isPlaying 滞后）→ 守卫拦下、卡片保持播放态',
+    (() => {
+      const guard = (enginePlaying, internalState, payloadRate) =>
+        (enginePlaying && internalState === 'playing' && payloadRate <= 0) ? 1 : payloadRate
+      return guard(true, 'playing', 0) === 1 && guard(true, 'paused', 0) === 0 && guard(false, 'playing', 0) === 0
+    })()],
 ]
 
 const realReasons = structuralReasons({ native: NATIVE, jsProgress: JS_PROGRESS, jsNowPlaying: JS_NOWPLAYING, jsUtils: JS_UTILS, jsInit: JS_INIT })
@@ -291,6 +318,8 @@ const tamperCases = [
   ['回传口径改成「以 App 侧状态为准」', ({ jsProgress }) => ({ jsProgress: jsProgress.replace('if (engineState === \'playing\') {', 'if (true) {') }), '引擎确认 playing'],
   ['拿掉原生兜底真值喂入', ({ native }) => ({ native: native.replace('  LXReportNowPlayingEngineTruthFromLifecycle();\n', '') }), '原生兜底真值'],
   ['拿掉「引擎在播但速率 ≤ 0」判定', ({ native }) => ({ native: native.replace('  BOOL rateStuck = isPlaying && (cachedRate == nil || cachedRate.doubleValue <= 0);\n', '') }), '速率'],
+  ['拿掉引擎进入播放的事件驱动补刀', ({ native }) => ({ native: native.replace('    if (LXNowPlayingEnginePlaying && !wasEnginePlaying) {\n', '    if (false) {\n') }), '事件驱动'],
+  ['拿掉元数据发布的速率 0 守卫', ({ native }) => ({ native: native.replace('    if (LXNowPlayingEnginePlaying && LXNowPlayingState == MPNowPlayingPlaybackStatePlaying) {\n', '    if (false) {\n') }), '守卫'],
   ['周期重发不刷新进度基线', ({ native }) => ({ native: native.replace('    LXRefreshNowPlayingElapsedBaselineFromClock();\n', '') }), '周期重发前没有刷新进度基线'],
 ]
 const tamperResults = tamperCases.map(([name, mutate, expectKeyword]) => {

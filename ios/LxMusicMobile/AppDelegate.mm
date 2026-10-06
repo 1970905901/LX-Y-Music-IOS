@@ -1465,7 +1465,18 @@ static void LXHandleTrackPlayerLifecycleNotification(NSNotification *notificatio
   // （destroy / reset / stop / error）一律清掉。看门狗据此在 JS 链路无声时兜底纠正卡片。
   if ([event isEqualToString:@"state"]) {
     NSString *engineStateName = [userInfo[@"state"] isKindOfClass:[NSString class]] ? userInfo[@"state"] : @"";
+    BOOL wasEnginePlaying = LXNowPlayingEnginePlaying;
     LXNowPlayingEnginePlaying = [engineStateName isEqualToString:@"playing"];
+    if (LXNowPlayingEnginePlaying && !wasEnginePlaying) {
+      // 引擎刚进入播放：立即记一次真值（漂移起点），并在防抖窗口后补一刀 ——
+      // 事件驱动比 3s 探针两拍（最坏 ~6s）快得多。典型场景：起播时 JS 的 play 发布
+      // 丢失（无歌词的歌没有后续逐行发布来改写速率）→ 卡片停在「暂停 + 0:00」。
+      LXReportNowPlayingPlaybackTruth(YES, @{});
+      dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        if (!LXNowPlayingEnginePlaying) return;
+        LXReportNowPlayingPlaybackTruth(YES, @{});
+      });
+    }
   } else if ([event isEqualToString:@"destroy"] || [event isEqualToString:@"reset"] ||
              [event isEqualToString:@"stop"] || [event isEqualToString:@"error"]) {
     LXNowPlayingEnginePlaying = NO;
@@ -1650,6 +1661,17 @@ static void LXSetNowPlayingInfo(NSDictionary *metadata) {
       LXNowPlayingElapsedSnapshotAtMs = (snapshotAtMs > 0) ? nowMs : 0;
     }
     info[MPNowPlayingInfoPropertyPlaybackRate] = playbackRate ?: info[MPNowPlayingInfoPropertyPlaybackRate] ?: LXDefaultNowPlayingRate();
+    // 元数据发布**不得**在「引擎在播 + 内部播放态 = Playing」时把速率写成 0：
+    // iOS 忽略第三方 playbackState，卡片只认这里的速率（0 = 卡片被判成暂停、进度条冻结）；
+    // 而元数据发布携带的 playbackRate 来自 JS 侧 isPlaying，缓冲区抖动/状态滞后的窗口里
+    // 它会短暂为 0 —— 逐行歌词/封面每发一次就把卡片打成暂停（表现为间歇性失效）。
+    // 用户真暂停时走的是 LXSetNowPlayingPlaybackState(Paused)（那里无条件写 0），不受此守卫影响。
+    if (LXNowPlayingEnginePlaying && LXNowPlayingState == MPNowPlayingPlaybackStatePlaying) {
+      NSNumber *effectiveRate = info[MPNowPlayingInfoPropertyPlaybackRate];
+      if (![effectiveRate isKindOfClass:[NSNumber class]] || effectiveRate.doubleValue <= 0) {
+        info[MPNowPlayingInfoPropertyPlaybackRate] = @1;
+      }
+    }
     info[MPNowPlayingInfoPropertyDefaultPlaybackRate] = info[MPNowPlayingInfoPropertyDefaultPlaybackRate] ?: LXNowPlayingDefaultPlaybackRateValue();
     // JS 以正速率发布 = 断言「当前正在播放」：解除可能残留的时钟冻结（hold）。
     // nativeFlac 驱动下 TrackPlayer 已 reset、不再产生 state 生命周期事件，hold 若

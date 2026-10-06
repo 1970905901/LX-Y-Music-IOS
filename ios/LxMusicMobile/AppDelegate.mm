@@ -758,7 +758,7 @@ static void LXReportNowPlayingEngineTruthFromLifecycle(void);
 // 原生时钟外推位置（秒）：重发 / 纠正卡片前刷新进度基线（定义在文件后部歌词时钟区块）
 static double LXNowPlayingCurrentElapsedSec(void);
 static void LXRefreshNowPlayingElapsedBaselineFromClock(void);
-// 当前卡片速率（看门狗 reassert 打点用；定义在播放态发布区块之前必须先声明）
+// 当前卡片速率（看门狗收敛/真值纠正打点用；定义在播放态发布区块之前必须先声明）
 static NSNumber *LXCurrentNowPlayingRate(void);
 // 屏幕/音频路由变化后重新判定 8.3Hz 歌词时钟是否该跑（熄屏且无蓝牙歌词可送车机时停钟）
 static void LXUpdateNowPlayingLyricTimerVisibility(void);
@@ -1012,23 +1012,27 @@ static void LXReconcileNowPlayingCardNow(void) {
   double nowMs = CACurrentMediaTime() * 1000.0;
   if (nowMs < LXNowPlayingCardRepaintFlipUntilMs || nowMs < LXNowPlayingArtworkRepaintFlipUntilMs) return;
 
-  // —— 播放中的周期性卡片重发（每 15s，即第 5 拍）——
-  // 卡片的显示态是系统侧的一份副本：与 App 侧缓存态**同源**的比对发现不了「系统那份
-  // 过期 / 被忽略」——某次 playbackState / nowPlayingInfo 写入被 iOS 丢弃，或卡片在打开时
-  // 按 mediaremoted 的旧快照重建（2026-10-06 系统日志实测：卡片 elapsed=0.000 + play 图标，
-  // 同一时刻 App 仍在出声）。这种漂移 JS 探针与看门狗都报不出来，用户看到的就是
-  // 「有声音但按钮 / 进度条失效」。播放态下每 15s 用原生时钟刷新进度基线后重发信息 +
-  // 翻转重绘（等效用户手动「暂停→播放」一次），强制系统重建卡片；代价是每 15s 两次
-  // playbackState 赋值（翻转 60ms，且让位于用户按压，见 LXForceNowPlayingCardRepaint）。
-  static NSUInteger lxReconcileTick = 0;
-  lxReconcileTick += 1;
-  if ((lxReconcileTick % 5) == 0 && LXNowPlayingState == MPNowPlayingPlaybackStatePlaying) {
+  // —— 卡片状态收敛（每拍 3s；重构：发布权从 JS 链路收归原生）——
+  // iOS 忽略第三方 App 的 playbackState（缺 entitlement，真机日志实证：
+  // `[MRNowPlaying] Ignoring setPlaybackState …`），卡片状态**完全**由我们发布的
+  // nowPlayingInfo（PlaybackRate / ElapsedPlaybackTime）决定。而「发布」过去分散在 JS 的
+  // 播放/暂停/歌词/进度链路里：只要那条链路有一次没发（丢失 / 被换源闸门丢弃 / JS 停摆 /
+  // 系统副本过期），卡片就会永久停在旧状态 —— 有声音、按钮方向反、进度条停走，只有
+  // 重建会话（重启 App / 切前台）才恢复。现在把发布收归原生看门狗：
+  //   · 引擎真值说在播 → 每拍用原生时钟刷新进度基线并重发信息（不再依赖任何 JS 发布）；
+  //   · 与内部态/速率不一致 → 走下面的漂移纠正（≥2s 防抖 + 硬重建）。
+  // 于是「卡片 == 引擎真值」由原生每 3s 收敛一次，任何一次 JS 发布丢失都只影响 ≤3s。
+  static NSUInteger lxConvergeTick = 0;
+  lxConvergeTick += 1;
+  if (LXNowPlayingEnginePlaying) {
     LXRefreshNowPlayingElapsedBaselineFromClock();
-    NSLog(@"###LXNowPlaying### reassert internal=%ld rate=%.2f info=%lu",
-          (long)LXNowPlayingState, LXCurrentNowPlayingRate().doubleValue,
-          (unsigned long)LXNowPlayingInfoCache.count);
     LXApplyNowPlayingInfo();
-    LXForceNowPlayingCardRepaint();
+    // 心跳（每 5 拍 15s 一行）：真机日志里「App 侧一直在收敛」的直接证据
+    if ((lxConvergeTick % 5) == 0) {
+      NSLog(@"###LXNowPlaying### converge engine=1 internal=%ld rate=%.2f info=%lu",
+            (long)LXNowPlayingState, LXCurrentNowPlayingRate().doubleValue,
+            (unsigned long)LXNowPlayingInfoCache.count);
+    }
   }
 
   MPNowPlayingInfoCenter *center = [MPNowPlayingInfoCenter defaultCenter];
@@ -1459,13 +1463,14 @@ static void LXHardRebuildNowPlayingCard(NSString *trigger) {
   });
 }
 
-// 看门狗每拍调用的原生兜底真值入口（不依赖 JS 回传）：RNTP 生命周期最近一次报告
-// 引擎在播时，把「在播」喂给同一个纠正入口。nativeFlac 接管会话期间必须跳过 ——
-// 那时 TrackPlayer 已 reset，它的状态不代表出声引擎（nativeFlac 走 JS 探针的回传）。
+// 看门狗每拍调用的原生兜底真值入口（不依赖 JS 回传）：把 RNTP 生命周期给出的引擎真值
+// 喂给纠正入口 —— **两个方向都喂**（在播 → 卡片必须显示播放中；已停 → 卡片必须显示暂停）。
+// RNTP 补丁在每次 AVPlayer 状态变化时都会发生命周期事件（原生 NSNotification，不经 JS 桥），
+// 所以这个真值不会丢；nativeFlac 接管会话期间必须跳过 —— 那时 TrackPlayer 已 reset，
+// 它的状态不代表出声引擎（那个路径走 JS 探针回传 + JS 侧自身的发布）。
 static void LXReportNowPlayingEngineTruthFromLifecycle(void) {
-  if (!LXNowPlayingEnginePlaying) return;
   if (LXStreamingFlacOwnsAudioSession) return;
-  LXReportNowPlayingPlaybackTruth(YES, @{});
+  LXReportNowPlayingPlaybackTruth(LXNowPlayingEnginePlaying, @{});
 }
 
 static void LXClearNowPlayingInfo(void) {

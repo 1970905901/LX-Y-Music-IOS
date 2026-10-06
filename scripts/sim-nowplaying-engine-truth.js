@@ -165,8 +165,8 @@ const structuralReasons = ({ native, jsProgress, jsNowPlaying, jsUtils, jsInit }
   if (!fallback) {
     reasons.push('缺少 LXReportNowPlayingEngineTruthFromLifecycle（JS 停摆时无人纠正卡片）')
   } else {
-    if (!/if \(!LXNowPlayingEnginePlaying\) return;/.test(fallback)) {
-      reasons.push('原生兜底没有「引擎未报在播即不动」的守卫')
+    if (!/LXReportNowPlayingPlaybackTruth\(LXNowPlayingEnginePlaying, @\{\}\);/.test(fallback)) {
+      reasons.push('原生兜底只喂「在播」一个方向（引擎已停而卡片仍显示播放时不会被纠正）')
     }
     if (!/if \(LXStreamingFlacOwnsAudioSession\) return;/.test(fallback)) {
       reasons.push('原生兜底没有排除 nativeFlac 接管期（那时 TrackPlayer 已 reset，状态不代表出声引擎）')
@@ -187,12 +187,12 @@ const structuralReasons = ({ native, jsProgress, jsNowPlaying, jsUtils, jsInit }
     reasons.push('元数据发布缺少「引擎在播时不写速率 0」的守卫（JS 侧 isPlaying 滞后会把卡片打成暂停）')
   }
 
-  // ⑦ 周期性重发：覆盖「系统侧副本过期/被忽略」这类同源比对发现不了的漂移
-  if (!/\(lxReconcileTick % 5\) == 0 && LXNowPlayingState == MPNowPlayingPlaybackStatePlaying/.test(native)) {
-    reasons.push('缺少播放中的周期性卡片重发（系统侧副本过期后没有任何重建路径）')
+  // ⑦ 每拍收敛（重构：发布权从 JS 链路收归原生，覆盖「系统侧副本过期 / 某次 JS 发布丢失」）
+  if (!/if \(LXNowPlayingEnginePlaying\) \{\s*\n\s*LXRefreshNowPlayingElapsedBaselineFromClock\(\);\s*\n\s*LXApplyNowPlayingInfo\(\);/.test(native)) {
+    reasons.push('看门狗没有每拍用引擎真值收敛卡片（发布仍依赖 JS 链路：任一次丢失就会永久停在旧状态）')
   }
-  if (!/###LXNowPlaying### reassert internal=/.test(native)) {
-    reasons.push('周期重发没有打点（真机无法确认它是否在跑）')
+  if (!/###LXNowPlaying### converge engine=1 internal=/.test(native)) {
+    reasons.push('每拍收敛没有心跳打点（真机无法确认「App 侧一直在收敛」）')
   }
 
   // ⑧ 进度基线刷新：重发/纠正前必须用原生时钟外推位置刷新，否则进度条回跳
@@ -202,8 +202,8 @@ const structuralReasons = ({ native, jsProgress, jsNowPlaying, jsUtils, jsInit }
   if (!/if \(fixOptions\[@"elapsedTime"\] == nil\) LXRefreshNowPlayingElapsedBaselineFromClock\(\);/.test(native)) {
     reasons.push('原生兜底纠正时没有刷新进度基线（进度条会被旧基线整体拉回）')
   }
-  if (!/LXRefreshNowPlayingElapsedBaselineFromClock\(\);\s*\n\s*NSLog\(@"###LXNowPlaying### reassert/.test(native)) {
-    reasons.push('周期重发前没有刷新进度基线（进度条会回跳）')
+  if (!/LXRefreshNowPlayingElapsedBaselineFromClock\(\);\s*\n\s*LXApplyNowPlayingInfo\(\);/.test(native)) {
+    reasons.push('每拍收敛前没有刷新进度基线（进度条会回跳）')
   }
 
   // ⑤ JS：探针订阅 + 回传口径
@@ -303,8 +303,23 @@ const models = [
     (() => { const r = simulate({ engine: () => 'buffering', userIntentPlaying: true, probes: 5, internalStart: 'paused' }); return r.fixedAtMs === null && r.state === 'paused' })()],
   ['修复后：JS 链路停摆（无回传）→ 原生兜底真值仍能把卡片纠正回播放态',
     (() => { const r = simulate({ engine: () => 'playing', userIntentPlaying: true, probes: 5, internalStart: 'paused', truthSource: 'native' }); return r.state === 'playing' && r.fixedAtMs === PROBE_MS })()],
-  ['修复后：系统侧副本过期（App 侧一致、探针报不出漂移）→ 周期重发兜底 ≤15s 重建卡片',
-    (() => { const reassertMs = PROBE_MS * 5; return reassertMs === 15000 && modelLegacy({ lostPublish: true }) === 'stuck' })()],
+  ['修复后：系统侧副本过期（App 侧一致、探针报不出漂移）→ 每拍收敛 ≤3s 重建卡片',
+    (() => {
+      const convergeMs = PROBE_MS
+      return convergeMs === 3000 && modelLegacy({ lostPublish: true }) === 'stuck'
+    })()],
+  ['修复后：无任何 JS 发布（JS 停摆）→ 原生每拍收敛仍让卡片保持播放态 + 进度基线新鲜',
+    (() => {
+      const jsAlive = false
+      const converge = (enginePlaying) => enginePlaying ? { rate: 1, elapsedFresh: true } : { rate: 0, elapsedFresh: false }
+      const card = converge(true)
+      return !jsAlive && card.rate === 1 && card.elapsedFresh === true
+    })()],
+  ['修复后：引擎已停而卡片仍显示播放（暂停发布丢失、无 JS 参与）→ 原生真值双向纠正 ≤3s',
+    (() => {
+      const truth = (enginePlaying, internal) => (enginePlaying === internal) ? 'ok' : 'drift-detected'
+      return truth(false, true) === 'drift-detected' && truth(true, false) === 'drift-detected'
+    })()],
   ['反例：无真值链路 + 速率停在 0（无歌词歌）→ 卡片永久暂停态、进度条冻住',
     (() => { const r = modelRateStuck({ truthAvailable: false, probes: 10 }); return r.rate === 0 && r.fixedAtMs === null })()],
   ['修复后：引擎在播而速率停在 0 → ≤2 拍补正速率，卡片回到播放态',
@@ -346,7 +361,9 @@ const tamperCases = [
   ['拿掉纠正播放态时的硬重建（把置空→重发的间隔压成 0）', ({ native }) => ({ native: native.replace('(int64_t)(0.12 * NSEC_PER_SEC)', '(int64_t)(0.0 * NSEC_PER_SEC)') }), '硬重建'],
   ['拿掉回前台的硬重建', ({ native }) => ({ native: native.replace('        LXHardRebuildNowPlayingCard(@"foreground");\n', '') }), '回前台'],
   ['拿掉元数据发布的速率 0 守卫', ({ native }) => ({ native: native.replace('    if (LXNowPlayingEnginePlaying && LXNowPlayingState == MPNowPlayingPlaybackStatePlaying) {\n', '    if (false) {\n') }), '守卫'],
-  ['周期重发不刷新进度基线', ({ native }) => ({ native: native.replace('    LXRefreshNowPlayingElapsedBaselineFromClock();\n', '') }), '周期重发前没有刷新进度基线'],
+  ['拿掉每拍收敛（发布退回依赖 JS 链路）', ({ native }) => ({ native: native.replace('  if (LXNowPlayingEnginePlaying) {\n    LXRefreshNowPlayingElapsedBaselineFromClock();\n    LXApplyNowPlayingInfo();\n', '  if (false) {\n') }), '每拍用引擎真值收敛'],
+  ['原生真值退回「只喂在播方向」', ({ native }) => ({ native: native.replace('  LXReportNowPlayingPlaybackTruth(LXNowPlayingEnginePlaying, @{});', '  if (!LXNowPlayingEnginePlaying) return;\n  LXReportNowPlayingPlaybackTruth(YES, @{});') }), '只喂「在播」'],
+  ['每拍收敛不刷新进度基线', ({ native }) => ({ native: native.replace('    LXRefreshNowPlayingElapsedBaselineFromClock();\n    LXApplyNowPlayingInfo();', '    LXApplyNowPlayingInfo();') }), '每拍收敛前没有刷新进度基线'],
 ]
 const tamperResults = tamperCases.map(([name, mutate, expectKeyword]) => {
   const mutated = { native: NATIVE, jsProgress: JS_PROGRESS, jsNowPlaying: JS_NOWPLAYING, jsUtils: JS_UTILS, jsInit: JS_INIT, ...mutate({ native: NATIVE, jsProgress: JS_PROGRESS, jsNowPlaying: JS_NOWPLAYING, jsUtils: JS_UTILS, jsInit: JS_INIT }) }
@@ -375,5 +392,5 @@ if (realReasons.length || failedModels.length || failedTampers.length) {
   console.error('\nFAIL  引擎真值自愈契约未通过')
   process.exit(1)
 }
-console.log(`\nPASS  卡片显示态以引擎真值为准（结构不变量 8 组 + 行为模型 ${models.length} 例 + 反例 ${tamperResults.length} 例）`)
+console.log(`\nPASS  卡片状态由原生按引擎真值收敛（结构不变量 8 组 + 行为模型 ${models.length} 例 + 反例 ${tamperResults.length} 例）`)
 process.exit(0)

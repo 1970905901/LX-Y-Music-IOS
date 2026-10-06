@@ -139,6 +139,11 @@ export const resetNativeFlacPlayback = async() => {
   const mode = currentMode
   const trackId = currentTrackId
 
+  // 本引擎从未激活（开关关闭 = 全程走 TrackPlayer/AVPlayer）时**什么都不做**：
+  // 不再每次换歌都去 call 原生 FLAC 模块 —— 那条 reset 路径会动全 App 的遥控事件状态
+  // （endReceivingRemoteControlEvents，见 AppDelegate 的原生注释），属于跨引擎越界。
+  if (mode == 'none' && !trackId) return
+
   if (isStreamingFlacSupported) await resetStreamingFlac().catch(() => {})
 
   if (currentMode == mode && currentTrackId == trackId) clearCurrentContext('idle')

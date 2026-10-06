@@ -5107,7 +5107,12 @@ RCT_REMAP_METHOD(stop, stopStreamWithResolver:(RCTPromiseResolveBlock)resolve re
 RCT_REMAP_METHOD(reset, resetStreamWithResolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
   [self stopStreamingInternal:YES];
   [self resetStreamingState];
-  LXEndReceivingRemoteControlEvents();
+  // ⚠️ 不在此处 LXEndReceivingRemoteControlEvents()（单一所有者，2026-10-06 重构）：
+  // 这个调用是**跨模块越界** —— 它动的是全 App 级别的遥控事件接收状态，而那是
+  // NowPlaying 模块的所有权（有卡片/会话时 begin，两者都没有时 end，见
+  // LXSyncRemoteCommandAvailability）。AVPlayer 路径每次换歌都会调用本 reset，
+  // 于是每次换歌都把遥控事件接收关掉一次（要等下一次 nowPlaying 发布才恢复）：
+  // 耳机/车机按键与卡片绑定在这个窗口里处于「已解绑」状态。
   self.currentState = @"idle";
   [self emitState:@"idle" position:@0 duration:@0];
   resolve(nil);

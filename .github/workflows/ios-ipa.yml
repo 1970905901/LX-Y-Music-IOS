@@ -9,6 +9,13 @@ on:
       - 'v*'
   workflow_dispatch:
 
+# 同一分支只保留最新一次运行：连续推送时旧运行自动取消。
+# 没有它时每次 push 各排一次 ~10 分钟的 macOS 构建：用户在等最新 IPA，runner 却在
+# 打已被取代的旧提交（2026-10-06 一次性推了 7 个修复，队列一度排到 ~40 分钟）。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: write
 

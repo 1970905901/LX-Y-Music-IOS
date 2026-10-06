@@ -764,6 +764,9 @@ static double LXNowPlayingLastPublishAtMs = 0;
 // 收到遥控命令的次数：切到控制中心按一下按钮后看它是否 +1 —— 不涨说明系统没把
 // 按键送到 App（系统侧问题），涨了而卡片不动说明是发布/渲染侧。
 static NSUInteger LXRemoteCommandRecvCount = 0;
+// 上一次读到的屏幕亮度：用于识别「0 ↔ 非 0」边沿（熄屏/锁屏/AOD ↔ 亮屏）——
+// 这是 App 在后台时唯一可观测的「进入锁屏界面」信号，进界面前重绑会话用。
+static double LXNowPlayingLastScreenBrightness = 1.0;
 // 会话重绑次数：诊断页可见，用于判断自愈是否在跑
 static NSUInteger LXNowPlayingSessionReassertCount = 0;
 static void LXReportNowPlayingEngineTruthFromLifecycle(void);
@@ -1076,13 +1079,15 @@ static void LXReconcileNowPlayingCardNow(void) {
             (long)LXNowPlayingState, LXCurrentNowPlayingRate().doubleValue,
             (unsigned long)LXNowPlayingInfoCache.count, sincePublishMs);
     }
-    // —— 周期性会话重绑（每 10 拍 ≈30s）——
+    // —— 周期性会话重绑（每 5 拍 ≈15s）——
     // 2026-10-06 真机实证（用户自检报告）：失效时「收到遥控命令 = 0」= 系统没把按键送到
     // App（卡片与我们会话的绑定掉了）；手工「重建会话」（激活会话 + **重挂命令目标** + 重发）
     // 立即恢复投递 —— 说明系统侧绑定确实会掉，而重挂是唯一有效的修复动作。
-    // 因此播放中每 30s 自动重挂一次（代价：6 次 removeTarget/addTarget + 一次 setActive:YES，
-    // 全部在主队列瞬时完成），把「绑定掉了没人管」这个唯一实证失效路径自愈掉。
-    if ((lxConvergeTick % 10) == 0) {
+    // 用户要求「进控制中心 / 灵动岛 / 锁屏控制中心之前就重绑」：
+    //   · 控制中心 / 锁屏：UIApplicationWillResignActiveNotification 那一拍已即时重绑；
+    //   · 动态岛的展开没有任何公开通知可观测 → 用本周期兜住（15s 一次，代价仅 6 次
+    //     removeTarget/addTarget + 一次 setActive:YES，全部主队列瞬时完成）。
+    if ((lxConvergeTick % 5) == 0) {
       LXReassertNowPlayingSession(@"periodic");
     }
   }
@@ -1631,6 +1636,15 @@ static void LXRegisterTrackPlayerLifecycleObserver(void) {
       LXReassertNowPlayingSession(@"resign-active");
     }];
   }
+  // 进后台（锁屏 / 切走）再补一次：锁屏路径上 WillResignActive 与 DidEnterBackground
+  // 之间系统还会做一次会话收尾，锁屏界面在那之后才可交互 —— 两个时机都重绑最稳。
+  static id lxNowPlayingEnterBackgroundObserver = nil;
+  if (lxNowPlayingEnterBackgroundObserver == nil) {
+    lxNowPlayingEnterBackgroundObserver = [[NSNotificationCenter defaultCenter] addObserverForName:UIApplicationDidEnterBackgroundNotification object:nil queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification * _Nonnull note) {
+      if (!LXNowPlayingEnginePlaying) return;
+      LXReassertNowPlayingSession(@"enter-background");
+    }];
+  }
 
   if (LXNowPlayingApplicationObserver == nil) {
     LXNowPlayingApplicationObserver = [[NSNotificationCenter defaultCenter] addObserverForName:UIApplicationDidBecomeActiveNotification object:nil queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification * _Nonnull note) {
@@ -1660,8 +1674,19 @@ static void LXRegisterTrackPlayerLifecycleObserver(void) {
     LXNowPlayingScreenObserver = [[NSNotificationCenter defaultCenter] addObserverForName:UIScreenBrightnessDidChangeNotification object:nil queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification * _Nonnull note) {
       // 先记录「屏幕亮着」的证据（读到非零亮度），再判定是否熄屏 —— 顺序不能反，
       // 否则「从明显亮掉到 0」这一次通知里会丢掉唯一的判定依据。
+      BOOL wasDark = (LXNowPlayingLastScreenBrightness <= 0.0001);
       LXRememberScreenBrightness();
       LXUpdateNowPlayingLyricTimerVisibility();
+      // 亮度跨越「0 ↔ 非 0」= 熄屏/锁屏/AOD 抬腕 这类「进入或离开锁屏界面」的时刻
+      // （App 在后台时 AppState 不变，只有亮度会变）——正是用户会去按锁屏控制中心卡片的
+      // 时机，在这里先重绑一次，保证绑定新鲜。必须用「跨零」边沿而不是每次亮度变化：
+      // 用户在控制中心拖亮度滑杆会连续发几十条通知，逐条重绑会变成风暴。
+      double brightness = [UIScreen mainScreen].brightness;
+      BOOL isDark = (brightness <= 0.0001);
+      if (wasDark != isDark && LXNowPlayingEnginePlaying) {
+        LXReassertNowPlayingSession(@"screen-edge");
+      }
+      LXNowPlayingLastScreenBrightness = brightness;
     }];
   }
 

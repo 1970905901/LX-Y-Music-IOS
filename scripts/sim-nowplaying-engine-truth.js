@@ -165,8 +165,15 @@ const structuralReasons = ({ native, jsProgress, jsNowPlaying, jsUtils, jsInit, 
   }
   // ④ 自动重绑（2026-10-06 用户自检实证：失效时「收到遥控命令 = 0」= 系统没把按键送到
   // App；手工重绑立即恢复 → 系统侧命令绑定会掉，重挂是唯一有效的修复动作，必须自动化）
-  if (!/if \(\(lxConvergeTick % 10\) == 0\) \{\s*\n\s*LXReassertNowPlayingSession\(@"periodic"\);/.test(native)) {
+  if (!/if \(\(lxConvergeTick % 5\) == 0\) \{\s*\n\s*LXReassertNowPlayingSession\(@"periodic"\);/.test(native)) {
     reasons.push('播放中没有周期性会话重绑（系统侧命令绑定掉了就一直掉着，只能靠用户手点）')
+  }
+  // 进控制中心 / 锁屏 / 灵动岛 之前就重绑（用户明确要求）
+  if (!/UIScreenBrightnessDidChangeNotification[\s\S]{0,1400}?LXReassertNowPlayingSession\(@"screen-edge"\);/.test(native)) {
+    reasons.push('屏幕亮度跨零（熄屏/锁屏/AOD ↔ 亮屏）时没有重绑：进锁屏控制中心前绑定可能已经不新鲜')
+  }
+  if (!/UIApplicationDidEnterBackgroundNotification[\s\S]{0,400}?LXReassertNowPlayingSession\(@"enter-background"\);/.test(native)) {
+    reasons.push('进后台（锁屏/切走）后没有补一次重绑')
   }
   if (!/UIApplicationWillResignActiveNotification[\s\S]{0,400}?LXReassertNowPlayingSession\(@"resign-active"\);/.test(native)) {
     reasons.push('离开 App（下拉控制中心/锁屏）前没有重绑（用户正要按卡片的那一刻绑定可能已经掉了）')
@@ -439,7 +446,9 @@ const tamperCases = [
   ['原生 FLAC reset 再动一次遥控事件接收', ({ native }) => ({ native: native.replace('  // ⚠️ 不在此处 LXEndReceivingRemoteControlEvents()（单一所有者，2026-10-06 重构）：', '  LXEndReceivingRemoteControlEvents();\n  // (tampered)') }), '跨模块越界'],
   ['拿掉播放设置里的自检入口', ({ jsPlayerSettings }) => ({ jsPlayerSettings: jsPlayerSettings.replace('      <CardSelfCheck />\n', '') }), '播放设置页没有注册'],
   ['拿掉自检的 JS 封装', ({ jsNowPlaying }) => ({ jsNowPlaying: jsNowPlaying.replace('export const getCardDiagnostics = async(): Promise<CardDiagnostics | null> => {', 'const _unusedGetCardDiagnostics = async(): Promise<CardDiagnostics | null> => {') }), 'JS 封装'],
-  ['拿掉周期性会话重绑（绑定掉了没人管）', ({ native }) => ({ native: native.replace('    if ((lxConvergeTick % 10) == 0) {\n      LXReassertNowPlayingSession(@"periodic");\n    }\n', '') }), '周期性会话重绑'],
+  ['拿掉周期性会话重绑（绑定掉了没人管）', ({ native }) => ({ native: native.replace('    if ((lxConvergeTick % 5) == 0) {\n      LXReassertNowPlayingSession(@"periodic");\n    }\n', '') }), '周期性会话重绑'],
+  ['拿掉亮度跨零时的重绑', ({ native }) => ({ native: native.replace('        LXReassertNowPlayingSession(@"screen-edge");\n', '') }), '屏幕亮度跨零'],
+  ['拿掉进后台时的重绑', ({ native }) => ({ native: native.replace('      LXReassertNowPlayingSession(@"enter-background");\n', '') }), '进后台'],
   ['拿掉离开 App 前的重绑', ({ native }) => ({ native: native.replace('      if (!LXNowPlayingEnginePlaying) return;\n      LXReassertNowPlayingSession(@"resign-active");\n', '') }), '离开 App'],
   ['静默接管时不刷新进度基线', ({ native }) => ({ native: native.replace('      LXRefreshNowPlayingElapsedBaselineFromClock();\n      LXApplyNowPlayingInfo();', '      LXApplyNowPlayingInfo();') }), '刷新进度基线'],
 ]

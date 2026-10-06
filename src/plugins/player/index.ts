@@ -32,31 +32,43 @@ const initial = async({ volume, playRate, cacheSize, isHandleAudioFocus, isEnabl
   if (global.lx.playerStatus.isIniting || global.lx.playerStatus.isInitialized) return
   global.lx.playerStatus.isIniting = true
   console.log('Cache Size', cacheSize * 1024)
-  await migratePlayerCache()
-  await TrackPlayer.setupPlayer({
-    maxCacheSize: cacheSize * 1024,
-    // —— 在线播放缓冲优化（作用于 iOS 原生 AVPlayer 预读策略）——
-    minBuffer: 5, // 起播 / seek 后至少先缓冲 5s 再播放，避免高码率开头卡顿
-    maxBuffer: 300, // 前向缓冲上限（秒）：保留充足预读余量，又避免无上限拉满整首
-    backBuffer: 30, // 保留 30s 后方缓冲，后退 seek 无需重新拉流
-    preferredForwardBufferDuration: 60, // 引导 AVPlayer 提前预读约 60s，弱网更平滑
-    waitForBuffer: true, // 缓冲不足时等待而非中断播放
-    handleAudioFocus: isHandleAudioFocus,
-    audioOffload: false,
-    autoUpdateMetadata: false,
-    // iOS 音频焦点：关闭时允许与其他 App 混音，避免被系统强制中断；
-    // 开启时使用标准 Playback 分类，其他 App 出声时系统会发起中断。
-    // 参考分支面向安卓，未声明这两项；iOS 缺少它会丢失音频会话配置。
-    iosCategory: 'playback',
-    iosCategoryOptions: isHandleAudioFocus ? [] : ['mixWithOthers'],
-  } as any)
-  global.lx.playerStatus.isInitialized = true
-  global.lx.playerStatus.isIniting = false
-  await updateOptions()
-  await setVolume(volume)
-  await setPlaybackRate(playRate)
-  await soundEffectController.applyCurrentConfig()
+  // ⚠️ 初始化必须异常安全：isIniting 只在成功路径复位时，任何一步抛错（setupPlayer 失败、
+  // updateOptions 失败、缓存迁移失败）都会把它永久留在 true —— 之后 initial()/reloadConfig()
+  // 全部早退（destroy() 也因 `isIniting || !isInitialized` 早退），播放器再也起不来，
+  // 只能重启 App。与「换源闸门永久残留」属同一类「粘滞标记」缺陷（2026-10-06 全仓扫描）。
+  try {
+    await migratePlayerCache()
+    await TrackPlayer.setupPlayer({
+      maxCacheSize: cacheSize * 1024,
+      // —— 在线播放缓冲优化（作用于 iOS 原生 AVPlayer 预读策略）——
+      minBuffer: 5, // 起播 / seek 后至少先缓冲 5s 再播放，避免高码率开头卡顿
+      maxBuffer: 300, // 前向缓冲上限（秒）：保留充足预读余量，又避免无上限拉满整首
+      backBuffer: 30, // 保留 30s 后方缓冲，后退 seek 无需重新拉流
+      preferredForwardBufferDuration: 60, // 引导 AVPlayer 提前预读约 60s，弱网更平滑
+      waitForBuffer: true, // 缓冲不足时等待而非中断播放
+      handleAudioFocus: isHandleAudioFocus,
+      audioOffload: false,
+      autoUpdateMetadata: false,
+      // iOS 音频焦点：关闭时允许与其他 App 混音，避免被系统强制中断；
+      // 开启时使用标准 Playback 分类，其他 App 出声时系统会发起中断。
+      // 参考分支面向安卓，未声明这两项；iOS 缺少它会丢失音频会话配置。
+      iosCategory: 'playback',
+      iosCategoryOptions: isHandleAudioFocus ? [] : ['mixWithOthers'],
+    } as any)
+    global.lx.playerStatus.isInitialized = true
+    await updateOptions()
+    await setVolume(volume)
+    await setPlaybackRate(playRate)
+    await soundEffectController.applyCurrentConfig()
   // listenEvent()
+  } catch (err) {
+    global.lx.playerStatus.isInitialized = false
+    // Release 的 JS console 会进系统日志：真机可据此归因「播放器起不来」
+    console.log('###LXPlayerInit### 初始化失败：', err instanceof Error ? err.message : err)
+    throw err
+  } finally {
+    global.lx.playerStatus.isIniting = false
+  }
 }
 
 
@@ -78,6 +90,7 @@ const reloadConfig = async() => {
     if (Platform.OS == 'ios' && isNativeFlacActive()) {
       const snapshot = await snapshotNativeFlacPlayback()
       global.lx.playerStatus.ignoreTrackPlayerLifecycle = true
+      global.lx.playerStatus.ignoreTrackPlayerLifecycleAtMs = Date.now()
       try {
         await destroyPlayer()
         await initial(getPlayerConfig())
@@ -90,6 +103,7 @@ const reloadConfig = async() => {
         }
       } finally {
         global.lx.playerStatus.ignoreTrackPlayerLifecycle = false
+        global.lx.playerStatus.ignoreTrackPlayerLifecycleAtMs = 0
       }
       return
     }

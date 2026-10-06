@@ -36,6 +36,7 @@ export const loadPlaybackResource = async({
 
   if (Platform.OS == 'ios' && await shouldUseNativeFlacPlayer(musicInfo, url, quality)) {
     global.lx.playerStatus.ignoreTrackPlayerLifecycle = true
+    global.lx.playerStatus.ignoreTrackPlayerLifecycleAtMs = Date.now()
     try {
       try {
         await TrackPlayer.reset().catch(async() => {
@@ -67,6 +68,7 @@ export const loadPlaybackResource = async({
       }
     } finally {
       global.lx.playerStatus.ignoreTrackPlayerLifecycle = false
+      global.lx.playerStatus.ignoreTrackPlayerLifecycleAtMs = 0
     }
   }
 

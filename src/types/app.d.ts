@@ -28,6 +28,8 @@ interface GlobalData {
     isRegisteredService: boolean
     isIniting: boolean
     ignoreTrackPlayerLifecycle: boolean
+    /** ignoreTrackPlayerLifecycle 的置位时刻（ms）；0 = 未置位。用于给它上时间界 */
+    ignoreTrackPlayerLifecycleAtMs: number
     // 用户主动暂停标记（App 内暂停按钮 / 控制中心 RemotePause）。
     // 用于「返回前台自动播放」判定：true 时回前台不自动恢复，尊重用户意图；
     // 系统音频中断（RemoteDuck）暂停不置此标记。

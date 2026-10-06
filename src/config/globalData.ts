@@ -17,6 +17,9 @@ global.lx = {
     isRegisteredService: false,
     isIniting: false,
     ignoreTrackPlayerLifecycle: false,
+    // 置位时刻（ms）：该标记必须有时间上界，见 engine/index.ts 的
+    // shouldIgnoreTrackPlayerLifecycle 注释（残留 = 引擎事件被永久忽略）
+    ignoreTrackPlayerLifecycleAtMs: 0,
     userPaused: false,
     suppressUserPaused: false,
   },

@@ -56,6 +56,22 @@ export default () => {
   // 拖动期间整体跳过，JS 帧全部让给手势。播放继续走 audioClock 锚点外推，位置无感知
   // 停顿；拖动结束的 setProgress 会统一重锚，无状态残留。
   let isProgressDragging = false
+  let progressDraggingSince = 0
+  // 拖动标记必须有时间上界：结束事件（progressDragState(false)）丢失时（拖动手势被
+  // 系统手势打断 / 进度条组件卸载）它会永久停在 true —— 1s 慢校准与 4Hz 快路径都被
+  // 跳过：App 内进度冻住、歌词不重锚、进度落盘与 scrobble 停摆（重启才恢复）。
+  // 与「换源闸门 / ignoreTrackPlayerLifecycle」同一类粘滞标记缺陷（2026-10-06 全仓扫描）。
+  const PROGRESS_DRAG_MAX_MS = 120000
+  const isDraggingNow = () => {
+    if (!isProgressDragging) return false
+    if (progressDraggingSince > 0 && Date.now() - progressDraggingSince > PROGRESS_DRAG_MAX_MS) {
+      isProgressDragging = false
+      progressDraggingSince = 0
+      console.log('###LXPlayerGuard### progressDrag 超时放行（结束事件丢失）')
+      return false
+    }
+    return true
+  }
 
   // 快慢双路径：
   // - 快路径：原生歌词时钟 4Hz 外推位置事件（仅前台播放时发布），免桥接查询直接
@@ -219,7 +235,7 @@ export default () => {
     // 回前台后 handleAppForegroundChanged/syncFromEngine 会重锚，状态无残留。
     // 若将来让本 tick 承担后台工作，必须换回并在原生侧评估断言成本。
     updateTimeout = setInterval(() => {
-      if (isProgressDragging) return
+      if (isDraggingNow()) return
       getCurrentTime()
     }, 1000)
     getCurrentTime()
@@ -716,7 +732,7 @@ export default () => {
   onPlayerPosition((position, rate) => {
     if (AppState.currentState !== 'active') return
     if (!engineConfirmedPlaying || isBufferingHold) return
-    if (isProgressDragging) return
+    if (isDraggingNow()) return
     if (!playerState.isPlay || !playerState.musicInfo.id) return
     if (seekTargetPosition != null) {
       if (Date.now() < seekHoldUntil) {
@@ -782,6 +798,7 @@ export default () => {
   global.app_event.on('setProgress', setProgress)
   global.app_event.on('progressDragState', (dragging: boolean) => {
     isProgressDragging = dragging
+    progressDraggingSince = dragging ? Date.now() : 0
   })
   // global.app_event.on(eventPlayerNames.restorePlay, handleRestorePlay)
   // global.app_event.on('playerLoadeddata', handleLoadeddata)

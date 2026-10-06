@@ -34,11 +34,44 @@ interface NativeNowPlayingModule {
   /** 引擎真实播放态回传（由原生 LXNowPlayingTruthProbe 探针触发）：
    * 原生发现「卡片显示态与引擎相反且持续 ≥2s」时就地纠正并重发卡片 */
   reportPlaybackTruth?: (isPlaying: boolean, options?: NowPlayingStateOptions) => Promise<void>
+  /** 媒体卡片自检数据（设置页「媒体卡片自检」用，见 AppDelegate 的同名桥） */
+  getCardDiagnostics?: () => Promise<CardDiagnostics>
+  /** 手动触发一次会话重绑（非破坏性：激活会话 + 重挂命令目标 + 重发信息） */
+  reassertSession?: () => Promise<void>
   setNowPlayingLyrics?: (lines: NowPlayingLyricLine[]) => Promise<void>
   /** 引擎真实位置回传，重锚原生歌词/位置时钟（AppDelegate.mm 的 RCT_REMAP_METHOD 同名导出）。
    * snapshotAtMs：快照的原生时钟戳（CACurrentMediaTime 毫秒，精确回放锚点时刻）；
    * ageMs：快照墙钟年龄（无原生戳时原生以「now − 年龄」回放）。两者都缺省 = 旧行为。 */
   reanchorNowPlayingLyric?: (positionMs: number, snapshotAtMs?: number, ageMs?: number) => Promise<void>
+}
+
+export interface CardDiagnostics {
+  /** 卡片信息条目数（0 = 没有卡片） */
+  infoCount: number
+  /** 是否已有标题（无标题时原生不会发布，换取歌窗口保持命令可用） */
+  hasTitle: boolean
+  /** 原生内部播放态：1=playing 2=paused 3=stopped（其余 = unknown） */
+  internalState: number
+  /** 原生引擎真值（RNTP 生命周期事件维护）：true = 引擎确实在播 */
+  enginePlaying: boolean
+  /** 当前是否由原生 FLAC 引擎接管音频会话 */
+  nativeFlacOwnsSession: boolean
+  /** 卡片发布速率（0 = 系统会把卡片判成暂停） */
+  rate: number
+  /** 最近一次发布会话距今毫秒（-1 = 从未发布） */
+  sincePublishMs: number
+  /** 是否还有媒体会话（有曲目上下文即有） */
+  sessionActive: boolean
+  /** 是否处于「接收遥控事件」状态 */
+  receivingRemoteEvents: boolean
+  /** 收到遥控命令的总次数（按卡片按钮后应 +1） */
+  recvCount: number
+  /** 最近一次收到遥控命令距今毫秒（-1 = 从未） */
+  sinceRecvMs: number
+  /** 会话重绑（自愈）累计次数 */
+  reassertCount: number
+  /** App 版本号（CI 注入的构建时间戳） */
+  appVersion: string
 }
 
 const NowPlayingModule = NativeModules.NowPlayingModule as NativeNowPlayingModule | undefined
@@ -83,6 +116,18 @@ export const stopNowPlaying = async(options: NowPlayingStateOptions = {}) => {
 export const reportNowPlayingPlaybackTruth = async(isPlaying: boolean, options: NowPlayingStateOptions = {}) => {
   if (!hasMethod('reportPlaybackTruth')) return
   return NowPlayingModule?.reportPlaybackTruth?.(isPlaying, options)
+}
+
+/** 媒体卡片自检：一次拿全「卡在哪一层」的数据（设置页「媒体卡片自检」按钮用） */
+export const getCardDiagnostics = async(): Promise<CardDiagnostics | null> => {
+  if (!hasMethod('getCardDiagnostics')) return null
+  return NowPlayingModule?.getCardDiagnostics?.() ?? null
+}
+
+/** 手动触发一次会话重绑（非破坏性：激活会话 + 重挂命令目标 + 重发信息），不需要重启 App */
+export const reassertNowPlayingSession = async() => {
+  if (!hasMethod('reassertSession')) return
+  return NowPlayingModule?.reassertSession?.()
 }
 
 export const clearNowPlayingInfo = async() => {

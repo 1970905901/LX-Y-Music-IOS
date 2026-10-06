@@ -14,6 +14,7 @@ import IsShowLyricRoma from './IsShowLyricRoma'
 import IsShowBluetoothLyric from './IsShowBluetoothLyric'
 import IsS2T from './IsS2T'
 import ClearCache from './ClearCache'
+import CardSelfCheck from './CardSelfCheck'
 import IsAutoPlayOnStartup from './IsAutoPlayOnStartup'
 
 export default memo(() => {
@@ -31,6 +32,7 @@ export default memo(() => {
       <IsShowLyricRoma />
       <IsShowBluetoothLyric />
       <IsS2T />
+      <CardSelfCheck />
       <ClearCache />
       <PlayHighQuality />
     </Section>

@@ -38,6 +38,7 @@ const JS_UTILS = read('src/utils/nativeModules/utils.ts')
 const JS_INIT = read('src/core/init/player/index.ts')
 const PATCHES = read('dependencies-patch.js')
 const NATIVEFLAC_JS = read('src/plugins/player/nativeFlac.ts')
+const JS_PLAYER_SETTINGS = read('src/screens/Home/Views/Setting/settings/Player/index.tsx')
 
 const windowBetween = (src, startAnchor, endAnchor, fallback = 3000) => {
   const start = src.indexOf(startAnchor)
@@ -46,7 +47,7 @@ const windowBetween = (src, startAnchor, endAnchor, fallback = 3000) => {
   return end < 0 ? src.slice(start, start + fallback) : src.slice(start, end)
 }
 
-const structuralReasons = ({ native, jsProgress, jsNowPlaying, jsUtils, jsInit, patches, nativeFlacJs = '' }) => {
+const structuralReasons = ({ native, jsProgress, jsNowPlaying, jsUtils, jsInit, patches, nativeFlacJs = '', jsPlayerSettings = '' }) => {
   const reasons = []
 
   // ① 原生：探针事件名 + 事件转发 + 声明
@@ -259,6 +260,19 @@ const structuralReasons = ({ native, jsProgress, jsNowPlaying, jsUtils, jsInit, 
     reasons.push('原生 FLAC 模块的 reset 仍在动全 App 的遥控事件接收（跨模块越界：每次换歌解绑一次按键）')
   }
 
+  // ⑨ 自检 / 修复入口（播放设置 →「媒体卡片自检」）：诊断桥 + 非破坏性重绑桥 + JS 封装 + 注册。
+  // 卡片失效时用户点一下就能看清「系统没送按键」还是「App 侧断了」，并能当场修复（不必重启 App）。
+  if (!/RCT_REMAP_METHOD\(getCardDiagnostics,/.test(native) || !/RCT_REMAP_METHOD\(reassertSession,/.test(native)) {
+    reasons.push('缺少媒体卡片自检/修复的原生桥（getCardDiagnostics / reassertSession）')
+  }
+  if (!/export const getCardDiagnostics = async\(\): Promise<CardDiagnostics \| null>/.test(jsNowPlaying) ||
+      !/export const reassertNowPlayingSession = async\(\)/.test(jsNowPlaying)) {
+    reasons.push('缺少媒体卡片自检/修复的 JS 封装（nowPlaying.ts）')
+  }
+  if (jsPlayerSettings && !/<CardSelfCheck \/>/.test(jsPlayerSettings)) {
+    reasons.push('播放设置页没有注册「媒体卡片自检」入口（用户无法自检/就地修复）')
+  }
+
   // ⑤ JS：探针订阅 + 回传口径
   if (!/addListener\('now-playing-truth-probe'/.test(jsUtils)) {
     reasons.push('JS 没有订阅 now-playing-truth-probe（原生探针无人应答）')
@@ -397,7 +411,7 @@ const models = [
     })()],
 ]
 
-const realReasons = structuralReasons({ native: NATIVE, jsProgress: JS_PROGRESS, jsNowPlaying: JS_NOWPLAYING, jsUtils: JS_UTILS, jsInit: JS_INIT, patches: PATCHES, nativeFlacJs: NATIVEFLAC_JS })
+const realReasons = structuralReasons({ native: NATIVE, jsProgress: JS_PROGRESS, jsNowPlaying: JS_NOWPLAYING, jsUtils: JS_UTILS, jsInit: JS_INIT, patches: PATCHES, nativeFlacJs: NATIVEFLAC_JS, jsPlayerSettings: JS_PLAYER_SETTINGS })
 
 // 反例自检
 const tamperCases = [
@@ -415,11 +429,13 @@ const tamperCases = [
   ['原生真值退回「只喂在播方向」', ({ native }) => ({ native: native.replace('  LXReportNowPlayingPlaybackTruth(LXNowPlayingEnginePlaying, @{});', '  if (!LXNowPlayingEnginePlaying) return;\n  LXReportNowPlayingPlaybackTruth(YES, @{});') }), '只喂「在播」'],
   ['FLAC 引擎未激活时仍去触达原生模块（AVPlayer 路径每次换歌）', ({ nativeFlacJs }) => ({ nativeFlacJs: nativeFlacJs.replace("  if (mode == 'none' && !trackId) return\n", '') }), '引擎未激活即早退'],
   ['原生 FLAC reset 再动一次遥控事件接收', ({ native }) => ({ native: native.replace('  // ⚠️ 不在此处 LXEndReceivingRemoteControlEvents()（单一所有者，2026-10-06 重构）：', '  LXEndReceivingRemoteControlEvents();\n  // (tampered)') }), '跨模块越界'],
+  ['拿掉播放设置里的自检入口', ({ jsPlayerSettings }) => ({ jsPlayerSettings: jsPlayerSettings.replace('      <CardSelfCheck />\n', '') }), '播放设置页没有注册'],
+  ['拿掉自检的 JS 封装', ({ jsNowPlaying }) => ({ jsNowPlaying: jsNowPlaying.replace('export const getCardDiagnostics = async(): Promise<CardDiagnostics | null> => {', 'const _unusedGetCardDiagnostics = async(): Promise<CardDiagnostics | null> => {') }), 'JS 封装'],
   ['静默接管时不刷新进度基线', ({ native }) => ({ native: native.replace('      LXRefreshNowPlayingElapsedBaselineFromClock();\n      LXApplyNowPlayingInfo();', '      LXApplyNowPlayingInfo();') }), '刷新进度基线'],
 ]
 const tamperResults = tamperCases.map(([name, mutate, expectKeyword]) => {
-  const mutated = { native: NATIVE, jsProgress: JS_PROGRESS, jsNowPlaying: JS_NOWPLAYING, jsUtils: JS_UTILS, jsInit: JS_INIT, patches: PATCHES, nativeFlacJs: NATIVEFLAC_JS, ...mutate({ native: NATIVE, jsProgress: JS_PROGRESS, jsNowPlaying: JS_NOWPLAYING, jsUtils: JS_UTILS, jsInit: JS_INIT, patches: PATCHES, nativeFlacJs: NATIVEFLAC_JS }) }
-  const changed = mutated.native !== NATIVE || mutated.jsProgress !== JS_PROGRESS || mutated.nativeFlacJs !== NATIVEFLAC_JS || mutated.patches !== PATCHES
+  const mutated = { native: NATIVE, jsProgress: JS_PROGRESS, jsNowPlaying: JS_NOWPLAYING, jsUtils: JS_UTILS, jsInit: JS_INIT, patches: PATCHES, nativeFlacJs: NATIVEFLAC_JS, jsPlayerSettings: JS_PLAYER_SETTINGS, ...mutate({ native: NATIVE, jsProgress: JS_PROGRESS, jsNowPlaying: JS_NOWPLAYING, jsUtils: JS_UTILS, jsInit: JS_INIT, patches: PATCHES, nativeFlacJs: NATIVEFLAC_JS, jsPlayerSettings: JS_PLAYER_SETTINGS }) }
+  const changed = mutated.native !== NATIVE || mutated.jsProgress !== JS_PROGRESS || mutated.nativeFlacJs !== NATIVEFLAC_JS || mutated.patches !== PATCHES || mutated.jsNowPlaying !== JS_NOWPLAYING || mutated.jsPlayerSettings !== JS_PLAYER_SETTINGS
   if (!changed) return [name, false, '找不到可篡改的锚点']
   const reasons = structuralReasons(mutated)
   const hit = reasons.some((r) => r.includes(expectKeyword))
@@ -444,5 +460,5 @@ if (realReasons.length || failedModels.length || failedTampers.length) {
   console.error('\nFAIL  引擎真值自愈契约未通过')
   process.exit(1)
 }
-console.log(`\nPASS  单一媒体会话所有者 + 两引擎不越界 + 原生按引擎真值收敛（结构不变量 8 组 + 行为模型 ${models.length} 例 + 反例 ${tamperResults.length} 例）`)
+console.log(`\nPASS  单一媒体会话所有者 + 两引擎不越界 + 原生收敛 + 自检入口（结构不变量 9 组 + 行为模型 ${models.length} 例 + 反例 ${tamperResults.length} 例）`)
 process.exit(0)

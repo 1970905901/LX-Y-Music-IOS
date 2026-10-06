@@ -760,6 +760,12 @@ static BOOL LXNowPlayingEnginePlaying = NO;
 // ⚠️ 必须在这里（文件前部）声明：看门狗（LXReconcileNowPlayingCardNow）先于
 // LXApplyNowPlayingInfo 定义，ObjC++ 里变量同样不能先用后声明（CI 实证）。
 static double LXNowPlayingLastPublishAtMs = 0;
+// —— 媒体卡片自检（设置页「媒体卡片自检」按钮）用的计数器 ——
+// 收到遥控命令的次数：切到控制中心按一下按钮后看它是否 +1 —— 不涨说明系统没把
+// 按键送到 App（系统侧问题），涨了而卡片不动说明是发布/渲染侧。
+static NSUInteger LXRemoteCommandRecvCount = 0;
+// 会话重绑次数：诊断页可见，用于判断自愈是否在跑
+static NSUInteger LXNowPlayingSessionReassertCount = 0;
 static void LXReportNowPlayingEngineTruthFromLifecycle(void);
 static void LXReinstallRemoteCommandHandlers(void);
 static void LXReassertNowPlayingSession(NSString *reason);
@@ -823,6 +829,7 @@ static void LXActivateAudioSessionForPlayback(void) {
 }
 
 static MPRemoteCommandHandlerStatus LXHandleRemoteCommandEvent(NSString *command) {
+  LXRemoteCommandRecvCount += 1;
   LXNowPlayingLastRemoteCommandAtMs = CACurrentMediaTime() * 1000.0;
   double commandNowMs = LXNowPlayingLastRemoteCommandAtMs;
   // 落在重绘翻转的「假状态」窗口内：图标是反的，本次命令方向可能来自假图标。
@@ -1476,6 +1483,7 @@ static void LXReassertNowPlayingSession(NSString *reason) {
   unsigned long infoCount = 0;
   @synchronized (LXLyricLock()) { infoCount = LXNowPlayingInfoCache.count; }
   if (infoCount == 0) return;
+  LXNowPlayingSessionReassertCount += 1;
   NSLog(@"###LXNowPlaying### sessionReassert reason=%@ info=%lu", reason ?: @"?", infoCount);
   LXActivateAudioSessionForPlayback();
   LXBeginReceivingRemoteControlEvents();
@@ -6302,6 +6310,51 @@ RCT_REMAP_METHOD(stopNowPlaying, stopNowPlaying:(NSDictionary *)options resolver
 RCT_REMAP_METHOD(reportPlaybackTruth, reportPlaybackTruth:(BOOL)isPlaying options:(NSDictionary *)options resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
   dispatch_async(dispatch_get_main_queue(), ^{
     LXReportNowPlayingPlaybackTruth(isPlaying, options ?: @{});
+    resolve(nil);
+  });
+}
+
+// 媒体卡片自检：把「卡在哪一层」需要的数据一次性交给 JS（设置页「媒体卡片自检」用）。
+// 判读方式：
+//   · recvCount：切到控制中心按一下按钮后应 +1；不涨 = 系统没把按键送到 App（系统侧）；
+//   · sincePublishMs：App 侧最近一次发布距今；播放中长时间不发布说明发布链停摆；
+//   · internalState / rate / infoCount：卡片被系统看到的展示态（速率 0 = 卡片暂停）；
+//   · sessionActive / receivingRemoteEvents：会话与遥控接收是否还在。
+RCT_REMAP_METHOD(getCardDiagnostics, getCardDiagnosticsWithResolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
+  dispatch_async(dispatch_get_main_queue(), ^{
+    NSMutableDictionary *out = [NSMutableDictionary dictionary];
+    unsigned long infoCount = 0;
+    MPNowPlayingPlaybackState internalState = MPNowPlayingPlaybackStateStopped;
+    BOOL hasTitle = NO;
+    @synchronized (LXLyricLock()) {
+      infoCount = LXNowPlayingInfoCache.count;
+      internalState = LXNowPlayingState;
+      hasTitle = [LXNowPlayingInfoCache[MPMediaItemPropertyTitle] isKindOfClass:[NSString class]] &&
+        ((NSString *)LXNowPlayingInfoCache[MPMediaItemPropertyTitle]).length > 0;
+    }
+    double nowMs = CACurrentMediaTime() * 1000.0;
+    out[@"infoCount"] = @(infoCount);
+    out[@"hasTitle"] = @(hasTitle);
+    out[@"internalState"] = @((long)internalState);
+    out[@"enginePlaying"] = @(LXNowPlayingEnginePlaying);
+    out[@"nativeFlacOwnsSession"] = @(LXStreamingFlacOwnsAudioSession);
+    out[@"rate"] = LXCurrentNowPlayingRate();
+    out[@"sincePublishMs"] = LXNowPlayingLastPublishAtMs > 0 ? @(nowMs - LXNowPlayingLastPublishAtMs) : @(-1);
+    out[@"sessionActive"] = @(LXNowPlayingHasPlaybackSession);
+    out[@"receivingRemoteEvents"] = @(LXIsReceivingRemoteControlEvents);
+    out[@"recvCount"] = @(LXRemoteCommandRecvCount);
+    out[@"sinceRecvMs"] = LXNowPlayingLastRemoteCommandAtMs > 0 ? @(nowMs - LXNowPlayingLastRemoteCommandAtMs) : @(-1);
+    out[@"reassertCount"] = @(LXNowPlayingSessionReassertCount);
+    out[@"appVersion"] = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"";
+    resolve(out);
+  });
+}
+
+// 手动触发一次会话重绑（自检页「重建会话」）：非破坏性（激活会话 + 重挂命令 + 重发），
+// 等价于 App 侧能做的「重建卡片」，不需要重启 App。
+RCT_REMAP_METHOD(reassertSession, reassertSessionWithResolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
+  dispatch_async(dispatch_get_main_queue(), ^{
+    LXReassertNowPlayingSession(@"ui");
     resolve(nil);
   });
 }

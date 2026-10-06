@@ -758,6 +758,8 @@ static void LXReportNowPlayingEngineTruthFromLifecycle(void);
 // 原生时钟外推位置（秒）：重发 / 纠正卡片前刷新进度基线（定义在文件后部歌词时钟区块）
 static double LXNowPlayingCurrentElapsedSec(void);
 static void LXRefreshNowPlayingElapsedBaselineFromClock(void);
+// 当前卡片速率（看门狗 reassert 打点用；定义在播放态发布区块之前必须先声明）
+static NSNumber *LXCurrentNowPlayingRate(void);
 // 屏幕/音频路由变化后重新判定 8.3Hz 歌词时钟是否该跑（熄屏且无蓝牙歌词可送车机时停钟）
 static void LXUpdateNowPlayingLyricTimerVisibility(void);
 // 记录「屏幕确实亮着」的亮度证据（亮度 0 是「熄屏」与「最低亮度」的公共值，
@@ -1022,8 +1024,9 @@ static void LXReconcileNowPlayingCardNow(void) {
   lxReconcileTick += 1;
   if ((lxReconcileTick % 5) == 0 && LXNowPlayingState == MPNowPlayingPlaybackStatePlaying) {
     LXRefreshNowPlayingElapsedBaselineFromClock();
-    NSLog(@"###LXNowPlaying### reassert internal=%ld info=%lu",
-          (long)LXNowPlayingState, (unsigned long)LXNowPlayingInfoCache.count);
+    NSLog(@"###LXNowPlaying### reassert internal=%ld rate=%.2f info=%lu",
+          (long)LXNowPlayingState, LXCurrentNowPlayingRate().doubleValue,
+          (unsigned long)LXNowPlayingInfoCache.count);
     LXApplyNowPlayingInfo();
     LXForceNowPlayingCardRepaint();
   }
@@ -1349,6 +1352,8 @@ static void LXSetNowPlayingPlaybackState(MPNowPlayingPlaybackState state, NSDict
 // 且此后没有任何自愈路径（重启软件才恢复）。引擎是唯一独立真值。
 // 防抖：同一方向的漂移必须连续 ≥2s（探针 3s 一拍，即连续两次回传）才纠正 ——
 // 单次回传可能撞上发布在途/翻转窗口，不是真漂移。
+// 判定包含两种漂移：① 内部播放态与引擎相反；② 引擎在播但缓存速率 ≤ 0（见下方
+// 卡片状态真实来源的注释：速率 0 = 卡片被判成暂停）。
 static double LXNowPlayingTruthDriftSinceMs = 0;
 static BOOL LXNowPlayingTruthDriftValue = NO;
 
@@ -1359,16 +1364,28 @@ static void LXReportNowPlayingPlaybackTruth(BOOL isPlaying, NSDictionary *option
   }
   unsigned long infoCount = 0;
   MPNowPlayingPlaybackState internalState = MPNowPlayingPlaybackStateStopped;
+  NSNumber *cachedRate = nil;
   @synchronized (LXLyricLock()) {
     infoCount = LXNowPlayingInfoCache.count;
     internalState = LXNowPlayingState;
+    cachedRate = [LXNowPlayingInfoCache[MPNowPlayingInfoPropertyPlaybackRate] isKindOfClass:[NSNumber class]]
+      ? LXNowPlayingInfoCache[MPNowPlayingInfoPropertyPlaybackRate]
+      : nil;
   }
   // 没有曲目上下文（无卡片）：不参与自愈 —— 免得把「真的什么都没播」拉成播放态
   if (infoCount == 0) {
     LXNowPlayingTruthDriftSinceMs = 0;
     return;
   }
-  BOOL drift = isPlaying ? (internalState != MPNowPlayingPlaybackStatePlaying)
+  // ⚠️ 卡片真正的「播放/暂停 + 进度」来源是 info 字典的 PlaybackRate / ElapsedPlaybackTime，
+  // 不是 MPNowPlayingInfoCenter.playbackState —— iOS 直接忽略第三方 App 的后者（真机日志实证：
+  // `[MRNowPlaying] Ignoring setPlaybackState because application does not contain entitlement
+  // com.apple.mediaremote.set-playback-state for platform`，2026-10-06 12:25 日志）。
+  // 所以「引擎在播、缓存速率却 ≤ 0」和内部播放态错了一样本质：卡片会被系统判成暂停、
+  // 进度条冻在旧位置 —— 这就是「有声音但按钮 / 进度条失效」的直因（无歌词的歌尤其明显：
+  // 没有逐行元数据发布，最后一次发布若是速率 0（起播前 / 缓冲暂停）就再也不会被改写）。
+  BOOL rateStuck = isPlaying && (cachedRate == nil || cachedRate.doubleValue <= 0);
+  BOOL drift = isPlaying ? (internalState != MPNowPlayingPlaybackStatePlaying || rateStuck)
                         : (internalState == MPNowPlayingPlaybackStatePlaying);
   if (!drift) {
     LXNowPlayingTruthDriftSinceMs = 0;
@@ -1382,8 +1399,9 @@ static void LXReportNowPlayingPlaybackTruth(BOOL isPlaying, NSDictionary *option
   }
   if (nowMs - LXNowPlayingTruthDriftSinceMs < 2000.0) return;
   LXNowPlayingTruthDriftSinceMs = 0;
-  NSLog(@"###LXNowPlaying### truthDrift engine=%d internal=%ld info=%lu action=fix",
-        isPlaying ? 1 : 0, (long)internalState, infoCount);
+  NSLog(@"###LXNowPlaying### truthDrift engine=%d internal=%ld rateStuck=%d cachedRate=%.2f info=%lu action=fix",
+        isPlaying ? 1 : 0, (long)internalState, rateStuck ? 1 : 0,
+        cachedRate != nil ? cachedRate.doubleValue : -1.0, infoCount);
   if (isPlaying) {
     NSNumber *rate = LXCurrentNowPlayingRate();
     if (rate.doubleValue <= 0) rate = @(1);

@@ -103,6 +103,15 @@ const structuralReasons = ({ native, jsProgress, jsNowPlaying, jsUtils, jsInit }
     if (!/fixOptions\[@"playbackRate"\] = rate;/.test(truth)) {
       reasons.push('纠正到播放态时丢弃了 JS 回传的进度快照（进度条会被旧基线整体拉回）')
     }
+    if (!/BOOL rateStuck = isPlaying && \(cachedRate == nil \|\| cachedRate\.doubleValue <= 0\);/.test(truth)) {
+      reasons.push('真值纠正没有识别「引擎在播但缓存速率 ≤ 0」（iOS 忽略 playbackState时，速率 0 就等于卡片被判成暂停）')
+    }
+  }
+  if (!/entitlement[\s\S]{0,80}com\.apple\.mediaremote\.set-playback-state/.test(native)) {
+    reasons.push('缺少「iOS 忽略第三方 App 的 playbackState（缺 entitlement，真机日志实证）」注释 —— 后人会把卡片状态又绑回 playbackState')
+  }
+  if (!/###LXNowPlaying### truthDrift engine=%d internal=%ld rateStuck=%d cachedRate=%.2f info=%lu action=fix/.test(native)) {
+    reasons.push('真值纠正日志没有带 rateStuck / cachedRate（下一次真机日志无法一眼归因速率卡 0）')
   }
   if (!/RCT_REMAP_METHOD\(reportPlaybackTruth, reportPlaybackTruth:\(BOOL\)isPlaying options:\(NSDictionary \*\)options resolver:/.test(native)) {
     reasons.push('缺少 reportPlaybackTruth 桥方法（JS 回传无入口）')
@@ -236,6 +245,19 @@ const simulate = ({ engine, userIntentPlaying, probes, internalStart, truthSourc
   return { state: internal, fixedAtMs: null }
 }
 
+// 卡片速率为 0 时的纠正模型：iOS 只认 info 的 PlaybackRate —— 引擎在播而速率停在 0
+// （典型：无歌词的歌在起播前/缓冲暂停发布过速率 0，之后再没有任何发布）时，
+// 卡片会被系统判成暂停、进度条冻在旧位置，直到有真值链路把它补正。
+const modelRateStuck = ({ truthAvailable, probes }) => {
+  let rate = 0
+  for (let i = 1; i <= probes; i += 1) {
+    const t = i * PROBE_MS
+    if (!truthAvailable) continue
+    if (i >= 2 && t >= PROBE_MS + DEBOUNCE_MS) return { rate: 1, fixedAtMs: t }
+  }
+  return { rate, fixedAtMs: null }
+}
+
 const models = [
   ['反例：无真值回传 + 播放发布丢失 → 卡片永远停在错态（重启才恢复）',
     modelLegacy({ lostPublish: true }) === 'stuck'],
@@ -253,6 +275,10 @@ const models = [
     (() => { const r = simulate({ engine: () => 'playing', userIntentPlaying: true, probes: 5, internalStart: 'paused', truthSource: 'native' }); return r.state === 'playing' && r.fixedAtMs === PROBE_MS })()],
   ['修复后：系统侧副本过期（App 侧一致、探针报不出漂移）→ 周期重发兜底 ≤15s 重建卡片',
     (() => { const reassertMs = PROBE_MS * 5; return reassertMs === 15000 && modelLegacy({ lostPublish: true }) === 'stuck' })()],
+  ['反例：无真值链路 + 速率停在 0（无歌词歌）→ 卡片永久暂停态、进度条冻住',
+    (() => { const r = modelRateStuck({ truthAvailable: false, probes: 10 }); return r.rate === 0 && r.fixedAtMs === null })()],
+  ['修复后：引擎在播而速率停在 0 → ≤2 拍补正速率，卡片回到播放态',
+    (() => { const r = modelRateStuck({ truthAvailable: true, probes: 10 }); return r.rate === 1 && r.fixedAtMs === 2 * PROBE_MS })()],
 ]
 
 const realReasons = structuralReasons({ native: NATIVE, jsProgress: JS_PROGRESS, jsNowPlaying: JS_NOWPLAYING, jsUtils: JS_UTILS, jsInit: JS_INIT })
@@ -264,6 +290,7 @@ const tamperCases = [
   ['封面链路恢复「换代即跳过重发」', ({ native }) => ({ native: native.replace('      if (requestId != LXNowPlayingArtworkRequestId) {\n        NSLog(@"###LXNowPlaying### artworkRepublish superseded → restore info (修复前会停在无卡片态)");\n      }\n', '      if (requestId != LXNowPlayingArtworkRequestId) return;\n') }), '无信息'],
   ['回传口径改成「以 App 侧状态为准」', ({ jsProgress }) => ({ jsProgress: jsProgress.replace('if (engineState === \'playing\') {', 'if (true) {') }), '引擎确认 playing'],
   ['拿掉原生兜底真值喂入', ({ native }) => ({ native: native.replace('  LXReportNowPlayingEngineTruthFromLifecycle();\n', '') }), '原生兜底真值'],
+  ['拿掉「引擎在播但速率 ≤ 0」判定', ({ native }) => ({ native: native.replace('  BOOL rateStuck = isPlaying && (cachedRate == nil || cachedRate.doubleValue <= 0);\n', '') }), '速率'],
   ['周期重发不刷新进度基线', ({ native }) => ({ native: native.replace('    LXRefreshNowPlayingElapsedBaselineFromClock();\n', '') }), '周期重发前没有刷新进度基线'],
 ]
 const tamperResults = tamperCases.map(([name, mutate, expectKeyword]) => {

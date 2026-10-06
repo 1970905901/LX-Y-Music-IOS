@@ -787,6 +787,12 @@ static void LXPostRemoteCommandNotification(NSString *command, NSDictionary *ext
 // （用户 2026-10-03 反馈：控制中心点播放无效、要按两次）。放到原生遥控入口后，
 // 按压当拍就恢复会话，不再依赖 JS 的到达时机；中断仍在进行时激活失败属正常，
 // 那一次由 JS 侧的播放意图重试在中断结束后再拉起（见 core/player/player.ts）。
+// 流式 FLAC 引擎是否已经接管音频会话（用于决定「是否需要先 setActive:NO 再配置」）。
+// 每次 openStream 都无条件停用会话会让 iOS 撤回本 App 的 Now Playing 角色 —— 卡片（控制中心/
+// 灵动岛按钮 + 进度条）随之失效但音频仍在播；只在「从 TrackPlayer 等其它持有者手中接管」时才需要停用。
+// TrackPlayer 一旦产生生命周期事件（说明它动过会话），该标记立即失效，下次 openStream 重新接管。
+static BOOL LXStreamingFlacOwnsAudioSession = NO;
+
 static void LXActivateAudioSessionForPlayback(void) {
   NSError *sessionError = nil;
   if (![[AVAudioSession sharedInstance] setActive:YES error:&sessionError]) {
@@ -1309,6 +1315,9 @@ static void LXClearNowPlayingInfo(void) {
 }
 
 static void LXHandleTrackPlayerLifecycleNotification(NSNotification *notification) {
+  // TrackPlayer 动过音频会话（play/pause/reset/destroy…）：流式 FLAC 的「会话已接管」标记失效，
+  // 下次 openStream 必须重新接管（先停用再配置），否则可能出现「引擎在跑但没有音频输出」。
+  LXStreamingFlacOwnsAudioSession = NO;
   NSDictionary *userInfo = [notification.userInfo isKindOfClass:[NSDictionary class]] ? notification.userInfo : @{};
   NSString *event = [userInfo[@"event"] isKindOfClass:[NSString class]] ? userInfo[@"event"] : @"";
   NSNumber *position = [userInfo[@"position"] isKindOfClass:[NSNumber class]] ? userInfo[@"position"] : nil;
@@ -4711,11 +4720,16 @@ RCT_REMAP_METHOD(openStream, openStream:(NSString *)urlString headers:(NSDiction
       return;
     }
 
-    // 强制从 TrackPlayer 或其他持有者手中接管音频会话：先停用再重新配置。
-    // 如果直接在已激活的会话上 setCategory，iOS 可能无法重新应用 LongFormAudio
-    // 策略，导致 AVAudioEngine 运行正常但无音频输出。
+    // 从 TrackPlayer 或其它持有者手中接管音频会话时需要「先停用再重新配置」：直接在已激活的
+    // 会话上 setCategory，iOS 可能无法重新应用 LongFormAudio 策略，导致 AVAudioEngine 运行
+    // 正常但无音频输出。
+    // 但**同驱动换歌不要重复停用**：停用会让 iOS 撤回本 App 的 Now Playing 角色，重新激活后
+    // 若信息/播放态发布早于会话就绪就会被系统忽略 —— 现象是「有声音，但控制中心/灵动岛按钮
+    // 与进度条全部失效，重启或下一次发布才可能恢复」（2026-10-06 真机复现，nativeFlac 路径）。
     AVAudioSession *session = [AVAudioSession sharedInstance];
-    [session setActive:NO withOptions:AVAudioSessionSetActiveOptionNotifyOthersOnDeactivation error:nil];
+    if (!LXStreamingFlacOwnsAudioSession) {
+      [session setActive:NO withOptions:AVAudioSessionSetActiveOptionNotifyOthersOnDeactivation error:nil];
+    }
 
     NSError *sessionError = nil;
     if (![self prepareAudioSession:&sessionError]) {
@@ -4723,6 +4737,8 @@ RCT_REMAP_METHOD(openStream, openStream:(NSString *)urlString headers:(NSDiction
       reject(@"streaming_flac_session", sessionError.localizedDescription ?: @"Failed to activate audio session", sessionError);
       return;
     }
+    // 会话已由本引擎接管：后续同驱动换歌 / 重新 openStream 不再停用会话
+    LXStreamingFlacOwnsAudioSession = YES;
 
     [self stopStreamingInternal:YES];
     [self resetStreamingState];

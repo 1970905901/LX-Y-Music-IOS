@@ -1,7 +1,6 @@
 import Vertical from './Vertical'
 import { useBackHandler } from '@/utils/hooks/useBackHandler'
 import { useCallback } from 'react'
-// import { AppColors } from '@/theme'
 import commonState from '@/store/common/state'
 import { setNavActiveId } from '@/core/common'
 

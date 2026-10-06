@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import Lyric, { type Lines } from 'lrc-file-parser'
 import { getPosition } from '@/plugins/player'
 import LxLyricPlayer, { type LxLyricWord } from '@/plugins/lxLyricPlayer'
-// import { getStore, subscribe } from '@/store'
 export type Line = Lines[number]
 type PlayHook = (line: number, text: string) => void
 type SetLyricHook = (lines: Lines) => void

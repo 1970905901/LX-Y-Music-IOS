@@ -18,7 +18,7 @@ const path = require('path')
 
 const ROOT = path.resolve(__dirname, '..')
 const FILES = {
-  qqLogin: 'src/components/QQWebLoginModal.tsx',
+  qqLogin: 'src/components/login/QQWebLoginModal.tsx',
   syncAuth: 'src/plugins/sync/client/auth.ts',
   deeplink: 'src/core/init/deeplink/index.ts',
 }

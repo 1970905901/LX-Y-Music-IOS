@@ -18,7 +18,7 @@ import LocalDownload from '../Views/LocalDownload'
 import TXPlaylist from '../Views/TxPlaylist'
 import KgPlaylist from '../Views/KgPlaylist'
 import KgDailyRec from '../Views/KgDailyRec'
-import LandscapeCentered from '@/components/LandscapeCentered'
+import LandscapeCentered from '@/components/layout/LandscapeCentered'
 
 // 以下子页面在 iPad 横屏右栏内保持原样（铺满右栏）：
 //  - 已做精细横屏（Leaderboard/Setting）或自带 useHorizontalMode 处理（SubscribedAlbums/FollowedArtists）

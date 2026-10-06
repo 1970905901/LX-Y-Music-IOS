@@ -56,6 +56,10 @@ import { updateSetting } from '@/core/common'
 type ActiveTab = 'config' | 'list' | 'folders'
 const ITEM_HEIGHT = scaleSizeH(LIST_ITEM_HEIGHT)
 
+// 模块级稳定引用：FlatList 的 keyExtractor 每次渲染新建会让 VirtualizedList 认为
+// props 变了，多做一轮 props 比对。（renderItem 已是稳定 useCallback。）
+const keyExtractor = (item: LX.WebDAV.MusicInfo) => item.id
+
 const TabButton = ({ label, tab, activeTab, onPress }: {
   label: string
   tab: ActiveTab
@@ -1024,7 +1028,7 @@ export default memo(() => {
         contentContainerStyle={{ paddingBottom: bottomInset }}
         numColumns={numColumns}
         renderItem={renderSong}
-        keyExtractor={item => item.id}
+        keyExtractor={keyExtractor}
         style={{ flex: 1 }}
         // 限制渲染窗口 + 离屏行视图摘除（iOS 滚动掉帧主杠杆；getItemLayout 固定行高下回挂安全）
         initialNumToRender={20}

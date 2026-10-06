@@ -33,7 +33,7 @@ import commonState from '@/store/common/state'
 import { useWySubscribedPlaylists } from '@/store/user/hook.ts'
 import type { SubscribedPlaylistInfo } from '@/store/user/state'
 import { useSettingValue } from '@/store/setting/hook.ts'
-import SimilarSongsModal, { type SimilarSongsModalType } from '@/components/SimilarSongsModal'
+import SimilarSongsModal, { type SimilarSongsModalType } from '@/components/selector/SimilarSongsModal'
 
 export interface OnlineListProps {
   onRefresh: ListProps['onRefresh']

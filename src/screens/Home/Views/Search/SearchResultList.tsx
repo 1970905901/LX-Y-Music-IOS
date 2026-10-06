@@ -17,6 +17,11 @@ interface SearchResultListProps {
   source: string
 }
 
+// 模块级稳定引用：FlatList 的 keyExtractor 每次渲染新建会让 VirtualizedList 认为
+// props 变了，多做一轮 props 比对。（renderItem 已是稳定 useCallback。）
+// 数据源是 useState([])，元素类型在编译期推不出，与文件内 renderItem 一致用 any。
+const keyExtractor = (item: any) => String(item.id)
+
 export default forwardRef(({ header, searchType, source }: SearchResultListProps, ref) => {
   const [list, setList] = useState([])
   const [loading, setLoading] = useState(false)
@@ -169,7 +174,7 @@ export default forwardRef(({ header, searchType, source }: SearchResultListProps
       key={isHorizontal ? 'horizontal' : 'vertical'}
       numColumns={isHorizontal ? 2 : 1}
       renderItem={renderItem}
-      keyExtractor={item => String(item.id)}
+      keyExtractor={keyExtractor}
       // 低端 60fps 机型列表性能：限制渲染窗口与批量（单元格高度不固定，故不补
       // getItemLayout）。removeClippedSubviews 保持 false：iPad 双列网格下开启曾出现
       // 网格闪烁，此处窗口收窄即可减负

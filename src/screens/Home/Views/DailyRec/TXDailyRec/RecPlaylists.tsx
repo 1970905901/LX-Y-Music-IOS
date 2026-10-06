@@ -23,6 +23,11 @@ interface Props {
   onOpenDetail: (playlistInfo: ListInfoItem) => void
 }
 
+// 模块级稳定引用：FlatList 的 renderItem / keyExtractor 一旦每次渲染新建，
+// VirtualizedList 就会认为 props 变了，多做一轮 props 比对与单元格处理。
+const keyExtractor = (item: PlaylistInfo) => String(item.id)
+const NOOP = () => {}
+
 const ListItem = ({ item, onPress }: { item: PlaylistInfo, onPress: () => void }) => {
   const theme = useTheme()
   return (
@@ -69,7 +74,8 @@ export default memo(({ header, onOpenDetail }: Props) => {
     loadPlaylists()
   }, [loadPlaylists])
 
-  const handleItemPress = (playlistInfo: PlaylistInfo) => {
+  // useCallback：renderItem 依赖它，必须与之一同稳定。
+  const handleItemPress = useCallback((playlistInfo: PlaylistInfo) => {
     const listInfo = {
       id: String(playlistInfo.id),
       name: playlistInfo.title,
@@ -80,28 +86,31 @@ export default memo(({ header, onOpenDetail }: Props) => {
       author: playlistInfo.creator_nick,
     } as ListInfoItem
     onOpenDetail(listInfo)
-  }
+  }, [onOpenDetail])
 
   const handleRefresh = () => {
     loadPlaylists(true)
   }
 
+  // 稳定 renderItem：依赖项均为稳定引用或低频变化值。
+  const renderItem = useCallback(({ item }: { item: PlaylistInfo }) => (
+    <View style={isHorizontal ? styles.itemWrapper : null}>
+      <ListItem item={item} onPress={() => { handleItemPress(item) }} />
+    </View>
+  ), [isHorizontal, handleItemPress])
+
   return (
     <View style={{ flex: 1 }}>
       <FlatList
-        onScrollBeginDrag={() => {}}
+        onScrollBeginDrag={NOOP}
         ListHeaderComponent={header}
         data={playlists}
         contentContainerStyle={{ paddingBottom: bottomInset }}
         key={isHorizontal ? 'horizontal' : 'vertical'}
         numColumns={isHorizontal ? 2 : 1}
         columnWrapperStyle={isHorizontal ? styles.columnWrapper : undefined}
-        renderItem={({ item }) => (
-          <View style={isHorizontal ? styles.itemWrapper : null}>
-            <ListItem item={item} onPress={() => { handleItemPress(item) }} />
-          </View>
-        )}
-        keyExtractor={(item) => String(item.id)}
+        renderItem={renderItem}
+        keyExtractor={keyExtractor}
         refreshControl={
           <RefreshControl colors={[theme['c-primary']]} refreshing={loading} onRefresh={handleRefresh} />
         }

@@ -4,7 +4,6 @@ import { useWindowSize } from '@/utils/hooks'
 
 import Modal, { type ModalType } from '@/components/common/Modal'
 import { createStyle } from '@/utils/tools'
-// import { useGetter } from '@/store'
 
 // const menuItemHeight = 42
 // const menuItemWidth = 100
@@ -49,7 +48,6 @@ const Panel = ({
 }) => {
   // const dimensions = useWindowSize()
   const windowSize = useWindowSize()
-  // const theme = useGetter('common', 'theme')
   // const fadeAnim = useRef(new Animated.Value(0)).current
   // console.log(buttonPosition)
 

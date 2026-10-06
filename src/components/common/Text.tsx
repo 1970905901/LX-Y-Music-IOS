@@ -4,7 +4,6 @@ import { useTextShadow, useTheme } from '@/store/theme/hook'
 import { setSpText } from '@/utils/pixelRatio'
 import { useAnimateColor } from '@/utils/hooks/useAnimateColor'
 import { DEFAULT_DURATION, useAnimateNumber } from '@/utils/hooks/useAnimateNumber'
-// import { AppColors } from '@/theme'
 
 export interface TextProps extends _TextProps {
   /**

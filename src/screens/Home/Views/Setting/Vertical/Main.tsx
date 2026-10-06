@@ -12,7 +12,7 @@ import { useSafeAreaBottom } from '@/store/common/hook'
 import Text from '@/components/common/Text'
 import PageHeader from '@/components/common/PageHeader'
 import { Icon } from '@/components/common/Icon'
-import LandscapeCentered from '@/components/LandscapeCentered'
+import LandscapeCentered from '@/components/layout/LandscapeCentered'
 
 export default memo(() => {
   const theme = useTheme()

@@ -41,6 +41,8 @@ const FILES = {
 const GONE_FILES = [
   'src/screens/Home/Views/Mylist/MusicList/ListMusicSearch.tsx',
   'src/components/SearchTipList/index.tsx',
+  // 整个 SearchTipList 目录已删除（唯一的 List.tsx 也零引用），一并禁止复活
+  'src/components/SearchTipList/List.tsx',
 ]
 
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8').replace(/\r\n/g, '\n')

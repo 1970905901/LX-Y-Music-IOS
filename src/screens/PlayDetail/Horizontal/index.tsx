@@ -6,7 +6,7 @@ import MoreBtn from './MoreBtn'
 import Header from './components/Header'
 import { setComponentId } from '@/core/common'
 import { COMPONENT_IDS } from '@/config/constant'
-import PageContent from '@/components/PageContent'
+import PageContent from '@/components/common/PageContent'
 import commonState, { type InitState as CommonState } from '@/store/common/state'
 
 import Pic from './Pic'

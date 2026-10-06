@@ -17,6 +17,17 @@ import { usePhantomScrollGuard } from '@/utils/hooks/usePhantomScrollGuard'
 
 type RecType = 'home' | 'radar' | 'newsong'
 
+interface RecPlaylistItem {
+  id: string
+  name: string
+  cover: string
+  playCount: number
+}
+
+// 模块级稳定引用：FlatList 的 renderItem / keyExtractor 一旦每次渲染新建，
+// VirtualizedList 就会认为 props 变了，多做一轮 props 比对与单元格处理。
+const keyExtractor = (item: RecPlaylistItem) => item.id
+
 interface Props {
   header?: ReactElement
   type: RecType
@@ -30,7 +41,7 @@ const handlePlay = async(list: LX.Music.MusicInfoOnline[], listId: string, index
   void playList(LIST_IDS.TEMP, index)
 }
 
-const PlaylistItem = ({ item, onPress }: { item: { id: string, name: string, cover: string, playCount: number }, onPress: () => void }) => {
+const PlaylistItem = ({ item, onPress }: { item: RecPlaylistItem, onPress: () => void }) => {
   const theme = useTheme()
   return (
     <TouchableOpacity style={styles.item} onPress={onPress}>
@@ -139,7 +150,8 @@ export default memo(({ header, type, onOpenDetail }: Props) => {
     handlePlay(list, listId, index)
   }, [type])
 
-  const handlePlaylistPress = (item: { id: string, name: string, cover: string, playCount: number }) => {
+  // useCallback：renderItem 依赖它，必须与之一同稳定，否则两者每次都换新引用。
+  const handlePlaylistPress = useCallback((item: RecPlaylistItem) => {
     if (onOpenDetail) {
       const listInfo = {
         id: item.id,
@@ -152,7 +164,14 @@ export default memo(({ header, type, onOpenDetail }: Props) => {
       } as ListInfoItem
       onOpenDetail(listInfo)
     }
-  }
+  }, [onOpenDetail])
+
+  // 稳定 renderItem：依赖项均为稳定引用或低频变化值（isHorizontal 仅横竖屏切换时变）。
+  const renderItem = useCallback(({ item }: { item: RecPlaylistItem }) => (
+    <View style={isHorizontal ? styles.itemWrapper : null}>
+      <PlaylistItem item={item} onPress={() => { handlePlaylistPress(item) }} />
+    </View>
+  ), [isHorizontal, handlePlaylistPress])
 
   if (type === 'home') {
     return (
@@ -167,12 +186,8 @@ export default memo(({ header, type, onOpenDetail }: Props) => {
           key={isHorizontal ? 'horizontal' : 'vertical'}
           numColumns={isHorizontal ? 2 : 1}
           columnWrapperStyle={isHorizontal ? styles.columnWrapper : undefined}
-          renderItem={({ item }) => (
-            <View style={isHorizontal ? styles.itemWrapper : null}>
-              <PlaylistItem item={item} onPress={() => { handlePlaylistPress(item) }} />
-            </View>
-          )}
-          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          keyExtractor={keyExtractor}
           refreshControl={
             <RefreshControl colors={[theme['c-primary']]} refreshing={loading} onRefresh={handleRefresh} />
           }

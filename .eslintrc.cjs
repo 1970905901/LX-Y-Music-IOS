@@ -18,6 +18,21 @@ const baseRule = {
   'multiline-ternary': 'off',
   'react/display-name': 'off',
   'react/prop-types': 'off',
+  // import 顺序：只强制「分组顺序」，不强制字母序、不强制空行。
+  // 先以 warn 引入：本仓现存写法是相对导入与 @/ 别名交替（如
+  // Home/Vertical/Main.tsx 的 ../Views/* 排在 @/store/* 之前），一次改成 error
+  // 会产生大量需要人工确认的排序 diff。warn 不阻断 CI，可分批 --fix 收敛。
+  // 副作用导入（import 'x'）不参与排序，避免打乱 polyfill / shim 的先后依赖。
+  'import/order': [
+    'warn',
+    {
+      groups: ['builtin', 'external', 'internal', 'parent', 'sibling', 'index', 'object'],
+      pathGroups: [{ pattern: '@/**', group: 'internal', position: 'after' }],
+      pathGroupsExcludedImportTypes: ['builtin'],
+      'newlines-between': 'ignore',
+      warnOnUnassignedImports: false,
+    },
+  ],
 }
 
 module.exports = {
@@ -30,6 +45,7 @@ module.exports = {
   ],
   plugins: [
     'react',
+    'import',
   ],
   rules: baseRule,
   parser: '@babel/eslint-parser',

@@ -1,6 +1,6 @@
 import { memo, useEffect, useRef, useState, useCallback } from 'react'
 
-import PageContent from '@/components/PageContent'
+import PageContent from '@/components/common/PageContent'
 import Header from './Header'
 import SongList from './SongList'
 import wyApi from '@/utils/musicSdk/wy/artist'
@@ -10,9 +10,9 @@ import { toast } from '@/utils/tools'
 import { setComponentId, updateSetting } from '@/core/common'
 import { playOnlineListEnsureAll } from '@/core/list'
 import { pop } from '@/navigation'
-import DetailActionBar from '@/components/DetailActionBar'
+import DetailActionBar from '@/components/common/DetailActionBar'
 import PlayerBar from '@/components/player/PlayerBar'
-import LandscapeDetailLayout from '@/components/LandscapeDetailLayout'
+import LandscapeDetailLayout from '@/components/layout/LandscapeDetailLayout'
 import SwipeBackArea from '@/components/common/SwipeBackArea'
 import {
   getArtistCache, setArtistCache,

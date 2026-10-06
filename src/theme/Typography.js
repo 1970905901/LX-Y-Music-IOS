@@ -1,43 +1,13 @@
 /**
- * Typography:
- * This contains all the typography config for the application
- * #Note: color and font size are defaulted as they can be overridden
- *        as required.
+ * 尺寸常量。
+ *
+ * ⚠️ 本文件只保留**实际在用**的 `BorderWidths` / `BorderRadius`（19 + 2 个文件经
+ * `@/theme` 引用）。原来的 `FontWeights` / `FontSizes` 已删除：全仓零引用，且与
+ * `@/theme/DesignTokens`（`designTypography`）职责重叠 —— 新增排版尺寸请用
+ * DesignTokens，不要再往这里加。
+ * `@/theme` 的 `Themes` / `AppColors` / `MaterialColors` 三个再导出同样零引用，已从
+ * index.js 移除（`Colors.js` 随之删除）。
  */
-
-export const FontWeights = {
-  Bold: {
-    fontFamily: 'SFProDisplay-Bold',
-    color: '#000',
-  },
-  Regular: {
-    fontFamily: 'SFProDisplay-Regular',
-    color: '#000',
-  },
-  Light: {
-    fontFamily: 'SFProDisplay-Light',
-    color: '#000',
-  },
-}
-
-export const FontSizes = {
-  Heading: {
-    fontSize: 32,
-  },
-  SubHeading: {
-    fontSize: 24,
-  },
-  Label: {
-    fontSize: 20,
-  },
-  Body: {
-    fontSize: 16,
-  },
-  Caption: {
-    fontSize: 14,
-  },
-}
-
 export const BorderWidths = {
   normal: 0.4,
   normal1: 0.6,

@@ -1,7 +1,7 @@
 import { memo, useRef, useEffect } from 'react'
 import { View, StyleSheet, Animated, TouchableOpacity } from 'react-native'
 import { Icon } from '@/components/common/Icon'
-import TimeoutExitEditModal, { type TimeoutExitEditModalType, useTimeInfo } from '@/components/TimeoutExitEditModal'
+import TimeoutExitEditModal, { type TimeoutExitEditModalType, useTimeInfo } from '@/components/common/TimeoutExitEditModal'
 import { pop } from '@/navigation'
 import { useTheme } from '@/store/theme/hook'
 import { HEADER_HEIGHT as _HEADER_HEIGHT, NAV_SHEAR_NATIVE_IDS } from '@/config/constant'

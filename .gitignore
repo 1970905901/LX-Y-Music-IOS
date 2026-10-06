@@ -76,6 +76,10 @@ buck-out/
 ipa-extract/
 sourcemap/
 # 本机/构建产物（2026-10 全仓评审收口）
+# ⚠️ 下面这行 `$null` 是**必须保留**的规则，不是误写：PowerShell 里 `cmd > $null`
+# 会创建名为 `$null` 的真实文件（`> $null` 是 cmd 重定向语法，PowerShell 不认）。
+# `scripts/sim-repo-hygiene.js` 把它作为契约逐条断言（既要 `.gitignore` 里有这条字面量，
+# 又要 `git check-ignore` 判定为忽略），删掉会让 `npm run sim` 直接失败。
 $null
 ios/assets/
 
@@ -84,6 +88,9 @@ ios/assets/
 
 # 本项目以 npm 为准（package-lock.json 已入库），pnpm lock 不入库
 pnpm-lock.yaml
-# 本机 Agent / 编辑器私有配置（仓库为 public：只共享规则，不入库）
-AGENTS.md
+# Agent / 编辑器配置
+# - AGENTS.md 是**项目开发规范**（目录约定、编码规范、真机验收要求），属于团队共享
+#   内容，必须入库；此前与工具私有文件一起被忽略，导致规范只存在于本机工作区、
+#   协作者与 CI 都看不到。
+# - .zcodeignore 是单个编辑器的忽略清单，属本机私有，继续忽略。
 .zcodeignore

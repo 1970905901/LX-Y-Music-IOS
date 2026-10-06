@@ -19,10 +19,10 @@
 		"scope": "javascript,typescript,typescriptreact",
 		"prefix": "imtl",
 		"body": [
-			"import { useTranslation } from '@/plugins/i18n'",
-			"$1const { t } = useTranslation()"
+			"import { useI18n } from '@/lang'",
+			"$1const t = useI18n()"
 		],
-		"description": "Translation Language"
+		"description": "Import i18n hook"
 	},
 	"Import store setting": {
 		"scope": "javascript,typescript,typescriptreact",
@@ -57,12 +57,13 @@
 		],
 		"description": "Import toast"
 	},
-	"Use getter theme": {
+	"Use theme": {
 		"scope": "javascript,typescript,typescriptreact",
 		"prefix": "ugt",
 		"body": [
-			"const theme = useGetter('common', 'theme')"
+			"import { useTheme } from '@/store/theme/hook'",
+			"$1const theme = useTheme()"
 		],
-		"description": "Use getter theme"
+		"description": "Import useTheme and read current theme"
 	},
 }

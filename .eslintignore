@@ -1,0 +1,25 @@
+# ESLint 忽略清单。
+#
+# `.eslintrc.cjs` 的 `ignorePatterns` 只列了 node_modules 与几个单文件，
+# `eslint . --ext .js,.jsx,.ts,.tsx` 会遍历仓库根下所有目录，把构建产物与本机解包
+# 产物一并卷进来。这里补目录级排除。
+#
+# 注意：`ios/LxMusicMobile/user-api-preload.js`（原生 preload 脚本）**保留 lint**，
+# 不缩小现有覆盖面。真正的问题是它的构建产物副本
+# `ipa-extract/Payload/LxMusicMobile.app/user-api-preload.js` —— `ipa-extract/` 已
+# gitignore，但本机解过 ipa 就存在，等于同一份文件被 lint 两次，且是否报错取决于
+# 本机有没有解包过，CI 与本地结果不一致。
+
+# 构建产物 / 本机解包产物
+build/
+ios/Pods/
+ios/assets/
+ios/main.jsbundle
+ios/main.jsbundle.map
+ipa-artifact/
+ipa-extract/
+sourcemap/
+*.min.js
+
+# 文档
+doc/

@@ -1,7 +1,6 @@
 import { useTheme } from '@/store/theme/hook'
 import { useMemo, useRef, useImperativeHandle, forwardRef } from 'react'
 import { Pressable, type PressableProps, StyleSheet, type View, type ViewProps } from 'react-native'
-// import { AppColors } from '@/theme'
 
 export interface BtnProps extends PressableProps {
   ripple?: PressableProps['android_ripple']

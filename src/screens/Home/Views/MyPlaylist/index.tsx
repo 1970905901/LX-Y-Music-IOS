@@ -14,7 +14,7 @@ import { usePhantomScrollGuard } from '@/utils/hooks/usePhantomScrollGuard'
 import { useI18n } from '@/lang'
 import { designSpacing } from '@/theme/DesignTokens'
 import PageTopInset from '@/components/common/PageTopInset'
-import userState from '@/store/user/state'
+import userState, { type SubscribedPlaylistInfo } from '@/store/user/state'
 import { useSettingValue } from '@/store/setting/hook'
 import { toast, confirmDialog } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
@@ -27,6 +27,15 @@ import { getPlaylistIndex } from '@/core/playlistIndex'
 import Menu, { type MenuType, type Position } from '@/components/common/Menu'
 import PlaylistEditModal, { type PlaylistEditModalType } from './PlaylistEditModal'
 import MusicInfoOnline = LX.Music.MusicInfoOnline
+
+// 模块级稳定引用：renderItem / keyExtractor / columnWrapperStyle 一旦每次渲染新建，
+// VirtualizedList 就会认为 props 变了，多做一轮 props 比对与单元格处理。
+// 元素类型必须与 data 的数据源一致：列表数据是 store 的网易云订阅歌单
+// （SubscribedPlaylistInfo[]），若按 ListInfoItem 声明，FlatListProps<T> 的
+// data / renderItem / keyExtractor 会因 T 不一致而报 TS2769（缺 author/source）。
+const keyExtractor = (item: SubscribedPlaylistInfo) => String(item.id)
+const HORIZONTAL_COLUMN_WRAPPER = { paddingHorizontal: 8 }
+const HORIZONTAL_ITEM_WRAPPER = { flex: 1 }
 
 export default memo(() => {
   const playlists = useWySubscribedPlaylists()
@@ -218,6 +227,15 @@ export default memo(() => {
     setSelectedPlaylist(null)
     setScrollToMusicInfo(null)
   }, [])
+
+  // 稳定 renderItem：依赖项均为稳定引用或低频变化值。
+  // 原写法在 JSX 里内联箭头，每次渲染都换新引用，列表无法跳过比对。
+  const renderItem = useCallback(({ item }: { item: SubscribedPlaylistInfo }) => (
+    <View style={isHorizontal ? HORIZONTAL_ITEM_WRAPPER : null}>
+      <ListItem item={item} onPress={handleItemPress} onHeartbeatPress={handleHeartbeatPress} onMenuPress={handleMenuPress} />
+    </View>
+  ), [isHorizontal, handleItemPress, handleHeartbeatPress, handleMenuPress])
+
   return (
     <View style={{ flex: 1 }}>
       <View style={[{ flex: 1 }, selectedPlaylist ? { opacity: 0 } : null]} pointerEvents={selectedPlaylist ? 'none' : 'auto'}>
@@ -239,13 +257,9 @@ export default memo(() => {
           contentContainerStyle={{ paddingBottom: bottomInset }}
           key={isHorizontal ? 'horizontal' : 'vertical'}
           numColumns={isHorizontal ? 2 : 1}
-          columnWrapperStyle={isHorizontal ? { paddingHorizontal: 8 } : undefined}
-          renderItem={({ item }) => (
-            <View style={isHorizontal ? { flex: 1 } : null}>
-              <ListItem item={item} onPress={handleItemPress} onHeartbeatPress={handleHeartbeatPress} onMenuPress={handleMenuPress} />
-            </View>
-          )}
-          keyExtractor={item => String(item.id)}
+          columnWrapperStyle={isHorizontal ? HORIZONTAL_COLUMN_WRAPPER : undefined}
+          renderItem={renderItem}
+          keyExtractor={keyExtractor}
           ListEmptyComponent={
             // 首屏加载不再用 RefreshControl 的 spinner（那会撑开 inset 造成顶部回弹），
             // 改为列表内一条轻提示：加载中 / 暂无歌单

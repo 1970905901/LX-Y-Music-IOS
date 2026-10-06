@@ -1,7 +1,6 @@
 import { encryptMsg, decryptMsg } from './utils'
 import { callObj } from './sync'
 // import { action as commonAction } from '@/store/modules/common'
-// import { getStore } from '@/store'
 // import registerSyncListHandler from './syncList'
 import log from '../log'
 import { aesEncrypt } from '../utils'

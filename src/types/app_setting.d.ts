@@ -80,6 +80,11 @@ declare global {
       'common.wy_cookie': string
       'common.kg_cookie': string
       'common.tx_cookie': string
+      // YouTube：`utils/musicSdk/yt/api.ts` 会读取，defaultSetting.ts 也有默认值，
+      // 但此前未在此声明（只能靠索引签名兜底）。注意 yt 目前**没有登录入口**：
+      // YouTubeLoginManager 未挂载、无 showYouTubeLogin 发射点、`yt-cookie-set`
+      // 也没有写入监听，故该键只能靠手工输入设置。
+      'common.yt_cookie': string
 
       /**
        * 推荐页平台按钮顺序（平台 id 数组，空数组表示使用默认顺序）

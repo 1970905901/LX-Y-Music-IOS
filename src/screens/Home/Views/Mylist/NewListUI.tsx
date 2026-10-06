@@ -43,6 +43,10 @@ interface ListItemInfo {
   isFixed: boolean
 }
 
+// 模块级稳定引用：FlatList 的 keyExtractor 每次渲染新建会让 VirtualizedList 认为
+// props 变了，多做一轮 props 比对。（renderItem 已是稳定 useCallback。）
+const keyExtractor = (item: ListItemInfo) => item.id
+
 interface DragAnim {
   translateY: Animated.Value
   scale: Animated.Value
@@ -672,7 +676,9 @@ export default memo(() => {
     }
   }, [allList])
 
-  const renderItem = ({ item }: { item: ListItemInfo }) => {
+  // 稳定 renderItem：依赖项全是本文件内已 useCallback 的处理器，唯一会变的
+  // 是 draggingIndex（拖拽期间必须变化，用于切换 isDragging / isDragSource）。
+  const renderItem = useCallback(({ item }: { item: ListItemInfo }) => {
     const userListIndex = userLists.findIndex(l => l.id === item.id)
 
     if (item.isFixed) {
@@ -709,7 +715,19 @@ export default memo(() => {
         onTouchEnd={handleTouchEnd}
       />
     )
-  }
+  }, [
+    userLists,
+    draggingIndex,
+    handleItemPress,
+    showMenu,
+    handleLayoutHeight,
+    handleLongPressStart,
+    handleDragMove,
+    handleDragRelease,
+    handleDragCancel,
+    handleTouchStart,
+    handleTouchEnd,
+  ])
 
   const listHeader = (
     <>
@@ -746,7 +764,7 @@ export default memo(() => {
             // 更多功能网格（网易/酷狗/QQ 歌单、关注歌手、收藏专辑、WebDAV、本地与下载）
             // 已从推荐页迁移至此：作为列表底部内容随页滚动，各平台入口按 Cookie 登录态显隐。
             ListFooterComponent={<FeatureGrid />}
-            keyExtractor={item => item.id}
+            keyExtractor={keyExtractor}
             style={styles.listContainer}
             scrollEnabled={draggingIndex == null}
             refreshControl={

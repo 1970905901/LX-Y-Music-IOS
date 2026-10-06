@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react'
+import { memo, useCallback, useMemo } from 'react'
 import { FlatList, StyleSheet, View } from 'react-native'
 import { createStyle } from '@/utils/tools'
 import { designSpacing } from '@/theme/DesignTokens'
@@ -12,6 +12,10 @@ interface HorizontalShelfProps {
   cardWidth: number
   onPressItem: (item: ListInfoItem) => void
 }
+
+// 模块级稳定引用：横向货架是首页最长的列表，renderItem / keyExtractor 若每次渲染新建，
+// VirtualizedList 每帧都要重新比对全部 props。
+const keyExtractor = (item: ListInfoItem) => `${item.source}-${item.id}`
 
 const styles = createStyle({
   list: {
@@ -34,6 +38,12 @@ const HorizontalShelf = memo(({ title, data, cardWidth, onPressItem }: Horizonta
     [],
   )
 
+  const renderItem = useCallback(({ item }: { item: ListInfoItem }) => (
+    <View style={styles.item}>
+      <PlaylistCard item={item} width={cardWidth} onPress={onPressItem} />
+    </View>
+  ), [cardWidth, onPressItem])
+
   return (
     <>
       <SectionHeader title={title} />
@@ -45,12 +55,8 @@ const HorizontalShelf = memo(({ title, data, cardWidth, onPressItem }: Horizonta
         showsHorizontalScrollIndicator={false}
         // 嵌套滚动容器内卡片触摸立即下发，避免概率性点击无响应
         delaysContentTouches={false}
-        keyExtractor={(item) => `${item.source}-${item.id}`}
-        renderItem={({ item }) => (
-          <View style={styles.item}>
-            <PlaylistCard item={item} width={cardWidth} onPress={onPressItem} />
-          </View>
-        )}
+        keyExtractor={keyExtractor}
+        renderItem={renderItem}
       />
     </>
   )

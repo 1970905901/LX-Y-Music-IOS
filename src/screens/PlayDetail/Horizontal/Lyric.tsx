@@ -140,6 +140,10 @@ const LrcLine = memo(
 )
 const wait = async() => new Promise((resolve) => setTimeout(resolve, 100))
 
+// 模块级稳定引用：FlatList 的 keyExtractor 若每次渲染新建，VirtualizedList 会判定
+// props 变化而多做一轮工作。用行索引作 key，切歌时行组件按 key 复用、仅 props 更新。
+const KEY_EXTRACTOR: FlatListType['keyExtractor'] = (_item, index) => `${index}`
+
 export default () => {
   const safeAreaBottom = useSafeAreaBottom()
   const lyricLines = useLrcSet()
@@ -257,7 +261,6 @@ export default () => {
 
   // useLock()
   // const [imgUrl, setImgUrl] = useState(null)
-  // const theme = useGetter('common', 'theme')
   // const { onLayout, ...layout } = useLayout()
 
   // useEffect(() => {
@@ -321,7 +324,10 @@ export default () => {
 
   // 拖拽 / 跳转 / 点击歌词期间强制立即定位；keep=true（长拖拽）保持 force，
   // 否则 500ms 后自动复位，交还给每帧连续滚动循环驱动平滑上移。
-  const setForceScroll = (value: boolean, keep = false) => {
+  // useCallback（空依赖）：只读写 ref 与定时器句柄，不依赖任何 props / state。
+  // 传给 FlatList 的回调一旦每次渲染换新引用，VirtualizedList 就无法跳过比对与
+  // 子项 diff；renderItem / onScroll / onScrollBeginDrag 这类高频回调尤其要稳定。
+  const setForceScroll = useCallback((value: boolean, keep = false) => {
     forceScrollRef.current = value
     if (forceScrollTimer.current) {
       clearTimeout(forceScrollTimer.current)
@@ -333,7 +339,7 @@ export default () => {
         forceScrollTimer.current = null
       }, 500)
     }
-  }
+  }, [])
 
   // 连续平滑滚动：每帧把「当前高亮行」精确居中（与竖屏同一策略）。
   // 目标行取高亮行本身（lineRef.current.line），不再用 audioClock 另算行号：
@@ -387,10 +393,12 @@ export default () => {
     } catch { }
   }, [lyricLines])
 
-  const handleScroll = ({ nativeEvent }: NativeSyntheticEvent<NativeScrollEvent>) => {
+  // useCallback（空依赖）：只把原生滚动事件写进 ref，不触发重渲染，也不读任何变化值。
+  const handleScroll = useCallback(({ nativeEvent }: NativeSyntheticEvent<NativeScrollEvent>) => {
     scrollInfoRef.current = nativeEvent
-  }
-  const handleScrollBeginDrag = () => {
+  }, [])
+  // useCallback（空依赖）：只操作 ref 与定时器句柄。
+  const handleScrollBeginDrag = useCallback(() => {
     isPauseScrollRef.current = true
     if (delayScrollTimeout.current) {
       clearTimeout(delayScrollTimeout.current)
@@ -404,9 +412,10 @@ export default () => {
       scrollCancelRef.current()
       scrollCancelRef.current = null
     }
-  }
+  }, [])
 
-  const onScrollEndDrag = () => {
+  // 依赖 handleScrollToActive（其自身依赖 lyricLines，只在换歌/歌词到达时变化）。
+  const onScrollEndDrag = useCallback(() => {
     if (!isPauseScrollRef.current) return
     if (scrollTimoutRef.current) clearTimeout(scrollTimoutRef.current)
     scrollTimoutRef.current = setTimeout(() => {
@@ -415,7 +424,7 @@ export default () => {
       if (!playerState.isPlay) return
       handleScrollToActive()
     }, 3000)
-  }
+  }, [handleScrollToActive])
 
   // 进入/切歌后布局（spaceComponent / 行高）可能尚未完成，首跳落点可能有偏差；
   // 等行测量 / 列表高度就位（防抖 150ms）后静默回正一次，保证高亮行最终严格居中（对齐竖屏）。
@@ -596,12 +605,12 @@ export default () => {
     }
   }, [])
 
-  const handleScrollToIndexFailed: FlatListType['onScrollToIndexFailed'] = (info) => {
+  const handleScrollToIndexFailed = useCallback<NonNullable<FlatListType['onScrollToIndexFailed']>>((info) => {
     void wait().then(() => {
       // 重试时强制无动画立即定位，避免“动画滚动 + 二次延迟”进一步拖慢歌词出现。
       handleScrollToActive(info.index, true)
     })
-  }
+  }, [handleScrollToActive])
 
   const handleLineLayout = useCallback<LineProps['onLayout']>((lineNum, height, _width, isPlayed, isActive) => {
     const layout = lyricScrollLayoutRef.current
@@ -670,12 +679,15 @@ export default () => {
     handleScrollToActive(index)
   }, [lyricLines, handleScrollToActive])
 
-  const renderItem: FlatListType['renderItem'] = ({ item, index }) => {
+  // useCallback 稳定 renderItem：依赖项均为稳定引用或低频变化值（line 每行切换变化一次），
+  // 配合 LrcLine 的 memo 比较器，行切换时只有新旧激活两行重渲染（对齐竖屏实现）。
+  const renderItem: FlatListType['renderItem'] = useCallback(({ item, index }: { item: Line, index: number }) => {
     return <LrcLine line={item} lineNum={index} activeLine={line} onLayout={handleLineLayout} onPress={handleLinePress} wordsByIndex={wordsByIndex} />
-  }
+  }, [line, handleLineLayout, handleLinePress, wordsByIndex])
+  // 模块级常量：keyExtractor 每次渲染换新引用同样会让 VirtualizedList 多做一次比对。
   // 与竖屏一致用行索引作 key：切歌时行组件按 key 复用、仅 props 更新，
   // 避免把 text 拼进 key 导致切歌时整表卸载重建（行内动画状态也要重挂）。
-  const getkey: FlatListType['keyExtractor'] = (_item, index) => `${index}`
+  const getkey = KEY_EXTRACTOR
 
   // 上下留白 50% 视高（与滚动定位的 paddingV 同一个值）：
   // 高亮行能严格滚到正中央，且歌词第一行/最后一行也不例外。

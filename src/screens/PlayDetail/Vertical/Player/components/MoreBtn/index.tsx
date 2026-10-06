@@ -12,7 +12,7 @@ import { handleDislikeMusic, handleClearMusicCache } from '@/screens/Home/Views/
 import { downloadMusic } from '@/core/download'
 import { handleLikeMusic, handleTxLikeMusic, handleKgLikeMusic, handleShowAlbumDetail, handleShowArtistDetail } from '@/components/OnlineList/listAction'
 import MusicAddModal, { type MusicAddModalType } from '@/components/MusicAddModal'
-import SimilarSongsModal, { type SimilarSongsModalType } from '@/components/SimilarSongsModal'
+import SimilarSongsModal, { type SimilarSongsModalType } from '@/components/selector/SimilarSongsModal'
 
 
 export default memo(({ componentId }: { componentId: string }) => {

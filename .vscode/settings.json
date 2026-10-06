@@ -11,5 +11,9 @@
     "google"
   ],
   "i18n-ally.sortKeys": true,
-  "typescript.tsdk": "packages/shared/eslint/node_modules/typescript/lib",
+  // 指向仓库自身的 TypeScript（package.json devDependencies: typescript@5.9.3）。
+  // 原值 "packages/shared/eslint/node_modules/typescript/lib" 指向上游 lx-music-desktop
+  // 单仓（monorepo）的路径，本仓库没有 packages/ 目录 —— VS Code 找不到该版本后会
+  // 回退到内置 TS，类型提示与实际编译版本不一致。
+  "typescript.tsdk": "node_modules/typescript/lib"
 }

@@ -35,7 +35,7 @@ import { handleShowAlbumDetail, handleShowArtistDetail } from '@/components/Onli
 import { useSettingValue } from '@/store/setting/hook.ts'
 import { updateSetting } from '@/core/common.ts'
 import commonState from '@/store/common/state'
-import SimilarSongsModal, { type SimilarSongsModalType } from '@/components/SimilarSongsModal'
+import SimilarSongsModal, { type SimilarSongsModalType } from '@/components/selector/SimilarSongsModal'
 import PageTopInset from '@/components/common/PageTopInset'
 
 export interface MusicListProps {

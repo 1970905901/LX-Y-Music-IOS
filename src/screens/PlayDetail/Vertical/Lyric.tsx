@@ -32,6 +32,10 @@ import { useAppActive, usePlayDetailCovered } from '@/store/common/hook'
 
 type FlatListType = FlatListProps<Line>
 
+// 模块级稳定引用：FlatList 的 keyExtractor 若每次渲染新建，VirtualizedList 会判定
+// props 变化而多做一轮工作。与横屏歌词保持同一写法。
+const KEY_EXTRACTOR: FlatListType['keyExtractor'] = (_item, index) => `${index}`
+
 // const useLock = () => {
 //   const showCommentRef = useRef(false)
 
@@ -326,7 +330,6 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHei
 
   // useLock()
   // const [imgUrl, setImgUrl] = useState(null)
-  // const theme = useGetter('common', 'theme')
   // const { onLayout, ...layout } = useLayout()
 
   // useEffect(() => {
@@ -783,7 +786,7 @@ export default ({ active = true, pagerHeight = 0 }: { active?: boolean, pagerHei
   const renderItem: FlatListType['renderItem'] = useCallback(({ item, index }: { item: Line, index: number }) => {
     return <LrcLine line={item} lineNum={index} activeLine={line} onLayout={handleLineLayout} onPress={handleLinePress} isSmallWindow={isSmallWindow} wordsByIndex={wordsByIndex} />
   }, [line, handleLineLayout, handleLinePress, isSmallWindow, wordsByIndex])
-  const getkey: FlatListType['keyExtractor'] = (_item, index) => `${index}`
+  const getkey = KEY_EXTRACTOR
 
   const handlePageLayout = useCallback(({ nativeEvent }: LayoutChangeEvent) => {
     const h = Math.round(nativeEvent.layout.height)

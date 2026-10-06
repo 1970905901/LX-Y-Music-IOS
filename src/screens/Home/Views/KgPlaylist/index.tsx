@@ -35,6 +35,10 @@ interface PlaylistInfo {
 
 type TabType = 'created' | 'collected'
 
+// 模块级稳定引用：FlatList 的 renderItem / keyExtractor 一旦每次渲染新建，
+// VirtualizedList 就会认为 props 变了，多做一轮 props 比对与单元格处理。
+const keyExtractor = (item: PlaylistInfo) => `${item.id}-${item.isCollected ? 'collected' : 'created'}`
+
 export default memo(() => {
   const t = useI18n()
   // 底部悬浮层（迷你播放器 + 底部 Tab + 安全区）统一避让高度
@@ -240,6 +244,13 @@ export default memo(() => {
     )
   }, [activeTab, theme])
 
+  // 稳定 renderItem：依赖项均为稳定引用或低频变化值（numColumns 仅在横竖屏切换时变）。
+  const renderItem = useCallback(({ item }: { item: PlaylistInfo }) => (
+    <View style={numColumns > 1 ? styles.itemWrapper : undefined}>
+      <ListItem item={item} onPress={handleItemPress} onMenuPress={handleMenuPress} />
+    </View>
+  ), [numColumns, handleItemPress, handleMenuPress])
+
   return (
     <View style={{ flex: 1 }}>
       <View
@@ -266,12 +277,8 @@ export default memo(() => {
           }
           contentContainerStyle={{ paddingBottom: bottomInset, paddingRight: 0 }}
           numColumns={numColumns}
-          renderItem={({ item }) => (
-            <View style={numColumns > 1 ? styles.itemWrapper : undefined}>
-              <ListItem item={item} onPress={handleItemPress} onMenuPress={handleMenuPress} />
-            </View>
-          )}
-          keyExtractor={item => `${item.id}-${item.isCollected ? 'collected' : 'created'}`}
+          renderItem={renderItem}
+          keyExtractor={keyExtractor}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl

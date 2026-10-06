@@ -1,7 +1,6 @@
 import { View } from 'react-native'
 // import Button from '@/components/common/Button'
 // import { navigations } from '@/navigation'
-// import { BorderWidths } from '@/theme'
 import { useNavActiveId, useStatusbarHeight } from '@/store/common/hook'
 import { useI18n } from '@/lang'
 import { createStyle } from '@/utils/tools'

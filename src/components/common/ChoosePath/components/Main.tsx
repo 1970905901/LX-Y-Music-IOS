@@ -1,11 +1,15 @@
 import { useI18n } from '@/lang'
 import { useTheme } from '@/store/theme/hook'
 import { createStyle, getRowInfo } from '@/utils/tools'
-import { useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { View, FlatList } from 'react-native'
 
 import ListItem, { type PathItem } from './ListItem'
 import LoadingMask, { type LoadingMaskType } from '@/components/common/LoadingMask'
+
+// 模块级稳定引用：FlatList 的 renderItem / keyExtractor 一旦每次渲染新建，
+// VirtualizedList 就会认为 props 变了，多做一轮 props 比对与单元格处理。
+const keyExtractor = (item: PathItem) => item.path + '/' + item.name
 
 export default ({
   list,
@@ -46,6 +50,10 @@ export default ({
     loadingMaskRef.current?.setVisible(loading)
   }, [loading])
 
+  const renderItem = useCallback(({ item }: { item: PathItem }) => (
+    <ListItem item={item} rowInfo={rowInfo.current} onPress={onSetPath} />
+  ), [onSetPath])
+
   const ListComponent = useMemo(
     () => (
       <FlatList
@@ -53,14 +61,12 @@ export default ({
         style={styles.list}
         data={list}
         numColumns={rowInfo.current.rowNum}
-        renderItem={({ item }) => (
-          <ListItem item={item} rowInfo={rowInfo.current} onPress={onSetPath} />
-        )}
-        keyExtractor={(item) => item.path + '/' + item.name}
+        renderItem={renderItem}
+        keyExtractor={keyExtractor}
         removeClippedSubviews={true}
       />
     ),
-    [list, onSetPath],
+    [list, onSetPath, renderItem],
   )
 
   // const dirList = useMemo(() => [parentDir, ...list], [list, parentDir])

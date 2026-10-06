@@ -146,12 +146,6 @@ export default forwardRef<HeaderType, HeaderProps>(
           </View>
         </View>
         <ButtonBar onBack={() => {}} />
-        {/* <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        <View style={{ flexGrow: 0, flexShrink: 1, paddingTop: 5, paddingRight: 5 }}>
-              <Text style={{ fontSize: 12, color: AppColors.normal20 }} numberOfLines={ 1 }>{playCount || '-'}</Text>
-              <Text style={{ fontSize: 12, color: AppColors.normal30 }} numberOfLines={ 1 }>{this.props.selectListInfo.author || this.props.listDetailData.info.author}</Text>
-            </View>
-      </View> */}
       </View>
     )
   },

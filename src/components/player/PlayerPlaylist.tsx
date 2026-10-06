@@ -31,7 +31,7 @@ import {
   handleShowArtistDetail,
 } from '@/components/OnlineList/listAction'
 import commonState from '@/store/common/state'
-import SimilarSongsModal, { type SimilarSongsModalType } from '@/components/SimilarSongsModal'
+import SimilarSongsModal, { type SimilarSongsModalType } from '@/components/selector/SimilarSongsModal'
 
 export interface PlayerPlaylistType {
   show: () => void

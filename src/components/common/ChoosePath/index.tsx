@@ -1,7 +1,6 @@
 import { useState, useRef, forwardRef, useImperativeHandle } from 'react'
 // import { StyleSheet, View, Text, StatusBar, ScrollView } from 'react-native'
 
-// import { useGetter, useDispatch } from '@/store'
 import List, { type ListType } from './List'
 
 import ConfirmAlert, { type ConfirmAlertType } from '@/components/common/ConfirmAlert'

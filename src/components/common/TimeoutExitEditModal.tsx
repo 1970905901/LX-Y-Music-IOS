@@ -14,7 +14,7 @@ import {
   useTimeoutExitTimeInfo,
 } from '@/core/player/timeoutExit'
 import { useI18n } from '@/lang'
-import CheckBox from './common/CheckBox'
+import CheckBox from './CheckBox'
 import { useSettingValue } from '@/store/setting/hook'
 import { updateSetting } from '@/core/common'
 import settingState from '@/store/setting/state'

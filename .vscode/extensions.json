@@ -1,5 +1,6 @@
 {
     "recommendations": [
-        "supsugam.react-native-text-watcher"
+        "supsugam.react-native-text-watcher",
+        "github.copilot"
     ]
 }

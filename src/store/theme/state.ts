@@ -1,5 +1,4 @@
 import { createContext } from 'react'
-// import type { RootState } from '@/store'
 
 interface InitState {
   shouldUseDarkColors: boolean

@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react'
+import { memo, useCallback, useMemo } from 'react'
 import { FlatList, View, RefreshControl } from 'react-native'
 import AlbumListItem from './AlbumListItem'
 import { useHorizontalMode, useLayout } from '@/utils/hooks'
@@ -11,6 +11,11 @@ import { useBottomOverlayInset } from '@/store/common/hook'
 
 const MIN_WIDTH = scaleSizeW(120)
 const HORIZONTAL_SPACING = 24
+
+// 模块级稳定引用：FlatList 的 keyExtractor 每次渲染新建会让 VirtualizedList 认为
+// props 变了，多做一轮 props 比对。（renderItem 已是稳定 useCallback。）
+// albums 的 prop 类型是 any[]，故与 renderItem 一致用 any。
+const keyExtractor = (item: any) => String(item.id)
 
 interface AlbumListProps {
   componentId: string
@@ -45,12 +50,12 @@ export default memo(({ componentId, albums, loading, hasMore, onLoadMore, onRefr
     return { num, itemWidth }
   }, [width, viewMode, isHorizontal])
 
-  const renderItem = ({ item }: { item: any }) => {
+  const renderItem = useCallback(({ item }: { item: any }) => {
     if (item.id.toString().startsWith('white__')) {
       return <View style={{ width: rowInfo.itemWidth }} />
     }
     return <AlbumListItem componentId={componentId} item={item} width={rowInfo.itemWidth} viewMode={viewMode} />
-  }
+  }, [componentId, rowInfo.itemWidth, viewMode])
 
   const list = useMemo(() => {
     const list = [...albums]
@@ -64,7 +69,9 @@ export default memo(({ componentId, albums, loading, hasMore, onLoadMore, onRefr
     return list
   }, [albums, rowInfo.num])
 
-  const ListFooterComponent = () => {
+  // 原写法把 Footer 定义成组件函数并按组件类型传给 ListFooterComponent —— 每次渲染都是
+  // 一个新函数类型，React 会判定类型不同而卸载重建整棵 Footer 子树。改为传记忆化元素。
+  const listFooter = useMemo(() => {
     let text = ''
     if (loading && albums.length > 0) text = t('list_loading')
     else if (!hasMore) text = t('list_end')
@@ -73,7 +80,7 @@ export default memo(({ componentId, albums, loading, hasMore, onLoadMore, onRefr
         <Text color={theme['c-font-label']}>{text}</Text>
       </View>
     )
-  }
+  }, [loading, albums.length, hasMore, t, theme])
 
   return (
     <View style={styles.container} onLayout={onLayout}>
@@ -85,11 +92,11 @@ export default memo(({ componentId, albums, loading, hasMore, onLoadMore, onRefr
           // 底部内边距：让专辑列表能滚到屏幕底部，最后一行停下时让位给悬浮的迷你播放器。
           contentContainerStyle={{ paddingBottom: bottomInset }}
           renderItem={renderItem}
-          keyExtractor={item => String(item.id)}
+          keyExtractor={keyExtractor}
           onEndReached={onLoadMore}
           onEndReachedThreshold={0.5}
           ListHeaderComponent={ListHeaderComponent}
-          ListFooterComponent={ListFooterComponent}
+          ListFooterComponent={listFooter}
           refreshControl={
             <RefreshControl
               colors={[theme['c-primary']]}

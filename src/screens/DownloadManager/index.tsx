@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo } from 'react'
 import { View, FlatList } from 'react-native'
-import PageContent from '@/components/PageContent'
+import PageContent from '@/components/common/PageContent'
 import Header from './Header'
 import ListItem from './ListItem'
 import DownloadPathBar from './DownloadPathBar'
@@ -9,8 +9,12 @@ import { createStyle, getRowInfo } from '@/utils/tools'
 import { setComponentId } from '@/core/common'
 import { removeTask } from '@/core/download'
 import { COMPONENT_IDS } from '@/config/constant'
-import LandscapeCentered from '@/components/LandscapeCentered'
+import LandscapeCentered from '@/components/layout/LandscapeCentered'
 import { useHorizontalMode } from '@/utils/hooks'
+
+// 模块级稳定引用：FlatList 的 keyExtractor 每次渲染新建会让 VirtualizedList 认为
+// props 变了，多做一轮 props 比对。（renderItem 已是稳定 useCallback。）
+const keyExtractor = (item: LX.Download.DownloadTask) => item.id
 
 export default memo(({ componentId }: { componentId: string }) => {
   useEffect(() => {
@@ -53,7 +57,7 @@ export default memo(({ componentId }: { componentId: string }) => {
             contentContainerStyle={{ paddingBottom: 80 }}
             numColumns={numColumns}
             renderItem={renderItem}
-            keyExtractor={item => item.id}
+            keyExtractor={keyExtractor}
           />
         </View>
       </LandscapeCentered>

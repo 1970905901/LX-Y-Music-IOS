@@ -11,6 +11,12 @@ import ListItem from '../MyPlaylist/ListItem'
 import { useBottomOverlayInset } from '@/store/common/hook'
 import { getDailyRecPlaylistsCache, setDailyRecPlaylistsCache, clearDailyRecPlaylistsCache } from '@/core/cache'
 
+// 模块级稳定引用：FlatList 的 renderItem / keyExtractor / columnWrapperStyle 一旦每次
+// 渲染新建，VirtualizedList 就会认为 props 变了，多做一轮 props 比对与单元格处理。
+const keyExtractor = (item: any) => String(item.id)
+const HORIZONTAL_COLUMN_WRAPPER = { paddingHorizontal: 8 }
+const HORIZONTAL_ITEM_WRAPPER = { flex: 1, maxWidth: '50%' } as const
+
 export default memo(({ header, onOpenDetail }: { header?: ReactElement, onOpenDetail: (info: any) => void }) => {
   const [playlists, setPlaylists] = useState<any[]>([])
   // loading = 首次/缓存加载态；refreshing = 只有用户下拉才置位。
@@ -87,14 +93,22 @@ export default memo(({ header, onOpenDetail }: { header?: ReactElement, onOpenDe
     loadPlaylists()
   }, [loadPlaylists])
 
-  const handleItemPress = (playlistInfo: any) => {
+  // useCallback：renderItem 依赖它，必须与之一同稳定。
+  const handleItemPress = useCallback((playlistInfo: any) => {
     onOpenDetail(playlistInfo)
-  }
+  }, [onOpenDetail])
 
   const handleRefresh = () => {
     clearDailyRecPlaylistsCache()
     loadPlaylists(true)
   }
+
+  // 稳定 renderItem：依赖项均为稳定引用或低频变化值。
+  const renderItem = useCallback(({ item }: { item: any }) => (
+    <View style={isHorizontal ? HORIZONTAL_ITEM_WRAPPER : null}>
+      <ListItem item={item} onPress={handleItemPress} />
+    </View>
+  ), [isHorizontal, handleItemPress])
 
   return (
     <View style={{ flex: 1 }}>
@@ -105,13 +119,9 @@ export default memo(({ header, onOpenDetail }: { header?: ReactElement, onOpenDe
         contentContainerStyle={{ paddingBottom: bottomInset }}
         key={isHorizontal ? 'horizontal' : 'vertical'}
         numColumns={isHorizontal ? 2 : 1}
-        columnWrapperStyle={isHorizontal ? { paddingHorizontal: 8 } : undefined}
-        renderItem={({ item }) => (
-          <View style={isHorizontal ? { flex: 1, maxWidth: '50%' } : null}>
-            <ListItem item={item} onPress={handleItemPress} />
-          </View>
-        )}
-        keyExtractor={item => String(item.id)}
+        columnWrapperStyle={isHorizontal ? HORIZONTAL_COLUMN_WRAPPER : undefined}
+        renderItem={renderItem}
+        keyExtractor={keyExtractor}
         ListEmptyComponent={
           <View style={styles.emptyHint}>
             <Text size={13} color={theme['c-500']}>{loading ? '加载中...' : '暂无歌单'}</Text>

@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { FlatList, StyleSheet, TouchableOpacity, View } from 'react-native'
-import LandscapeDetailLayout from '@/components/LandscapeDetailLayout'
+import LandscapeDetailLayout from '@/components/layout/LandscapeDetailLayout'
 import Text from '@/components/common/Text'
 import { useTheme } from '@/store/theme/hook'
 import { useHorizontalMode } from '@/utils/hooks'
@@ -55,6 +55,11 @@ interface LocalFileItem {
   singer: string
   size: number
 }
+
+// 模块级稳定引用：FlatList 的 keyExtractor 每次渲染新建会让 VirtualizedList 认为
+// props 变了，多做一轮 props 比对。（renderItem 已是稳定 useCallback，见文件内注释。）
+const downloadKeyExtractor = (item: LX.Download.DownloadTask) => item.id
+const localFileKeyExtractor = (item: LocalFileItem) => item.id
 
 // 本地文件转播放器可识别结构（走 localPlay 本地播放接口）
 const localFileToPlayItem = (item: LocalFileItem): any => ({
@@ -459,7 +464,7 @@ export default memo(() => {
               key={isHorizontal ? 'horizontal' : 'vertical'}
               numColumns={isHorizontal ? 2 : 1}
               columnWrapperStyle={isHorizontal ? styles.columnWrapper : undefined}
-              keyExtractor={item => item.id}
+              keyExtractor={downloadKeyExtractor}
               // 限制渲染窗口 + 离屏行视图摘除（iOS 滚动掉帧主杠杆）
               initialNumToRender={20}
               windowSize={5}
@@ -482,7 +487,7 @@ export default memo(() => {
               key={isHorizontal ? 'horizontal' : 'vertical'}
               numColumns={isHorizontal ? 2 : 1}
               columnWrapperStyle={isHorizontal ? styles.columnWrapper : undefined}
-              keyExtractor={item => item.id}
+              keyExtractor={localFileKeyExtractor}
               initialNumToRender={20}
               windowSize={5}
               maxToRenderPerBatch={10}

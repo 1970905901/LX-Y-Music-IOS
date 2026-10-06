@@ -4,7 +4,7 @@ import { useHorizontalMode } from '@/utils/hooks'
 
 import Vertical from './Vertical'
 import Horizontal from './Horizontal'
-import PageContent from '@/components/PageContent'
+import PageContent from '@/components/common/PageContent'
 import StatusBar from '@/components/common/StatusBar'
 import { setComponentId } from '@/core/common'
 import { COMPONENT_IDS } from '@/config/constant'

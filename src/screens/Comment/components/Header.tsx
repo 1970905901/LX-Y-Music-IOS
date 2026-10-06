@@ -3,7 +3,6 @@ import { View, TouchableOpacity } from 'react-native'
 
 import { Icon } from '@/components/common/Icon'
 import { pop } from '@/navigation'
-// import { AppColors } from '@/theme'
 import StatusBar from '@/components/common/StatusBar'
 import { useI18n } from '@/lang'
 import { createStyle } from '@/utils/tools'

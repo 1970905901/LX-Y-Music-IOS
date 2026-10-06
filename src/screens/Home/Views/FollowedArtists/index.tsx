@@ -1,4 +1,4 @@
-import { memo, useState, useCallback } from 'react'
+import { memo, useState, useCallback, type ComponentProps } from 'react'
 import { View, FlatList, RefreshControl, Keyboard } from 'react-native'
 import ListItem from './ListItem'
 import { useWyFollowedArtists } from '@/store/user/hook.ts'
@@ -9,6 +9,12 @@ import { useTheme } from '@/store/theme/hook'
 import { useHorizontalMode } from '@/utils/hooks'
 import PageTopInset from '@/components/common/PageTopInset'
 import { useBottomOverlayInset } from '@/store/common/hook'
+
+type ArtistItem = ComponentProps<typeof ListItem>['artist']
+
+// 模块级稳定引用：FlatList 的 renderItem / keyExtractor 一旦每次渲染新建，
+// VirtualizedList 就会认为 props 变了，多做一轮 props 比对与单元格处理。
+const keyExtractor = (item: ArtistItem) => String(item.id)
 
 export default memo(() => {
   const followedArtists = useWyFollowedArtists()
@@ -31,6 +37,13 @@ export default memo(() => {
       })
   }, [])
 
+  // 稳定 renderItem：只在横竖屏形态变化时重建，列表滚动/父级重渲染都不会换新引用。
+  const renderItem = useCallback(({ item }: { item: ArtistItem }) => (
+    <View style={isHorizontal ? styles.itemWrapper : null}>
+      <ListItem artist={item} />
+    </View>
+  ), [isHorizontal])
+
   return (
     <View style={{ flex: 1 }}>
       <FlatList
@@ -40,12 +53,8 @@ export default memo(() => {
         contentContainerStyle={{ paddingBottom: bottomInset }}
         key={isHorizontal ? 'horizontal' : 'vertical'}
         numColumns={isHorizontal ? 2 : 1}
-        renderItem={({ item }) => (
-          <View style={isHorizontal ? styles.itemWrapper : null}>
-            <ListItem artist={item} />
-          </View>
-        )}
-        keyExtractor={item => String(item.id)}
+        renderItem={renderItem}
+        keyExtractor={keyExtractor}
         columnWrapperStyle={isHorizontal ? styles.columnWrapper : undefined}
         refreshControl={
           <RefreshControl

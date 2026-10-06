@@ -24,26 +24,6 @@ export default () => {
     </View>
   )
 }
-// const Singer = () => {
-//   const playMusicInfo = useGetter('player', 'playMusicInfo')
-//   return (
-//     <View style={{ flexGrow: 0, flexShrink: 0 }}>
-//       <Text style={{ width: '100%', color: AppColors.normal }} numberOfLines={1}>
-//         {playMusicInfo ? playMusicInfo.musicInfo.singer : ''}
-//       </Text>
-//     </View>
-//   )
-// }
-// const MusicName = () => {
-//   const playMusicInfo = useGetter('player', 'playMusicInfo')
-//   return (
-//     <View style={{ flexGrow: 0, flexShrink: 1 }}>
-//       <Text style={{ width: '100%', color: AppColors.normal }} numberOfLines={1}>
-//         {playMusicInfo ? playMusicInfo.musicInfo.name : '^-^'}
-//       </Text>
-//     </View>
-//   )
-// }
 
 const styles = createStyle({
   container: {

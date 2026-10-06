@@ -6,7 +6,7 @@ import Log from './Log'
 
 export default memo(() => {
   return (
-    <Section sectionId="setting_other">
+    <Section>
       <DislikeList />
       <Log />
     </Section>

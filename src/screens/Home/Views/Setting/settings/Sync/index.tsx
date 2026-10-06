@@ -136,7 +136,7 @@ export default memo(() => {
   }
 
   return (
-    <Section sectionId="setting_sync">
+    <Section>
       <SubTitle title="WebDAV 同步">
         <CheckBoxItem
           check={isEnableWebdav}

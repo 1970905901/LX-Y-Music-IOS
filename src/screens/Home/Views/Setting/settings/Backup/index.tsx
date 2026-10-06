@@ -6,7 +6,7 @@ import Part from './Part'
 
 export default memo(() => {
   return (
-    <Section sectionId="setting_backup">
+    <Section>
       <Part />
       {/* <MaxCache /> */}
     </Section>

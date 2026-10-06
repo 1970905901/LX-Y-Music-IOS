@@ -1,10 +1,10 @@
 import { memo, useState, useEffect } from 'react'
-import { StyleSheet, View } from 'react-native'
+import { View } from 'react-native'
 
 import SubTitle from '../../components/SubTitle'
 import Button from '../../components/Button'
 import CheckBox from '@/components/common/CheckBox'
-import { toast, confirmDialog, resetNotificationPermissionCheck, resetIgnoringBatteryOptimizationCheck } from '@/utils/tools'
+import { toast, confirmDialog, createStyle, resetNotificationPermissionCheck, resetIgnoringBatteryOptimizationCheck } from '@/utils/tools'
 import { sizeFormate } from '@/utils'
 import { useSettingValue } from '@/store/setting/hook'
 import { updateSetting } from '@/core/common'
@@ -281,7 +281,7 @@ export default memo(() => {
   )
 })
 
-const styles = StyleSheet.create({
+const styles = createStyle({
   list: {
     gap: 4,
     marginBottom: 6,

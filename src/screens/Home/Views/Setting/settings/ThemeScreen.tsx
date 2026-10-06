@@ -28,7 +28,7 @@ export default memo(() => {
   const showGlassOpacity = !liquidGlass || isIOS26_2OrAbove
 
   return (
-    <Section sectionId="setting_theme">
+    <Section>
       <Theme />
       <ThemeMode />
       <IsDynamicBg />

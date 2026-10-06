@@ -1,6 +1,6 @@
 import { memo, useMemo } from 'react'
 
-import { StyleSheet, View } from 'react-native'
+import { View } from 'react-native'
 
 import SubTitle from '../../components/SubTitle'
 import CheckBox from '@/components/common/CheckBox'
@@ -8,6 +8,7 @@ import { useSettingValue } from '@/store/setting/hook'
 import { updateSetting } from '@/core/common'
 import { useI18n } from '@/lang'
 import { TRY_QUALITYS_LIST } from '@/core/music/utils'
+import { createStyle } from '@/utils/tools'
 
 const useActive = (id: LX.Quality) => {
   const q = useSettingValue('player.playQuality')
@@ -48,7 +49,7 @@ export default memo(() => {
   )
 })
 
-const styles = StyleSheet.create({
+const styles = createStyle({
   list: {
     flexDirection: 'column',
     flexWrap: 'wrap',

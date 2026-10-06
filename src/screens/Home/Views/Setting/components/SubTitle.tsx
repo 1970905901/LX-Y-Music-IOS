@@ -9,8 +9,6 @@ import { designSpacing } from '@/theme/DesignTokens'
 interface Props {
   title: string
   children: React.ReactNode | React.ReactNode[]
-  collapsible?: boolean
-  sectionId?: keyof LX.AppSetting['common.sectionExpandedStatus']
 }
 
 export default memo(({ title, children }: Props) => {

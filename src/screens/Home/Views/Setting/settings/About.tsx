@@ -46,7 +46,7 @@ export default memo(() => {
   } as const
 
   return (
-    <Section sectionId="setting_about">
+    <Section>
       <View style={styles.part}>
         <Text style={{ ...styles.text, color: theme['c-font'] }}>
           当前版本：<Text style={styles.boldText}>{version || '未知'}</Text>

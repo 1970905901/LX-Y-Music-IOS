@@ -466,7 +466,7 @@ export default memo(() => {
   const reorderHint = t('setting_basic_source_user_api_reorder_tip')
 
   return (
-    <SubTitle title={t('setting_basic_source')} collapsible sectionId="setting_basic_source_user_api">
+    <SubTitle title={t('setting_basic_source')}>
       <View style={styles.list}>
         {list.map(({ id, name }) => (
           <BuiltInItem name={name} id={id} key={id} change={setApiSourceId} />

@@ -9,7 +9,7 @@ import SonglistCacheSync from './Basic/SonglistCacheSync'
 
 export default memo(() => {
   return (
-    <Section sectionId="setting_platform">
+    <Section>
       <WyCookie />
       <TxCookie />
       <KgCookie />

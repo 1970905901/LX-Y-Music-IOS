@@ -17,7 +17,7 @@ export default memo(() => {
   const t = useI18n()
 
   return (
-    <Section sectionId="setting_download">
+    <Section>
       {/* <IsEnable /> */}
       <DownloadPath />
       <DownloadQuality />

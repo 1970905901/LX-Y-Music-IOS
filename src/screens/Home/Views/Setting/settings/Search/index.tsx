@@ -10,7 +10,7 @@ import SearchSourceFilter from './SearchSourceFilter'
 
 export default memo(() => {
   return (
-    <Section sectionId="setting_search">
+    <Section>
       <IsShowHotSearch />
       <IsShowHistorySearch />
       <BilibiliMultiPage />

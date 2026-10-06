@@ -1436,6 +1436,29 @@ static void LXReportNowPlayingPlaybackTruth(BOOL isPlaying, NSDictionary *option
   LXForceNowPlayingCardRepaint();
 }
 
+// 硬重建媒体卡片：先把 nowPlayingInfo 置空（丢掉系统那份可能已过期/失效的副本），
+// 隔一帧再重发完整信息 + 强制重绘 —— 等效「让系统重建卡片」。
+// 仅重发信息在系统副本过期时救不回来（2026-10-06 真机实证：卡片 elapsed=0.000 + play 图标
+// 而音频在播，重发/翻转都没用，只有重启 App/切前台这种「重建会话」的动作能恢复）。
+// 调用方需保证缓存里的信息/速率/进度基线已经是正确的（本函数只负责重建动作）。
+static void LXHardRebuildNowPlayingCard(NSString *trigger) {
+  if (![NSThread isMainThread]) {
+    dispatch_async(dispatch_get_main_queue(), ^{ LXHardRebuildNowPlayingCard(trigger); });
+    return;
+  }
+  unsigned long infoCount = 0;
+  @synchronized (LXLyricLock()) { infoCount = LXNowPlayingInfoCache.count; }
+  if (infoCount == 0) return;
+  NSLog(@"###LXNowPlaying### hardRebuild trigger=%@ info=%lu", trigger ?: @"?", infoCount);
+  MPNowPlayingInfoCenter *center = [MPNowPlayingInfoCenter defaultCenter];
+  center.nowPlayingInfo = nil;
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.12 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+    LXApplyNowPlayingInfo();
+    // 卡片被系统冻结时，仅重发信息不一定重绘（同歌词换行链路）：补一次重绘翻转
+    LXForceNowPlayingCardRepaint();
+  });
+}
+
 // 看门狗每拍调用的原生兜底真值入口（不依赖 JS 回传）：RNTP 生命周期最近一次报告
 // 引擎在播时，把「在播」喂给同一个纠正入口。nativeFlac 接管会话期间必须跳过 ——
 // 那时 TrackPlayer 已 reset，它的状态不代表出声引擎（nativeFlac 走 JS 探针的回传）。
@@ -1564,6 +1587,14 @@ static void LXRegisterTrackPlayerLifecycleObserver(void) {
       // iOS 27 Beta 7 可能在应用切换/控制中心展开后丢弃当前媒体会话；
       // 重新激活音频会话并重新提交缓存，可让 iPad 控制中心/锁屏恢复歌曲信息和播放按钮。
       [[AVAudioSession sharedInstance] setActive:YES error:nil];
+      if (LXNowPlayingEnginePlaying) {
+        // 回前台是用户已经验证有效的恢复时机（「重开 App 才好」的内核就是重建了会话/卡片）：
+        // 引擎仍在播时做一次硬重建，而不是只重发 —— 系统那份过期副本存在时只重发救不回来
+        // （2026-10-06 实证）。代价是回前台时卡片重建一次（卡片本来就在重绘，用户无感）。
+        LXRefreshNowPlayingElapsedBaselineFromClock();
+        LXHardRebuildNowPlayingCard(@"foreground");
+        return;
+      }
       LXApplyNowPlayingInfo();
     }];
   }

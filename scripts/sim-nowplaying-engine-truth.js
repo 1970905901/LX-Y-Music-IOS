@@ -116,6 +116,22 @@ const structuralReasons = ({ native, jsProgress, jsNowPlaying, jsUtils, jsInit }
   if (!/###LXNowPlaying### truthDrift engine=%d internal=%ld rateStuck=%d cachedRate=%.2f info=%lu action=fix/.test(native)) {
     reasons.push('真值纠正日志没有带 rateStuck / cachedRate（下一次真机日志无法一眼归因速率卡 0）')
   }
+  // 硬重建 helper（回前台 / 真值纠正共用）：置空 → 一帧后重发 + 重绘
+  const rebuild = windowBetween(native, 'static void LXHardRebuildNowPlayingCard(NSString *trigger) {', '// 看门狗每拍调用的原生兜底真值入口', 1500)
+  if (!rebuild) {
+    reasons.push('缺少 LXHardRebuildNowPlayingCard（硬重建：系统副本过期时唯一有效的动作）')
+  } else {
+    if (!/center\.nowPlayingInfo = nil;[\s\S]{0,300}?0\.12 \* NSEC_PER_SEC[\s\S]{0,300}?LXApplyNowPlayingInfo\(\);[\s\S]{0,200}?LXForceNowPlayingCardRepaint\(\);/.test(rebuild)) {
+      reasons.push('硬重建没有「置空 → 一帧后重发 + 重绘」的完整序列')
+    }
+    if (!/###LXNowPlaying### hardRebuild trigger=/.test(rebuild)) {
+      reasons.push('硬重建没有打点（真机无法确认它是否触发过）')
+    }
+  }
+  // 回前台：引擎仍在播 → 硬重建（用户验证过的恢复时机）
+  if (!/if \(LXNowPlayingEnginePlaying\) \{[\s\S]{0,400}?LXHardRebuildNowPlayingCard\(@"foreground"\);/.test(native)) {
+    reasons.push('回前台时没有对「引擎仍在播」做硬重建（用户验证过的恢复时机被浪费）')
+  }
   if (!/RCT_REMAP_METHOD\(reportPlaybackTruth, reportPlaybackTruth:\(BOOL\)isPlaying options:\(NSDictionary \*\)options resolver:/.test(native)) {
     reasons.push('缺少 reportPlaybackTruth 桥方法（JS 回传无入口）')
   }
@@ -328,6 +344,7 @@ const tamperCases = [
   ['拿掉「引擎在播但速率 ≤ 0」判定', ({ native }) => ({ native: native.replace('  BOOL rateStuck = isPlaying && (cachedRate == nil || cachedRate.doubleValue <= 0);\n', '') }), '速率'],
   ['拿掉引擎进入播放的事件驱动补刀', ({ native }) => ({ native: native.replace('    if (LXNowPlayingEnginePlaying && !wasEnginePlaying) {\n', '    if (false) {\n') }), '事件驱动'],
   ['拿掉纠正播放态时的硬重建（把置空→重发的间隔压成 0）', ({ native }) => ({ native: native.replace('(int64_t)(0.12 * NSEC_PER_SEC)', '(int64_t)(0.0 * NSEC_PER_SEC)') }), '硬重建'],
+  ['拿掉回前台的硬重建', ({ native }) => ({ native: native.replace('        LXHardRebuildNowPlayingCard(@"foreground");\n', '') }), '回前台'],
   ['拿掉元数据发布的速率 0 守卫', ({ native }) => ({ native: native.replace('    if (LXNowPlayingEnginePlaying && LXNowPlayingState == MPNowPlayingPlaybackStatePlaying) {\n', '    if (false) {\n') }), '守卫'],
   ['周期重发不刷新进度基线', ({ native }) => ({ native: native.replace('    LXRefreshNowPlayingElapsedBaselineFromClock();\n', '') }), '周期重发前没有刷新进度基线'],
 ]

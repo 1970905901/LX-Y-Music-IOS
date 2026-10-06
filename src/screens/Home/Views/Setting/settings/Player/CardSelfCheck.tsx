@@ -67,6 +67,11 @@ export default memo(() => {
         },
         { text: t('setting_play_card_self_check_close'), style: 'cancel' },
       ])
+    } catch (error) {
+      // 桥调用失败必须可见（与 nowPlaying.ts 的 reportNowPlayingBridgeFailure 纪律一致），
+      // 不能静默吞掉变成「点了没反应」
+      console.warn('###LXNowPlaying### CardSelfCheck failed:', error instanceof Error ? error.message : String(error))
+      toast(t('setting_play_card_self_check_unavailable'))
     } finally {
       setBusy(false)
     }

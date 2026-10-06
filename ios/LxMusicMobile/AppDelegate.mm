@@ -892,8 +892,12 @@ static MPRemoteCommandHandlerStatus LXHandleRemoteChangePlaybackPositionEvent(MP
 }
 
 static NSMutableDictionary *LXNowPlayingMutableInfo(void) {
-  if (LXNowPlayingInfoCache == nil) LXNowPlayingInfoCache = [NSMutableDictionary dictionary];
-  return LXNowPlayingInfoCache;
+  // 自持锁：缓存创建与取用必须与歌词时钟线程串行化（NSMutableDictionary 非线程安全）；
+  // 调用方若已持锁则这里重入（@synchronized 可重入），无额外代价
+  @synchronized (LXLyricLock()) {
+    if (LXNowPlayingInfoCache == nil) LXNowPlayingInfoCache = [NSMutableDictionary dictionary];
+    return LXNowPlayingInfoCache;
+  }
 }
 
 static void LXInstallRemoteCommandHandlers(void) {
@@ -945,7 +949,9 @@ static void LXSyncRemoteCommandAvailability(void) {
   LXInstallRemoteCommandHandlers();
 
   MPRemoteCommandCenter *commandCenter = [MPRemoteCommandCenter sharedCommandCenter];
-  BOOL hasInfo = LXNowPlayingInfoCache.count > 0;
+  // 持锁读：歌词时钟线程可能正在改缓存（NSMutableDictionary 非线程安全）
+  BOOL hasInfo = NO;
+  @synchronized (LXLyricLock()) { hasInfo = LXNowPlayingInfoCache.count > 0; }
   // 换歌/重载窗口内元数据缓存会短暂为空，但播放会话仍在 —— 此时必须保持命令可用，
   // 否则耳机/车机按键被系统吞掉（见 LXNowPlayingHasPlaybackSession 注释）。
   BOOL hasSession = LXNowPlayingHasPlaybackSession;
@@ -990,10 +996,14 @@ static void LXSyncRemoteCommandAvailability(void) {
 // 的 play 分支续播；真正没有曲目（cache 空）时才写 stopped，把媒体会话交还给系统。
 // 必须在持有 LXLyricLock 时调用（会写回 cache 的 PlaybackRate）。
 static MPNowPlayingPlaybackState LXResolveNowPlayingPublishStateLocked(void) {
-  if (LXNowPlayingState != MPNowPlayingPlaybackStateStopped || LXNowPlayingInfoCache.count == 0) return LXNowPlayingState;
-  // 暂停语义要求速率为 0：否则系统会继续按旧速率外推进度条
-  LXNowPlayingInfoCache[MPNowPlayingInfoPropertyPlaybackRate] = @0;
-  return MPNowPlayingPlaybackStatePaused;
+  // 自持锁（可重入）：本函数读写缓存，调用方虽都在锁内，但把不变量放在函数自身
+  // 更抗未来新增调用点（NSMutableDictionary 非线程安全）
+  @synchronized (LXLyricLock()) {
+    if (LXNowPlayingState != MPNowPlayingPlaybackStateStopped || LXNowPlayingInfoCache.count == 0) return LXNowPlayingState;
+    // 暂停语义要求速率为 0：否则系统会继续按旧速率外推进度条
+    LXNowPlayingInfoCache[MPNowPlayingInfoPropertyPlaybackRate] = @0;
+    return MPNowPlayingPlaybackStatePaused;
+  }
 }
 
 // —— 卡片收敛看门狗 ——
@@ -1070,14 +1080,19 @@ static void LXReconcileNowPlayingCardNow(void) {
     if (jsSilent) {
       LXRefreshNowPlayingElapsedBaselineFromClock();
       LXApplyNowPlayingInfo();
+      // 打点数据持锁读：歌词时钟线程可能正在改缓存（NSMutableDictionary 非线程安全）
+      unsigned long lxLogInfoCount = 0;
+      @synchronized (LXLyricLock()) { lxLogInfoCount = LXNowPlayingInfoCache.count; }
       NSLog(@"###LXNowPlaying### converge engine=1 internal=%ld rate=%.2f info=%lu silentMs=%.0f",
             (long)LXNowPlayingState, LXCurrentNowPlayingRate().doubleValue,
-            (unsigned long)LXNowPlayingInfoCache.count, LXNowPlayingLastPublishAtMs > 0 ? sincePublishMs : -1.0);
+            lxLogInfoCount, LXNowPlayingLastPublishAtMs > 0 ? sincePublishMs : -1.0);
     } else if ((lxConvergeTick % 5) == 0) {
       // 心跳（每 5 拍 15s 一行）：证明看门狗活着、且 JS 发布是新鲜的
+      unsigned long lxLogInfoCount = 0;
+      @synchronized (LXLyricLock()) { lxLogInfoCount = LXNowPlayingInfoCache.count; }
       NSLog(@"###LXNowPlaying### converge engine=1 internal=%ld rate=%.2f info=%lu silentMs=%.0f",
             (long)LXNowPlayingState, LXCurrentNowPlayingRate().doubleValue,
-            (unsigned long)LXNowPlayingInfoCache.count, sincePublishMs);
+            lxLogInfoCount, sincePublishMs);
     }
     // —— 周期性会话重绑（每 5 拍 ≈15s）——
     // 2026-10-06 真机实证（用户自检报告）：失效时「收到遥控命令 = 0」= 系统没把按键送到
@@ -1177,11 +1192,14 @@ static void LXApplyNowPlayingArtwork(UIImage *image, NSUInteger requestId) {
 
   dispatch_async(dispatch_get_main_queue(), ^{
     if (requestId != LXNowPlayingArtworkRequestId) return;
-    NSMutableDictionary *info = LXNowPlayingMutableInfo();
     MPMediaItemArtwork *artwork = [[MPMediaItemArtwork alloc] initWithBoundsSize:image.size requestHandler:^UIImage * _Nonnull(CGSize size) {
       return image;
     }];
-    info[MPMediaItemPropertyArtwork] = artwork;
+    // 持锁写：歌词时钟线程同时读写同一份缓存（NSMutableDictionary 非线程安全）
+    @synchronized (LXLyricLock()) {
+      NSMutableDictionary *info = LXNowPlayingMutableInfo();
+      info[MPMediaItemPropertyArtwork] = artwork;
+    }
     // ⚠️ 只「合并 + 重发」，**绝不置空 nowPlayingInfo**（重构 2026-10-06）：
     // 置空 = 告诉系统「本 App 没有播放信息」，系统会就此把这份媒体会话拆掉 ——
     // 屏幕上的卡片从此停在最后一张快照（典型：暂停图标 + 0:00），之后任何重发都
@@ -1237,12 +1255,14 @@ static void LXApplyNowPlayingArtwork(UIImage *image, NSUInteger requestId) {
 }
 
 static void LXSetNowPlayingArtwork(NSString *artworkPath) {
-  NSMutableDictionary *info = LXNowPlayingMutableInfo();
-  BOOL hasArtwork = info[MPMediaItemPropertyArtwork] != nil;
-  if (!artworkPath.length && LXNowPlayingArtworkPath == nil && !hasArtwork) return;
-  if (artworkPath.length && [artworkPath isEqualToString:LXNowPlayingArtworkPath] && (hasArtwork || LXNowPlayingArtworkTask != nil)) return;
-
+  // 持锁读缓存：歌词时钟线程同时读写同一份缓存（NSMutableDictionary 非线程安全）；
+  // 提前退出的判定也必须在锁内（否则判完的 hasArtwork 可能立即过期）
   @synchronized (LXLyricLock()) {
+    NSMutableDictionary *info = LXNowPlayingMutableInfo();
+    BOOL hasArtwork = info[MPMediaItemPropertyArtwork] != nil;
+    if (!artworkPath.length && LXNowPlayingArtworkPath == nil && !hasArtwork) return;
+    if (artworkPath.length && [artworkPath isEqualToString:LXNowPlayingArtworkPath] && (hasArtwork || LXNowPlayingArtworkTask != nil)) return;
+
     LXCancelNowPlayingArtworkTask();
     LXNowPlayingArtworkRequestId += 1;
     [info removeObjectForKey:MPMediaItemPropertyArtwork];
@@ -1291,8 +1311,12 @@ static NSNumber *LXDefaultNowPlayingRate(void) {
 }
 
 static NSNumber *LXCurrentNowPlayingRate(void) {
-  NSNumber *rate = [LXNowPlayingInfoCache[MPNowPlayingInfoPropertyPlaybackRate] isKindOfClass:[NSNumber class]] ? LXNowPlayingInfoCache[MPNowPlayingInfoPropertyPlaybackRate] : nil;
-  return rate ?: LXDefaultNowPlayingRate();
+  // 自持锁：调用点分散（收敛打点 / 真值回传 / 生命周期事件 / 诊断页），逐个加锁易漏；
+  // 与歌词时钟线程并发读写同一份缓存必须串行化（NSMutableDictionary 非线程安全）
+  @synchronized (LXLyricLock()) {
+    NSNumber *rate = [LXNowPlayingInfoCache[MPNowPlayingInfoPropertyPlaybackRate] isKindOfClass:[NSNumber class]] ? LXNowPlayingInfoCache[MPNowPlayingInfoPropertyPlaybackRate] : nil;
+    return rate ?: LXDefaultNowPlayingRate();
+  }
 }
 
 static NSNumber *LXNowPlayingDefaultPlaybackRateValue(void) {
@@ -1334,8 +1358,11 @@ static void LXSetNowPlayingPlaybackState(MPNowPlayingPlaybackState state, NSDict
   // 会话生命周期：只有真正的 Stopped 结束会话（播放/暂停/缓冲都算会话仍在）
   LXNowPlayingHasPlaybackSession = (state != MPNowPlayingPlaybackStateStopped);
   if (state != previousState) {
+    // info 数量必须持锁读：歌词时钟线程可能正在改缓存（NSMutableDictionary 非线程安全）
+    unsigned long lxStateInfoCount = 0;
+    @synchronized (LXLyricLock()) { lxStateInfoCount = LXNowPlayingInfoCache.count; }
     NSLog(@"###LXNowPlaying### setState %ld -> %ld session=%d info=%lu",
-          (long)previousState, (long)state, LXNowPlayingHasPlaybackSession ? 1 : 0, (unsigned long)LXNowPlayingInfoCache.count);
+          (long)previousState, (long)state, LXNowPlayingHasPlaybackSession ? 1 : 0, lxStateInfoCount);
   }
 
   // 时钟冻结标志与 Now Playing 播放态联动：nativeFlac 驱动下 TrackPlayer 已
@@ -1354,9 +1381,14 @@ static void LXSetNowPlayingPlaybackState(MPNowPlayingPlaybackState state, NSDict
   // 空字典发布给 MPNowPlayingInfoCenter：iOS 27 Beta 7 会把它识别成“未在播放”，
   // 且后续补写元数据不一定重新显示控制中心媒体卡片。先缓存状态，等
   // LXSetNowPlayingInfo 写入有效标题后再统一发布。
-  NSString *existingTitle = [LXNowPlayingInfoCache[MPMediaItemPropertyTitle] isKindOfClass:[NSString class]]
-    ? LXNowPlayingInfoCache[MPMediaItemPropertyTitle]
-    : nil;
+  // 持锁读：歌词时钟线程（com.lxmusic.nowplaying.lyric）同时读写同一份缓存，
+  // NSMutableDictionary 非线程安全，无锁读会与时钟线程的写竞争 → 偶发崩溃
+  NSString *existingTitle = nil;
+  @synchronized (LXLyricLock()) {
+    existingTitle = [LXNowPlayingInfoCache[MPMediaItemPropertyTitle] isKindOfClass:[NSString class]]
+      ? LXNowPlayingInfoCache[MPMediaItemPropertyTitle]
+      : nil;
+  }
   if (existingTitle.length == 0) return;
 
   @synchronized (LXLyricLock()) {
@@ -1388,12 +1420,9 @@ static void LXSetNowPlayingPlaybackState(MPNowPlayingPlaybackState state, NSDict
     // 控制中心遥控（播放/暂停/上一首下一首）的播放状态变化同样重锚歌词时钟
     LXRefreshNowPlayingLyricAnchor();
 
-    // 播放状态可能早于歌曲元数据（标题）到达：先把 playbackRate / elapsedTime 写入缓存，
-    // 但暂不发布。iOS 27 Beta 7 会把“只有 playbackRate、没有标题”的空字典识别成“未在播放”，
-    // 且后续补写元数据不一定重新显示控制中心媒体卡片；等 LXSetNowPlayingInfo 写入有效标题后
-    // 统一发布（届时缓存已含正确的 playbackRate / elapsedTime），避免切歌后控制中心进度卡在“-”。
-    if (existingTitle.length == 0) return;
-
+    // 播放状态先于歌曲元数据（标题）到达时已在函数开头提前 return（不缓存速率/进度、不发布），
+    // 避免 iOS 27 Beta 7 把“只有 playbackRate、没有标题”的空字典识别成“未在播放”；
+    // 等 LXSetNowPlayingInfo 写入有效标题后统一发布，避免切歌后控制中心进度卡在“-”。
     LXApplyNowPlayingInfo();
   }
   // 播放态变化同样要刷新卡片按钮（详情见 LXScheduleDeferredNowPlayingCardRepaint）
@@ -1575,7 +1604,9 @@ static void LXHandleTrackPlayerLifecycleNotification(NSNotification *notificatio
     return;
   }
 
-  if (LXNowPlayingInfoCache.count == 0) return;
+  BOOL lxHasInfoForLifecycle = NO;
+  @synchronized (LXLyricLock()) { lxHasInfoForLifecycle = LXNowPlayingInfoCache.count > 0; }
+  if (!lxHasInfoForLifecycle) return;
 
   // "seeked"：AVPlayer seek completion（引擎真正到达落点，非请求目标）——同一重锚语义
   if ([event isEqualToString:@"seek"] || [event isEqualToString:@"seeked"]) {
@@ -1596,8 +1627,14 @@ static void LXHandleTrackPlayerLifecycleNotification(NSNotification *notificatio
       LXReanchorNowPlayingLyric(position.doubleValue * 1000.0, 0, 0);
     }
     NSNumber *rate = [userInfo[@"rate"] isKindOfClass:[NSNumber class]] ? userInfo[@"rate"] : nil;
-    if (rate != nil && LXNowPlayingInfoCache.count > 0) {
-      LXNowPlayingInfoCache[MPNowPlayingInfoPropertyPlaybackRate] = rate;
+    // 持锁写：歌词时钟线程（com.lxmusic.nowplaying.lyric）同时读写同一份缓存，
+    // NSMutableDictionary 非线程安全，无锁写会与时钟线程的读/写竞争 → 偶发崩溃
+    if (rate != nil) {
+      @synchronized (LXLyricLock()) {
+        if (LXNowPlayingInfoCache.count > 0) {
+          LXNowPlayingInfoCache[MPNowPlayingInfoPropertyPlaybackRate] = rate;
+        }
+      }
     }
     // 时钟冻结判定：非播放态（加载/缓冲/暂停等）冻结外推，歌词与音频一同
     // 停走——音频微缓冲会反复发生，外推持续超前正是"同步一句停一会"的根因
@@ -1614,7 +1651,9 @@ static void LXHandleTrackPlayerLifecycleNotification(NSNotification *notificatio
 // 原生在中断当拍就把卡片置成 Paused（只动显示态，不碰真实播放），第一次按下即 play。
 static void LXHandleNowPlayingInterruptionBegan(void) {
   if (LXNowPlayingState != MPNowPlayingPlaybackStatePlaying) return;
-  if (LXNowPlayingInfoCache.count == 0) return;
+  BOOL lxHasInfo = NO;
+  @synchronized (LXLyricLock()) { lxHasInfo = LXNowPlayingInfoCache.count > 0; }
+  if (!lxHasInfo) return;
   // playbackRate 必须显式写 0：系统同时按 info 里的速率外推进度，缺省会沿用旧的正速率
   LXSetNowPlayingPlaybackState(MPNowPlayingPlaybackStatePaused, @{ @"playbackRate": @0 });
 }
@@ -1653,7 +1692,9 @@ static void LXRegisterTrackPlayerLifecycleObserver(void) {
       // 补一次步进 + 重绘，保证第一眼就是正确行。
       LXRememberScreenBrightness();
       LXUpdateNowPlayingLyricTimerVisibility();
-      if (LXNowPlayingInfoCache.count == 0) return;
+      BOOL lxHasInfo = NO;
+      @synchronized (LXLyricLock()) { lxHasInfo = LXNowPlayingInfoCache.count > 0; }
+      if (!lxHasInfo) return;
       // iOS 27 Beta 7 可能在应用切换/控制中心展开后丢弃当前媒体会话；
       // 重新激活音频会话并重新提交缓存，可让 iPad 控制中心/锁屏恢复歌曲信息和播放按钮。
       [[AVAudioSession sharedInstance] setActive:YES error:nil];
@@ -1872,12 +1913,18 @@ static NSObject *LXLyricLock(void) {
 }
 
 static void LXRefreshNowPlayingLyricAnchor(void) {
-  NSNumber *elapsed = [LXNowPlayingInfoCache[MPNowPlayingInfoPropertyElapsedPlaybackTime] isKindOfClass:[NSNumber class]]
-    ? LXNowPlayingInfoCache[MPNowPlayingInfoPropertyElapsedPlaybackTime]
-    : nil;
+  NSNumber *elapsed = nil;
+  double snapshotAtMs = 0;
+  // 持锁读：歌词时钟线程同时读写缓存；快照戳与位置值成对读，避免值/戳错配
+  @synchronized (LXLyricLock()) {
+    elapsed = [LXNowPlayingInfoCache[MPNowPlayingInfoPropertyElapsedPlaybackTime] isKindOfClass:[NSNumber class]]
+      ? LXNowPlayingInfoCache[MPNowPlayingInfoPropertyElapsedPlaybackTime]
+      : nil;
+    snapshotAtMs = LXNowPlayingElapsedSnapshotAtMs;
+  }
   if (elapsed == nil) return;
   // 带元数据发布链路解析出的快照戳回放锚点（无戳时退回旧行为）
-  LXReanchorNowPlayingLyric(elapsed.doubleValue * 1000.0, LXNowPlayingElapsedSnapshotAtMs, 0);
+  LXReanchorNowPlayingLyric(elapsed.doubleValue * 1000.0, snapshotAtMs, 0);
 }
 
 // 当前外推播放位置（秒）：歌词 / 位置时钟锚点 + 缓存速率外推。无锚点或非播放
@@ -3992,6 +4039,9 @@ static NSString *LXStreamingFlacDecoderErrorStatusName(FLAC__StreamDecoderErrorS
   std::atomic<bool> _endedNotificationScheduled;
   std::atomic<int64_t> _renderPlaybackGeneration;
   std::atomic<float> _pitchPlaybackRate;
+  // RT 渲染回调在途计数：cleanupAudioGraphLocked 销毁 _pcmBuffer 前必须等它归零
+  // （[AVAudioEngine stop] 不保证已进入的回调已退出 → RT 线程 use-after-free）
+  std::atomic<int> _renderInFlight;
   std::shared_ptr<LXRealtimeEqualizerProcessor> _realtimeEqualizerProcessor;
   std::shared_ptr<LXRealtimeDynamicsProcessor> _realtimeDynamicsProcessor;
   std::shared_ptr<LXRealtimeConvolutionProcessor> _realtimeConvolutionProcessor;
@@ -4018,6 +4068,7 @@ RCT_EXPORT_MODULE();
     _endedNotificationScheduled.store(false, std::memory_order_release);
     _renderPlaybackGeneration.store(0, std::memory_order_release);
     _pitchPlaybackRate.store(1.0f, std::memory_order_release);
+    _renderInFlight.store(0, std::memory_order_release);
     _lastRealtimeEqualizerEnabled = NO;
     _streamCondition = [[NSCondition alloc] init];
     _decoderQueue = dispatch_queue_create("cn.toside.music.mobile.streamingflac.decoder", DISPATCH_QUEUE_SERIAL);
@@ -4157,7 +4208,7 @@ RCT_EXPORT_MODULE();
   // 逐路径核对（sampleRate > 0 时才会走到折算）：
   //   ① resetStreamingState（换歌）：sampleRate 已置 0 → 不折算，anchor 保持 0 ✓
   //   ② configureAudioGraphWithSampleRate（首次配置）：anchor/rendered 均 0 → 空操作 ✓
-  //   ③④ applyPendingSeekIfNeeded / seekToPosition：reset 之后显式写入
+  //   ③④ applyPendingSeekIfNeeded / seekTo（桥侧 seekToStream）：reset 之后显式写入
   //      playbackAnchorFrame = 目标帧，折算值被覆盖 → 落点仍正确 ✓
   //   ⑤ cleanupAudioGraphLocked ← stopStreamingInternal（停止）：sampleRate 仍 > 0，
   //      此前正缺这一步，rendered 清零而 anchor 停在旧值 → 位置回退到 anchor/sampleRate
@@ -4591,6 +4642,17 @@ RCT_EXPORT_MODULE();
   std::atomic_store_explicit(&_realtimePitchProcessor, std::shared_ptr<LXRealtimePhaseVocoderPitchShifter>(), std::memory_order_release);
   _lastRealtimeEqualizerEnabled = NO;
   _lastRealtimeEqualizerGains.clear();
+  // 等 RT 线程上的在途渲染回调退出后再销毁缓冲：stop 不保证回调已返回，
+  // 直接 reset 会让「已过 nullptr 检查、正在 read」的回调解引用已释放内存（UAF）。
+  // 回调体纯无锁（微秒级），正常情况下零等待；1s 上限兜底并留痕（不无限阻塞主线程）。
+  NSInteger lxRenderSpin = 0;
+  while (_renderInFlight.load(std::memory_order_acquire) > 0 && lxRenderSpin < 1000) {
+    [NSThread sleepForTimeInterval:0.001];
+    lxRenderSpin += 1;
+  }
+  if (lxRenderSpin >= 1000) {
+    NSLog(@"###LXStreamingFlac### renderInFlight 未在 1s 内归零（inFlight=%d），继续销毁缓冲", _renderInFlight.load(std::memory_order_acquire));
+  }
   _pcmBuffer.reset();
 }
 
@@ -4634,6 +4696,20 @@ RCT_EXPORT_MODULE();
 
   if (self.duration > 0) buffered = MIN(buffered, self.duration);
   return buffered;
+}
+
+// RT 回调在途计数守卫：cleanupAudioGraphLocked 销毁 _pcmBuffer 前必须等它归零。
+// [AVAudioEngine stop] 不保证「已进入的渲染回调已退出」——在途回调可能已通过
+// _pcmBuffer == nullptr 检查、正要对已释放的环做 read（RT 线程 use-after-free，崩溃级）。
+// 回调体是纯无锁操作（微秒级），计数只多两条原子指令，不影响实时性。
+- (OSStatus)renderSourceFramesGuarded:(AudioBufferList *)outputData
+                           frameCount:(AVAudioFrameCount)frameCount
+                            isSilence:(BOOL *)isSilence
+                            timestamp:(const AudioTimeStamp *)timestamp {
+  _renderInFlight.fetch_add(1, std::memory_order_acq_rel);
+  OSStatus status = [self renderSourceFramesToBufferList:outputData frameCount:frameCount isSilence:isSilence timestamp:timestamp];
+  _renderInFlight.fetch_sub(1, std::memory_order_acq_rel);
+  return status;
 }
 
 - (OSStatus)renderSourceFramesToBufferList:(AudioBufferList *)outputData
@@ -4733,7 +4809,7 @@ RCT_EXPORT_MODULE();
         }
         return noErr;
       }
-      return [strongSelf renderSourceFramesToBufferList:outputData frameCount:frameCount isSilence:isSilence timestamp:timestamp];
+      return [strongSelf renderSourceFramesGuarded:outputData frameCount:frameCount isSilence:isSilence timestamp:timestamp];
     }];
     self.timePitchNode = [[AVAudioUnitTimePitch alloc] init];
     self.reverbNode = [[AVAudioUnitReverb alloc] init];
@@ -5018,20 +5094,6 @@ RCT_EXPORT_MODULE();
   [self.streamCondition unlock];
   if (task != nil) [task cancel];
   if (session != nil) [session invalidateAndCancel];
-}
-
-- (void)restartDecoderLoopForSeek {
-  self.stopRequested = YES;
-  _stopRequestedFlag.store(true, std::memory_order_release);
-  [self.streamCondition lock];
-  [self.streamCondition broadcast];
-  [self.streamCondition unlock];
-  dispatch_sync(self.decoderQueue, ^{});
-  self.stopRequested = NO;
-  _stopRequestedFlag.store(false, std::memory_order_release);
-  self.streamError = nil;
-  self.readOffset = 0;
-  [self startDecoderLoop];
 }
 
 RCT_REMAP_METHOD(openStream, openStream:(NSString *)urlString headers:(NSDictionary *)headers volume:(nonnull NSNumber *)volume rate:(nonnull NSNumber *)rate autoplay:(nonnull NSNumber *)autoplay resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {

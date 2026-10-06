@@ -34,7 +34,8 @@ jobs:
           gh run download "${{ steps.resolve-run.outputs.run_id }}" --repo "${{ github.repository }}" --name sourcemap --dir ./sourcemap
 
       - name: Symbolicate stack
+        env:
+          # 用户输入不得直接内插进 run 脚本（命令注入面）：经 env 传递后在 shell 中引用
+          STACK: ${{ github.event.inputs.stack }}
         run: |
-          npx metro-symbolicate ./sourcemap/main.jsbundle.map <<'EOF'
-          ${{ github.event.inputs.stack }}
-          EOF
+          printf '%s\\n' "$STACK" | npx metro-symbolicate ./sourcemap/main.jsbundle.map

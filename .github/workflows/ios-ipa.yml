@@ -49,6 +49,11 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      # 契约脚本（sim-*.js）全量检查：纯 Node 静态断言，秒级完成；
+      # 失败即止，不浪费后面的 CocoaPods 与 Xcode 构建时间。
+      - name: Sim contract checks
+        run: npm run sim
+
       - name: Install CocoaPods dependencies
         shell: bash
         run: |

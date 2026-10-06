@@ -1076,6 +1076,15 @@ static void LXReconcileNowPlayingCardNow(void) {
             (long)LXNowPlayingState, LXCurrentNowPlayingRate().doubleValue,
             (unsigned long)LXNowPlayingInfoCache.count, sincePublishMs);
     }
+    // —— 周期性会话重绑（每 10 拍 ≈30s）——
+    // 2026-10-06 真机实证（用户自检报告）：失效时「收到遥控命令 = 0」= 系统没把按键送到
+    // App（卡片与我们会话的绑定掉了）；手工「重建会话」（激活会话 + **重挂命令目标** + 重发）
+    // 立即恢复投递 —— 说明系统侧绑定确实会掉，而重挂是唯一有效的修复动作。
+    // 因此播放中每 30s 自动重挂一次（代价：6 次 removeTarget/addTarget + 一次 setActive:YES，
+    // 全部在主队列瞬时完成），把「绑定掉了没人管」这个唯一实证失效路径自愈掉。
+    if ((lxConvergeTick % 10) == 0) {
+      LXReassertNowPlayingSession(@"periodic");
+    }
   }
 
   MPNowPlayingInfoCenter *center = [MPNowPlayingInfoCenter defaultCenter];
@@ -1609,6 +1618,17 @@ static void LXRegisterTrackPlayerLifecycleObserver(void) {
   if (LXTrackPlayerLifecycleObserver == nil) {
     LXTrackPlayerLifecycleObserver = [[NSNotificationCenter defaultCenter] addObserverForName:LXTrackPlayerLifecycleNotificationName object:nil queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification * _Nonnull note) {
       LXHandleTrackPlayerLifecycleNotification(note);
+    }];
+  }
+
+  // 离开 App（下拉控制中心 / 锁屏 / 切到别的 App）前先重绑一次：用户这个动作之后紧接着
+  // 就是去看卡片、按按钮 —— 在那一刻保证命令绑定是新鲜的（2026-10-06 用户自检实证：
+  // 失效时命令投递为 0，重绑立即恢复）。
+  static id lxNowPlayingResignActiveObserver = nil;
+  if (lxNowPlayingResignActiveObserver == nil) {
+    lxNowPlayingResignActiveObserver = [[NSNotificationCenter defaultCenter] addObserverForName:UIApplicationWillResignActiveNotification object:nil queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification * _Nonnull note) {
+      if (!LXNowPlayingEnginePlaying) return;
+      LXReassertNowPlayingSession(@"resign-active");
     }];
   }
 

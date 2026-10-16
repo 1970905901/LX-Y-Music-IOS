@@ -4,7 +4,7 @@ import { View } from 'react-native'
 import CheckBoxItem from '../../components/CheckBoxItem'
 import ConfirmAlert, { type ConfirmAlertType } from '@/components/common/ConfirmAlert'
 import Input from '@/components/common/Input'
-import { connectServer, disconnectServer } from '@/plugins/sync'
+import { connectServer, disconnectServer, normalizeSyncHost } from '@/plugins/sync'
 import InputItem from '../../components/InputItem'
 import { getWIFIIPV4Address } from '@/utils/nativeModules/utils'
 import { createStyle, toast } from '@/utils/tools'
@@ -19,8 +19,6 @@ import Text from '@/components/common/Text'
 import { designRadius, designSpacing } from '@/theme/DesignTokens'
 import { SYNC_CODE } from '@/plugins/sync/constants'
 
-const addressRxp = /^https?:\/\/\S+/i
-
 const HostInput = memo(
   ({
     setHost,
@@ -33,19 +31,25 @@ const HostInput = memo(
   }) => {
     const t = useI18n()
 
-    const hostAddress = useMemo(() => {
-      return addressRxp.test(host) ? host : ''
-    }, [host])
+    // 显示也走规范化：旧版本存下来的 `Http://…` / 缺协议地址在这里被纠正成规范形态
+    const hostAddress = useMemo(() => (host ? normalizeSyncHost(host) : ''), [host])
 
     const setHostAddress = useCallback(
-      (value: string, callback: (host: string) => void) => {
-        let hostAddress: string
-        if (addressRxp.test(value)) hostAddress = value.trim()
-        else {
-          hostAddress = ''
-          if (value) toast(t('setting_sync_host_value_error_tip'), 'long')
+      (value: string, applyValue: (host: string) => void) => {
+        // 规范化：自动补 http://、协议小写、全角标点转半角（详见 plugins/sync/client/utils.ts）
+        const hostAddress = normalizeSyncHost(value)
+        if (!hostAddress) {
+          if (!value.trim()) {
+            // 用户主动清空：跟着清掉已保存的地址
+            applyValue('')
+            if (host) setHost('')
+          } else {
+            // 不可用的输入保留在输入框里让用户改，而不是清空（旧行为会直接抹掉刚填的地址）
+            toast(t('setting_sync_host_value_error_tip'), 'long')
+          }
+          return
         }
-        callback(hostAddress)
+        applyValue(hostAddress)
         if (host == hostAddress) return
         setHost(hostAddress)
       },
@@ -59,7 +63,9 @@ const HostInput = memo(
         label={t('setting_sync_host_label')}
         onChanged={setHostAddress}
         inputMode="url"
-        // keyboardType="url"
+        // 地址是 ASCII：关掉首字母自动大写/自动纠错，否则 iOS 会把 http 写成 Http（旧解析大小写敏感，直接连不上）
+        autoCapitalize="none"
+        autoCorrect={false}
         placeholder={t('setting_sync_host_value_tip')}
       />
     )
@@ -112,13 +118,19 @@ export default memo(({ host, setHost }: { host: string, setHost: (host: string) 
 
   const handleSetEnableSync = useCallback(
     (enable: boolean) => {
+      // 地址为空时给出明确提示，而不是把复选框置灰（置灰状态下点它没有任何反馈，
+      // 加上地址要失焦才落盘，用户很容易以为「填了地址却连不上」）
+      if (enable && !host) {
+        toast(t('setting_sync_host_required_tip'), 'long')
+        return
+      }
       setIsEnableSync(enable)
 
       if (enable) void addSyncHostHistory(host)
 
       void (enable ? connectServer(host) : disconnectServer())
     },
-    [host, setIsEnableSync],
+    [host, setIsEnableSync, t],
   )
 
   const handleUpdateHost = useCallback(
@@ -138,6 +150,27 @@ export default memo(({ host, setHost }: { host: string, setHost: (host: string) 
         break
       case SYNC_CODE.authFailed:
         status = t('setting_sync_code_fail')
+        break
+      case SYNC_CODE.connecting:
+        status = t('setting_sync_status_connecting')
+        break
+      case SYNC_CODE.connectServiceFailed:
+        status = t('setting_sync_code_unreachable')
+        break
+      case SYNC_CODE.wrongService:
+        status = t('setting_sync_code_wrong_service')
+        break
+      case SYNC_CODE.getServiceIdFailed:
+        status = t('setting_sync_code_wrong_service')
+        break
+      case SYNC_CODE.lowServiceVersion:
+        status = t('setting_sync_code_low_version')
+        break
+      case SYNC_CODE.highServiceVersion:
+        status = t('setting_sync_code_high_version')
+        break
+      case SYNC_CODE.unknownServiceAddress:
+        status = t('setting_sync_host_value_error_tip')
         break
       default:
         status = syncStatus.message
@@ -166,7 +199,6 @@ export default memo(({ host, setHost }: { host: string, setHost: (host: string) 
     <>
       <View style={styles.infoContent}>
         <CheckBoxItem
-          disabled={!host}
           check={isEnableSync}
           label={t('setting_sync_enable')}
           onChange={handleSetEnableSync}

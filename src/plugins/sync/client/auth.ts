@@ -6,27 +6,36 @@ import { getDeviceName } from '@/utils/nativeModules/utils'
 import { toMD5 } from '@/utils/tools'
 import { SYNC_CODE } from '../constants'
 
-const hello = async(urlInfo: LX.Sync.UrlInfo) =>
-  request(`${urlInfo.httpProtocol}//${urlInfo.hostPath}/hello`)
-    .then(({ text }) => {
-      if (text == SYNC_CODE.helloMsg) return true
-      if (text.startsWith('Hello~::^-^::')) {
-        const verRxp = /v(\d+)/
-        let result = verRxp.exec(text)?.[1]
-        if (result != null) {
-          const servVer = parseInt(result)
-          const localVer = parseInt(verRxp.exec(SYNC_CODE.helloMsg)![1])
-          if (servVer > localVer) throw new Error(SYNC_CODE.highServiceVersion)
-          else if (servVer < localVer) throw new Error(SYNC_CODE.lowServiceVersion)
-        }
-      }
-      return false
-    })
-    .catch((err: any) => {
-      log.error('[auth] hello', err.message)
-      console.log(err)
-      return false
-    })
+const hello = async(urlInfo: LX.Sync.UrlInfo) => {
+  let text = ''
+  try {
+    ;({ text } = await request(`${urlInfo.httpProtocol}//${urlInfo.hostPath}/hello`))
+  } catch (err: any) {
+    // 连不上（地址/端口错、不在同一局域网、被防火墙拦、iOS 本地网络权限被拒…）时
+    // 必须把「失败」抛给上层：此前这里 catch 成 false，UI 只会显示通用的
+    // "Connect service failed"，用户对「填了地址却连不上」完全无从下手。
+    // 原始原因进日志（设置 → 其他 → 日志可看）。
+    log.error('[auth] hello request failed', err.message)
+    throw new Error(SYNC_CODE.connectServiceFailed)
+  }
+  if (text == SYNC_CODE.helloMsg) return
+  if (text.startsWith('Hello~::^-^::')) {
+    const verRxp = /v(\d+)/
+    const result = verRxp.exec(text)?.[1]
+    if (result != null) {
+      const servVer = parseInt(result)
+      const localVer = parseInt(verRxp.exec(SYNC_CODE.helloMsg)![1])
+      if (servVer > localVer) throw new Error(SYNC_CODE.highServiceVersion)
+      else if (servVer < localVer) throw new Error(SYNC_CODE.lowServiceVersion)
+    }
+    // 版本号一致但文本不同：同样报错，别静默返回
+    log.error('[auth] hello unexpected response', text)
+    throw new Error(SYNC_CODE.connectServiceFailed)
+  }
+  // 能通但答的不是同步服务（端口填成别的服务了）：给一个可区分的错误
+  log.error('[auth] hello not a sync service', text)
+  throw new Error(SYNC_CODE.wrongService)
+}
 
 const getServerId = async(urlInfo: LX.Sync.UrlInfo) =>
   request(`${urlInfo.httpProtocol}//${urlInfo.hostPath}/id`)
@@ -36,8 +45,8 @@ const getServerId = async(urlInfo: LX.Sync.UrlInfo) =>
     })
     .catch((err: any) => {
       log.error('[auth] getServerId', err.message)
-      console.log(err)
-      throw err
+      // 与 hello 一致：原始原因进日志，UI 显示可识别的「连接失败」
+      throw new Error(SYNC_CODE.connectServiceFailed)
     })
 
 const codeAuth = async(urlInfo: LX.Sync.UrlInfo, serverId: string, authCode: string) => {
@@ -110,7 +119,7 @@ const auth = async(urlInfo: LX.Sync.UrlInfo, serverId: string, authCode?: string
 export default async(urlInfo: LX.Sync.UrlInfo, authCode?: string) => {
   console.log('connect: ', urlInfo.href)
   console.log(`${urlInfo.httpProtocol}//${urlInfo.hostPath}/hello`)
-  if (!(await hello(urlInfo))) throw new Error(SYNC_CODE.connectServiceFailed)
+  await hello(urlInfo)
   const serverId = await getServerId(urlInfo)
   if (!serverId) throw new Error(SYNC_CODE.getServiceIdFailed)
   return auth(urlInfo, serverId, authCode)

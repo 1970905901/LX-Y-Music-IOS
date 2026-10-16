@@ -30,6 +30,7 @@ export const SYNC_CODE = {
   missingAuthCode: 'Missing auth code',
   getServiceIdFailed: 'Get service id failed',
   connectServiceFailed: 'Connect service failed',
+  wrongService: 'Wrong service',
   connecting: 'Connecting...',
   unknownServiceAddress: 'Unknown service address',
   lowServiceVersion: 'Sync server version too low, please upgrade server to latest',

@@ -35,14 +35,19 @@ const sources = {
       name: '哔哩哔哩',
       id: 'bilibili',
     },
-    {
-      name: 'Gitcode',
-      id: 'git',
-    },
-    {
-      name: '汽水音乐',
-      id: 'qs',
-    },
+    // 已下线的平台入口（用户要求移除，2026-10-16）：git = Gitcode、qs = 汽水音乐。
+    // 从本枚举数组里拿掉后，所有「平台入口」自动消失：推荐页平台按钮、歌单页平台胶囊、
+    // 榜单页、搜索/热搜平台、搜索设置「启用搜索平台」、列表设置「推荐页平台按钮排序」。
+    // SDK 与 registry（git, / qs: qishui,）保留：老歌单、老链接里的歌仍能取链播放 ——
+    // 播放取链走 musicSdk[source]，与本枚举数组无关。
+    // {
+    //   name: 'Gitcode',
+    //   id: 'git',
+    // },
+    // {
+    //   name: '汽水音乐',
+    //   id: 'qs',
+    // },
     // {
     //   name: 'YouTube',
     //   id: 'yt',

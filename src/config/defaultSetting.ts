@@ -142,7 +142,7 @@ const defaultSetting: LX.AppSetting = {
 
   'search.isShowHotSearch': false,
   'search.isShowHistorySearch': true,
-  'search.enabledSources': { kw: true, kg: true, tx: true, wy: true, mg: true, bilibili: true, git: true, all: true },
+  'search.enabledSources': { kw: true, kg: true, tx: true, wy: true, mg: true, bilibili: true, all: true },
 
   'list.isClickPlayList': false,
   'list.isShowSource': true,

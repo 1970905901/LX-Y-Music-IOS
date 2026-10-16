@@ -14,7 +14,6 @@ const SOURCE_LIST = [
   { id: 'wy', i18nKey: 'source_wy' },
   { id: 'mg', i18nKey: 'source_mg' },
   { id: 'bilibili', i18nKey: 'source_bilibili' },
-  { id: 'git', i18nKey: 'source_git' },
   { id: 'all', i18nKey: 'source_all' },
 ]
 

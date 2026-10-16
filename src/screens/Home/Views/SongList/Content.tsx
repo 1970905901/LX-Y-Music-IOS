@@ -4,7 +4,7 @@ import { StyleSheet, View, BackHandler } from 'react-native'
 import { consumePendingAction } from '@/core/pendingAction'
 
 import HeaderBar, { type HeaderBarProps, type HeaderBarType } from './HeaderBar'
-import songlistState, { type InitState, type SortInfo, type ListInfoItem } from '@/store/songlist/state'
+import songlistState, { type InitState, type SortInfo, type ListInfoItem, type Source } from '@/store/songlist/state'
 import List, { type ListType } from './List'
 import SonglistDetail from '../../../SonglistDetail'
 import { rememberHomeSubView, clearHomeSubView, takeRestorableSubView } from '@/core/homeSubView'
@@ -60,10 +60,21 @@ export default () => {
 
   useEffect(() => {
     void getSongListSetting().then((info) => {
-      songlistInfo.current.source = info.source
-      songlistInfo.current.sortId = info.sortId
-      songlistInfo.current.tagId = info.tagId
-      headerBarRef.current?.setSource(info.source, info.sortId, info.tagName, info.tagId)
+      let { source, sortId, tagId, tagName } = info
+      // 平台入口下线兜底（用户要求移除的 Gitcode / 汽水音乐已不在平台列表里）：
+      // 持久化里仍停在已下线平台时，回退到首个可用平台并纠正存储；否则页面会卡在
+      // 「顶部胶囊没有选中项、列表却仍是已下线平台内容」的半死状态。
+      if (!songlistState.sources.includes(source)) {
+        source = (songlistState.sources[0] as Source) ?? 'kw'
+        sortId = songlistState.sortList[source]?.[0]?.id ?? ''
+        tagId = ''
+        tagName = ''
+        void saveSongListSetting({ source, sortId, tagId, tagName })
+      }
+      songlistInfo.current.source = source
+      songlistInfo.current.sortId = sortId
+      songlistInfo.current.tagId = tagId
+      headerBarRef.current?.setSource(source, sortId, tagName, tagId)
       loadList()
     })
   }, [loadList, headerKey])

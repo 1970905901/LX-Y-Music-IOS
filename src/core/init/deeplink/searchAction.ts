@@ -10,7 +10,6 @@ const PLATFORM_MAP: Record<string, string> = {
   wy: 'wy',
   mg: 'mg',
   bilibili: 'bilibili',
-  git: 'git',
 }
 
 const TYPE_MAP: Record<string, string> = {
@@ -26,7 +25,7 @@ const handleSearch = async(params: Record<string, any>) => {
   let source = ''
   if (platform) {
     source = PLATFORM_MAP[platform] || platform
-    const validSources = ['kw', 'kg', 'tx', 'wy', 'mg', 'bilibili', 'git']
+    const validSources = ['kw', 'kg', 'tx', 'wy', 'mg', 'bilibili']
     if (!validSources.includes(source)) {
       throw new Error(`Unknown platform: ${platform}`)
     }

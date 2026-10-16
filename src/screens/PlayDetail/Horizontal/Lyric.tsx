@@ -19,7 +19,6 @@ import { AnimatedColorText } from '@/components/common/Text'
 import { setSpText } from '@/utils/pixelRatio'
 import settingState from '@/store/setting/state'
 import playerState from '@/store/player/state'
-import { scrollTo } from '@/utils/scroll'
 import { LyricScrollLayout } from '@/utils/lyricScroll'
 import { audioClock } from '@/core/player/audioClock'
 import KaraokeLyric from '@/screens/PlayDetail/components/KaraokeLyric'
@@ -163,7 +162,6 @@ export default () => {
   const scrollInfoRef = useRef<NativeSyntheticEvent<NativeScrollEvent>['nativeEvent'] | null>(null)
   // 缓存歌词行高与累计偏移，把滚动定位从 O(n²) 降到 O(1)。
   const lyricScrollLayoutRef = useRef(new LyricScrollLayout(54))
-  const scrollCancelRef = useRef<(() => void) | null>(null)
   // 连续滚动：rAF 目标 offset 不直接写入列表，而是让跟随值按固定时长/固定速率收敛到目标。
   // 逐字歌词无间隙切行、行高测量后的回正修正都是瞬时硬跳（长句换行后行高更大、跳变越明显），
   // 平滑收敛把这些瞬跳变成约 180ms 的短滑动，消除换行长句切行时的顿挫感。
@@ -195,6 +193,8 @@ export default () => {
   // 回正定时器：进入/切歌后布局（spaceComponent / 行高）尚未完成时，防抖在测量完成后重新精确居中一次。
   const recentreTimerRef = useRef<NodeJS.Timeout | null>(null)
 
+  // 上一次滚动定位到的行（与竖屏同源）：用于判断是否换行，避免同一行被反复重定位。
+  const lastScrolledLineRef = useRef(-1)
   const initialDistanceRef = useRef(0)
   const initialFontSizeRef = useRef(0)
   // 缩放节流：updateSetting 每次调用都会全量序列化 setting 并写 AsyncStorage，
@@ -273,10 +273,6 @@ export default () => {
   // const imgWidth = useMemo(() => layout.width * 0.75, [layout.width])
   const handleScrollToActive = useCallback((index = lineRef.current.line, force = false) => {
     if (index < 0 || !flatListRef.current || isPauseScrollRef.current) return
-    if (scrollCancelRef.current) {
-      scrollCancelRef.current()
-      scrollCancelRef.current = null
-    }
     const layout = lyricScrollLayoutRef.current
     const listHeight = listHeightRef.current || scrollInfoRef.current?.layoutMeasurement.height || 0
     // 首帧或异常情况下无滚动信息，只能走 scrollToIndex fallback；
@@ -287,13 +283,14 @@ export default () => {
       } catch { }
       return
     }
-    // 横屏已播放/当前行都是 bold 档，累计偏移须用 played 档估算，否则未测量区域会系统性偏低。
-    // force 定位使用激活高度（当前行可能被 bold 字号挤高），保证居中准确。
+    // force 定位使用激活高度（横屏行布局与播放态解耦，实测高度一致），保证居中准确。
     // 上下留白（paddingV）与 FlatList contentContainerStyle 的 paddingTop/Bottom 用同一个值
     // （50% 视高）：布局端与计算端天然一致，不再依赖 space 组件的 onLayout 异步实测，
     // 消除 iPad 横屏限宽/旋转/窗口尺寸变化时 spaceHeight 与实际布局脱节导致的不居中。
     const paddingV = listHeight * 0.5
-    const targetOffset = layout.getTargetOffsetPrecise(index, listHeight, lyricLines, 0.5, paddingV, 0, true, true)
+    // 末位不传 usePlayed：横屏行布局（字重/行高）早已与播放态解耦，played 档不再需要，
+    // 与竖屏同一基准（见 LyricScrollLayout.updateLineHeight 注释）。
+    const targetOffset = layout.getTargetOffsetPrecise(index, listHeight, lyricLines, 0.5, paddingV, 0, true)
     if (force) {
       try {
         flatListRef.current.scrollToOffset({ offset: targetOffset, animated: false })
@@ -306,18 +303,21 @@ export default () => {
       // 同时把“上一次滚动到的行”对齐，避免下一帧把这次硬跳当成切行再滑一次。
       glideStartTsRef.current = -1
       lastContinuousIndexRef.current = index
+      lastScrolledLineRef.current = index
     } else {
+      // 与竖屏同一策略：非 force 只在「换了行」或「离目标超过 15% 视高」时才滚动，且用原生
+      // animated 滚动（后续任一写偏移都会自然接管，不会互相打架）。
+      //
+      // 横屏此前走 utils/scroll 的 JS 逐帧动画（setTimeout 5ms 一步、持续 120~300ms），
+      // 与下方「每帧连续滚动循环」同时往同一个列表写偏移、两者互不知情：一边按动画轨迹写
+      // val、一边按目标行写 smoothOffset，表现为歌词滚动打顿/抖动甚至被拽回旧位置。
+      // 竖屏用原生滚动 + 舒适区守卫，所以这个现象只在横屏（iPad 横屏歌词页）复现。
       const currentOffset = scrollInfoRef.current.contentOffset.y
-      const distance = Math.abs(targetOffset - currentOffset)
-      const duration = Math.min(Math.max(distance * 0.5, 120), 300)
+      const lineChanged = index !== lastScrolledLineRef.current
+      if (!lineChanged && Math.abs(targetOffset - currentOffset) < listHeight * 0.15) return
       try {
-        scrollCancelRef.current = scrollTo(
-          flatListRef.current,
-          scrollInfoRef.current,
-          targetOffset,
-          duration,
-          () => { scrollCancelRef.current = null },
-        )
+        flatListRef.current.scrollToOffset({ offset: targetOffset, animated: true })
+        lastScrolledLineRef.current = index
       } catch { }
     }
   }, [lyricLines])
@@ -359,10 +359,9 @@ export default () => {
     const layout = lyricScrollLayoutRef.current
     let i = lineRef.current.line
     if (i < 0 || i >= lyricLines.length) i = 0
-    // 横屏「当前行之前」全为已播放（bold）行，累计偏移统一用 bold 档，避免高亮行持续偏低。
     // 留白与 contentContainerStyle 同源（50% 视高），与 handleScrollToActive 保持同一居中基准。
     const paddingV = listHeight * 0.5
-    const offset = layout.getTargetOffsetPrecise(i, listHeight, lyricLines, 0.5, paddingV, 0, false, true)
+    const offset = layout.getTargetOffsetPrecise(i, listHeight, lyricLines, 0.5, paddingV, 0, false)
     if (i !== lastContinuousIndexRef.current) {
       lastContinuousIndexRef.current = i
       // 切行：以“列表当前实际位置”为起点、新行居中位置为终点，重新开始一段固定时长的滑动。
@@ -407,10 +406,6 @@ export default () => {
     if (scrollTimoutRef.current) {
       clearTimeout(scrollTimoutRef.current)
       scrollTimoutRef.current = null
-    }
-    if (scrollCancelRef.current) {
-      scrollCancelRef.current()
-      scrollCancelRef.current = null
     }
   }, [])
 
@@ -663,10 +658,6 @@ export default () => {
     if (scrollTimoutRef.current) {
       clearTimeout(scrollTimoutRef.current)
       scrollTimoutRef.current = null
-    }
-    if (scrollCancelRef.current) {
-      scrollCancelRef.current()
-      scrollCancelRef.current = null
     }
     isPauseScrollRef.current = false
     // 点击歌词视为用户主动跳转：强制立即定位，越过连续滚动循环，使高亮行与音频绝对同步。

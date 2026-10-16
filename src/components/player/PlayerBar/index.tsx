@@ -19,8 +19,11 @@ import { designRadius, designSpacing, bottomFloatGap } from '@/theme/DesignToken
 import LiquidGlass from '@/components/common/LiquidGlass'
 
 export default memo(({ componentId, isHome = false }: { componentId?: string, isHome?: boolean }) => {
-  // 省电门：本屏被压栈页覆盖（栈顶不是本屏）时暂停玻璃 Metal 渲染循环。
-  // PlayerBar 多屏复用（Home / 专辑页 / 歌手页…），按各自 componentId 判定；
+  // 省电门：本屏被压栈页覆盖（本屏在栈内、但不是栈顶）时暂停玻璃 Metal 渲染循环。
+  // PlayerBar 多屏复用（Home / 专辑页 / 歌手页…）：**各屏实例必须传本屏自己的
+  // componentId**（RNN 下发的屏幕 id；不得传 commonState.componentIds 的栈顶——
+  // 覆盖期间的重渲染会把当时栈顶页的 id 缓存进来，返回本屏后恒判「被覆盖」→
+  // 玻璃永久停在暂停态，真机表现为迷你播放器液态玻璃卡住不刷新）；
   // 调用方未传 componentId 时恒不门控（行为同旧版）。
   const screenCovered = useScreenCovered(componentId)
   // 省电门之二：App 退到后台/锁屏时也暂停玻璃 Metal 渲染循环——边听歌边锁屏时本页仍

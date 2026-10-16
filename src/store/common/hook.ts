@@ -117,15 +117,23 @@ export const useHomeCovered = () => {
 }
 
 /**
- * 「传入 componentId 的屏幕」是否被压栈页覆盖：栈顶不是自己即被覆盖。
+ * 「传入 componentId 的屏幕」是否被压栈页覆盖：**本屏在栈内、且不是栈顶**才算被覆盖。
  * componentId 未知（调用方未传）时恒 false（不门控，行为与旧版一致）——
- * 用于 PlayerBar 这类多屏复用组件：Home 实例传 home 的 id，专辑页实例
- * 不传则不做省电门控。配合 <LiquidGlass paused> 实现不可见即暂停渲染。
+ * 用于 PlayerBar 这类多屏复用组件：各屏实例传**本屏自己的** componentId
+ * （不得传 commonState.componentIds 的栈顶 / 任何动态 id），专辑页实例不传则不门控。
+ * 配合 <LiquidGlass paused> 实现不可见即暂停渲染。
+ *
+ * 「本屏不在栈内」必须判 false（fail-open）而不是 true：陈旧/漂移的 id（例如覆盖
+ * 期间重渲染把栈顶页 id 缓存进来的调用方）返回本屏后会恒判「被覆盖」，把仍然可见的
+ * 玻璃永久钉在暂停态 —— 真机表现为迷你播放器液态玻璃卡住不再刷新（2026-10-16 修复）。
  */
 export const useScreenCovered = (componentId?: string) => {
   const ids = useComponentIds()
   if (!componentId) return false
-  return String(ids[ids.length - 1]?.id) !== String(componentId)
+  const index = ids.findIndex(({ id }) => String(id) === String(componentId))
+  // index < 0：本屏已不在栈内（组件已卸载 / 传入了陈旧 id）→ 不门控；
+  // index === ids.length - 1：本屏就是栈顶（可见）→ 不门控。
+  return index >= 0 && index < ids.length - 1
 }
 
 /**

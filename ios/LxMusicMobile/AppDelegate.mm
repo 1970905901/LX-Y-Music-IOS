@@ -19,6 +19,7 @@
 #import <JavaScriptCore/JavaScriptCore.h>
 #import <math.h>
 #include <alloca.h>
+#include <stdlib.h>
 #include <atomic>
 #include <algorithm>
 #include <memory>
@@ -7136,6 +7137,36 @@ RCT_REMAP_METHOD(sha1, sha1:(NSString *)input resolver:(RCTPromiseResolveBlock)r
 
 @end
 
+// ============================================================================
+// Metal Performance HUD 清除门（打开液态玻璃后出现的黑色帧率浮层）
+// ============================================================================
+// 真机反馈（iOS 18.7.8，2026-10-16）：主题设置里打开「液态玻璃」后，玻璃上会盖一层黑色
+// 帧率浮层（Metal 设备名 + 分辨率 + 缩放/Compositing + FPS/帧间隔 + 120 帧柱状图），App 内
+// 无法关闭。它是 Apple 的 Metal Performance HUD（Xcode 调试浮层），不是本工程画的：浮层只盖
+// 在 App 的 Metal 内容上，而本 App 唯一的 Metal 内容就是液态玻璃的 MTKView，所以表现为
+// 「开液态玻璃才出现、关掉就消失」。
+//
+// Apple 文档（Monitoring your Metal app's graphics performance）给出 5 条开启方式，App 自己
+// 能管的是「进程内标记」这两条：
+//   ① 环境变量 MTL_HUD_ENABLED（Xcode 运行方案 / 侧载工具注入进程环境）
+//   ② App 自身 UserDefaults 域里的 MetalHUDForceEnabled（配置描述文件 / 工具写入）
+// 这里把它们清掉。设备「设置 → 开发者 → Graphics HUD → Show Graphics HUD」是设备级开关，
+// App 无权关闭（只能在设备上关），启动日志会说明黑框到底来自哪一侧。
+//
+// 只「删除」、绝不「写入」：删除最多让浮层消失，写入则可能把调试浮层强开给所有用户 ——
+// 方向必须单向，任何写入式改动都会被 scripts/sim-metal-hud-guard.js 拦下。
+static void LXDisableMetalPerformanceHudDiagnostic(void) {
+  const char *hudEnv = getenv("MTL_HUD_ENABLED");
+  BOOL hudDefault = [[NSUserDefaults standardUserDefaults] objectForKey:@"MetalHUDForceEnabled"] != nil;
+
+  unsetenv("MTL_HUD_ENABLED");
+  [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"MetalHUDForceEnabled"];
+
+  // 排查判定：env=(unset) + defaults=0 而黑框仍在 → 设备侧 Graphics HUD 开着（App 改不动）；
+  // env=1 或 defaults=1 → 就是被进程内标记打开的，本函数已清掉。
+  NSLog(@"###NATIVE_DEBUG### Metal HUD guard: env=%s defaults=%d", hudEnv ? hudEnv : "(unset)", hudDefault ? 1 : 0);
+}
+
 #pragma mark - Phone Scene Delegate（iOS 13+ 主 App 窗口）
 
 @interface SceneDelegate : UIResponder <UIWindowSceneDelegate>
@@ -7149,6 +7180,8 @@ RCT_REMAP_METHOD(sha1, sha1:(NSString *)input resolver:(RCTPromiseResolveBlock)r
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
 {
+  // Metal 内容（液态玻璃 MTKView）出现前，先清掉 App 内的 Metal Performance HUD 开启标记
+  LXDisableMetalPerformanceHudDiagnostic();
   LXRegisterTrackPlayerLifecycleObserver();
   self.launchOptions = launchOptions;
   self.initialProps = @{};

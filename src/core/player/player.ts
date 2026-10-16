@@ -192,6 +192,8 @@ const getMusicPlayUrl = async(musicInfo: LX.Music.MusicInfo | LX.Download.ListIt
 // 所以按 createGettingUrlId()（id + 切源 id）绑定：只有同一首歌才吃这个恢复位置，
 // 其它歌一律从 0 开始（该全局值也会在这次加载完成时被清掉，不跨歌残留）。
 let pendingRestoreSeek: { key: string, time: number } | null = null
+export const isPendingRestorePlay = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem | null | undefined) =>
+  musicInfo != null && pendingRestoreSeek != null && pendingRestoreSeek.key === createGettingUrlId(musicInfo)
 export const setMusicUrl = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem, isRefresh?: boolean, quality?: LX.Quality) => {
   // addLoadTimeout()
   // 同一首歌：闸门正压着这首歌（URL 请求可能挂起）时只有**超时**才放行重试 ——
@@ -212,11 +214,19 @@ export const setMusicUrl = (musicInfo: LX.Music.MusicInfo | LX.Download.ListItem
   const currentTimePromise = isRefresh
     ? getPosition().catch(() => playerState.progress.nowPlayTime)
     : Promise.resolve(isRestoredMusic ? restoreSeek.time : 0)
+  if (isRestoredMusic && restoreSeek.time > 0) {
+    updatePlayProgress(restoreSeek.time, playerState.progress.maxPlayTime)
+    global.app_event.seekLyric(restoreSeek.time)
+  }
   void getMusicPlayUrl(musicInfo, isRefresh, false, quality).then(async(result) => {
     if (!result) return
     const currentTime = await currentTimePromise
     // 一次性消费：无论这次加载的是不是被恢复的那首歌，都清掉这个全局值
     pendingRestoreSeek = null
+    if (currentTime > 0) {
+      updatePlayProgress(currentTime, playerState.progress.maxPlayTime)
+      global.app_event.seekLyric(currentTime)
+    }
     currentStreamInfo.musicId = musicInfo.id
     currentStreamInfo.url = result.url
     currentStreamInfo.quality = result.quality
@@ -365,7 +375,14 @@ export const playListById = async(listId: string, id: string) => {
   setPlayListId(listId)
   const musicInfo = getList(listId).find(m => m.id == id)
   if (!musicInfo) return
+  const prevMaxTime = playerState.progress.maxPlayTime
+  const restoreSeek = pendingRestoreSeek
+  const isRestoredTarget = restoreSeek != null && restoreSeek.key === createGettingUrlId(musicInfo)
   setPlayMusicInfo(listId, musicInfo)
+  if (isRestoredTarget && restoreSeek.time > 0) {
+    updatePlayProgress(restoreSeek.time, prevMaxTime)
+    global.app_event.seekLyric(restoreSeek.time)
+  }
   if (settingState.setting['player.isAutoCleanPlayedList'] || prevListId != listId) clearPlayedList()
   clearTempPlayeList()
   await handlePlay()
@@ -379,7 +396,15 @@ export const playListById = async(listId: string, id: string) => {
 export const playList = async(listId: string, index: number) => {
   const prevListId = playerState.playInfo.playerListId
   setPlayListId(listId)
-  setPlayMusicInfo(listId, getList(listId)[index])
+  const musicInfo = getList(listId)[index]
+  const prevMaxTime = playerState.progress.maxPlayTime
+  const restoreSeek = pendingRestoreSeek
+  const isRestoredTarget = musicInfo != null && restoreSeek != null && restoreSeek.key === createGettingUrlId(musicInfo)
+  setPlayMusicInfo(listId, musicInfo)
+  if (isRestoredTarget && restoreSeek.time > 0) {
+    updatePlayProgress(restoreSeek.time, prevMaxTime)
+    global.app_event.seekLyric(restoreSeek.time)
+  }
   if (settingState.setting['player.isAutoCleanPlayedList'] || prevListId != listId) clearPlayedList()
   clearTempPlayeList()
   await handlePlay()
@@ -814,4 +839,3 @@ export const dislikeMusic = async() => {
   await addDislikeInfo([{ name: minfo.name, singer: minfo.singer }])
   await playNext(true)
 }
-

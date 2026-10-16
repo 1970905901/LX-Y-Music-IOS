@@ -176,14 +176,14 @@ export const seekNativeFlacPlayback = async(position: number) => {
       // 【切歌守卫】轮询存续期间用户切歌 = 本次 seek 已作废：立即终止。否则「位置没
       // 收敛且非缓冲」的旧轮询会把旧目标 seek 到新歌上 → 新歌不从头上播放（真机实锤）。
       if (currentTrackId != trackAtRequest) return lastPosition
-      const currentPosition = await getStreamingFlacPosition().catch(() => lastPosition)
-      const nextPosition = currentPosition > 0 ? currentPosition : lastPosition
-      lastPosition = nextPosition
-
-      if (Math.abs(lastPosition - targetTime) <= tolerance) {
-        stableCount++
-        if (stableCount > 1 || tolerance <= 0.4) break
-        continue
+      const currentPosition = await getStreamingFlacPosition().catch(() => -1)
+      if (currentPosition > 0 || targetTime <= tolerance) {
+        lastPosition = Math.max(0, currentPosition)
+        if (Math.abs(lastPosition - targetTime) <= tolerance) {
+          stableCount++
+          if (stableCount > 1 || tolerance <= 0.4) break
+          continue
+        }
       }
 
       // 【重试重发已移除】未收敛就重发 seekStreamingFlac 会取消在途 seek、重启 range

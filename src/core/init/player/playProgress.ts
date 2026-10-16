@@ -1,5 +1,5 @@
 import { updateListMusics } from '@/core/list'
-import { playNext } from '@/core/player/player'
+import { isPendingRestorePlay, playNext } from '@/core/player/player'
 import { setMaxplayTime, setNowPlayTime } from '@/core/player/progress'
 import { getTimelineDuration } from '@/core/player/timeline'
 import { setCurrentTime, getDuration, getPosition, getPositionStamped, getPlaybackEngineState, elapsedSnapshotFields } from '@/plugins/player/utils'
@@ -99,6 +99,7 @@ export default () => {
   let pauseResumeAt = 0
 
   const isRestoringCurrentMusic = () => {
+    if (isPendingRestorePlay(playerState.playMusicInfo.musicInfo)) return true
     const restorePlayInfo = global.lx.restorePlayInfo
     if (!restorePlayInfo) return false
     return restorePlayInfo.listId == playerState.playMusicInfo.listId &&
@@ -276,7 +277,7 @@ export default () => {
       const engineState = await getPlaybackEngineState()
       if (!playerState.isPlay || playerState.musicInfo.id != musicId) return
       if (genAtCall != seekGen) return
-      if (engineState !== 'playing') {
+      if (engineState !== 'playing' || (seekTargetPosition != null && Date.now() < seekHoldUntil && stamped.position <= 1 && seekTargetPosition >= 2)) {
         if (attempt < 6) {
           clearSyncRetry()
           syncRetryTimer = BackgroundTimer.setTimeout(() => {
@@ -325,23 +326,37 @@ export default () => {
         if (restorePlayTimeTrack != musicId) {
           restorePlayTime = null
           restorePlayTimeTrack = null
+          isRestorePlayColdStart = false
         }
         if (mediaBuffer.playTime != null && mediaBuffer.track != musicId) {
           clearBufferTimeout()
         }
         const resumeTime = restorePlayTime ?? (mediaBuffer.track == musicId ? mediaBuffer.playTime : null)
+        const forceColdStartPullBack = isRestorePlayColdStart && restorePlayTime != null && event.driver == 'trackPlayer'
         clearBufferTimeout()
         restorePlayTime = null
+        isRestorePlayColdStart = false
         // 新鲜度守卫：playing 事件丢失时 restorePlayTime 会滞留（探针已自愈行级），
         // 迟到的 playing 若还拿陈旧意图做偏差比较，会把音频拉回早已过去的旧目标——
         // 意图超过 15s 一律作废（正常 seek 的 playing 都在秒级到达）。
         if (resumeTime != null && pullBackCount < 3 && Date.now() - lastSeekIntentAt < 15000) {
           void getPosition().then((position) => {
             if (!playerState.isPlay || playerState.musicInfo.id != musicId) return
-            if (Math.abs((position || 0) - resumeTime) <= 0.3) return
+            const currentMusicInfo = playerState.playMusicInfo.musicInfo
+            const isLocalTrack = currentMusicInfo != null && 'source' in currentMusicInfo && currentMusicInfo.source == 'local'
+            if (!(forceColdStartPullBack && !isLocalTrack) && Math.abs((position || 0) - resumeTime) <= 0.3) return
             pullBackCount++
             lastSeekIntentAt = Date.now()
-            void setCurrentTime(resumeTime).catch(() => {})
+            void setCurrentTime(resumeTime).then((targetPosition) => {
+              if (!playerState.isPlay || playerState.musicInfo.id != musicId) return
+              if (targetPosition > 0) {
+                setNowPlayTime(targetPosition)
+                seekTargetPosition = targetPosition
+                seekHoldUntil = Date.now() + 2000
+                syncFromEngine(musicId)
+                scheduleFastResync(musicId)
+              }
+            }).catch(() => {})
           })
         }
         // 长暂停恢复（见上方「长暂停恢复意图」）：恢复出声即把音频精确拉回暂停位置一次，
@@ -434,6 +449,9 @@ export default () => {
   let restorePlayTime: number | null = null
   // seek 意图绑定的歌曲：playing 消费时校验，切歌即作废（见 playing 分支的切歌守卫）
   let restorePlayTimeTrack: string | null = null
+  // 启动「记住播放进度」冷流起播标记：AVPlayer 在未起播冷流上做预加载 seek 时，出声瞬间报告位置
+  // 可能已接近目标值但实际可听音频帧有固定偏移（与长暂停恢复同因），首次 playing 强制精确回拉一次
+  let isRestorePlayColdStart = false
   // seek 意图时刻（setProgress / 出声回拉 / 看门狗探测都会刷新）：缓冲看门狗的宽限
   // 基准——慢缓冲（高码率 FLAC 单次 seek 缓冲 5~8s 很常见）期间绝不记录卡点/向前
   // 探测，否则探测越过 seek 目标并与出声回拉互相拉锯（回拉引发的新缓冲又被探测，
@@ -520,6 +538,7 @@ export default () => {
     // 同时刷新看门狗宽限基准与回拉预算（每次用户 seek 都是新一轮）。
     restorePlayTime = time
     restorePlayTimeTrack = musicId
+    isRestorePlayColdStart = false
     lastSeekIntentAt = Date.now()
     pullBackCount = 0
     // 用户自己 seek 了：暂停恢复意图作废（新落点才是意图位置）
@@ -600,6 +619,7 @@ export default () => {
     clearBufferTimeout()
     restorePlayTime = null
     restorePlayTimeTrack = null
+    isRestorePlayColdStart = false
     lastSeekIntentAt = 0
     pullBackCount = 0
     pauseResumePosition = null
@@ -626,6 +646,23 @@ export default () => {
   }
 
 
+  const handleRestorePlay = (time: number) => {
+    if (!Number.isFinite(time) || time <= 0) return
+    const musicId = playerState.musicInfo.id || playerState.playMusicInfo.musicInfo?.id
+    if (!musicId) return
+    restorePlayTime = time
+    restorePlayTimeTrack = musicId
+    isRestorePlayColdStart = true
+    lastSeekIntentAt = Date.now()
+    pullBackCount = 0
+    pauseResumePosition = null
+    pauseResumeAt = 0
+    seekTargetPosition = time
+    seekHoldUntil = Date.now() + 2000
+    seekGen++
+    audioClock.setAnchor(time * 1000, settingState.setting['player.playbackRate'], playerState.isPlay)
+  }
+
   const handleSetPlayInfo = () => {
     // restorePlayTime = playProgress.nowPlayTime
     // void setCurrentTime(playerState.progress.nowPlayTime)
@@ -634,6 +671,9 @@ export default () => {
     updateScrobbleInfo()
     // Skip the startup restore transition so we don't overwrite saved progress with 0.
     if (isRestoringCurrentMusic()) return
+    isRestorePlayColdStart = false
+    pauseResumePosition = null
+    pauseResumeAt = 0
     if (!playerState.playMusicInfo.isTempPlay) {
       void savePlayInfo({
         time: playerState.progress.nowPlayTime,
@@ -800,7 +840,7 @@ export default () => {
     isProgressDragging = dragging
     progressDraggingSince = dragging ? Date.now() : 0
   })
-  // global.app_event.on(eventPlayerNames.restorePlay, handleRestorePlay)
+  global.app_event.on('seekLyric', handleRestorePlay)
   // global.app_event.on('playerLoadeddata', handleLoadeddata)
   // global.app_event.on('playerCanplay', handleCanplay)
   // global.app_event.on('playerWaiting', handleWating)
@@ -808,5 +848,4 @@ export default () => {
   global.app_event.on('musicToggled', handleSetPlayInfo)
   global.state_event.on('configUpdated', handleConfigUpdated)
 }
-
 

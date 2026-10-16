@@ -26,7 +26,7 @@ const getReliableLyricPosition = async() => {
   // 对齐上游 core/lyric.play()：lrc.play(getCurrentTime()) 无条件信任引擎当前时间。
   // 此前的「|引擎-进度|>2s 时偏好进度」分支会拿 seek 窗口期的 store 目标值覆盖引擎
   // 真实位置，属于旧轮询架构的补丁；重锚由引擎 playing 事件驱动时引擎位置即真相。
-  if (playerPosition <= 0) return progressPosition
+  if (playerPosition <= 0 || (playerPosition <= 1 && progressPosition >= 2)) return progressPosition
   return playerPosition
 }
 

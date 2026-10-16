@@ -41,6 +41,7 @@ export const seekToTime = async(targetTime: number) => {
 
   let position = targetTime
   let stableCount = 0
+  let zeroPositionPolls = 0
   for (const [delay, tolerance] of [
     [140, 1.2],
     [200, 0.75],
@@ -52,14 +53,19 @@ export const seekToTime = async(targetTime: number) => {
     // 【切歌守卫】轮询存续期间用户切歌 = 本次 seek 已作废：立即终止。否则「位置没
     // 收敛」的旧轮询会把旧目标 seek 到新歌上 → 新歌不从头上播放（nativeFlac 同款）。
     if (playerState.musicInfo.id != musicIdAtRequest) return position
-    const currentPosition = await getAccuratePosition().catch(() => position)
-    const nextPosition = currentPosition > 0 ? currentPosition : position
-    // eslint-disable-next-line require-atomic-updates
-    position = nextPosition
-    if (Math.abs(position - targetTime) <= tolerance) {
-      stableCount++
-      if (stableCount > 1 || tolerance <= 0.22) break
-      continue
+    const currentPosition = await getAccuratePosition().catch(() => -1)
+    if (currentPosition > 0 || targetTime <= tolerance) {
+      // eslint-disable-next-line require-atomic-updates
+      position = Math.max(0, currentPosition)
+      if (Math.abs(position - targetTime) <= tolerance) {
+        stableCount++
+        if (stableCount > 1 || tolerance <= 0.22) break
+        continue
+      }
+    } else if (!playerState.isPlay && ++zeroPositionPolls >= 2) {
+      // 预加载阶段（TrackPlayer.play 尚未调用）：远端流可能需等 play() 才完成就绪，
+      // 连续两次仍为 0 时直接放行进入 play()，由出声后的 playing 回拉完成精确对齐。
+      break
     }
     // 【重试重发已移除】未收敛就重发 TrackPlayer.seekTo 会取消在途 seek、重启缓冲
     // （高码率 FLAC 上反复搅动），切歌竞态下更是把旧目标打到新歌。未收敛交由

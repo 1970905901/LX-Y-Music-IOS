@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Lyric, { type Lines } from 'lrc-file-parser'
 import { getPosition } from '@/plugins/player'
+import playerState from '@/store/player/state'
 import LxLyricPlayer, { type LxLyricWord } from '@/plugins/lxLyricPlayer'
 export type Line = Lines[number]
 type PlayHook = (line: number, text: string) => void
@@ -152,10 +153,20 @@ export const setLyric = (lyric: string, translation?: string, romalrc?: string, 
     .then((position) => {
       // 切歌/恢复瞬间用【引擎实时位置】重锚（≈上游 setLyric → syncLyricPosition(true, true)）：
       // 播放中重启 ticker 从该位置继续推进，暂停中只落行不推进。
-      try { anchorLyric((position || 0) * 1000, wasPlaying) } catch {}
+      // 启动恢复/恢复起播窗口内引擎尚在占位轨或未完成落点（position <= 1）而进度已指向记忆位置
+      // （progressPosition >= 2）时，以记忆进度重锚，避免把刚恢复的歌词打回第 0 行。
+      const progressPosition = Math.max(playerState.progress.nowPlayTime, 0)
+      let targetPosition = position || 0
+      if (progressPosition <= 1) {
+        if (targetPosition > 5) targetPosition = progressPosition
+      } else if (targetPosition <= 1 && progressPosition >= 2) {
+        targetPosition = progressPosition
+      }
+      const isPlayingNow = playerState.isPlay || lrcTools.isPlay || wasPlaying
+      try { anchorLyric(targetPosition * 1000, isPlayingNow) } catch {}
     })
     .catch(() => {
-      lrcTools.isPlay = wasPlaying
+      lrcTools.isPlay = playerState.isPlay || wasPlaying
     })
 }
 export const setPlaybackRate = (playbackRate: number) => {

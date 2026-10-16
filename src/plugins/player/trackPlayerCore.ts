@@ -229,7 +229,7 @@ export const loadTrackPlayerResource = async(musicInfo: LX.Player.PlayMusic, url
   } else {
     await TrackPlayer.pause()
     if (!isTempTrack(track.id as string)) {
-      await seekToTime(time)
+      if (time) await seekToTime(time)
       await TrackPlayer.play()
       await applyCurrentVolume()
     }

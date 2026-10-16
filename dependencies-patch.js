@@ -1003,7 +1003,7 @@ const patchSwiftAudioSeek = async() => {
     pattern: /func seek\(to seconds: TimeInterval\) \{[\s\S]*?func seek\(by seconds: TimeInterval\) \{/,
     replacement: `func seek(to seconds: TimeInterval) {
         // if the player is loading then we need to defer seeking until it's ready.
-        if (avPlayer.currentItem == nil) {
+        if (avPlayer.currentItem == nil || avPlayer.currentItem?.status != .readyToPlay) {
             timeToSeekToAfterLoading = seconds
         } else {
             let time = CMTimeMakeWithSeconds(seconds, preferredTimescale: CMTimeScale(NSEC_PER_SEC))

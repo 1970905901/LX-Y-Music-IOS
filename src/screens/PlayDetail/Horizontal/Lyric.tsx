@@ -8,13 +8,15 @@ import {
   type LayoutChangeEvent, TouchableOpacity,
   PanResponder,
 } from 'react-native'
-import { type Line, useLrcPlay, useLrcSet, useLrcWordsMap } from '@/plugins/lyric'
+import { type Line, useLrcPlay, useLrcSet, useLrcWordsMap, findLineIndexByTime, anchorLyric as lrcAnchorToTime } from '@/plugins/lyric'
 import type { LxLyricWord } from '@/plugins/lxLyricPlayer'
+import { getPosition } from '@/plugins/player'
 import { createStyle } from '@/utils/tools'
 import { updateSetting } from '@/core/common'
 import { useTheme } from '@/store/theme/hook'
 import { useSettingValue } from '@/store/setting/hook'
-import { useSafeAreaBottom, useAppActive, usePlayDetailCovered } from '@/store/common/hook'
+import { useSafeAreaBottom, useStatusbarHeight, useAppActive, usePlayDetailCovered } from '@/store/common/hook'
+import { useWindowSize } from '@/utils/hooks'
 import { AnimatedColorText } from '@/components/common/Text'
 import { setSpText } from '@/utils/pixelRatio'
 import settingState from '@/store/setting/state'
@@ -29,7 +31,7 @@ interface LineProps {
   line: Line
   lineNum: number
   activeLine: number
-  onLayout: (lineNum: number, height: number, width: number, isPlayed: boolean, isActive: boolean) => void
+  onLayout: (lineNum: number, height: number, width: number, isActive: boolean) => void
   onPress: (index: number) => void
   wordsByIndex: ReadonlyArray<LxLyricWord[] | null>
 }
@@ -39,7 +41,6 @@ const LrcLine = memo(
     const lrcFontSize = useSettingValue('playDetail.horizontal.style.lrcFontSize')
     const textAlign = useSettingValue('playDetail.style.align')
     const isActive = activeLine == lineNum
-    const isPlayed = lineNum < activeLine
     const size = lrcFontSize / 10
     const lineHeight = setSpText(size) * 1.3
     // 有逐字时间轴的行始终用卡拉OK渲染器（非激活时静态显示未播放颜色）：
@@ -54,7 +55,7 @@ const LrcLine = memo(
     }, [isActive, theme])
 
     const handleLayout = ({ nativeEvent }: LayoutChangeEvent) => {
-      onLayout(lineNum, nativeEvent.layout.height, nativeEvent.layout.width, isPlayed, isActive)
+      onLayout(lineNum, nativeEvent.layout.height, nativeEvent.layout.width, isActive)
     }
     const handlePress = useCallback(() => {
       onPress(lineNum)
@@ -145,6 +146,8 @@ const KEY_EXTRACTOR: FlatListType['keyExtractor'] = (_item, index) => `${index}`
 
 export default () => {
   const safeAreaBottom = useSafeAreaBottom()
+  const statusBarHeight = useStatusbarHeight()
+  const { height: winHeight } = useWindowSize()
   const lyricLines = useLrcSet()
   const { line } = useLrcPlay()
   // 逐字时间轴（与 lyricLines 同序）：第 i 项为第 i 行歌词的逐字数组；无逐字（纯 LRC）为 null。
@@ -160,6 +163,7 @@ export default () => {
   const delayScrollTimeout = useRef<NodeJS.Timeout | null>(null)
   const lineRef = useRef({ line: 0, prevLine: 0 })
   const scrollInfoRef = useRef<NativeSyntheticEvent<NativeScrollEvent>['nativeEvent'] | null>(null)
+  const scrollYRef = useRef(0)
   // 缓存歌词行高与累计偏移，把滚动定位从 O(n²) 降到 O(1)。
   const lyricScrollLayoutRef = useRef(new LyricScrollLayout(54))
   // 连续滚动：rAF 目标 offset 不直接写入列表，而是让跟随值按固定时长/固定速率收敛到目标。
@@ -185,11 +189,11 @@ export default () => {
   const LINE_CHANGE_GLIDE_MS = 180
   // 同一行内的平滑速率：只吸收行高测量带来的一行内小幅修正（12/s ≈ 200ms 收敛 95%）。
   const SMOOTH_RATE_NORMAL = 12
-  // 列表可视高度（onLayout 测量），连续滚动按此计算居中偏移。
-  const listHeightRef = useRef(0)
-  // 列表可视高度 state：同时驱动 contentContainerStyle 的上下留白（50% 视高），
-  // 保证歌词第一行/最后一行也能滚动到正中央。
-  const [listHeight, setListHeight] = useState(0)
+  // 列表可视高度（预先由窗口高度扣除状态栏与底部安全区初始化，onLayout 测量后再校准），
+  // 首帧即可具备精确高度与 50% 视高留白，避免从 0 突变导致首跳偏移错位。
+  const initialListHeight = Math.max(0, winHeight - statusBarHeight - safeAreaBottom)
+  const listHeightRef = useRef(initialListHeight)
+  const [listHeight, setListHeight] = useState(initialListHeight)
   // 回正定时器：进入/切歌后布局（spaceComponent / 行高）尚未完成时，防抖在测量完成后重新精确居中一次。
   const recentreTimerRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -274,15 +278,8 @@ export default () => {
   const handleScrollToActive = useCallback((index = lineRef.current.line, force = false) => {
     if (index < 0 || !flatListRef.current || isPauseScrollRef.current) return
     const layout = lyricScrollLayoutRef.current
-    const listHeight = listHeightRef.current || scrollInfoRef.current?.layoutMeasurement.height || 0
-    // 首帧或异常情况下无滚动信息，只能走 scrollToIndex fallback；
-    // 此时虽不能精确居中，但总比完全不滚动好。
-    if (!scrollInfoRef.current || listHeight <= 0) {
-      try {
-        flatListRef.current.scrollToIndex({ index, animated: !force, viewPosition: 0.5 })
-      } catch { }
-      return
-    }
+    const listHeight = listHeightRef.current || 0
+    if (listHeight <= 0) return
     // force 定位使用激活高度（横屏行布局与播放态解耦，实测高度一致），保证居中准确。
     // 上下留白（paddingV）与 FlatList contentContainerStyle 的 paddingTop/Bottom 用同一个值
     // （50% 视高）：布局端与计算端天然一致，不再依赖 space 组件的 onLayout 异步实测，
@@ -312,7 +309,7 @@ export default () => {
       // 与下方「每帧连续滚动循环」同时往同一个列表写偏移、两者互不知情：一边按动画轨迹写
       // val、一边按目标行写 smoothOffset，表现为歌词滚动打顿/抖动甚至被拽回旧位置。
       // 竖屏用原生滚动 + 舒适区守卫，所以这个现象只在横屏（iPad 横屏歌词页）复现。
-      const currentOffset = scrollInfoRef.current.contentOffset.y
+      const currentOffset = scrollYRef.current
       const lineChanged = index !== lastScrolledLineRef.current
       if (!lineChanged && Math.abs(targetOffset - currentOffset) < listHeight * 0.15) return
       try {
@@ -395,6 +392,7 @@ export default () => {
   // useCallback（空依赖）：只把原生滚动事件写进 ref，不触发重渲染，也不读任何变化值。
   const handleScroll = useCallback(({ nativeEvent }: NativeSyntheticEvent<NativeScrollEvent>) => {
     scrollInfoRef.current = nativeEvent
+    scrollYRef.current = nativeEvent.contentOffset.y
   }, [])
   // useCallback（空依赖）：只操作 ref 与定时器句柄。
   const handleScrollBeginDrag = useCallback(() => {
@@ -544,6 +542,41 @@ export default () => {
     }
   }, [line, handleScrollToActive])
 
+  // 挂载 / 进入横屏播放页时，立即把歌词时钟重锚到真实音频位置，并强制把当前行定位到中央
+  useEffect(() => {
+    isPauseScrollRef.current = false
+    const cachedPosition = playerState.progress.nowPlayTime
+    let immediateLine = lineRef.current.line
+    if (Number.isFinite(cachedPosition) && cachedPosition >= 0) {
+      immediateLine = findLineIndexByTime(lyricLines, cachedPosition * 1000)
+      if (immediateLine >= 0) {
+        lineRef.current.prevLine = lineRef.current.line
+        lineRef.current.line = immediateLine
+        try { lrcAnchorToTime(cachedPosition * 1000, playerState.isPlay) } catch {}
+      }
+    }
+    setForceScroll(true)
+    handleScrollToActive(immediateLine >= 0 ? immediateLine : 0, true)
+    requestAnimationFrame(() => {
+      handleScrollToActive(lineRef.current.line, true)
+    })
+
+    void getPosition().then((p) => {
+      if (p == null || !playerState.musicInfo.id) return
+      try { lrcAnchorToTime(p * 1000, playerState.isPlay) } catch {}
+      requestAnimationFrame(() => {
+        setForceScroll(true)
+        handleScrollToActive(lineRef.current.line, true)
+      })
+    })
+  }, [lyricLines, handleScrollToActive, setForceScroll])
+
+  // 列表高度（onLayout / 窗口尺寸变化 / iPad 旋转）就位后用精确高度强制回正高亮行到中央
+  useEffect(() => {
+    if (listHeight <= 0 || isPauseScrollRef.current) return
+    handleScrollToActive(lineRef.current.line, true)
+  }, [listHeight, handleScrollToActive])
+
   // 每帧连续平滑滚动循环：歌词页激活且非用户手动滚动、非强制定位时，基于外推时钟精确时间驱动歌词连续上移。
   // iOS 后台 / 锁屏时 rAF 暂停（歌词停滚无妨）；前台播放每帧（~16ms）定位，消除原来的行级跳变。
   useEffect(() => {
@@ -560,7 +593,7 @@ export default () => {
         // 避免沿用暂停前的旧基准把列表瞬间拽回去。
         if (wasPauseRef.current) {
           wasPauseRef.current = false
-          smoothOffsetRef.current = scrollInfoRef.current?.contentOffset.y ?? 0
+          smoothOffsetRef.current = scrollYRef.current
           lastWrittenOffsetRef.current = smoothOffsetRef.current
           lastFrameTsRef.current = ts
           // 恢复首帧不承接暂停前的切行滑动
@@ -598,6 +631,7 @@ export default () => {
       global.app_event.off('setProgress', handleSetProgress)
       global.app_event.off('play', handlePlay)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const handleScrollToIndexFailed = useCallback<NonNullable<FlatListType['onScrollToIndexFailed']>>((info) => {
@@ -607,7 +641,7 @@ export default () => {
     })
   }, [handleScrollToActive])
 
-  const handleLineLayout = useCallback<LineProps['onLayout']>((lineNum, height, _width, isPlayed, isActive) => {
+  const handleLineLayout = useCallback<LineProps['onLayout']>((lineNum, height, _width, isActive) => {
     const layout = lyricScrollLayoutRef.current
     const wasMeasured = layout.isMeasured(lineNum)
     layout.updateLineHeight(
@@ -615,7 +649,6 @@ export default () => {
       height,
       !!(lyricLines[lineNum]?.extendedLyrics?.length),
       isActive,
-      isPlayed,
     )
     if (isPauseScrollRef.current) return
     const current = lineRef.current.line
@@ -668,7 +701,7 @@ export default () => {
     }
 
     handleScrollToActive(index)
-  }, [lyricLines, handleScrollToActive])
+  }, [lyricLines, handleScrollToActive, setForceScroll])
 
   // useCallback 稳定 renderItem：依赖项均为稳定引用或低频变化值（line 每行切换变化一次），
   // 配合 LrcLine 的 memo 比较器，行切换时只有新旧激活两行重渲染（对齐竖屏实现）。

@@ -1371,7 +1371,17 @@ static void LXSetNowPlayingPlaybackState(MPNowPlayingPlaybackState state, NSDict
   // 原生歌词时钟在控制中心/锁屏永远冻结在锚点行（歌词不实时同步）。
   // 以 play/pause 发布为准解除/置位冻结；TrackPlayer 路径的 state 事件携带
   // 同一引擎状态，仍会照常更新该标志，两条路径一致不冲突。
-  LXNowPlayingClockHold = (state != MPNowPlayingPlaybackStatePlaying);
+  // 起播/落点在 0 时保持 hold 冻结，防止缓冲期原生 4Hz 时钟自走导致 2s 倒退。
+  if (state == MPNowPlayingPlaybackStatePlaying) {
+    NSNumber *elapsedTime = [options[@"elapsedTime"] isKindOfClass:[NSNumber class]] ? options[@"elapsedTime"] : nil;
+    if (elapsedTime != nil && elapsedTime.doubleValue <= 0.001) {
+      LXNowPlayingClockHold = YES;
+    } else {
+      LXNowPlayingClockHold = NO;
+    }
+  } else {
+    LXNowPlayingClockHold = YES;
+  }
 
   // 播放/暂停/停止切换时同步时钟生命周期：暂停/停止即停钟（8.3Hz 在非播放态是
   // 净唤醒，锁屏后台耗电），恢复播放时重建。放在早退（无标题）之前——即使元数据
@@ -1638,9 +1648,22 @@ static void LXHandleTrackPlayerLifecycleNotification(NSNotification *notificatio
       }
     }
     // 时钟冻结判定：非播放态（加载/缓冲/暂停等）冻结外推，歌词与音频一同
-    // 停走——音频微缓冲会反复发生，外推持续超前正是"同步一句停一会"的根因
+    // 停走——音频微缓冲会反复发生，外推持续超前正是"同步一句停一会"的根因。
+    // 歌曲从 0 起播/切歌缓冲期：AVPlayer 处于 playing 态但尚未真正渲染音频帧（currentTime 仍为 0），
+    // 此时若立即解除 hold 线性外推，原生 4Hz 时钟会从 0 持续自走（UI 计数至 1~2s），待首帧真正
+    // 出声时真实位置 ~0.05s 被校准回传，导致 UI 进度倒退后跳。
+    // 起播/落点为 0 时保持 hold 冻结，直到音频真正出声（reanchor 带 position > 0）才解除外推。
     NSString *lifecycleState = [userInfo[@"state"] isKindOfClass:[NSString class]] ? userInfo[@"state"] : nil;
-    LXNowPlayingClockHold = !(lifecycleState.length && ([lifecycleState isEqualToString:@"playing"] || [lifecycleState isEqualToString:@"ready"]));
+    BOOL isPlayingState = lifecycleState.length && [lifecycleState isEqualToString:@"playing"];
+    if (isPlayingState) {
+      if (position != nil && position.doubleValue <= 0.001) {
+        LXNowPlayingClockHold = YES;
+      } else {
+        LXNowPlayingClockHold = NO;
+      }
+    } else {
+      LXNowPlayingClockHold = YES;
+    }
     return;
   }
 }
@@ -1842,7 +1865,15 @@ static void LXSetNowPlayingInfo(NSDictionary *metadata) {
     // nativeFlac 驱动下 TrackPlayer 已 reset、不再产生 state 生命周期事件，hold 若
     // 停留在 reset 时的 YES，原生歌词时钟会永久冻在锚点行（控制中心歌词不实时同步）。
     // 逐行歌词元数据现在携带正速率，任何一次换行都能把时钟自愈回正常外推。
-    if (playbackRate != nil && playbackRate.doubleValue > 0) LXNowPlayingClockHold = NO;
+    // 起播/落点为 0 时保持 hold 冻结，防止初始缓冲期外推导致 2s 倒退。
+    if (playbackRate != nil && playbackRate.doubleValue > 0) {
+      NSNumber *elapsed = [metadata[@"elapsedTime"] isKindOfClass:[NSNumber class]] ? metadata[@"elapsedTime"] : nil;
+      if (elapsed != nil && elapsed.doubleValue <= 0.001) {
+        LXNowPlayingClockHold = YES;
+      } else {
+        LXNowPlayingClockHold = NO;
+      }
+    }
 
     if (isNewSong) LXClearNowPlayingLyricLines();
     // 歌词时钟锚点：以本次发布的引擎真实位置（elapsedTime）为基准外推；
@@ -1975,6 +2006,10 @@ static void LXReanchorNowPlayingLyric(double elapsedMs, double snapshotAtMs, dou
       anchorSystemMs = nowMs - MIN(ageMs, 1000.0);
     }
     LXNowPlayingLyricAnchorSystemMs = anchorSystemMs;
+    // 首帧出声确认：音频落点 > 0 且引擎处于播放中时解除冻结，正式启动线性外推
+    if (elapsedMs > 0 && (LXNowPlayingEnginePlaying || LXNowPlayingState == MPNowPlayingPlaybackStatePlaying)) {
+      LXNowPlayingClockHold = NO;
+    }
   }
 }
 

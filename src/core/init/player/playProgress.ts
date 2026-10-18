@@ -119,7 +119,7 @@ export default () => {
     const calibStartedAt = Date.now()
     void getPositionStamped().then(async stamped => {
       const position = stamped.position
-      if (!position || id != playerState.musicInfo.id) return
+      if (position == null || !Number.isFinite(position) || position < 0 || id != playerState.musicInfo.id) return
 
       // seek 生效窗口内：引擎可能仍回报 seek 前的旧位置（seek 异步生效）。
       // 此时绝不能把旧位置发布进 UI 状态（setNowPlayTime → playProgressChanged
@@ -277,6 +277,17 @@ export default () => {
       const engineState = await getPlaybackEngineState()
       if (!playerState.isPlay || playerState.musicInfo.id != musicId) return
       if (genAtCall != seekGen) return
+      // 起播/换歌从 0 启动时缓冲期守卫：AVPlayer 刚切入 playing 但尚未开始吐音频帧（position 仍 <= 0.01），
+      // 此时不可立即宣布 engineConfirmedPlaying，否则 4Hz 快路径会开始外推导致 2s 倒退。
+      // 200ms 重试等待音频真实出声（有界重试，耗尽兜底）。
+      if (seekTargetPosition == null && stamped.position <= 0.01 && attempt < 6) {
+        clearSyncRetry()
+        syncRetryTimer = BackgroundTimer.setTimeout(() => {
+          syncRetryTimer = null
+          syncFromEngine(musicId, genAtCall, attempt + 1)
+        }, 200)
+        return
+      }
       if (engineState !== 'playing' || (seekTargetPosition != null && Date.now() < seekHoldUntil && stamped.position <= 1 && seekTargetPosition >= 2)) {
         if (attempt < 6) {
           clearSyncRetry()
@@ -787,6 +798,10 @@ export default () => {
         seekTargetPosition = null
         seekHoldUntil = 0
       }
+    }
+    // 正常播放时（非 seek 期间）：位置单调递增，丢弃偶发向后倒跳的微抖动（< 2s 倒跳）
+    if (seekTargetPosition == null && position < playerState.progress.nowPlayTime && (playerState.progress.nowPlayTime - position) < 2) {
+      return
     }
     setNowPlayTime(position)
     audioClock.setAnchor(position * 1000, rate || settingState.setting['player.playbackRate'], true)

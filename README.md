@@ -1,5 +1,5 @@
 <h1 align="center">LX-Y Music 移动版</h1>
-
+请进tg群https://t.me/YPlayerGroup
 <p align="center">
   <img src="doc/images/app-icon.png" width="160" alt="LX-Y Music 图标">
 </p>

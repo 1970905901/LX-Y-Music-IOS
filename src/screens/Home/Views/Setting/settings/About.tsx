@@ -1,13 +1,13 @@
 import { memo, useEffect, useState } from 'react'
 import { View, TouchableOpacity, Image } from 'react-native'
 
-import Section from '../components/Section'
-
 import { createStyle, openUrl } from '@/utils/tools'
 import { useTheme } from '@/store/theme/hook'
 import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
 import Text from '@/components/common/Text'
 import { getVersionInfo } from '@/utils/nativeModules/utils'
+
+import Section from '../components/Section'
 
 // package.json 里的 version 只是打包时的快照，可能与实际安装包不一致，仅作原生读取失败时的兜底
 const getFallbackVersion = (): string => {
@@ -31,6 +31,9 @@ export default memo(() => {
   }, [])
   const openHomePage = () => {
     void openUrl('https://github.com/1970905901/LX-Y-Music-IOS#readme')
+  }
+  const openTelegramGroup = () => {
+    void openUrl('https://t.me/YPlayerGroup')
   }
   const openUpstreamIos = () => {
     void openUrl('https://github.com/Q-1515/lx-music-mobile/tree/ios-adaptation')
@@ -59,12 +62,6 @@ export default memo(() => {
         </TouchableOpacity>
       </View>
       <View style={styles.part}>
-        <Text style={{ ...styles.text, color: theme['c-font'] }}>
-          目前本项目的原始发布地址<Text style={styles.boldText}>只有 GitHub 和 QQ 群 1013518794</Text>
-          ，其他渠道均为第三方转载发布，可信度请自行鉴别。
-        </Text>
-      </View>
-      <View style={styles.part}>
         <Text style={styles.boldText}>致谢</Text>
         <Text style={{ ...styles.text, color: theme['c-font'] }}>
           本软件基于以下上游项目构建，在此致以诚挚的感谢：
@@ -77,9 +74,10 @@ export default memo(() => {
         </TouchableOpacity>
       </View>
       <View style={styles.part}>
-        <Text style={{ ...styles.text, color: theme['c-font'] }}>
-          QQ交流群：<Text style={styles.boldText}>1013518794</Text>
-        </Text>
+        <Text style={{ ...styles.text, color: theme['c-font'] }}>Telegram 群组：</Text>
+        <TouchableOpacity onPress={openTelegramGroup}>
+          <Text style={textLinkStyle}>https://t.me/YPlayerGroup</Text>
+        </TouchableOpacity>
       </View>
       <View style={styles.part}>
         <Text style={styles.boldText}>赞赏支持</Text>

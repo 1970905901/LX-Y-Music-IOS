@@ -4,8 +4,6 @@ import { screenkeepAwake, screenUnkeepAwake, getCutoutLeftPx } from '@/utils/nat
 import StatusBar from '@/components/common/StatusBar'
 import MoreBtn from './MoreBtn'
 import Header from './components/Header'
-import { setComponentId } from '@/core/common'
-import { COMPONENT_IDS } from '@/config/constant'
 import PageContent from '@/components/common/PageContent'
 import commonState, { type InitState as CommonState } from '@/store/common/state'
 
@@ -50,7 +48,6 @@ export default memo(({ componentId }: { componentId: string }) => {
   const cutoutLeft = isLandscapeStretch ? 0 : rawCutoutLeft
 
   useEffect(() => {
-    setComponentId(COMPONENT_IDS.playDetail, componentId)
     screenkeepAwake()
     let appstateListener = AppState.addEventListener('change', (state) => {
       switch (state) {

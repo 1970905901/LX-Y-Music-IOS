@@ -159,8 +159,14 @@ export const useAppActive = () => {
 }
 
 const isPlayDetailCovered = (ids: InitState['componentIds']) => {
-  const index = ids.findIndex(({ name }) => String(name) === COMPONENT_IDS.playDetail)
-  return index >= 0 && index < ids.length - 1
+  // 取最后一个 playDetail 条目：栈内若因历史重复注册留下了多个同名条目，
+  // 用 findIndex（第一个）会把位于栈顶的重复项误判为「下面还有页面」，
+  // 从而错误地暂停播放详情的歌词滚动与逐字动画。
+  let lastIndex = -1
+  for (let i = 0; i < ids.length; i++) {
+    if (String(ids[i].name) === COMPONENT_IDS.playDetail) lastIndex = i
+  }
+  return lastIndex >= 0 && lastIndex < ids.length - 1
 }
 
 /**

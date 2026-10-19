@@ -22,6 +22,9 @@ export default {
     global.state_event.safeAreaBottomUpdated(size)
   },
   setComponentId(name: COMPONENT_IDS, id: string) {
+    // 组件挂载是幂等的：同一屏幕重复注册（例如横竖屏切换时布局子组件再次注册）
+    // 会在栈中留下重复项，使「播放详情是否被覆盖」等栈顶判断误判。
+    if (state.componentIds.some(item => item.name === name && item.id === id)) return
     state.componentIds.push({ name, id })
     global.state_event.componentIdsUpdated([...state.componentIds])
   },

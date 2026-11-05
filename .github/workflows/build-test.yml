@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - dev
+      - main
 
 jobs:
   test:
@@ -18,8 +19,11 @@ jobs:
         with:
           node-version: 20
 
+      # 用 npm ci 而不是 npm install：后者会按 package.json 重新解析版本并可能
+      # 悄悄改写 lockfile，CI 结果不再可复现。lockfile 已入库（含四个 GitHub fork
+      # 的 commit 固定），ci 能保证 CI 装的依赖与本机一致。
       - name: Install Dependencies
-        run: npm install
+        run: npm ci
 
       - name: Eslint check
         run: npm run lint
@@ -27,12 +31,10 @@ jobs:
       - name: I18n key check
         run: npm run lint:i18n
 
-      # 类型检查基线：`tsc --noEmit` 此前从未被任何 npm script 或 workflow 执行过，
-      # tsconfig 继承的 strict: true 形同虚设（Babel/Metro 只剥离类型、不做检查）。
-      # 本仓存量代码尚未清零类型错误，故先以 continue-on-error 引入：每次 PR 都会把
-      # 错误数量与明细打进日志，便于逐步收敛到 0 后再改成硬门禁。
-      - name: TypeScript check (baseline, non-blocking)
-        continue-on-error: true
+      # 类型检查已是硬门禁：`tsc --noEmit` 在本仓当前为零错误（2026-11 复核
+      # exit=0），原先的 continue-on-error 基线期结束。Babel/Metro 只剥离类型、
+      # 不做检查，类型错误不会让打包失败，所以这里必须自己拦住。
+      - name: TypeScript check
         run: npm run typecheck
 
       - name: Sim contract checks

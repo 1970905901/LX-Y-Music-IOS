@@ -443,8 +443,13 @@ const List = forwardRef<ListType, ListProps>(
       }
     }, [])
     const getkey: FlatListType['keyExtractor'] = (item) => item.id
+    // 双列（iPad 横屏）时必须按「行」折算偏移：offset = ITEM_HEIGHT × floor(index / numColumns)。
+    // 旧实现用 ITEM_HEIGHT × index，把同一行里的第二列当成新的一行，误差随下标线性放大 ——
+    // 表现为长列表滚到后部出现大片空白、scrollToIndex 定位到错误位置。
+    // 与 OnlineList/List.tsx 的同名实现保持同一公式。
     const getItemLayout: FlatListType['getItemLayout'] = (data, index) => {
-      return { length: ITEM_HEIGHT, offset: ITEM_HEIGHT * index, index }
+      const rowIndex = Math.floor(index / numColumns)
+      return { length: ITEM_HEIGHT, offset: ITEM_HEIGHT * rowIndex, index }
     }
 
     return (

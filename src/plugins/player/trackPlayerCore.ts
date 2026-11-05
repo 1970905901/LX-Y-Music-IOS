@@ -159,6 +159,22 @@ export const updateCurrentTrackMetadata = async(metadata: {
   await TrackPlayer.updateNowPlayingMetadata(metadata, trackPlayerState.isPlaying).catch(() => {})
 }
 
+/**
+ * 媒体元数据的「世代」：每次装载新曲目自增。
+ *
+ * 历史坑（2026-10 审计）：这里为每首歌无条件排了 [0,160,420,900]ms 四次发布，
+ * 但没有任何归属检查。A 装载后 0.8s 切到 B 时，A 的 900ms 那次仍会发布 ——
+ * 原生侧按「标题变化 = 换歌」处理（AppDelegate.mm LXSetNowPlayingInfo 的 isNewSong），
+ * 于是控制中心标题被改回 A，并清空 B 的歌词时间轴（车机/锁屏歌词整首不显示）。
+ * 现在每次发布前校验世代，切歌即作废旧批次。
+ */
+let metadataGeneration = 0
+
+/** 装载新曲目前调用：让此前所有延迟发布作废 */
+export const invalidateTrackMetadata = () => {
+  metadataGeneration += 1
+}
+
 export const ensureCurrentTrackMetadata = (metadata: {
   title?: string
   artist?: string
@@ -168,11 +184,14 @@ export const ensureCurrentTrackMetadata = (metadata: {
   elapsedTime?: number
   playbackRate?: number
 }) => {
+  const generation = metadataGeneration
   void (async() => {
     const targetMetadata = Platform.OS == 'ios' ? formatIOSNowPlayingMetadata(metadata) : metadata
     const delays = Platform.OS == 'ios' ? [0, 160, 420, 900] : [0]
     for (const delay of delays) {
       if (delay) await wait(delay)
+      // 批次已作废（期间切了歌）：剩余的重发全部放弃，绝不把旧歌标题写回去
+      if (generation !== metadataGeneration) return
       await updateCurrentTrackMetadata(targetMetadata)
     }
   })()

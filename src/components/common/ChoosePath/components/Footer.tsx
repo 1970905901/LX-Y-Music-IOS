@@ -5,6 +5,7 @@ import Text from '@/components/common/Text'
 import { useTheme } from '@/store/theme/hook'
 import { useI18n } from '@/lang'
 import { shadow } from '@/utils/shadow'
+import { useSafeAreaBottom } from '@/store/common/hook'
 
 export default memo(
   ({
@@ -18,9 +19,19 @@ export default memo(
   }) => {
     const t = useI18n()
     const theme = useTheme()
+    // 安全区避让：本页是全屏 Modal（statusBarPadding={false}），底部按钮直接贴屏幕底边，
+    // 在带 Home 指示器的设备上会被遮住/误触到系统手势区。复用项目已有的
+    // useSafeAreaBottom（底部安全区随 iPad 旋转变化，hook 内部会重新同步）。
+    const safeAreaBottom = useSafeAreaBottom()
 
     return (
-      <View style={{ ...styles.footer, backgroundColor: theme['c-content-background'] }}>
+      <View
+        style={{
+          ...styles.footer,
+          backgroundColor: theme['c-content-background'],
+          paddingBottom: safeAreaBottom,
+        }}
+      >
         <Button style={{ ...styles.footerBtn, width: dirOnly ? '50%' : '100%' }} onPress={onHide}>
           <Text color={theme['c-button-font']}>{t('cancel')}</Text>
         </Button>

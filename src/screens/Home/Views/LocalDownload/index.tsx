@@ -326,8 +326,21 @@ export default memo(() => {
       for (const id of selectedIds) {
         const task = completedTasks.find(t => t.id === id)
         if (!task) continue
-        const removeFile = task.filePath ? unlink(task.filePath).catch(() => {}) : Promise.resolve()
-        void removeFile.then(() => { downloadActions.removeTask(id) })
+        // 删除文件失败时不能照样把任务记录删掉并提示「已删除」：那会把文件变成
+        // 既不在列表里、也删不掉的孤儿（用户看不到它，也管理不了）。
+        const removeFile = task.filePath
+          ? unlink(task.filePath).then(() => true).catch((error) => {
+            console.warn('[LocalDownload] 删除文件失败，保留任务记录:', error)
+            return false
+          })
+          : Promise.resolve(true)
+        void removeFile.then((removed) => {
+          if (!removed) {
+            toast('删除文件失败，已保留记录', 'short')
+            return
+          }
+          downloadActions.removeTask(id)
+        })
       }
     } else {
       for (const id of selectedIds) {

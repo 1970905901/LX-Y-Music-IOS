@@ -16,6 +16,9 @@ export default memo(() => {
   const [isVisible, setIsVisible] = useState(false)
   const [activeTasks, setActiveTasks] = useState<Map<string, DownloadTask>>(new Map())
   const scaleAnim = useRef(new Animated.Value(0)).current
+  // 目标可见性（与渲染用的 isVisible 分开）：事件回调与动画回调都读它，
+  // 避免闭包里的陈旧值决定「要不要显示/要不要卸载」
+  const visibleRef = useRef(false)
 
   const { totalProgress, isCompleted } = useMemo(() => {
     if (activeTasks.size === 0) return { totalProgress: 0, isCompleted: true }
@@ -38,7 +41,11 @@ export default memo(() => {
 
   useEffect(() => {
     const handleTaskAdd = (task: LX.Download.DownloadTask) => {
-      if (!isVisible) {
+      // 用 ref 而不是闭包里的 isVisible：effect 依赖 isVisible 会在每次显隐时重订阅，
+      // 且「关闭动画进行中新增任务」时旧闭包认为仍可见 → 不重播入场动画，
+      // 悬浮球会以 scale=0 隐藏着接收任务（用户看不到任何下载反馈）。
+      if (!visibleRef.current) {
+        visibleRef.current = true
         setIsVisible(true)
         Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true }).start()
       }
@@ -87,12 +94,17 @@ export default memo(() => {
 
 
   const handlePress = () => {
+    // 先标记不可见：关闭动画期间新增的下载任务会重新触发入场动画，而不是被
+    // 旧回调的「无条件 setVisible(false)」吞掉。
+    visibleRef.current = false
     Animated.timing(scaleAnim, {
       toValue: 0,
       duration: 300,
       easing: Easing.inOut(Easing.ease),
       useNativeDriver: true,
-    }).start(() => {
+    }).start(({ finished }) => {
+      // 动画被打断（期间又有新任务入场）时不卸载，交给那次入场收尾
+      if (!finished || visibleRef.current) return
       setIsVisible(false)
       setActiveTasks(new Map())
     })

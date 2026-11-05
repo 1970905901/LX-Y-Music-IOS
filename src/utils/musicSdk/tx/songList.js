@@ -589,7 +589,8 @@ export default {
   searchOld(text, page, limit = 20, retryNum = 0) {
     if (retryNum > 5) throw new Error('max retry')
     return httpFetch(
-      `http://c.y.qq.com/soso/fcgi-bin/client_music_search_songlist?page_no=${
+      // 必须 https：该请求会附带 QQ 登录 Cookie（见 utils/request.js getCredentialScope）
+      `https://c.y.qq.com/soso/fcgi-bin/client_music_search_songlist?page_no=${
         page - 1
       }&num_per_page=${limit}&format=json&query=${encodeURIComponent(
         text,

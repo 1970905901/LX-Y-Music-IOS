@@ -80,13 +80,18 @@ export default async(setting: LX.AppSetting) => {
   // 蓝牙歌词关闭时同样传空数组：原生 tick 与 JS 逐行钩子是两条独立通路，
   // 只关 JS 一侧的话，原生时钟仍会把歌词写进 artist（车机照样显示歌词）。
   global.app_event.on('lyricUpdated', () => {
+    // 捕获事件所属曲目：歌词解析是异步的，期间用户可能已经切歌。
+    // 不加这层归属校验时，上一首的解析结果会在新歌上重放，把新歌的解析器覆盖成旧歌词
+    // （2026-10 审计：表现为「切歌后显示/朗读上一首歌词」，且原生时间轴一起错位）。
+    const musicId = playerState.musicInfo.id
     if (Platform.OS == 'ios') {
       void setLyric().then(() => {
+        if (playerState.musicInfo.id != musicId) return
         const lines = playerState.musicInfo.lrc && isShowBluetoothLyric() ? getCurrentLyricLines() : []
         void setNowPlayingLyrics(lines)
       })
     } else {
-      setLyric()
+      void setLyric()
     }
   })
 

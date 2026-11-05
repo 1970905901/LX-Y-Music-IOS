@@ -57,13 +57,16 @@ const KgWebLoginModal = forwardRef<KgWebLoginModalType, object>((_, ref) => {
   const handleVerifyMsg = useCallback(async(e: any) => {
     try {
       const d = JSON.parse(e.nativeEvent.data)
-      console.log('[KgLogin] 滑块验证回调:', JSON.stringify(d))
-      console.log('[KgLogin] 滑块回调原始数据:', JSON.stringify(d))
+      // 脱敏（2026-10 安全审计）：滑块回调里带 ticket / randstr（一次性验证凭据）
+      // 与 code，原来整包 JSON.stringify 打了两遍；这里只记录类型与字段名。
+      console.log('[KgLogin] 滑块验证回调: type=', d?.type, 'fields=',
+        d && typeof d === 'object' ? Object.keys(d).join(',') : typeof d)
       if (d.type === 'ok') {
         const vcode = 'KGCodeTX|' + JSON.stringify({ ticket: d.ticket, randstr: d.randstr, txappid: d.appid })
         console.log('[KgLogin] 提交验证结果...')
         const r = await verifyUserInfo(d.code, 23, vcode, '', '')
-        console.log('[KgLogin] verifyUserInfo result:', JSON.stringify(r))
+        // 不打印完整结果：其中含会话 token / userid
+        console.log('[KgLogin] verifyUserInfo result: success=', r?.success, 'message=', r?.message)
         setShowVerify(false)
         if (r.success) { toast('验证通过'); setTimeout(() => { sendRef.current?.() }, 500) } else toast('验证失败')
       } else if (d.type === 'error') {
@@ -87,13 +90,14 @@ const KgWebLoginModal = forwardRef<KgWebLoginModalType, object>((_, ref) => {
     setSending(true)
     try {
       const result = await sendCaptcha(phone, () => {})
-      console.log('[KgLogin] sendCaptcha result:', JSON.stringify(result))
+      // 不打印完整结果，也不打印 ssaCode（验证会话凭据）
+      console.log('[KgLogin] sendCaptcha result: success=', result?.success, 'needVerify=', !!result?.ssaCode)
       if (result.success) {
         console.log('[KgLogin] 验证码发送成功')
         toast('验证码已发送'); let s = 60; setCountdown(s)
         timerRef.current = setInterval(() => { s--; setCountdown(s); if (s <= 0 && timerRef.current) { clearInterval(timerRef.current); timerRef.current = null } }, 1000)
       } else if (result.ssaCode) {
-        console.log('[KgLogin] 需要滑块验证, ssaCode:', result.ssaCode)
+        console.log('[KgLogin] 需要滑块验证, ssaCode 长度=', String(result.ssaCode ?? '').length)
         const vr = await getVerifyInfo(result.ssaCode)
         if (vr.success && vr.data?.txappid) { setVerifyHtml(generateVerifyHtml(vr.data.txappid, result.ssaCode)); setShowVerify(true) } else { console.log('[KgLogin] getVerifyInfo failed:', vr.message); toast('获取验证信息失败') }
       } else { console.log('[KgLogin] sendCaptcha failed:', result.message); toast(result.message || '发送验证码失败') }

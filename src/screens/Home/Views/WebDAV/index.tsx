@@ -784,6 +784,9 @@ export default memo(() => {
     <ScrollView
       keyboardShouldPersistTaps="handled"
       onScrollBeginDrag={Keyboard.dismiss}
+      // 键盘避让：配置区底部的密码等输入项在软键盘弹起时会被遮住。
+      // 与 SettingDetail 同一处理，不引入新依赖。
+      automaticallyAdjustKeyboardInsets
       style={styles.scroll}
       contentContainerStyle={styles.content}
     >

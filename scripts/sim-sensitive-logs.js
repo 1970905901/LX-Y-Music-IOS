@@ -21,6 +21,9 @@ const FILES = {
   qqLogin: 'src/components/login/QQWebLoginModal.tsx',
   syncAuth: 'src/plugins/sync/client/auth.ts',
   deeplink: 'src/core/init/deeplink/index.ts',
+  // 2026-10 安全审计新增：酷狗登录链路
+  kgApi: 'src/utils/musicSdk/kg/utils/api.ts',
+  kgModal: 'src/components/login/KgWebLoginModal.tsx',
 }
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8').replace(/\r\n/g, '\n')
 const REAL = Object.fromEntries(Object.entries(FILES).map(([key, rel]) => [key, read(rel)]))
@@ -51,6 +54,20 @@ const structuralReasons = (files) => {
   }
   if (!/deeplinkLogLabel\(/.test(files.deeplink)) {
     reasons.push('deeplink 日志没有使用脱敏标签（只保留类型/动作）')
+  }
+
+  // —— 酷狗登录链路（2026-10 审计）：手机号、验证码凭据、会话 token 都不得进日志 ——
+  const kgForbidden = [
+    [/log\(`[^`]*\$\{JSON\.stringify\(response\.data\)\}/, '打印了酷狗完整响应体（含 token / secu_params）'],
+    [/log\(`[^`]*\$\{signature\}`\)/, '打印了酷狗签名原文'],
+    [/log\(`[^`]*\$\{JSON\.stringify\(\{[^}]*signature[^}]*\}\)\}/, '打印了含签名的完整查询参数'],
+    [/log\(`[^`]*\$\{token\?\.substring\(/, '打印了酷狗 token 前缀'],
+    [/log\(`请求体: \$\{dataStr\}`\)/, '打印了含手机号的请求体'],
+    [/console\.log\('\[KgLogin\] 滑块验证回调:', JSON\.stringify\(d\)\)/, '打印了滑块验证回调原文（含 ticket / randstr）'],
+    [/console\.log\('\[KgLogin\] sendCaptcha result:', JSON\.stringify\(result\)\)/, '打印了 sendCaptcha 完整结果'],
+  ]
+  for (const [re, msg] of kgForbidden) {
+    if (re.test(files.kgApi) || re.test(files.kgModal)) reasons.push(msg)
   }
   return reasons
 }
@@ -110,6 +127,40 @@ checkCase('C4 打印原始 deeplink URL', () => ({
     "    console.log('deeplink', deeplinkLogLabel(url))",
     "    console.log('deeplink', url)"),
 }), '打印了原始 URL')
+
+// C5：酷狗登录退回「打印完整响应体」
+checkCase('C5 酷狗打印完整响应体', () => ({
+  kgApi: tamper(REAL.kgApi,
+    // eslint-disable-next-line no-template-curly-in-string -- tamper 锚点必须与真实源码逐字一致
+    '    log(`响应数据: 字段=${response.data && typeof response.data === \'object\' ? Object.keys(response.data).join(\',\') : typeof response.data}`)',
+    // eslint-disable-next-line no-template-curly-in-string -- 同上
+    '    log(`响应数据: ${JSON.stringify(response.data)}`)'),
+}), '打印了酷狗完整响应体')
+
+// C6：酷狗登录退回「打印签名原文」
+checkCase('C6 酷狗打印签名原文', () => ({
+  kgApi: tamper(REAL.kgApi,
+    // eslint-disable-next-line no-template-curly-in-string -- 同上
+    'log(`生成签名: 长度=${signature.length}`)',
+    // eslint-disable-next-line no-template-curly-in-string -- 同上
+    'log(`生成签名: ${signature}`)'),
+}), '打印了酷狗签名原文')
+
+// C7：酷狗登录退回「打印含手机号的请求体」
+checkCase('C7 酷狗打印含手机号的请求体', () => ({
+  kgApi: tamper(REAL.kgApi,
+    // eslint-disable-next-line no-template-curly-in-string -- 同上
+    '    log(`请求体: 手机号长度=${mobile.length}`)',
+    // eslint-disable-next-line no-template-curly-in-string -- 同上
+    '    log(`请求体: ${dataStr}`)'),
+}), '打印了含手机号的请求体')
+
+// C8：酷狗滑块回调退回「整包 JSON 打印」
+checkCase('C8 酷狗打印滑块回调原文', () => ({
+  kgModal: tamper(REAL.kgModal,
+    "      console.log('[KgLogin] 滑块验证回调: type=', d?.type, 'fields=',",
+    "      console.log('[KgLogin] 滑块验证回调:', JSON.stringify(d))\n      console.log('[KgLogin] 滑块验证回调: type=', d?.type, 'fields=',"),
+}), '打印了滑块验证回调原文')
 
 const realReasons = structuralReasons(REAL)
 const failedModels = models.filter(([, ok]) => !ok)

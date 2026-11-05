@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useMemo, forwardRef, useImperativeHandle } from 'react'
+import { useState, useRef, useCallback, useMemo, forwardRef, useImperativeHandle, useEffect } from 'react'
 import { Animated, View, TouchableOpacity } from 'react-native'
 
 import Text from '@/components/common/Text'
@@ -52,11 +52,32 @@ export default forwardRef<MultipleModeBarType, MultipleModeBarProps>(
       },
     }))
 
+    // 退出动画的卸载定时器 + 待执行的入场 rAF：
+    // 历史坑（2026-10 审计）：旧实现只在动画回调 finished=true 时才 setVisible(false)。
+    // 用户在 200ms 退出动画期间再次进入多选 / 切页时动画被打断，回调收到 finished=false
+    // 直接 return —— 组件永远停在 visible=true，而本组件是 absolute 全屏，
+    // 于是留下一个**透明但拦截触摸**的整屏层（表现为「页头点不动」）。
+    // 现在：卸载交给可取消定时器，动画值在隐藏态显式归零，隐藏期间 pointerEvents 关闭。
+    const unmountTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const showRaf = useRef<number | null>(null)
+    const clearUnmountTimer = useCallback(() => {
+      if (unmountTimer.current == null) return
+      clearTimeout(unmountTimer.current)
+      unmountTimer.current = null
+    }, [])
+    const cancelShowRaf = useCallback(() => {
+      if (showRaf.current == null) return
+      cancelAnimationFrame(showRaf.current)
+      showRaf.current = null
+    }, [])
+
     const handleShow = useCallback(() => {
-      // console.log('show List')
+      clearUnmountTimer()
       setVisible(true)
       setAnimatPlayed(false)
-      requestAnimationFrame(() => {
+      cancelShowRaf()
+      showRaf.current = requestAnimationFrame(() => {
+        showRaf.current = null
         animTranslateY.setValue(-20)
 
         Animated.parallel([
@@ -70,13 +91,15 @@ export default forwardRef<MultipleModeBarType, MultipleModeBarProps>(
             duration: 200,
             useNativeDriver: true,
           }),
-        ]).start(() => {
-          setAnimatPlayed(true)
+        ]).start(({ finished }) => {
+          // 被打断（又有新的显示/隐藏）时不提交状态，由最新那次操作负责收尾
+          if (finished) setAnimatPlayed(true)
         })
       })
-    }, [animFade, animTranslateY])
+    }, [animFade, animTranslateY, clearUnmountTimer, cancelShowRaf])
 
     const handleHide = useCallback(() => {
+      cancelShowRaf()
       setAnimatPlayed(false)
       Animated.parallel([
         Animated.timing(animFade, {
@@ -89,12 +112,23 @@ export default forwardRef<MultipleModeBarType, MultipleModeBarProps>(
           duration: 200,
           useNativeDriver: true,
         }),
-      ]).start((finished) => {
-        if (!finished) return
+      ]).start()
+      clearUnmountTimer()
+      unmountTimer.current = setTimeout(() => {
+        unmountTimer.current = null
+        // 显式归零：避免下一次 show 从残值开始（也让隐藏态不残留可见像素）
+        animFade.setValue(0)
+        animTranslateY.setValue(-20)
         setVisible(false)
         setAnimatPlayed(true)
-      })
-    }, [animFade, animTranslateY])
+      }, 250)
+    }, [animFade, animTranslateY, clearUnmountTimer, cancelShowRaf])
+
+    // 卸载时清掉未触发的定时器 / rAF，避免对已卸载组件 setState
+    useEffect(() => () => {
+      clearUnmountTimer()
+      cancelShowRaf()
+    }, [clearUnmountTimer, cancelShowRaf])
 
     const animaStyle = useMemo(
       () => ({
@@ -115,7 +149,12 @@ export default forwardRef<MultipleModeBarType, MultipleModeBarProps>(
 
     const component = useMemo(() => {
       return (
-        <Animated.View style={animaStyle}>
+        // 隐藏/退出动画期间必须停止接收触摸：本组件是全屏 absolute 层，
+        // 只把 opacity 降到 0 仍会拦住下面的列表与页头（见 handleHide 的历史坑注释）
+        <Animated.View
+          style={animaStyle}
+          pointerEvents={visible && visibleBar ? 'auto' : 'none'}
+        >
           <View style={styles.switchBtn}>
             <Button
               onPress={() => {
@@ -154,6 +193,8 @@ export default forwardRef<MultipleModeBarType, MultipleModeBarProps>(
       )
     }, [
       animaStyle,
+      visible,
+      visibleBar,
       selectMode,
       theme,
       handleSelectAll,

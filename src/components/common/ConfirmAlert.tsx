@@ -124,7 +124,13 @@ export default forwardRef<ConfirmAlertType, ConfirmAlertProps>(
         ref={dialogRef}
       >
         <View style={styles.main}>
-          <ScrollView style={styles.content} keyboardShouldPersistTaps={'always'}>
+          {/* 长表单（元数据编辑 / 歌单描述等）在键盘弹起时，仅靠 Dialog 整体上移
+              不能保证第一响应者滚进可见区：让 ScrollView 自己跟随键盘插图。 */}
+          <ScrollView
+            style={styles.content}
+            keyboardShouldPersistTaps={'always'}
+            automaticallyAdjustKeyboardInsets
+          >
             {children ?? <Text>{text}</Text>}
           </ScrollView>
         </View>

@@ -127,6 +127,7 @@ export default forwardRef<LogConfirmAlertType, LogConfirmAlertProps>(
           <ScrollView
             style={styles.content}
             keyboardShouldPersistTaps={'always'}
+            automaticallyAdjustKeyboardInsets
           >
             {children ?? <Text>{text}</Text>}
           </ScrollView>

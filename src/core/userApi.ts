@@ -58,18 +58,28 @@ export const overwriteUserApis = async(data: { list: LX.UserApi.UserApiInfo[], s
     const allKeys = await getAllKeys()
     const oldScriptKeys = allKeys.filter(key => key.startsWith(storageDataPrefix.userApi) && key !== storageDataPrefix.userApi)
     const newScriptIds = new Set(Object.keys(data.scripts ?? {}))
-    const keysToRemove = oldScriptKeys.filter(key => {
-      const scriptId = key.substring(storageDataPrefix.userApi.length)
-      return !newScriptIds.has(scriptId)
-    })
-    if (keysToRemove.length) await removeDataMultiple(keysToRemove)
 
+    // 先写、后删（2026-10 审计）。
+    //
+    // 旧实现是「先删掉新数据里没有的旧脚本，再写新列表与新脚本」：写入阶段一旦失败
+    // （存储满 / 桥调用异常），旧脚本已经删了、新脚本又没落盘 —— 用户的音源被永久清空，
+    // 且 catch 只是记日志后重新抛出，没有回滚。
+    // 现在把删除放到所有写入成功之后：任一步失败时磁盘上仍是「旧列表 + 旧脚本」的完整状态。
     const saveTasks: Array<[string, any]> = []
     saveTasks.push([storageDataPrefix.userApi, data.list])
     for (const [id, script] of Object.entries(data.scripts ?? {})) {
       saveTasks.push([`${storageDataPrefix.userApi}${id}`, script])
     }
     await saveDataMultiple(saveTasks)
+
+    const keysToRemove = oldScriptKeys.filter(key => !newScriptIds.has(key.substring(storageDataPrefix.userApi.length)))
+    if (keysToRemove.length) {
+      // 清理失败不影响「新数据已生效」：脚本已写入，多余键只是残留存储。
+      // 但仍要留痕，便于排查存储异常。
+      await removeDataMultiple(keysToRemove).catch((error: any) => {
+        log.error('Remove obsolete user api scripts failed:', error?.message)
+      })
+    }
 
     action.setUserApiList(data.list)
   } catch (error: any) {

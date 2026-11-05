@@ -10,6 +10,7 @@ import {
 import {
   clearTracks,
   ensureCurrentTrackMetadata,
+  invalidateTrackMetadata,
   loadTrackPlayerResource,
 } from '../trackPlayerCore'
 
@@ -31,6 +32,10 @@ export const loadPlaybackResource = async({
   time: number
   quality?: LX.Quality | null
 }) => {
+  // 新装载开始：让上一首尚未发完的延迟元数据批次全部作废（否则旧歌标题会在
+  // 约 0.9s 后覆盖新歌、并清掉新歌的锁屏歌词时间轴，见 trackPlayerCore 注释）
+  invalidateTrackMetadata()
+
   const currentTrackIndex = await TrackPlayer.getCurrentTrack()
   const shouldAutoStart = resolveShouldAutoStart(currentTrackIndex)
 

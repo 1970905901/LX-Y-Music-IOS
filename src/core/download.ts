@@ -26,7 +26,32 @@ const WY_MEDIA_HEADERS = {
 const getDownloadHeaders = (task: DownloadTask) => {
   return task.musicInfo.source === 'wy' ? WY_MEDIA_HEADERS : DOWNLOAD_HEADERS
 }
-let currentDownloadTask: any | null = null
+/**
+ * 正在跑的那个下载的句柄（jobId + 归属任务 id）。
+ *
+ * 历史坑（2026-10 审计）：这里原本是裸的下载句柄，`removeTask` 会直接把它清空、
+ * 再把全局 `isProcessing` 置 false 并立刻启动下一个任务 —— 但被取消那次
+ * `startDownload` 的 promise 还在跑，它随后仍会 `updateTask`、把临时文件
+ * move 到最终路径、写元数据并标 completed，等于**删除的任务自己复活**，
+ * 且与后一个任务共用同一个全局槽，可能取消错任务、互相覆盖最终文件。
+ * 现在改成带归属的结构：只有「属于自己的」句柄才允许被取消/清空。
+ */
+let currentDownloadTask: { jobId: number, taskId: string } | null = null
+
+/**
+ * 任务世代（generation）：每次删除 / 重试自增。
+ * 正在跑的 `startDownload` 只能提交「自己那一代」的结果；世代不匹配说明任务
+ * 已被用户取消或重排，此后任何写状态、移动文件、写元数据的动作都必须放弃。
+ * 这是**唯一**允许推进队列的地方仍在 `processQueue` 的 finally（见下）。
+ */
+const taskGenerations = new Map<string, number>()
+const bumpTaskGeneration = (id: string) => {
+  const next = (taskGenerations.get(id) ?? 0) + 1
+  taskGenerations.set(id, next)
+  return next
+}
+const getTaskGeneration = (id: string) => taskGenerations.get(id) ?? 0
+const isTaskCancelled = (id: string, generation: number) => getTaskGeneration(id) !== generation
 
 // 下载中的半成品统一写 `${最终路径}.download`（.download 结尾不会被本地扫描当音频）；
 // 删除任务 / 重试时也要清这个临时文件。
@@ -42,9 +67,13 @@ const processQueue = async() => {
     return
   }
 
+  // 世代在「出队那一刻」固定：此后 removeTask/retryTask 自增即视为本次作废
+  const generation = getTaskGeneration(task.id)
   try {
-    await startDownload(task)
+    await startDownload(task, generation)
   } catch (error: any) {
+    // 已取消的任务不写错误态、不弹失败提示（它已从任务列表消失）
+    if (isTaskCancelled(task.id, generation)) return
     downloadActions.updateTask(task.id, { status: 'error', errorMsg: error.message })
     // 失败也要有反馈：此前只有「正在下载」与「下载完成」两个提示，出错时界面静默，
     // 用户只能靠下载悬浮球上的状态点看出异常。
@@ -55,7 +84,11 @@ const processQueue = async() => {
   }
 }
 
-const startDownload = async(task: DownloadTask) => {
+const startDownload = async(task: DownloadTask, generation: number) => {
+  /** 每个 await 之后都要问一次：任务是否已被删除/重试（世代已变） */
+  const cancelled = () => isTaskCancelled(task.id, generation)
+  if (cancelled()) return
+
   downloadActions.updateTask(task.id, { status: 'downloading' })
 
   // 立刻给出「已开始下载」反馈：等 URL 解析（可能要几秒）后再提示，
@@ -114,6 +147,7 @@ const startDownload = async(task: DownloadTask) => {
     }
   }
 
+  if (cancelled()) return
   if (actualQuality && actualQuality !== task.quality) {
     // 记录降级结果（hires → flac 之类），列表按实际音质展示
     downloadActions.updateTask(task.id, { actualQuality })
@@ -135,6 +169,7 @@ const startDownload = async(task: DownloadTask) => {
   const downloadFilePath = getDownloadTempPath(task.filePath)
 
   await requestStoragePermission()
+  if (cancelled()) return
   let lastWritten = 0
   let lastTime = Date.now()
   let downloadedFilePath: string
@@ -146,6 +181,8 @@ const startDownload = async(task: DownloadTask) => {
     const downloadTask = downloadFile(url, downloadFilePath, {
       headers,
       progress: (res) => {
+        // 已取消的任务不再推进度：它已从列表移除，继续 updateTask 只会制造幽灵事件
+        if (cancelled()) return
         const now = Date.now()
         const written = res.bytesWritten
         const total = res.contentLength
@@ -170,8 +207,18 @@ const startDownload = async(task: DownloadTask) => {
       },
     })
 
-    currentDownloadTask = downloadTask
-    await downloadTask.promise
+    // 只有自己这一代才能占用全局槽：后启动的任务不能覆盖前一个的句柄
+    if (!cancelled()) currentDownloadTask = { jobId: downloadTask.jobId, taskId: task.id }
+    const result = await downloadTask.promise
+    // HTTP 错误响应（404/403/验证页/错误 JSON）也会「下载成功」并落盘。
+    // 与 utils/rnFetchBlob.ts 的兼容层保持同一语义：非 2xx 一律当失败，
+    // 不能把错误页改名成 .mp3/.flac 写进音乐库（播到才暴露，且已污染文件）。
+    const statusCode = (result as { statusCode?: number } | undefined)?.statusCode
+    if (typeof statusCode === 'number' && (statusCode < 200 || statusCode >= 300)) {
+      throw new Error(`HTTP ${statusCode}`)
+    }
+    // 取消发生在下载途中：临时文件由 removeTask 清理，这里不能继续移动到最终路径
+    if (cancelled()) return
     downloadCompleted = true
     downloadedFilePath = downloadFilePath
     console.log('下载完成:', downloadedFilePath)
@@ -194,6 +241,15 @@ const startDownload = async(task: DownloadTask) => {
     }
     if (hadExistingFile) await unlink(backupPath)
 
+    // 文件已落到最终路径之后被取消：任务已从列表移除，但文件是这次下载的真实产物，
+    // 不能留下来变成无人管理的孤儿文件（旧实现会把它当「已完成」留在磁盘上）。
+    if (cancelled()) {
+      await unlink(finalFilePath).catch((cleanupError) => {
+        console.warn('[Download] 取消后清理已落盘文件失败:', cleanupError)
+      })
+      return
+    }
+
     if (!isBilibiliSource) {
       await handleMetadata(task, downloadedFilePath)
     } else {
@@ -206,6 +262,7 @@ const startDownload = async(task: DownloadTask) => {
     } catch (scanError) {
       console.error(`[Download Manager] Failed to request media scan for ${downloadedFilePath}:`, scanError)
     }
+    if (cancelled()) return
     downloadActions.updateTask(task.id, { status: 'completed', progress: { ...task.progress, percent: 1 }, filePath: downloadedFilePath })
 
     // 下载完成后缓存歌词（内存缓存 + 同名 .lrc），保证离线也能显示歌词
@@ -215,6 +272,8 @@ const startDownload = async(task: DownloadTask) => {
       toast(`${task.fileName} 下载完成!`, 'short')
     }
   } catch (err) {
+    // 已取消：临时文件由 removeTask 负责清理，这里不重复删、也不把错误抛给队列
+    if (cancelled()) return
     if (!downloadCompleted) {
       // 半截临时文件：清理失败只记日志，不掩盖原始错误
       await unlink(downloadFilePath).catch((cleanupError) => {
@@ -223,7 +282,8 @@ const startDownload = async(task: DownloadTask) => {
     }
     throw err
   } finally {
-    currentDownloadTask = null
+    // 只清自己的槽：被取消后槽位可能已被下一个任务占用，不能把别人的句柄抹掉
+    if (currentDownloadTask?.taskId === task.id) currentDownloadTask = null
   }
 }
 
@@ -454,11 +514,13 @@ export const resumeTask = async(taskId: string) => {
   }
 
   try {
+    // 同 removeTask：只清本次半成品，不动最终路径（那里可能是用户已有的文件）
     await unlink(getDownloadTempPath(task.filePath))
-    await unlink(task.filePath)
   } catch (error) {
     // Ignore cleanup failures so we can still restart the download.
   }
+  // 重排视为新世代：上一代若还在收尾，不得再写状态或移动文件
+  bumpTaskGeneration(task.id)
 
   downloadActions.updateTask(task.id, {
     status: 'waiting',
@@ -529,26 +591,29 @@ export const addTask = (
 
 export const removeTask = (id: string) => {
   const taskToRemove = downloadState.tasks.find(t => t.id === id)
-  if (currentDownloadTask && taskToRemove && taskToRemove.status === 'downloading') {
-    const jobId = currentDownloadTask.jobId
-    if (typeof jobId === 'number') {
-      stopDownload(jobId)
-    }
-    if (taskToRemove.filePath) {
-      void unlink(getDownloadTempPath(taskToRemove.filePath)).catch(() => {})
-      void unlink(taskToRemove.filePath).catch(() => {})
-      console.log(`[Download Manager] Canceled and deleted partial file: ${taskToRemove.filePath}`)
-    }
+  // 作废这一代：正在跑的 startDownload 在每个 await 之后都会检查，不再写状态/移文件
+  bumpTaskGeneration(id)
+  const isRunning = currentDownloadTask?.taskId === id
+  if (isRunning && currentDownloadTask) {
+    stopDownload(currentDownloadTask.jobId)
     currentDownloadTask = null
-  } else if (taskToRemove && taskToRemove.status !== 'completed' && taskToRemove.filePath) {
+  }
+  if (taskToRemove?.filePath && taskToRemove.status !== 'completed') {
+    // 只清本次任务的半成品。
+    //
+    // 历史坑（2026-10 审计）：旧实现连**最终路径**一起删 —— 用户重复下载同一首歌时
+    // 旧文件本来就在那儿，取消一次就把用户原有的音频删了（数据丢失）。最终路径的
+    // 归属规则是：只有真正把临时文件 move 过去之后，任务才「拥有」它；
+    // 取消发生在 move 之前时，那个文件不是本次任务的产物，绝不能动。
     void unlink(getDownloadTempPath(taskToRemove.filePath)).catch(() => {})
-    void unlink(taskToRemove.filePath).catch(() => {})
+    console.log(`[Download Manager] Canceled and deleted partial file: ${getDownloadTempPath(taskToRemove.filePath)}`)
   }
   const taskIndex = taskQueue.findIndex(t => t.id === id)
   if (taskIndex > -1) taskQueue.splice(taskIndex, 1)
   downloadActions.removeTask(id)
-  isProcessing = false
-  processQueue()
+  // 队列推进只能由 startDownload 的 finally 完成：在下载途中把 isProcessing 置 false
+  // 会让下一个任务与仍在收尾的上一个任务并行，两者共用最终路径与元数据写入。
+  if (!isRunning) processQueue()
 }
 
 

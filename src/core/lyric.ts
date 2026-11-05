@@ -140,6 +140,14 @@ export const setLyric = async() => {
       lxlrc = musicInfo.lxlrc
     }
     await handleSetLyric(musicInfo.lrc, tlrc, rlrc, lxlrc)
+  } else {
+    // 无歌词 / 歌词加载失败：必须显式清空解析器，不能沿用上一首的行与时间轴。
+    //
+    // 历史坑（2026-10 审计）：此前只在 lrc 非空时才调用 handleSetLyric，于是从有歌词的
+    // A 切到「接口成功但返回空歌词」或加载失败的 B 时，lrc-file-parser 里仍是 A 的
+    // currentLines；异步到达的 lyricUpdated 又把 A 的时间轴重新推给原生，
+    // 表现为 B 显示/朗读 A 的歌词，控制中心歌词整首错位。
+    await handleSetLyric('')
   }
 
   if (playerState.isPlay) play()

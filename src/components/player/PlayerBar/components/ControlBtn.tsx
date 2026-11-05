@@ -5,6 +5,7 @@ import { useTheme } from '@/store/theme/hook'
 import { playNext, playPrev, togglePlay } from '@/core/player/player'
 import { createStyle } from '@/utils/tools'
 import { useHorizontalMode } from '@/utils/hooks'
+import { useI18n } from '@/lang'
 
 const BTN_SIZE = 24
 const handlePlayPrev = () => {
@@ -14,11 +15,23 @@ const handlePlayNext = () => {
   void playNext()
 }
 
+// 可访问性（2026-10 审计）：这些按钮只有字体图标，VoiceOver 读不出任何名称，
+// 用户只能盲点。补 accessibilityRole / accessibilityLabel，并把图标层设为
+// 不可访问，避免「图标字形 + 按钮标签」被重复朗读。
+// 文案复用现有词条（play_prev / play_next / play / pause），不新增翻译。
+
 const PlayPrevBtn = () => {
   const theme = useTheme()
+  const t = useI18n()
 
   return (
-    <TouchableOpacity style={styles.cotrolBtn} activeOpacity={0.5} onPress={handlePlayPrev}>
+    <TouchableOpacity
+      style={styles.cotrolBtn}
+      activeOpacity={0.5}
+      onPress={handlePlayPrev}
+      accessibilityRole="button"
+      accessibilityLabel={t('play_prev')}
+    >
       <Icon name="prevMusic" color={theme['c-font']} size={BTN_SIZE} />
     </TouchableOpacity>
   )
@@ -26,9 +39,16 @@ const PlayPrevBtn = () => {
 
 const PlayNextBtn = () => {
   const theme = useTheme()
+  const t = useI18n()
 
   return (
-    <TouchableOpacity style={styles.cotrolBtn} activeOpacity={0.5} onPress={handlePlayNext}>
+    <TouchableOpacity
+      style={styles.cotrolBtn}
+      activeOpacity={0.5}
+      onPress={handlePlayNext}
+      accessibilityRole="button"
+      accessibilityLabel={t('play_next')}
+    >
       <Icon name="nextMusic" color={theme['c-font']} size={BTN_SIZE} />
     </TouchableOpacity>
   )
@@ -37,12 +57,16 @@ const PlayNextBtn = () => {
 const TogglePlayBtn = () => {
   const isPlay = useIsPlay()
   const theme = useTheme()
+  const t = useI18n()
 
   return (
     <TouchableOpacity
       style={{ ...styles.cotrolBtn, ...styles.playButton, backgroundColor: theme['c-primary'] }}
       activeOpacity={0.5}
       onPress={togglePlay}
+      accessibilityRole="button"
+      // 标签随播放态变化：VoiceOver 用户听到的就是「按下去会发生什么」
+      accessibilityLabel={isPlay ? t('pause') : t('play')}
     >
       <Icon
         name={isPlay ? 'pause' : 'play'}

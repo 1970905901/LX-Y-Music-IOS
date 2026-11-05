@@ -3,6 +3,22 @@ import { readFile, writeFile } from '@/utils/fs'
 import { getUserApiScript, getUserApiList } from '@/utils/data'
 import { log } from '@/utils/log'
 import { toast } from '@/utils/tools'
+import { filterFileName } from '@/utils/common'
+
+/**
+ * 导出文件名净化（2026-10 安全审计）。
+ *
+ * 音源名称来自用户导入的脚本内容（utils/data.ts 只限制长度），此前直接拼进
+ * `${dirPath}/${apiInfo.name}.js`。名称里带 `../` 时 writeFile 会逃出所选目录、
+ * 覆盖 App 沙盒内的其它文件。复用项目既有的 filterFileName（去掉 \ / : * ? # " < > |），
+ * 再兜底去掉 `..` 与首尾空白/点，保证结果只能是目标目录下的一个文件名。
+ */
+const toSafeScriptFileName = (name: string) => {
+  const base = filterFileName(String(name ?? ''))
+    .replace(/\.\./g, '')
+    .replace(/^[\s.]+|[\s.]+$/g, '')
+  return `${base || 'user_api'}.js`
+}
 
 export const handleImportScript = async(script: string) => {
   await importUserApi(script)
@@ -37,7 +53,7 @@ export const handleExportUserApi = async(apiId: string, path: string) => {
       throw new Error('API not found')
     }
 
-    const fileName = `${apiInfo.name}.js`
+    const fileName = toSafeScriptFileName(apiInfo.name)
     const fullPath = path.endsWith('/') ? `${path}${fileName}` : `${path}/${fileName}`
 
     await writeFile(fullPath, script)
@@ -54,7 +70,7 @@ export const handleExportUserApiToFile = async(apiId: string, dirPath: string): 
   const apiList = await getUserApiList()
   const apiInfo = apiList.find(api => api.id === apiId)
   if (!apiInfo) throw new Error('API not found')
-  const fileName = `${apiInfo.name}.js`
+  const fileName = toSafeScriptFileName(apiInfo.name)
   const fullPath = dirPath.endsWith('/') ? `${dirPath}${fileName}` : `${dirPath}/${fileName}`
   await writeFile(fullPath, script)
   return fullPath

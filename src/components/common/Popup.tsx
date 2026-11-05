@@ -10,6 +10,7 @@ import { useTheme } from '@/store/theme/hook'
 import Text from './Text'
 import { useStatusbarHeight, useSafeAreaBottom } from '@/store/common/hook'
 import { designRadius, designSpacing, designTypography } from '@/theme/DesignTokens'
+import { useI18n } from '@/lang'
 
 const styles = createStyle({
   centeredView: {
@@ -79,6 +80,7 @@ export default forwardRef<PopupType, PopupProps>(
     ref,
   ) => {
     const theme = useTheme()
+    const t = useI18n()
     const { keyboardShown, keyboardHeight } = useKeyboard()
     const statusBarHeight = useStatusbarHeight()
     const isHorizontal = useHorizontalMode()
@@ -98,11 +100,14 @@ export default forwardRef<PopupType, PopupProps>(
           <TouchableOpacity
             style={styles.closeBtn}
             onPress={() => modalRef.current?.setVisible(false)}
+            // 纯图标按钮：VoiceOver 只靠字形读不出「关闭」
+            accessibilityRole="button"
+            accessibilityLabel={t('close')}
           >
             <Icon name="close" style={{ color: theme['c-font-label'] }} size={12} />
           </TouchableOpacity>
         ) : null,
-      [closeBtn, theme],
+      [closeBtn, theme, t],
     )
 
     const [centeredViewStyle, modalViewStyle] = useMemo(() => {

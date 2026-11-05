@@ -56,14 +56,14 @@ export function signAndroidParams(params: Record<string, any>, data?: string, on
   const dataStr = data || ''
   const signStr = `${ANDROID_SIGN_SALT}${paramsString}${dataStr}${ANDROID_SIGN_SALT}`
 
-  onLog?.(`签名盐值: ${ANDROID_SIGN_SALT}`)
+  // 脱敏（2026-10 安全审计）：签名原文 = 盐值 + 参数串 + 请求体 + 盐值，
+  // 请求体里可能含手机号；把盐值和原文打进日志等于把「如何伪造签名」也交出去。
+  // 只保留可诊断的规模信息。
   onLog?.(`排序后的参数键: ${sortedKeys.join(', ')}`)
-  onLog?.(`参数字符串: ${paramsString}`)
-  onLog?.(`请求体数据: ${dataStr.substring(0, 100)}`)
-  onLog?.(`完整签名字符串: ${signStr}`)
+  onLog?.(`参数串长度: ${paramsString.length}, 请求体长度: ${dataStr.length}`)
 
   const signature = md5(signStr)
-  onLog?.(`生成签名: ${signature}`)
+  onLog?.(`生成签名: 长度=${signature.length}`)
   return signature
 }
 
@@ -121,13 +121,15 @@ export async function sendCaptcha(
 
     const dataStr = JSON.stringify(dataMap)
     const signature = signAndroidParams(defaultParams, dataStr, log)
-    log(`生成签名: ${signature}`)
-
+    // 脱敏（2026-10 安全审计）：这里原来会打印手机号请求体、完整查询参数与请求头、
+    // 以及签名原文。日志默认开启（defaultSetting.isEnableLog），设备日志/用户导出的
+    // 诊断日志都能读到手机号与会话材料。只保留「长度 + 是否成功」这类可诊断信息。
+    log(`生成签名: 长度=${signature.length}`)
     log(`请求URL: ${KG_LOGIN_BASE}/v7/send_mobile_code`)
-    log(`请求体: ${dataStr}`)
-    log(`查询参数: ${JSON.stringify({ ...defaultParams, signature })}`)
-    log(`请求头: ${JSON.stringify(headers)}`)
-    log(`Cookie: mid=${defaultParams.mid}`)
+    log(`请求体: 手机号长度=${mobile.length}`)
+    log(`查询参数: ${Object.keys({ ...defaultParams, signature }).length} 项`)
+    log(`请求头: ${Object.keys(headers).length} 项`)
+    log(`Cookie: mid 长度=${String(defaultParams.mid ?? '').length}`)
 
     const response = await axios({
       baseURL: KG_LOGIN_BASE,
@@ -143,8 +145,9 @@ export async function sendCaptcha(
     })
 
     log(`响应状态: ${response.status}`)
-    log(`响应头: ${JSON.stringify(response.headers)}`)
-    log(`响应数据: ${JSON.stringify(response.data)}`)
+    log(`响应头: ${response.headers && typeof response.headers === 'object' ? Object.keys(response.headers).join(',') : typeof response.headers}`)
+    // 不打印响应体：登录/歌单接口的响应含 token、vip_token、secu_params 等会话材料
+    log(`响应数据: 字段=${response.data && typeof response.data === 'object' ? Object.keys(response.data).join(',') : typeof response.data}`)
 
     const ssaCode = response.headers['ssa-code'] || response.headers['SSA-CODE']
     if (ssaCode) {
@@ -222,10 +225,10 @@ export async function loginByPhone(
 
     const dataStr = JSON.stringify(dataMap)
     const signature = signAndroidParams(defaultParams, dataStr, log)
-    log(`生成签名: ${signature}`)
+    log(`生成签名: 长度=${signature.length}`)
 
     log('请求URL: https://loginserviceretry.kugou.com/v7/login_by_verifycode')
-    log(`请求体: ${dataStr.substring(0, 200)}...`)
+    log(`请求体: 长度=${dataStr.length}`)
 
     const response = await axios({
       baseURL: 'https://loginserviceretry.kugou.com',
@@ -243,7 +246,8 @@ export async function loginByPhone(
     })
 
     log(`响应状态: ${response.status}`)
-    log(`响应数据: ${JSON.stringify(response.data)}`)
+    // 不打印响应体：登录/歌单接口的响应含 token、vip_token、secu_params 等会话材料
+    log(`响应数据: 字段=${response.data && typeof response.data === 'object' ? Object.keys(response.data).join(',') : typeof response.data}`)
 
     const result = response.data
     if (result.status === 1 && result.data) {
@@ -265,7 +269,8 @@ export async function loginByPhone(
       }
 
       const { token, userid, vip_type, vip_token, t1 } = data
-      log(`登录成功: userid=${userid}, token=${token?.substring(0, 20)}...`)
+      // 不打印 token 前缀：前缀本身足以用于关联/冒用尝试，且用户会导出诊断日志
+      log(`登录成功: userid 长度=${String(userid ?? '').length}, token 长度=${String(token ?? '').length}, vip_type=${vip_type}`)
       cachedDevice = null
       return {
         success: true,
@@ -329,11 +334,12 @@ export async function refreshToken(
 
     const dataStr = JSON.stringify(dataMap)
     const signature = signAndroidParams(defaultParams, dataStr, log)
-    log(`生成签名: ${signature}`)
+    log(`生成签名: 长度=${signature.length}`)
 
     log(`请求URL: ${KG_LOGIN_BASE}/v5/login_by_token`)
-    log(`请求体: ${dataStr}`)
-    log(`查询参数: ${JSON.stringify({ ...defaultParams, signature })}`)
+    // 不打印请求体：这里携带会话 token / userid
+    log(`请求体: 长度=${dataStr.length}`)
+    log(`查询参数: ${Object.keys({ ...defaultParams, signature }).length} 项`)
 
     const response = await axios({
       baseURL: KG_LOGIN_BASE,
@@ -346,7 +352,8 @@ export async function refreshToken(
     })
 
     log(`响应状态: ${response.status}`)
-    log(`响应数据: ${JSON.stringify(response.data)}`)
+    // 不打印响应体：登录/歌单接口的响应含 token、vip_token、secu_params 等会话材料
+    log(`响应数据: 字段=${response.data && typeof response.data === 'object' ? Object.keys(response.data).join(',') : typeof response.data}`)
 
     const result = response.data
     if (result.status === 1 && result.data) {
@@ -423,7 +430,8 @@ export async function getVerifyInfo(
     })
 
     log(`响应状态: ${response.status}`)
-    log(`响应数据: ${JSON.stringify(response.data)}`)
+    // 不打印响应体：登录/歌单接口的响应含 token、vip_token、secu_params 等会话材料
+    log(`响应数据: 字段=${response.data && typeof response.data === 'object' ? Object.keys(response.data).join(',') : typeof response.data}`)
 
     const result = response.data
     if (result.status === 1 && result.data) {
@@ -512,12 +520,12 @@ export async function verifyUserInfo(
     }
 
     const dataStr = JSON.stringify(dataMap)
-    log(`请求体: ${dataStr.substring(0, 300)}...`)
+    log(`请求体: 长度=${dataStr.length}`)
 
     const queryParams = { ...defaultParams, clientver: 11510 }
     const signature = signAndroidParams(queryParams, dataStr, log)
 
-    log(`最终签名: ${signature}`)
+    log(`最终签名: 长度=${signature.length}`)
     log('请求URL: https://verifyservice.kugou.com/v4/verify_user_info')
 
     const response = await axios({
@@ -534,7 +542,8 @@ export async function verifyUserInfo(
     })
 
     log(`响应状态: ${response.status}`)
-    log(`响应数据: ${JSON.stringify(response.data)}`)
+    // 不打印响应体：登录/歌单接口的响应含 token、vip_token、secu_params 等会话材料
+    log(`响应数据: 字段=${response.data && typeof response.data === 'object' ? Object.keys(response.data).join(',') : typeof response.data}`)
 
     const result = response.data
     if (result.status === 1 || result.error_code === 0) {
@@ -771,7 +780,7 @@ export async function subscribePlaylist(
     delete fullHeaders['Content-Type']
     log(`请求URL: ${fullUrl}`)
     log(`请求头: ${JSON.stringify(fullHeaders)}`)
-    log(`查询参数: ${JSON.stringify({ ...queryParams, signature })}`)
+    log(`查询参数: ${Object.keys({ ...defaultParams, signature }).length} 项`)
 
     const response = await axios({
       url: fullUrl,
@@ -783,7 +792,8 @@ export async function subscribePlaylist(
     })
 
     log(`响应状态: ${response.status}`)
-    log(`响应数据: ${JSON.stringify(response.data)}`)
+    // 不打印响应体：登录/歌单接口的响应含 token、vip_token、secu_params 等会话材料
+    log(`响应数据: 字段=${response.data && typeof response.data === 'object' ? Object.keys(response.data).join(',') : typeof response.data}`)
 
     const result = response.data
     if (result.status === 1 || result.error_code === 0) {
@@ -865,7 +875,7 @@ export async function unsubscribePlaylist(
     delete fullHeaders['Content-Type']
     log(`请求URL: ${fullUrl}`)
     log(`请求头: ${JSON.stringify(fullHeaders)}`)
-    log(`查询参数: ${JSON.stringify({ ...paramsMap, signature })}`)
+    log(`查询参数: ${Object.keys({ ...defaultParams, signature }).length} 项`)
     log(`请求体(加密): ${aesEncrypt.str.substring(0, 100)}...`)
 
     const queryString = Object.entries({ ...paramsMap, signature })
@@ -963,7 +973,7 @@ export async function removeSongsFromPlaylist(
     delete fullHeaders['Content-Type']
     log(`请求URL: ${fullUrl}`)
     log(`请求头: ${JSON.stringify(fullHeaders)}`)
-    log(`查询参数: ${JSON.stringify({ ...defaultParams, signature })}`)
+    log(`查询参数: ${Object.keys({ ...defaultParams, signature }).length} 项`)
 
     const response = await axios({
       url: fullUrl,
@@ -1064,7 +1074,7 @@ export async function addSongToPlaylist(
 
     log(`请求URL: ${fullUrl}`)
     log(`请求头: ${JSON.stringify(fullHeaders)}`)
-    log(`查询参数: ${JSON.stringify({ ...queryParams, signature })}`)
+    log(`查询参数: ${Object.keys({ ...defaultParams, signature }).length} 项`)
 
     const response = await axios({
       url: fullUrl,
@@ -1076,7 +1086,8 @@ export async function addSongToPlaylist(
     })
 
     log(`响应状态: ${response.status}`)
-    log(`响应数据: ${JSON.stringify(response.data)}`)
+    // 不打印响应体：登录/歌单接口的响应含 token、vip_token、secu_params 等会话材料
+    log(`响应数据: 字段=${response.data && typeof response.data === 'object' ? Object.keys(response.data).join(',') : typeof response.data}`)
 
     const result = response.data
     if (result.status === 1 || result.error_code === 0) {

@@ -47,6 +47,21 @@ const structuralReasons = (files) => {
   if (tempUses < 4) {
     reasons.push(`删除/重试任务没有清理临时文件（getDownloadTempPath 仅使用 ${tempUses} 处，需含定义与 startDownload/removeTask/resumeTask）`)
   }
+
+  // —— 2026-10 审计补充：取消语义 / 队列推进权 / HTTP 状态 ——
+  // 取消（removeTask）里不得删最终路径：那里可能是用户本次下载之前就存在的文件
+  const removeTaskBody = src.slice(src.indexOf('export const removeTask'))
+  const removeTaskEnd = removeTaskBody.indexOf('\n}\n')
+  const removeTaskSrc = removeTaskEnd > 0 ? removeTaskBody.slice(0, removeTaskEnd) : removeTaskBody
+  if (/unlink\(taskToRemove\.filePath\)/.test(removeTaskSrc)) {
+    reasons.push('取消下载删掉了用户已有的最终文件（最终路径只在 move 成功后才归任务所有）')
+  }
+  if (!/if \(!isRunning\) processQueue\(\)/.test(src)) {
+    reasons.push('队列推进权不在任务收尾处（下载途中放开 isProcessing 会让两个任务并行写同一路径）')
+  }
+  if (!/statusCode < 200 \|\| statusCode >= 300/.test(src)) {
+    reasons.push('下载完成没有校验 HTTP 状态（404/403 错误页会被改名成音频存进音乐库）')
+  }
   return reasons
 }
 
@@ -103,9 +118,27 @@ checkCase('C3 失败不清理临时文件', () => ({
 // C4：删掉 removeTask/resumeTask 的临时文件清理
 checkCase('C4 删除/重试不清理临时文件', () => ({
   download: tamper(REAL.download,
-    '      void unlink(getDownloadTempPath(taskToRemove.filePath)).catch(() => {})',
+    '    void unlink(getDownloadTempPath(taskToRemove.filePath)).catch(() => {})',
     ''),
 }), '删除/重试任务没有清理临时文件')
+
+// C5（2026-10 审计新增）：取消下载时连**最终路径**一起删。
+// 用户重复下载同一首歌时旧文件本就在最终路径上，任务只写过 .download；
+// 取消时删最终路径 = 删掉用户原有的音频（数据丢失）。最终路径只有真正 move
+// 过去之后才归任务所有，所以取消路径里不得出现对 taskToRemove.filePath 的 unlink。
+checkCase('C5 取消下载删掉用户已有的最终文件', () => ({
+  download: tamper(REAL.download,
+    '    void unlink(getDownloadTempPath(taskToRemove.filePath)).catch(() => {})',
+    '    void unlink(getDownloadTempPath(taskToRemove.filePath)).catch(() => {})\n    void unlink(taskToRemove.filePath).catch(() => {})'),
+}), '取消下载删掉了用户已有的最终文件')
+
+// C6（2026-10 审计新增）：队列推进权退回 removeTask（旧实现把 isProcessing 置 false）。
+// 下载途中放开处理锁会让下一个任务与仍在收尾的上一个并行，共用最终路径与元数据写入。
+checkCase('C6 removeTask 抢回队列推进权', () => ({
+  download: tamper(REAL.download,
+    '  if (!isRunning) processQueue()',
+    '  isProcessing = false\n  processQueue()'),
+}), '队列推进权不在任务收尾处')
 
 const failures = []
 const realReasons = structuralReasons(REAL)

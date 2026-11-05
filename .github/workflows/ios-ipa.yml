@@ -46,8 +46,20 @@ jobs:
         with:
           ruby-version: "3.2"
 
+      # npm ci：按 lockfile 精确安装，保证发布包用的依赖可复现
       - name: Install dependencies
-        run: npm install
+        run: npm ci
+
+      # 发布链此前只跑 sim，跳过 lint / i18n / typecheck —— 也就是说「能打包」即可发布。
+      # 这三项都是秒级纯 JS 检查，放在 CocoaPods 之前，失败即止。
+      - name: Eslint check
+        run: npm run lint
+
+      - name: I18n key check
+        run: npm run lint:i18n
+
+      - name: TypeScript check
+        run: npm run typecheck
 
       # 契约脚本（sim-*.js）全量检查：纯 Node 静态断言，秒级完成；
       # 失败即止，不浪费后面的 CocoaPods 与 Xcode 构建时间。
@@ -150,8 +162,10 @@ jobs:
           # 用 gh CLI（原生二进制，不受 Node 24 运行时影响）更新 rolling "latest" release。
           # 原先 softprops/action-gh-release 在 Node 24 强制环境下上传大文件会报
           # "Request body length does not match content-length header"。
+          # 只有「latest release 还不存在」这一种预期内的失败才降级为 create；
+          # 其它错误（权限、网络、配额）必须让这一步失败，否则「发布失败但 CI 全绿」。
           gh release upload latest "build/${IPA_NAME}" --clobber \
-            || gh release create latest "build/${IPA_NAME}" --title "Latest Unsigned Build" --prerelease --notes "$NOTES" || true
+            || gh release create latest "build/${IPA_NAME}" --title "Latest Unsigned Build" --prerelease --notes "$NOTES"
 
       - name: Release unsigned IPA
         if: startsWith(github.ref, 'refs/tags/v')
@@ -160,5 +174,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           IPA_NAME="LX-Y Music-v${PACKAGE_VERSION}-ios-unsigned.ipa"
-          gh release create "v${PACKAGE_VERSION}" "build/${IPA_NAME}" \
-            --title "v${PACKAGE_VERSION}" --prerelease=false || true
+          # 标签名必须用触发本次构建的原始 tag：此前用 v${PACKAGE_VERSION}（日期版本号），
+          # 推 v1.2.3 会创建出 v20260825 这种与标签不符的 release。
+          TAG_NAME="${GITHUB_REF_NAME}"
+          echo "Publishing release ${TAG_NAME}"
+          gh release create "${TAG_NAME}" "build/${IPA_NAME}" \
+            --title "${TAG_NAME}" --prerelease=false \
+            || gh release upload "${TAG_NAME}" "build/${IPA_NAME}" --clobber

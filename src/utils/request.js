@@ -99,6 +99,34 @@ const handleDeflateRaw = (data) =>
 
 const regx = /(?:\d\w)+/g
 
+/**
+ * 登录 Cookie 的**唯一**放行判定。
+ *
+ * 历史坑（2026-10 安全评审）：此前用 `url.includes('y.qq.com')` 判归属，于是
+ *   ① `http://c.y.qq.com/...` 这类明文端点也会带上完整会话 Cookie（同网段可嗅探）；
+ *   ② 任何 host 里只要出现这段子串（如 `y.qq.com.attacker.test`）也会带走凭据。
+ * 因此必须**解析** URL 后同时校验：协议为 https、hostname 是目标域或目标域的真子域。
+ * 解析失败一律不放行（宁可请求失败，也不泄露凭据）。
+ *
+ * 导出供回归契约脚本直接断言，不要在别处复制这段判断。
+ */
+export const getCredentialScope = (url) => {
+  if (typeof url !== 'string') return null
+  // 手写解析而不是用 URL 构造器：RN 的 URL 是部分 polyfill，行为随版本变化，
+  // 安全判定不能依赖它。这里只接受 `https://<authority>...`，其余一律拒绝。
+  const match = /^https:\/\/([^/?#\\]+)/i.exec(url.trim())
+  if (!match) return null
+  // 去掉 userinfo 与端口，再小写化（`https://qq.com@evil.test/` 的 host 是 evil.test）
+  const authority = match[1]
+  const hostWithPort = authority.slice(authority.lastIndexOf('@') + 1)
+  const hostname = hostWithPort.replace(/:\d*$/, '').toLowerCase()
+  if (!hostname) return null
+  const matches = (domain) => hostname === domain || hostname.endsWith(`.${domain}`)
+  if (matches('music.163.com')) return 'wy'
+  if (matches('qq.com')) return 'tx'
+  return null
+}
+
 const handleRequestData = async(
   url,
   { method = 'get', headers = {}, format: _format = 'json', cache = 'no-store', params, ...options },
@@ -110,9 +138,11 @@ const handleRequestData = async(
     },
     headers,
   )
-  if (url.includes('music.163.com')) {
+  // 凭据只在「https + 精确域名」下附带，判定见 getCredentialScope（含反例说明）
+  const credentialScope = getCredentialScope(url)
+  if (credentialScope === 'wy') {
     headers.cookie = settingState.setting['common.wy_cookie']
-  } else if (url.includes('y.qq.com')) {
+  } else if (credentialScope === 'tx') {
     headers.cookie = settingState.setting['common.tx_cookie']
     console.log('[TX] req:', options.method || 'get', url.substring(0, 80))
   }
@@ -182,7 +212,7 @@ const handleRequestData = async(
     url,
   }
 
-  if (url.includes('y.qq.com')) {
+  if (credentialScope === 'tx') {
     console.log('[TX] req:', finalOptions.method, finalOptions.url.slice(0, 60))
   }
 
@@ -246,7 +276,7 @@ const fetchData = (url, { timeout = 15000, ...options }) => {
           } else {
             try {
               const parsedBody = JSON.parse(resp.body)
-              if (parsedBody?.code === 301 && url.includes('music.163.com')) {
+              if (parsedBody?.code === 301 && getCredentialScope(url) === 'wy') {
                 throw new Error('登录状态已过期')
               }
               resp.body = parsedBody

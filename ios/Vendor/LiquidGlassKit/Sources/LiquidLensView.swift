@@ -316,9 +316,14 @@ public final class LiquidLensView: UIView, AnyLiquidLensView {
     // MARK: - Position Tracking & Acceleration
 
     private func startPositionTracking() {
+        // 必须先停掉旧计时器：CADisplayLink 会持有 target，重复 start（连续点 Tab、
+        // 上一次的 liftDown 还没走到 stopPositionTracking）会让旧 link 永久挂在
+        // main runloop 上持续回调并持有本视图 —— 越点越多，属于资源泄漏。
+        stopPositionTracking()
         positionHistory.removeAll()
-        displayLink = CADisplayLink(target: self, selector: #selector(updatePositionTracking))
-        displayLink?.add(to: .main, forMode: .common)
+        let link = CADisplayLink(target: self, selector: #selector(updatePositionTracking))
+        link.add(to: .main, forMode: .common)
+        displayLink = link
     }
 
     private func stopPositionTracking() {
@@ -327,6 +332,25 @@ public final class LiquidLensView: UIView, AnyLiquidLensView {
         positionHistory.removeAll()
         // Reset liquid glass view to original bounds
         liquidGlassView.frame = bounds
+    }
+
+    // 视图脱离层级时收尾：动画回调不保证执行（页面被替换 / 连续点击打断），
+    // 遗留的 CADisplayLink 会一直以 60Hz 回调并持有本视图。
+    public override func willMove(toWindow newWindow: UIWindow?) {
+        super.willMove(toWindow: newWindow)
+        guard newWindow == nil else { return }
+        stopPositionTracking()
+        if isLifted {
+            isLifted = false
+            restingPillView.alpha = 1
+            liquidGlassView.alpha = 0
+            liquidGlassView.removeFromSuperview()
+        }
+    }
+
+    deinit {
+        displayLink?.invalidate()
+        displayLink = nil
     }
 
     @objc private func updatePositionTracking() {

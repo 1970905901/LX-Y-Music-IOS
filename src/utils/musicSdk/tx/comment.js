@@ -92,7 +92,9 @@ export default {
     if (this._requestObj) this._requestObj.cancelHttp()
     const songId = await this.getSongId(mInfo)
 
-    const _requestObj = httpFetch('http://c.y.qq.com/base/fcgi-bin/fcg_global_comment_h5.fcg', {
+    // 必须 https：请求层会按域名附带 QQ 登录 Cookie，明文链路会把会话凭据暴露给
+    // 同网段（2026-10 安全评审）。详见 utils/request.js 的 getCredentialScope。
+    const _requestObj = httpFetch('https://c.y.qq.com/base/fcgi-bin/fcg_global_comment_h5.fcg', {
       method: 'POST',
       headers: {
         'User-Agent': 'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; WOW64; Trident/5.0)',

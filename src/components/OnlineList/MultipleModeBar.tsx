@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useMemo, forwardRef, useImperativeHandle } from 'react'
+import { useState, useRef, useCallback, useMemo, forwardRef, useImperativeHandle, useEffect } from 'react'
 import { Animated, View, TouchableOpacity, StyleSheet } from 'react-native'
 
 import Text from '@/components/common/Text'
@@ -54,11 +54,29 @@ export default forwardRef<MultipleModeBarType, MultipleModeBarProps>(
       },
     }))
 
+    // 与 Mylist 的 MultipleModeBar 同因同修：退出动画被打断时旧实现永远停在
+    // visible=true，留下透明但可拦截触摸的浮层。卸载改走可取消定时器，
+    // 入场 rAF 可取消，隐藏期间 pointerEvents 关闭。
+    const unmountTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const showRaf = useRef<number | null>(null)
+    const clearUnmountTimer = useCallback(() => {
+      if (unmountTimer.current == null) return
+      clearTimeout(unmountTimer.current)
+      unmountTimer.current = null
+    }, [])
+    const cancelShowRaf = useCallback(() => {
+      if (showRaf.current == null) return
+      cancelAnimationFrame(showRaf.current)
+      showRaf.current = null
+    }, [])
+
     const handleShow = useCallback(() => {
-      // console.log('show List')
+      clearUnmountTimer()
       setVisible(true)
       setAnimatPlayed(false)
-      requestAnimationFrame(() => {
+      cancelShowRaf()
+      showRaf.current = requestAnimationFrame(() => {
+        showRaf.current = null
         animTranslateY.setValue(20)
 
         Animated.parallel([
@@ -72,13 +90,14 @@ export default forwardRef<MultipleModeBarType, MultipleModeBarProps>(
             duration: 200,
             useNativeDriver: true,
           }),
-        ]).start(() => {
-          setAnimatPlayed(true)
+        ]).start(({ finished }) => {
+          if (finished) setAnimatPlayed(true)
         })
       })
-    }, [animFade, animTranslateY])
+    }, [animFade, animTranslateY, clearUnmountTimer, cancelShowRaf])
 
     const handleHide = useCallback(() => {
+      cancelShowRaf()
       setAnimatPlayed(false)
       Animated.parallel([
         Animated.timing(animFade, {
@@ -91,12 +110,21 @@ export default forwardRef<MultipleModeBarType, MultipleModeBarProps>(
           duration: 200,
           useNativeDriver: true,
         }),
-      ]).start((finished) => {
-        if (!finished) return
+      ]).start()
+      clearUnmountTimer()
+      unmountTimer.current = setTimeout(() => {
+        unmountTimer.current = null
+        animFade.setValue(0)
+        animTranslateY.setValue(20)
         setVisible(false)
         setAnimatPlayed(true)
-      })
-    }, [animFade, animTranslateY])
+      }, 250)
+    }, [animFade, animTranslateY, clearUnmountTimer, cancelShowRaf])
+
+    useEffect(() => () => {
+      clearUnmountTimer()
+      cancelShowRaf()
+    }, [clearUnmountTimer, cancelShowRaf])
 
     const animaStyle = useMemo(
       () => ({
@@ -120,7 +148,10 @@ export default forwardRef<MultipleModeBarType, MultipleModeBarProps>(
 
     const component = useMemo(() => {
       return (
-        <Animated.View style={animaStyle}>
+        <Animated.View
+          style={animaStyle}
+          pointerEvents={visible ? 'auto' : 'none'}
+        >
           <View style={styles.switchBtn}>
             <Button
               onPress={() => {
@@ -164,6 +195,7 @@ export default forwardRef<MultipleModeBarType, MultipleModeBarProps>(
       )
     }, [
       animaStyle,
+      visible,
       selectMode,
       theme,
       handleSelectAll,

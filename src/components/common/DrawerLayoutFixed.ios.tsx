@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react'
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { Animated, Pressable, View, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native'
 
 import { type COMPONENT_IDS } from '@/config/constant'
@@ -42,11 +42,21 @@ const DrawerLayoutFixed = forwardRef<DrawerLayoutFixedType, Props>(({
     return widthPercentageMax ? Math.min(width, widthPercentageMax) : width
   }, [containerWidth, widthPercentage, widthPercentageMax])
 
+  // 抽屉开合会锁 Home 列表滚动。历史坑（2026-10 审计）：旧实现在 closeDrawer 的
+  // 动画回调里无条件恢复滚动，但回调在动画被打断时同样会执行 —— 若此时又点开了抽屉，
+  // 滚动锁被提前解开（可见抽屉背后的列表能滑动）；反过来动画被打断没执行回调时，
+  // 锁会永久保持（关掉抽屉后首页滑不动）。用「目标开合状态」判定，而不是回调时机。
+  const openRef = useRef(false)
+  const setHomeScrollEnabled = (enabled: boolean) => {
+    global.app_event.changeHomePageScrollEnabled?.(enabled)
+  }
+
   const openDrawer = useCallback(() => {
     if (!drawerWidth) return
+    openRef.current = true
     setVisible(true)
     setRasterize(true)
-    global.app_event.changeHomePageScrollEnabled?.(false)
+    setHomeScrollEnabled(false)
     Animated.timing(animation, {
       toValue: 1,
       duration: 220,
@@ -57,17 +67,27 @@ const DrawerLayoutFixed = forwardRef<DrawerLayoutFixedType, Props>(({
   }, [animation, drawerWidth])
 
   const closeDrawer = useCallback(() => {
+    openRef.current = false
     setRasterize(true)
     Animated.timing(animation, {
       toValue: 0,
       duration: 180,
       useNativeDriver: true,
     }).start(({ finished }) => {
+      // 期间又被打开：保持可见、保持滚动锁，由那次 openDrawer 收尾
+      if (openRef.current) return
       if (finished) setVisible(false)
       setRasterize(false)
-      global.app_event.changeHomePageScrollEnabled?.(true)
+      setHomeScrollEnabled(true)
     })
   }, [animation])
+
+  // 卸载（切页 / 组件销毁）时必须解锁：否则首页列表会一直滑不动
+  useEffect(() => {
+    return () => {
+      if (openRef.current) setHomeScrollEnabled(true)
+    }
+  }, [])
 
   useImperativeHandle(ref, () => ({
     openDrawer,

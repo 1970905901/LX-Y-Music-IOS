@@ -187,8 +187,21 @@ const structuralReasons = (src) => {
   if (!/renderSourceFramesGuarded:outputData/.test(src)) {
     reasons.push('renderBlock 没有走带在途计数的包装（直接调用 = 销毁时可能 use-after-free）')
   }
-  if (!/_renderInFlight\.load\(std::memory_order_acquire\) > 0[\s\S]{0,600}?_pcmBuffer\.reset\(\);/.test(src)) {
+  if (!/_renderInFlight\.load\(std::memory_order_acquire\) > 0[\s\S]{0,900}?_pcmBuffer\.reset\(\);/.test(src)) {
     reasons.push('销毁 _pcmBuffer 前没有等待在途回调退出（RT 线程 use-after-free）')
+  }
+  // 等待超时后**不得**继续销毁：回调已过 nullptr 检查、正要 read，销毁即确定性 UAF。
+  // 正确行为是保留缓冲（泄漏一次）并留痕，下一次 open 会重建。
+  // 判定：从「超时分支」到 `_pcmBuffer.reset()` 之间必须存在 return（提前收尾）。
+  const timeoutIdx = src.indexOf('lxRenderSpin >= 1000')
+  const resetIdx = src.indexOf('_pcmBuffer.reset();', timeoutIdx > 0 ? timeoutIdx : 0)
+  if (timeoutIdx > 0 && resetIdx > timeoutIdx) {
+    const between = src.slice(timeoutIdx, resetIdx)
+    if (!/\breturn\s*;/.test(between)) {
+      reasons.push('等待在途回调超时后仍销毁缓冲（确定性的 RT use-after-free）')
+    }
+  } else {
+    reasons.push('缺少「超时则保留缓冲」的保护（超时后销毁 = UAF）')
   }
 
   // ⑧ 死代码不得回归
@@ -228,6 +241,13 @@ const tamperCases = [
     '- (void)finishStreamDownloadIfNeeded {',
     '- (void)restartDecoderLoopForSeek {\n  self.stopRequested = NO;\n}\n\n- (void)finishStreamDownloadIfNeeded {',
   ), '死代码'],
+  ['等待超时后仍然销毁缓冲', (s) => {
+    const at = s.indexOf('lxRenderSpin >= 1000')
+    const end = s.indexOf('_pcmBuffer.reset();', at)
+    if (at < 0 || end < 0) return s
+    // 把超时分支里的提前 return 删掉 = 回到「超时后照样销毁」的旧行为
+    return s.slice(0, at) + s.slice(at, end).replace(/\breturn\s*;/, '') + s.slice(end)
+  }, 'use-after-free'],
 ]
 
 const realReasons = structuralReasons(native)

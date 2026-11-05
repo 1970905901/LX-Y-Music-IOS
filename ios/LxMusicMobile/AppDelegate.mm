@@ -4687,7 +4687,12 @@ RCT_EXPORT_MODULE();
     lxRenderSpin += 1;
   }
   if (lxRenderSpin >= 1000) {
-    NSLog(@"###LXStreamingFlac### renderInFlight 未在 1s 内归零（inFlight=%d），继续销毁缓冲", _renderInFlight.load(std::memory_order_acquire));
+    // 渲染回调超过 1s 未退出：说明 RT 线程仍在读这个环。此时销毁 = 确定性的
+    // use-after-free（回调已过 nullptr 检查、正要 read）。宁可泄漏一次缓冲
+    // （下一次 open 会重建），也不能让音频线程踩已释放内存而崩溃。
+    NSLog(@"###LXStreamingFlac### renderInFlight 未在 1s 内归零（inFlight=%d），保留缓冲不销毁以避免 UAF",
+          _renderInFlight.load(std::memory_order_acquire));
+    return;
   }
   _pcmBuffer.reset();
 }
@@ -4742,6 +4747,10 @@ RCT_EXPORT_MODULE();
                            frameCount:(AVAudioFrameCount)frameCount
                             isSilence:(BOOL *)isSilence
                             timestamp:(const AudioTimeStamp *)timestamp {
+  // 在途计数：cleanupAudioGraphLocked 必须等到归零才销毁缓冲。
+  // 本包装体除这一进一出外没有其它语句（不提前 return），因此不需要额外的 RAII 守卫；
+  // 真正的提前 return 都在 renderSourceFramesToBufferList 内部，而它只影响本次输出，
+  // 不改变「回调是否还在读缓冲」的事实。
   _renderInFlight.fetch_add(1, std::memory_order_acq_rel);
   OSStatus status = [self renderSourceFramesToBufferList:outputData frameCount:frameCount isSilence:isSilence timestamp:timestamp];
   _renderInFlight.fetch_sub(1, std::memory_order_acq_rel);
@@ -5134,9 +5143,20 @@ RCT_EXPORT_MODULE();
 
 RCT_REMAP_METHOD(openStream, openStream:(NSString *)urlString headers:(NSDictionary *)headers volume:(nonnull NSNumber *)volume rate:(nonnull NSNumber *)rate autoplay:(nonnull NSNumber *)autoplay resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
   dispatch_async(dispatch_get_main_queue(), ^{
+    // 失败收尾统一走这里：任何 reject 分支都必须先把旧流停掉并复位，
+    // 否则旧 FLAC 引擎会继续出声 / 继续持有音频会话，而 JS 已切到新歌并回退 AVPlayer
+    // —— 表现为「UI 是新歌、声音还是上一首」（2026-10 审计）。
+    void (^failOpen)(NSString *, NSError *) = ^(NSString *code, NSError *error) {
+      [self stopStreamingInternal:YES];
+      [self resetStreamingState];
+      self.currentURL = nil;
+      self.currentState = @"idle";
+      reject(code, error.localizedDescription ?: code, error);
+    };
+
     if (![urlString isKindOfClass:[NSString class]] || urlString.length == 0) {
       NSError *error = LXError(@"streaming_flac_url", @"Missing FLAC stream url");
-      reject(@"streaming_flac_url", error.localizedDescription, error);
+      failOpen(@"streaming_flac_url", error);
       return;
     }
 
@@ -5154,7 +5174,8 @@ RCT_REMAP_METHOD(openStream, openStream:(NSString *)urlString headers:(NSDiction
     NSError *sessionError = nil;
     if (![self prepareAudioSession:&sessionError]) {
       [self emitErrorMessage:sessionError.localizedDescription ?: @"Failed to activate audio session"];
-      reject(@"streaming_flac_session", sessionError.localizedDescription ?: @"Failed to activate audio session", sessionError);
+      failOpen(@"streaming_flac_session",
+               sessionError ?: LXError(@"streaming_flac_session", @"Failed to activate audio session"));
       return;
     }
     // 会话已由本引擎接管：后续同驱动换歌 / 重新 openStream 不再停用会话
@@ -5175,7 +5196,7 @@ RCT_REMAP_METHOD(openStream, openStream:(NSString *)urlString headers:(NSDiction
     NSURL *url = [NSURL URLWithString:urlString];
     if (url == nil) {
       NSError *error = LXError(@"streaming_flac_url", @"Invalid FLAC stream url");
-      reject(@"streaming_flac_url", error.localizedDescription, error);
+      failOpen(@"streaming_flac_url", error);
       return;
     }
 
@@ -5389,6 +5410,22 @@ RCT_REMAP_METHOD(getState, getStreamStateWithResolver:(RCTPromiseResolveBlock)re
   if (![self isCurrentStreamSession:session task:dataTask]) {
     completionHandler(NSURLSessionResponseCancel);
     return;
+  }
+  // HTTP 状态校验：401/403/404/5xx 的响应体是错误页或 JSON，直接丢给 libFLAC 只会
+  // 变成难懂的「解码失败」，并且会白等缓冲超时。这里直接取消并上报可读错误。
+  if ([response isKindOfClass:[NSHTTPURLResponse class]]) {
+    NSInteger statusCode = ((NSHTTPURLResponse *)response).statusCode;
+    if (statusCode < 200 || statusCode >= 300) {
+      completionHandler(NSURLSessionResponseCancel);
+      NSError *error = LXError(@"streaming_flac_http",
+                               [NSString stringWithFormat:@"FLAC stream HTTP %ld", (long)statusCode]);
+      [self.streamCondition lock];
+      self.streamError = error;
+      [self.streamCondition broadcast];
+      [self.streamCondition unlock];
+      [self emitErrorMessage:error.localizedDescription ?: @"FLAC stream request failed"];
+      return;
+    }
   }
   int64_t expectedContentLength = response.expectedContentLength;
   if (expectedContentLength <= 0 && [response isKindOfClass:[NSHTTPURLResponse class]]) {

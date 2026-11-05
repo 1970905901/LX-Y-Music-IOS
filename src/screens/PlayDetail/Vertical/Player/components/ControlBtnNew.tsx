@@ -9,11 +9,13 @@ import { useMemo } from 'react'
 import { SvgIcon } from '@/components/common/SvgIcon'
 import { scaleSizeW } from '@/utils/pixelRatio'
 import { usePlayModeToggle } from '@/screens/PlayDetail/components/usePlayModeToggle'
+import { useI18n } from '@/lang'
 
 const ControlBtnNew = () => {
   const theme = useTheme()
   const winSize = useWindowSize()
   const isPlay = useIsPlay()
+  const t = useI18n()
   const iconColor = theme.isDark ? theme['c-font'] : theme['c-primary']
 
   const { toggleNextPlayMode, playModeIcon } = usePlayModeToggle()
@@ -37,10 +39,14 @@ const ControlBtnNew = () => {
 
   return (
     <View style={[styles.newContainer, { paddingVertical: paddingV }]}>
+      {/* 可访问性（2026-10 审计）：纯图标按钮必须自带可朗读名称，否则 VoiceOver
+          只能报「按钮」。文案复用现有词条，图标层不再单独可聚焦。 */}
       <TouchableOpacity
         style={[styles.controlBtn, { width: extraBtnSize, height: extraBtnSize }]}
         activeOpacity={0.5}
         onPress={toggleNextPlayMode}
+        accessibilityRole="button"
+        accessibilityLabel={t('play_list_loop')}
       >
         {playModeIcon?.startsWith('svg:') ? (
           <SvgIcon name={playModeIcon.slice(4)} rawSize={sideIconSize} color={iconColor} />
@@ -53,6 +59,8 @@ const ControlBtnNew = () => {
         style={[styles.controlBtn, { width: size, height: size }]}
         activeOpacity={0.5}
         onPress={() => { void playPrev() }}
+        accessibilityRole="button"
+        accessibilityLabel={t('play_prev')}
       >
         <Icon name="prevMusic" color={iconColor} rawSize={iconSize} />
       </TouchableOpacity>
@@ -61,6 +69,8 @@ const ControlBtnNew = () => {
         style={[styles.controlBtn, { width: size, height: size }]}
         activeOpacity={0.5}
         onPress={togglePlay}
+        accessibilityRole="button"
+        accessibilityLabel={isPlay ? t('pause') : t('play')}
       >
         <Icon name={isPlay ? 'pause' : 'play'} color={iconColor} rawSize={iconSize} />
       </TouchableOpacity>
@@ -69,6 +79,8 @@ const ControlBtnNew = () => {
         style={[styles.controlBtn, { width: size, height: size }]}
         activeOpacity={0.5}
         onPress={() => { void playNext() }}
+        accessibilityRole="button"
+        accessibilityLabel={t('play_next')}
       >
         <Icon name="nextMusic" color={iconColor} rawSize={iconSize} />
       </TouchableOpacity>
@@ -77,6 +89,8 @@ const ControlBtnNew = () => {
         style={[styles.controlBtn, { width: extraBtnSize, height: extraBtnSize }]}
         activeOpacity={0.5}
         onPress={handleShowPlaylist}
+        accessibilityRole="button"
+        accessibilityLabel={t('list_name_play')}
       >
         <Icon name="menu" color={iconColor} rawSize={sideIconSize} />
       </TouchableOpacity>
